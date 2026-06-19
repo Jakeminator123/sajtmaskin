@@ -219,6 +219,24 @@ export function CookieBanner() {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (!isVisible) return;
 
+      // Never steal keys while the user is typing in a form field. The WASD
+      // controls below would otherwise swallow a/s/d/w (and arrows) from every
+      // input/textarea on the page (e.g. the hero prompt + studio composer).
+      const editableTarget = (el: EventTarget | null): boolean => {
+        const node = el as HTMLElement | null;
+        if (!node) return false;
+        const tag = node.tagName;
+        return (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          node.isContentEditable === true
+        );
+      };
+      if (editableTarget(e.target) || editableTarget(document.activeElement)) {
+        return;
+      }
+
       const keyMap: Record<string, Direction> = {
         ArrowUp: "up",
         ArrowDown: "down",
@@ -298,7 +316,7 @@ export function CookieBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div data-cookie-banner="sajtmaskin" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       {/* Scanlines overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-10"

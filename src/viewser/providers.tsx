@@ -1,0 +1,12 @@
+"use client";
+
+import { TokenMeterProvider } from "@viewser/components/token-meter";
+import { ToastProvider } from "@viewser/components/ui/toast";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <ToastProvider>
+      <TokenMeterProvider>{children}</TokenMeterProvider>
+    </ToastProvider>
+  );
+}

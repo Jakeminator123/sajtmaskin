@@ -26,6 +26,11 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@viewser": path.resolve(__dirname, "src/viewser"),
+      "@preview-runtime": path.resolve(
+        __dirname,
+        "src/viewser/lib/preview-runtime/index.ts",
+      ),
       "@": path.resolve(__dirname, "src"),
     },
   },

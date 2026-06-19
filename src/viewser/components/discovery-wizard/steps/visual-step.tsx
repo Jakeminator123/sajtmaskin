@@ -1,0 +1,835 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+
+import { AssetDropzone } from "@viewser/components/discovery-wizard/asset-dropzone";
+import type { AssetRef } from "@viewser/lib/asset-store/types";
+
+import { PayloadAlignmentPopover } from "../payload-alignment-popover";
+import {
+  resolveAutoTreatment,
+  type SectionTreatmentSpec,
+  sectionTreatmentSpecsForScaffold,
+} from "../treatment-options";
+import {
+  HeroLayoutGlyph,
+  typographyPreviewFamily,
+  VibeMicroPreview,
+  VibeSwatchRow,
+} from "../visual-preview-card";
+import {
+  BUSINESS_FAMILIES,
+  branchForFamily,
+  deriveEffectiveScaffoldHint,
+  DESIGN_STYLE_OPTIONS,
+  findVibe,
+  TONE_OPTIONS,
+  TYPOGRAPHY_FEEL_OPTIONS,
+  type TypographyFeelId,
+  type Vibe,
+  vibesForScaffold,
+} from "../wizard-constants";
+import type { WizardAnswers } from "../wizard-types";
+import {
+  AdvancedDisclosure,
+  Chip,
+  ChipRow,
+  CollapsibleHelp,
+  FieldLabel,
+  FieldStack,
+  SectionHeader,
+  TextField,
+  TextareaField,
+} from "./step-primitives";
+
+/**
+ * VisualStep — wizardens steg 2 (Pass 2: rik vibe-UI).
+ *
+ * Layout:
+ *   1. Vibe-grid (5 stora kort med live-preview, color-swatch och
+ *      "Aa"-typografi-skiss).
+ *   2. Färgmode (segmented control: vibens defaults vs egna färger)
+ *      — färgväljarna visas bara om "egna" är valt.
+ *   3. Typografi-känsla (4 chips med visuell preview).
+ *   4. Tonarter + designstil-chips.
+ *   5. Referensföretag (fritext).
+ *   6. Ord att undvika.
+ *   7. Mood-bilder (1-3 referensbilder via dropzone) — drivs av samma
+ *      /api/upload-asset som assets-step så de hamnar i
+ *      `data/uploads/__draft/<assetId>/` och kan användas av Vision-
+ *      modellen som inspiration.
+ *
+ * Auto-default: när operatören valt en BusinessFamily i steg 1 men
+ * ännu inte valt vibe, sätts familjens `defaultVariantId` som
+ * förvalt vibe (effekt körs en gång per mount).
+ */
+export function VisualStep({
+  answers,
+  onChange,
+}: {
+  answers: WizardAnswers;
+  onChange: (next: Partial<WizardAnswers>) => void;
+}) {
+  // Bestäm scaffold-hint från family + sub-kategori. När operatören har
+  // valt en sub-cat vars scaffoldHint skiljer sig från familyens vinner
+  // sub-kategorin (samma helper används av wizard-payload så UI:t och
+  // backend-payloaden alltid är konsistenta). Defaultar till LSB när
+  // varken family eller sub-cat är vald så vibe-griden inte är tom.
+  const family = BUSINESS_FAMILIES.find((f) => f.id === answers.businessFamily);
+  const scaffoldHint = useMemo(
+    () => deriveEffectiveScaffoldHint(family, answers.siteType),
+    [family, answers.siteType],
+  );
+  const vibes = useMemo(() => vibesForScaffold(scaffoldHint), [scaffoldHint]);
+  // Preview-rubrik = företagsnamn om ifyllt, annars vibens label —
+  // ger operatören en personlig "så här ser det ut för MIN sajt"-känsla
+  // när hen har skrivit företagsnamn i foundation.
+  const previewHeading = answers.companyName.trim() || undefined;
+
+  // Approximerad rawPrompt för PayloadAlignmentPopover. Vi använder
+  // `offer` (= operatörens beskrivning av vad de gör) som proxy för
+  // den ursprungliga prompten — det är vad backend själva matar in
+  // som första källtext via composeMasterPrompt. Detta gör popoverns
+  // language-detection och directives-output realistisk även när den
+  // ursprungliga rawPrompt-prop:en inte är tillgänglig i VisualStep.
+  const popoverRawPrompt = answers.offer;
+
+  // Auto-defaulta vibe + typography per mount. Steget av-/återmonteras vid
+  // varje wizard-navigering (`step === "visual" ? <VisualStep/> : null`), så
+  // detta körs på nytt efter att operatören bytt verksamhetsfamilj i steg 1.
+  //
+  // Scout-fynd 2026-06-03 (family-byte lämnar stale vibe): tidigare
+  // early-returnade vi så snart `vibeId` var truthy. Då behölls ett vibe-id
+  // från en TIDIGARE family som inte längre finns i den nya scaffoldens
+  // vibe-lista — griden visade "inget valt" medan payloaden bar kvar den
+  // stale viben. Nu validerar vi mot `vibes`: giltigt val respekteras, ett
+  // stale (eller tomt) val byts mot nya familjens default.
+  const autoDefaultRef = useRef(false);
+  useEffect(() => {
+    if (autoDefaultRef.current) return;
+    if (!family) return;
+    autoDefaultRef.current = true;
+    const currentVibeValid =
+      !!answers.vibe.vibeId && vibes.some((v) => v.id === answers.vibe.vibeId);
+    if (currentVibeValid) return;
+    const defaultVibe = findVibe(family.defaultVariantId);
+    if (!defaultVibe) {
+      // Ingen default att falla tillbaka på, men ett stale id ligger kvar →
+      // rensa det så griden och payloaden är 1:1 (inget dolt val).
+      if (answers.vibe.vibeId) {
+        onChange({ vibe: { ...answers.vibe, vibeId: "" } });
+      }
+      return;
+    }
+    onChange({
+      vibe: {
+        ...answers.vibe,
+        vibeId: defaultVibe.id,
+        typographyFeel:
+          answers.vibe.typographyFeel || defaultVibe.defaultTypographyFeel,
+      },
+    });
+    // Vi vill bara köra denna effekt en gång per mount. Family/vibe-id
+    // styrs av operatören efter mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectVibe = (vibeId: string) => {
+    const next = findVibe(vibeId);
+    onChange({
+      vibe: {
+        ...answers.vibe,
+        vibeId: answers.vibe.vibeId === vibeId ? "" : vibeId,
+        // Auto-applicera vibens default-typografi om operatören inte
+        // valt något själv.
+        typographyFeel:
+          answers.vibe.typographyFeel ||
+          (next ? next.defaultTypographyFeel : ""),
+      },
+    });
+  };
+
+  const setTypographyFeel = (feel: TypographyFeelId) => {
+    onChange({
+      vibe: {
+        ...answers.vibe,
+        typographyFeel: answers.vibe.typographyFeel === feel ? "" : feel,
+      },
+    });
+  };
+
+  const setUseCustomColors = (use: boolean) => {
+    onChange({ vibe: { ...answers.vibe, useCustomColors: use } });
+  };
+
+  const toggleTone = (label: string) => {
+    const set = new Set(answers.brand.toneTags);
+    if (set.has(label)) set.delete(label);
+    else set.add(label);
+    onChange({ brand: { ...answers.brand, toneTags: Array.from(set) } });
+  };
+
+  const setDesignStyle = (label: string) => {
+    onChange({
+      brand: {
+        ...answers.brand,
+        designStyle: answers.brand.designStyle === label ? "" : label,
+      },
+    });
+  };
+
+  const setSectionTreatment = (sectionId: string, treatmentId: string) => {
+    const next = { ...(answers.vibe.sectionTreatments ?? {}) };
+    if (treatmentId) {
+      next[sectionId] = treatmentId;
+    } else {
+      delete next[sectionId];
+    }
+    onChange({
+      vibe: { ...answers.vibe, sectionTreatments: next },
+    });
+  };
+
+  const applicableTreatmentSpecs = useMemo(
+    () => sectionTreatmentSpecsForScaffold(scaffoldHint),
+    [scaffoldHint],
+  );
+
+  const removeMoodImage = (assetId: string) => {
+    onChange({
+      moodImages: answers.moodImages.filter((img) => img.assetId !== assetId),
+    });
+  };
+
+  const addMoodImages = (refs: AssetRef[]) => {
+    // Begränsa till totalt 5 för att hålla payloaden hanterbar.
+    const merged = [...answers.moodImages, ...refs].slice(0, 5);
+    onChange({ moodImages: merged });
+  };
+
+  // Räkna ENBART pins som faktiskt visas i UI:t för aktuell scaffold.
+  // Pins kvar i state efter ett scaffold-byte ska inte räknas in i
+  // "ifyllda fält"-räknaren, annars visar disclosure-knappen "1
+  // ifyllda" utan att en motsvarande sektion är synlig.
+  const sectionPinCount = useMemo(() => {
+    const pins = answers.vibe.sectionTreatments ?? {};
+    let count = 0;
+    for (const spec of applicableTreatmentSpecs) {
+      if ((pins[spec.id] ?? "").trim().length > 0) count += 1;
+    }
+    return count;
+  }, [answers.vibe.sectionTreatments, applicableTreatmentSpecs]);
+  const showSectionTreatments = applicableTreatmentSpecs.length > 0;
+
+  const advancedFilled =
+    (answers.vibe.useCustomColors ? 1 : 0) +
+    (answers.vibe.typographyFeel ? 1 : 0) +
+    (answers.brand.designStyle ? 1 : 0) +
+    (answers.vibe.layoutHint ? 1 : 0) +
+    (answers.vibe.references.trim() ? 1 : 0) +
+    (answers.brand.wordsToAvoid.trim() ? 1 : 0) +
+    (answers.moodImages.length > 0 ? 1 : 0) +
+    (sectionPinCount > 0 ? 1 : 0);
+  const advancedTotal = showSectionTreatments ? 8 : 7;
+
+  return (
+    <FieldStack>
+      {/* Foundation-beslut-panel (family → scaffold → default-vibe)
+          togs bort 2026-05-26 efter operator-feedback. Var tekniskt
+          transparens-block som inte tillförde värde för slutkunden.
+          ESSENTIALS — vibe + tonarter ger 90% av personlighet. */}
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <SectionHeader
+              help={
+                <>
+                  Vibe styr färger, typografi och spacing automatiskt. Listan
+                  filtreras efter din verksamhetsfamilj
+                  {family ? ` (${family.label})` : ""} och branch
+                  {family ? ` (${branchForFamily(family.id)})` : ""}.
+                </>
+              }
+            >
+              Vibe
+            </SectionHeader>
+          </div>
+          <PayloadAlignmentPopover
+            answers={answers}
+            rawPrompt={popoverRawPrompt}
+          />
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {vibes.map((vibe) => (
+            <VibeCard
+              key={vibe.id}
+              vibe={vibe}
+              selected={answers.vibe.vibeId === vibe.id}
+              onSelect={() => selectVibe(vibe.id)}
+              previewHeading={previewHeading}
+            />
+          ))}
+        </div>
+        {vibes.length === 0 ? (
+          <p className="text-muted-foreground mt-3 text-[12px]">
+            Inga vibes för denna scaffold — välj en verksamhetsfamilj i steg 1.
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <SectionHeader help="Hur ska texten på sajten kännas? Välj en eller flera.">
+          Tonarter
+        </SectionHeader>
+        <div className="mt-2">
+          <ChipRow>
+            {TONE_OPTIONS.map((tone) => (
+              <Chip
+                key={tone}
+                label={tone}
+                selected={answers.brand.toneTags.includes(tone)}
+                onToggle={() => toggleTone(tone)}
+              />
+            ))}
+          </ChipRow>
+        </div>
+      </div>
+
+      {/* ADVANCED — färger, typografi, designstil, hero-layout, referenser,
+       *   ord att undvika, mood-bilder. Vibe sätter intelligenta defaults
+       *   för allt nedanför så de flesta operatörer behöver aldrig öppna. */}
+      <AdvancedDisclosure
+        id="visual-advanced"
+        label="Designdetaljer"
+        hint="Vibe sätter rimliga defaults. Öppna bara om du vill överstyra färger, typografi-känsla, hero-layout, section-treatments eller lägga in referenser/mood-bilder."
+        count={advancedTotal}
+        activeCount={advancedFilled}
+      >
+        {/* Färgvalsläge. */}
+        <div>
+          <SectionHeader help="Vibens defaults är handvalda — välj egna färger bara om ni har en stark brand-identitet ni vill bevara.">
+            Färger
+          </SectionHeader>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setUseCustomColors(false)}
+              aria-pressed={!answers.vibe.useCustomColors}
+              className={[
+                "flex-1 rounded-lg border px-3 py-2 text-left text-[12px] transition-colors",
+                !answers.vibe.useCustomColors
+                  ? "border-foreground bg-foreground/[0.04]"
+                  : "border-border/70 hover:border-foreground/40",
+              ].join(" ")}
+            >
+              <span className="text-foreground font-medium">
+                Använd vibens defaults
+              </span>
+              <span className="text-muted-foreground ml-1 text-[11px]">
+                (rekommenderas)
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseCustomColors(true)}
+              aria-pressed={answers.vibe.useCustomColors}
+              className={[
+                "flex-1 rounded-lg border px-3 py-2 text-left text-[12px] transition-colors",
+                answers.vibe.useCustomColors
+                  ? "border-foreground bg-foreground/[0.04]"
+                  : "border-border/70 hover:border-foreground/40",
+              ].join(" ")}
+            >
+              <span className="text-foreground font-medium">
+                Välj egna färger
+              </span>
+              <span className="text-muted-foreground ml-1 text-[11px]">
+                (skriver över vibens)
+              </span>
+            </button>
+          </div>
+          {answers.vibe.useCustomColors ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <FieldLabel optional>Primärfärg (hex)</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={answers.brand.primaryColorHex || "#0f172a"}
+                    onChange={(event) =>
+                      onChange({
+                        brand: {
+                          ...answers.brand,
+                          primaryColorHex: event.target.value,
+                        },
+                      })
+                    }
+                    className="border-border h-9 w-12 cursor-pointer rounded-md border bg-transparent"
+                  />
+                  <TextField
+                    label=""
+                    value={answers.brand.primaryColorHex}
+                    onChange={(value) =>
+                      onChange({
+                        brand: { ...answers.brand, primaryColorHex: value },
+                      })
+                    }
+                    placeholder="#0f172a"
+                  />
+                </div>
+              </div>
+              <div>
+                <FieldLabel optional>Accentfärg (hex)</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={answers.brand.accentColorHex || "#f59e0b"}
+                    onChange={(event) =>
+                      onChange({
+                        brand: {
+                          ...answers.brand,
+                          accentColorHex: event.target.value,
+                        },
+                      })
+                    }
+                    className="border-border h-9 w-12 cursor-pointer rounded-md border bg-transparent"
+                  />
+                  <TextField
+                    label=""
+                    value={answers.brand.accentColorHex}
+                    onChange={(value) =>
+                      onChange({
+                        brand: { ...answers.brand, accentColorHex: value },
+                      })
+                    }
+                    placeholder="#f59e0b"
+                  />
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <CollapsibleHelp triggerLabel="Hur används hex-värdena?">
+                  Hex-värdena skrivs in i Project Input och skriver över vibens
+                  defaultfärger när &quot;Egna färger&quot; är valt (backend
+                  stöder detta sedan PR #63 — Gap 1 stängd).
+                </CollapsibleHelp>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* 3. Typografi-känsla. */}
+        <div>
+          <SectionHeader help="Avgör om typsnittet ska kännas tidlöst, klassiskt, geometriskt eller organiskt.">
+            Typografi-känsla
+          </SectionHeader>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {TYPOGRAPHY_FEEL_OPTIONS.map((option) => {
+              const isSelected = answers.vibe.typographyFeel === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setTypographyFeel(option.id)}
+                  aria-pressed={isSelected}
+                  className={[
+                    "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                    isSelected
+                      ? "border-foreground bg-foreground/[0.04]"
+                      : "border-border/70 hover:border-foreground/40",
+                  ].join(" ")}
+                >
+                  <span
+                    aria-hidden
+                    className={[
+                      "text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border",
+                      isSelected
+                        ? "border-foreground bg-foreground/5"
+                        : "border-border/70 bg-card",
+                    ].join(" ")}
+                    style={{
+                      fontFamily: typographyPreviewFamily(option.id),
+                      fontWeight: option.id === "geometric" ? 600 : 500,
+                    }}
+                  >
+                    Aa
+                  </span>
+                  <span className="flex flex-1 flex-col leading-tight">
+                    <span className="text-foreground text-[12.5px] font-medium tracking-tight">
+                      {option.label}
+                    </span>
+                    <span className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
+                      {option.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Designstil (fallback om vibe ej valts).
+          Minimalism v2: visas BARA när operatören inte har valt en vibe.
+          Med vibe vald är denna fallback redundant och bara visuellt
+          brus — vi döljer den helt så advanced-disclosure-vyn håller
+          sig fokuserad på det operatören faktiskt kan justera. */}
+        {!answers.vibe.vibeId ? (
+          <div>
+            <SectionHeader>
+              Designstil (fallback om vibe ej valts)
+            </SectionHeader>
+            <ChipRow>
+              {DESIGN_STYLE_OPTIONS.map((style) => (
+                <Chip
+                  key={style}
+                  label={style}
+                  selected={answers.brand.designStyle === style}
+                  onToggle={() => setDesignStyle(style)}
+                />
+              ))}
+            </ChipRow>
+          </div>
+        ) : null}
+
+        {/* 5. Hero-layout (operator-override, valfritt). */}
+        <div>
+          <SectionHeader
+            help={
+              <>
+                Vill du överstyra automat-valet? Annars härleder vi layouten
+                från din vibe (varma vibes blir centrerade, editorial blir
+                split, etc). Skickas som <code>directives.layoutHint</code>
+                till backend.
+              </>
+            }
+          >
+            Hero-layout (valfritt)
+          </SectionHeader>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              {
+                id: "" as const,
+                label: "Auto",
+                description: "Härled från vibe",
+              },
+              {
+                id: "gradient" as const,
+                label: "Gradient",
+                description: "Klassisk, vänsterstaplad",
+              },
+              {
+                id: "centered" as const,
+                label: "Centrerat",
+                description: "Lugnt, editorialt",
+              },
+              {
+                id: "split" as const,
+                label: "Split",
+                description: "Text + bild eller blob",
+              },
+            ].map((option) => {
+              const isSelected = answers.vibe.layoutHint === option.id;
+              return (
+                <button
+                  key={option.id || "auto"}
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      vibe: { ...answers.vibe, layoutHint: option.id },
+                    })
+                  }
+                  aria-pressed={isSelected}
+                  className={[
+                    "flex flex-col gap-2 rounded-lg border p-3 text-left transition-colors",
+                    isSelected
+                      ? "border-foreground bg-foreground/[0.04]"
+                      : "border-border/70 hover:border-foreground/40",
+                  ].join(" ")}
+                >
+                  <span aria-hidden className="block">
+                    <HeroLayoutGlyph variant={option.id} />
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-foreground text-[12.5px] font-medium tracking-tight">
+                      {option.label}
+                    </span>
+                    <span className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
+                      {option.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section design-treatments (operator-pin, ADR 0032).
+         *   Visas bara när scaffolden har sektioner med
+         *   variant-/section-defaults registrerade — annars är
+         *   override:n meningslös.
+         *
+         *   Resolve-ordning som backend respekterar:
+         *     1. operator-pin (denna UI)
+         *     2. variant-default (`_SECTION_TREATMENTS_BY_VARIANT`)
+         *     3. section-default (i Python-tabellen)
+         *
+         *   "Auto"-knappen labelas med vilken treatment som faktiskt
+         *   körs när inget är pinnat så operatören vet om hen
+         *   behöver klicka eller inte.
+         */}
+        {showSectionTreatments ? (
+          <div>
+            <SectionHeader
+              help={
+                <>
+                  Operator-pin per section. Vi väljer alltid en bra default från
+                  din vibe — pinna en treatment här bara om du vet att du vill
+                  ha en specifik visuell variant. Skickas som
+                  <code>directives.sectionTreatments</code> till backend.
+                </>
+              }
+            >
+              Section-treatments (valfritt)
+            </SectionHeader>
+            <div className="mt-2 flex flex-col gap-3">
+              {applicableTreatmentSpecs.map((spec) => (
+                <SectionTreatmentRow
+                  key={spec.id}
+                  spec={spec}
+                  pinned={answers.vibe.sectionTreatments?.[spec.id] ?? ""}
+                  variantId={answers.vibe.vibeId || undefined}
+                  onChange={(treatmentId) =>
+                    setSectionTreatment(spec.id, treatmentId)
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Referenser. */}
+        <TextField
+          label="Referenser ('tänk lite som…')"
+          optional
+          value={answers.vibe.references}
+          onChange={(value) =>
+            onChange({ vibe: { ...answers.vibe, references: value } })
+          }
+          placeholder="t.ex. apple.com, gant.se, en lokal kollega"
+          helper="Vi använder detta som inspiration när vi skriver copy och väljer stil."
+        />
+
+        {/* 6. Ord att undvika. */}
+        <TextareaField
+          label="Ord och uttryck att undvika"
+          optional
+          value={answers.brand.wordsToAvoid}
+          onChange={(value) =>
+            onChange({ brand: { ...answers.brand, wordsToAvoid: value } })
+          }
+          placeholder="t.ex. 'världsbäst', 'revolutionerande', branschjargong vi tycker är slitet"
+          rows={2}
+          helper="Komma-separerad lista. Skickas till copy-modellen som tone.avoid[] så den undviker dessa formuleringar i all text."
+        />
+
+        {/* 7. Mood-bilder. */}
+        <div>
+          <SectionHeader help="1–5 referensbilder för stämning/färg. Används som inspiration — syns inte på sajten. Spara filer du gillar från Pinterest, andra sajter, eller egna foton.">
+            Mood-bilder (valfritt)
+          </SectionHeader>
+          {answers.moodImages.length > 0 ? (
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {answers.moodImages.map((img) => (
+                <MoodThumbnail
+                  key={img.assetId}
+                  asset={img}
+                  onRemove={() => removeMoodImage(img.assetId)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {answers.moodImages.length < 5 ? (
+            <div className="mt-3">
+              <AssetDropzone
+                role="gallery"
+                mode="multi"
+                emptyLabel="Släpp mood-bilder här (max 5)"
+                hintLabel="JPG, PNG eller WebP. Stora bilder är OK — vi optimerar dem."
+                onUploaded={addMoodImages}
+              />
+            </div>
+          ) : null}
+        </div>
+      </AdvancedDisclosure>
+    </FieldStack>
+  );
+}
+
+/**
+ * VibeCard — rikt vibe-val-kort med micro-sajt-preview i Front 2.
+ *
+ * Visar (a) en VibeMicroPreview-mock med hero-rubrik + chips + Aa-glyph
+ * (b) en swatch-rad med primary/accent/background, (c) vibens beskrivning.
+ * Större (~140px) än det gamla text-band-kortet (~70px) så operatören
+ * direkt ser känslan istället för att läsa en text-beskrivning.
+ *
+ * `previewHeading` används istället för vibens label om operatören har
+ * skrivit ett företagsnamn i foundation-steget — vilket gör preview:n
+ * personlig ("Ateljé Bird" istället för "Warm Craft").
+ */
+function VibeCard({
+  vibe,
+  selected,
+  onSelect,
+  previewHeading,
+}: {
+  vibe: Vibe;
+  selected: boolean;
+  onSelect: () => void;
+  previewHeading?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={[
+        "group relative overflow-hidden rounded-xl border text-left transition-all",
+        selected
+          ? "border-foreground ring-foreground/10 shadow-md ring-2"
+          : "border-border/70 hover:border-foreground/40 hover:shadow-sm",
+      ].join(" ")}
+    >
+      <VibeMicroPreview vibe={vibe} heading={previewHeading} />
+      <div className="bg-card flex flex-col gap-1.5 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-foreground text-[12.5px] font-semibold tracking-tight">
+            {vibe.label}
+          </span>
+          <VibeSwatchRow
+            primary={vibe.primarySwatch}
+            accent={vibe.accentSwatch}
+            background={vibe.background}
+            size={10}
+          />
+        </div>
+        <p className="text-muted-foreground line-clamp-2 text-[11px] leading-snug">
+          {vibe.description}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+/**
+ * SectionTreatmentRow — en rad per relevant section i wizardens
+ * designdetaljer. Visar section-namn + beskrivning, en "Auto"-knapp
+ * som visar vilken treatment varianten skulle köra utan operator-pin,
+ * och en knapprad med övriga treatments per section.
+ *
+ * "Auto" är samma sak som "ingen pin"; klick på Auto avregistrerar
+ * en eventuell tidigare pin (`onChange("")`). Dock — om Auto:n
+ * tekniskt sett pekar på samma treatment som operatören har pinnat
+ * markerar vi inte Auto som vald för att hålla state och UI 1:1.
+ */
+function SectionTreatmentRow({
+  spec,
+  pinned,
+  variantId,
+  onChange,
+}: {
+  spec: SectionTreatmentSpec;
+  pinned: string;
+  variantId: string | undefined;
+  onChange: (treatmentId: string) => void;
+}) {
+  const autoTreatment = resolveAutoTreatment(spec, variantId);
+  const autoLabel =
+    spec.treatments.find((t) => t.id === autoTreatment)?.label ?? autoTreatment;
+  const autoSelected = !pinned;
+  return (
+    <div className="border-border/60 rounded-lg border p-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-foreground text-[12.5px] font-medium tracking-tight">
+          {spec.label}
+        </span>
+        <span className="text-muted-foreground text-[11px] leading-snug">
+          {spec.description}
+        </span>
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-pressed={autoSelected}
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] transition-colors",
+            autoSelected
+              ? "border-foreground bg-foreground/[0.04] text-foreground"
+              : "border-border/70 text-muted-foreground hover:border-foreground/40",
+          ].join(" ")}
+          title={`Default när inget pinnas: ${autoLabel}`}
+        >
+          <span className="font-medium">Auto</span>
+          <span className="text-muted-foreground/80 text-[10.5px]">
+            ({autoLabel})
+          </span>
+        </button>
+        {spec.treatments.map((treatment) => {
+          const isPinned = pinned === treatment.id;
+          return (
+            <button
+              key={treatment.id}
+              type="button"
+              onClick={() => onChange(isPinned ? "" : treatment.id)}
+              aria-pressed={isPinned}
+              className={[
+                "inline-flex flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
+                isPinned
+                  ? "border-foreground bg-foreground/[0.04] text-foreground"
+                  : "border-border/70 text-muted-foreground hover:border-foreground/40",
+              ].join(" ")}
+              title={treatment.description}
+            >
+              <span className="text-foreground font-medium">
+                {treatment.label}
+              </span>
+              <span className="text-muted-foreground/90 text-[10.5px] leading-snug">
+                {treatment.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MoodThumbnail({
+  asset,
+  onRemove,
+}: {
+  asset: AssetRef;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="border-border/60 group bg-muted/30 relative aspect-square overflow-hidden rounded-md border">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/asset-preview?assetId=${asset.assetId}&siteId=__draft`}
+        alt={asset.alt || asset.filename}
+        className="h-full w-full object-cover"
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Ta bort mood-bild"
+        // touch-visible utility: alltid synlig på touch-enheter (där
+        // group-hover aldrig triggar), opacity-0 → group-hover på desktop.
+        // h-7 w-7 ger tap-target på mobil utan att förstöra desktop-tätheten.
+        className="touch-visible absolute top-1 right-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-[10px] font-bold text-white transition-opacity active:scale-95 sm:h-5 sm:w-5"
+      >
+        ×
+      </button>
+    </div>
+  );
+}

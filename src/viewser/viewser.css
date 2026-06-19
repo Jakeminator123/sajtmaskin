@@ -1,0 +1,263 @@
+/* Viewser (Sajtbyggaren) design tokens + utilities, ported into Sajtmaskin.
+ *
+ * Scoping strategy: the studio surface sets `data-theme="viewser"` on
+ * <html> while mounted (see studio layout). That keeps the warm
+ * Sajtbyggaren palette out of the rest of the (dark) Sajtmaskin app while
+ * still reaching portalled content (dialogs/sheets render under <body>,
+ * not inside a wrapper, so a :root-level theme is required).
+ *
+ * Sajtmaskin consumes color tokens as `hsl(var(--token))` (see
+ * tailwind.config.cjs), so the brand palette below is expressed as HSL
+ * channel triples rather than the oklch values used in the source repo.
+ */
+
+html[data-theme="viewser"] {
+  color-scheme: light;
+
+  /* Sajtbyggaren brandbook — warm off-white + near-black + sand.
+     bg #F7F6F3 · card #FFFFFF · muted #EFEDE7 · accent #E6E1D8
+     ink #0F0F0F · text-sec #6F6F6F */
+  --background: 45 20% 96%;
+  --foreground: 0 0% 6%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 6%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 6%;
+  --primary: 0 0% 6%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 20% 92%;
+  --secondary-foreground: 0 0% 6%;
+  --muted: 45 20% 92%;
+  --muted-foreground: 0 0% 44%;
+  --accent: 39 22% 87%;
+  --accent-foreground: 0 0% 6%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 40 16% 87%;
+  --input: 45 20% 92%;
+  --ring: 0 0% 6%;
+
+  --chart-1: 0 0% 6%;
+  --chart-2: 0 0% 24%;
+  --chart-3: 0 0% 44%;
+  --chart-4: 39 18% 66%;
+  --chart-5: 40 14% 83%;
+
+  --sidebar: 45 20% 96%;
+  --sidebar-foreground: 0 0% 6%;
+  --sidebar-primary: 0 0% 6%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 45 20% 92%;
+  --sidebar-accent-foreground: 0 0% 6%;
+  --sidebar-border: 40 16% 87%;
+  --sidebar-ring: 0 0% 6%;
+
+  /* Radius scale referenced directly by ported components
+     (e.g. rounded-[min(var(--radius-md),10px)]). */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Motion tokens — hover-lift, panel transitions. */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Subtle shadows (no color glow). */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lift: 0 10px 40px -10px hsl(0 0% 6% / 0.15);
+
+  /* Semantic status tokens. */
+  --status-success: 145 45% 38%;
+  --status-warning: 38 80% 52%;
+  --status-error: 6 72% 48%;
+  --status-info: 218 60% 48%;
+}
+
+/* === Keyframes (global definitions; harmless to declare) ================= */
+
+@keyframes vs-subtle-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes vs-viewer-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@keyframes vs-fc-edge-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 hsl(var(--foreground) / 0.18),
+      0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  }
+  70% {
+    box-shadow:
+      0 0 0 14px hsl(var(--foreground) / 0),
+      0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 hsl(var(--foreground) / 0),
+      0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  }
+}
+
+/* === Additive utilities (Sajtmaskin does not define these) ============== */
+
+@layer utilities {
+  .animate-subtle-pulse {
+    animation: vs-subtle-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-fc-edge-pulse {
+    animation: vs-fc-edge-pulse 3s ease-in-out infinite;
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Safe-area insets via env() — fall back to 0 on platforms without notch. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .pb-safe-or-6 {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1.5rem);
+  }
+  .pb-safe-or-4 {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+  }
+  .pb-safe-or-3 {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+  }
+  .bottom-safe-6 {
+    bottom: max(env(safe-area-inset-bottom, 0px), 1.5rem);
+  }
+  .bottom-safe-4 {
+    bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+  }
+
+  /* Touch target baseline (Apple HIG / Material 44px). */
+  .min-tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  @media (min-width: 640px) {
+    .sm\:min-tap-0 {
+      min-height: 0;
+      min-width: 0;
+    }
+  }
+  @media (min-width: 768px) {
+    .md\:min-tap-0 {
+      min-height: 0;
+      min-width: 0;
+    }
+  }
+
+  /* Bottom-sheet drag handle (FloatingChat / inspector sheet on mobile). */
+  .bottom-sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 9999px;
+    background-color: hsl(var(--foreground) / 0.18);
+    margin: 8px auto 4px;
+    flex-shrink: 0;
+  }
+
+  /* Touch visibility — always visible on coarse pointers. */
+  .touch-visible {
+    opacity: 1;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .touch-visible {
+      opacity: 0;
+    }
+    .group:hover .touch-visible,
+    .group:focus-within .touch-visible {
+      opacity: 1;
+    }
+  }
+}
+
+/* === Studio-scoped overrides (only inside the warm theme) =============== */
+
+html[data-theme="viewser"] .hover-lift {
+  transition:
+    transform var(--transition-slow) var(--ease-out-soft),
+    box-shadow var(--transition-slow) var(--ease-out-soft);
+}
+html[data-theme="viewser"] .hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+html[data-theme="viewser"] .scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(0 0% 6% / 0.18) transparent;
+}
+html[data-theme="viewser"] .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(0 0% 6% / 0.2);
+}
+
+html[data-theme="viewser"] .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(0 0% 6% / 0.05) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* On the warm Sajtbyggaren surfaces, suppress Sajtmaskin's global (dark,
+   blocking) cookie modal — the ported minimalist CookieBanner is rendered by
+   the marketing/studio shells instead. */
+html[data-theme="viewser"] [data-cookie-banner="sajtmaskin"] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-subtle-pulse,
+  .animate-fc-edge-pulse {
+    animation: none !important;
+  }
+}
+
+@media (hover: none) {
+  html[data-theme="viewser"] .hover-lift:hover {
+    transform: none;
+  }
+}
