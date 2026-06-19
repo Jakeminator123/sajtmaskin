@@ -375,6 +375,9 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   looksLikeIncompleteJson: vi.fn(() => false),
 }));
 
+import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+
 import { POST, maxDuration, runtime } from "./route";
 
 describe("POST /api/engine/chats/[chatId]/stream", () => {
@@ -1105,5 +1108,106 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(addMessage.mock.calls[1]?.[0]).toBe("chat_1");
     expect(addMessage.mock.calls[1]?.[1]).toBe("assistant");
     expect(addMessage.mock.calls[1]?.[2]).toBe("Vad vill du att jag fokuserar på i nästa ändring?");
+  });
+
+  // 5-4 / F1: the clear-redesign delta-brief is generated (tryGenerateServerAutoBrief)
+  // but must actually reach orchestrate. Before the fix `metaBrief` was computed,
+  // logged, then dropped — orchestrate fell back to the snapshot brief.
+  it("routes the freshly generated clear-redesign delta-brief into orchestration (F1)", async () => {
+    // Snapshot carries a recognizable base brief so the assertion can prove the
+    // fresh delta — not the snapshot fallback — is what reaches orchestrate.
+    const snapshot = {
+      briefSummary: {
+        projectTitle: "SNAPSHOT_BASE_BRIEF",
+        requestedCapabilities: ["contact-form"],
+      },
+    };
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      messages: [],
+      orchestration_snapshot: snapshot,
+    });
+    const deltaBrief = {
+      projectTitle: "DELTA_REDESIGN_SENTINEL",
+      visualDirection: { styleKeywords: ["dark", "editorial"] },
+    };
+    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(
+      { brief: deltaBrief, modelUsed: "test-delta-model" } as unknown as Awaited<
+        ReturnType<typeof tryGenerateServerAutoBrief>
+      >,
+    );
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Redesigned</main>" } },
+        { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Gör om från grunden med mörk editorial stil och ny layout.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+      brief: unknown;
+    };
+    // The fresh delta-brief must be the brief orchestrate sees…
+    expect(orchestrationInput.brief).toEqual(deltaBrief);
+    // …not the snapshot fallback (the F1 bug: delta computed, then discarded).
+    expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
+  });
+
+  it("keeps using the snapshot brief for a neutral follow-up (no F1 regression)", async () => {
+    const snapshot = {
+      briefSummary: {
+        projectTitle: "SNAPSHOT_BASE_BRIEF",
+        requestedCapabilities: ["contact-form"],
+      },
+    };
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_1",
+      messages: [],
+      orchestration_snapshot: snapshot,
+    });
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    // A neutral follow-up never generates a delta-brief…
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+      brief: unknown;
+    };
+    // …so the deterministic snapshot brief is what reaches orchestrate (unchanged).
+    expect(orchestrationInput.brief).toEqual(buildFollowUpBriefFromSnapshot(snapshot));
   });
 });
