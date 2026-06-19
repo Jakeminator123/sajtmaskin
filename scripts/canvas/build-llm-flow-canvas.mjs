@@ -22,7 +22,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..");
@@ -126,7 +126,7 @@ function keywordsFor(name, page) {
 
 /** Plockar ut oppna backlog-rader ur "## Lista"-tabellen.
  *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift. */
-function parseBacklogRows(md) {
+export function parseBacklogRows(md) {
   if (!md) return [];
   const rows = [];
   for (const line of md.split(/\r?\n/)) {
@@ -151,6 +151,31 @@ function parseBacklogRows(md) {
     });
   }
   return rows;
+}
+
+/** Valjer "Oppna huvudrisker" ur backlog-rader. P0 ar hogsta allvar och far
+ *  ALDRIG falla bort tyst: P0 sorteras overst och garanteras plats aven nar
+ *  listan trunkeras till `cap`. Overskjutande LAGRE-prio rader redovisas via
+ *  `omitted` (renderas som en "+N fler"-rad), sa inget P0 kan doljas i tysthet. */
+export function selectTopOpenRisks(backlogRows, cap = 12) {
+  const prioRank = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  const candidates = (backlogRows || [])
+    .filter((r) => r.blocker || r.prio === "P0" || r.prio === "P1" || r.prio === "P2")
+    .sort((a, b) => {
+      const ap0 = a.prio === "P0" ? 0 : 1;
+      const bp0 = b.prio === "P0" ? 0 : 1;
+      if (ap0 !== bp0) return ap0 - bp0; // P0 alltid overst
+      if (a.blocker !== b.blocker) return a.blocker ? -1 : 1; // sen BLOCKER
+      return (prioRank[a.prio] ?? 9) - (prioRank[b.prio] ?? 9); // sen prio
+    });
+  // Garantera plats for ALLA P0-rader; fyll resten upp till taket.
+  const p0 = candidates.filter((r) => r.prio === "P0");
+  const rest = candidates.filter((r) => r.prio !== "P0");
+  const shown = [...p0, ...rest.slice(0, Math.max(0, cap - p0.length))];
+  return {
+    rows: shown.map((r) => ({ prio: r.prio || "-", blocker: r.blocker, fynd: truncate(r.fynd, 110) })),
+    omitted: candidates.length - shown.length,
+  };
 }
 
 function evalSignal(summary) {
@@ -232,7 +257,7 @@ function buildData() {
     const evalForProcess = isEvalProcess ? evals : null;
     const status = deriveStatus({ override: overrides[name], matched, churn, evalForProcess, churnHot });
 
-    const openByPrio = { P1: 0, P2: 0, P3: 0, other: 0 };
+    const openByPrio = { P0: 0, P1: 0, P2: 0, P3: 0, other: 0 };
     for (const r of matched) {
       if (r.prio && openByPrio[r.prio] != null) openByPrio[r.prio] += 1;
       else openByPrio.other += 1;
@@ -247,7 +272,7 @@ function buildData() {
       const ex = matched.find((r) => r.blocker);
       note = `BLOCKER: ${truncate(ex.fynd, 90)}`;
     } else if (matched.length > 0) {
-      note = `${matched.length} oppna backlog-rader (P1:${openByPrio.P1} P2:${openByPrio.P2} P3:${openByPrio.P3})`;
+      note = `${matched.length} oppna backlog-rader (P0:${openByPrio.P0} P1:${openByPrio.P1} P2:${openByPrio.P2} P3:${openByPrio.P3})`;
     } else if (churn >= churnHot) {
       note = `Aktiv: ${churn} commits / ${sinceDays}d`;
     } else if (isEvalProcess && evals && evals.exactHitPct != null) {
@@ -272,6 +297,7 @@ function buildData() {
   // Globala totaler ur backloggen.
   const totals = {
     processes: processes.length,
+    openP0: backlogRows.filter((r) => r.prio === "P0").length,
     openP1: backlogRows.filter((r) => r.prio === "P1").length,
     openP2: backlogRows.filter((r) => r.prio === "P2").length,
     openP3: backlogRows.filter((r) => r.prio === "P3").length,
@@ -297,17 +323,11 @@ function buildData() {
     );
   }
 
-  // Globala huvudrisker: oppna BLOCKER/P1/P2-rader direkt ur backloggen, sa den
-  // rika listan syns aven nar en rad inte kan mappas till en enskild process.
-  const prioRank = { P1: 0, P2: 1, P3: 2 };
-  const topOpenRisks = backlogRows
-    .filter((r) => r.blocker || r.prio === "P1" || r.prio === "P2")
-    .sort((a, b) => {
-      if (a.blocker !== b.blocker) return a.blocker ? -1 : 1;
-      return (prioRank[a.prio] ?? 9) - (prioRank[b.prio] ?? 9);
-    })
-    .slice(0, 12)
-    .map((r) => ({ prio: r.prio || "-", blocker: r.blocker, fynd: truncate(r.fynd, 110) }));
+  // Globala huvudrisker: oppna P0/BLOCKER/P1/P2-rader direkt ur backloggen, sa den
+  // rika listan syns aven nar en rad inte kan mappas till en enskild process. P0 ar
+  // hogsta allvar och garanteras plats (se selectTopOpenRisks) — kritiska rader kan
+  // aldrig forsvinna tyst fran statusvyn.
+  const { rows: topOpenRisks, omitted: topOpenRisksOmitted } = selectTopOpenRisks(backlogRows, 12);
 
   const commit = git(["rev-parse", "--short", "HEAD"]) || "okand";
   const commitDate = git(["show", "-s", "--format=%cs", "HEAD"]) || "";
@@ -319,6 +339,7 @@ function buildData() {
     processes,
     shaky,
     topOpenRisks,
+    topOpenRisksOmitted,
     evals,
     phases,
     legend: Object.values(STATUS).map((s) => s.label),
@@ -363,7 +384,7 @@ type Process = {
   statusLabel: string;
   tone: TableRowTone;
   openBugs: number;
-  openByPrio: { P1: number; P2: number; P3: number; other: number };
+  openByPrio: { P0: number; P1: number; P2: number; P3: number; other: number };
   churn: number;
   summary: string;
   note: string;
@@ -373,6 +394,7 @@ type CanvasData = {
   meta: { repo: string; commit: string; commitDate: string; sinceDays: number };
   totals: {
     processes: number;
+    openP0: number;
     openP1: number;
     openP2: number;
     openP3: number;
@@ -383,6 +405,7 @@ type CanvasData = {
   processes: Process[];
   shaky: { name: string; statusLabel: string; tone: TableRowTone; reason: string }[];
   topOpenRisks: { prio: string; blocker: boolean; fynd: string }[];
+  topOpenRisksOmitted: number;
   evals: {
     exactHitPct: number | null;
     acceptableHitPct: number | null;
@@ -428,10 +451,11 @@ export default function LLMFlowCanvas() {
         </Row>
       </Stack>
 
-      <Grid columns={5} gap={12}>
+      <Grid columns={6} gap={12}>
         <Stat value={String(d.totals.processes)} label="Processer" />
         <Stat value={String(d.totals.blocked)} label="Blockerade" tone={(d.totals.blocked ? "danger" : "success") as StatTone} />
         <Stat value={String(d.totals.shaky)} label="Skakiga" tone={(d.totals.shaky ? "warning" : "success") as StatTone} />
+        <Stat value={String(d.totals.openP0)} label="Oppna P0" tone={(d.totals.openP0 ? "danger" : "success") as StatTone} />
         <Stat value={String(d.totals.openP1)} label="Oppna P1" tone={(d.totals.openP1 ? "warning" : "success") as StatTone} />
         <Stat
           value={d.totals.evalExactHitPct == null ? "-" : d.totals.evalExactHitPct + "%"}
@@ -485,15 +509,20 @@ export default function LLMFlowCanvas() {
         <Stack gap={10}>
           <H2>Oppna huvudrisker (backlog)</H2>
           <Text tone="secondary">
-            Oppna BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md. Mappas inte alltid till en enskild
-            process - visas globalt sa inget tappas.
+            Oppna P0/BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md. Mappas inte alltid till en enskild
+            process - visas globalt sa inget tappas. P0 ar hogsta allvar och visas alltid overst.
           </Text>
           <Table
             headers={["Prio", "Typ", "Fynd"]}
             columnAlign={["left", "left", "left"]}
-            rowTone={d.topOpenRisks.map((r) => (r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
+            rowTone={d.topOpenRisks.map((r) => (r.prio === "P0" || r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
             rows={d.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "oppen", r.fynd])}
           />
+          {d.topOpenRisksOmitted > 0 && (
+            <Text size="small" tone="tertiary">
+              {"+" + d.topOpenRisksOmitted + " fler lagre-prioriterade rader (se BUG-SWARM-BACKLOG.md) - inga P0 doljs."}
+            </Text>
+          )}
         </Stack>
       )}
 
@@ -548,4 +577,8 @@ function main() {
   );
 }
 
-main();
+// Kor bara nar skriptet startas direkt (node ...build-llm-flow-canvas.mjs), inte
+// vid import — tester importerar de rena funktionerna utan att skriva nagon fil.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main();
+}

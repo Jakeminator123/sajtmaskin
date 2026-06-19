@@ -27,7 +27,7 @@ type Process = {
   statusLabel: string;
   tone: TableRowTone;
   openBugs: number;
-  openByPrio: { P1: number; P2: number; P3: number; other: number };
+  openByPrio: { P0: number; P1: number; P2: number; P3: number; other: number };
   churn: number;
   summary: string;
   note: string;
@@ -37,6 +37,7 @@ type CanvasData = {
   meta: { repo: string; commit: string; commitDate: string; sinceDays: number };
   totals: {
     processes: number;
+    openP0: number;
     openP1: number;
     openP2: number;
     openP3: number;
@@ -47,6 +48,7 @@ type CanvasData = {
   processes: Process[];
   shaky: { name: string; statusLabel: string; tone: TableRowTone; reason: string }[];
   topOpenRisks: { prio: string; blocker: boolean; fynd: string }[];
+  topOpenRisksOmitted: number;
   evals: {
     exactHitPct: number | null;
     acceptableHitPct: number | null;
@@ -61,12 +63,13 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "06d7e70b",
+    "commit": "373b9d2df",
     "commitDate": "2026-06-18",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
+    "openP0": 0,
     "openP1": 4,
     "openP2": 18,
     "openP3": 26,
@@ -82,6 +85,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 5,
       "openByPrio": {
+        "P0": 0,
         "P1": 1,
         "P2": 0,
         "P3": 4,
@@ -98,6 +102,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 5,
       "openByPrio": {
+        "P0": 0,
         "P1": 1,
         "P2": 2,
         "P3": 2,
@@ -114,6 +119,7 @@ const DATA: CanvasData = {
       "tone": "success",
       "openBugs": 0,
       "openByPrio": {
+        "P0": 0,
         "P1": 0,
         "P2": 0,
         "P3": 0,
@@ -130,6 +136,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 3,
       "openByPrio": {
+        "P0": 0,
         "P1": 0,
         "P2": 2,
         "P3": 1,
@@ -146,6 +153,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 8,
       "openByPrio": {
+        "P0": 0,
         "P1": 2,
         "P2": 3,
         "P3": 3,
@@ -162,6 +170,7 @@ const DATA: CanvasData = {
       "tone": "warning",
       "openBugs": 1,
       "openByPrio": {
+        "P0": 0,
         "P1": 0,
         "P2": 0,
         "P3": 1,
@@ -169,7 +178,7 @@ const DATA: CanvasData = {
       },
       "churn": 0,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
-      "note": "1 oppna backlog-rader (P1:0 P2:0 P3:1)"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
       "name": "Preview och versioner",
@@ -178,6 +187,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 23,
       "openByPrio": {
+        "P0": 0,
         "P1": 2,
         "P2": 11,
         "P3": 10,
@@ -194,6 +204,7 @@ const DATA: CanvasData = {
       "tone": "danger",
       "openBugs": 4,
       "openByPrio": {
+        "P0": 0,
         "P1": 1,
         "P2": 1,
         "P3": 2,
@@ -298,6 +309,7 @@ const DATA: CanvasData = {
       "fynd": "Preview kan visas trots verifier-blocked draft"
     }
   ],
+  "topOpenRisksOmitted": 14,
   "evals": {
     "exactHitPct": 90,
     "acceptableHitPct": 100,
@@ -411,10 +423,11 @@ export default function LLMFlowCanvas() {
         </Row>
       </Stack>
 
-      <Grid columns={5} gap={12}>
+      <Grid columns={6} gap={12}>
         <Stat value={String(d.totals.processes)} label="Processer" />
         <Stat value={String(d.totals.blocked)} label="Blockerade" tone={(d.totals.blocked ? "danger" : "success") as StatTone} />
         <Stat value={String(d.totals.shaky)} label="Skakiga" tone={(d.totals.shaky ? "warning" : "success") as StatTone} />
+        <Stat value={String(d.totals.openP0)} label="Oppna P0" tone={(d.totals.openP0 ? "danger" : "success") as StatTone} />
         <Stat value={String(d.totals.openP1)} label="Oppna P1" tone={(d.totals.openP1 ? "warning" : "success") as StatTone} />
         <Stat
           value={d.totals.evalExactHitPct == null ? "-" : d.totals.evalExactHitPct + "%"}
@@ -468,15 +481,20 @@ export default function LLMFlowCanvas() {
         <Stack gap={10}>
           <H2>Oppna huvudrisker (backlog)</H2>
           <Text tone="secondary">
-            Oppna BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md. Mappas inte alltid till en enskild
-            process - visas globalt sa inget tappas.
+            Oppna P0/BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md. Mappas inte alltid till en enskild
+            process - visas globalt sa inget tappas. P0 ar hogsta allvar och visas alltid overst.
           </Text>
           <Table
             headers={["Prio", "Typ", "Fynd"]}
             columnAlign={["left", "left", "left"]}
-            rowTone={d.topOpenRisks.map((r) => (r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
+            rowTone={d.topOpenRisks.map((r) => (r.prio === "P0" || r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
             rows={d.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "oppen", r.fynd])}
           />
+          {d.topOpenRisksOmitted > 0 && (
+            <Text size="small" tone="tertiary">
+              {"+" + d.topOpenRisksOmitted + " fler lagre-prioriterade rader (se BUG-SWARM-BACKLOG.md) - inga P0 doljs."}
+            </Text>
+          )}
         </Stack>
       )}
 
