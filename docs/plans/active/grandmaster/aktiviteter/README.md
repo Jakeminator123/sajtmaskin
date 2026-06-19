@@ -10,7 +10,7 @@ sekventiellt = `blocked_by`). Mall + livscykel: [`plan-lifecycle.mdc`](../../../
 | D1 | `active/README.md` → ren router | 3 | — | **Klar** |
 | [S1](S1-test-stability-lane.md) | `test:stability`-lane (warn-only först) | 2 | — | **Klar** (#147) |
 | [S2](S2-aao-invariant.md) | åäö-invariant i builder-chat | 2 | S1 | **Klar** (#151) |
-| [S3](S3-statusresolver-invariant.md) | statusresolver-invariant (hård import-vakt) | 2 | S1 + omr 6 | **Klar** — 6-3 punkt 2 (draft-PR), legacy-resolver borttagen |
+| [S3](S3-statusresolver-invariant.md) | statusresolver-invariant (hård import-vakt) | 2 | S1 + omr 6 | **Klar** — 6-3 punkt 2 (draft-PR #163), legacy-resolver borttagen |
 | [S4](S4-db-health-gate.md) | DB-schema-korrekthet & drift-gate (`db:schema-drift` soft→gate; live = #140) | 2 | S1 | **Klar** (#150) |
 | [D2](D2-repo-tree-readme-synk.md) | synka repo-tree + README mot verkligheten | 3 | — | **Klar** (#148) |
 | [C1](C1-plan-file-schema-deprecate.md) | markera `plan-file.schema.json` deprecated | 1 | — | **Klar** (#152) |

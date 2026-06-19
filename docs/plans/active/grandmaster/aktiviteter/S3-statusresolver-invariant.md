@@ -3,10 +3,11 @@ id: gm-akt-S3
 status: done
 parent: gm-omrade-02-stabilitetstester
 blocked_by: [gm-akt-S1]
-note: "Klar. Område 6 (event-bus-status-cut-over) landade (6-1 #159, 6-2 #160, 6-3 punkt 1 #162), så den parallella DB-helpern hade noll app-konsumenter och togs bort i 6-3 punkt 2. S3-invarianten flippades då från warn/xfail till en hård import-/anrops-vakt. Levererad i draft-PR (ej mergad)."
+note: "Klar. Område 6 (event-bus-status-cut-over) landade (6-1 #159, 6-2 #160, 6-3 punkt 1 #162), så den parallella DB-helpern hade noll app-konsumenter och togs bort i 6-3 punkt 2. S3-invarianten flippades då från warn/xfail till en hård import-/anrops-vakt. Levererad i draft-PR #163 (ej mergad)."
 owner_files:
   - src/lib/builder/status-resolver-single-writer.stability.test.ts
 risk: låg
+pr: "#163 (draft)"
 ---
 
 # S3 — statusresolver-invariant (klar — hård import-vakt)

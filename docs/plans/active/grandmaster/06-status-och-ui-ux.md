@@ -25,7 +25,7 @@ states, och gör follow-up-bas transparent ("du redigerar v7, senaste är v9").
 - [x] "Reparerar" / "Fix redo" / "Verifierad" / "Degraded" visas korrekt; placeholder ≠ success.
 - [x] Stabilitetstest låser N#6 (event-bus UI-flip) — `status-resolver-single-writer.stability.test.ts` (hård import-invariant).
 
-**Status (2026-06-19):** uppfyllt via 6-1 (#159), 6-2 (#160), 6-3 punkt 1 (#162) + 6-3 punkt 2 (denna draft-PR: S3-invariant aktiverad + legacy-resolver borttagen).
+**Status (2026-06-19):** uppfyllt via 6-1 (#159), 6-2 (#160), 6-3 punkt 1 (#162) + 6-3 punkt 2 (denna draft-PR #163: S3-invariant aktiverad + legacy-resolver borttagen).
 
 ## Nivå 3 (skapas när området startar)
 8–10 aktiviteter, smal `owner_files` var. Ej skapade än.
