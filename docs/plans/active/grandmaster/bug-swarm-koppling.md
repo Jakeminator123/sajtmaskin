@@ -42,7 +42,7 @@ Grandmaster äger gen-pipeline, kontrakt, status och false-green — **inte** en
 
 | Rad | Vad | Förslag |
 |---|---|---|
-| G#40 | Inspector SSRF (server-side request forgery): publik DNS som pekar på privat IP släpps igenom före `page.goto` | **Säkerhet — ta först**, egen liten PR |
+| G#40 | Inspector SSRF (server-side request forgery): publik DNS som pekar på privat IP släpps igenom före `page.goto`; dessutom auth-token **valfri** om env saknas + workern lyssnar `0.0.0.0` | **Säkerhet — ta först**, egen liten PR: DNS-resolve-guard före `page.goto` + auth/local-only-policy |
 | G#16 | `process.env` läses direkt i ~100 filer i stället för canonical `env.ts`-accessor | Bred env-refaktor, eget pass |
 | G#18 | Dubbla env-docs (oklar canonical sanning) | Docs-konsolidering, eget pass |
 | G#19 | Genererad `.env.local` kan vinna över user-env (precedence-ordning) | Env-build-beslut |
