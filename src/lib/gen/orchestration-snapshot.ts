@@ -420,11 +420,14 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       nonEmptyString(input.persistedScaffoldId) ?? readSnapshotString(snapshot, "scaffoldId"),
     variantId:
       nonEmptyString(input.persistedVariantId) ?? readSnapshotString(snapshot, "variantId"),
+    // Defensive copies: never hand out a shared array reference, so future
+    // enforcement code (5-3..5-6) cannot mutate the same arrays orchestrate
+    // reads. Same values/semantics, fresh instances.
     routePlan: {
-      existingRoutePaths: input.existingRoutePaths ?? [],
-      existingShellRoutePaths: input.existingShellRoutePaths ?? [],
+      existingRoutePaths: [...(input.existingRoutePaths ?? [])],
+      existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
-    capabilities: inheritedCapabilities,
+    capabilities: [...inheritedCapabilities],
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
   };
