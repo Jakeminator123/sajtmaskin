@@ -4,8 +4,7 @@ import { BrainCircuit, Code2, MousePointer2, X, Zap } from "lucide-react";
 import { type MouseEventHandler } from "react";
 import type { ElementMapItem } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
-
-type InspectEngine = "playwright" | "ai" | "map";
+import type { InspectEngine } from "./preview-panel-types";
 
 interface HoveredPlacement {
   label: string;

@@ -145,14 +145,18 @@ export function usePreviewPanelInspectMapPlacement(options: {
         // en ren iframe-state. Den parallella useEffect:en nedan fortsätter
         // dessutom trigga delayed map-fetch när previewUrl/versionId ändras.
         void fetchFilesForRegistry();
-        const container = iframeRef.current?.parentElement;
-        const w = container?.clientWidth || 1280;
-        const h = container?.clientHeight || 800;
-        void fetchElementMap(previewUrl, w, h, requestToken).then((count) => {
-          if (requestToken === inspectFetchTokenRef.current && count > 0) {
-            setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
-          }
-        });
+        if (inspectEngine !== "bridge") {
+          // Bridge-engine läser DOMen i previewn själv (postMessage) — ingen
+          // Playwright/element-map. usePreviewInspectBridge sköter set-mode.
+          const container = iframeRef.current?.parentElement;
+          const w = container?.clientWidth || 1280;
+          const h = container?.clientHeight || 800;
+          void fetchElementMap(previewUrl, w, h, requestToken).then((count) => {
+            if (requestToken === inspectFetchTokenRef.current && count > 0) {
+              setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
+            }
+          });
+        }
       } else {
         setHoveredMapElement(null);
         setElementMap([]);
@@ -161,13 +165,18 @@ export function usePreviewPanelInspectMapPlacement(options: {
       return next;
     });
     setLastCodeMatch(null);
-    setInspectStatus("Laddar elementkarta...");
+    setInspectStatus(
+      inspectEngine === "bridge"
+        ? "Inspektera: klicka på ett element i previewn."
+        : "Laddar elementkarta...",
+    );
   }, [
     previewUrl,
     fetchFilesForRegistry,
     fetchElementMap,
     inspectorEnabled,
     iframeRef,
+    inspectEngine,
     setInspectStatus,
     setLastCodeMatch,
   ]);
@@ -244,6 +253,9 @@ export function usePreviewPanelInspectMapPlacement(options: {
 
   useEffect(() => {
     if (!previewUrl || !inspectorEnabled) return;
+    // Bridge-engine använder ingen element-map → hoppa över pre-warm (annars
+    // onödiga 503 mot /api/inspector-element-map i prod).
+    if (inspectEngine === "bridge") return;
     setElementMap([]);
     let cancelled = false;
     const sleep = (ms: number) =>
@@ -272,7 +284,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     return () => {
       cancelled = true;
     };
-  }, [previewUrl, versionId, fetchElementMap, inspectorEnabled, iframeRef]);
+  }, [previewUrl, versionId, fetchElementMap, inspectorEnabled, iframeRef, inspectEngine]);
 
   useEffect(() => {
     if (inspectorEnabled) return;

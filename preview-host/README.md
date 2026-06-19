@@ -106,6 +106,8 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 
 **HMR-WebSocket-tystnad (2026-04-23):** Next 15:s app-router Fast Refresh ship:ar en egen WebSocket-klient som *inte* sitter i `HotModuleReplacementPlugin`, sa plugin-filtret rackte inte. I stallet gor `proxyPreviewUpgrade` i `src/runtime.js` en inline RFC 6455 101-handshake (`acceptAndHoldWebSocket`) for upgrade-requester till `/_next/(webpack|turbopack)-hmr` och haller sedan socketen oppen utan att skicka frames. Browsern ser sig som ansluten och slutar retry:a. Ingen ny dep kravs; handshaken ar en 10-raders SHA1+base64-snutt. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover akta HMR mot VM:en.
 
+**Inspector-bridge-injektion (opt-in, 2026-06-19):** nar `SAJTMASKIN_APP_ORIGIN` ar satt OCH ett dokument-anrop har `?inspect=1` buffrar `proxy.on("proxyRes")` (i `src/runtime.js`) HTML-svaret och injicerar `<script src="${SAJTMASKIN_APP_ORIGIN}/api/inspect-bridge?parent=...">` fore `</body>`. Allt annat (saknad env, ingen `?inspect=1`, icke-HTML eller komprimerade svar) ar ren passthrough -> oforandrat beteende. App-origin tas fran egen env, aldrig fran query, sa ingen kan be hosten injicera en godtycklig origin. Default av. Se `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`.
+
 Patchen kor i tva lager:
 
 1. **AST-laget** (`patchNextConfigViaAst`, acorn-baserat) parsar konfigen och injicerar i ratt object literal. Stoder fem shapes:

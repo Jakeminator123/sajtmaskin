@@ -16,6 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import {
+  INSPECT_BRIDGE_QUERY_PARAM,
+  isInspectBridgeEnabled,
+} from "@/lib/builder/inspect-bridge-feature";
 import type { FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
@@ -36,6 +40,7 @@ import { usePreviewIframe } from "./hooks/usePreviewIframe";
 import { usePreviewPanelCodeDrafts } from "./hooks/usePreviewPanelCodeDrafts";
 import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCapture";
 import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
+import { usePreviewInspectBridge } from "./hooks/usePreviewInspectBridge";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
@@ -160,8 +165,11 @@ export function PreviewPanel({
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(previewUrl);
   const inspectorEnabled = isBuilderInspectorEnabled();
+  const bridgeEnabled = inspectorEnabled && isInspectBridgeEnabled();
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
-  const [inspectEngine, setInspectEngine] = useState<InspectEngine>("map");
+  const [inspectEngine, setInspectEngine] = useState<InspectEngine>(
+    bridgeEnabled ? "bridge" : "map",
+  );
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [lastAiCostDisplay, setLastAiCostDisplay] = useState<string | null>(null);
@@ -312,6 +320,40 @@ export function PreviewPanel({
     setLastCodeMatch,
     setLastAiCostDisplay,
     setTotalAiCostUsd,
+  });
+
+  const handleBridgePick = useCallback(
+    (match: RegistryMatch | null) => {
+      if (!match) return;
+      setInspectMode(false);
+      startViewSwitchTransition(() => {
+        setViewMode("registry");
+        setSelectedRegistryId(match.item.id);
+        setSelectedRegistryLine(match.item.lineNumber);
+        setSelectedPath(match.item.filePath);
+      });
+    },
+    [
+      setInspectMode,
+      startViewSwitchTransition,
+      setViewMode,
+      setSelectedRegistryId,
+      setSelectedRegistryLine,
+      setSelectedPath,
+    ],
+  );
+
+  usePreviewInspectBridge({
+    enabled: bridgeEnabled,
+    active: inspectEngine === "bridge",
+    inspectMode,
+    previewUrl,
+    iframeRef,
+    elementRegistryRef,
+    fetchFilesForRegistry,
+    setInspectStatus,
+    setLastCodeMatch,
+    onPick: handleBridgePick,
   });
 
   const iframeRunbookLines = useMemo(
@@ -741,7 +783,24 @@ export function PreviewPanel({
   }, [viewMode, isTier2LivePreview, isV0Preview, previewLifecycle]);
 
   const isLoading = externalLoading || iframeLoading;
-  const previewSrc = previewUrl ? buildPreviewSrc(previewUrl, refreshToken) : "";
+  const previewSrc = useMemo(() => {
+    if (!previewUrl) return "";
+    let src = buildPreviewSrc(previewUrl, refreshToken);
+    // Bridge-opt-in: be preview-host/own-engine-shimmen injicera bridge-scriptet.
+    // Bara för egna/tier-2-previews (externa sidor ignorerar parametern ändå).
+    if (bridgeEnabled && (isOwnEnginePreview || isTier2LivePreview)) {
+      const separator = src.includes("?") ? "&" : "?";
+      src = `${src}${separator}${INSPECT_BRIDGE_QUERY_PARAM}=1`;
+    }
+    return src;
+  }, [
+    previewUrl,
+    refreshToken,
+    buildPreviewSrc,
+    bridgeEnabled,
+    isOwnEnginePreview,
+    isTier2LivePreview,
+  ]);
   const showBlobWarning = Boolean(
     previewUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
   );
@@ -766,7 +825,10 @@ export function PreviewPanel({
   const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
   const showComposerOverlay =
     composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
-  const showInspectOverlay = inspectorEnabled && inspectMode && !showPlacementOverlay;
+  // Bridge-engine renderar INTE den täckande overlayn — preview-iframen måste
+  // få mus-eventen själv (det injicerade scriptet ritar highlight + postar pick).
+  const showInspectOverlay =
+    inspectorEnabled && inspectMode && !showPlacementOverlay && inspectEngine !== "bridge";
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
   const handleShowLastCodeMatch = useCallback(() => {
     if (!lastCodeMatch) return;
