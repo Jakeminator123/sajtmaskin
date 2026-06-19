@@ -211,6 +211,14 @@ export type ChatMessagingParams = {
   chatId: string | null;
   /** When set, follow-up stream sends `meta.engineBaseVersionId` so the server merges from that version. */
   activeVersionId?: string | null;
+  /**
+   * 5-2 stale-base gate: the version the client currently believes is newest
+   * for this chat (`derived.latestVersionId`). useSendMessage forwards it as
+   * `meta.engineLatestKnownVersionId` on regular follow-ups so the server can
+   * 409 when a newer version exists. Distinct from `activeVersionId`, which may
+   * point at a deliberately-selected older version.
+   */
+  latestKnownVersionId?: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;

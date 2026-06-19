@@ -61,7 +61,10 @@ import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
-import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
+import {
+  resolveChatPreferredVersionId,
+  resolveFollowUpPreviousFiles,
+} from "@/lib/gen/version-manager";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
 import {
@@ -254,6 +257,17 @@ export async function handleMessageStreamRequest(
         const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
         const metaPlanMode = parsedMeta.planMode;
         const metaEngineBaseVersionId = parsedMeta.engineBaseVersionId;
+        // 5-2: the version the client believes is newest. Read raw (kept out of
+        // parse-chat-request-meta to keep this gate self-contained) and only
+        // sent by the regular follow-up path — explicit override passes
+        // (F3/autofix) omit it and are exempt from the stale-base gate below.
+        const metaEngineLatestKnownVersionId =
+          meta &&
+          typeof meta === "object" &&
+          typeof (meta as Record<string, unknown>).engineLatestKnownVersionId === "string"
+            ? ((meta as Record<string, unknown>).engineLatestKnownVersionId as string).trim() ||
+              null
+            : null;
         const metaAppProjectId = parsedMeta.appProjectId;
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
@@ -333,6 +347,46 @@ export async function handleMessageStreamRequest(
           chatId,
           metaEngineBaseVersionId,
         );
+
+        // 5-2 stale-base gate — mirrors finalize-design's `stale_design_version`
+        // 409 (finalize-design/route.ts). A follow-up must not silently build
+        // on a superseded base when a second writer (other client/agent,
+        // background repair) has advanced the chat. The client reports which
+        // version it believes is newest (`engineLatestKnownVersionId`); if the
+        // server already has a newer preferred/latest version than that, the
+        // client's whole view is stale → 409 so the user reloads. Deliberately
+        // editing an OLDER version (BuilderShellContent.tsx:181-212) stays
+        // allowed: there the client's known-latest still equals the server's,
+        // only `engineBaseVersionId` is older — so neither leg below is true.
+        if (metaEngineBaseVersionId && metaEngineLatestKnownVersionId) {
+          const serverPreferredVersionId = await resolveChatPreferredVersionId(engineChat.id);
+          const clientViewIsStale =
+            serverPreferredVersionId !== null &&
+            metaEngineLatestKnownVersionId !== serverPreferredVersionId &&
+            metaEngineBaseVersionId !== serverPreferredVersionId;
+          if (clientViewIsStale) {
+            debugLog("orchestration", "Follow-up stale base gated (409)", {
+              chatId,
+              requestedBaseVersionId: metaEngineBaseVersionId,
+              clientLatestVersionId: metaEngineLatestKnownVersionId,
+              latestVersionId: serverPreferredVersionId,
+            });
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error: "stale_base_version",
+                  reason: "stale_base_version",
+                  requestedBaseVersionId: metaEngineBaseVersionId,
+                  clientLatestVersionId: metaEngineLatestKnownVersionId,
+                  latestVersionId: serverPreferredVersionId,
+                  message:
+                    "En nyare version finns. Ladda om för att bygga vidare på den senaste versionen.",
+                },
+                { status: 409 },
+              ),
+            );
+          }
+        }
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`
         // drives routing + orchestration decisions in this function;
         // `hasMergeablePrevious` is forwarded (via `previousFilesCount`) to

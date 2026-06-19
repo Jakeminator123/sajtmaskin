@@ -379,6 +379,10 @@ export function useBuilderPageController() {
     useChatMessaging({
       chatId: state.chatId,
       activeVersionId: derived.activeVersionId,
+      // 5-2 stale-base gate: the client's current notion of the newest version,
+      // distinct from `activeVersionId` (which can be a deliberately-selected
+      // older version). Forwarded as `meta.engineLatestKnownVersionId`.
+      latestKnownVersionId: derived.latestVersionId,
       setChatId: state.setChatId,
       chatIdParam: state.chatIdParam,
       router,
