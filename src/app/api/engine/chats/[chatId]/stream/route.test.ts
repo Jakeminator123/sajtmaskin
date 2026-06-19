@@ -13,6 +13,7 @@ const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
+const resolveChatPreferredVersionId = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
@@ -189,6 +190,7 @@ vi.mock("@/lib/gen/orchestrate", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({
   resolveFollowUpPreviousFiles,
+  resolveChatPreferredVersionId,
 }));
 
 vi.mock("@/lib/gen/plan/prompt", () => ({
@@ -554,6 +556,11 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         language: "tsx",
       },
     ]);
+    // 5-2: default server-preferred version. Only consulted when a request
+    // carries BOTH engineBaseVersionId and engineLatestKnownVersionId (the
+    // stale-base gate); the other tests below never send the latter so the
+    // gate short-circuits before this is read.
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
     prepareGenerationContext.mockResolvedValue({
       resolvedScaffold: {
         id: "scaffold_1",
@@ -813,6 +820,136 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
+    // 5-2 (changed assumption): a bare engineBaseVersionId — without the
+    // companion engineLatestKnownVersionId signal — is still honoured and is
+    // NEVER routed through the stale-base gate. The gate only engages when the
+    // client also reports which version it believes is newest (the new tests
+    // below). This deliberately refines the previous assumption that *any*
+    // explicit base is silently accepted: bare bases stay accepted; the
+    // stale-race is caught only once the client reports its known-latest.
+    expect(resolveChatPreferredVersionId).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 stale_base_version when the client's known-latest is behind the server", async () => {
+    resolveChatPreferredVersionId.mockResolvedValue("ver_new");
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_old",
+          engineLatestKnownVersionId: "ver_old",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Uppdatera hero copy och CTA-knappen." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.reason).toBe("stale_base_version");
+    expect(body.requestedBaseVersionId).toBe("ver_old");
+    expect(body.latestVersionId).toBe("ver_new");
+    // Must not silently build on the superseded base.
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+  });
+
+  it("allows a follow-up when the explicit base equals the server's preferred version", async () => {
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_current",
+          engineLatestKnownVersionId: "ver_current",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+  });
+
+  it("allows a deliberate edit of an older version (no 409) when the client is up to date", async () => {
+    // base is an older version, but the client's known-latest matches the
+    // server's preferred — i.e. the user deliberately picked an older version.
+    resolveChatPreferredVersionId.mockResolvedValue("ver_new");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Edited older</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_old",
+          engineLatestKnownVersionId: "ver_new",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
   });
 
   it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
