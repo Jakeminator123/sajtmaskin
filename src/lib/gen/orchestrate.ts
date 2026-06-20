@@ -37,7 +37,7 @@ import {
   type InferredCapabilities,
 } from "./capability-inference";
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
-import { buildRoutePlan } from "./route-plan";
+import { buildRoutePlan, normalizeRoutePath } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {
   type ConfirmedContractAnswer,
@@ -301,8 +301,10 @@ export interface OrchestrationInput {
   previousFilesCount?: number;
   /**
    * Område 5 / 5-1: consolidated inherited/frozen follow-up signals
-   * ({@link FollowUpContract}). Additive and behaviour-neutral — orchestrate
-   * does not read this yet; later activities (5-2..5-7) validate against it.
+   * ({@link FollowUpContract}). 5-3 makes orchestrate read this as the *active*
+   * source to enforce the scaffold/variant/route freeze on neutral follow-ups
+   * (clamp on drift; clear-redesign exempt). Later activities (5-4..5-7) extend
+   * the validation to other surfaces.
    */
   followUpContract?: FollowUpContract;
 }
@@ -419,6 +421,184 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+}
+
+// ── Område 5 / 5-3: follow-up freeze-enforcement ──────────────────────────
+// `FollowUpContract` is the *active* source of the frozen scaffold / variant /
+// route a neutral follow-up must not drift away from. These pure helpers
+// decide, from already-resolved values, whether orchestrate drifted from the
+// contract — so the integration points stay tiny and the decisions are
+// unit-testable in isolation (mirrors `resolveBuildIntentPromotion`).
+// clear-redesign is the exemption: a genuine redesign is allowed to rematch.
+
+/** Surfaces guarded by 5-3 freeze-enforcement (used by the drift telemetry). */
+export type FollowUpFreezeSurface = "scaffold" | "variant" | "route";
+
+export interface FollowUpScaffoldFreezeInput {
+  resolvedMode: "init" | "followUp";
+  /** clear-redesign scaffold-unlock signal (auto-mode rematch) — exempts the clamp. */
+  ignorePersistedScaffoldForMatch: boolean;
+  /** Frozen scaffold id from the active contract (null → nothing to freeze to). */
+  contractScaffoldId: string | null;
+  /** Scaffold id orchestrate resolved before enforcement. */
+  resolvedScaffoldId: string | null;
+}
+
+export interface FollowUpScaffoldFreezeDecision {
+  /** Scaffold id to use after enforcement: the frozen id when clamped, else the resolved id. */
+  scaffoldId: string | null;
+  /** True when the resolved scaffold drifted from the contract and was clamped. */
+  clamped: boolean;
+}
+
+/**
+ * Decide whether a follow-up's resolved scaffold drifted from the frozen
+ * contract scaffold. Returns `clamped: true` + the frozen id when a neutral
+ * follow-up resolved a *different* scaffold — e.g. a client-sent
+ * `scaffoldMode:"manual"` swap (the orchestrate manual-bypass). No-op on init,
+ * on clear-redesign (lock released), when the contract carries no scaffold, or
+ * when there is no drift. Pure and behaviour-neutral when nothing drifted.
+ */
+export function enforceFollowUpScaffoldFreeze(
+  input: FollowUpScaffoldFreezeInput,
+): FollowUpScaffoldFreezeDecision {
+  const { resolvedMode, ignorePersistedScaffoldForMatch, contractScaffoldId, resolvedScaffoldId } =
+    input;
+  if (
+    resolvedMode !== "followUp" ||
+    ignorePersistedScaffoldForMatch ||
+    !contractScaffoldId ||
+    !resolvedScaffoldId ||
+    resolvedScaffoldId === contractScaffoldId
+  ) {
+    return { scaffoldId: resolvedScaffoldId, clamped: false };
+  }
+  return { scaffoldId: contractScaffoldId, clamped: true };
+}
+
+export interface FollowUpVariantFreezeInput {
+  resolvedMode: "init" | "followUp";
+  /** clear-redesign releases the variant lock (matcher picks a fresh look). */
+  followUpIntent: FollowUpIntentMode | null | undefined;
+  contractVariantId: string | null;
+  resolvedVariantId: string | null;
+}
+
+export interface FollowUpVariantFreezeDecision {
+  variantId: string | null;
+  clamped: boolean;
+}
+
+/**
+ * Decide whether a follow-up's resolved variant drifted from the frozen
+ * contract variant. `lockedVariantForFollowUp` already pins neutral follow-ups
+ * to the prior variant; this is the assertion/clamp safety net for the residual
+ * case where the lock fell through to a fresh pick. clear-redesign is exempt.
+ */
+export function enforceFollowUpVariantFreeze(
+  input: FollowUpVariantFreezeInput,
+): FollowUpVariantFreezeDecision {
+  const { resolvedMode, followUpIntent, contractVariantId, resolvedVariantId } = input;
+  if (
+    resolvedMode !== "followUp" ||
+    followUpIntent === "clear-redesign" ||
+    !contractVariantId ||
+    !resolvedVariantId ||
+    resolvedVariantId === contractVariantId
+  ) {
+    return { variantId: resolvedVariantId, clamped: false };
+  }
+  return { variantId: contractVariantId, clamped: true };
+}
+
+export interface FollowUpRouteFreezeInput {
+  resolvedMode: "init" | "followUp";
+  /** clear-redesign may rebuild the route plan; skip the drift check. */
+  ignorePersistedScaffoldForMatch: boolean;
+  /** Frozen base routes from the contract (`routePlan.existingRoutePaths`). */
+  contractExistingRoutePaths: string[];
+  /**
+   * Frozen deferred-shell route paths from the contract
+   * (`routePlan.existingShellRoutePaths`). Validated alongside
+   * `contractExistingRoutePaths` so dropping a frozen shell route also drifts.
+   * Optional / defaults to `[]` so the no-shell case stays unchanged.
+   */
+  contractShellRoutePaths?: string[];
+  /** Route paths orchestrate's `buildRoutePlan` produced. */
+  resolvedRoutePaths: string[];
+}
+
+export interface FollowUpRouteFreezeDecision {
+  /** Frozen contract routes (existing + shell) missing from the resolved plan. */
+  droppedPaths: string[];
+  /** Subset of `droppedPaths` that were frozen deferred-shell routes. */
+  droppedShellPaths: string[];
+  drifted: boolean;
+}
+
+/**
+ * Detect whether any frozen contract route was dropped from a neutral
+ * follow-up's resolved route plan. Covers the FULL frozen `routePlan` — both
+ * `existingRoutePaths` and `existingShellRoutePaths` — so dropping a frozen
+ * deferred-shell route also fires the drift signal (closes a false-green gap
+ * where only the non-shell array was validated).
+ *
+ * Validation-only (no clamp): `buildRoutePlan` already freezes existing routes
+ * and only drops one when the user explicitly asks to remove it — re-adding
+ * paths here would clobber that legitimate removal, and distinguishing the two
+ * needs the builder's internal `explicitRouteRemovals` context (a broader grip
+ * than 5-3's narrow scope). So 5-3 emits a route drift signal and DEFERS a hard
+ * route-clamp (the signal now spans the full frozen routePlan even though the
+ * clamp stays deferred). clear-redesign is exempt. Both sides are normalized so
+ * trailing-slash forms never false-fire.
+ */
+export function detectFollowUpRouteDrift(
+  input: FollowUpRouteFreezeInput,
+): FollowUpRouteFreezeDecision {
+  const {
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractExistingRoutePaths,
+    contractShellRoutePaths = [],
+    resolvedRoutePaths,
+  } = input;
+  if (
+    resolvedMode !== "followUp" ||
+    ignorePersistedScaffoldForMatch ||
+    (contractExistingRoutePaths.length === 0 && contractShellRoutePaths.length === 0)
+  ) {
+    return { droppedPaths: [], droppedShellPaths: [], drifted: false };
+  }
+  const resolved = new Set(resolvedRoutePaths.map((path) => normalizeRoutePath(path)));
+  const frozenShell = Array.from(
+    new Set(contractShellRoutePaths.map((path) => normalizeRoutePath(path))),
+  );
+  const frozenAll = Array.from(
+    new Set(
+      [...contractExistingRoutePaths, ...contractShellRoutePaths].map((path) =>
+        normalizeRoutePath(path),
+      ),
+    ),
+  );
+  const droppedShellPaths = frozenShell.filter((path) => !resolved.has(path));
+  const droppedPaths = frozenAll.filter((path) => !resolved.has(path));
+  return { droppedPaths, droppedShellPaths, drifted: droppedPaths.length > 0 };
+}
+
+/**
+ * Best-effort drift telemetry for 5-3 freeze-enforcement. Mirrors the existing
+ * `[orchestrate] scaffold_drift` / `variant_drift` console signals and is
+ * wrapped so telemetry can NEVER throw and break generation.
+ */
+function emitFollowUpFreezeDrift(
+  surface: FollowUpFreezeSurface,
+  detail: Record<string, unknown>,
+): void {
+  try {
+    console.info("[orchestrate] followup_freeze_drift", { surface, ...detail });
+  } catch {
+    // ignore — drift telemetry is best-effort and must not break gen
+  }
 }
 
 /**
@@ -568,6 +748,38 @@ export async function resolveOrchestrationBase(
 
   }
 
+  // ── 5-3 freeze-enforcement (scaffold) ──
+  // Close the orchestrate manual-bypass: a neutral follow-up that sent
+  // `scaffoldMode:"manual"` + a different scaffoldId must not swap away from
+  // the frozen contract scaffold. clear-redesign (ignorePersistedScaffoldForMatch)
+  // stays exempt. Behaviour-neutral when there is no drift.
+  const scaffoldFreeze = enforceFollowUpScaffoldFreeze({
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractScaffoldId: input.followUpContract?.scaffoldId ?? null,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+  });
+  if (scaffoldFreeze.clamped && scaffoldFreeze.scaffoldId) {
+    const frozenScaffold = getScaffoldById(scaffoldFreeze.scaffoldId);
+    if (frozenScaffold) {
+      const driftedFromScaffoldId = resolvedScaffold?.id ?? null;
+      resolvedScaffold = frozenScaffold;
+      scaffoldSelection = {
+        ...scaffoldSelection,
+        selectedScaffold: frozenScaffold.id,
+        selectionMethod: "persisted",
+        selectionConfidence: "high",
+        topCandidates: [{ id: frozenScaffold.id, score: 1, source: "keyword" }],
+      };
+      emitFollowUpFreezeDrift("scaffold", {
+        chatId: input.chatId ?? null,
+        from: driftedFromScaffoldId,
+        to: frozenScaffold.id,
+        requestedScaffoldMode: scaffoldMode,
+      });
+    }
+  }
+
   // ── Drift detection: Brief-LLM scaffold nomination vs final pick (Fas 1.0) ──
   // Brief returns a hint; the embedding/keyword pick above is the final answer.
   // Logging drift makes mismatches visible in dev and lets us tune confidence
@@ -691,6 +903,28 @@ export async function resolveOrchestrationBase(
     existingRoutePaths,
     locale: resolvedLocale,
   });
+
+  // ── 5-3 freeze-enforcement (route) ──
+  // Validation-only: detect when a neutral follow-up's plan dropped a frozen
+  // base route. Covers the FULL frozen routePlan (existing + deferred-shell
+  // routes). `buildRoutePlan` already freezes existing routes, so this is a
+  // drift signal — the hard route-clamp stays deferred (see
+  // `detectFollowUpRouteDrift`). clear-redesign stays exempt.
+  const routeDrift = detectFollowUpRouteDrift({
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractExistingRoutePaths: input.followUpContract?.routePlan.existingRoutePaths ?? [],
+    contractShellRoutePaths: input.followUpContract?.routePlan.existingShellRoutePaths ?? [],
+    resolvedRoutePaths: routePlan.routes.map((route) => route.path),
+  });
+  if (routeDrift.drifted) {
+    emitFollowUpFreezeDrift("route", {
+      chatId: input.chatId ?? null,
+      droppedPaths: routeDrift.droppedPaths,
+      droppedShellPaths: routeDrift.droppedShellPaths,
+    });
+  }
+
   const preGenerationContracts = inferPreGenerationContracts({
     prompt: input.contractsPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
@@ -872,7 +1106,7 @@ export async function finalizeOrchestrationPrompts(
     (input.persistedVariantId && scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
       : null);
-  const resolvedVariant =
+  let resolvedVariant =
     persistedVariant ??
     (await resolveScaffoldVariant(
       scaffoldIdForVariant,
@@ -881,6 +1115,31 @@ export async function finalizeOrchestrationPrompts(
       resolvedMode,
       input.sessionSeed,
     ));
+
+  // ── 5-3 freeze-enforcement (variant) ──
+  // Neutral follow-ups must keep the frozen contract variant. `lockedVariantForFollowUp`
+  // already pins neutral runs; this clamps the residual case where the lock fell
+  // through to a fresh pick. clear-redesign stays exempt. Behaviour-neutral when
+  // there is no drift.
+  const variantFreeze = enforceFollowUpVariantFreeze({
+    resolvedMode,
+    followUpIntent: input.followUpIntent,
+    contractVariantId: input.followUpContract?.variantId ?? null,
+    resolvedVariantId: resolvedVariant?.id ?? null,
+  });
+  if (variantFreeze.clamped && variantFreeze.variantId) {
+    const frozenVariant = getVariantById(scaffoldIdForVariant, variantFreeze.variantId);
+    if (frozenVariant) {
+      const driftedFromVariantId = resolvedVariant?.id ?? null;
+      resolvedVariant = frozenVariant;
+      emitFollowUpFreezeDrift("variant", {
+        chatId: input.chatId ?? null,
+        from: driftedFromVariantId,
+        to: frozenVariant.id,
+        scaffoldId: scaffoldIdForVariant,
+      });
+    }
+  }
 
   // ── Drift detection: Brief variant nomination vs embedding pick (Fas 1.0) ──
   const briefVariantNom = (brief as { variantNomination?: { id?: string; confidence?: number } } | null | undefined)
