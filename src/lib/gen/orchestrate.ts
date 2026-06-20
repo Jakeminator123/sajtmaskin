@@ -432,7 +432,7 @@ export interface FinalizedOrchestrationContext {
 // clear-redesign is the exemption: a genuine redesign is allowed to rematch.
 
 /** Surfaces guarded by 5-3 freeze-enforcement (used by the drift telemetry). */
-export type FollowUpFreezeSurface = "scaffold" | "variant" | "route";
+export type FollowUpFreezeSurface = "scaffold" | "variant" | "route" | "capabilities";
 
 export interface FollowUpScaffoldFreezeInput {
   resolvedMode: "init" | "followUp";
@@ -718,6 +718,80 @@ export function enforceFollowUpRouteFreeze(
     restoredShellPaths,
     allowedRemovalPaths,
     clamped: restoredPaths.length > 0,
+  };
+}
+
+export interface FollowUpCapabilityFloorInput {
+  resolvedMode: "init" | "followUp";
+  /**
+   * Dossier capabilities after `filterDossierCapabilitiesForPrompt` ran — the
+   * brief ∪ inferred ∪ caller union with this-message prompt filtering already
+   * applied.
+   */
+  resolvedCapabilities: string[];
+  /**
+   * Frozen capability floor from the {@link FollowUpContract} (base version's
+   * snapshot `requestedCapabilities`). Empty/absent on init.
+   */
+  contractCapabilities: string[];
+}
+
+export interface FollowUpCapabilityFloorDecision {
+  /** Final dossier capabilities: resolved with the floor restored (resolved → restored order). */
+  capabilities: string[];
+  /** Floor capabilities that were missing from `resolvedCapabilities` and got restored. */
+  restoredCapabilities: string[];
+  /** True when the floor restored at least one capability. */
+  floorApplied: boolean;
+}
+
+/** Normalize a capability list: trim + lowercase + drop empties + dedup (order-preserving). */
+function normalizeCapabilityList(capabilities: readonly unknown[]): string[] {
+  return Array.from(
+    new Set(
+      capabilities
+        .filter((capability): capability is string => typeof capability === "string")
+        .map((capability) => capability.trim().toLowerCase())
+        .filter((capability) => capability.length > 0),
+    ),
+  );
+}
+
+/**
+ * 5-5 capabilities can-only-grow: a follow-up must never SILENTLY drop a
+ * capability the base version already established. The post-filter dossier
+ * capability list (`filterDossierCapabilitiesForPrompt` output) is unioned back
+ * with the {@link FollowUpContract} floor so an established base capability
+ * (e.g. an init `contact-form`) survives even when *this* follow-up message
+ * doesn't mention it. Pure; behaviour-neutral when the floor adds nothing.
+ *
+ * Floor, not ceiling: capabilities the follow-up newly added flow through
+ * untouched; only missing floor entries are restored, appended after the
+ * resolved order (resolved → restored).
+ *
+ * NOTE — unlike scaffold/variant/route, the capability floor is NOT exempt on
+ * clear-redesign: a genuine redesign still must not silently drop a paid
+ * integration the user already has (can-only-grow holds across a redesign).
+ * No-op on init (no contract floor) and whenever the floor is already covered.
+ */
+export function enforceFollowUpCapabilityFloor(
+  input: FollowUpCapabilityFloorInput,
+): FollowUpCapabilityFloorDecision {
+  const resolved = normalizeCapabilityList(input.resolvedCapabilities);
+  // Init never carries a contract floor; keep init capability selection intact.
+  if (input.resolvedMode !== "followUp") {
+    return { capabilities: resolved, restoredCapabilities: [], floorApplied: false };
+  }
+  const floor = normalizeCapabilityList(input.contractCapabilities);
+  const resolvedSet = new Set(resolved);
+  const restoredCapabilities = floor.filter((capability) => !resolvedSet.has(capability));
+  if (restoredCapabilities.length === 0) {
+    return { capabilities: resolved, restoredCapabilities: [], floorApplied: false };
+  }
+  return {
+    capabilities: [...resolved, ...restoredCapabilities],
+    restoredCapabilities,
+    floorApplied: true,
   };
 }
 
@@ -1228,10 +1302,26 @@ export async function resolveOrchestrationBase(
         prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
         previewPolicy: buildSpec.previewPolicy,
       });
-      dossierRequestedCapabilities = mergedCaps;
+      // 5-5 capabilities can-only-grow: restore the FollowUpContract floor so a
+      // base-version capability (e.g. an init contact-form) can never be
+      // silently filtered away just because this follow-up message doesn't
+      // mention it. Floor, not ceiling — new caps still flow; init is a no-op.
+      const capabilityFloor = enforceFollowUpCapabilityFloor({
+        resolvedMode,
+        resolvedCapabilities: mergedCaps,
+        contractCapabilities: input.followUpContract?.capabilities ?? [],
+      });
+      if (capabilityFloor.floorApplied) {
+        emitFollowUpFreezeDrift("capabilities", {
+          chatId: input.chatId ?? null,
+          floorApplied: true,
+          restoredCapabilities: capabilityFloor.restoredCapabilities,
+        });
+      }
+      dossierRequestedCapabilities = capabilityFloor.capabilities;
       dossierSelection = selectDossiersForRequest({
         brief,
-        requestedCapabilities: mergedCaps,
+        requestedCapabilities: capabilityFloor.capabilities,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
