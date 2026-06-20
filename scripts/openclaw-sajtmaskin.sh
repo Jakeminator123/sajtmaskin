@@ -16,14 +16,19 @@
 #   scripts/openclaw-sajtmaskin.sh "<uppgift till agenten>"
 #   echo "<lång uppgift>" | scripts/openclaw-sajtmaskin.sh
 #
-# Tunables (env): THINKING=high|medium|low  TIMEOUT=<sek>  SESSION=<id>
+# Tunables (env): THINKING=medium|low|high  TIMEOUT=<sek>  SESSION=<id>
 #                 OPENCLAW_MODEL=openai/gpt-5.3-codex
+#
+# KOSTNAD: default-profilen är medvetet "medium" (inte "high") — se
+# .cursor/rules/llm-cost-safety.mdc. Nyckeln är delad och driver produktion;
+# "high" reasoning + retry-stormar tömmer kvoten. Höj till high bara för en
+# enstaka, godkänd, väl avgränsad körning.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
 REPO="/Users/christophergenberg/Desktop/Sajtmaskin-2.0"
 PROFILE="sajtmaskin"
-THINKING="${THINKING:-high}"
+THINKING="${THINKING:-medium}"
 TIMEOUT="${TIMEOUT:-1800}"
 AGENT="${AGENT:-main}"
 # Stabil session => agenten minns tidigare turer. SESSION="" => ny varje gång.

@@ -1,0 +1,34 @@
+---
+description: Kostnadsskydd för autonoma LLM-agenter (delad API-nyckel)
+alwaysApply: true
+---
+
+# LLM-kostnadsskydd — autonoma agenter på delad nyckel
+
+Den OpenAI/Anthropic-nyckel som ligger i `.env.local` är **delad** och driver
+produktion: site-generering, OpenClaw/OpenClo och sajtbyggaren. En autonom
+codex-agent kan tömma kvoten på en session → `insufficient_quota` (429) → ALLT
+på nyckeln slutar svara. Behandla API-kvot som en delad, begränsad resurs.
+
+## Hårda regler
+
+1. **Kräv uttryckligt godkännande per session** innan du startar en autonom
+   kod-agent (`openclaw agent --local`, `aider`, `codex`, motsvarande). Kör dem
+   inte spontant. Default = kör INTE.
+2. **Billig profil när godkänt:** `--thinking medium` eller lägre (ALDRIG `high`
+   för rutin), begränsa output-tokens, slå på prompt-caching när det finns.
+   Använd `scripts/openclaw-sajtmaskin.sh` (har medium som default).
+3. **Inga retry-stormar:** ger en agent-körning tom output, gör MAX 1 omkörning,
+   sedan STOPP + fråga användaren. Starta inte om upprepat — varje tur skickar om
+   hela ~110k-kontexten = verklig kostnad även för misslyckade körningar.
+4. **Inga loopar:** sätt ALDRIG upp cron/launchd/heartbeat eller `/loop` som
+   anropar betald LLM-API utan uttryckligt godkännande.
+5. **Varna före batch:** innan flera/långa autonoma körningar, ge en grov
+   kostnadsuppskattning (turer × ~$0.19 input + reasoning/output) och invänta ja.
+6. **Små scoped uppgifter** framför stora — mindre kontext per tur, lägre kostnad
+   och färre flakiga omkörningar.
+
+## Snabb sanity-check innan en autonom körning
+- Är detta godkänt av användaren i den här sessionen?
+- thinking ≤ medium? output-tak satt?
+- Kör redan något (annan agent/gateway/loop)? Dubbelkör inte.
