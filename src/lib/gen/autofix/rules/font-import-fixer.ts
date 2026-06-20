@@ -1,12 +1,16 @@
 import type { AutoFixEntry } from "../pipeline";
 import {
   GOOGLE_FONT_IMPORT_NAMES,
+  getGoogleFontSupportedWeights,
+  isVariableGoogleFont,
   resolveGoogleFontImportName,
 } from "@/lib/gen/data/google-font-registry";
 import { getVariantById } from "@/lib/gen/scaffold-variants/registry";
 import type { ScaffoldId } from "@/lib/gen/scaffolds/types";
 
 const FONT_USAGE_RE = /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{/g;
+const FONT_CONST_CALL_RE =
+  /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{[\s\S]*?\}\s*\)/g;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
 
 // TODO(#4): bandage — preview-host serves `_next/static/media/*` woff2 files
@@ -80,6 +84,48 @@ function applyPreviewFontReplacements(
       file: filePath,
     });
   }
+  return { code: next, fixes };
+}
+
+function pickDefaultWeight(weights: readonly string[]): string {
+  if (weights.includes("400")) return "400";
+  return weights[0] ?? "400";
+}
+
+function injectMissingNonVariableFontWeights(
+  code: string,
+  filePath: string,
+): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+
+  const next = code.replace(FONT_CONST_CALL_RE, (match, fontName: string) => {
+    if (!GOOGLE_FONT_IMPORT_NAMES.has(fontName)) return match;
+    if (isVariableGoogleFont(fontName)) return match;
+
+    const supportedWeights = getGoogleFontSupportedWeights(fontName);
+    if (!supportedWeights || supportedWeights.length === 0) return match;
+
+    const openBrace = match.indexOf("{");
+    const closeBrace = match.lastIndexOf("}");
+    if (openBrace === -1 || closeBrace <= openBrace) return match;
+
+    const objectBody = match.slice(openBrace + 1, closeBrace);
+    if (/\bweight\s*:/.test(objectBody)) return match;
+
+    const weight = pickDefaultWeight(supportedWeights);
+    const insertion = objectBody.trim().length === 0
+      ? ` weight: "${weight}"`
+      : ` weight: "${weight}",`;
+
+    fixes.push({
+      fixer: "font-import-fixer",
+      description: `Added missing weight \"${weight}\" for non-variable font ${fontName}`,
+      file: filePath,
+    });
+
+    return `${match.slice(0, openBrace + 1)}${insertion}${match.slice(openBrace + 1)}`;
+  });
+
   return { code: next, fixes };
 }
 
@@ -196,6 +242,10 @@ export function fixFontImport(
   const replaced = applyPreviewFontReplacements(workingCode, filePath);
   workingCode = replaced.code;
   aggregatedFixes.push(...replaced.fixes);
+
+  const withWeights = injectMissingNonVariableFontWeights(workingCode, filePath);
+  workingCode = withWeights.code;
+  aggregatedFixes.push(...withWeights.fixes);
 
   const usedFonts = new Set<string>();
   for (const match of workingCode.matchAll(FONT_USAGE_RE)) {

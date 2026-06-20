@@ -171,3 +171,55 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(result.code).toBe(BASELINE_LAYOUT);
   });
 });
+
+describe("fixFontImport — non-variable font weight injection", () => {
+  it("injects weight for non-variable font calls that omit it", () => {
+    const layout = `import { DM_Serif_Display } from "next/font/google";
+
+const fontDisplay = DM_Serif_Display({ subsets: ["latin"], variable: "--font-display", display: "swap" });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <body className={fontDisplay.variable}>{children}</body>;
+}
+`;
+
+    const result = fixFontImport(layout, "app/layout.tsx");
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain(
+      'const fontDisplay = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });',
+    );
+  });
+
+  it("does not inject weight for variable font calls", () => {
+    const layout = `import { Inter } from "next/font/google";
+
+const fontSans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <body className={fontSans.variable}>{children}</body>;
+}
+`;
+
+    const result = fixFontImport(layout, "app/layout.tsx");
+
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(layout);
+  });
+
+  it("does not modify non-variable calls that already define weight", () => {
+    const layout = `import { DM_Serif_Display } from "next/font/google";
+
+const fontDisplay = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "--font-display", display: "swap" });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <body className={fontDisplay.variable}>{children}</body>;
+}
+`;
+
+    const result = fixFontImport(layout, "app/layout.tsx");
+
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(layout);
+  });
+});

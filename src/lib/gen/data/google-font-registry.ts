@@ -18,6 +18,20 @@ export interface GoogleFontEntry {
   category: "sans-serif" | "serif" | "display" | "mono";
 }
 
+const NON_VARIABLE_GOOGLE_FONT_WEIGHTS: Record<string, readonly string[]> = {
+  Barlow: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  Bebas_Neue: ["400"],
+  Crimson_Text: ["400", "600", "700"],
+  DM_Serif_Display: ["400"],
+  Instrument_Serif: ["400"],
+  IBM_Plex_Mono: ["100", "200", "300", "400", "500", "600", "700"],
+  Lato: ["100", "300", "400", "700", "900"],
+  Poppins: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  Space_Mono: ["400", "700"],
+  Tenor_Sans: ["400"],
+  Ubuntu: ["300", "400", "500", "700"],
+};
+
 export const GOOGLE_FONT_REGISTRY: Record<string, GoogleFontEntry> = {
   // — Sans-serif —
   Inter: { displayName: "Inter", variable: "--font-sans", category: "sans-serif" },
@@ -71,6 +85,7 @@ export const GOOGLE_FONT_REGISTRY: Record<string, GoogleFontEntry> = {
   Crimson_Text: { displayName: "Crimson Text", variable: "--font-serif", category: "serif" },
   EB_Garamond: { displayName: "EB Garamond", variable: "--font-serif", category: "serif" },
   Instrument_Serif: { displayName: "Instrument Serif", variable: "--font-display", category: "serif" },
+  Bitter: { displayName: "Bitter", variable: "--font-serif", category: "serif" },
 
   // — Display —
   Bebas_Neue: { displayName: "Bebas Neue", variable: "--font-display", category: "display" },
@@ -94,6 +109,14 @@ for (const [importName, entry] of Object.entries(GOOGLE_FONT_REGISTRY)) {
 /** Resolve a human-readable font name (e.g. "JetBrains Mono") to its next/font/google import name. */
 export function resolveGoogleFontImportName(displayName: string): string | undefined {
   return _displayNameIndex.get(displayName.toLowerCase());
+}
+
+export function getGoogleFontSupportedWeights(importName: string): readonly string[] | undefined {
+  return NON_VARIABLE_GOOGLE_FONT_WEIGHTS[importName];
+}
+
+export function isVariableGoogleFont(importName: string): boolean {
+  return !NON_VARIABLE_GOOGLE_FONT_WEIGHTS[importName];
 }
 
 /** Set of all known import names (for use in autofix whitelists). */
