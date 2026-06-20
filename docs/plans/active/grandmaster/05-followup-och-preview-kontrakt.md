@@ -41,6 +41,8 @@ scaffold, tappa route, tappa capability eller bygga på fel version.
 Follow-up kan aldrig omedvetet byta scaffold/tappa route/bygga på fel version;
 stabilitetstest låser det. Stale basversion ger serverfel (409), inte tyst bygge.
 
+> **STATUS 2026-06-21 — kärnan klar (~Område 5 stängt).** "Klart när"-kriterierna uppfyllda: scaffold/variant-frys (5-3) + route hard-clamp (5-3b) + capability-floor (5-5) + stale-base-409 (5-2) + clear-redesign-delta-brief (5-4), alla **blockerande CI-gatade** (5-7, #176). **5-6 previewSessionId parkerad** (tunt; värdefull re-pin-efter-finalize-variant = backlog). 5-Z (doc-drift) klar. Återstår som backlog: re-pin-varianten + F4/F5 + vestigial nominerings-kod.
+
 ## Nivå 3 — aktiviteter (skapade 2026-06-19, körordning)
 Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skapas just-in-time per aktivitet (5-1..5-5 + 5-3b finns; 5-6/5-7 + 5-Z stubbas när de är på tur).
 
@@ -52,8 +54,8 @@ Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skap
 | [5-3b](aktiviteter/5-3b-route-hard-clamp.md) | Hård route-clamp + explicit route-removal (route blir floor, ej bara drift-signal); clear-redesign + explicit removal undantag | 5-3 | Medel | `orchestrate.ts` (`enforceFollowUpRouteFreeze`) | **Klar** (#172) |
 | [5-4](aktiviteter/5-4-clear-redesign-delta-brief.md) | F1-fix: clear-redesign-delta-brief når orchestrate | 5-1 | Medel | `chat-message-stream-post.ts:436-490`, `follow-up-orchestration-input.ts:82-84` | **Klar** (#169) |
 | [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (floor-union efter prompt-filter) | 5-1 + 5-3 | Medel | `orchestrate.ts` (`enforceFollowUpCapabilityFloor`) | **Klar** (#174) |
-| 5-6 | `previewSessionId` in i kontraktet + validering vid follow-up-start | 5-1 | Låg–medel | `preview-session/route.ts`, kontrakt | stub |
-| 5-7 | Stabilitetstest: follow-up byter ej scaffold / tappar ej route / bygger ej på fel version + svensk åäö follow-up-intent-test | 5-1..5-6 | Låg (test) | `*.stability.test.ts` | stub |
-| 5-Z | Z-städ: LLM-flow-modulnamn/kartsynk, doc-drift F3/F5 | 5-1..5-7 | Låg | docs + ev. barrel | stub |
+| 5-6 | `previewSessionId` in i kontraktet + validering vid follow-up-start | 5-1 | Låg–medel | `preview-session/route.ts`, kontrakt | **Parkerad** (tunt/redundant — kontraktet bär redan fältet; preview-routen version-pinnar redan vid session-start. Den värdefulla "preview re-pinnar till nya versionen efter follow-up-finalize / anti-stale-falsk-grön"-varianten = egen scopad backlog) |
+| 5-7 | Follow-up-kontrakt-invarianter → blockerande CI (lane-promotion) | 5-1..5-5 | Låg (test) | `package.json`, `.github/workflows/ci.yml` | **Klar** (#176) |
+| 5-Z | Z-städ: LLM-karta/flowchart-synk, doc-drift F1/F2/F3 + nominerings-drift rättad | 5-1..5-7 | Låg | docs | **Klar** (2026-06-21) |
 
 **Hård route-clamp + explicit route-removal — byggd & mergad som 5-3b (#172, 2026-06-20):** route är nu **floor** (ej bara drift-signal) — en tyst tappad fryst route återinförs; clear-redesign + explicit route-removal är undantag. Coachens nästa prioritet = capability single-source (5-5), sedan preview-session/version-pinning + finalize/readiness-kontrakt.

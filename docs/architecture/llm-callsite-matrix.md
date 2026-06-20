@@ -79,23 +79,25 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 ## Deterministiska steg i kedjan (ingen LLM — viktigt för mental modell)
 `route-plan-builder.ts:24-72` (routes) · `capability-dossier-bridge.ts:26-37` (capability→dossier) · `dossiers/select.ts` (dossier-pick) · `build-dynamic-context.ts:118` + `compose.ts:38` (system-prompt) · `pre-generation-contract-gate.ts:37` (SSE only) · `follow-up-clarification.ts` intent-regex · `domain-inference.ts` + `prompt-heuristics.ts` (brief-signaler) · `error-log-retriever.ts` (TF-IDF rerank).
 
-## Verifierade fynd (kod-kollade, kandidat-buggar — F3 åtgärdad i denna PR; F1/F2/F4/F5 öppna)
+## Verifierade fynd (kod-kollade, kandidat-buggar — F1/F2/F3 åtgärdade; F4/F5 backlog)
 
 | ID | Fynd | Bevis (fil:rad) | Konsekvens | Hör till |
 |---|---|---|---|---|
-| **F1** | **clear-redesign-delta-brief når aldrig orchestrate.** `metaBrief` sätts `chat-message-stream-post.ts:477` men `buildFollowUpOrchestrationInput` (`:867`) får `parsedMeta` (`:872`); orchestrate läser `parsedMeta.brief ?? buildFollowUpBriefFromSnapshot` (`follow-up-orchestration-input.ts:82-84`). `metaBrief` (init `null` `:268`) skrivs aldrig till `parsedMeta.brief` → läses bara i telemetri (`:1049,1133`). | verifierat 2026-06-19 | Bortkastat LLM-anrop; clear-redesign får snapshot-brief, inte sin färska delta → "bygg om designen" är svagare än avsett | Område 5 / bug-swarm |
-| **F2** | **Stale `baseVersionId` saknar gate i follow-up-strömmen.** Explicit `engineBaseVersionId` accepteras tyst (`version-manager.ts:82-107`; test `stream/route.test.ts:785-815`). `finalize-design` (F3) returnerar däremot 409 (`finalize-design/route.ts:126-143`). | agent E + asymmetri-koll | Follow-up kan bygga på fel/stale version utan serverfel (bryter Område 5 "Klart när") | Område 5 (akt 5-2) |
+| **F1** | **clear-redesign-delta-brief når aldrig orchestrate.** `metaBrief` sätts `chat-message-stream-post.ts:477` men `buildFollowUpOrchestrationInput` (`:867`) får `parsedMeta` (`:872`); orchestrate läser `parsedMeta.brief ?? buildFollowUpBriefFromSnapshot` (`follow-up-orchestration-input.ts:82-84`). `metaBrief` (init `null` `:268`) skrivs aldrig till `parsedMeta.brief` → läses bara i telemetri (`:1049,1133`). | verifierat 2026-06-19 | **Åtgärdad #169 (5-4):** `parsedMeta.brief = metaBrief` write-back → clear-redesign-deltan når orchestrate i st.f. snapshot-fallbacken | Område 5 (5-4) ✅ |
+| **F2** | **Stale `baseVersionId` saknar gate i follow-up-strömmen.** Explicit `engineBaseVersionId` accepteras tyst (`version-manager.ts:82-107`; test `stream/route.test.ts:785-815`). `finalize-design` (F3) returnerar däremot 409 (`finalize-design/route.ts:126-143`). | agent E + asymmetri-koll | **Åtgärdad #166 (5-2):** stale-`baseVersionId` → 409 i follow-up-strömmen (speglar `finalize-design`); S1–S5 i CI | Område 5 (5-2) ✅ |
 | **F3** | **Åtgärdad i denna PR.** Död funktion `classifyFollowUpIntentWithLlmFallback` (`follow-up-clarification.ts`) borttagen — anropades aldrig i runtime; routes använder bara regex `classifyFollowUpIntent` (`chat-message-stream-post.ts`). Doc-drift som påstod LLM-fallback ≥80 ord rättad i `llm-chain-flowchart.md`. | agent A+B (grep: 0 runtime-callers) | Doc-drift + död kod (löst) | Z-städ / docs |
 | **F4** | **Bus-events definierade men aldrig emit:ade** (`version.autofix.result`, `version.syntax.pass`, `version.saved`, `verifier_skipped_heavy_load`) — `event-bus-types.ts` har dem, ingen runtime-emit. | agent C | Observability-gap (event-bus ofullständig) | Område 6-svans / backlog |
 | **F5** | **Manifest↔kod-drift:** `perTier*` (briefing/repair/timeouts) finns i `manifest.json:273-337` men EJ i Zod-schemat (`load-manifest.ts`) → backoffice visar tier-värden som inte styr runtime. `deploy-assistant`-fasen har ingen runtime-konsument. Flera routes hårdkodar modeller förbi manifestet (se kluster D). `embeddingModels.templateLibrary` pekar på borttagen katalog. | agent D | Falsk bild i backoffice + manifest "single source" delvis osann | Z-städ / backlog |
 
-## Doc-drift mot befintliga kartor (rätta i Z-städ, inte autonomt nu)
-| Påstående | Var | Kod-faktum |
-|---|---|---|
-| Brief-fallback `gpt-4.1` | `llm-chain-flowchart.md:128` | Fallback är Anthropic `claude-sonnet-4.6` (`site-brief-generation.ts:677-678`) |
-| Brief innehåller `scaffoldNomination`/`mustHave`/`avoid` | `llm-flow-end-to-end.md:113-114` | Saknas i `siteBriefSchema` (`site-brief-generation.ts:128-198`) |
-| `domain-inference.ts` under `src/lib/gen/` | terminology/router | Ligger i `src/lib/builder/domain-inference.ts` |
-| Follow-up = "ingen LLM" generellt | `llm-flow-end-to-end.md:18` | Stämmer för vanlig follow-up; clear-redesign kör delta-brief-LLM (men F1) |
+## Doc-drift mot befintliga kartor — rättad i 5-Z (2026-06-21)
+| Påstående (före) | Var | Kod-faktum | Status |
+|---|---|---|---|
+| Brief-fallback `gpt-4.1` | `llm-chain-flowchart.md:128` | Fallback = Anthropic `claude-sonnet-4.6` (`site-brief-generation.ts:677-678`) | ✅ rättad |
+| Brief innehåller `scaffoldNomination`/`mustHave`/`avoid` | `llm-flow-end-to-end.md` + `llm-chain-flowchart.md` | Saknas i `siteBriefSchema` (`:128-198`); scaffold/variant = deterministisk pick, `*Nomination`-typfält vestigiala (alltid `null`, drift-logg fyrar aldrig) | ✅ rättad |
+| `domain-inference.ts` under `src/lib/gen/` | (ingen kvarvarande doc-referens) | Ligger i `src/lib/builder/domain-inference.ts`; ingen aktuell doc hävdar gen-path | ✅ ej aktuell |
+| Follow-up = "ingen LLM" generellt | `llm-flow-end-to-end.md:18` | Vanlig follow-up = ingen LLM; `clear-redesign` kör delta-brief-LLM (når orchestrate sedan #169) | ✅ rättad |
+
+> **Kvarvarande kod-findings (backlog, ej docs):** F4 (4 odefinierade bus-emits) + F5 (manifest `perTier*` ej i Zod-schema + hårdkodade modeller i kluster D) + vestigial `scaffoldNomination`/`variantNomination`-typ & drift-kod i `orchestrate.ts`/`system-prompt/types.ts` (alltid `null` sedan schemat slutade emittera dem). Egna kod-pass; rör ej docs.
 
 ## Föreslagen modul-karta (MÅLBILD — flytta ingen kod i denna fas)
 Aspirationell läsbar gruppering om/när koden konsolideras (små adapter/barrel-PR:er, aldrig stor flytt — jfr master-plan §8):
