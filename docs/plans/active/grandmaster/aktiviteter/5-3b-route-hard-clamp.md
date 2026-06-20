@@ -1,5 +1,5 @@
 ---
-id: gm-akt-5-6-route-hard-clamp
+id: gm-akt-5-3b-route-hard-clamp
 status: ready
 created: 2026-06-20
 parent: gm-omrade-05-followup-och-preview-kontrakt
@@ -11,12 +11,12 @@ owner_files:
   - src/lib/gen/followup-freeze.stability.test.ts
 ---
 
-# 5-6 — Route HARD-CLAMP + explicit route-removal (neutral follow-up tappar aldrig en route tyst)
+# 5-3b — Route HARD-CLAMP + explicit route-removal (neutral follow-up tappar aldrig en route tyst)
 
 **Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · bygger på **5-1** (`FollowUpContract`, #165) **+ 5-3** (#168 — `orchestrate` läser `input.followUpContract`).
 
-## Numrering (läs först)
-Detta är den **coach-prioriterade nästa slicen efter #168** som [nivå-2-planen §"Identifierad nästa slice"](../05-followup-och-preview-kontrakt.md) pekar ut: *hård route-clamp + explicit route-removal*. Slot-etiketten `5-6` i de äldre tabellerna är stubbad för `previewSessionId`-arbetet. Denna fil **omnumrerar inte** 5-3..5-Z — den lägger till route-clamp-specen just-in-time. **Öppen kollision att lösa separat:** byt namn på `previewSessionId`-stubben (t.ex. → 5-8) eller på denna route-clamp (→ 5-3b) i ett eget docs-pass; smyg inte in en bred omnumrering i denna kod-PR.
+## Numrering (löst 2026-06-20)
+Detta är den **coach-prioriterade slicen efter #168** som [nivå-2-planen](../05-followup-och-preview-kontrakt.md) pekade ut: *hård route-clamp + explicit route-removal*. **Numrerad `5-3b`** som komplettering av **5-3**:s route-frys (frysta routes blir floor, ej bara drift-signal). `5-6`-sloten förblir `previewSessionId`. **Kollision löst 2026-06-20** — byggd & mergad som **#172** (squash `3f0d4c0a7`).
 
 ## Mål
 En **neutral** follow-up får **aldrig tyst tappa** en route som basversionen hade. Kontraktets frysta routes (`routePlan.existingRoutePaths` + `existingShellRoutePaths`) ska gälla som **floor** (golv): en fryst route som saknas i den resolverade planen **återinförs**. **Två undantag** bevarar avsiktlig förändring:
@@ -27,7 +27,7 @@ Smal PR: bara route-clampen. **Inte** capability (5-5), finalize, preview-sessio
 
 ## Bakgrund (verifierat i kod mot master-HEAD `f19a18348`)
 
-| Yta | Frys-mekanism före 5-6 | Status efter 5-6 |
+| Yta | Frys-mekanism före 5-3b | Status efter 5-3b |
 |---|---|---|
 | Scaffold | `enforceFollowUpScaffoldFreeze` (clampar) | oförändrad |
 | Variant | `enforceFollowUpVariantFreeze` (clampar) | oförändrad |
@@ -38,7 +38,7 @@ Smal PR: bara route-clampen. **Inte** capability (5-5), finalize, preview-sessio
 ### Kanonisk route-removal-signal (ägare)
 **`collectExplicitRouteRemovals(prompt, buildIntent, existingPaths)` — ägare: `src/lib/gen/route-plan/planning-helpers.ts`.** Det är den signal `buildRoutePlan` redan använder för att hedra avsiktlig borttagning (`route-plan-builder.ts:51-53,150-157`). Den kräver ett borttagnings-**verb** (`remove|delete|drop|ta bort|plocka bort|radera`) plus antingen ett explicit `/path`-omnämnande eller route/sida-kontext, och returnerar `Set<string>` av normaliserade paths att ta bort.
 
-**Ingen ny signal införd.** Verifierat: ingen `toolIntent`/`route_remove`/`route_add`/`section_add`-mekanism finns i koden (0 träffar; `src/app/api/prompt/**` existerar inte). Follow-up-klassificeraren (`classifyFollowUpIntent`) uttrycker `neutral`/`clear-redesign`/`clear-refine`/`capability-*`/`ambiguous-*` — **inte** route-removal. Route-removal ägs alltså entydigt av `collectExplicitRouteRemovals`. 5-6 lyfter den in i `route-plan/index.ts`-barreln och **konsumerar ägaren** (signal-gate: ändra ägaren, inte konsumenten).
+**Ingen ny signal införd.** Verifierat: ingen `toolIntent`/`route_remove`/`route_add`/`section_add`-mekanism finns i koden (0 träffar; `src/app/api/prompt/**` existerar inte). Follow-up-klassificeraren (`classifyFollowUpIntent`) uttrycker `neutral`/`clear-redesign`/`clear-refine`/`capability-*`/`ambiguous-*` — **inte** route-removal. Route-removal ägs alltså entydigt av `collectExplicitRouteRemovals`. 5-3b lyfter den in i `route-plan/index.ts`-barreln och **konsumerar ägaren** (signal-gate: ändra ägaren, inte konsumenten).
 
 ### Varför clampen behövs trots att `buildRoutePlan` redan fryser
 `existingShellRoutePaths ⊆ existingRoutePaths` (shell = befintliga routes vars filinnehåll är en shell-sida) och `buildRoutePlan` får `existingRoutePaths` → den bevarar redan routes i normalvägen. Clampen är därför **kontrakts-auktoritativ safety-net**, exakt som scaffold/variant-clampen backar upp `persistedScaffoldId`/`lockedVariantForFollowUp`. Den garanterar att kontraktets frysta routes överlever oavsett: locale-dedupe som droppar en fryst variant (`/blogg` vs `/blog`), en lossy `existingRoutePaths`-extraktion, eller framtida regression i `buildRoutePlan`. Golvet är **kontraktet**, inte planerarens interna logik.
