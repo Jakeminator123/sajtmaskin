@@ -1,9 +1,9 @@
 ---
 id: gm-akt-5-5-capabilities-can-only-grow
-status: ready
+status: done
 created: 2026-06-20
 parent: gm-omrade-05-followup-och-preview-kontrakt
-blocked_by: 5-1 (FollowUpContract på master) + 5-3 (#168 wire:ar orchestrate→input.followUpContract; bygg EFTER #168 mergad)
+blocked_by: 5-1 (FollowUpContract på master) + 5-3 (#168 wire:ar orchestrate→input.followUpContract; #168 mergad 2026-06-20 → blocker uppfylld, bygg-redo)
 risk: medium
 owner_files:
   - src/lib/gen/orchestrate.ts
@@ -12,7 +12,9 @@ owner_files:
 
 # 5-5 — Capabilities can-only-grow (tappa aldrig init-capabilities tyst)
 
-**Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · bygger på **5-1** (`FollowUpContract`, mergad #165) **+ 5-3** (#168 ger `orchestrate` läsning av `input.followUpContract`).
+> **Klar — mergad som [#174](https://github.com/Jakeminator123/sajtmaskin/pull/174) (`ca4a7974a`), 2026-06-20.** Implementerad som ren helper `enforceFollowUpCapabilityFloor` (floor-union *efter* `filterDossierCapabilitiesForPrompt`, det rekommenderade designvalet — ingen filter-omskrivning behövdes). clear-redesign **inte** undantaget. Drop-väg 2 (tom snapshot) lämnad som telemetri/backlog per nedan.
+
+**Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · bygger på **5-1** (`FollowUpContract`, mergad #165) **+ 5-3** (#168, mergad — ger `orchestrate` läsning av `input.followUpContract`).
 
 ## Mål
 En follow-up får **aldrig tyst tappa** en capability som basversionen redan hade. `FollowUpContract.capabilities` (golv) ska gälla som **floor** i orchestrates capability-union — kan bara växa, aldrig krympa under basen. Smal PR: bara capability-listan, **inte** finalize (5-6), preview-session eller dossier-urvalets interna logik.
@@ -58,6 +60,6 @@ mergedCaps    = filterDossierCapabilitiesForPrompt(mergedCapsRaw, prompt, previe
 
 ## Guardrails
 - **Smal:** bara capability-unionen/golvet. Inte finalize, inte preview-session, inte snapshot-persistens (drop-väg 2 = flagga, ej fixa här).
-- **Bygg EFTER #168 mergad** (läser `input.followUpContract` som #168 wire:ar in). Branch:a från färsk master. Eget worktree (`..\sajtmaskin-omr5-5`, branch `feat/omr5-capabilities-floor`), **draft-PR** (orchestrate = codegen-kärna → PR-mergaren `NEEDS_HUMAN` väntat).
+- **#168 mergad → bygg-redo** (läser `input.followUpContract` som #168 wire:ar in). Branch:a från färsk master. Eget worktree (`..\sajtmaskin-omr5-5`, branch `feat/omr5-capabilities-floor`), **draft-PR** (orchestrate = codegen-kärna → PR-mergaren `NEEDS_HUMAN` väntat).
 - Builder-coexistence: rör inte preview/heartbeat.
 - **Designfork att besluta i bygget:** floor-union *efter* filter (rekommenderat — minimal, korrigerande) vs exempt:a bas-capabilities *från* filtret. Om floor-union visar sig kollidera med varför `filterDossierCapabilitiesForPrompt` finns (t.ex. avsiktlig dossier-budget-kapning) → **flagga som blocker**, smyg inte in en filter-omskrivning. Kandidat för `/818-swarm-decide` om utfallet är oklart.

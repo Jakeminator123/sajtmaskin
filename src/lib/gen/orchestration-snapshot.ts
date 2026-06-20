@@ -328,9 +328,11 @@ const FOLLOW_UP_QUALITY_TARGETS = [
  * `FollowUpContract` collects them into one explicit, readable object so the
  * later activities (5-2..5-7) have a single thing to validate against.
  *
- * Purely additive and behaviour-neutral: every field is a consolidation of a
- * value that already flows into `buildFollowUpOrchestrationInput`. It adds
- * **no new signal source**, and `orchestrate` does not read it yet.
+ * It adds **no new signal source** — every field is a consolidation of a value
+ * that already flows into `buildFollowUpOrchestrationInput`. 5-1 was purely
+ * additive (orchestrate did not read it); 5-3 makes `orchestrate` read it as
+ * the active source to enforce the scaffold/variant/route freeze on neutral
+ * follow-ups (clear-redesign exempt).
  */
 export interface FollowUpContract {
   /** Base version the follow-up edits build on (snapshot `lastVersionId`). */

@@ -1,13 +1,8 @@
-import { generateText } from "ai";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { createDirectModel } from "@/lib/builder/direct-model";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
-import {
-  FOLLOW_UP_INTENT_MODES,
-  type FollowUpIntentMode,
-} from "@/lib/gen/follow-up-intent-types";
+import { type FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
 export type { FollowUpIntentMode };
 
@@ -366,122 +361,6 @@ export async function persistFollowUpClarification(params: {
   } catch {
     // Best effort persistence only.
   }
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// P22: LLM safety net — när regex-pipen säger "neutral" men prompten är lång
-// (>= 80 ord) finns risk för verklig redesign-intent som ordet missar. Ringer
-// gpt-5.4-mini med 2s timeout som double-check. Cachas per chatId+messageHash
-// så samma meddelande aldrig betalar två gånger inom samma process.
-// (Bytt från gpt-4.1 → gpt-5.4-mini 2026-04-21 — bättre reasoning, samma
-// prisklass; OpenAI:s migration guide rekommenderar denna ersättning.)
-// ────────────────────────────────────────────────────────────────────────
-
-const LLM_FALLBACK_MIN_WORDS = 80;
-const LLM_FALLBACK_TIMEOUT_MS = 2_000;
-const LLM_FALLBACK_MODEL = "openai/gpt-5.4-mini";
-
-const _llmFallbackCache = new Map<string, FollowUpIntentMode>();
-
-function hashMessage(message: string): string {
-  // FNV-1a 32-bit — billig, stabil, ingen krypto-trygghet behövs.
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < message.length; i += 1) {
-    hash ^= message.charCodeAt(i);
-    hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
-  }
-  return hash.toString(16);
-}
-
-function buildLlmFallbackCacheKey(chatId: string | null | undefined, message: string): string {
-  return `${chatId ?? "_"}::${hashMessage(message.trim())}`;
-}
-
-function parseLlmIntentLabel(raw: string): FollowUpIntentMode | null {
-  const cleaned = raw.trim().toLowerCase().replace(/^["'`]|["'`]$/g, "").trim();
-  if (FOLLOW_UP_INTENT_MODES.has(cleaned as FollowUpIntentMode)) {
-    return cleaned as FollowUpIntentMode;
-  }
-  return null;
-}
-
-export type ClassifyFollowUpIntentLlmCaller = (
-  message: string,
-  signal: AbortSignal,
-) => Promise<string>;
-
-export interface ClassifyFollowUpIntentWithLlmFallbackOptions {
-  chatId?: string | null;
-  /** Test seam: override the underlying LLM call. */
-  llmCaller?: ClassifyFollowUpIntentLlmCaller;
-  /** Test seam: skip the cache lookup/insert (default false). */
-  bypassCache?: boolean;
-  /** Override the timeout in ms (default 2_000). */
-  timeoutMs?: number;
-  /** Override the words-threshold (default 80). */
-  minWords?: number;
-}
-
-async function defaultLlmCaller(message: string, signal: AbortSignal): Promise<string> {
-  const model = createDirectModel(LLM_FALLBACK_MODEL);
-  const result = await generateText({
-    model,
-    abortSignal: signal,
-    temperature: 0,
-    system:
-      "Du klassar svenska och engelska follow-up-prompts på en webbsajt-byggare. " +
-      "Returnera EXAKT en av etiketterna: clear-refine, clear-redesign, ambiguous-redesign, ambiguous-followup, capability-add, neutral. " +
-      "Använd `capability-add` när användaren ber om att LÄGGA TILL en helt ny kapabilitet/feature (3D-scen, kontaktformulär, betalning, FAQ, pristabell etc.) ovanpå den existerande sajten. " +
-      "Inget annat ord, ingen punkt.",
-    prompt: message,
-  });
-  return result.text;
-}
-
-/**
- * Returnerar samma mode som {@link classifyFollowUpIntent}, men kör en
- * extra LLM-double-check när regex-svaret är `neutral` på en lång prompt.
- */
-export async function classifyFollowUpIntentWithLlmFallback(
-  message: string,
-  options: ClassifyFollowUpIntentWithLlmFallbackOptions = {},
-): Promise<FollowUpIntentMode> {
-  const regexResult = classifyFollowUpIntent(message);
-  if (regexResult !== "neutral") return regexResult;
-
-  const trimmed = message.trim();
-  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
-  const minWords = options.minWords ?? LLM_FALLBACK_MIN_WORDS;
-  if (wordCount < minWords) return regexResult;
-
-  const cacheKey = buildLlmFallbackCacheKey(options.chatId, message);
-  if (!options.bypassCache) {
-    const cached = _llmFallbackCache.get(cacheKey);
-    if (cached) return cached;
-  }
-
-  const controller = new AbortController();
-  const timeoutMs = options.timeoutMs ?? LLM_FALLBACK_TIMEOUT_MS;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const caller = options.llmCaller ?? defaultLlmCaller;
-    const raw = await caller(trimmed, controller.signal);
-    const parsed = parseLlmIntentLabel(raw);
-    const result = parsed ?? regexResult;
-    if (!options.bypassCache) {
-      _llmFallbackCache.set(cacheKey, result);
-    }
-    return result;
-  } catch {
-    return regexResult;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/** Test-only: rensa LLM-fallback-cachen (används i unit-tester). */
-export function _resetLlmFallbackCacheForTests(): void {
-  _llmFallbackCache.clear();
 }
 
 export function buildAwaitingClarificationStream(params: {

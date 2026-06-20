@@ -529,6 +529,13 @@ export async function handleMessageStreamRequest(
           });
           if (deltaBriefResult) {
             metaBrief = deltaBriefResult.brief;
+            // 5-4 (F1): route the freshly generated delta-brief into orchestration.
+            // buildFollowUpOrchestrationInput reads `parsedMeta.brief ??
+            // buildFollowUpBriefFromSnapshot(...)`, so without this write-back the
+            // fresh delta was computed and logged, then silently dropped in favour
+            // of the snapshot brief. Neutral follow-ups never reach this branch, so
+            // `metaBrief` stays null and they keep using the snapshot fallback.
+            parsedMeta.brief = metaBrief;
             debugLog("orchestration", "Delta-brief generated for clear-redesign follow-up", {
               chatId,
               durationMs: Date.now() - deltaBriefStartedAt,

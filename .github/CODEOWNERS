@@ -1,0 +1,10 @@
+# Governance — master kräver granskning/godkännande av repo-ägaren.
+#
+# Tillsammans med branch protection (require code owner review) gör detta att
+# INGEN PR — inklusive externa medarbetares (t.ex. chgenberg) — kan mergas till
+# master utan Jakes (code owner) godkännande, och ingen kan pusha direkt till master.
+#
+# Admin (Jakeminator123) bypassar fortfarande allt (enforce_admins=false), så Jake
+# behåller full frihet att pusha/merga master precis som tidigare.
+
+* @Jakeminator123
