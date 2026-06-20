@@ -21,7 +21,7 @@ ett ställe — ersätt gammal text, lägg inte lager.
 - plan-arkiv (`docs/plans/archived/`, `docs/plans/avklarat/`)
 
 ## Klart när
-- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `evals/`, `drizzle/`) och saknar fantommappar (`research/`, `templates_v0/`).
+- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `drizzle/`) och saknar fantommappar (`research/`, `templates_v0/`).
 - Källdokumenten (`deep-research-report.md`, cleanup-handoff, "Controlled Aggression") hänvisade från master-planen och redo att arkiveras i område 8.
 
 ## Nivå 3 (batch 1)

@@ -22,7 +22,7 @@ inte autonomt av en agent. Beslut tas per styck.
 | Radera tracked scratch: `blandat/` | radering | **klar** (#157) — `egna_kommandon.txt`/`generering.txt` fanns ej; `test_förslag_templates_blob/` är load-bearing, behålls |
 | Pensionera/flytta `docs/schemas/strict/plan-file.schema.json` | schema-städ | **klar** (#158, raderad — 0 runtime-konsumenter) |
 | Arkivera källdokumenten (`deep-research-report.md`, cleanup-handoff, "Controlled Aggression") | plan-städ | öppen |
-| Eval-namnskugga: `scripts/eval/` vs `scripts/evals/` vs `src/lib/gen/eval/cli.ts` | namn | **dokumenterad** (#158, eval-README förtydligad; konsolidering ej gjord — eget beslut) |
+| Eval-namnskugga: `scripts/eval/` vs `scripts/evals/` vs `src/lib/gen/eval/cli.ts` | namn | **löst 2026-06-21** — `scripts/evals/` + `evals/` (OMTAG-02 baseline-spår, ej wired, stale) borttagna; kvar `scripts/eval/` (`npm run eval`) + `src/lib/gen/eval/` (`eval:suite`/CI) |
 | `config/dashboard/` legacy-wrappers (`app.py`/`run.ps1`/`shared_overhead.py`/`requirements.txt`) | radering | **klar** (#158; `domain-map.json` behållen, load-bearing) |
 | Synka `repo-tree.md` + `README.md` (görs i område 3, verkställs ev. här) | karta | klar (D2 + #157/#158) |
 | `next`-patch-bump (säkerhet) som egen PR | deps | öppen |
