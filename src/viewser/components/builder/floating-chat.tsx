@@ -48,6 +48,8 @@ import {
 import { CHIP_INTERACTIONS, PRIMARY_INTERACTIONS } from "@viewser/lib/ui-tokens";
 import { cn } from "@viewser/lib/utils";
 
+import { useOpenClawChat } from "@/components/openclaw/useOpenClawChat";
+
 import {
   ALLOWED_UPLOAD_MIMES,
   INITIAL_BUILD_LABEL,
@@ -1086,6 +1088,24 @@ export function FloatingChat({
   // Ramper deterministiskt till 95% över ~86s (sum av FOLLOWUP_BUILD_STEPS.durationMs)
   // och hoppar till 100% när response kommer (i finally:n).
   const [buildProgress, setBuildProgress] = useState(0);
+  // WS2c: OpenClaw ("Sajtagenten") bor numera i DENNA FloatingChat (egen flik)
+  // i stället för en separat global FAB. "Bygg"-fliken kör /api/prompt; "Fråga
+  // Sajtagenten"-fliken kör OpenClaw via useOpenClawChat (som läser sajt-
+  // kontexten window.__SITEMASKIN_CONTEXT som /studio sätter). Helt isolerat
+  // composer-state så bygg-flödet aldrig påverkas.
+  const [chatMode, setChatMode] = useState<"build" | "agent">("build");
+  const [openClawInput, setOpenClawInput] = useState("");
+  const {
+    messages: openClawMessages,
+    isStreaming: openClawStreaming,
+    send: sendOpenClaw,
+  } = useOpenClawChat();
+  function submitOpenClaw() {
+    const text = openClawInput.trim();
+    if (!text || openClawStreaming) return;
+    void sendOpenClaw(text);
+    setOpenClawInput("");
+  }
   // Pending-meddelandets id sparas i en ref så useEffect kan uppdatera
   // bubblans content när tracePolling-hooken levererar nya phase-
   // labels. setState i en useEffect-callback hade triggat re-renders
@@ -2143,10 +2163,48 @@ export function FloatingChat({
           </div>
         </div>
 
+        {/* WS2c: lägesväljare — "Bygg" kör bygg-flödet (/api/prompt) och
+          "Fråga Sajtagenten" kör OpenClaw (useOpenClawChat) med sajt-kontext.
+          OpenClaw bor numera HÄR i FloatingChat i stället för en separat FAB. */}
+        <div
+          role="tablist"
+          aria-label="Chattläge"
+          className="border-border/60 bg-card/80 flex shrink-0 items-center gap-1 border-b px-3 py-1.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={chatMode === "build"}
+            onClick={() => setChatMode("build")}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors",
+              chatMode === "build"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+            )}
+          >
+            Bygg
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={chatMode === "agent"}
+            onClick={() => setChatMode("agent")}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors",
+              chatMode === "agent"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+            )}
+          >
+            Fråga Sajtagenten
+          </button>
+        </div>
+
         {/* Första-gångs-hint: gör kärnloopen synlig (följdprompt → ny
           version). Dismiss:bar och persisterad så den bara visas en
           gång. "Visa versioner" djuplänkar till historiken. */}
-        {loopHintOpen ? (
+        {chatMode === "build" && loopHintOpen ? (
           <div className="border-border/60 bg-muted/40 shrink-0 border-b px-3 py-2.5">
             <div className="flex items-start gap-2">
               <Sparkles
@@ -2189,28 +2247,58 @@ export function FloatingChat({
           aria-live="polite"
         >
           <ol className="flex flex-col gap-2">
-            {messages.map((message) => (
-              <li key={message.id} className="flex flex-col">
-                <MessageBubble
-                  message={message}
-                  onRetry={(prompt) => {
-                    // Sätt input + skicka — operatören kan välja att
-                    // ändra prompten först om hen vill, eller bara
-                    // klicka skicka direkt. Vi rensar inte input om
-                    // operatören redan börjat skriva på något nytt.
-                    if (input.trim().length === 0) {
-                      setInput(prompt);
-                      // Auto-skicka när input var tom — annars är det
-                      // sannolikt operatören håller på med en ny prompt
-                      // och hen får trycka skicka själv.
-                      void sendFollowupPrompt(prompt);
-                    } else {
-                      setInput(prompt);
-                    }
-                  }}
-                />
-              </li>
-            ))}
+            {chatMode === "agent" ? (
+              openClawMessages.length === 0 ? (
+                <li className="text-muted-foreground px-1 text-[12px] leading-relaxed">
+                  Fråga Sajtagenten om din sajt — den känner till din nuvarande
+                  version och kan föreslå ändringar, felsöka eller planera.
+                </li>
+              ) : (
+                openClawMessages.map((message) => (
+                  <li
+                    key={message.id}
+                    className={cn(
+                      "flex flex-col",
+                      message.role === "user" ? "items-end" : "items-start",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "max-w-[85%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap",
+                        message.role === "user"
+                          ? "bg-foreground text-background"
+                          : "border-border/60 bg-muted/40 text-foreground border",
+                      )}
+                    >
+                      {message.content || "…"}
+                    </span>
+                  </li>
+                ))
+              )
+            ) : (
+              messages.map((message) => (
+                <li key={message.id} className="flex flex-col">
+                  <MessageBubble
+                    message={message}
+                    onRetry={(prompt) => {
+                      // Sätt input + skicka — operatören kan välja att
+                      // ändra prompten först om hen vill, eller bara
+                      // klicka skicka direkt. Vi rensar inte input om
+                      // operatören redan börjat skriva på något nytt.
+                      if (input.trim().length === 0) {
+                        setInput(prompt);
+                        // Auto-skicka när input var tom — annars är det
+                        // sannolikt operatören håller på med en ny prompt
+                        // och hen får trycka skicka själv.
+                        void sendFollowupPrompt(prompt);
+                      } else {
+                        setInput(prompt);
+                      }
+                    }}
+                  />
+                </li>
+              ))
+            )}
           </ol>
         </div>
 
@@ -2416,17 +2504,39 @@ export function FloatingChat({
           <div className="border-border/70 bg-background focus-within:border-ring/50 focus-within:ring-ring/30 overflow-hidden rounded-xl border focus-within:ring-2">
             <Textarea
               ref={composerRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
+              value={chatMode === "agent" ? openClawInput : input}
+              onChange={(event) =>
+                chatMode === "agent"
+                  ? setOpenClawInput(event.target.value)
+                  : setInput(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (chatMode === "agent") {
+                  if (
+                    event.key === "Enter" &&
+                    (event.metaKey || event.ctrlKey)
+                  ) {
+                    event.preventDefault();
+                    submitOpenClaw();
+                  }
+                  return;
+                }
+                handleKeyDown(event);
+              }}
               placeholder={
-                attachments.length > 0
-                  ? "Berätta hur bilden ska användas (valfritt)…"
-                  : "Beskriv ändringen…"
+                chatMode === "agent"
+                  ? "Fråga Sajtagenten om din sajt…"
+                  : attachments.length > 0
+                    ? "Berätta hur bilden ska användas (valfritt)…"
+                    : "Beskriv ändringen…"
               }
               rows={2}
               maxLength={4000}
-              disabled={isSending || isBuilding}
+              disabled={
+                chatMode === "agent"
+                  ? openClawStreaming
+                  : isSending || isBuilding
+              }
               // text-base (16px) på mobil förhindrar iOS Safari från att
               // auto-zooma vid fokus; krymper till text-[13px] på md+.
               // sm:-breakpoint (640px) är fortfarande iPad-portrait där
@@ -2460,14 +2570,24 @@ export function FloatingChat({
               </div>
               <button
                 type="button"
-                onClick={() => void sendFollowupPrompt(input)}
-                disabled={
-                  isSending ||
-                  isBuilding ||
-                  isUploading ||
-                  (input.trim().length === 0 && attachments.length === 0)
+                onClick={() =>
+                  chatMode === "agent"
+                    ? submitOpenClaw()
+                    : void sendFollowupPrompt(input)
                 }
-                aria-label="Skicka instruktion"
+                disabled={
+                  chatMode === "agent"
+                    ? openClawStreaming || openClawInput.trim().length === 0
+                    : isSending ||
+                      isBuilding ||
+                      isUploading ||
+                      (input.trim().length === 0 && attachments.length === 0)
+                }
+                aria-label={
+                  chatMode === "agent"
+                    ? "Fråga Sajtagenten"
+                    : "Skicka instruktion"
+                }
                 className={cn(
                   "bg-foreground text-background inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3.5 text-sm font-medium sm:h-7 sm:min-h-0 sm:px-2.5 sm:text-[11.5px]",
                   "hover:bg-foreground/90 active:scale-95 disabled:opacity-40",
@@ -2475,18 +2595,24 @@ export function FloatingChat({
                   PRIMARY_INTERACTIONS,
                 )}
               >
-                {isSending || isBuilding ? (
+                {(
+                  chatMode === "agent" ? openClawStreaming : isSending || isBuilding
+                ) ? (
                   <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
                 ) : (
                   <Send aria-hidden className="h-3 w-3" />
                 )}
-                {isSending || isBuilding
-                  ? buildProgress < 15
-                    ? "Skickar"
-                    : buildProgress < 95
-                      ? "Bygger"
-                      : "Sparar"
-                  : "Skicka"}
+                {chatMode === "agent"
+                  ? openClawStreaming
+                    ? "Tänker"
+                    : "Fråga"
+                  : isSending || isBuilding
+                    ? buildProgress < 15
+                      ? "Skickar"
+                      : buildProgress < 95
+                        ? "Bygger"
+                        : "Sparar"
+                    : "Skicka"}
               </button>
             </div>
           </div>
