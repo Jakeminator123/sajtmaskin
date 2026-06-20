@@ -25,7 +25,7 @@ Yt-karta: [`llm-callsite-matrix.md`](../../../../architecture/llm-callsite-matri
 | [5-1](5-1-followup-contract-type.md) | `FollowUpContract`-typ + builder (additiv konsolidering) | — | Låg–medel | **ready** |
 | [5-2](5-2-stale-baseversion-409.md) | Stale-`baseVersionId` → 409 i follow-up-strömmen (fynd F2) | 5-1 (mjukt) | Medel | **ready** |
 | [5-3](5-3-frys-enforcement.md) | Frys-enforcement: lås scaffold/variant/route (stäng `scaffoldMode:"manual"`-kringgång) | 5-1 | Medel | **ready** |
-| 5-4 | F1-fix: clear-redesign-delta-brief når orchestrate (el. tas bort) | 5-1 | Medel | stub |
+| [5-4](5-4-clear-redesign-delta-brief.md) | F1-fix: clear-redesign-delta-brief når orchestrate | 5-1 | Medel | **ready** |
 | 5-5 | Capabilities can-only-grow / aldrig tyst tappa | 5-1 | Medel | stub |
 | 5-6 | `previewSessionId` in i kontraktet + validering | 5-1 | Låg–medel | stub |
 | 5-7 | Stabilitetstest follow-up-invarianter + svensk åäö-intent | 5-1..5-6 | Låg | stub |
