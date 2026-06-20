@@ -51,7 +51,7 @@ Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skap
 | [5-3](aktiviteter/5-3-frys-enforcement.md) | Frys-enforcement: stäng `scaffoldMode:"manual"`-kringgång; scaffold/variant via kontraktet (route = drift-signal, ej hård clamp) | 5-1 | Medel | `orchestrate.ts:488-522`, `matcher.ts:46-80` | **Klar** (#168) |
 | [5-3b](aktiviteter/5-3b-route-hard-clamp.md) | Hård route-clamp + explicit route-removal (route blir floor, ej bara drift-signal); clear-redesign + explicit removal undantag | 5-3 | Medel | `orchestrate.ts` (`enforceFollowUpRouteFreeze`) | **Klar** (#172) |
 | [5-4](aktiviteter/5-4-clear-redesign-delta-brief.md) | F1-fix: clear-redesign-delta-brief når orchestrate | 5-1 | Medel | `chat-message-stream-post.ts:436-490`, `follow-up-orchestration-input.ts:82-84` | **Klar** (#169) |
-| [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (snapshot-null-guard) | 5-1 + 5-3 (#168 mergad) | Medel | `orchestrate.ts:761-792` (+ floor efter prompt-filter) | **ready** (#168 mergad → bygg-redo) |
+| [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (floor-union efter prompt-filter) | 5-1 + 5-3 | Medel | `orchestrate.ts` (`enforceFollowUpCapabilityFloor`) | **Klar** (#174) |
 | 5-6 | `previewSessionId` in i kontraktet + validering vid follow-up-start | 5-1 | Låg–medel | `preview-session/route.ts`, kontrakt | stub |
 | 5-7 | Stabilitetstest: follow-up byter ej scaffold / tappar ej route / bygger ej på fel version + svensk åäö follow-up-intent-test | 5-1..5-6 | Låg (test) | `*.stability.test.ts` | stub |
 | 5-Z | Z-städ: LLM-flow-modulnamn/kartsynk, doc-drift F3/F5 | 5-1..5-7 | Låg | docs + ev. barrel | stub |

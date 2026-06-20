@@ -1,6 +1,6 @@
 ---
 id: gm-akt-5-5-capabilities-can-only-grow
-status: ready
+status: done
 created: 2026-06-20
 parent: gm-omrade-05-followup-och-preview-kontrakt
 blocked_by: 5-1 (FollowUpContract på master) + 5-3 (#168 wire:ar orchestrate→input.followUpContract; #168 mergad 2026-06-20 → blocker uppfylld, bygg-redo)
@@ -11,6 +11,8 @@ owner_files:
 ---
 
 # 5-5 — Capabilities can-only-grow (tappa aldrig init-capabilities tyst)
+
+> **Klar — mergad som [#174](https://github.com/Jakeminator123/sajtmaskin/pull/174) (`ca4a7974a`), 2026-06-20.** Implementerad som ren helper `enforceFollowUpCapabilityFloor` (floor-union *efter* `filterDossierCapabilitiesForPrompt`, det rekommenderade designvalet — ingen filter-omskrivning behövdes). clear-redesign **inte** undantaget. Drop-väg 2 (tom snapshot) lämnad som telemetri/backlog per nedan.
 
 **Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · bygger på **5-1** (`FollowUpContract`, mergad #165) **+ 5-3** (#168, mergad — ger `orchestrate` läsning av `input.followUpContract`).
 
