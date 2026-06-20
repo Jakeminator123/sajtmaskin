@@ -12,7 +12,7 @@ owner_files:
 
 # 5-4 — F1-fix: clear-redesign-delta-briefen når orchestrate
 
-**Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · fynd **F1** i [`llm-callsite-matrix.md`](../../../../architecture/llm-callsite-matrix.md). Smal PR — bara brief-tilldelningssidan, **inte** `orchestrate.ts` (ägs av 5-3 / draft #168).
+**Område 5** · Wave 2 · [nivå-2](../05-followup-och-preview-kontrakt.md) · fynd **F1** i [`llm-callsite-matrix.md`](../../../../architecture/llm-callsite-matrix.md). Smal PR — bara brief-tilldelningssidan, **inte** `orchestrate.ts` (ägs av 5-3 / #168, mergad).
 
 ## Mål
 För en **clear-redesign**-follow-up genereras en färsk delta-brief (eng. *delta-brief*, ny strukturerad brief framtagen via LLM), men värdet når aldrig orchestration. Gör så att den färska delta-briefen faktiskt blir den brief orchestrate läser — utan att röra **neutral** follow-up (som ska fortsätta använda snapshot-briefen).
@@ -48,7 +48,7 @@ brief: params.parsedMeta.brief ?? buildFollowUpBriefFromSnapshot(params.orchestr
 - **Beteende-neutralt för neutral follow-up:** ingen delta → ingen ändring.
 
 ## Guardrails
-- **Filstaket:** rör **inte** `src/lib/gen/orchestrate.ts` eller `src/lib/gen/followup-freeze.stability.test.ts` (ägs av 5-3 / draft #168). Fixen bor på brief-tilldelningssidan. Om fixen visar sig kräva `orchestrate.ts` → **flagga som blocker**, smyg inte in den.
+- **Filstaket:** rör **inte** `src/lib/gen/orchestrate.ts` eller `src/lib/gen/followup-freeze.stability.test.ts` (ägs av 5-3 / #168, mergad). Fixen bor på brief-tilldelningssidan. Om fixen visar sig kräva `orchestrate.ts` → **flagga som blocker**, smyg inte in den.
 - **Smal:** bara F1-delta-brief. Capability (5-5), preview-session (5-6) = senare slices.
 - Eget worktree (`..\sajtmaskin-omr5-4`, branch `feat/omr5-clear-redesign-brief`), **draft-PR** (runtime follow-up-yta, risk ≥3 → PR-mergaren `NEEDS_HUMAN` väntat).
 - Builder-coexistence: rör inte preview/heartbeat, ingen live-endpoint.

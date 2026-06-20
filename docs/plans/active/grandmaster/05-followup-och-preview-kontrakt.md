@@ -42,15 +42,17 @@ Follow-up kan aldrig omedvetet byta scaffold/tappa route/bygga på fel version;
 stabilitetstest låser det. Stale basversion ger serverfel (409), inte tyst bygge.
 
 ## Nivå 3 — aktiviteter (skapade 2026-06-19, körordning)
-Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skapas just-in-time per aktivitet (5-1 + 5-2 finns; 5-3..5-7 stubbas när de är på tur).
+Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skapas just-in-time per aktivitet (5-1..5-5 finns; 5-6/5-7 + 5-Z stubbas när de är på tur).
 
 | ID | Aktivitet | blocked_by | Risk | Owner (grovt) | Status |
 |---|---|---|---|---|---|
-| [5-1](aktiviteter/5-1-followup-contract-type.md) | `FollowUpContract`-typ + builder (konsolidera spridd frysning till ett explicit objekt; additivt, härlett ur befintlig input) | — | Låg–medel | `orchestration-snapshot.ts` (ny typ) + `follow-up-orchestration-input.ts` | **ready** |
-| [5-2](aktiviteter/5-2-stale-baseversion-409.md) | Stale-`baseVersionId`-gate i follow-up-strömmen → **409** (spegla `finalize-design`) | 5-1 (delar gate-yta) el. fristående | **Medel (runtime/korrekthet)** | `chat-message-stream-post.ts:332-347` (+ `version-manager.ts`) | **ready (högst korrekthetsvärde)** |
-| 5-3 | Frys-enforcement: stäng `scaffoldMode:"manual"`-kringgång; scaffold/variant via kontraktet | 5-1 | Medel | `orchestrate.ts:488-522`, `matcher.ts:46-80` | stub |
-| 5-4 | F1-fix: clear-redesign-delta-brief ska nå orchestrate (eller tas bort om medvetet) | 5-1 | Medel | `chat-message-stream-post.ts:436-490`, `follow-up-orchestration-input.ts:82-84` | stub |
-| [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (snapshot-null-guard) | 5-1 + 5-3 (#168) | Medel | `orchestrate.ts:761-792` (+ floor efter prompt-filter) | **ready** (bygg efter #168 mergad) |
+| [5-1](aktiviteter/5-1-followup-contract-type.md) | `FollowUpContract`-typ + builder (konsolidera spridd frysning till ett explicit objekt; additivt, härlett ur befintlig input) | — | Låg–medel | `orchestration-snapshot.ts` (ny typ) + `follow-up-orchestration-input.ts` | **Klar** (#165) |
+| [5-2](aktiviteter/5-2-stale-baseversion-409.md) | Stale-`baseVersionId`-gate i follow-up-strömmen → **409** (spegla `finalize-design`) | 5-1 (delar gate-yta) el. fristående | **Medel (runtime/korrekthet)** | `chat-message-stream-post.ts:332-347` (+ `version-manager.ts`) | **Klar** (#166) |
+| [5-3](aktiviteter/5-3-frys-enforcement.md) | Frys-enforcement: stäng `scaffoldMode:"manual"`-kringgång; scaffold/variant via kontraktet (route = drift-signal, ej hård clamp) | 5-1 | Medel | `orchestrate.ts:488-522`, `matcher.ts:46-80` | **Klar** (#168) |
+| [5-4](aktiviteter/5-4-clear-redesign-delta-brief.md) | F1-fix: clear-redesign-delta-brief når orchestrate | 5-1 | Medel | `chat-message-stream-post.ts:436-490`, `follow-up-orchestration-input.ts:82-84` | **Klar** (#169) |
+| [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (snapshot-null-guard) | 5-1 + 5-3 (#168 mergad) | Medel | `orchestrate.ts:761-792` (+ floor efter prompt-filter) | **ready** (#168 mergad → bygg-redo) |
 | 5-6 | `previewSessionId` in i kontraktet + validering vid follow-up-start | 5-1 | Låg–medel | `preview-session/route.ts`, kontrakt | stub |
 | 5-7 | Stabilitetstest: follow-up byter ej scaffold / tappar ej route / bygger ej på fel version + svensk åäö follow-up-intent-test | 5-1..5-6 | Låg (test) | `*.stability.test.ts` | stub |
 | 5-Z | Z-städ: LLM-flow-modulnamn/kartsynk, doc-drift F3/F5 | 5-1..5-7 | Låg | docs + ev. barrel | stub |
+
+**Identifierad nästa slice (coach-prioritet, kvarvarande arbete från #168):** hård route-clamp + explicit route-removal — efter 5-3 (#168) är route endast **drift-signal** (`followup_freeze_drift`, inkl. shell-routes), ingen tyst route-mutation hindras. Detaljspec skapas just-in-time (ingen omnumrering av 5-3..5-Z); coachens efterföljande prioritet = capability single-source (5-5), sedan preview-session/version-pinning + finalize/readiness-kontrakt.
