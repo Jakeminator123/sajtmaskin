@@ -31,6 +31,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
+    "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -168,6 +169,7 @@
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
+    "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
     "SAJTMASKIN_MODEL_ANTHROPIC",
@@ -444,6 +446,15 @@
         "preview"
       ],
       "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering. Blocking product findings can keep the F3 trigger disabled until the visible preview works."
+    },
+    {
+      "key": "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in (grandmaster A7-2 false-green hardening). When true/1, autofix refuses to fabricate a silent null-render stub for a dossier-exposed import the LLM did not emit; the unresolved import then degrades/blocks the preview honestly (preview blocked with reason via runProjectSanityChecks code_structure_failure) instead of shipping a hollow false-green page. Default off. Reversible: set false/unset to restore the silent-stub behavior. Recommended rollout: enable on preview first and watch how often legitimate builds get blocked (frequency is LLM-runtime dependent) before production. Source: src/lib/gen/autofix/rules/cross-file-import-checker.ts (FEATURES.refuseDossierStubs)."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
