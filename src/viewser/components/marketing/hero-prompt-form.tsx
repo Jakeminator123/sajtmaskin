@@ -6,53 +6,50 @@ import { useRef, useState } from "react";
 import { DiscoveryWizard } from "@viewser/components/discovery-wizard/discovery-wizard";
 import type { discoveryOption } from "@viewser/components/discovery-wizard/discovery-options";
 import type { WizardAnswers } from "@viewser/components/discovery-wizard/wizard-types";
-import { emptyWizardAnswers } from "@viewser/components/discovery-wizard/wizard-types";
 import { STUDIO_HREF } from "@viewser/lib/routes";
-import { setWizardHandoff } from "@viewser/lib/init-prompt-handoff";
+import {
+  setDirectBuildHandoff,
+  setWizardHandoff,
+} from "@viewser/lib/init-prompt-handoff";
 import { STARTER_PRESETS, type StarterPreset } from "@viewser/lib/starter-presets";
 
-// Hero-prompten: besökaren beskriver sin sajt DIREKT på den nya startsidan
-// och DiscoveryWizarden öppnas som popup HÄR — ovanpå den nya heron (med
-// logotyp + header bakom). Besökaren ser alltså aldrig någon gammal start-
-// eller tom studiosida. När wizarden är klar lämnas hela resultatet över via
-// ``setWizardHandoff`` och vi navigerar till ``/studio`` som bygger direkt
-// (se lib/init-prompt-handoff.ts + prompt-builder.tsx).
+const URL_PATTERN = /(?:https?:\/\/[^\s]+|www\.[^\s]+)/i;
+
+function extractInlineUrl(text: string): string | undefined {
+  const match = text.match(URL_PATTERN);
+  if (!match?.[0]) return undefined;
+  const normalized = match[0].replace(/[),.;!?]+$/, "").trim();
+  return normalized || undefined;
+}
+
+// Hero-prompten skickar nu beskrivningen direkt till buildern via
+// DirectBuildHandoff. DiscoveryWizard finns kvar i filen för kompatibilitet
+// med befintlig wizard-handoff-seam.
 export function HeroPromptForm() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [handingOff, setHandingOff] = useState(false);
-  // Förvalda wizard-svar när besökaren klickat en starter-chip (familj +
-  // kategori redan satta). null = vanlig fri prompt (offer fylls från texten).
-  const [seedAnswers, setSeedAnswers] = useState<WizardAnswers | null>(null);
-  // Bumpas vid varje öppning så DiscoveryWizarden remountas och läser om
-  // initialAnswers (de läses bara i useState-initieraren).
-  const [wizardKey, setWizardKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   function start() {
     if (handingOff) return;
-    // Öppna wizarden på heron. Tom prompt → wizarden öppnas ändå (besökaren
-    // fyller "Vad gör ni?" där); annars förifylls offer-fältet med texten.
-    // Manuell start → ingen förvald familj (besökaren väljer i wizarden).
-    setSeedAnswers(null);
-    setWizardKey((key) => key + 1);
-    setWizardOpen(true);
+    const cleanedPrompt = prompt.trim();
+    if (!cleanedPrompt) return;
+    const url = extractInlineUrl(cleanedPrompt);
+    setHandingOff(true);
+    setDirectBuildHandoff(
+      url ? { prompt: cleanedPrompt, url } : { prompt: cleanedPrompt },
+    );
+    router.push(STUDIO_HREF);
   }
 
-  // Starter-chip: förifyll prompten OCH förvälj verksamhetsfamilj/kategori,
-  // öppna sedan wizarden. Samma seam som yrkessidornas StarterCta, fast
-  // wizarden körs direkt här på heron (ingen navigation förrän "Skapa sajt").
+  // Starter-chip går också direkt till buildern utan wizard.
   function startWithPreset(preset: StarterPreset) {
     if (handingOff) return;
-    setPrompt(preset.promptSeed);
-    const base = emptyWizardAnswers();
-    base.offer = preset.promptSeed;
-    base.businessFamily = preset.family;
-    base.siteType = [preset.category];
-    setSeedAnswers(base);
-    setWizardKey((key) => key + 1);
-    setWizardOpen(true);
+    setHandingOff(true);
+    setDirectBuildHandoff({ prompt: preset.promptSeed });
+    router.push(STUDIO_HREF);
   }
 
   function handleWizardComplete(
@@ -88,12 +85,12 @@ export function HeroPromptForm() {
             ref={textareaRef}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Beskriv din sajt — företag, känsla, mål, ton…"
+            placeholder="Beskriv din sajt och klistra ev. in en befintlig URL…"
             rows={2}
             maxLength={4000}
             disabled={handingOff}
             onKeyDown={(event) => {
-              // ⌘/Ctrl + ↵ öppnar wizarden; Enter ensamt = radbrytning.
+              // ⌘/Ctrl + ↵ skickar direkt till buildern; Enter ensamt = radbrytning.
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 start();
@@ -133,7 +130,8 @@ export function HeroPromptForm() {
           </div>
         </div>
         <p className="mt-3 text-[13px] leading-relaxed text-white/70">
-          Skriv en mening om ditt företag — vi tar det därifrån.
+          Skriv en mening om ditt företag och klistra ev. in en URL — vi
+          bygger direkt.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-[12px] text-white/50">Eller börja från:</span>
@@ -151,16 +149,13 @@ export function HeroPromptForm() {
         </div>
       </form>
 
-      {/* DiscoveryWizarden lever här på heron. Dialogen portaleras till
-          <body> så den ligger ovanpå hela den nya startsidan (logotyp +
-          header syns bakom backdropen) — ingen navigation till en separat
-          sida förrän besökaren klickat "Skapa sajt". */}
+      {/* Behålls importerad/monterad för bakåtkompatibel wizard-handoff. */}
       <DiscoveryWizard
-        key={wizardKey}
+        key={0}
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         initialPrompt={prompt}
-        initialAnswers={seedAnswers ?? undefined}
+        initialAnswers={undefined}
         onComplete={handleWizardComplete}
       />
     </>

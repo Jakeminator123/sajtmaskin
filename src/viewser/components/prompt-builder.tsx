@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  consumeDirectBuildHandoff,
   consumeInitPrompt,
   consumeWizardHandoff,
   consumeWizardSeed,
+  type DirectBuildHandoff,
   type WizardHandoff,
   type WizardSeed,
 } from "@viewser/lib/init-prompt-handoff";
@@ -223,6 +225,13 @@ export function PromptBuilder({
     // så bara en microtask schemaläggs, och den får alltid köra klart.
     if (heroHandoffRef.current) return;
 
+    const directBuildHandoff = consumeDirectBuildHandoff();
+    if (directBuildHandoff) {
+      heroHandoffRef.current = true;
+      queueMicrotask(() => startBuildFromDirectHandoff(directBuildHandoff));
+      return;
+    }
+
     // Rik handoff: operatören körde DiscoveryWizarden DIREKT på marknads-
     // heron och lämnade hela resultatet. Då bygger vi DIREKT — ingen andra
     // wizard, ingen tom-/start-sida. Detta är default-vägen in i studion.
@@ -300,6 +309,62 @@ export function PromptBuilder({
       submissionMode: "init",
       discovery,
     });
+  }
+
+  function startBuildFromDirectHandoff(handoff: DirectBuildHandoff) {
+    const cleaned = handoff.prompt.trim();
+    if (!cleaned) return;
+    setShowStarters(false);
+    setPrompt(cleaned);
+    setPendingPrompt("");
+    setError(null);
+    void (async () => {
+      const scrapedSummary = handoff.url
+        ? await scrapeSiteSummary(handoff.url)
+        : null;
+      const promptWithScrape = scrapedSummary
+        ? `${scrapedSummary}\n\n${cleaned}`
+        : cleaned;
+      await executeBuild({
+        cleanedPrompt: promptWithScrape,
+        submissionMode: "init",
+      });
+    })();
+  }
+
+  async function scrapeSiteSummary(url: string): Promise<string | null> {
+    const cleanedUrl = url.trim();
+    if (!cleanedUrl) return null;
+    try {
+      const response = await fetch("/api/scrape-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: cleanedUrl }),
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            data?: {
+              companyName?: unknown;
+              offer?: unknown;
+            };
+          }
+        | null;
+      if (!payload?.ok || !payload.data) return null;
+      const companyName =
+        typeof payload.data.companyName === "string"
+          ? payload.data.companyName.trim()
+          : "";
+      const offer =
+        typeof payload.data.offer === "string" ? payload.data.offer.trim() : "";
+      const parts: string[] = [];
+      if (companyName) parts.push(`Företag: ${companyName}.`);
+      if (offer) parts.push(`Erbjudande: ${offer}.`);
+      return parts.length > 0 ? parts.join(" ") : null;
+    } catch {
+      return null;
+    }
   }
 
   /**

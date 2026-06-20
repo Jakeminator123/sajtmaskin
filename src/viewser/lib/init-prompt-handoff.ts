@@ -25,6 +25,7 @@ import type { WizardAnswers } from "@viewser/components/discovery-wizard/wizard-
 const INIT_PROMPT_KEY = "sajtbyggaren:init-prompt";
 const WIZARD_HANDOFF_KEY = "sajtbyggaren:wizard-handoff";
 const WIZARD_SEED_KEY = "sajtbyggaren:wizard-seed";
+const DIRECT_BUILD_KEY = "sajtbyggaren:direct-build";
 
 /** Heron lägger besökarens prompt här innan navigation till studion. */
 export function setInitPrompt(text: string): void {
@@ -116,6 +117,11 @@ export type WizardSeed = {
   siteType: WizardCategoryId[];
 };
 
+export type DirectBuildHandoff = {
+  prompt: string;
+  url?: string;
+};
+
 /** Yrkessida/starter-chip lägger en lätt seed här innan navigation till studion. */
 export function setWizardSeed(seed: WizardSeed): void {
   if (typeof window === "undefined") return;
@@ -147,6 +153,30 @@ export function consumeWizardSeed(): WizardSeed | null {
     ) {
       return null;
     }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function setDirectBuildHandoff(handoff: DirectBuildHandoff): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(DIRECT_BUILD_KEY, JSON.stringify(handoff));
+  } catch {
+    // noop
+  }
+}
+
+export function consumeDirectBuildHandoff(): DirectBuildHandoff | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(DIRECT_BUILD_KEY);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(DIRECT_BUILD_KEY);
+    const parsed = JSON.parse(raw) as DirectBuildHandoff;
+    if (!parsed || typeof parsed.prompt !== "string") return null;
+    if (parsed.url != null && typeof parsed.url !== "string") return null;
     return parsed;
   } catch {
     return null;
