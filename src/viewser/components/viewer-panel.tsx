@@ -149,7 +149,7 @@ type PreviewApiError = {
 type PreviewStartResponse = {
   url: string;
   siteId?: string;
-  status?: "starting" | "ready";
+  status?: "starting" | "ready" | "pending" | "booting";
   port?: number;
   uptimeMs?: number;
   kind?: string;
@@ -318,6 +318,50 @@ const PREVIEW_PREP_HINT = IS_LOCAL_NEXT_MODE
     ? "Vi startar en säker molnförhandsvisning – det tar en stund första gången."
     : "Laddar förhandsvisningen i webbläsaren.";
 
+const PREVIEW_BOOTING_IFRAME_DOC = `<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        color: #0f172a;
+        background: #ffffff;
+      }
+      .card {
+        width: min(420px, calc(100% - 32px));
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 14px;
+        padding: 20px;
+        text-align: center;
+      }
+      .title { font-weight: 600; margin-bottom: 8px; }
+      .copy { color: rgba(15, 23, 42, 0.75); font-size: 14px; line-height: 1.45; }
+      .dots {
+        margin-top: 14px;
+        letter-spacing: 2px;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.35; }
+        50% { opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="title">Förhandsvisningen startar</div>
+      <div class="copy">Vi väntar på att SSR-hosten blir redo. Den här ytan uppdateras automatiskt.</div>
+      <div class="dots">● ● ●</div>
+    </div>
+  </body>
+</html>`;
+
 export function ViewerPanel({
   runId,
   siteId,
@@ -332,6 +376,7 @@ export function ViewerPanel({
   // visa banner med dessa fält.
   const [unavailable, setUnavailable] = useState<UnavailableInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [previewHostPending, setPreviewHostPending] = useState(false);
   // Lokal preview-server-URL. När den är satt renderar vi en simpel
   // iframe direkt mot ``http://localhost:<port>`` istället för att gå
   // genom StackBlitz. Snabbare (~1s vs ~60s), funkar i Safari/Firefox,
@@ -428,6 +473,19 @@ export function ViewerPanel({
     // lazy StackBlitz-vägen). Återställs helt vid varje runId/siteId-byte
     // och vid "Försök igen" (retryNonce).
     let cancelled = false;
+    let pendingRetryTimer: number | null = null;
+    let pendingRetryResolve: (() => void) | null = null;
+
+    const waitForPendingRetry = async () => {
+      await new Promise<void>((resolve) => {
+        pendingRetryResolve = resolve;
+        pendingRetryTimer = window.setTimeout(() => {
+          pendingRetryTimer = null;
+          pendingRetryResolve = null;
+          resolve();
+        }, 4000);
+      });
+    };
 
     void (async () => {
       // Skjut upp de initiala state-skrivningarna ett microtask så React
@@ -441,12 +499,16 @@ export function ViewerPanel({
       if (!runId) {
         setUnavailable(null);
         setLoading(false);
+        setPreviewHostPending(false);
         setUseStackblitz(false);
+        setLocalPreviewUrl(null);
+        setIframeLoaded(false);
         return;
       }
 
       setUnavailable(null);
       setUseStackblitz(false);
+      setPreviewHostPending(false);
       setLocalPreviewUrl(null);
       setIframeLoaded(false);
       setLoading(true);
@@ -491,40 +553,56 @@ export function ViewerPanel({
       // StackBlitz" — oavsett mode.
       if (!IS_STACKBLITZ_MODE && siteId) {
         try {
-          const previewResponse = await fetch(`/api/preview/${siteId}`, {
-            method: "POST",
-          });
-          if (previewResponse.ok) {
-            // local-next → http://localhost:<port>; vercel-sandbox →
-            // publik …vercel.run-https-URL. Båda iframe:as identiskt.
-            const info = (await previewResponse.json()) as PreviewStartResponse;
-            if (cancelled) return;
-            setIframeLoaded(false);
-            setLocalPreviewUrl(info.url);
-            setLoading(false);
-            return;
+          for (;;) {
+            const previewResponse = await fetch(`/api/preview/${siteId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                runId,
+                versionId: runId,
+              }),
+            });
+            if (previewResponse.ok) {
+              // local-next → http://localhost:<port>; vercel-sandbox →
+              // publik …vercel.run-https-URL. Båda iframe:as identiskt.
+              const info = (await previewResponse.json()) as PreviewStartResponse;
+              if (cancelled) return;
+              const status = info.status ?? "ready";
+              if (
+                info.kind === "preview-host" &&
+                (status === "pending" || status === "booting" || status === "starting")
+              ) {
+                setPreviewHostPending(true);
+                setLocalPreviewUrl(null);
+                setIframeLoaded(false);
+                setLoading(false);
+                await waitForPendingRetry();
+                if (cancelled) return;
+                continue;
+              }
+              setPreviewHostPending(false);
+              setIframeLoaded(false);
+              setLocalPreviewUrl(info.url);
+              setLoading(false);
+              return;
+            }
+            if (IS_LOCAL_NEXT_MODE || IS_VERCEL_SANDBOX_MODE) {
+              if (cancelled) return;
+              const errPayload = (await previewResponse
+                .json()
+                .catch(() => null)) as PreviewApiError | null;
+              if (cancelled) return;
+              setPreviewHostPending(false);
+              setUnavailable(unavailableForPreviewError(errPayload));
+              setLoading(false);
+              return;
+            }
+            break;
           }
-          if (IS_LOCAL_NEXT_MODE || IS_VERCEL_SANDBOX_MODE) {
-            if (cancelled) return;
-            const errPayload = (await previewResponse
-              .json()
-              .catch(() => null)) as PreviewApiError | null;
-            // Re-check cancelled AFTER the JSON-parse await: a runId
-            // switch during the parse must not write stale state.
-            // Mirror of the success-branch guard above and the 404
-            // guard on the StackBlitz fallback below (Codex P2, PR #97).
-            if (cancelled) return;
-            setUnavailable(unavailableForPreviewError(errPayload));
-            setLoading(false);
-            return;
-          }
-          // I stackblitz/auto-mode: fall genom till StackBlitz nedan.
-          // 404/500 från preview-routen är då förväntat eftersom
-          // build_site.py kan ha skippats medvetet och vi har files
-          // tillgängliga via /api/runs/<runId>/files istället.
         } catch {
           if (IS_LOCAL_NEXT_MODE || IS_VERCEL_SANDBOX_MODE) {
             if (cancelled) return;
+            setPreviewHostPending(false);
             setUnavailable({
               title: "Preview-servern kunde inte nås",
               message: "Nätverksfel mot /api/preview/<siteId>.",
@@ -533,7 +611,6 @@ export function ViewerPanel({
             setLoading(false);
             return;
           }
-          // Stackblitz-mode: fortsätt med StackBlitz-fallback.
         }
       } else if (IS_LOCAL_NEXT_MODE || IS_VERCEL_SANDBOX_MODE) {
         // siteId saknas men runId finns — t.ex. en mock-run från
@@ -548,6 +625,7 @@ export function ViewerPanel({
             "Den valda runen har inget siteId i build-result.json. Preview kräver en byggd .generated/<siteId>/-mapp.",
           hint: "Kör en ny prompt för att skapa en builder-run, eller byt till VIEWSER_PREVIEW_MODE=stackblitz för fil-baserad preview.",
         });
+        setPreviewHostPending(false);
         setLoading(false);
         return;
       }
@@ -572,6 +650,7 @@ export function ViewerPanel({
             "Den här förhandsvisningen kunde inte laddas och det aktuella preview-läget tillåter ingen StackBlitz-reserv.",
           hint: "Kör en ny prompt för att bygga sajten, eller kontrollera VIEWSER_PREVIEW_MODE.",
         });
+        setPreviewHostPending(false);
         setLoading(false);
         return;
       }
@@ -584,12 +663,21 @@ export function ViewerPanel({
       // komponenten faktiskt renderas (dvs här, i stackblitz/auto-läge),
       // aldrig vid en normal vercel-sandbox/local-next-studioladdning.
       if (cancelled) return;
+      setPreviewHostPending(false);
       setUseStackblitz(true);
       setLoading(false);
     })();
 
     return () => {
       cancelled = true;
+      if (pendingRetryTimer !== null) {
+        window.clearTimeout(pendingRetryTimer);
+        pendingRetryTimer = null;
+      }
+      if (pendingRetryResolve) {
+        pendingRetryResolve();
+        pendingRetryResolve = null;
+      }
     };
     // retryNonce: bumpas av "Försök igen" i otillgänglig-bannern → kör om
     // effekten med full state-reset (samma väg som ett runId-byte).
@@ -634,6 +722,8 @@ export function ViewerPanel({
 
   const showEmpty = !runId;
   const showUnavailable = unavailable && !!runId;
+  const showPreviewHostPending =
+    previewHostPending && !localPreviewUrl && !showUnavailable && !showEmpty;
   // Den legacy/pausade StackBlitz-vägen är aktiv: render:as via den lazy-
   // laddade ``<StackblitzPreview/>``. Bara möjlig i stackblitz/auto
   // (``CAN_FALL_BACK_TO_STACKBLITZ``); effekten sätter ``useStackblitz``
@@ -895,6 +985,20 @@ export function ViewerPanel({
         Hela den vägen flyttades dit så ``@stackblitz/sdk`` aldrig dras in
         i ViewerPanel:s eager-chunk (bundle-bloat-fixen, ADR 0033).
       */}
+
+      {showPreviewHostPending ? (
+        <div
+          className="absolute inset-0 z-[5] mx-auto h-full w-full bg-white transition-[max-width] duration-300 ease-out"
+          style={previewWrapperStyle}
+        >
+          <iframe
+            title="Sajt-preview startar"
+            srcDoc={PREVIEW_BOOTING_IFRAME_DOC}
+            className="h-full w-full border-0 bg-white"
+            sandbox=""
+          />
+        </div>
+      ) : null}
 
       {/*
         Preview-iframe. Renderas bara när /api/preview/<siteId>
