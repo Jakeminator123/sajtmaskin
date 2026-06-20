@@ -452,7 +452,8 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [
         "development",
-        "preview"
+        "preview",
+        "production"
       ],
       "notes": "Opt-in (grandmaster A7-2 false-green hardening). When true/1, autofix refuses to fabricate a silent null-render stub for a dossier-exposed import the LLM did not emit; the unresolved import then degrades/blocks the preview honestly (preview blocked with reason via runProjectSanityChecks code_structure_failure) instead of shipping a hollow false-green page. Default off. Reversible: set false/unset to restore the silent-stub behavior. Recommended rollout: enable on preview first and watch how often legitimate builds get blocked (frequency is LLM-runtime dependent) before production. Source: src/lib/gen/autofix/rules/cross-file-import-checker.ts (FEATURES.refuseDossierStubs)."
     },
