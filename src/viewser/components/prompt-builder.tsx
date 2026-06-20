@@ -185,6 +185,20 @@ export function PromptBuilder({
    */
   const mode: PromptMode = followupReady ? "followup" : "init";
 
+  useEffect(() => {
+    window.__SITEMASKIN_CONTEXT = {
+      page: "builder",
+      chatId: targetSiteId.trim() ? targetSiteId : null,
+      activeVersionId: selectedRunId ?? null,
+      recentMessages: [],
+      isStreaming: localBusy,
+    };
+
+    return () => {
+      delete window.__SITEMASKIN_CONTEXT;
+    };
+  }, [targetSiteId, selectedRunId, localBusy]);
+
   // B122-fix 2026-05-27: den 1500ms-baserade stage-transition-timern är
   // borta — `building`-eventet kommer nu från route:n via NDJSON-stream.
   // Inget kvar att städa vid unmount (om operatorn lämnar sidan mitt i
