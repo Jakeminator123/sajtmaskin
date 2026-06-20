@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   detectFollowUpRouteDrift,
+  enforceFollowUpRouteFreeze,
   enforceFollowUpScaffoldFreeze,
   enforceFollowUpVariantFreeze,
   resolveOrchestrationBase,
@@ -264,5 +265,195 @@ describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {
     });
     expect(decision.drifted).toBe(false);
     expect(decision.droppedShellPaths).toEqual([]);
+  });
+});
+
+/**
+ * Grandmaster Område 5 — 5-6: route HARD-CLAMP + explicit route-removal.
+ *
+ * Källa: docs/plans/active/grandmaster/aktiviteter/5-6-route-hard-clamp.md
+ *
+ * Invariant som låses: en *neutral* follow-up får inte SILENTLY (tyst) tappa
+ * en route som basversionen hade. Kontraktets frysta routes (existing + shell)
+ * är ett golv (floor) som återinförs vid tyst drop. Två undantag: clear-redesign
+ * och EXPLICIT route-removal (kanonisk `collectExplicitRouteRemovals`).
+ */
+describe("5-6 route hard-clamp — enforceFollowUpRouteFreeze (unit)", () => {
+  it("restores a silently-dropped frozen route on a neutral follow-up", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/", "/om"],
+    });
+    expect(decision.clamped).toBe(true);
+    expect(decision.restoredPaths).toEqual(["/kontakt"]);
+    expect(decision.allowedRemovalPaths).toEqual([]);
+  });
+
+  it("restores a silently-dropped frozen SHELL route (full routePlan coverage)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/"],
+      contractShellRoutePaths: ["/dashboard"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.clamped).toBe(true);
+    expect(decision.restoredPaths).toContain("/dashboard");
+    expect(decision.restoredShellPaths).toEqual(["/dashboard"]);
+  });
+
+  it("does NOT restore a route the user explicitly removed (route-removal exemption)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/", "/om"],
+      explicitRouteRemovals: ["/kontakt"],
+    });
+    expect(decision.clamped).toBe(false);
+    expect(decision.restoredPaths).toEqual([]);
+    expect(decision.allowedRemovalPaths).toEqual(["/kontakt"]);
+  });
+
+  it("restores silently-dropped routes but honors explicit removal for the targeted one (mixed)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt", "/blogg"],
+      resolvedRoutePaths: ["/", "/om"],
+      explicitRouteRemovals: ["/kontakt"],
+    });
+    expect(decision.clamped).toBe(true);
+    expect(decision.restoredPaths).toEqual(["/blogg"]);
+    expect(decision.allowedRemovalPaths).toEqual(["/kontakt"]);
+  });
+
+  it("does NOT clamp on clear-redesign (exemption)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: true,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.clamped).toBe(false);
+    expect(decision.restoredPaths).toEqual([]);
+  });
+
+  it("does NOT clamp on init runs", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "init",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.clamped).toBe(false);
+  });
+
+  it("is a no-op when every frozen route survives (allows additive routes — floor, not ceiling)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om"],
+      // Neutral follow-up added a brand-new route — must not be stripped, and
+      // nothing frozen is missing, so the clamp is a pure no-op.
+      resolvedRoutePaths: ["/", "/om", "/nyheter"],
+    });
+    expect(decision.clamped).toBe(false);
+    expect(decision.restoredPaths).toEqual([]);
+  });
+
+  it("is trailing-slash insensitive (no false restore)", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om/"],
+      resolvedRoutePaths: ["/", "/om"],
+    });
+    expect(decision.clamped).toBe(false);
+    expect(decision.restoredPaths).toEqual([]);
+  });
+
+  it("is a no-op when the contract carries no frozen routes", () => {
+    const decision = enforceFollowUpRouteFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: [],
+      contractShellRoutePaths: [],
+      resolvedRoutePaths: ["/", "/om"],
+    });
+    expect(decision.clamped).toBe(false);
+  });
+});
+
+describe("5-6 route hard-clamp — resolveOrchestrationBase (integration)", () => {
+  it("restores a frozen contract route the resolved plan silently dropped", async () => {
+    const contract = makeContract({
+      routePlan: { existingRoutePaths: ["/", "/om", "/kontakt"], existingShellRoutePaths: [] },
+    });
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({
+        followUpContract: contract,
+        // Planner sees a lossy subset (frozen /kontakt missing) — the contract
+        // is authoritative, so the clamp must restore it.
+        existingRoutePaths: ["/", "/om"],
+        existingShellRoutePaths: [],
+      }),
+    );
+    const paths = base.routePlan.routes.map((route) => route.path);
+    expect(paths).toContain("/kontakt");
+    expect(paths).toContain("/");
+    expect(paths).toContain("/om");
+  });
+
+  it("restores a frozen deferred-shell route the resolved plan dropped", async () => {
+    const contract = makeContract({
+      routePlan: { existingRoutePaths: ["/", "/om"], existingShellRoutePaths: ["/dashboard"] },
+    });
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({
+        followUpContract: contract,
+        existingRoutePaths: ["/", "/om"],
+        existingShellRoutePaths: ["/dashboard"],
+      }),
+    );
+    const paths = base.routePlan.routes.map((route) => route.path);
+    expect(paths).toContain("/dashboard");
+  });
+
+  it("honors explicit route-removal — does NOT clamp back the route the user asked to remove", async () => {
+    const contract = makeContract({
+      routePlan: { existingRoutePaths: ["/", "/om", "/kontakt"], existingShellRoutePaths: [] },
+    });
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({
+        followUpContract: contract,
+        existingRoutePaths: ["/", "/om", "/kontakt"],
+        existingShellRoutePaths: [],
+        prompt: "Ta bort /kontakt",
+        rawPrompt: "Ta bort /kontakt",
+      }),
+    );
+    const paths = base.routePlan.routes.map((route) => route.path);
+    expect(paths).not.toContain("/kontakt");
+    expect(paths).toContain("/");
+    expect(paths).toContain("/om");
+  });
+
+  it("does NOT restore dropped routes on clear-redesign (exemption)", async () => {
+    const contract = makeContract({
+      routePlan: { existingRoutePaths: ["/", "/om", "/kontakt"], existingShellRoutePaths: [] },
+    });
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({
+        followUpContract: contract,
+        existingRoutePaths: ["/", "/om"],
+        existingShellRoutePaths: [],
+        ignorePersistedScaffoldForMatch: true,
+      }),
+    );
+    const paths = base.routePlan.routes.map((route) => route.path);
+    expect(paths).not.toContain("/kontakt");
   });
 });

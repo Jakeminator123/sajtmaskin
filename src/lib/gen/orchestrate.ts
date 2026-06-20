@@ -37,8 +37,8 @@ import {
   type InferredCapabilities,
 } from "./capability-inference";
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
-import { buildRoutePlan, normalizeRoutePath } from "./route-plan";
-import type { RoutePlan } from "./route-plan";
+import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "./route-plan";
+import type { PlannedRoute, RoutePlan } from "./route-plan";
 import {
   type ConfirmedContractAnswer,
   inferPreGenerationContracts,
@@ -543,14 +543,14 @@ export interface FollowUpRouteFreezeDecision {
  * deferred-shell route also fires the drift signal (closes a false-green gap
  * where only the non-shell array was validated).
  *
- * Validation-only (no clamp): `buildRoutePlan` already freezes existing routes
- * and only drops one when the user explicitly asks to remove it — re-adding
- * paths here would clobber that legitimate removal, and distinguishing the two
- * needs the builder's internal `explicitRouteRemovals` context (a broader grip
- * than 5-3's narrow scope). So 5-3 emits a route drift signal and DEFERS a hard
- * route-clamp (the signal now spans the full frozen routePlan even though the
- * clamp stays deferred). clear-redesign is exempt. Both sides are normalized so
- * trailing-slash forms never false-fire.
+ * Drift telemetry (5-3): reports every frozen route missing from the resolved
+ * plan, regardless of whether the drop was intentional. 5-6 adds the actual
+ * restore on top of this via {@link enforceFollowUpRouteFreeze}, which splits
+ * the dropped set into silently-dropped (restored) vs explicitly-removed (left
+ * gone, via the canonical `collectExplicitRouteRemovals` signal). This detector
+ * stays the "what changed" signal; the clamp is the "what we corrected" step.
+ * clear-redesign is exempt. Both sides are normalized so trailing-slash forms
+ * never false-fire.
  */
 export function detectFollowUpRouteDrift(
   input: FollowUpRouteFreezeInput,
@@ -583,6 +583,142 @@ export function detectFollowUpRouteDrift(
   const droppedShellPaths = frozenShell.filter((path) => !resolved.has(path));
   const droppedPaths = frozenAll.filter((path) => !resolved.has(path));
   return { droppedPaths, droppedShellPaths, drifted: droppedPaths.length > 0 };
+}
+
+// ── Område 5 / 5-6: route HARD-CLAMP + explicit route-removal ──────────────
+// #168 (5-3) left route as a drift SIGNAL only (`detectFollowUpRouteDrift`):
+// it logged a dropped frozen route but never restored it, so a neutral
+// follow-up could still SILENTLY drop a page. 5-6 closes that: the contract's
+// frozen routes become a *floor* that a neutral follow-up must keep, with two
+// exemptions — (a) clear-redesign (`ignorePersistedScaffoldForMatch`), and
+// (b) EXPLICIT route-removal. Route-removal intent is NOT a new signal: it is
+// the canonical `collectExplicitRouteRemovals` (owned by
+// `route-plan/planning-helpers.ts`, the very signal `buildRoutePlan` already
+// uses to honor intentional removals). The clamp restores only *silently*
+// dropped frozen routes; explicitly removed ones stay gone. Drift telemetry is
+// retained — drift is now both clamped AND logged.
+
+export interface FollowUpRouteClampInput {
+  resolvedMode: "init" | "followUp";
+  /** clear-redesign may rebuild the route plan; exempts the clamp. */
+  ignorePersistedScaffoldForMatch: boolean;
+  /** Frozen base routes from the contract (`routePlan.existingRoutePaths`). */
+  contractExistingRoutePaths: string[];
+  /**
+   * Frozen deferred-shell route paths from the contract
+   * (`routePlan.existingShellRoutePaths`). Restored alongside
+   * `contractExistingRoutePaths` so a silently dropped frozen shell route is
+   * also clamped back. Optional / defaults to `[]` for the no-shell case.
+   */
+  contractShellRoutePaths?: string[];
+  /** Route paths orchestrate's `buildRoutePlan` produced. */
+  resolvedRoutePaths: string[];
+  /**
+   * Paths the user explicitly asked to remove — the CANONICAL route-removal
+   * signal (`collectExplicitRouteRemovals`, owned by
+   * `route-plan/planning-helpers.ts`). A frozen route in this set is treated as
+   * an intentional removal and is NOT restored. Optional / defaults to `[]` so
+   * a follow-up with no removal intent restores every dropped frozen route.
+   */
+  explicitRouteRemovals?: string[];
+}
+
+export interface FollowUpRouteClampDecision {
+  /** Frozen routes silently dropped (not explicitly removed) → restored by the clamp. */
+  restoredPaths: string[];
+  /** Subset of `restoredPaths` that were frozen deferred-shell routes. */
+  restoredShellPaths: string[];
+  /** Frozen routes the user explicitly removed → intentionally left dropped (not restored). */
+  allowedRemovalPaths: string[];
+  /** True when the clamp restored at least one silently-dropped frozen route. */
+  clamped: boolean;
+}
+
+/**
+ * Human-readable name for a route restored by the clamp. Mirrors the inline
+ * `routeNameFromPath` in `route-plan-builder.ts` so a restored route reads the
+ * same as one `buildRoutePlan` would have preserved itself.
+ */
+function routeNameForRestoredPath(path: string, buildIntent: BuildIntent): string {
+  if (path === "/") return buildIntent === "app" ? "Dashboard" : "Home";
+  const label = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => segment.replace(/[-_]/g, " "))
+    .join(" ")
+    .trim();
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Route";
+}
+
+/**
+ * Decide which frozen contract routes a neutral follow-up dropped must be
+ * restored. Mirrors `enforceFollowUpScaffoldFreeze`/`enforceFollowUpVariantFreeze`:
+ * pure, decides from already-resolved values, behaviour-neutral when nothing
+ * drifted. Covers the FULL frozen `routePlan` (existing + deferred-shell). The
+ * frozen set is a FLOOR, not a ceiling — additive routes the follow-up added
+ * are never touched, only missing frozen routes are considered for restore.
+ *
+ * Two exemptions keep intentional change working:
+ *  - clear-redesign (`ignorePersistedScaffoldForMatch`) → no clamp at all.
+ *  - EXPLICIT route-removal (`explicitRouteRemovals`, the canonical
+ *    `collectExplicitRouteRemovals` signal) → that route stays dropped.
+ *
+ * No-op on init, on clear-redesign, when the contract carries no frozen routes,
+ * or when every frozen route survived. Both sides are normalized so
+ * trailing-slash forms never false-fire.
+ */
+export function enforceFollowUpRouteFreeze(
+  input: FollowUpRouteClampInput,
+): FollowUpRouteClampDecision {
+  const {
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractExistingRoutePaths,
+    contractShellRoutePaths = [],
+    resolvedRoutePaths,
+    explicitRouteRemovals = [],
+  } = input;
+  const empty: FollowUpRouteClampDecision = {
+    restoredPaths: [],
+    restoredShellPaths: [],
+    allowedRemovalPaths: [],
+    clamped: false,
+  };
+  if (
+    resolvedMode !== "followUp" ||
+    ignorePersistedScaffoldForMatch ||
+    (contractExistingRoutePaths.length === 0 && contractShellRoutePaths.length === 0)
+  ) {
+    return empty;
+  }
+  const resolved = new Set(resolvedRoutePaths.map((path) => normalizeRoutePath(path)));
+  const removed = new Set(explicitRouteRemovals.map((path) => normalizeRoutePath(path)));
+  const shellSet = new Set(contractShellRoutePaths.map((path) => normalizeRoutePath(path)));
+  const frozenAll = Array.from(
+    new Set(
+      [...contractExistingRoutePaths, ...contractShellRoutePaths].map((path) =>
+        normalizeRoutePath(path),
+      ),
+    ),
+  );
+  const restoredPaths: string[] = [];
+  const allowedRemovalPaths: string[] = [];
+  for (const path of frozenAll) {
+    if (resolved.has(path)) continue; // frozen route survived → nothing to do
+    if (removed.has(path)) {
+      allowedRemovalPaths.push(path); // intentional removal → leave it dropped
+      continue;
+    }
+    restoredPaths.push(path); // silently dropped → restore
+  }
+  const restoredShellPaths = restoredPaths.filter((path) => shellSet.has(path));
+  return {
+    restoredPaths,
+    restoredShellPaths,
+    allowedRemovalPaths,
+    clamped: restoredPaths.length > 0,
+  };
 }
 
 /**
@@ -904,17 +1040,25 @@ export async function resolveOrchestrationBase(
     locale: resolvedLocale,
   });
 
-  // ── 5-3 freeze-enforcement (route) ──
-  // Validation-only: detect when a neutral follow-up's plan dropped a frozen
-  // base route. Covers the FULL frozen routePlan (existing + deferred-shell
-  // routes). `buildRoutePlan` already freezes existing routes, so this is a
-  // drift signal — the hard route-clamp stays deferred (see
-  // `detectFollowUpRouteDrift`). clear-redesign stays exempt.
+  // ── 5-6 freeze-enforcement (route) — HARD CLAMP + explicit route-removal ──
+  // #168 (5-3) detected route drift but never restored it (signal-only). 5-6
+  // closes that: a neutral follow-up's resolved plan must keep the contract's
+  // frozen routes (existing + deferred-shell) — they are a *floor*. Any frozen
+  // route SILENTLY dropped is restored; two exemptions keep intentional change
+  // working: clear-redesign (`ignorePersistedScaffoldForMatch`) and EXPLICIT
+  // route-removal (the canonical `collectExplicitRouteRemovals` signal — the
+  // same one `buildRoutePlan` honors). Defensive: the whole clamp is wrapped so
+  // a clamp/telemetry failure can NEVER throw and break generation. Drift
+  // telemetry stays — drift is now both clamped AND logged.
+  const contractExistingRoutePaths =
+    input.followUpContract?.routePlan.existingRoutePaths ?? [];
+  const contractShellRoutePaths =
+    input.followUpContract?.routePlan.existingShellRoutePaths ?? [];
   const routeDrift = detectFollowUpRouteDrift({
     resolvedMode,
     ignorePersistedScaffoldForMatch,
-    contractExistingRoutePaths: input.followUpContract?.routePlan.existingRoutePaths ?? [],
-    contractShellRoutePaths: input.followUpContract?.routePlan.existingShellRoutePaths ?? [],
+    contractExistingRoutePaths,
+    contractShellRoutePaths,
     resolvedRoutePaths: routePlan.routes.map((route) => route.path),
   });
   if (routeDrift.drifted) {
@@ -923,6 +1067,71 @@ export async function resolveOrchestrationBase(
       droppedPaths: routeDrift.droppedPaths,
       droppedShellPaths: routeDrift.droppedShellPaths,
     });
+  }
+  try {
+    if (
+      resolvedMode === "followUp" &&
+      !ignorePersistedScaffoldForMatch &&
+      (contractExistingRoutePaths.length > 0 || contractShellRoutePaths.length > 0)
+    ) {
+      const frozenAllPaths = Array.from(
+        new Set(
+          [...contractExistingRoutePaths, ...contractShellRoutePaths].map((path) =>
+            normalizeRoutePath(path),
+          ),
+        ),
+      );
+      // Canonical route-removal signal (owner: route-plan/planning-helpers).
+      // Use the same route-planning prompt + intent buildRoutePlan used so the
+      // clamp and the planner agree on what counts as an intentional removal.
+      const explicitRouteRemovals = Array.from(
+        collectExplicitRouteRemovals(
+          routePlanPrompt ?? prompt,
+          effectiveBuildIntent,
+          frozenAllPaths,
+        ),
+      );
+      const routeClamp = enforceFollowUpRouteFreeze({
+        resolvedMode,
+        ignorePersistedScaffoldForMatch,
+        contractExistingRoutePaths,
+        contractShellRoutePaths,
+        resolvedRoutePaths: routePlan.routes.map((route) => route.path),
+        explicitRouteRemovals,
+      });
+      if (routeClamp.clamped) {
+        const existingPlanPaths = new Set(
+          routePlan.routes.map((route) => normalizeRoutePath(route.path)),
+        );
+        for (const restorePath of routeClamp.restoredPaths) {
+          if (existingPlanPaths.has(restorePath)) continue;
+          const isRoot = restorePath === "/";
+          const restoredRoute: PlannedRoute = {
+            path: restorePath,
+            name: routeNameForRestoredPath(restorePath, effectiveBuildIntent),
+            intent: isRoot
+              ? "Keep the root route as the primary entry point while applying follow-up changes."
+              : `Preserve the existing ${restorePath} route — frozen by the follow-up contract; the user did not ask to remove it.`,
+            required: isRoot,
+          };
+          routePlan.routes.push(restoredRoute);
+          existingPlanPaths.add(restorePath);
+        }
+        emitFollowUpFreezeDrift("route", {
+          chatId: input.chatId ?? null,
+          clamped: true,
+          restoredPaths: routeClamp.restoredPaths,
+          restoredShellPaths: routeClamp.restoredShellPaths,
+          allowedRemovalPaths: routeClamp.allowedRemovalPaths,
+        });
+      }
+    }
+  } catch (err) {
+    // Defensive: a route-clamp/telemetry failure must NEVER break generation.
+    console.warn(
+      "[orchestrate] followup route-clamp failed — continuing without clamp:",
+      err instanceof Error ? err.message : err,
+    );
   }
 
   const preGenerationContracts = inferPreGenerationContracts({
