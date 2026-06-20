@@ -335,11 +335,14 @@ export function PromptBuilder({
   async function scrapeSiteSummary(url: string): Promise<string | null> {
     const cleanedUrl = url.trim();
     if (!cleanedUrl) return null;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 7000);
     try {
       const response = await fetch("/api/scrape-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: cleanedUrl }),
+        signal: controller.signal,
       });
       if (!response.ok) return null;
       const payload = (await response.json().catch(() => null)) as
@@ -364,6 +367,8 @@ export function PromptBuilder({
       return parts.length > 0 ? parts.join(" ") : null;
     } catch {
       return null;
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }
 
