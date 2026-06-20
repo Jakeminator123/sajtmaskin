@@ -15,9 +15,8 @@
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Innehåller även dossier-systemet: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) samt `data/template-references/{repos,_metadata}/` (gitignored input till AI-kuration). Se [`dossier-system.md`](./dossier-system.md). |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `evals/` | LLM-eval-prompter och resultat (`*.prompt.json`, `results/`) — [`evals/README.md`](../../evals/README.md). |
 | `drizzle/` | Genererade Drizzle DB-migrationsartefakter (`meta/`). Config: `drizzle.config.ts`. |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `evals/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `debug/`, `cursor/`, `fly_vm/`. |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `debug/`, `cursor/`, `fly_vm/`. |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `public/` | Next.js statiska assets (branding, bilder, ikoner, video). |
@@ -28,7 +27,7 @@
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 
-Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`_parkering/`, `infra/`, `evals/`, `e2e/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
+Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`_parkering/`, `infra/`, `e2e/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
 
 `docs/plans/avklarat/` är **inte** uttryckligen ignorerad här (historik ska kunna indexeras i Cursor); motsvarande rad finns inte i `.gitignore` heller. `data/prompt-dumps/*` och `output/generations/` följer samma idé som `.gitignore` (dumps och generationslogg bort från index, undantag för README där det finns).
 

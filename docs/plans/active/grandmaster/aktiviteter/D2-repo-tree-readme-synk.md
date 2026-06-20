@@ -17,7 +17,7 @@ risk: låg
 lägg inte lager.
 
 ## Konkret
-- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `evals/`, `drizzle/` osv.)
+- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `drizzle/` osv.)
   och tar bort fantommappar (`research/`, `templates_v0/`, `isolated_tests/` om de ej finns).
 - `README.md` slutar peka på `templates_v0/` som produktbana (legacy enligt repo-router).
 
