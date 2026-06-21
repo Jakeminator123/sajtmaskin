@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveVersionHistorySummary,
+  shouldShowVerifiedBadge,
   versionHistoryStatusBadge,
 } from "./version-history-status-labels";
 import type {
@@ -122,5 +123,26 @@ describe("resolveVersionHistorySummary", () => {
     expect(resolveVersionHistorySummary(display("degraded", { degraded: true }), null)).toMatch(
       /hoppades över eller hittade blockerande fel/i,
     );
+  });
+});
+
+describe("shouldShowVerifiedBadge (B09 false-green guard)", () => {
+  it("shows the emerald Verifierad badge when verified and not degraded", () => {
+    expect(shouldShowVerifiedBadge("verified", false)).toBe(true);
+  });
+
+  it("suppresses Verifierad when the lifecycle is degraded (no split false-green)", () => {
+    // A promoted+passed DB row whose bus carries degradations[] (e.g.
+    // product_postcheck_skipped) must NOT show emerald "Verifierad" next to the
+    // amber "Degraderad" lifecycle badge.
+    expect(shouldShowVerifiedBadge("verified", true)).toBe(false);
+  });
+
+  it("never shows Verifierad for non-verified surface statuses", () => {
+    expect(shouldShowVerifiedBadge("failed", false)).toBe(false);
+    expect(shouldShowVerifiedBadge("verifying", false)).toBe(false);
+    expect(shouldShowVerifiedBadge("design_ready", false)).toBe(false);
+    expect(shouldShowVerifiedBadge(null, false)).toBe(false);
+    expect(shouldShowVerifiedBadge(undefined, false)).toBe(false);
   });
 });
