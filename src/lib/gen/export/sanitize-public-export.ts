@@ -1,48 +1,63 @@
 import type { CodeFile } from "@/lib/gen/parser";
 
 /**
- * BUG-SWARM B11 — strip secret VALUES from dotenv files before a project is
+ * BUG-SWARM B11 — strip secret VALUES from env files before a project is
  * uploaded to a PUBLIC, unauthenticated blob (the export route's
- * `put(..., { access: "public" })`). A version's files can carry a real
- * `.env.local` (pasted by the user, hallucinated by the model, or merged from
- * preview); without this it would land in a permanent public CDN zip.
+ * `put(..., { access: "public" })`).
  *
- * Keys, comments and structure are preserved so the export stays a usable
- * env template — only the values are dropped. Owner-scoped downloads
- * (`/download`, `/api/download`) keep full content and must NOT use this;
- * the shared `buildExportableProject` is likewise left untouched so verify /
- * quality-gate / repair lanes are unaffected.
+ * Primary vector is the canonical `env.example` (no leading dot,
+ * `PROJECT_ENV_FILE_PATH`): it is injected into `versions.files_json` and in
+ * F3 merges REAL user-panel values (`projectEnvVars`, e.g. STRIPE_SECRET_KEY)
+ * via `buildProjectEnvFileContents`. A model-emitted `.env.local` can also
+ * carry real keys. Without this, those land in a permanent public CDN zip.
+ *
+ * Keys, comments and structure are preserved so the export stays a usable env
+ * template — only values are dropped. Owner-scoped downloads (`/download`,
+ * `/api/download`) keep full content and must NOT use this; the shared
+ * `buildExportableProject` is likewise untouched so verify / quality-gate /
+ * repair lanes are unaffected.
  */
 
-/** True for real dotenv files that may carry secrets (`.env`, `.env.local`,
- * `.env.production`, …) but NOT `*.example` templates. */
-function isSecretEnvFile(path: string): boolean {
+/** Env files that may carry secret values in a public export. Includes the
+ * canonical `env.example` (no leading dot) and every `.env*` variant — we do
+ * NOT exempt `*.example`, because `env.example` is exactly the file that merges
+ * real F3 values. Being conservative is correct for a public CDN blob. */
+function isEnvFile(path: string): boolean {
   const base = path.split("/").pop() ?? path;
-  if (base.endsWith(".example")) return false;
-  return base === ".env" || base.startsWith(".env.");
+  return base === "env.example" || base === ".env" || base.startsWith(".env.");
 }
 
-/** Drop the value from every `KEY=value` line, keeping keys, comments and
- * blank lines intact. */
+const KEY_ASSIGN = /^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=)/;
+
+/**
+ * Keep `KEY=` (value dropped), comments and blank lines; DROP every other
+ * non-empty line. Dropping continuation lines is what makes this safe against
+ * multiline / backslash-wrapped / quoted-across-lines values — no value text,
+ * single- or multi-line, can survive.
+ */
 function redactEnvValues(content: string): string {
-  return content
-    .split(/\r?\n/)
-    .map((line) => {
-      const trimmed = line.trimStart();
-      if (!trimmed || trimmed.startsWith("#")) return line;
-      const eq = line.indexOf("=");
-      if (eq === -1) return line;
-      return line.slice(0, eq + 1);
-    })
-    .join("\n");
+  const out: string[] = [];
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trimStart();
+    if (!trimmed || trimmed.startsWith("#")) {
+      out.push(line);
+      continue;
+    }
+    const match = line.match(KEY_ASSIGN);
+    if (match) {
+      out.push(match[1]);
+    }
+    // else: continuation / value-only line → dropped so no value text leaks
+  }
+  return out.join("\n");
 }
 
-/** Redact dotenv values in any `.env*` (non-example) file for a public export. */
+/** Redact env-file values for a public, unauthenticated export blob. */
 export function sanitizeEnvSecretsForPublicExport(files: CodeFile[]): CodeFile[] {
   return files.map((file) =>
     typeof file.path === "string" &&
     typeof file.content === "string" &&
-    isSecretEnvFile(file.path)
+    isEnvFile(file.path)
       ? { ...file, content: redactEnvValues(file.content) }
       : file,
   );
