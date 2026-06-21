@@ -19,12 +19,20 @@ import type { CodeFile } from "@/lib/gen/parser";
  */
 
 /** Env files that may carry secret values in a public export. Includes the
- * canonical `env.example` (no leading dot) and every `.env*` variant — we do
- * NOT exempt `*.example`, because `env.example` is exactly the file that merges
- * real F3 values. Being conservative is correct for a public CDN blob. */
+ * canonical project env doc `env.example` (PROJECT_ENV_FILE_PATH) and its
+ * pre-rename legacy name `env.env` (older, un-regenerated version snapshots can
+ * still carry it with merged F3 values), plus every `.env*` variant. We do NOT
+ * exempt `*.example` — `env.example` is exactly the file that merges real F3
+ * values. Being conservative is correct for a public, unauthenticated CDN blob.
+ * Keep the no-dot names in sync with `project-env-file.ts`. */
 function isEnvFile(path: string): boolean {
   const base = path.split("/").pop() ?? path;
-  return base === "env.example" || base === ".env" || base.startsWith(".env.");
+  return (
+    base === "env.example" ||
+    base === "env.env" ||
+    base === ".env" ||
+    base.startsWith(".env.")
+  );
 }
 
 const KEY_ASSIGN = /^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=)/;

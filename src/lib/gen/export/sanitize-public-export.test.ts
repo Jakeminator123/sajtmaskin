@@ -34,15 +34,17 @@ describe("sanitizeEnvSecretsForPublicExport (B11)", () => {
     expect(env).not.toContain("https://x.example");
   });
 
-  it("redacts .env, .env.production and .env.example too (no *.example exemption)", () => {
+  it("redacts .env, .env.production, .env.example and legacy env.env too", () => {
     const out = sanitizeEnvSecretsForPublicExport([
       { path: ".env", content: "DB_URL=postgres://u:p@h/db", language: "text" },
       { path: ".env.production", content: "KEY=realvalue", language: "text" },
       { path: ".env.example", content: "STRIPE_SECRET_KEY=sk_test_example", language: "text" },
+      { path: "env.env", content: "LEGACY_SECRET=still_real", language: "text" },
     ]);
     expect(out[0]!.content).toBe("DB_URL=");
     expect(out[1]!.content).toBe("KEY=");
     expect(out[2]!.content).toBe("STRIPE_SECRET_KEY=");
+    expect(out[3]!.content).toBe("LEGACY_SECRET=");
   });
 
   it("drops multiline / continuation values so no wrapped secret survives", () => {
