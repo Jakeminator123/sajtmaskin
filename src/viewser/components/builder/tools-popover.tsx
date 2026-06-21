@@ -294,7 +294,9 @@ export function ToolsPopover({ actions, pulsing = false }: ToolsPopoverProps) {
     // studio-canvasen är h-[100dvh] utan notch-problematik på desktop.
     <div
       ref={containerRef}
-      className="fixed top-3 left-1/2 z-40 hidden -translate-x-1/2 flex-col items-center md:flex"
+      // top-1.5 (6px): centrerar h-9-pillen (36px) vertikalt i 48px-chrome-
+      // raden — samma höjd som hamburgaren (site-header h-12 items-center).
+      className="fixed top-1.5 left-1/2 z-40 hidden -translate-x-1/2 flex-col items-center md:flex"
     >
       {/* Pillen: "Verktyg" + chevron som roterar när panelen är öppen. */}
       <button

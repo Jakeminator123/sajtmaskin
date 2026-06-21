@@ -19,7 +19,14 @@ export function SiteHeader({ onOpenConsole, hideBrand = false }: SiteHeaderProps
   return (
     <div
       aria-hidden={false}
-      className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-3 pt-safe sm:px-6 sm:pt-4"
+      className={`pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-between gap-3 ${
+        // Builder-läget: centrera hamburgaren vertikalt i 48px-chrome-raden
+        // (samma höjd som Verktyg-pillen). Pre-build-vyn (brand + konsol över
+        // heron) behåller topp-justering med säker-area-padding.
+        hideBrand
+          ? "h-12 items-center px-4 sm:px-6"
+          : "items-start px-4 pt-3 pt-safe sm:px-6 sm:pt-4"
+      }`}
     >
       {hideBrand ? (
         // Tom spacer så `justify-between` ändå skjuter konsol-knappen
