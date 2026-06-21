@@ -16,8 +16,8 @@ Nivå 2 = ett dokument per område i samma mapp. Nivå 3 = aktiviteter per områ
 **skapas just-in-time** när området är på tur. Plan-nivåmodellen är kodad i
 [`.cursor/rules/plan-lifecycle.mdc`](../../../../.cursor/rules/plan-lifecycle.mdc).
 
-Slår ihop tre källor: `deep-research-report.md`, `docs/handoffs/2026-06-17-cleanup-forenkling-handoff.md`
-och "Controlled Aggression"-rapporten. De arkiveras vid städningen (område 8), inte nu.
+Slår ihop tre källor: `_parkering/deep-research-report.md`, `_parkering/2026-06-17-cleanup-forenkling-handoff.md`
+och "Controlled Aggression"-rapporten (ingen separat fil). De är nu **arkiverade i `_parkering/`** (område 8-städ, 2026-06-21 — av-indexerad parkeringsyta).
 Besluten bakom planen: [`docs/contracts/beslut/0001-...`](../../../contracts/beslut/0001-kontrakt-stabilitet-och-plannivaer.md).
 
 ---

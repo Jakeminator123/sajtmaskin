@@ -78,13 +78,6 @@ data/observability/
 # Lokalt arkiv (labs, gamla scripts) — håll borta från git-status
 /archive/
 
-# testning_scarf-output (om du återställer scripts utanför /archive/)
-archive/scripts-labs-testning_scarf/output/
-archive/scripts-labs-testning_scarf/output_test_scaffold/
-archive/scripts-labs-testning_scarf/output_first_llm_underlag/
-# Legacy (före samlad output-mapp)
-scripts/output_test_scaffold/
-
 # Local generation comparisons (manual API runs)
 output/generations/
 
@@ -108,19 +101,6 @@ eval-output/
 # per-run summaries/file dumps stay local to avoid repo noise.
 data/eval-runs/*
 !data/eval-runs/README.md
-
-# Legacy output dir (rename → eval-output/); safe to delete locally
-EGEN_MOTOR_V2/
-
-# Legacy Vercel template scrape roots (replaced by data/external-template-pipeline/)
-scraped-vercel-scorefolds/
-# Äldre syskon-/rotmål ska inte användas som canonical paths längre.
-sajtmaskin-template-cache/
-vercel-scrape/
-vercel-scrape-fresh/
-
-# Playwright Vercel catalog tooling — lokal granskning; tillfälligt utanför git (finns i roten om du återställt den)
-vercel_templates_levels/
 
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/
@@ -242,23 +222,11 @@ test-results/
 _scaffold_discovery/
 
 
-# --- Legacy research intake roots (retired; keep out of git if they still exist locally) ---
-research/external-templates/raw-discovery/**
-research/external-templates/repo-cache/**
-research/external-templates/reference-library/
-
-
-_sidor/
-research/_sidor/
-_input_for_cursor/
-STOR_MIGRATION
-
 .env*.local
 files_envvars
 
 # Temp analysis files (not part of codebase)
 VISUAL-DESIGN-PROMPT-BRA-*.txt
-SCARFOLDS_ALTERNATIV/
 historik_agenter.txt
 UTLÅTANDE_DEEP_BREEF.txt
 
@@ -273,23 +241,8 @@ sajtmaskin.zip
 data/template-references/repos/
 data/template-references/_metadata/
 
-# --- Dossier-arkiv (gammal pipeline, frozen 2026-04-20) ---
-# Innehåller 95 gamla manifest-mappar + 16 pipeline-skript + index.
-# Se archive/dossiers-legacy-2026-04-20/README.md.
-archive/dossiers-legacy-2026-04-20/
-
-# Misc legacy build logs from the archived dossier pipeline
-playwright-broad.log
-playwright-light.log
-enrich-full.log
-smoke-enrich.log
-logs/variant-patterns-batch.log
-
 # Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
 .cursor/tmp/
-
-.vercel
-.env*.local
 
 # Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
 trött_agent.txt
@@ -308,7 +261,3 @@ docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 docs/plans/active/2026-04-28-llm-flode-startlinje.md
 .gitignore
-
-.vercel
-
-.vercel
