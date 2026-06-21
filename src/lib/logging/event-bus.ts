@@ -167,6 +167,10 @@ export function emit<E extends EngineEventInput>(input: E): EngineEvent {
  */
 export function readAll(versionId: string): EngineEvent[] {
   const merged: EngineEvent[] = [...(inMemoryEvents.get(versionId) ?? [])];
+  // O(1) dedup by event id. Was an O(events²) `merged.some(...)` rescan per disk
+  // line, which scaled badly on the polled /versions path (versions × runs ×
+  // events²). Seed from the in-memory events so first-seen still wins identically.
+  const seenIds = new Set<string>(merged.map((event) => event.id));
   const diskRuns = listRuns(versionId);
   for (const run of diskRuns) {
     const file = ndjsonPath(versionId, run.runId);
@@ -177,8 +181,9 @@ export function readAll(versionId: string): EngineEvent[] {
       if (!trimmed) continue;
       try {
         const parsed = JSON.parse(trimmed) as EngineEvent;
-        // Avoid duplicate-injection when in-memory already contains it.
-        if (!merged.some((m) => m.id === parsed.id)) {
+        // Avoid duplicate-injection when in-memory or an earlier run already has it.
+        if (!seenIds.has(parsed.id)) {
+          seenIds.add(parsed.id);
           merged.push(parsed);
         }
       } catch {
