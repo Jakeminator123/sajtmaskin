@@ -1,6 +1,6 @@
 # Scripts
 
-GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`** och **`master`**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`master`**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 > **Status (2026-04-21):** **`package.json` är source of truth för npm-script-namn.** Vid avvikelse mellan denna README och `package.json` gäller `package.json`.
 >
