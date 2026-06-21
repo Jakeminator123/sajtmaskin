@@ -5,7 +5,7 @@ status: paused
 created: 2026-04-21
 linear: null
 paused: 2026-04-23
-paused_by: OMTAG-2026-04-23 (se ../../avklarat/omtag-2026-04-23/meta/PARKED.md)
+paused_by: OMTAG-2026-04-23
 priority: low
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: []
@@ -13,7 +13,7 @@ blocked_by: [M2-fyll-dossier-poolen]
 estimated_total_effort: ~1 vecka
 ---
 
-> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Dossier-kontraktet är nu stenhårt via fas 2·D AJV-validator — teknisk grund klar, men konceptbeslut (behövs variants alls?) kräver observationstid efter M2. Se [`../../avklarat/omtag-2026-04-23/meta/PARKED.md`](../../avklarat/omtag-2026-04-23/meta/PARKED.md).
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Dossier-kontraktet är nu stenhårt via fas 2·D AJV-validator — teknisk grund klar, men konceptbeslut (behövs variants alls?) kräver observationstid efter M2.
 
 # L3 — Dossier-variants
 

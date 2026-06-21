@@ -96,7 +96,7 @@ Följande `SAJTMASKIN_*`-flaggor togs bort från `serverSchema` (`src/lib/env.ts
 | `SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW` | `FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles = 6` | Konstant. |
 | `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` | `DEFAULT_DOC_MAX_WORDS = 10_000` i `devLog.ts` | Konstant. |
 
-Behöver du ändra beteende nu? Justera koden (och läs `docs/plans/avklarat/omtag-2026-04-23/` när OMTAG-arbetet är mergat).
+Behöver du ändra beteende nu? Justera koden.
 
 ---
 

@@ -9,7 +9,6 @@ context_links:
   - .cursor/rules/terminology.mdc
   - docs/architecture/llm-flow-target-worldclass.md
   - docs/architecture/llm-signal-flow.md
-  - docs/plans/avklarat/2026-04-24-llm-flode-korplan/README.md
 ---
 
 # LLM-flöde i världsklass — Scope 2026-04-27

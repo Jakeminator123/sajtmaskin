@@ -131,11 +131,7 @@ input_files_for_cursor/
 .preprompt_history.json
 DOM_dev_tols.txt
 chat_till_vanster.txt
-old/
-skrapning/
 eval-output/
-EGEN_MOTOR_V2/
-vercel_templates_levels/
 output/generations/
 
 # --- MCP/docs/logs ---

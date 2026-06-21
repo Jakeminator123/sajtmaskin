@@ -259,5 +259,4 @@ data/runs/
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
-docs/plans/active/2026-04-28-llm-flode-startlinje.md
 .gitignore
