@@ -4,6 +4,7 @@ import { POST } from "./route";
 
 const getVersion = vi.hoisted(() => vi.fn());
 const runProductPostcheck = vi.hoisted(() => vi.fn());
+const emitBusEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
@@ -11,6 +12,10 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/gen/verify/product-postcheck", () => ({
   runProductPostcheck,
+}));
+
+vi.mock("@/lib/logging/event-bus", () => ({
+  emit: emitBusEvent,
 }));
 
 function req(body: unknown): Request {
@@ -42,15 +47,78 @@ describe("POST product-postcheck", () => {
     expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
-  it("feature flag on + missing previewUrl => skipped", async () => {
+  it("feature flag off + null previewUrl => ingen degraded-emit (default-OFF prod tyst)", async () => {
+    // The client calls this route unconditionally. `feature_disabled` returns
+    // before version-scope, so a default-OFF deployment must do no DB read and
+    // emit nothing — otherwise every version would show "degraded" (false-RED).
+    const res = await POST(req({ versionId: "v1", previewUrl: null }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.skippedReason).toBe("feature_disabled");
+    expect(getVersion).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("feature flag on + missing previewUrl => skipped + version.degraded (false-green guard)", async () => {
     setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1" } });
     const res = await POST(req({ versionId: "v1", previewUrl: null }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(body.skippedReason).toBe("missing_preview_url");
-    expect(getVersion).not.toHaveBeenCalled();
+    // Scope now runs before the skip so a skipped DOM check is surfaced on the
+    // version-status projection (cannot read as solid green).
+    expect(getVersion).toHaveBeenCalled();
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        versionId: "v1",
+        chatId: "chat_1",
+        kind: "product_postcheck_skipped",
+        meta: expect.objectContaining({ skippedReason: "missing_preview_url" }),
+      }),
+    );
+  });
+
+  it("feature flag on + missing previewUrl + okänd version => 404, ingen emit", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue(null);
+    const res = await POST(req({ versionId: "ghost", previewUrl: null }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(res.status).toBe(404);
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("feature flag on + preview URL men postcheck-skip => version.degraded (regression)", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: true,
+      skippedReason: "playwright_unavailable",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 5,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.skipped).toBe(true);
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        kind: "product_postcheck_skipped",
+        meta: expect.objectContaining({ skippedReason: "playwright_unavailable" }),
+      }),
+    );
   });
 
   it("feature flag on + preview URL => kör server-helper efter version-scope-check", async () => {

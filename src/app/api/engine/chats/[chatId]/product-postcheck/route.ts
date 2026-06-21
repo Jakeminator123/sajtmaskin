@@ -79,7 +79,29 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     });
   }
 
+  // Resolve+scope the version BEFORE the missing-preview-url skip so that
+  // skip can be surfaced on the version-status projection. Stays AFTER the
+  // feature-disabled return above, so default-OFF deployments do no DB read
+  // and emit nothing (the client calls this route unconditionally — emitting
+  // on `feature_disabled` would mark every version degraded).
+  const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+  if (!scopedVersion) {
+    return NextResponse.json({ ok: false, error: "Version not found for chat" }, { status: 404 });
+  }
+  const resolvedVersionId = scopedVersion.version.id;
+
   if (!previewUrl?.trim()) {
+    // A skipped DOM postcheck must never read as solid green. The common
+    // client call passes `previewUrl: null` when the VM URL is not yet
+    // resolved; without this emit the version-status badge stayed "ready"
+    // even though DOM verification never ran. Mirror the post-run skip path.
+    emitPostcheckDegraded({
+      versionId: resolvedVersionId,
+      chatId,
+      reason: "missing_preview_url",
+      checkedUrl: null,
+      durationMs: 0,
+    });
     return NextResponse.json({
       ok: true,
       skipped: true,
@@ -91,12 +113,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       checkedUrl: null,
     });
   }
-
-  const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-  if (!scopedVersion) {
-    return NextResponse.json({ ok: false, error: "Version not found for chat" }, { status: 404 });
-  }
-  const resolvedVersionId = scopedVersion.version.id;
 
   try {
     const result = await runProductPostcheck({
