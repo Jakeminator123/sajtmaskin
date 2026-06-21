@@ -1,6 +1,7 @@
 "use client";
 
 import { Cloud, RefreshCw, WifiOff } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BuilderShell } from "@viewser/components/builder/builder-shell";
@@ -136,6 +137,31 @@ export default function Home() {
   // visar vi en ärlig info-banner. Null lokalt (oförändrad upplevelse).
   const [hostedBanner, setHostedBanner] = useState<string | null>(null);
   const toast = useToast();
+  const router = useRouter();
+  // Startsidan (/) med gatufilmen är den enda start-ytan; studion är bara
+  // byggaren. Ett "kallt" direktbesök på /studio (ingen handoff från /,
+  // inget sparat val) skickas därför till / så den gamla pre-build-
+  // landningen aldrig visas. Läses synkront vid FÖRSTA render — innan
+  // PromptBuilder hinner konsumera handoffen i sin mount-effekt (child-
+  // effekter körs före parent-effekter, så vi får inte missa nyckeln).
+  const [coldStudioEntry] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const entryKeys = [
+        "sajtbyggaren:init-prompt",
+        "sajtbyggaren:wizard-handoff",
+        "sajtbyggaren:wizard-seed",
+        "sajtbyggaren:direct-build",
+        STUDIO_SELECTION_STORAGE_KEY,
+      ];
+      return !entryKeys.some((key) => window.sessionStorage.getItem(key));
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (coldStudioEntry) router.replace("/");
+  }, [coldStudioEntry, router]);
   // Live Build Sync: pending-build-state delas mellan BuilderShell
   // (som äger FloatingChat + dialogerna) och Versions-tab. Sätts
   // av onBuildStart-callbacks, rensas av onBuildEnd.
@@ -763,17 +789,15 @@ export default function Home() {
                   handleBuildDone(runId, outcome, undefined, visibleEffect);
                 }}
                 onNewSite={() => {
-                  // Återgår till pre-build-läget: rensar både selectedRunId
-                  // och buildStage så hero + DiscoveryWizard tar över igen.
-                  // Markera att operatören navigerat bort om ett bygge pågår
-                  // så handleBuildDone inte rycker tillbaka selectedRunId.
+                  // "Ny sajt" → tillbaka till den riktiga startsidan (/) med
+                  // gatufilmen + boxen, i stället för den borttagna pre-build-
+                  // landningen i studion. Markera bort-navigering om ett bygge
+                  // pågår så handleBuildDone inte rycker tillbaka selectedRunId.
                   if (building) userNavigatedAwayRef.current = true;
                   setSelectedRunId(null);
                   setPreviewRunId(null);
                   setBuildStage("idle");
-                  setStatusText(
-                    "Beskriv en ny sajt nedan så bygger vi den åt dig.",
-                  );
+                  router.push("/");
                 }}
                 onOpenConsole={() => setConsoleOpen(true)}
                 onOpenHistory={() => setConsoleOpen(true)}

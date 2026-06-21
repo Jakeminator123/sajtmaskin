@@ -15,6 +15,7 @@
  * Identifierare på engelska, användarvänd text på svenska (AGENTS.md).
  */
 
+import type { AssetRef } from "@viewser/lib/asset-store/types";
 import type { discoveryOption } from "@viewser/components/discovery-wizard/discovery-options";
 import type {
   BusinessFamilyId,
@@ -120,6 +121,10 @@ export type WizardSeed = {
 export type DirectBuildHandoff = {
   prompt: string;
   url?: string;
+  // Material som besökaren laddat upp redan på startsidan (pre-build). Bärs
+  // in i bygget — prompt-buildern fogar in dem i prompten så pipelinen kan
+  // använda dem. AssetRef:erna är redan uppladdade (publik sourceUrl).
+  assets?: AssetRef[];
 };
 
 /** Yrkessida/starter-chip lägger en lätt seed här innan navigation till studion. */

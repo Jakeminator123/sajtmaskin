@@ -339,8 +339,31 @@ export function PromptBuilder({
       const promptWithScrape = scrapedSummary
         ? `${scrapedSummary}\n\n${cleaned}`
         : cleaned;
+      // Material som besökaren laddade upp på startsidan bärs in i prompten
+      // så pipelinen kan rolla in det (Vision/role-mapping via assetId/role).
+      const assets = handoff.assets ?? [];
+      const assetBlock =
+        assets.length > 0
+          ? [
+              "",
+              assets.length === 1
+                ? "Bifogat material (en fil) som du kan använda:"
+                : `Bifogat material (${assets.length} filer) som du kan använda:`,
+              ...assets.map((ref) => {
+                const alt = ref.alt?.trim() || ref.filename;
+                const url =
+                  ref.sourceUrl || `/uploads/${ref.assetId}/${ref.filename}`;
+                return ref.mimeType?.startsWith("video/")
+                  ? `- [${alt}](${url}) (film, mimeType=${ref.mimeType}, assetId=${ref.assetId}, role=${ref.role})`
+                  : `- ![${alt}](${url}) (assetId=${ref.assetId}, role=${ref.role})`;
+              }),
+            ].join("\n")
+          : "";
+      const finalPrompt = assetBlock
+        ? `${promptWithScrape}\n${assetBlock}`
+        : promptWithScrape;
       await executeBuild({
-        cleanedPrompt: promptWithScrape,
+        cleanedPrompt: finalPrompt,
         submissionMode: "init",
       });
     })();
