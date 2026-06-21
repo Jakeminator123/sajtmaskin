@@ -95,4 +95,19 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
     });
     expect(result.length).toBeGreaterThan(0);
   });
+
+  // BUG-SWARM rank 3 follow-up (Bugbot): the persisted snapshot carries BOTH a
+  // top-level `requestedCapabilities` (the merged floor that drove generation —
+  // brief + inferred-bridge + follow-up floor) and a `briefSummary` subset. The
+  // resolver must prefer the richer top-level set; reading the briefSummary
+  // subset would drop bridge/floor capabilities and misclassify their env keys.
+  it("prefers the top-level merged floor over the briefSummary subset", () => {
+    const result = resolveSelectedDossiersFromSnapshot({
+      requestedCapabilities: ["analytics", "payments"],
+      briefSummary: { requestedCapabilities: ["analytics"] },
+    });
+    const capabilities = result.map((d) => d.entry.capability);
+    expect(capabilities).toContain("analytics");
+    expect(capabilities).toContain("payments");
+  });
 });
