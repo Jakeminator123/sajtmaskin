@@ -1,5 +1,7 @@
 # Handoff — Grandmaster EXEKVERING (2026-06-21)
 
+> **SUPERSEDED 2026-06-21 (kväll):** aktuell handoff = [`2026-06-21-grandmaster-cleanup-ready-handoff.md`](2026-06-21-grandmaster-cleanup-ready-handoff.md). Område 7 false-green-kärna stängd (#179 + #180), Område 4 verifierat täckt → bara bred Område 8-cleanup kvar. Denna fil = historik.
+
 **Master:** `96b27f8ef` · **Status:** ren överlämning till nästa orchestrator · **Föregångare:** [`2026-06-18-grandmaster-execution-handoff.md`](2026-06-18-grandmaster-execution-handoff.md) (historik) · **Plan:** [`../plans/active/grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md) · **Kanonisk löpande status:** [`../plans/active/grandmaster/_loggbok.md`](../plans/active/grandmaster/_loggbok.md)
 
 > Denna fil ersätter 2026-06-18-handoffen som **aktuell** status. Loggboken är fortfarande den finkorniga sanningen — läs dess `Logg` + `handoff-snapshot` + denna fil först. Kod är source of truth om docs/kod skiljer.
