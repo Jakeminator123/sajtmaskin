@@ -115,6 +115,7 @@ async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; mess
 
 export async function fetchPreviewHostStatus(
   previewSessionId: string,
+  opts?: { expectedVersionId?: string | null },
 ): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -135,6 +136,20 @@ export async function fetchPreviewHostStatus(
     const url = readPreviewUrlFromHostBody(body);
     const sid = readPreviewSessionIdFromHostBody(body);
     if (!url || !sid) return null;
+    // False-green guard (BUG-SWARM rank 1): the host reports `running:true` for
+    // whatever version the VM currently serves (`/status` returns `versionId`,
+    // see preview-host/src/server.js). Without checking it, a session pinned to
+    // version X can resume "running" against a VM still serving an older build —
+    // the builder then shows a stale/white iframe as if it were live for X. When
+    // the caller knows the expected version and the host reports a *different*
+    // one, treat the session as not resumable so the caller re-pins (re-create /
+    // update) instead of surfacing a stale preview. Only rejects when BOTH ids
+    // are known — older hosts that omit `versionId` keep the prior behaviour.
+    const expectedVersionId = opts?.expectedVersionId?.trim();
+    const hostVersionId = nonEmptyString(body.versionId);
+    if (expectedVersionId && hostVersionId && hostVersionId !== expectedVersionId) {
+      return null;
+    }
     return { previewSessionId: sid, primaryUrl: url };
   } catch {
     return null;
