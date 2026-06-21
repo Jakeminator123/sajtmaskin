@@ -13,7 +13,7 @@
 | `backoffice/` | Konsoliderad **backoffice** (Streamlit). Startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`); sidkod i `backoffice/pages/`. |
 | `preview-host/` | Preview-host: runtime, verify och workspace-livscykel för previews — [`preview-host/README.md`](../../preview-host/README.md). |
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Innehåller även dossier-systemet: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) samt `data/template-references/{repos,_metadata}/` (gitignored input till AI-kuration). Se [`dossier-system.md`](./dossier-system.md). |
-| `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
+| `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 5 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `drizzle/` | Genererade Drizzle DB-migrationsartefakter (`meta/`). Config: `drizzle.config.ts`. |
 | `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `debug/`, `cursor/`, `fly_vm/`. |
