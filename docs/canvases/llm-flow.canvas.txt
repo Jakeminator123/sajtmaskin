@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "373b9d2df",
-    "commitDate": "2026-06-18",
+    "commit": "c7d55bc12",
+    "commitDate": "2026-06-21",
     "sinceDays": 14
   },
   "totals": {
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 1,
+      "churn": 5,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
     },
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 3,
         "other": 0
       },
-      "churn": 0,
+      "churn": 7,
       "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
       "note": "BLOCKER: Simplified brief fallback sänker premium/3D"
     },
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 10,
         "other": 0
       },
-      "churn": 1,
+      "churn": 6,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
     },
@@ -210,7 +210,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
       "note": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
     }
@@ -229,13 +229,13 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: Simplified brief fallback sänker premium/3D"
     },
     {
-      "name": "Codegen core",
+      "name": "LLM-faser & runtime-sanning",
       "statusLabel": "Blockerat",
       "tone": "danger",
       "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
     },
     {
-      "name": "LLM-faser & runtime-sanning",
+      "name": "Codegen core",
       "statusLabel": "Blockerat",
       "tone": "danger",
       "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"

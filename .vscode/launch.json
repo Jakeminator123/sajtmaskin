@@ -1,17 +1,21 @@
 {
-  // Node.js launch config for current file
-  // For info, see: https://code.visualstudio.com/docs/nodejs/nodejs-debugging
-  // ${file} och ${workspaceFolder} funkar oavsett Windows, macOS, Linux eller WSL.
-  // Dessa VS Code variabler mappas automatiskt till rätt form för Node-processen,
-  // även om du kör "pwsh", "cmd", eller integrerad terminal.
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Node.js: Launch Current File",
+      "name": "Next.js: dev server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Node.js: current file",
       "type": "node",
       "request": "launch",
       "program": "${file}",
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
     }
   ]
 }
