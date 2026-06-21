@@ -57,6 +57,26 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
     expect(contract.snapshotBrief).toEqual(buildFollowUpBriefFromSnapshot(snapshot));
   });
 
+  // BUG-SWARM rank 4: the capability floor must come from the snapshot's merged
+  // top-level `requestedCapabilities` (what the base version actually used:
+  // brief + inferred-bridge), NOT the briefSummary subset. Otherwise an init-
+  // inferred capability (here `analytics`) is dropped on a follow-up that does
+  // not re-infer it — the silent drop the floor (5-5) exists to prevent.
+  it("floors on the merged top-level requestedCapabilities, not the briefSummary subset", () => {
+    const snapshot = {
+      ...baseSnapshot(),
+      requestedCapabilities: ["payments", "booking", "analytics"],
+    };
+    const contract = buildFollowUpContract({ snapshot });
+    expect(contract.capabilities).toEqual(["payments", "booking", "analytics"]);
+  });
+
+  it("falls back to the briefSummary subset when no top-level requestedCapabilities (older snapshots)", () => {
+    // baseSnapshot() carries no top-level requestedCapabilities -> briefSummary wins.
+    const contract = buildFollowUpContract({ snapshot: baseSnapshot() });
+    expect(contract.capabilities).toEqual(["payments", "booking"]);
+  });
+
   it("persisted ids win over snapshot ids, and fall back to snapshot when released", () => {
     const snapshot = { ...baseSnapshot(), scaffoldId: "blog", variantId: "editorial" };
 
