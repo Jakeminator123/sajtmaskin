@@ -2,6 +2,23 @@
 
 Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas i din klon).
 
+## Grandmaster-stabiliseringsplan (2026-06-18 → 2026-06-22)
+
+Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — flyttad hit från `active/` 2026-06-22 (nivå 1–3 + loggbok bevarade i [`grandmaster/`](grandmaster/)). Closing-handoff: [`../../handoffs/2026-06-21-grandmaster-closing-handoff.md`](../../handoffs/2026-06-21-grandmaster-closing-handoff.md). Tag: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
+
+| Område (nivå 2) | Levererat (PR) |
+|---|---|
+| 1 Kontrakt & repo-regler | C1 #152, C2 #153 |
+| 2 Stabilitetstester | S1 #147, S2 #151, S3 #163, S4 #150 |
+| 3 Dokumentation & kartor | D1, D2 #148 |
+| 4 Prompter (init+follow-up) | täckt (inget separat PR) |
+| 5 Follow-up & preview-kontrakt | #165/166/168/169/172/174/176 + 5-Z |
+| 6 Status & UI/UX (event-bus) | #159/160/161/162/163 |
+| 7 False-green-härdning | #149/155/156/177/179/180 + B09 #185 |
+| 8 Cleanup & hygien | arkiv + next-bump + ignore-prune −74 + eval-namnskugga |
+
+**Bug-swarm-drive (B01–B15):** [`bug-swarm/README.md`](bug-swarm/README.md) — 10 fixade (#181/183/184/185/186/187), 3 ägarbeslut (B05/B07/B08), B12/B13/B01-klient = edge. **Kvarvarande live-backlog** (ägarbeslut + arkitektur B3/B1/B4/F4-F5) router:as från [`../active/README.md`](../active/README.md); detalj i [`grandmaster/_backlog-deferrad.md`](grandmaster/_backlog-deferrad.md).
+
 ## Wave 2026-04-20 (cleanup)
 
 Åtta plan-filer levererades i cleanup-waven och är nu konsoliderade här. Detaljplanerna rensades 2026-04-29; använd git-historik vid behov.

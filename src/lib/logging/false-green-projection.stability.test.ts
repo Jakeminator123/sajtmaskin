@@ -6,8 +6,8 @@ import type { EngineEvent, VersionStatus } from "./event-bus-types";
 /**
  * Grandmaster A7-1 — false-green-invariant i statusprojektionen.
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/A7-1-false-green-stability-test.md
- *        docs/plans/active/grandmaster/02-stabilitetstester.md  (seed-invariant
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/A7-1-false-green-stability-test.md
+ *        docs/plans/avklarat/grandmaster/02-stabilitetstester.md  (seed-invariant
  *        "Placeholder/degraded visas aldrig som 'success'", P1 N#1, falskt-grönt).
  *        Delivery-bias: varje stabilitetstest pekar på sin källa.
  *

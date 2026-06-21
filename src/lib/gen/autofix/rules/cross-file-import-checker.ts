@@ -658,7 +658,7 @@ export function checkCrossFileImports(
     const dossierMatch = getDossierExposesByImportPath(source);
 
     // A7-2 / grandmaster område 7 (BUG-SWARM N#1; see
-    // docs/plans/active/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md):
+    // docs/plans/avklarat/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md):
     // when FEATURES.refuseDossierStubs is ON, refuse to fabricate a silent
     // null-render stub for a dossier-exposed import. We skip stub creation, so
     // the still-unresolved import is caught downstream by runProjectSanityChecks
