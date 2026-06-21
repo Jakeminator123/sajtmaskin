@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c7d55bc12",
+    "commit": "c2ccd7ef",
     "commitDate": "2026-06-21",
     "sinceDays": 14
   },
@@ -75,7 +75,7 @@ const DATA: CanvasData = {
     "openP3": 26,
     "blocked": 6,
     "shaky": 1,
-    "evalExactHitPct": 90
+    "evalExactHitPct": null
   },
   "processes": [
     {
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 5,
+      "churn": 6,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 3,
         "other": 0
       },
-      "churn": 7,
+      "churn": 8,
       "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
       "note": "BLOCKER: Simplified brief fallback sänker premium/3D"
     },
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 10,
         "other": 0
       },
-      "churn": 6,
+      "churn": 7,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
     },
@@ -210,7 +210,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 2,
+      "churn": 3,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
       "note": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
     }
@@ -310,74 +310,7 @@ const DATA: CanvasData = {
     }
   ],
   "topOpenRisksOmitted": 14,
-  "evals": {
-    "exactHitPct": 90,
-    "acceptableHitPct": 100,
-    "total": 10,
-    "errors": 0,
-    "rows": [
-      {
-        "id": "agency-b2b",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "blog-minimalist",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "dashboard-internal",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "ecommerce-skor",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "landing-pulseframe",
-        "ok": false,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "landing-tvspelshall",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "landing-ubaten-barn",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "portfolio-fotograf",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "restaurant-nordic",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "saas-checkout",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      }
-    ]
-  },
+  "evals": null,
   "phases": [
     "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
     "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
