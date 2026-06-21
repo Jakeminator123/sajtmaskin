@@ -23,6 +23,11 @@ const ROUTE_REMOVAL_VERB_RE =
 const ROUTE_REMOVAL_CONTEXT_RE =
   /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
 const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
+// A location preposition directly before a path mention ("remove the hero from
+// /about", "ta bort knappen på /priser") means the removal targets content ON
+// that page, not the page/route itself — so it must NOT delete the route.
+const LOCATION_PREPOSITION_BEFORE_PATH_RE =
+  /\b(?:from|on|in|into|inside|within|at|på|i|från|ur|inuti|hos)\s+$/i;
 
 const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:add|create|make)\b[\s\S]{0,32}\b(?:new\s+)?(?:page|route)\b/i,
@@ -75,11 +80,16 @@ export function collectExplicitRouteRemovals(
   const normalizedExisting = new Set(existingPaths.map((path) => normalizeRoutePath(path)));
   if (!ROUTE_REMOVAL_VERB_RE.test(prompt)) return removals;
 
-  for (const rawPath of prompt.match(ROUTE_PATH_MENTION_RE) ?? []) {
-    const normalized = normalizeRoutePath(rawPath);
-    if (normalized !== "/" && normalizedExisting.has(normalized)) {
-      removals.add(normalized);
-    }
+  for (const match of prompt.matchAll(ROUTE_PATH_MENTION_RE)) {
+    const normalized = normalizeRoutePath(match[0]);
+    if (normalized === "/" || !normalizedExisting.has(normalized)) continue;
+    // Skip "remove <content> from/på <path>" — the removal targets something ON
+    // the page, not the page itself. Deleting the route here would silently drop
+    // a page the user only asked to edit (the failure the removal-verb gate and
+    // the line-19 comment exist to prevent). Bias toward keeping the route.
+    const preceding = prompt.slice(0, match.index ?? 0);
+    if (LOCATION_PREPOSITION_BEFORE_PATH_RE.test(preceding)) continue;
+    removals.add(normalized);
   }
 
   // Keep keyword-based removals conservative: require route/page wording in the same prompt.

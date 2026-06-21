@@ -229,6 +229,43 @@ describe("buildRoutePlan", () => {
     expect(plan.reason).toContain("route-removal intent");
   });
 
+  // BUG-SWARM rank 6: the path-mention removal branch ran before the route/page
+  // context gate, so "remove <content> on /path" deleted the whole page.
+  it("does NOT remove a route when the removal targets content ON that page (Swedish preposition)", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Ta bort den gröna knappen på /priser.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/priser", "/om"],
+    });
+    expect(plan.routes.some((r) => r.path === "/priser")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
+  });
+
+  it("does NOT remove a route for English 'remove X from /path' content edits", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Remove the hero image from /about and tighten the spacing.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/about", "/pricing"],
+    });
+    expect(plan.routes.some((r) => r.path === "/about")).toBe(true);
+  });
+
+  it("still removes a route for a terse verb-adjacent path removal (no page word needed)", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Ta bort /om.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om", "/pricing"],
+    });
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/pricing")).toBe(true);
+  });
+
   it("follow-up can remove an existing route when prompt explicitly removes page by name", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
