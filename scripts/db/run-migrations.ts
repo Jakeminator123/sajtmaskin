@@ -8,7 +8,72 @@ import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../../src/lib/db/env";
 
 config({ path: ".env.local" });
 
-const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
+export const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
+
+/**
+ * Explicit apply order for the hand-written SQL migrations.
+ *
+ * Previously this script applied `readdir(...).sort()` — plain alphabetical
+ * order, which is NOT dependency-aware. The filenames carry no numeric/timestamp
+ * prefix, so e.g. `add-generation-telemetry-scaffold-selection.sql` (an
+ * `ALTER TABLE generation_telemetry`) sorts BEFORE `add-generation-telemetry.sql`
+ * (its `CREATE TABLE`) because '-' (0x2D) < '.' (0x2E). On a database where the
+ * table is not already present that ordering throws "relation does not exist".
+ *
+ * This manifest fixes the order once (base creates before alters; FK-cascade
+ * rewrites last) and `resolveMigrationRunOrder` enforces that it stays in sync
+ * with the directory, so a newly added migration cannot silently fall back to
+ * fragile alphabetical order. Statements stay idempotent (`IF NOT EXISTS` /
+ * `ADD COLUMN IF NOT EXISTS`), so re-running in this order is safe.
+ */
+export const MIGRATION_ORDER: readonly string[] = [
+  "add-collaboration-tables.sql",
+  "add-generation-telemetry.sql",
+  "add-generation-telemetry-scaffold-selection.sql",
+  "add-error-log-events.sql",
+  "add-engine-chat-orchestration-snapshot.sql",
+  "add-engine-message-thinking.sql",
+  "add-engine-version-lifecycle-stage.sql",
+  "add-engine-version-repair-state.sql",
+  "add-engine-versions-chat-version-unique.sql",
+  "add-transactions-stripe-session-unique.sql",
+  "rename-engine-version-preview-url.sql",
+  "add-cascade-engine-chats-project.sql",
+  "add-cascade-to-engine-fks.sql",
+];
+
+/**
+ * Returns the `.sql` migrations from `filesOnDisk` in canonical apply order.
+ *
+ * Throws when the manifest and the directory drift apart in either direction:
+ *  - a `.sql` file on disk that is missing from {@link MIGRATION_ORDER}
+ *    (forces every new migration to be slotted in at a deliberate position), or
+ *  - a manifest entry with no matching file on disk.
+ *
+ * Pure (no IO) so it is unit-testable against the real directory listing.
+ */
+export function resolveMigrationRunOrder(filesOnDisk: string[]): string[] {
+  const sqlOnDisk = filesOnDisk.filter((f) => f.endsWith(".sql"));
+  const listed = new Set(MIGRATION_ORDER);
+  const onDisk = new Set(sqlOnDisk);
+
+  const unlisted = sqlOnDisk.filter((f) => !listed.has(f));
+  if (unlisted.length > 0) {
+    throw new Error(
+      `Migration file(s) not registered in MIGRATION_ORDER — add them at the ` +
+        `correct dependency position in scripts/db/run-migrations.ts: ${unlisted.join(", ")}`,
+    );
+  }
+
+  const missing = MIGRATION_ORDER.filter((f) => !onDisk.has(f));
+  if (missing.length > 0) {
+    throw new Error(
+      `MIGRATION_ORDER lists migration(s) not found on disk: ${missing.join(", ")}`,
+    );
+  }
+
+  return [...MIGRATION_ORDER];
+}
 
 // Delegated to the shared resolver in `src/lib/db/env.ts` so this script
 // honours the same env-var convention as the runtime app and the read-side
@@ -59,9 +124,7 @@ async function main() {
   });
 
   try {
-    const files = (await readdir(MIGRATIONS_DIR))
-      .filter((f) => f.endsWith(".sql"))
-      .sort();
+    const files = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
 
     if (files.length === 0) {
       console.log("No migration files found.");
