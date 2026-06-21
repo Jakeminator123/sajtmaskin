@@ -171,3 +171,20 @@ export function resolveVersionHistorySummary(
   }
   return summary;
 }
+
+/**
+ * False-green guard (B09 / område 6+7): the emerald "Verifierad" verification
+ * badge — driven by DB release/verification state via
+ * `resolveEngineVersionVerificationSurfaceStatus` — must NOT render when the
+ * canonical bus lifecycle is degraded. Otherwise a promoted+passed row whose
+ * bus carries `degradations[]` (e.g. `product_postcheck_skipped`) would show a
+ * clean emerald "Verifierad" right next to the amber "Degraderad" lifecycle
+ * badge — exactly the split false-green Område 7 forbids. When degraded, the
+ * lifecycle badge speaks and the verification badge stays suppressed.
+ */
+export function shouldShowVerifiedBadge(
+  verificationSurfaceStatus: string | null | undefined,
+  lifecycleDegraded: boolean,
+): boolean {
+  return verificationSurfaceStatus === "verified" && !lifecycleDegraded;
+}
