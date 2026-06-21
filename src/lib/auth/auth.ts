@@ -466,7 +466,11 @@ export async function exchangeGoogleCode(
     });
 
     if (!response.ok) {
-      console.error("[Auth] Google token exchange failed:", await response.text());
+      // B-GA: log only the status, never the raw body — an unexpected/proxy
+      // response can carry sensitive fields ("Never log secret values!").
+      console.error(
+        `[Auth] Google token exchange failed: HTTP ${response.status} ${response.statusText}`,
+      );
       return null;
     }
 
