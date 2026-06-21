@@ -42,6 +42,10 @@ jobs:
       # CI instead of only warning. They still also run in the warn-only `stability` job
       # below (full set); this step hard-gates only the follow-up contract subset.
       - name: Follow-up contract invariants (blocking, grandmaster 5-7)
+        # B14 (mirrors the C2 step below): run even if an earlier step (test:ci)
+        # failed, so a follow-up-contract regression is never masked/skipped by a
+        # red test:ci. Step gating defaults to success(); !cancelled() overrides.
+        if: ${{ !cancelled() }}
         run: npm run test:followup-contract
 
       - name: Verify baseline dependency versions
