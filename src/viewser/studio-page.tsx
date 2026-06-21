@@ -616,7 +616,25 @@ export default function Home() {
       {/* Preview-inspector: delar peka-i-previewn-state mellan ViewerPanel
         (overlay + element-karta) och builder-dialogerna (platsval). */}
       <PreviewInspectorProvider>
-        <main className="bg-background relative h-[100dvh] w-full overflow-hidden">
+        <main
+          className={`bg-background relative h-[100dvh] w-full overflow-hidden ${
+            // Builder-läget: reservera en chrome-rad (48px) högst upp där
+            // Verktyg + konsol/hamburgar-knappen bor, så preview-iframen
+            // börjar UNDER raden i stället för att builder-kontrollerna
+            // ligger ovanpå den genererade sajtens egen header.
+            builderActive ? "pt-12" : ""
+          }`}
+        >
+          {/* Builder chrome-rad: solid topp-strip (under SiteHeader z-30 +
+              ToolsPopover z-40) som visuellt håller Verktyg + hamburgar-
+              knappen, skild från den genererade sajten nedanför. */}
+          {builderActive ? (
+            <div
+              aria-hidden
+              className="border-border/60 bg-card/95 absolute inset-x-0 top-0 z-20 h-12 border-b shadow-sm backdrop-blur-xl"
+            />
+          ) : null}
+
           <SiteHeader
             onOpenConsole={() => setConsoleOpen(true)}
             // Dölj brand-bubblan i builder-läget — den ligger ovanpå
