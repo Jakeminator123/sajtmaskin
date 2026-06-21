@@ -190,14 +190,19 @@ export function PromptBuilder({
       page: "builder",
       chatId: targetSiteId.trim() ? targetSiteId : null,
       activeVersionId: selectedRunId ?? null,
-      recentMessages: [],
+      // B: ge OpenClaw beskrivningen sajten byggdes från så Sajtagenten kan
+      // resonera om innehållsluckor (t.ex. "frisörsalong i Malmö" → fråga om
+      // behandlingar/bilder). Rent additivt — rör inte bygg-/preview-flödet.
+      recentMessages: prompt.trim()
+        ? [{ role: "user", content: prompt.trim() }]
+        : [],
       isStreaming: localBusy,
     };
 
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
     };
-  }, [targetSiteId, selectedRunId, localBusy]);
+  }, [targetSiteId, selectedRunId, localBusy, prompt]);
 
   // B122-fix 2026-05-27: den 1500ms-baserade stage-transition-timern är
   // borta — `building`-eventet kommer nu från route:n via NDJSON-stream.

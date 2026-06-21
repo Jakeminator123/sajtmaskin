@@ -2335,6 +2335,22 @@ export function FloatingChat({
                     Jag känner till din nuvarande version och kan förklara,
                     felsöka, föreslå ändringar och fylla i fält. Fråga på.
                   </p>
+                  {/* C (opt-in): på klick ber vi OpenClaw läsa sajt-kontexten
+                      och föreslå frågor som fyller innehållsluckor. Inget
+                      auto-anrop — du styr när. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (openClawStreaming) return;
+                      void sendOpenClaw(
+                        "Läs min sajt utifrån kontexten (beskrivningen den byggdes från och nuvarande version) och ställ de viktigaste frågorna för att fylla innehållsluckor — t.ex. tjänster/behandlingar, bilder att lägga till, kontaktuppgifter och öppettider — anpassat efter vad sajten handlar om. Fråga konkret, en sak i taget.",
+                      );
+                    }}
+                    disabled={openClawStreaming}
+                    className="mt-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-left text-[12px] font-medium leading-snug text-cyan-100 transition-colors hover:bg-cyan-400/20 disabled:opacity-50"
+                  >
+                    Vad saknas på sajten? — låt Sajtagenten föreslå frågor
+                  </button>
                   <div className="mt-1 flex flex-col gap-1.5">
                     {[
                       "Vad kan jag förbättra på sajten?",
