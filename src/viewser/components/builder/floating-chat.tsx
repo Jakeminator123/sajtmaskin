@@ -2210,7 +2210,6 @@ export function FloatingChat({
               )}
               aria-hidden
             />
-            <MessageSquare className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Sajtmaskin</span>
             <span
               className="text-muted-foreground ml-1 truncate font-mono text-[10px]"
@@ -2284,10 +2283,6 @@ export function FloatingChat({
         {chatMode === "build" && loopHintOpen ? (
           <div className="border-border/60 bg-muted/40 shrink-0 border-b px-3 py-2.5">
             <div className="flex items-start gap-2">
-              <Sparkles
-                className="text-foreground/70 mt-0.5 h-3.5 w-3.5 shrink-0"
-                aria-hidden
-              />
               <div className="min-w-0 flex-1">
                 <p className="text-foreground text-[12px] leading-relaxed">
                   Så funkar det: beskriv en ändring här så bygger jag om sajten.
