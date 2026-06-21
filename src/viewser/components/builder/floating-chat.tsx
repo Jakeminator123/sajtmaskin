@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   ChangeEvent as ReactChangeEvent,
+  DragEvent as ReactDragEvent,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
   useCallback,
@@ -53,8 +54,10 @@ import { OpenClawMessage } from "@/components/openclaw/OpenClawMessage";
 
 import {
   ALLOWED_UPLOAD_MIMES,
+  ALLOWED_VIDEO_MIMES,
   INITIAL_BUILD_LABEL,
   MAX_UPLOAD_BYTES,
+  MAX_VIDEO_UPLOAD_BYTES,
   PANEL_DEFAULT_SIZE,
   PANEL_HEIGHT,
   PANEL_MIN_HEIGHT,
@@ -1073,6 +1076,8 @@ export function FloatingChat({
   const [attachments, setAttachments] = useState<AssetRef[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Drag-n-drop av bilder/film direkt på chatt-panelen (build-läget).
+  const [isDragOver, setIsDragOver] = useState(false);
   // Modulmarkeringar (sektionsmarkering i preview): skapas i Markera
   // modul-läget i PreviewInspectorOverlay, visas som chips i composern
   // och skickas som markedSections[] i nästa /api/prompt-anrop. Rensas
@@ -1468,48 +1473,58 @@ export function FloatingChat({
     fileInputRef.current?.click();
   }, [isBuilding, isSending, isUploading]);
 
-  const handleFileChange = useCallback(
-    async (event: ReactChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0] ?? null;
-      // Återställ input-elementet direkt så samma fil kan väljas
-      // igen efter borttagning (browsers tröjnar annars `change`).
-      event.target.value = "";
-      if (!file) return;
-      if (!ALLOWED_UPLOAD_MIMES.has(file.type)) {
-        setUploadError("Endast PNG, JPEG, WebP eller SVG tillåts.");
-        return;
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (isUploading || isSending || isBuilding) return;
+      // Validera alla filer först (bild ELLER film, olika storleksgräns).
+      const valid: File[] = [];
+      for (const file of files) {
+        if (!ALLOWED_UPLOAD_MIMES.has(file.type)) {
+          setUploadError(
+            "Endast bilder (PNG, JPEG, WebP, SVG) eller film (MP4, WebM).",
+          );
+          return;
+        }
+        const cap = ALLOWED_VIDEO_MIMES.has(file.type)
+          ? MAX_VIDEO_UPLOAD_BYTES
+          : MAX_UPLOAD_BYTES;
+        if (file.size > cap) {
+          setUploadError(
+            `Filen är ${(file.size / 1024 / 1024).toFixed(1)} MB — max ${Math.round(
+              cap / 1024 / 1024,
+            )} MB.`,
+          );
+          return;
+        }
+        valid.push(file);
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setUploadError(
-          `Filen är ${(file.size / 1024 / 1024).toFixed(1)} MB — max är 10 MB.`,
-        );
-        return;
-      }
+      if (valid.length === 0) return;
 
       setIsUploading(true);
       setUploadError(null);
       try {
-        const form = new FormData();
-        form.append("file", file);
-        // "gallery" är säker default — vi tvingar inte fram en
-        // hero-/logo-omklassning. Operatören kan i fri text säga
-        // "använd den nya bilden som hero" så plockar build-pipelinen
-        // upp det via Vision/role-mapping.
-        form.append("role", "gallery");
-        form.append("siteId", siteId);
-        const response = await fetch("/api/upload-asset", {
-          method: "POST",
-          body: form,
-        });
-        const payload = (await response.json()) as {
-          ok?: boolean;
-          ref?: AssetRef;
-          error?: string;
-        };
-        if (!response.ok || !payload.ok || !payload.ref) {
-          throw new Error(payload.error ?? "Uppladdningen misslyckades.");
+        for (const file of valid) {
+          const form = new FormData();
+          form.append("file", file);
+          // "gallery" är säker default — operatören kan i fri text säga
+          // "använd den nya bilden/filmen som hero" så plockar build-
+          // pipelinen upp det via Vision/role-mapping.
+          form.append("role", "gallery");
+          form.append("siteId", siteId);
+          const response = await fetch("/api/upload-asset", {
+            method: "POST",
+            body: form,
+          });
+          const payload = (await response.json()) as {
+            ok?: boolean;
+            ref?: AssetRef;
+            error?: string;
+          };
+          if (!response.ok || !payload.ok || !payload.ref) {
+            throw new Error(payload.error ?? "Uppladdningen misslyckades.");
+          }
+          setAttachments((prev) => [...prev, payload.ref as AssetRef]);
         }
-        setAttachments((prev) => [...prev, payload.ref as AssetRef]);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Okänt fel.";
         setUploadError(message);
@@ -1517,7 +1532,49 @@ export function FloatingChat({
         setIsUploading(false);
       }
     },
-    [siteId],
+    [isUploading, isSending, isBuilding, siteId],
+  );
+
+  const handleFileChange = useCallback(
+    async (event: ReactChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      // Återställ input-elementet direkt så samma fil kan väljas
+      // igen efter borttagning (browsers tröjnar annars `change`).
+      event.target.value = "";
+      if (files.length > 0) await uploadFiles(files);
+    },
+    [uploadFiles],
+  );
+
+  // Drag-n-drop: släpp bilder/film direkt på chatt-panelen (build-läget).
+  const handleDragOver = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (chatMode !== "build" || isUploading || isSending || isBuilding) return;
+      if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+      event.preventDefault();
+      setIsDragOver(true);
+    },
+    [chatMode, isUploading, isSending, isBuilding],
+  );
+  const handleDragLeave = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      // Bara nollställ när vi lämnar panelen helt (inte vid barn-övergångar).
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        return;
+      }
+      setIsDragOver(false);
+    },
+    [],
+  );
+  const handleDrop = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (chatMode !== "build") return;
+      event.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(event.dataTransfer.files ?? []);
+      if (files.length > 0) void uploadFiles(files);
+    },
+    [chatMode, uploadFiles],
   );
 
   const removeAttachment = useCallback((assetId: string) => {
@@ -1597,11 +1654,16 @@ export function FloatingChat({
       if (hasAttachments) {
         const header =
           attachments.length === 1
-            ? "Jag har bifogat en bild som du kan använda:"
-            : `Jag har bifogat ${attachments.length} bilder du kan använda:`;
+            ? "Jag har bifogat en fil (bild eller film) som du kan använda:"
+            : `Jag har bifogat ${attachments.length} filer (bilder/film) du kan använda:`;
         const lines = attachments.map((ref) => {
           const alt = ref.alt?.trim() || ref.filename;
-          return `- ![${alt}](/uploads/${ref.filename}) (assetId=${ref.assetId}, role=${ref.role})`;
+          const isVideo = ref.mimeType?.startsWith("video/");
+          // Video kan inte uttryckas som markdown-bild — länka den i klartext
+          // med mimeType så build-pipelinen kan rolla in den rätt.
+          return isVideo
+            ? `- [${alt}](/uploads/${ref.filename}) (film, mimeType=${ref.mimeType}, assetId=${ref.assetId}, role=${ref.role})`
+            : `- ![${alt}](/uploads/${ref.filename}) (assetId=${ref.assetId}, role=${ref.role})`;
         });
         pieces.push("", header, ...lines);
       }
@@ -2075,6 +2137,9 @@ export function FloatingChat({
     <>
       <aside
         aria-label="Sajtmaskin-chatt"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={cn(
           "border-border/60 bg-card/95 pointer-events-auto fixed z-40 flex flex-col overflow-hidden border shadow-2xl backdrop-blur-xl",
           // Mobil = bottom-sheet (full bredd, kapad höjd, safe-area).
@@ -2109,6 +2174,17 @@ export function FloatingChat({
         }
       >
         {isMobile && <div aria-hidden className="bottom-sheet-handle" />}
+        {isDragOver ? (
+          <div className="border-foreground/40 bg-background/85 text-foreground pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-1 border-2 border-dashed backdrop-blur-sm">
+            <ImagePlus className="h-6 w-6" aria-hidden />
+            <span className="text-[12.5px] font-medium">
+              Släpp bild eller film här
+            </span>
+            <span className="text-muted-foreground text-[11px]">
+              PNG, JPEG, WebP, SVG · MP4, WebM
+            </span>
+          </div>
+        ) : null}
         <div
           ref={headerRef}
           onPointerDown={isMobile ? undefined : handlePointerDown}
@@ -2566,8 +2642,8 @@ export function FloatingChat({
                   type="button"
                   onClick={handleUploadClick}
                   disabled={isUploading || isSending || isBuilding}
-                  aria-label="Bifoga bild"
-                  title="Bifoga bild (PNG, JPEG, WebP, SVG · max 10 MB)"
+                  aria-label="Bifoga bild eller film"
+                  title="Bifoga bild eller film — dra-och-släpp funkar också (PNG, JPEG, WebP, SVG · MP4, WebM)"
                   className={cn(
                     "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                     "focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none",
@@ -2640,7 +2716,8 @@ export function FloatingChat({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm"
+          multiple
           onChange={(event) => void handleFileChange(event)}
           className="hidden"
           aria-hidden

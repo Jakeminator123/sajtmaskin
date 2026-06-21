@@ -71,13 +71,21 @@ export const ERROR_ICONS: Record<ErrorKind, typeof AlertTriangle> = {
   generic: AlertTriangle,
 };
 
-export const ALLOWED_UPLOAD_MIMES = new Set([
+export const ALLOWED_IMAGE_MIMES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/svg+xml",
 ]);
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// Film stöds av /api/upload-asset (mp4/webm) — operatören kan dra in eller
+// ladda upp en kort hero-/bakgrundsfilm direkt i floating chat.
+export const ALLOWED_VIDEO_MIMES = new Set(["video/mp4", "video/webm"]);
+export const ALLOWED_UPLOAD_MIMES = new Set([
+  ...ALLOWED_IMAGE_MIMES,
+  ...ALLOWED_VIDEO_MIMES,
+]);
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // bilder
+export const MAX_VIDEO_UPLOAD_BYTES = 25 * 1024 * 1024; // film (matchar routen)
 
 export const PANEL_WIDTH = 360;
 export const PANEL_HEIGHT = 460;
