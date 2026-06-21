@@ -128,13 +128,16 @@ async function evaluateCredits(
 
   const guestUsage = await getOrCreateGuestUsage(sessionId);
   const guestUsageType = rule.guestUsageType || null;
-  // In local development the 1-generation guest limit blocks iteration/testing
-  // (and the studio's retry ladder). Raise it for dev only; production keeps the
-  // intended free-tier limit. Opt out with SAJTMASKIN_DEV_GUEST_LIMIT.
-  const devGuestLimit =
-    process.env.NODE_ENV !== "production"
-      ? Number(process.env.SAJTMASKIN_DEV_GUEST_LIMIT ?? "1000")
-      : 0;
+  // The 1-generation guest limit blocks iteration/testing (and the studio's
+  // retry ladder). Raise it on non-production surfaces: local dev AND Vercel
+  // preview deployments (VERCEL_ENV=preview). Real production (master,
+  // VERCEL_ENV=production) keeps the intended free-tier limit. Opt out / tune
+  // with SAJTMASKIN_DEV_GUEST_LIMIT.
+  const isNonProdSurface =
+    process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview";
+  const devGuestLimit = isNonProdSurface
+    ? Number(process.env.SAJTMASKIN_DEV_GUEST_LIMIT ?? "1000")
+    : 0;
   const guestLimit = Math.max(rule.guestLimit ?? 0, devGuestLimit);
   const usedCount =
     guestUsageType === "generate" ? guestUsage.generations_used : guestUsage.refines_used;

@@ -337,6 +337,12 @@ export function PromptBuilder({
     setPrompt(cleaned);
     setPendingPrompt("");
     setError(null);
+    // Visa bygg-läget DIREKT (innan den async skrapningen) så studions
+    // ViewerPanel inte blinkar pre-build-placeholdern i ~1s medan vi skrapar
+    // den angivna sajten. executeBuild sätter samma stage/onBuildStart igen
+    // (idempotent) och dess finally rensar building-läget om bygget faller.
+    setStage("thinking");
+    onBuildStart();
     void (async () => {
       const scrapedSummary = handoff.url
         ? await scrapeSiteSummary(handoff.url)
