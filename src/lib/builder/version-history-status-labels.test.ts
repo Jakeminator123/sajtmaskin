@@ -120,7 +120,7 @@ describe("resolveVersionHistorySummary", () => {
 
   it("falls back to generic degraded copy when no message is available", () => {
     expect(resolveVersionHistorySummary(display("degraded", { degraded: true }), null)).toMatch(
-      /verifier eller produkt-postcheck/i,
+      /hoppades över eller hittade blockerande fel/i,
     );
   });
 });
