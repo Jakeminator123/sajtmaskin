@@ -49,6 +49,7 @@ import { CHIP_INTERACTIONS, PRIMARY_INTERACTIONS } from "@viewser/lib/ui-tokens"
 import { cn } from "@viewser/lib/utils";
 
 import { useOpenClawChat } from "@/components/openclaw/useOpenClawChat";
+import { OpenClawMessage } from "@/components/openclaw/OpenClawMessage";
 
 import {
   ALLOWED_UPLOAD_MIMES,
@@ -2242,36 +2243,52 @@ export function FloatingChat({
 
         <div
           ref={messagesRef}
-          className="flex-1 overflow-y-auto px-3 py-3"
+          className={cn(
+            "flex-1 overflow-y-auto px-3 py-3",
+            // Agent-läget får OpenClaws mörka "Sajtagenten"-yta så de rika
+            // OpenClawMessage-bubblorna (slate/cyan) renderas läsbart, precis
+            // som i den ursprungliga chattrutan.
+            chatMode === "agent" && "bg-slate-950",
+          )}
           role="log"
           aria-live="polite"
         >
           <ol className="flex flex-col gap-2">
             {chatMode === "agent" ? (
               openClawMessages.length === 0 ? (
-                <li className="text-muted-foreground px-1 text-[12px] leading-relaxed">
-                  Fråga Sajtagenten om din sajt — den känner till din nuvarande
-                  version och kan föreslå ändringar, felsöka eller planera.
+                <li className="flex flex-col gap-2 px-1 py-2">
+                  <p className="text-[12.5px] font-medium text-white">
+                    Hej! Jag är Sajtagenten.
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-slate-300">
+                    Jag känner till din nuvarande version och kan förklara,
+                    felsöka, föreslå ändringar och fylla i fält. Fråga på.
+                  </p>
+                  <div className="mt-1 flex flex-col gap-1.5">
+                    {[
+                      "Vad kan jag förbättra på sajten?",
+                      "Förklara vad som ändrades i senaste versionen.",
+                      "Föreslå en tydligare hero-rubrik.",
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => {
+                          if (openClawStreaming) return;
+                          void sendOpenClaw(prompt);
+                        }}
+                        disabled={openClawStreaming}
+                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-[12px] leading-snug text-slate-100 transition-colors hover:bg-white/10 disabled:opacity-50"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
                 </li>
               ) : (
                 openClawMessages.map((message) => (
-                  <li
-                    key={message.id}
-                    className={cn(
-                      "flex flex-col",
-                      message.role === "user" ? "items-end" : "items-start",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "max-w-[85%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap",
-                        message.role === "user"
-                          ? "bg-foreground text-background"
-                          : "border-border/60 bg-muted/40 text-foreground border",
-                      )}
-                    >
-                      {message.content || "…"}
-                    </span>
+                  <li key={message.id} className="flex flex-col">
+                    <OpenClawMessage msg={message} />
                   </li>
                 ))
               )
