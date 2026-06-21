@@ -812,6 +812,27 @@ function emitFollowUpFreezeDrift(
 }
 
 /**
+ * BUG-SWARM B15 — single source for init vs follow-up mode resolution.
+ * `finalizeOrchestrationPrompts` previously fell back to a stale
+ * `persistedScaffoldId ? "followUp" : "init"` check while `resolveOrchestrationBase`
+ * used the unified `deriveFollowUpStateFromInputs` predicate, so the two
+ * diverged in the P26 edge case (scaffold pinned, `previousFilesCount === 0`)
+ * whenever no explicit `generationMode` was supplied. This mirrors the base
+ * derivation exactly; `resolveOrchestrationBase` keeps its inline copy (the core
+ * path is left untouched) and must stay in sync with this helper.
+ */
+export function resolveGenerationMode(
+  input: Pick<OrchestrationInput, "generationMode" | "persistedScaffoldId" | "previousFilesCount">,
+): "init" | "followUp" {
+  if (input.generationMode) return input.generationMode;
+  const { isOrchestrationFollowUp } = deriveFollowUpStateFromInputs({
+    persistedScaffoldId: input.persistedScaffoldId ?? null,
+    previousFilesCount: input.previousFilesCount ?? (input.persistedScaffoldId ? 1 : 0),
+  });
+  return isOrchestrationFollowUp ? "followUp" : "init";
+}
+
+/**
  * Resolve scaffold, route plan, and contracts without building the full system prompt.
  * Use before a pre-generation contract gate so clarification does not pay for STATIC_CORE.
  */
@@ -1380,10 +1401,9 @@ export async function finalizeOrchestrationPrompts(
     designThemePreset = null,
     designReferences = [],
     customInstructions,
-    generationMode,
   } = input;
 
-  const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
+  const resolvedMode = resolveGenerationMode(input);
 
   const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
   // P22: variant-lock på follow-ups. När caller lämnar `followUpIntent`

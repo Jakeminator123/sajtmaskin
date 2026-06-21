@@ -9,6 +9,7 @@ import { mapVersionStatusToDisplay } from "@/lib/builder/version-status-display"
 import {
   resolveVersionHistorySummary,
   versionHistoryStatusBadge,
+  shouldShowVerifiedBadge,
 } from "@/lib/builder/version-history-status-labels";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
@@ -669,7 +670,7 @@ export function VersionHistory({
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
             const verificationBadge =
-              verificationSurfaceStatus === "verified"
+              shouldShowVerifiedBadge(verificationSurfaceStatus, lifecycleDisplay.degraded)
                 ? {
                     label: "Verifierad",
                     title: "Server-verify eller promotion har passerat för denna version.",

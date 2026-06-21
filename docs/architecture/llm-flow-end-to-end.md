@@ -15,7 +15,7 @@
 | | Init | Follow-up |
 |---|---|---|
 | Operation | **Genesis** — bygg ny artifact graph | **Delta** — operation på existerande graph |
-| Brief | Full Deep Brief (LLM) | Snapshot-brief från `briefSummary` (ingen LLM-runda) |
+| Brief | Full Deep Brief (LLM) | Snapshot-brief från `briefSummary` (ingen LLM); `clear-redesign` kör en delta-brief-LLM som når orchestrate sedan 5-4 (#169) |
 | Scaffold/variant | Embedding + brief.nomination | Frusen via `persistedScaffoldId` / `persistedVariantId` (utom `clear-redesign`) |
 | Routes | Fri planering | Frusna mot existerande filer |
 | Quality target | Färsk inferens | Ärvs från prior version |
@@ -90,8 +90,8 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | Princip | Innebörd |
 |---|---|
 | Statisk prompt aldrig bryts | Core Rules (`prompt-core/*.md` listade i `codegen-core-manifest.json`) är spelregler för LLM:n. Inget i fas 1 får motsäga dem |
-| Deep Brief = expansion + nominering | Brief returnerar JSON med (a) utbyggd intent, (b) `scaffoldNomination`, `variantNomination`, (c) `requestedCapabilities` (string[]). Inget mer |
-| Scaffold/variant: embedding kan överrösta brief-nominering | Brief-nomineringen är en hint. Embedding-pick i orchestrate kan **bekräfta eller överrösta** med drift-logg. **Dossiers gör INTE detta** — där är brief sanningen |
+| Deep Brief = expansion + capabilities | Brief returnerar JSON med (a) utbyggd intent + visuell riktning, (b) `requestedCapabilities` (string[]) som driver dossier-pick. **Ingen scaffold/variant-nominering** — `siteBriefSchema` saknar `*Nomination`-fält; scaffold/variant väljs deterministiskt i orchestrate |
+| Scaffold/variant = deterministisk pick | Orchestrate väljer scaffold/variant via embedding+keyword (ingen brief-nominering styr det; de vestigiala `*Nomination`-drift-loggarna fyrar aldrig). **Dossiers**: `brief.requestedCapabilities` ÄR sanningen (1:1 mot dossier-pick) |
 | Ansvarsuppdelning | Scaffold = struktur. Variant = visuell signatur. Dossier = capability-implementation (1:1 mot brief.requestedCapabilities). Inga överlappande ansvar |
 | Per-Request Signal Cascade | EXPLICIT (Brief-fält) > INDICATED (Brief-LLM tolkning) > INFERRED (heuristik i `guidance-resolvers.ts`) > DEFAULT (variant) > FALLBACK (statiska defaults i `prompt-core/`). Tidigare "Directive Cascade" + `prompt-directives/` är borttagna 2026-04-18 |
 | Dossier som riktig kod | När en dossier väljs renderas dess `instructions.md` i prompten, och filer med `injectionMode: "verbatim"` (default för hard-class api-routes/middleware/glue) injiceras byte-exakt under `## Dossier Files To Emit Verbatim` |
@@ -107,16 +107,17 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 [2] BRIEF GENERATION (gpt-5.4, Deep Brief)
     Input:  prompt + ev. prevBrief
     Output: structured Brief JSON
-            ├── Standard fält: projectTitle, oneSentencePitch, pages,
+            ├── Standard fält: projectTitle, brandName, oneSentencePitch,
+            │   targetAudience, primaryCallToAction, toneAndVoice, pages,
             │   visualDirection, imagery, uiNotes, seo, domainProfile,
-            │   motionLevel, qualityBar, mustHave, avoid
-            └── Nomineringar: scaffoldNomination, variantNomination,
-                requestedCapabilities (string[])
+            │   motionLevel, qualityBar, seasonalHints
+            └── requestedCapabilities (string[]) ← driver dossier-pick
+                (siteBriefSchema har INGA scaffold/variant-nomineringar)
         │
         ▼
 [3] SCAFFOLD PICK (orchestrate.ts)
-    - matchScaffoldAuto: embedding + keyword hybrid
-    - Brief.scaffoldNomination loggas som drift om mismatch
+    - matchScaffoldAuto: embedding + keyword hybrid (deterministiskt)
+    - (vestigial Fas 1.0: scaffoldNomination-drift-loggen fyrar aldrig — schemat emitterar ingen nominering)
     - Selected scaffold determinerar bas-filerna
         │
         ▼
@@ -193,7 +194,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 
 | Checkpoint | Kommando |
 |---|---|
-| Brief returnerar nomineringar | Trigga generation, kolla `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` för `brief.scaffoldNomination/variantNomination/requestedCapabilities` |
+| Brief returnerar requestedCapabilities | Trigga generation, kolla `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` för `brief.requestedCapabilities` (schemat har inga `*Nomination`-fält) |
 | Drift loggas | Sök terminal-output efter `[orchestrate] scaffold_drift`, `variant_drift`. Brief-LLM-stavfel (id som inte finns i registry) loggas som `scaffold_unknown_brief_nomination` |
 | Dossier-pick fungerar | Trigga generation, sök `[orchestrate] dossiers_selected` i loggen. byCapability ska visa 1 dossier per requested capability |
 | Verbatim-block syns | Sök `## Dossier Files To Emit Verbatim` i `data/prompt-dumps/own-engine-codegen/full-system.md` |

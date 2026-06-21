@@ -14,7 +14,7 @@
 | Post | Tema | Allvar | Effort | Isolerbar | Parallellt nu? |
 |---|---|---|---|---|---|
 | B1 | S3-lane warn-only → blockerande | Låg–medel | S | Delad lane-yta | ❌ lane-arkitekturbeslut |
-| B2 | `/versions` `readAll`-per-rad dedup/perf | Medel (perf) | S–M | Delvis (dedup ja) | ⚠️ event-bus = Omr5-yta |
+| B2 | `/versions` `readAll`-per-rad dedup/perf | Medel (perf) | S–M | Delvis (dedup ja) | **KLAR 2026-06-21 (#184)** — Set-dedup, beteendeneutral |
 | B3 | Event-bus in-memory/efemär → multi-instans | Medel–hög (korrekthet) | L | Nej (arkitektur) | ❌ deploy-topologi-beslut |
 | B4 | Canvas auto-PR via `GITHUB_TOKEN` → ingen CI | Låg (hygien) | S | Ja | ❌ secret-beslut + protected path |
 | B5 | A7-2-flagga saknas i env-policy/docs | Medel (flipp) | S (doc-delen) | Ja (doc) | ✅ disjunkt grundhygien |
@@ -32,7 +32,9 @@
 - **Minsta åtgärd:** Testet är deterministiskt (ren fs, ingen DB/nät/flake) → kan flyttas till blockerande `test:ci` utan flake-risk. Kräver dock rename av filen (→ `.test.ts`) **eller** include-undantag, eftersom default-configen exkluderar `.stability.test.ts`-globben.
 - **Isolerbar:** Rör `ci.yml` + båda vitest-configar (+ ev. rename). Smal men ett **lane-arkitekturbeslut** (bryter S1:s "hela stability-lanen är warn-only"). Medvetet deferrad (`_loggbok.md:123`) — ej blint åtgärda.
 
-## B2 — VADE-perf: `readAll` per rad på `/versions`
+## B2 — VADE-perf: `readAll` per rad på `/versions` — **KLAR 2026-06-21 (#184, `681c79ad1`)**
+
+> **Stängd:** Set-baserad dedup (O(events²)→O(n), beteendeneutral) i `readAll`. Event-bus ligger nu i `src/lib/logging/event-bus.ts` (flyttad från `src/lib/gen/` sedan denna post skrevs). Ev. cache/batch-läsare = separat framtida steg, ej gjort.
 
 - **Vad:** `/versions` (polling-yta) kör `selectVersionStatus(readAll(v.id))` per versionsrad → synkron fil-I/O + O(events²)-dedup som skalar med versioner×runs.
 - **Kod:** `src/app/api/engine/chats/[chatId]/versions/route.ts:87-121` mappar alla versioner, `busStatus: selectVersionStatus(readAll(v.id))` på rad `119`. `readAll` (`src/lib/gen/event-bus.ts:168-193`): per version → in-memory Map + läs `.runs.json` + per run läs `events.ndjson` (full read + split + `JSON.parse`/rad) + dedup `merged.some(m => m.id === parsed.id)` = O(E²) + sort.
@@ -72,10 +74,10 @@
 
 | Kandidat | Nuläge i kod | Gäller än? |
 |---|---|---|
-| Stale ignore-mönster | `.gitignore`/`.cursorignore` pekar på borttagna `archive/dossiers-legacy-2026-04-20`, `research/_sidor`, `research/external-templates/*`, `_sidor/`, `templates_v0/*`, `blandat/` — alla `Test-Path = False`. | Ja, stale rader kvar |
-| Arkivera källdokument | `_parkering/deep-research-report.md`, `docs/handoffs/2026-06-17-cleanup-forenkling-handoff.md` finns. "Controlled Aggression" finns bara som referens i plandocs, ingen separat fil. | Ja (`08-…:24`) |
-| Eval-namnskugga | `scripts/eval/run-eval.ts` = own-engine eval-harness, skriver `./eval-output/` (`:1-7`). `scripts/evals/` = OMTAG-02 baseline-probe (`probe.ts:1-12`, `run-baseline.mjs`, `diff-results.mjs`, ej wired i npm). Tredje: `src/lib/gen/eval/cli.ts` (`eval:suite`). | Ja — 3 eval-ytor, ej konsoliderade (`08-…:25`) |
-| `next`-bump | `package.json:163` `next: ^16.2.9`; lockfile `16.2.9`; senaste stabila `16.2.9`. | **Inaktuell — redan på senaste stabila → stäng** |
+| Stale ignore-mönster | `.gitignore`/`.cursorignore` pekade på borttagna `archive/dossiers-legacy-2026-04-20`, `research/_sidor`, `research/external-templates/*`, `_sidor/`, `templates_v0/*`, `blandat/` — alla `Test-Path = False`. | **Klar 2026-06-21** — `.gitignore` −51 (legacy + dedup `.vercel`/`.env*.local`), `.cursorignore` −23 (legacy). Enstaka extra döda rader kvar (frivilligt) |
+| Arkivera källdokument | `_parkering/deep-research-report.md` (redan parkerad/av-indexerad), `2026-06-17-cleanup-forenkling-handoff.md` flyttad `docs/handoffs/` → `_parkering/`. "Controlled Aggression" = ingen separat fil. | **Klar 2026-06-21** |
+| Eval-namnskugga | `scripts/eval/run-eval.ts` = own-engine eval-harness, skriver `./eval-output/` (`:1-7`). ~~`scripts/evals/` = OMTAG-02 baseline-probe~~. Tredje: `src/lib/gen/eval/cli.ts` (`eval:suite`). | **Löst 2026-06-21:** `scripts/evals/` + `evals/` (OMTAG-02 baseline-spår, ej npm/CI-wired, stale april-baseline) borttagna i cleanup-PR. Kvar: `scripts/eval/` (`npm run eval`) + `src/lib/gen/eval/` (`eval:suite`/CI) — inget namnskuggande par. |
+| `next`-bump | `package.json:164` `next: ^16.2.9`; lockfile `16.2.9`; senaste stabila `16.2.9` (verifierat npm/Wikipedia 2026-06-21; 16.3.0 = preview). | **Stängd 2026-06-21 — inaktuell (redan senaste stabila)** |
 
 - **Allvar/effort:** Låg / S per styck. Mestadels isolerbart; **bred ignore-prune = eget pass** (`workflow.mdc`: bred `.gitignore`-prune ≠ smyg). Radera inget utan beslut **per rad** (`08-cleanup-och-hygien.md`). Område 8 = **gemensam, ej autonom av en agent** (`00-master-plan §7`).
 

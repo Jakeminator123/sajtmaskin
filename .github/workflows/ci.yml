@@ -36,6 +36,18 @@ jobs:
       - name: Test
         run: npm run test:ci
 
+      # Grandmaster 5-7: the follow-up CONTRACT invariants (5-3/5-3b scaffold+route
+      # freeze/clamp, 5-5 capability floor) are deterministic hard contracts — promote
+      # them from the warn-only stability lane to a BLOCKING step so a regression reddens
+      # CI instead of only warning. They still also run in the warn-only `stability` job
+      # below (full set); this step hard-gates only the follow-up contract subset.
+      - name: Follow-up contract invariants (blocking, grandmaster 5-7)
+        # B14 (mirrors the C2 step below): run even if an earlier step (test:ci)
+        # failed, so a follow-up-contract regression is never masked/skipped by a
+        # red test:ci. Step gating defaults to success(); !cancelled() overrides.
+        if: ${{ !cancelled() }}
+        run: npm run test:followup-contract
+
       - name: Verify baseline dependency versions
         run: npm run baseline-deps:verify
 

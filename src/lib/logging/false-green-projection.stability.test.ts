@@ -111,6 +111,32 @@ describe("A7-1 false-green: terminal done raderar inte degraderingar", () => {
     expect(isSolidGreen(status)).toBe(false);
   });
 
+  it("product_postcheck_blocked (postcheck körde + hittade blockerande fel) överlever done → aldrig solid green", () => {
+    // Område 7 / #180: en postcheck som RAN och dömde produkten trasig (död
+    // mobilmeny / 2+ brutna in-page-ankare) emitterar product_postcheck_blocked.
+    // Den degraderingen måste — precis som _skipped — överleva terminal done så
+    // livscykel-badgen aldrig blir solid grön på en sida med trasig kärninteraktion.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.degraded", {
+        kind: "product_postcheck_blocked",
+        message:
+          "F2 Product Postcheck hittade blockerande produktfel (mobile_menu_failed, broken_anchor).",
+        meta: { blockingCodes: ["mobile_menu_failed", "broken_anchor"], warningCount: 3 },
+      }),
+      ev("version.done", { durationMs: 12_000, previewUrl: "https://example.test" }),
+    ]);
+
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    expect(status.degradations.map((d) => d.kind)).toContain("product_postcheck_blocked");
+    expect(isSolidGreen(status)).toBe(false);
+  });
+
   it("isSolidGreen är sann endast för en ren done utan degraderingar (icke-vacuös vakt)", () => {
     // Kontrolltest så att assertionen ovan inte passerar trivialt: en identisk
     // ren finalize UTAN degraderingar SKA läsas som solid green.

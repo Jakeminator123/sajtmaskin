@@ -4,6 +4,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import { sanitizeEnvSecretsForPublicExport } from "@/lib/gen/export/sanitize-public-export";
 
 export const runtime = "nodejs";
 
@@ -45,7 +46,12 @@ export async function POST(
       }
       const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
-        const completeProject = await buildExportableProject(codeFiles);
+        // B11: this blob is uploaded with `access: "public"`, so strip secret
+        // values from any `.env*` file before zipping (owner-scoped /download
+        // routes keep full content).
+        const completeProject = sanitizeEnvSecretsForPublicExport(
+          await buildExportableProject(codeFiles),
+        );
         const JSZip = (await import("jszip")).default;
         const zip = new JSZip();
         for (const file of completeProject) {

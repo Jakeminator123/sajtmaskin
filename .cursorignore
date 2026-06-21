@@ -124,10 +124,6 @@ data/runs/**
 # --- Template references / local archives ---
 data/template-references/repos/**
 data/template-references/_metadata/**
-archive/dossiers-legacy-2026-04-20/**
-archive/scripts-labs-testning_scarf/output/
-archive/scripts-labs-testning_scarf/output_test_scaffold/
-archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 
 # --- Local scratch / old roots ---
 manual_log/
@@ -135,36 +131,13 @@ input_files_for_cursor/
 .preprompt_history.json
 DOM_dev_tols.txt
 chat_till_vanster.txt
-pot_buggs/
-internt_jakob/
-old/
-skrapning/
 eval-output/
-EGEN_MOTOR_V2/
-vercel_templates_levels/
-_sidor/
-research/_sidor/
 output/generations/
 
 # --- MCP/docs/logs ---
 #services/mpc/docs/**
 #services/mpc/logs/
 
-# --- v0 template local payloads ---
-templates_v0/downloads/agenter/
-templates_v0/downloads/animationer/
-templates_v0/downloads/appar och spel/
-templates_v0/downloads/blogg och portfolio/
-templates_v0/downloads/komponenter/
-#templates_v0/downloads/ecommerce/
-templates_v0/downloads/AI/
-templates_v0/downloads/designsystem/
-templates_v0/downloads/e-handel/
-templates_v0/downloads/landningssidor/
-templates_v0/downloads/layouter/
-templates_v0/downloads/webbplatsmallar/
-templates_v0/downloads/alla mallar/
-templates_v0/out/
 
 # --- Dossier-pipeline ---
 data/dossiers/_raw/playwright-catalog-light.json

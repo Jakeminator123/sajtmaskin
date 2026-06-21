@@ -353,7 +353,9 @@ export interface FollowUpContract {
     existingRoutePaths: string[];
     existingShellRoutePaths: string[];
   };
-  /** Capabilities inherited from the init brief (snapshot `requestedCapabilities`). */
+  /** Capability floor inherited from the base version: the snapshot's merged
+   * top-level `requestedCapabilities` (brief + inferred-bridge + prior floor),
+   * with the briefSummary subset as fallback for older snapshots. */
   capabilities: string[];
   /** Quality target inherited from the prior accepted version, or null. */
   qualityTarget: BuildSpecQualityTarget | null;
@@ -409,12 +411,26 @@ function resolveContractQualityTarget(
 export function buildFollowUpContract(input: BuildFollowUpContractInput): FollowUpContract {
   const { snapshot } = input;
   const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
-  const inheritedCapabilities =
+  // Capability floor source (BUG-SWARM rank 4): prefer the snapshot's top-level
+  // `requestedCapabilities` — the merged floor orchestrate persisted from
+  // `dossierRequestedCapabilities` (brief + inferred-bridge + prior floor), i.e.
+  // the exact capability set the base version actually used. `briefSummary`
+  // only carries the raw brief subset, so flooring on it would let an init-
+  // inferred capability (e.g. a bridge-derived `analytics`) be silently dropped
+  // on a follow-up that doesn't re-infer it — the very drop the floor (5-5)
+  // exists to prevent. Fall back to the briefSummary subset for older snapshots.
+  const topLevelRaw = (snapshot as Record<string, unknown> | null)?.requestedCapabilities;
+  const mergedCapabilities = Array.isArray(topLevelRaw)
+    ? topLevelRaw.filter((capability): capability is string => typeof capability === "string")
+    : [];
+  const briefCapabilities =
     snapshotBrief && Array.isArray(snapshotBrief.requestedCapabilities)
       ? (snapshotBrief.requestedCapabilities as unknown[]).filter(
           (capability): capability is string => typeof capability === "string",
         )
       : [];
+  const inheritedCapabilities =
+    mergedCapabilities.length > 0 ? mergedCapabilities : briefCapabilities;
   return {
     baseVersionId: readSnapshotString(snapshot, "lastVersionId"),
     snapshotBrief,

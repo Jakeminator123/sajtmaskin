@@ -28,9 +28,9 @@ Yt-karta: [`llm-callsite-matrix.md`](../../../../architecture/llm-callsite-matri
 | [5-4](5-4-clear-redesign-delta-brief.md) | F1-fix: clear-redesign-delta-brief når orchestrate | 5-1 | Medel | **Klar** (#169) |
 | [5-3b](5-3b-route-hard-clamp.md) | Hård route-clamp + explicit route-removal (komplettering av 5-3; frysta routes blir floor) | 5-3 | Medel | **Klar** (#172) |
 | [5-5](5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa | 5-1, 5-3 | Medel | **Klar** (#174) |
-| 5-6 | `previewSessionId` in i kontraktet + validering | 5-1 | Låg–medel | stub |
-| 5-7 | Stabilitetstest follow-up-invarianter + svensk åäö-intent | 5-1..5-6 | Låg | stub |
-| 5-Z | Z-städ: modulnamn/kartsynk + doc-drift F3/F5 | 5-1..5-7 | Låg | stub |
+| 5-6 | `previewSessionId` in i kontraktet + validering | 5-1 | Låg–medel | **Parkerad** (tunt/redundant; re-pin-efter-finalize-variant = backlog) |
+| 5-7 | Follow-up-kontrakt-invarianter → blockerande CI (lane-promotion) | 5-1..5-5 | Låg | **Klar** (#176) |
+| 5-Z | Z-städ: LLM-karta/flowchart-synk + doc-drift F1/F2/F3 + nominerings-drift | 5-1..5-7 | Låg | **Klar** (2026-06-21) |
 
 Körordning (master-plan §6): branch-hygien → **stabilitetstester (S\*)** → docs (D2) → kontrakt (C1/C2) → event-bus UI → FollowUpContract → false-green.
 

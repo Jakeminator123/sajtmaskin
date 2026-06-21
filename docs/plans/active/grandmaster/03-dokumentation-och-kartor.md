@@ -21,8 +21,8 @@ ett ställe — ersätt gammal text, lägg inte lager.
 - plan-arkiv (`docs/plans/archived/`, `docs/plans/avklarat/`)
 
 ## Klart när
-- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `evals/`, `drizzle/`) och saknar fantommappar (`research/`, `templates_v0/`).
-- Källdokumenten (`deep-research-report.md`, cleanup-handoff, "Controlled Aggression") hänvisade från master-planen och redo att arkiveras i område 8.
+- `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `drizzle/`) och saknar fantommappar (`research/`, `templates_v0/`).
+- Källdokumenten (`_parkering/deep-research-report.md`, `_parkering/2026-06-17-cleanup-forenkling-handoff.md`, "Controlled Aggression" = ingen separat fil) hänvisade från master-planen, **arkiverade i `_parkering/`** (område 8-städ, 2026-06-21).
 
 ## Nivå 3 (batch 1)
 D1 (`active/README.md` → router) **klar**. [`D2`](aktiviteter/D2-repo-tree-readme-synk.md) —

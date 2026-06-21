@@ -160,7 +160,13 @@ export type VersionDegradationKind =
    *  because the preview URL was not in the trusted allowlist or no URL
    *  was available. Quality-gate still passed but DOM-level verification
    *  is missing. */
-  | "product_postcheck_skipped";
+  | "product_postcheck_skipped"
+  /** F2 product-postcheck RAN and found blocking product defects (a dead
+   *  mobile menu or 2+ broken in-page anchors). The page renders and the
+   *  build passed, but a core interaction is broken, so the version must
+   *  not read as solid green. Distinct from `product_postcheck_skipped`:
+   *  here the DOM check produced a *failing* verdict, it did not skip. */
+  | "product_postcheck_blocked";
 
 export interface VersionDegradedEvent extends EngineEventBase {
   t: "version.degraded";

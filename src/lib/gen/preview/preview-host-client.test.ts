@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describePreviewHostHttpFailure,
+  fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
   runPreviewHostQualityGate,
   startPreviewHostSession,
@@ -193,5 +194,74 @@ describe("preview-host cleanup retry", () => {
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
+  });
+});
+
+describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
+  function stubStatus(body: Record<string, unknown>) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  it("resumes when the host serves the expected version", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+
+  it("refuses to resume when the host serves a different version (no stale/white iframe)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v2",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toBeNull();
+  });
+
+  it("keeps prior behaviour when the host omits versionId (older deploys)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+
+  it("does not gate when no expected version is provided (back-compat)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      sandboxId: "ps_1",
+      sandboxUrl: "https://live.example",
+      versionId: "v2",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1");
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
   });
 });

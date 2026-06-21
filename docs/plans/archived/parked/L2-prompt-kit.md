@@ -5,7 +5,7 @@ status: paused
 created: 2026-04-21
 linear: null
 paused: 2026-04-23
-paused_by: OMTAG-2026-04-23 (se ../../avklarat/omtag-2026-04-23/meta/PARKED.md)
+paused_by: OMTAG-2026-04-23
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [L1-unified-repair-call]
@@ -21,7 +21,7 @@ read_only_files:
   - docs/architecture/llm-signal-flow.md
 ---
 
-> **Paused 2026-04-23:** Parkerad per OMTAG-waven. `system-prompt.ts` är nu splittad (OMTAG fas 1·03) — låt det settla innan PromptKit ovanpå. Se [`../../avklarat/omtag-2026-04-23/meta/PARKED.md`](../../avklarat/omtag-2026-04-23/meta/PARKED.md).
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. `system-prompt.ts` är nu splittad (OMTAG fas 1·03) — låt det settla innan PromptKit ovanpå.
 
 # L2 — PromptKit
 

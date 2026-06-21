@@ -25,6 +25,8 @@ degraded i stället för tyst success.
 - Placeholder = degraded, aldrig grön. F3 readiness sann.
 - Stabilitetstester låser falskt-grönt-familjen.
 
+> **STATUS 2026-06-21 — kärna stängd.** #149 promote-guard + A7-1 (stabilitetstest) + A7-2 (`refuseDossierStubs`, env-aktiv #177) + **#179** (`missing_preview_url`-skip → `version.degraded`) + **#180** (`productBlocked` → ny `product_postcheck_blocked`-kind, degraderar livscykeln) + F3 readiness (G#21). Falskt-grönt-familjen låst i `false-green-projection.stability.test.ts`. **Kvar (backlog, ej kärna):** A7-2 prod-verify (passiv, efter deploy); DB-`Verifierad`-vs-bus-split (finding 02 = bugg-agentens yta); finding 11 / B1 (warn-only → blockerande lane).
+
 ## Nivå 3 (batch 1 skapad — startad ur sekvens, samordnat med #149)
 Området är formellt steg 6 (beror på 2/5), men #149 (promote-guard) landade tidigt pga
 prod-incident. Komplementär batch 1 — **icke-överlappande** mot #149:s filer:

@@ -62,5 +62,5 @@ Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 
 ## Uppföljningsspår
 
-- **Full event-bus UI-flip** (Kvarvarande #11) — UI:n läser fortfarande DB-state direkt. `selectVersionStatus(events)` från [`event-bus-projection.ts`](../../src/lib/logging/event-bus-projection.ts) kan ersätta det, men det är 1-2 dagars refaktor och ingår inte i 2026-04-23-passet. Se [`PARKED.md`](../plans/avklarat/omtag-2026-04-23/PARKED.md).
+- **Full event-bus UI-flip** (Kvarvarande #11) — UI:n läser fortfarande DB-state direkt. `selectVersionStatus(events)` från [`event-bus-projection.ts`](../../src/lib/logging/event-bus-projection.ts) kan ersätta det, men det är 1-2 dagars refaktor och ingår inte i 2026-04-23-passet.
 - **Audit §3.2** (slå ihop server-verify + quality-gate + accept-repair till ett enda pass) — större refaktor, parkerad.

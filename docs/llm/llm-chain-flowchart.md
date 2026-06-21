@@ -125,17 +125,17 @@ Klassificering:
 
 | Väg | Vad körs | LLM-anrop |
 |-----|----------|-----------|
-| Init | `tryGenerateServerAutoBrief` → `generateSiteBrief` | 1 (gpt-5.4 default, fallback gpt-4.1) |
+| Init | `tryGenerateServerAutoBrief` → `generateSiteBrief` | 1 (gpt-5.4 default, fallback Anthropic `claude-sonnet-4.6`) |
 | Follow-up vanlig | `buildFollowUpBriefFromSnapshot()` — **deterministic, ingen LLM** | 0 |
 | Follow-up `clear-redesign` | `tryGenerateServerAutoBrief` (delta-brief) | 1 |
 
 Brief-objektet innehåller (efter A1-fix 2026-04-21 även på follow-up):
 
-- `projectTitle`, `brandName`, `oneSentencePitch`
+- `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`
 - `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`, `domainProfile`
-- `motionLevel`, `qualityBar`, `mustHave`, `avoid`
-- `scaffoldNomination`, `variantNomination`
+- `motionLevel`, `qualityBar`, `seasonalHints`
 - **`requestedCapabilities: string[]`** ← driver dossier-pick
+- **Inga** `scaffoldNomination`/`variantNomination`/`mustHave`/`avoid` i `siteBriefSchema` — scaffold/variant väljs deterministiskt i orchestrate (embedding+keyword); de optionala `*Nomination`-typfälten är vestigiala Fas-1.0-rester (alltid `null`, drift-loggen fyrar aldrig)
 
 ### Fas 2 — Orchestrate
 
