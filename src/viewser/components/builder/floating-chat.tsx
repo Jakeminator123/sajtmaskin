@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ChevronLeft,
   ChevronUp,
   Crosshair,
   GitBranch,
@@ -2046,8 +2045,8 @@ export function FloatingChat({
         <button
           type="button"
           onClick={expandAndFocus}
-          aria-label="Öppna Sajtmaskin-chatten"
-          title="Öppna chatten"
+          aria-label="Öppna Chatt-agenten"
+          title="Öppna Chatt-agenten"
           className={cn(
             "group pointer-events-auto fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full",
             "border-border/60 bg-card/95 text-foreground border shadow-2xl backdrop-blur-xl",
@@ -2067,52 +2066,56 @@ export function FloatingChat({
                 : "bg-emerald-500",
             )}
           />
-          <span className="sr-only">Sajtmaskin</span>
+          <span className="sr-only">Chatt-agent</span>
         </button>
       );
     }
-    // Desktop: sido-tab på höger kant. Fast position oavsett var
-    // panelen stod när operatören klickade Minimera. Pulsen är
-    // subtil (motion-safe + 2.6s). Hover/focus expanderar till en
-    // bredare pill med text och ChevronLeft-ikon.
+    // Desktop: smal sido-tab på höger kant, fast position oavsett var
+    // panelen stod. Default = kompakt (chatt-ikon + pulserande status-
+    // prick). Hover/focus expanderar mjukt och låter "Chatt-agent"-
+    // etiketten glida in — nordiskt, lugnt och interaktivt i vår design.
     return (
       <button
         type="button"
         onClick={expandAndFocus}
-        aria-label="Öppna Sajtmaskin-chatten"
-        title="Öppna chatten"
+        aria-label="Öppna Chatt-agenten"
+        title="Öppna Chatt-agenten"
         className={cn(
           "group pointer-events-auto fixed top-1/2 right-0 z-40 -translate-y-1/2",
-          "focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none",
+          "focus-visible:outline-none",
         )}
       >
         <span
           className={cn(
-            "border-border/60 bg-card/95 text-foreground flex h-14 items-center gap-2 rounded-l-2xl border border-r-0 pr-3 pl-2.5 backdrop-blur-xl",
-            "motion-safe:animate-fc-edge-pulse",
-            "transition-[padding,gap] duration-200 ease-out",
-            "group-hover:gap-2.5 group-hover:pr-4 group-focus-visible:gap-2.5 group-focus-visible:pr-4",
+            "border-border/60 bg-card/95 text-foreground flex h-11 items-center gap-2 rounded-l-2xl border border-r-0 py-2 pr-2.5 pl-2.5 shadow-lg backdrop-blur-xl",
+            "transition-all duration-300 ease-out",
+            "group-hover:pr-3.5 group-hover:shadow-xl group-focus-visible:pr-3.5",
+            "group-focus-visible:ring-ring/50 group-focus-visible:ring-2",
           )}
         >
-          <ChevronLeft
-            aria-hidden
-            className={cn(
-              "text-muted-foreground h-4 w-4 transition-transform duration-200",
-              "group-hover:text-foreground group-hover:-translate-x-0.5",
-              "group-focus-visible:text-foreground group-focus-visible:-translate-x-0.5",
-            )}
-          />
+          <span className="relative flex h-6 w-6 items-center justify-center">
+            <MessageSquare
+              aria-hidden
+              className="text-foreground/70 group-hover:text-foreground h-[18px] w-[18px] transition-colors duration-200 group-hover:scale-105"
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "ring-card absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 motion-safe:animate-pulse",
+                isBuilding ? "bg-amber-500" : "bg-emerald-500",
+              )}
+            />
+          </span>
           <span
             aria-hidden
             className={cn(
-              "h-2 w-2 rounded-full",
-              isBuilding
-                ? "bg-amber-500 motion-safe:animate-pulse"
-                : "bg-emerald-500",
+              "max-w-0 overflow-hidden text-[12px] font-medium tracking-tight whitespace-nowrap opacity-0",
+              "transition-all duration-300 ease-out",
+              "group-hover:max-w-[110px] group-hover:opacity-100",
+              "group-focus-visible:max-w-[110px] group-focus-visible:opacity-100",
             )}
-          />
-          <span className="text-[12px] font-medium tracking-tight whitespace-nowrap">
-            Sajtmaskin
+          >
+            Chatt-agent
           </span>
         </span>
       </button>
