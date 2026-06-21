@@ -23,6 +23,8 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (kod är sanning) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | `docs/plans/archived/` | Reverterade eller inaktuella planer som behålls som referens | Aktiva planer |
+| `docs/archive/` | Avslutad **icke-plan**-historik (t.ex. `status/` ögonblicksbilder) — se [`README.md`](../archive/README.md) | Aktivt arbete; genererade CI-artefakter (`docs/canvases/`) |
+| `docs/operating/` | Operativa driftdokument: cheatsheets + `incidents/` (postmortems) | Planarbete |
 | `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
 
 **Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
