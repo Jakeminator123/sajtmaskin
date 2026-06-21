@@ -54,6 +54,40 @@ function emitPostcheckDegraded(params: {
   }
 }
 
+function emitPostcheckBlocked(params: {
+  versionId: string;
+  chatId: string;
+  warningCount: number;
+  blockingCodes: string[];
+  checkedUrl: string | null;
+  durationMs: number | null;
+}): void {
+  // The postcheck RAN and judged the product broken (dead mobile menu or
+  // 2+ broken in-page anchors). Distinct from a skip: emit a dedicated
+  // `product_postcheck_blocked` so the version-status projection degrades
+  // (never solid green) and backoffice/telemetry can tell "broke" apart
+  // from "never ran".
+  const detail = params.blockingCodes.length > 0 ? params.blockingCodes.join(", ") : "produktkontroll";
+  try {
+    emitBusEvent({
+      t: "version.degraded",
+      versionId: params.versionId,
+      chatId: params.chatId,
+      kind: "product_postcheck_blocked",
+      message: `F2 Product Postcheck hittade blockerande produktfel (${detail}).`,
+      meta: {
+        warningCount: params.warningCount,
+        blockingCodes: params.blockingCodes,
+        checkedUrl: params.checkedUrl,
+        durationMs: params.durationMs,
+      },
+    });
+  } catch {
+    // Bus emit is fire-and-forget telemetry — never let a logging
+    // failure break the route response.
+  }
+}
+
 async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const { chatId } = await ctx.params;
   const body = await req.json().catch(() => ({}));
@@ -132,6 +166,25 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         versionId: resolvedVersionId,
         chatId,
         reason: result.skippedReason ?? "unknown",
+        checkedUrl: result.checkedUrl ?? null,
+        durationMs: result.durationMs ?? null,
+      });
+    } else if (result.productBlocked) {
+      // The check ran and found blocking product defects — surface a
+      // distinct degradation so the lifecycle badge stays honest (not solid
+      // green) even though the page rendered and the build passed.
+      const blockingCodes = Array.from(
+        new Set(
+          result.warnings
+            .map((warning) => warning.code)
+            .filter((code) => code === "mobile_menu_failed" || code === "broken_anchor"),
+        ),
+      );
+      emitPostcheckBlocked({
+        versionId: resolvedVersionId,
+        chatId,
+        warningCount: result.warningCount,
+        blockingCodes,
         checkedUrl: result.checkedUrl ?? null,
         durationMs: result.durationMs ?? null,
       });

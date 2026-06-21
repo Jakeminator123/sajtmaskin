@@ -71,7 +71,7 @@ const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
     variant: "outline",
     className: AMBER,
     tooltip:
-      "Klar men med luckor: verifier eller produkt-postcheck hoppades över. Öppna diagnostik för detaljer.",
+      "Klar men med luckor: verifier/produkt-postcheck hoppades över eller hittade blockerande produktfel. Öppna diagnostik för detaljer.",
     spinner: false,
     retryIcon: false,
   },
@@ -166,7 +166,7 @@ export function resolveVersionHistorySummary(
     return (
       summary ||
       display.degradations[0]?.message ||
-      "Klar men verifier eller produkt-postcheck hoppades över."
+      "Klar men verifier/produkt-postcheck hoppades över eller hittade blockerande fel."
     );
   }
   return summary;

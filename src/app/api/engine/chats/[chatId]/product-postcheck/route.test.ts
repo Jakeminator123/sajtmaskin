@@ -150,6 +150,61 @@ describe("POST product-postcheck", () => {
     });
   });
 
+  it("feature flag on + productBlocked => version.degraded {product_postcheck_blocked}", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [
+        { code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" },
+        { code: "broken_anchor", message: "Anchor target saknas för #pris" },
+        { code: "broken_anchor", message: "Anchor target saknas för #kontakt" },
+      ],
+      warningCount: 3,
+      productBlocked: true,
+      durationMs: 12,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.productBlocked).toBe(true);
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        versionId: "v1",
+        chatId: "chat_1",
+        kind: "product_postcheck_blocked",
+        meta: expect.objectContaining({
+          blockingCodes: expect.arrayContaining(["mobile_menu_failed", "broken_anchor"]),
+          warningCount: 3,
+        }),
+      }),
+    );
+  });
+
+  it("feature flag on + körde rent (ej blockerad) => ingen degraded-emit", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+    await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
   it("scope miss => 404", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue(null);
