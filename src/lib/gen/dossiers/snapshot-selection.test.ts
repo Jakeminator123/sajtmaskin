@@ -12,19 +12,19 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
     expect(resolveSelectedDossiersFromSnapshot(42)).toEqual([]);
   });
 
-  it("returns [] when brief is missing", () => {
+  it("returns [] when briefSummary is missing", () => {
     expect(resolveSelectedDossiersFromSnapshot({})).toEqual([]);
-    expect(resolveSelectedDossiersFromSnapshot({ brief: null })).toEqual([]);
+    expect(resolveSelectedDossiersFromSnapshot({ briefSummary: null })).toEqual([]);
   });
 
   it("returns [] when requestedCapabilities is missing or empty", () => {
-    expect(resolveSelectedDossiersFromSnapshot({ brief: {} })).toEqual([]);
+    expect(resolveSelectedDossiersFromSnapshot({ briefSummary: {} })).toEqual([]);
     expect(
-      resolveSelectedDossiersFromSnapshot({ brief: { requestedCapabilities: [] } }),
+      resolveSelectedDossiersFromSnapshot({ briefSummary: { requestedCapabilities: [] } }),
     ).toEqual([]);
     expect(
       resolveSelectedDossiersFromSnapshot({
-        brief: { requestedCapabilities: "not-an-array" },
+        briefSummary: { requestedCapabilities: "not-an-array" },
       }),
     ).toEqual([]);
   });
@@ -32,14 +32,14 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
   it("filters non-string capability entries", () => {
     expect(
       resolveSelectedDossiersFromSnapshot({
-        brief: { requestedCapabilities: [42, null, "", undefined] },
+        briefSummary: { requestedCapabilities: [42, null, "", undefined] },
       }),
     ).toEqual([]);
   });
 
   it("resolves a known capability into a SelectedDossier (analytics → vercel-analytics)", () => {
     const result = resolveSelectedDossiersFromSnapshot({
-      brief: { requestedCapabilities: ["analytics"] },
+      briefSummary: { requestedCapabilities: ["analytics"] },
     });
     expect(result.length).toBeGreaterThan(0);
     const ids = result.map((d) => d.entry.id);
@@ -50,7 +50,7 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
 
   it("resolves multiple capabilities into one SelectedDossier each (mostly)", () => {
     const result = resolveSelectedDossiersFromSnapshot({
-      brief: { requestedCapabilities: ["payments", "contact-form"] },
+      briefSummary: { requestedCapabilities: ["payments", "contact-form"] },
     });
     const capabilities = result.map((d) => d.entry.capability);
     expect(capabilities).toContain("payments");
@@ -59,8 +59,40 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
 
   it("returns [] for an unknown capability (no match in registry)", () => {
     const result = resolveSelectedDossiersFromSnapshot({
-      brief: { requestedCapabilities: ["this-capability-does-not-exist"] },
+      briefSummary: { requestedCapabilities: ["this-capability-does-not-exist"] },
     });
     expect(result).toEqual([]);
+  });
+
+  // BUG-SWARM rank 3 regression: the persisted orchestration_snapshot stores
+  // capabilities under `briefSummary` (see `own-engine-build-session.ts` ->
+  // `extractBriefSummary`). The resolver used to read `snapshot.brief`, which the
+  // persisted shape never carries, so this realistic row used to resolve to [].
+  it("resolves dossiers from the real persisted snapshot shape (briefSummary)", () => {
+    const persistedSnapshot = {
+      lastVersionId: "v-123",
+      lastChatId: "chat-123",
+      capturedAt: "2026-06-21T10:00:00.000Z",
+      briefSummary: {
+        projectTitle: "Acme",
+        requestedCapabilities: ["analytics"],
+      },
+    };
+    const result = resolveSelectedDossiersFromSnapshot(persistedSnapshot);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("still reads a legacy already-rehydrated `brief` shape (back-compat)", () => {
+    const result = resolveSelectedDossiersFromSnapshot({
+      brief: { requestedCapabilities: ["analytics"] },
+    });
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("reads a top-level requestedCapabilities field defensively", () => {
+    const result = resolveSelectedDossiersFromSnapshot({
+      requestedCapabilities: ["analytics"],
+    });
+    expect(result.length).toBeGreaterThan(0);
   });
 });
