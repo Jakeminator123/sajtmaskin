@@ -1,16 +1,19 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import { NextResponse } from "next/server";
 
+import {
+  generateUniqueFilename,
+  uploadBlob,
+} from "@/lib/vercel/blob-service";
+
 /**
- * Asset upload for the ported wizard / builder ("Bilder" tab + dialogs).
+ * Asset upload for the ported wizard / builder ("Bilder" tab + dialogs + the
+ * start-page box).
  *
- * Stores the uploaded file under `public/uploads/<assetId>/<filename>` and
- * returns a viewser `AssetRef` with an absolute `sourceUrl` the generated
- * site + preview can reference. No auth required (studio guest sessions),
- * unlike the native authenticated media library.
+ * Stores the file via the shared blob-service so it works BOTH on Vercel
+ * (Vercel Blob → public URL) and locally (LocalFsProvider → /api/uploads/media).
+ * The previous implementation wrote to `public/uploads/` which fails on
+ * Vercel's read-only serverless filesystem. No auth required (studio guest
+ * sessions), unlike the native authenticated media library.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,25 +26,6 @@ const IMAGE_MIMES = new Set([
   "image/svg+xml",
 ]);
 const VIDEO_MIMES = new Set(["video/mp4", "video/webm"]);
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
-
-const EXT_BY_MIME: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-};
-
-function sanitizeName(name: string): string {
-  return (
-    name
-      .replace(/[^a-zA-Z0-9._-]/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 80) || "asset"
-  );
-}
 
 export async function POST(req: Request) {
   let form: FormData;
@@ -56,6 +40,7 @@ export async function POST(req: Request) {
 
   const file = form.get("file");
   const role = (form.get("role") as string | null) ?? "gallery";
+  const siteId = (form.get("siteId") as string | null) ?? "";
   if (!(file instanceof File)) {
     return NextResponse.json(
       { ok: false, error: "Ingen fil bifogad." },
@@ -72,36 +57,41 @@ export async function POST(req: Request) {
       error: `Filtypen ${mime || "okänd"} stöds inte. Använd PNG, JPEG, WEBP, SVG eller MP4/WEBM.`,
     });
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({
-      ok: false,
-      error: "Filen är för stor (max 25 MB).",
-    });
-  }
 
   try {
-    const assetId = randomUUID();
-    const ext = EXT_BY_MIME[mime] ?? "bin";
-    const baseName = sanitizeName(file.name || `${role}.${ext}`);
-    const filename = baseName.endsWith(`.${ext}`) ? baseName : `${baseName}.${ext}`;
-    const dir = path.join(process.cwd(), "public", "uploads", assetId);
-    await mkdir(dir, { recursive: true });
+    const baseName = (file.name || `${role}`).trim();
+    const filename = generateUniqueFilename(baseName, role);
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(dir, filename), buffer);
 
-    const origin = new URL(req.url).origin;
-    const sourceUrl = `${origin}/uploads/${assetId}/${encodeURIComponent(filename)}`;
-
-    const ref = {
-      assetId,
+    // Scopas under siteId om känt, annars en gäst-bucket. blob-service väljer
+    // Vercel Blob (hosting) eller lokal FS (dev) automatiskt via env.
+    const stored = await uploadBlob({
+      userId: siteId.trim() || "studio-guest",
       filename,
+      buffer,
+      contentType: mime || "application/octet-stream",
+      category: "media",
+    });
+
+    if (!stored?.url) {
+      return NextResponse.json({
+        ok: false,
+        error:
+          "Kunde inte spara filen. På hosting är gränsen ~4,5 MB per fil via servern — prova en mindre fil.",
+      });
+    }
+
+    const alt = baseName.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]/g, " ");
+    const ref = {
+      assetId: stored.path,
+      filename: baseName || filename,
       mimeType: mime,
       sizeBytes: file.size,
       width: null,
       height: null,
-      alt: baseName.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]/g, " "),
+      alt,
       role,
-      sourceUrl,
+      sourceUrl: stored.url,
     };
 
     return NextResponse.json({ ok: true, ref });
