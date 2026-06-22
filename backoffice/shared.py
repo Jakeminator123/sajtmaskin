@@ -156,21 +156,21 @@ def _manifest_uri_format_is_valid(value: object) -> bool:
     return bool(parsed.scheme and parsed.netloc)
 
 
-def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
-    """Validate a proposed ai_models manifest against its JSON Schema.
+def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
+    """Validate ``data`` against the JSON Schema file at ``schema_path``.
 
-    Checks ``manifest`` against ``config/ai_models/manifest.schema.json``
-    (JSON Schema Draft 2020-12) with string ``format`` enforcement enabled
-    (so malformed ``docLinks[].url`` values are rejected). Returns a list of
-    human-readable error strings; an empty list means the manifest is
-    schema-valid and safe to write. The backoffice manifest editors
-    (``ai_models.py`` / ``autofix.py``) call this before every ``write_json``
-    so a schema-breaking edit is blocked with ``st.error`` instead of silently
-    corrupting the manifest.
+    Shared validate-on-save core for the backoffice editors. Validates with
+    JSON Schema Draft 2020-12 and deterministic string ``format`` enforcement:
+    a fresh ``FormatChecker`` whose ``uri`` check mirrors the runtime
+    ``z.string().url()`` guard without depending on the optional
+    ``rfc3987``/``rfc3986`` extras. Returns a list of human-readable
+    ``location: message`` strings; an empty list means ``data`` is schema-valid
+    and safe to write.
 
     Fails closed: if the validator infrastructure is unavailable (missing
-    ``jsonschema`` package or schema file) the returned list is non-empty, so
-    callers skip the write rather than persist unvalidated data.
+    ``jsonschema`` package or a missing/unreadable schema file) the returned
+    list is non-empty, so callers skip the write rather than persist
+    unvalidated data.
     """
     try:
         from jsonschema import Draft202012Validator, FormatChecker
@@ -178,14 +178,10 @@ def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
         return [
             "Schemavalidering kunde inte köras: Python-paketet `jsonschema` saknas. "
             "Installera det (se requirements.backoffice.txt). Sparar inte för att "
-            "undvika att skada manifestet."
+            "undvika att skada filen."
         ]
 
-    try:
-        schema_path = find_repo_root() / "config" / "ai_models" / "manifest.schema.json"
-    except FileNotFoundError as exc:
-        return [f"Schemavalidering kunde inte köras: {exc}"]
-
+    schema_path = Path(schema_path)
     if not schema_path.is_file():
         return [
             f"Schemavalidering kunde inte köras: saknar {schema_path.as_posix()}."
@@ -198,16 +194,41 @@ def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
 
     # Enforce `format: "uri"` deterministically (jsonschema skips formats by
     # default). A fresh FormatChecker with our own `uri` check avoids depending
-    # on the optional rfc3987/rfc3986 extras.
+    # on the optional rfc3987/rfc3986 extras. Harmless for schemas that do not
+    # use `format: "uri"` (the check is simply never invoked).
     format_checker = FormatChecker()
     format_checker.checks("uri")(_manifest_uri_format_is_valid)
 
     validator = Draft202012Validator(schema, format_checker=format_checker)
     messages: list[str] = []
-    for err in sorted(validator.iter_errors(manifest), key=lambda e: list(e.path)):
+    for err in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
         location = "/".join(str(part) for part in err.path) or "(root)"
         messages.append(f"{location}: {err.message}")
     return messages
+
+
+def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
+    """Validate a proposed ai_models manifest against its JSON Schema.
+
+    Thin wrapper over :func:`validate_json_against_schema` that resolves
+    ``config/ai_models/manifest.schema.json`` (JSON Schema Draft 2020-12, with
+    string ``format`` enforcement so malformed ``docLinks[].url`` values are
+    rejected). Returns a list of human-readable error strings; an empty list
+    means the manifest is schema-valid and safe to write. The backoffice
+    manifest editors (``ai_models.py`` / ``autofix.py``) call this before every
+    ``write_json`` so a schema-breaking edit is blocked with ``st.error``
+    instead of silently corrupting the manifest.
+
+    Fails closed: if the validator infrastructure is unavailable (missing
+    ``jsonschema`` package or schema file) the returned list is non-empty, so
+    callers skip the write rather than persist unvalidated data.
+    """
+    try:
+        schema_path = find_repo_root() / "config" / "ai_models" / "manifest.schema.json"
+    except FileNotFoundError as exc:
+        return [f"Schemavalidering kunde inte köras: {exc}"]
+
+    return validate_json_against_schema(manifest, schema_path)
 
 
 @st.cache_data

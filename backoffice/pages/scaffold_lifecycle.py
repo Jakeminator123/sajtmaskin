@@ -17,6 +17,7 @@ from backoffice.shared import (
     read_json,
     read_text,
     render_where_panel,
+    validate_json_against_schema,
     write_json,
     write_text,
 )
@@ -181,6 +182,21 @@ def _variant_payload(
             payload.pop(key, None)
 
     return payload
+
+
+def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -> list[str]:
+    """Validate a variant payload against the strict scaffold-variant schema.
+
+    Mirrors the validate-on-save guard used by the manifest editors: returns a
+    list of human-readable error strings (empty == safe to write). The
+    scaffold-variant create/edit forms call this before ``write_json`` so a
+    schema-breaking edit is blocked with ``st.error`` instead of corrupting the
+    matching config.
+    """
+    schema_path = (
+        ctx.repo_root / "docs" / "schemas" / "strict" / "scaffold-variant.schema.json"
+    )
+    return validate_json_against_schema(payload, schema_path)
 
 
 def _load_variants(ctx: BackofficeContext) -> list[dict[str, Any]]:
@@ -864,6 +880,14 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
         st.error(str(error))
         return
 
+    errors = _validate_variant_payload(ctx, payload)
+    if errors:
+        st.error(
+            "Varianten sparades inte – schemavalideringen misslyckades:\n\n"
+            + "\n".join(f"- {message}" for message in errors)
+        )
+        st.stop()
+
     target_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(target_path, payload)
     st.success(f"Skapade `{target_path.relative_to(ctx.repo_root).as_posix()}`.")
@@ -1052,6 +1076,14 @@ def _render_edit_variant(
     except ValueError as error:
         st.error(str(error))
         return
+
+    errors = _validate_variant_payload(ctx, payload)
+    if errors:
+        st.error(
+            "Varianten sparades inte – schemavalideringen misslyckades:\n\n"
+            + "\n".join(f"- {message}" for message in errors)
+        )
+        st.stop()
 
     write_json(variant_path, payload)
     st.success(f"Sparade `{variant_path.relative_to(ctx.repo_root).as_posix()}`.")

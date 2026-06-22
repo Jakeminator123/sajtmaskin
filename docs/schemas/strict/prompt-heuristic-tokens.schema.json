@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/prompt-heuristic-tokens.schema.json",
+  "title": "Sajtmaskin prompt heuristic tokens",
+  "description": "Editor validate-on-save contract for config/prompt-heuristic-tokens.json. The runtime authority is src/lib/builder/prompt-heuristics.ts, which reads the design/scope/requirements/sections/styles token lists; other categories (structure, content) are consumed elsewhere. Each category is { description, tokens }. This schema only guards the backoffice editor; it does not run at runtime.",
+  "type": "object",
+  "minProperties": 1,
+  "required": ["design", "scope", "requirements", "sections", "styles"],
+  "additionalProperties": { "$ref": "#/$defs/category" },
+  "$defs": {
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokens"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable note shown in the backoffice editor expander."
+        },
+        "tokens": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Lowercase match tokens for this category. May be empty; the backoffice editor trims blanks on save."
+        }
+      }
+    }
+  }
+}

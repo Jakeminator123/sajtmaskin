@@ -36,7 +36,7 @@
       "body": "Manrope"
     }
   ],
-  "signatureMotif": "single full-viewport hero with layered background imagery and a centered, breathing CTA cluster — no two-column split above the fold",
+  "signatureMotif": "single full-viewport hero, layered background imagery, centered breathing CTA cluster — no two-column split above fold",
   "colorMode": "either",
   "promptHints": [
     "Build the hero as a single full-bleed section spanning the full viewport height (min-h-screen). The background carries the visual story (atmospheric image, gradient mesh, or subtle motion canvas); the foreground holds ONLY a tight centered cluster: eyebrow line, oversized headline (clamp-based, not fixed px), short standfirst, and one or two CTAs.",
@@ -61,7 +61,6 @@
       "Never split the hero into a left text column + right image/product card — that is the corporate-grid / bold-startup territory. This variant's whole reason for existing is to break that default.",
       "Avoid stacking 4+ logo strips, trust badges, or stat chips inside the hero — those belong below the fold. The hero must stay visually quiet so the background reads.",
       "Do not use small or screenshot-heavy hero images placed inside a card; the background should fill 100vw × 100vh, not be a contained graphic.",
-      "Avoid busy navbars with mega-menus over the hero; use a thin transparent header that becomes solid only after scroll, so the hero stays uninterrupted.",
       "Never use a generic SaaS gradient (purple-to-blue diagonal) — pick atmospheric, tonal palettes that look photographic or filmic, not template-y."
     ]
   },

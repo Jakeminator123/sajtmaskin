@@ -9,6 +9,7 @@ from backoffice.shared import (
     read_env_flag,
     read_json,
     render_where_panel,
+    validate_json_against_schema,
     write_env_flag,
     write_json,
 )
@@ -51,6 +52,14 @@ def _section_domain_rules(ctx: BackofficeContext) -> None:
                     "keywords_en": [k.strip() for k in (row.get("keywords_en") or "").split(",") if k.strip()],
                 }
             )
+        schema_path = ctx.repo_root / "docs" / "schemas" / "strict" / "domain-rules.schema.json"
+        errors = validate_json_against_schema(out, schema_path)
+        if errors:
+            st.error(
+                "Domain rules sparades inte – schemavalideringen misslyckades:\n\n"
+                + "\n".join(f"- {message}" for message in errors)
+            )
+            st.stop()
         path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         st.success(f"Sparade {len(out)} domain rules.")
 
@@ -79,6 +88,16 @@ def _section_heuristic_tokens(ctx: BackofficeContext) -> None:
             if st.button(f"Spara {cat_key}", key=f"codegen_core_save_heuristic_{cat_key}"):
                 parsed = [t.strip() for t in new_tokens.split(",") if t.strip()]
                 data[cat_key]["tokens"] = parsed
+                schema_path = (
+                    ctx.repo_root / "docs" / "schemas" / "strict" / "prompt-heuristic-tokens.schema.json"
+                )
+                errors = validate_json_against_schema(data, schema_path)
+                if errors:
+                    st.error(
+                        f"Tokens för `{cat_key}` sparades inte – schemavalideringen misslyckades:\n\n"
+                        + "\n".join(f"- {message}" for message in errors)
+                    )
+                    st.stop()
                 path.write_text(
                     json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
                 )

@@ -121,6 +121,40 @@
       "notes": "editor $schema only; runtime hand-parses variants in scaffold-variants/registry.ts."
     },
     {
+      "id": "domain-rules-schema",
+      "sourceOfTruth": "docs/schemas/strict/domain-rules.schema.json",
+      "type": "schema",
+      "validator": "control-plane:check",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Codegen Core",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "editor validate-on-save schema for config/domain-rules.json (backoffice Codegen Core); runtime authority is src/lib/builder/domain-inference.ts, which hand-parses the JSON. Committed config asserted by backoffice/test_validate_matching_config.py."
+    },
+    {
+      "id": "prompt-heuristic-tokens-schema",
+      "sourceOfTruth": "docs/schemas/strict/prompt-heuristic-tokens.schema.json",
+      "type": "schema",
+      "validator": "control-plane:check",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Codegen Core",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "editor validate-on-save schema for config/prompt-heuristic-tokens.json (backoffice Codegen Core); runtime authority is src/lib/builder/prompt-heuristics.ts, which reads the token lists. Committed config asserted by backoffice/test_validate_matching_config.py."
+    },
+    {
       "id": "scaffold-manifests",
       "sourceOfTruth": "src/lib/gen/scaffolds/*/manifest.ts",
       "type": "runtime-authority",
