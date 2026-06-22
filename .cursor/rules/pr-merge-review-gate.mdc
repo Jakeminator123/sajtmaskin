@@ -13,11 +13,24 @@ Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 2. Läs reviews/kommentarer:
    - `gh pr view <n> --json reviews,comments`
    - `gh api repos/<owner>/<repo>/pulls/<n>/comments`
-3. Triagera botar: Cursor Bugbot, Codex, Vercel/VADE, GitGuardian.
-4. P1/High/security/cross-tenant = blockera.
-5. P2/Medium = fixa eller motivera varför den lämnas.
-6. Efter fix: låt botar/checks köra om.
+3. Triagera botar: Cursor Bugbot, Codex (P1/P2), Vercel/VADE, GitGuardian.
+4. P1/High/security/cross-tenant = blockera merge tills åtgärdat.
+5. P2/Medium = fixa, **eller** logga i [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) med fil-ankare/repro. Lämna aldrig tyst.
+6. Low/nit = fixa eller kort notis.
+7. Efter fix: pusha och låt botar/checks köra om innan merge.
+
+## Spårningskrav (varje fynd, inget tappas)
+
+Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
+
+| Utfall | Krav |
+|---|---|
+| **Fixat** | i PR:en (helst med test/verifiering) |
+| **Loggat** | rad i `BUG-SWARM-BACKLOG.md` med fil-ankare + ev. repro |
+| **Avfärdat** | en rad om varför (trivialt / by-design / naming) |
+
+Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrott — även om CI är grön och PR:n redan mergats. Gäller särskilt funktions-/säkerhetsfynd (de "ser-grönt-men-går-sönder").
 
 ## Princip
 
-`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker.
+`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad.

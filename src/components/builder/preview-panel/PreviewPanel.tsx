@@ -191,6 +191,20 @@ export function PreviewPanel({
     return src;
   }, []);
 
+  // Bridge-opt-in decorator: appends `?inspect=1` for own-engine/tier-2 previews
+  // when the bridge flag is on. Shared by the rendered previewSrc AND the
+  // imperative iframe.src writes (refresh / route-nav) so the bridge script keeps
+  // getting injected after a reload instead of silently dropping out of bridge mode.
+  const withInspectParam = useCallback(
+    (src: string, url: string | null) => {
+      if (!bridgeEnabled || !url) return src;
+      if (!isCompatibilityShimPreviewUrl(url) && !isTier2LivePreviewUrl(url)) return src;
+      const separator = src.includes("?") ? "&" : "?";
+      return `${src}${separator}${INSPECT_BRIDGE_QUERY_PARAM}=1`;
+    },
+    [bridgeEnabled],
+  );
+
   const isOwnEnginePreview = useMemo(() => {
     if (!previewUrl) return false;
     return isCompatibilityShimPreviewUrl(previewUrl);
@@ -617,7 +631,7 @@ export function PreviewPanel({
     if (iframe) {
       const base = previewUrl || iframe.src;
       if (!base) return;
-      iframe.src = buildPreviewSrc(base, Date.now());
+      iframe.src = withInspectParam(buildPreviewSrc(base, Date.now()), base);
     }
   };
 
@@ -651,7 +665,7 @@ export function PreviewPanel({
       onNavigatePreviewUrl?.(nextUrl);
       const iframe = iframeRef.current;
       if (iframe) {
-        iframe.src = buildPreviewSrc(nextUrl, Date.now());
+        iframe.src = withInspectParam(buildPreviewSrc(nextUrl, Date.now()), nextUrl);
       }
       setIframeLoading(true);
       setIframeError(false);
@@ -662,6 +676,7 @@ export function PreviewPanel({
       isOwnEnginePreview,
       onNavigatePreviewUrl,
       buildPreviewSrc,
+      withInspectParam,
       setIframeLoading,
       setIframeError,
       setIframeErrorMessage,
@@ -785,22 +800,8 @@ export function PreviewPanel({
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = useMemo(() => {
     if (!previewUrl) return "";
-    let src = buildPreviewSrc(previewUrl, refreshToken);
-    // Bridge-opt-in: be preview-host/own-engine-shimmen injicera bridge-scriptet.
-    // Bara för egna/tier-2-previews (externa sidor ignorerar parametern ändå).
-    if (bridgeEnabled && (isOwnEnginePreview || isTier2LivePreview)) {
-      const separator = src.includes("?") ? "&" : "?";
-      src = `${src}${separator}${INSPECT_BRIDGE_QUERY_PARAM}=1`;
-    }
-    return src;
-  }, [
-    previewUrl,
-    refreshToken,
-    buildPreviewSrc,
-    bridgeEnabled,
-    isOwnEnginePreview,
-    isTier2LivePreview,
-  ]);
+    return withInspectParam(buildPreviewSrc(previewUrl, refreshToken), previewUrl);
+  }, [previewUrl, refreshToken, buildPreviewSrc, withInspectParam]);
   const showBlobWarning = Boolean(
     previewUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
   );
