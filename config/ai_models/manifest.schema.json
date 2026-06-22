@@ -47,9 +47,52 @@
     },
     "qualityToOwnEngineModel": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "required": ["light", "standard", "pro", "premium", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "light": { "type": "string" },
+        "standard": { "type": "string" },
+        "pro": { "type": "string" },
+        "premium": { "type": "string" },
+        "max": { "type": "string" }
+      }
     },
-    "promptAssist": { "type": "object" },
+    "promptAssist": {
+      "type": "object",
+      "required": ["defaults", "envKeys", "allowed"],
+      "additionalProperties": false,
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "required": ["assist", "polish"],
+          "additionalProperties": false,
+          "properties": {
+            "assist": { "type": "string" },
+            "polish": { "type": "string" }
+          }
+        },
+        "envKeys": {
+          "type": "object",
+          "required": ["assist", "polish"],
+          "additionalProperties": false,
+          "properties": {
+            "assist": { "type": "string" },
+            "polish": { "type": "string" }
+          }
+        },
+        "allowed": {
+          "type": "object",
+          "required": ["gatewayClassModels", "anthropicDirectModels"],
+          "additionalProperties": false,
+          "properties": {
+            "gatewayClassModels": { "type": "array", "items": { "type": "string" } },
+            "anthropicDirectModels": { "type": "array", "items": { "type": "string" } },
+            "models": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
     "briefing": {
       "type": "object",
       "required": ["defaults", "envKeys"],
@@ -267,9 +310,34 @@
         }
       }
     },
-    "tokenBudgets": { "type": "object" },
-    "routeTimeouts": { "type": "object" },
-    "embeddingModels": { "type": "object" },
+    "tokenBudgets": {
+      "type": "object",
+      "required": ["engineMaxOutputTokens", "autofixMaxOutputTokens", "assistMaxOutputTokens"],
+      "additionalProperties": false,
+      "properties": {
+        "engineMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "autofixMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "assistMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" }
+      }
+    },
+    "routeTimeouts": {
+      "type": "object",
+      "required": [
+        "engineRouteMaxDurationSeconds",
+        "assistRouteMaxDurationSeconds",
+        "streamSafetyTimeoutMs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "engineRouteMaxDurationSeconds": { "$ref": "#/$defs/numericEnvSetting" },
+        "assistRouteMaxDurationSeconds": { "$ref": "#/$defs/numericEnvSetting" },
+        "streamSafetyTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" }
+      }
+    },
+    "embeddingModels": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/embeddingEntry" }
+    },
     "generatedSiteIntegrationPlaceholders": {
       "type": "object",
       "description": "Plain-text env fragments for generated user-site preview builds (not Sajtmaskin app env). Split into a harmless layer (safe in F3) and a tier-3 stub layer (F2-only, dropped in F3).",
@@ -324,7 +392,7 @@
               "properties": {
                 "vendor": { "type": "string" },
                 "title": { "type": "string" },
-                "url": { "type": "string" },
+                "url": { "type": "string", "format": "uri" },
                 "appliesTo": {
                   "type": "string",
                   "enum": ["direct_provider_api", "sdk_or_tooling"]
@@ -388,6 +456,16 @@
       "required": ["briefingModel"],
       "properties": {
         "briefingModel": { "type": "string" }
+      }
+    },
+    "embeddingEntry": {
+      "type": "object",
+      "required": ["model"],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string" },
+        "dimensions": { "type": "number" },
+        "codeEntry": { "type": "array", "items": { "type": "string" } }
       }
     }
   }
