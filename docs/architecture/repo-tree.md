@@ -9,6 +9,7 @@
 | `src/` | Next.js App Router, API-routes, UI, domänlogik. Egen motor: `src/lib/gen/`. |
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
 | `config/dashboard/` | Stöddata för backoffice-appen — bara domänkartan [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json) (mappnamnet `dashboard/` är legacy; **importeras inte** av Next.js). Streamlit-ytan startas med `npm run backoffice`. |
+| `config/control-plane/` | Maskinläsbar **control-plane**: registries (`schema-registry.json` + `policy-registry.json`) som mappar var varje schema/policy/rule/runtime-authority bor, om den är runtime-wired och om den får flyttas. Valideras av `npm run control-plane:check`. Karta: [`docs/architecture/schema-policy-map.md`](./schema-policy-map.md). |
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. |
 | `backoffice/` | Konsoliderad **backoffice** (Streamlit). Startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`); sidkod i `backoffice/pages/`. |
 | `preview-host/` | Preview-host: runtime, verify och workspace-livscykel för previews — [`preview-host/README.md`](../../preview-host/README.md). |
@@ -32,7 +33,7 @@ Ett ställe för "var ligger vad och varför". Filträd (rensat 2026-06-22):
 ```
 repo/
 ├── src/                  Next.js App Router + API + UI; egen motor i src/lib/gen/, src/lib/own-engine/, src/lib/providers/own-engine/
-├── config/               kanonisk config: ai_models/, prompt-core/, env-policy.json, scaffold-variants/, dashboard/domain-map.json (load-bearing; namnet legacy)
+├── config/               kanonisk config: ai_models/, prompt-core/, env-policy.json, scaffold-variants/, control-plane/ (schema+policy-registries), dashboard/domain-map.json (load-bearing; namnet legacy)
 ├── data/                 lokal lagring + dossiers/{hard,soft}/ (committad); runs/ + prompt-dumps/ + observability/ är gitignorade runtime-artefakter
 ├── docs/                 mänsklig dokumentation (träd nedan)
 ├── scripts/              Node/Python-hjälp (package.json = sanning för npm-namn; scripts/README.md = karta)

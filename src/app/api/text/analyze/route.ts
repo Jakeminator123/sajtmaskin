@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 
 /**
  * Text Analysis API
@@ -23,7 +24,7 @@ interface TextSuggestion {
   prompt: string;
 }
 
-const ANALYSIS_MODEL = "gpt-5-nano";
+const ANALYSIS_MODEL = getWorkloadDefaultModelFromManifest("text_analyze") ?? "gpt-5-nano";
 
 const TEXT_ANALYZE_SCHEMA = {
   type: "object" as const,

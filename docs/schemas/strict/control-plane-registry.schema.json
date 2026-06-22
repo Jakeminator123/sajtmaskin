@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/control-plane-registry.schema.json",
+  "title": "Sajtmaskin control-plane registry",
+  "description": "Self-describing schema for config/control-plane/schema-registry.json and policy-registry.json. Each registry maps a schema/policy/rule/runtime-authority to its source of truth, validator, CI status, runtime-enforcement status, backoffice surface and mobility. Source-of-truth: config/control-plane/README.md.",
+  "type": "object",
+  "required": ["schemaVersion", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Registry format version."
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "sourceOfTruth",
+        "type",
+        "validator",
+        "ciStatus",
+        "runtimeEnforced",
+        "runtimeStatus",
+        "backoffice",
+        "mobility",
+        "notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Unique kebab-case identifier within the registry."
+        },
+        "sourceOfTruth": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repo-relative path to the authoritative file. May be a glob (contains '*') or a 'path#fragment' reference into a JSON file."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["schema", "policy", "rule", "runtime-authority"],
+          "description": "Kind of authority."
+        },
+        "validator": {
+          "type": ["string", "null"],
+          "description": "npm script name that validates this entry (e.g. 'db:schema-drift'), or null when none."
+        },
+        "ciStatus": {
+          "type": "string",
+          "enum": ["hard", "warn", "manual", "none"],
+          "description": "How CI treats it: hard blocks, warn is non-blocking, manual is run by hand, none has no CI."
+        },
+        "runtimeEnforced": {
+          "type": "boolean",
+          "description": "Whether the app actually reads/enforces this at runtime."
+        },
+        "runtimeStatus": {
+          "type": "string",
+          "enum": ["wired", "declared-only", "n/a"],
+          "description": "wired = a runtime read-path consumes it; declared-only = present/validated but NOT wired to runtime; n/a = not a runtime concern."
+        },
+        "backoffice": {
+          "type": "object",
+          "required": ["surface", "editable", "writePath", "danger"],
+          "additionalProperties": false,
+          "properties": {
+            "surface": {
+              "type": ["string", "null"],
+              "description": "Backoffice page/section that exposes it, or null."
+            },
+            "editable": {
+              "type": "boolean",
+              "description": "Whether Backoffice lets a human edit it."
+            },
+            "writePath": {
+              "type": ["string", "null"],
+              "description": "File Backoffice writes to, or null."
+            },
+            "danger": {
+              "type": "string",
+              "enum": ["low", "medium", "high"],
+              "description": "Blast radius of a bad edit."
+            }
+          }
+        },
+        "mobility": {
+          "type": "string",
+          "enum": ["safe", "risky", "leave"],
+          "description": "Whether the file can be physically moved. leave = do not move (tooling/runtime expects the path)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-form note. Required non-empty when runtimeEnforced is false (explain why it is not a runtime read-path)."
+        }
+      }
+    }
+  }
+}

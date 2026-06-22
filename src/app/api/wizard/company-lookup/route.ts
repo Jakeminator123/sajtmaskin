@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
@@ -142,7 +143,9 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {
   const result = await generateText({
-    model: createDirectModel("openai/gpt-5-mini"),
+    model: createDirectModel(
+      getWorkloadDefaultModelFromManifest("company_lookup") ?? "openai/gpt-5-mini",
+    ),
     prompt: `Sök upp det svenska företaget "${companyName}" på allabolag.se eller liknande källa.
 Returnera BARA JSON (inget annat):
 {"found":true,"companyName":"","orgNr":"","companyType":"AB","city":"","industries":[""],"employees":0,"revenueKsek":0,"purpose":"","homepage":""}

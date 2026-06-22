@@ -496,7 +496,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     autofix_tokens = st.number_input(
         "Autofix / fixer max output tokens",
-        value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
+        value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 82000)),
         step=512,
         key="tb_autofix",
     )
@@ -520,7 +520,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     stream_timeout = st.number_input(
         "Klientens stream-safety-timeout (millisekunder)",
-        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 720000)),
+        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 840000)),
         step=1000,
         key="rt_stream",
     )
@@ -531,19 +531,19 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     p_ver_snip = pgp.setdefault("verifierSnippetCharsPerFile", {})
     ver_out = st.number_input(
         "Verifier: max output tokens",
-        value=int(p_ver_tok.get("default", 8192)),
+        value=int(p_ver_tok.get("default", 32000)),
         step=256,
         key="pgp_ver_out",
     )
     ver_ms = st.number_input(
         "Verifier: timeout (ms)",
-        value=int(p_ver_ms.get("default", 60000)),
+        value=int(p_ver_ms.get("default", 120000)),
         step=1000,
         key="pgp_ver_ms",
     )
     ver_snip = st.number_input(
         "Verifier: snippet-tecken per fil",
-        value=int(p_ver_snip.get("default", 14000)),
+        value=int(p_ver_snip.get("default", 40000)),
         step=500,
         key="pgp_ver_snip",
     )
@@ -623,23 +623,28 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
 
 
 def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
-    """Surface P21:s tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
+    """Surface tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
 
-    Read-only-vy: nya fälten ligger som top-level-objekt i manifestet och
-    bevaras automatiskt vid all edit (eftersom write_json skriver tillbaka
-    hela manifestet). Edit görs via manifest.json-tabben tills accessor-
-    funktionerna landar och vi kan lägga till skrivlogik per tier.
+    Declared-only: dessa fält valideras (Zod i `load-manifest.ts` + JSON Schema)
+    och kan läsas via `getPerTier*FromManifest()`, men inget i generationsflödet
+    konsumerar dem ännu — globala `routeTimeouts`/`repairPolicies`/`briefing`
+    gäller vid körning. Read-only-vy: fälten ligger som top-level-objekt i
+    manifestet och bevaras vid all edit (write_json skriver tillbaka hela
+    manifestet). Edit görs via manifest.json-tabben.
     """
 
     timeouts = manifest.get("perTierTimeouts") or {}
     policies = manifest.get("perTierRepairPolicies") or {}
     briefing = manifest.get("perTierBriefing") or {}
 
-    st.markdown("### Tier-differentierade policys (sedan wave 2026-04-20)")
+    st.markdown("### Tier-differentierade policys · declared-only (EJ wired till runtime)")
     st.caption(
-        "Aktiveras av per-tier accessor-funktioner i `phase-routing.ts`/`engine.ts` (P26-uppföljning). "
-        "Gamla globala fält (`routeTimeouts`, `repairPolicies`) "
-        "kvarstår som fallback. Edit görs via manifest.json-tabben."
+        "**Declared-only / EJ wired till runtime (valideras men styr inte runtime ännu).** "
+        "`perTier*`-fälten valideras (Zod i `load-manifest.ts` + JSON Schema), men ingen "
+        "kod i generationsflödet läser dem. De globala fälten (`routeTimeouts`, "
+        "`repairPolicies`, `briefing`) är det som faktiskt gäller vid körning. "
+        "Se `config/control-plane/policy-registry.json` (`manifest-per-tier-*`, "
+        "runtimeStatus `declared-only`). Read-only-vy; edit görs via manifest.json-tabben."
     )
 
     has_any = bool(timeouts or policies or briefing)

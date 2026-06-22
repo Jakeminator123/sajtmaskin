@@ -146,6 +146,39 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")).toBe(true);
   });
 
+  it("per-tier policy overrides, when present, cover all 5 tiers (validate-only)", () => {
+    const m = getAiModelsManifest();
+    const tiers = ["fast", "pro", "max", "codex", "anthropic"] as const;
+
+    if (m.perTierTimeouts) {
+      for (const tier of tiers) {
+        const entry = m.perTierTimeouts[tier];
+        expect(entry, `perTierTimeouts missing ${tier}`).toBeDefined();
+        expect(typeof entry.engineRouteMaxDurationSeconds).toBe("number");
+        expect(typeof entry.verifierTimeoutMs).toBe("number");
+      }
+    }
+
+    if (m.perTierRepairPolicies) {
+      for (const tier of tiers) {
+        const entry = m.perTierRepairPolicies[tier];
+        expect(entry, `perTierRepairPolicies missing ${tier}`).toBeDefined();
+        expect(typeof entry.deterministicAutofixPasses).toBe("number");
+        expect(typeof entry.syntaxFixPasses).toBe("number");
+        expect(typeof entry.serverRepairPasses).toBe("number");
+      }
+    }
+
+    if (m.perTierBriefing) {
+      for (const tier of tiers) {
+        const entry = m.perTierBriefing[tier];
+        expect(entry, `perTierBriefing missing ${tier}`).toBeDefined();
+        expect(typeof entry.briefingModel).toBe("string");
+        expect(entry.briefingModel.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("documents post-generation verifier workload", () => {
     const m = getAiModelsManifest();
     const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");

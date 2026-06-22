@@ -75,6 +75,7 @@
     "dossiers:capability-map:check": "npx tsx scripts/dossiers/regenerate-capability-map.ts",
     "dossiers:capability-map:write": "npx tsx scripts/dossiers/regenerate-capability-map.ts --write",
     "dossiers:validate-all": "npx tsx scripts/dossiers/validate-all.ts",
+    "control-plane:check": "node scripts/control-plane/check-registry.mjs",
     "shadcn:sync": "npx tsx scripts/shadcn/sync-shadcn-registry.ts",
     "shadcn:sync:soft": "npm run shadcn:sync || echo [shadcn-sync] Registry check skipped",
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",

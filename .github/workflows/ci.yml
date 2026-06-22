@@ -54,6 +54,18 @@ jobs:
       - name: Verify baseline dependency tree
         run: npm run baseline-deps:tree
 
+      - name: Validate scaffold manifests
+        run: npm run scaffolds:validate
+
+      - name: Validate dossier manifests
+        run: npm run dossiers:validate-all
+
+      - name: Verify dossier capability map
+        run: npm run dossiers:capability-map:check
+
+      - name: Validate control-plane registries
+        run: npm run control-plane:check
+
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. Medvetet UTAN
