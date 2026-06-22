@@ -9,6 +9,7 @@ Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid
 | `env-policy.json` | Policy för env-nycklar (par med `src/lib/env.ts`, `docs/ENV.md`). |
 | `shadcn-mirror-audit-policy.json` | Audit-policy för `npm run mirror:audit` mot externa mall-repon. Research-/audit-only, inte runtime eller own-engine-generering. |
 | `user_degraded_env.txt` | Policytext för degraded/placeholder i användarprojekt. |
+| `control-plane/` | Maskinläsbar control-plane: `schema-registry.json` + `policy-registry.json` mappar var varje schema/policy/rule/runtime-authority bor, om den är runtime-wired och om den får flyttas. Valideras av `npm run control-plane:check`. Se [`control-plane/README.md`](control-plane/README.md) + [`docs/architecture/schema-policy-map.md`](../docs/architecture/schema-policy-map.md). |
 | `dashboard/` | Stöddata för den konsoliderade backoffice-appen — bara [`domain-map.json`](dashboard/domain-map.json) (mappnamnet `dashboard/` är legacy). Den kanoniska Streamlit-ytan startas med `npm run backoffice` (repo-roten `sajtmaskin_backoffice.py`, kod under `backoffice/`, delad logik i `backoffice/shared.py`). |
 
 **Ingångar:** [`prompt-core/_READ_ME_FIRST.md`](prompt-core/_READ_ME_FIRST.md) · [`ai_models/_READ_ME_FIRST.md`](ai_models/_READ_ME_FIRST.md) · [`docs/architecture/repo-tree.md`](../docs/architecture/repo-tree.md).
