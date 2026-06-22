@@ -8,12 +8,11 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
-import { firstGateOutputLine } from "@/lib/gen/verify/preview-quality-gate";
+import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
@@ -52,59 +51,6 @@ function isTimedOutVerificationState(
   }
 
   return Date.now() - createdAtMs > STALE_VERIFICATION_TIMEOUT_MS;
-}
-
-const GATE_CHECK_LABELS: Record<string, string> = {
-  typecheck: "Typecheck",
-  build: "Build",
-  lint: "Lint",
-};
-
-function gateCheckLabel(check: string): string {
-  return (
-    GATE_CHECK_LABELS[check] ?? `${check.charAt(0).toUpperCase()}${check.slice(1)}`
-  );
-}
-
-function readLogMetaString(meta: unknown, key: string): string | null {
-  if (!meta || typeof meta !== "object") return null;
-  const value = (meta as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : null;
-}
-
-/**
- * Translate already-logged quality-gate failures into a concrete summary so the
- * stale-verification watchdog can report the real cause (e.g. a deterministic
- * typecheck error) instead of a misleading "took too long" timeout that tells
- * the user to "try again". Returns null when no concrete gate failure is logged,
- * letting the caller fall back to the generic timeout copy.
- *
- * `errorLogs` is ordered newest-first, so the first match wins.
- */
-function resolveGateFailureSummaryFromLogs(
-  errorLogs: VersionErrorLog[],
-): string | null {
-  // Prefer a per-check failure row that carries the real command output.
-  for (const log of errorLogs) {
-    if (log.level !== "error" || typeof log.category !== "string") continue;
-    if (!log.category.startsWith("quality-gate:")) continue;
-    const check = log.category.slice("quality-gate:".length);
-    if (check !== "typecheck" && check !== "build" && check !== "lint") continue;
-    const line = firstGateOutputLine(readLogMetaString(log.meta, "output"));
-    if (line) {
-      return `${gateCheckLabel(check)} misslyckades: ${line}`;
-    }
-  }
-  // Fallback: the server-verify summary row names the failing check even when
-  // the per-check output row is absent.
-  for (const log of errorLogs) {
-    if (log.level !== "error" || log.category !== "preflight:quality-gate") continue;
-    const check = readLogMetaString(log.meta, "firstFailureCheck");
-    if (check) {
-      return `${gateCheckLabel(check)} misslyckades under den automatiska verifieringen.`;
-    }
-  }
-  return null;
 }
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
