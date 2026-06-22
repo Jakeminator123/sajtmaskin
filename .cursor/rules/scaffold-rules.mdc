@@ -1,37 +1,41 @@
 ---
-description: Agentregler vid scaffold-ändringar
+description: "Regler vid scaffold- och variant-ändringar."
 globs:
   - src/lib/gen/scaffolds/**
   - src/lib/gen/orchestrate.ts
   - src/lib/gen/system-prompt/**
   - src/lib/gen/build-spec/**
   - scripts/scaffolds/**
+  - config/scaffold-variants/**
+alwaysApply: false
 ---
 
 # Scaffold-regler
 
-Full arkitekturdoc + inventering: `docs/architecture/scaffold-system.md`.
+Arkitektur: `docs/architecture/scaffold-system.md`.
+
+## Canonical paths
+
+| Sak | Path |
+|---|---|
+| Scaffold-filer | `src/lib/gen/scaffolds/<id>/files/` |
+| Scaffold manifest | `src/lib/gen/scaffolds/<id>/manifest.ts` |
+| Registry/types | `src/lib/gen/scaffolds/registry.ts`, `types.ts` |
+| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` |
+| Variant schema | `docs/schemas/strict/scaffold-variant.schema.json` |
 
 ## Regler
 
-1. Scaffold-filer bor under `src/lib/gen/scaffolds/<id>/files/` — redigera direkt.
-2. Manifest metadata i `src/lib/gen/scaffolds/<id>/manifest.ts`.
+1. Redigera scaffold-filer direkt i `files/`.
+2. Metadata i `manifest.ts`.
 3. Kör `npm run typecheck` + `npm run scaffolds:validate` efter ändringar.
-4. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline.
-5. Externa referenser/scaffold-research styrs via dossier-pipen (`npm run dossiers:curate` + `npm run dossiers:validate-all`), inte gamla template-library-script.
-6. Innan du föreslår att lägga till/ta bort/slå ihop scaffolds — läs inventerings-docen.
-7. **Merge-policy**: `LLM_ONLY_PATHS` (scaffold-default blockas, LLM måste emittera, t.ex. `app/page.tsx`) bor i [`finalize-merge.ts`](../../src/lib/gen/stream/finalize-merge.ts). `SCAFFOLD_PROTECTED_PATHS` (LLM-emission droppas, scaffold/previous vinner, t.ex. `app/api/placeholder/route.ts`) bor i [`src/lib/gen/scaffolds/protected-paths.ts`](../../src/lib/gen/scaffolds/protected-paths.ts) — gemensam källa för fyra pipelines (init/follow-up merge, finalize-preflight guards, server-verify auto-repair, manuell repair-route). Lägg ENDAST till i `SCAFFOLD_PROTECTED_PATHS` för rena utility-filer utan brand/copy/business. Detaljer: `docs/architecture/scaffold-system.md` § 7b.
+4. Ändra inte `serialize.ts`, `registry.ts`, `seo-defaults.ts`, `finalize-merge.ts` eller `protected-paths.ts` utan att förstå merge-pipeline.
+5. Externa referenser och research går via dossier-/reference-pipen, inte gamla template-library-script.
+6. Innan ta bort/slå ihop scaffold: sök referenser, variantmappar, registry, embeddings och docs.
 
-## 9 scaffolds (snabböversikt)
+## Merge-policy
 
-| ID | Typ |
-|----|-----|
-| `base-nextjs` | marketing/simple |
-| `landing-page` | marketing/medium |
-| `saas-landing` | marketing/medium |
-| `portfolio` | editorial/medium |
-| `blog` | editorial/medium |
-| `dashboard` | app/advanced |
-| `auth-pages` | app/simple |
-| `ecommerce` | commerce/advanced |
-| `app-shell` | app/medium |
+- `LLM_ONLY_PATHS`: scaffold-default blockas, LLM måste emittera.
+- `SCAFFOLD_PROTECTED_PATHS`: LLM-emission droppas, scaffold/previous vinner.
+
+Lägg bara rena utility-filer i protected paths.

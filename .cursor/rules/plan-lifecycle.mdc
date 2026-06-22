@@ -1,82 +1,39 @@
 ---
-description: Plan-fil livscykel — en aktiv källa (active/README.md), archived/ för vilande, avklarat/ för mergat
+description: "Plan-livscykel: active är koncentrat, avklarat är levererat, archived är vilande/skrotat."
 globs:
   - docs/plans/**
   - .cursor/bugs/**
+alwaysApply: false
 ---
 
-# Plan-fil livscykel
+# Plan-livscykel
 
-Planer dokumenterar pågående arbete. **`docs/plans/active/README.md` är den enda aktiva planytan** — ett koncentrat (1–2 sidor) som router till varje aktivt spår och destillerar öppna P1/P2. Linear är källa till sanning för status; denna regel styr **var i workspace:t** innehållet bor.
+Planer dokumenterar arbete, de är inte produkten.
 
-**Grundregel:** `active/` är varken museum eller filzoo. Mål: håll `active/README.md` som enda aktiva ytan. Allt som inte styr arbete just nu flyttas ut — vilande/parkerat/skrotat → `archived/`, mergat → `avklarat/`. Git-historik bevarar allt. Skapa inte en ny fristående planfil om en rad i koncentratet, en Linear-issue eller en `.cursor/bugs/`-fil räcker.
+## Grundregel
 
-**Windows/Cursor:** använd inte `%USERPROFILE%\.cursor\plans\*.plan.md` som aktiv planplats — Cursor på Windows ger trasiga agentlänkar där. Dyker en plan upp: väv in i `active/README.md` (eller en arkiv-/avklarat-fil) och hänvisa bara till repo-filen.
+`docs/plans/active/README.md` är aktiv router. Allt som inte styr pågående arbete ska ut ur `active/`.
 
-## Innan du börjar
-
-Läs **`docs/plans/active/README.md`** först — router till alla aktiva spår. Relaterar ditt arbete till ett befintligt spår? Kontinuera/länka det. Ser du ett arkiverat/parkerat spår vars gate nu är uppfyllt? Flagga till användaren innan du gör nytt arbete. Gäller cloud agents, Cursor-chatten, MCP-agenter och bakgrundsagenter likadant.
-
-## Mappar
-
-| Mapp | Vad |
+| Plats | Innehåll |
 |---|---|
-| `docs/plans/active/` | Koncentratet `README.md` (router) + ev. kortlivad scope-doc + **stora initiativ i egen undermapp** (se Plan-nivåer). |
-| `docs/plans/active/<initiativ>/` | Nivå 1–3 för ett stort initiativ (`00-master-plan.md` + `NN-<område>.md` + just-in-time-aktiviteter). |
-| `docs/plans/archived/` | Vilande, parkerade (`archived/parked/`), skrotade och in-syntetiserade planer. Filnamn bevaras så länkar/historik resolvar. |
-| `docs/plans/avklarat/` | Implementerat och mergat — historik. |
-| `docs/inspiration/` | Framtidsidéer / lärdomar — **inte** planfiler. |
+| `docs/plans/active/README.md` | aktivt koncentrat + länkar |
+| `docs/plans/active/<initiativ>/` | endast stora pågående initiativ |
+| `docs/plans/avklarat/` | implementerat och mergat |
+| `docs/plans/archived/` | vilande, parkerat, ersatt, skrotat |
+| `docs/inspiration/` | idéer/lärdomar, inte aktiv plan |
 
-## Plan-nivåer (stora initiativ)
+## Stora initiativ
 
-| Nivå | Fil | Vad |
-|---|---|---|
-| 1 | `00-master-plan.md` | Målbild + områdesindex + sekvens. **En** per initiativ. |
-| 2 | `NN-<område>.md` | Ett domänområde: syfte, yta, beroenden, klart-när. ~5–8 st. |
-| 3 | aktiviteter per område | Byggar-agent-körbara, varsin smal `owner_files`. **Skapas just-in-time** när området är på tur — inte allt uppfront. |
-
-Parallellt område/aktivitet = distinkta `owner_files`; sekventiellt = `blocked_by`. Detta ersätter gamla `P*.md`-modellen + `plan-file.schema.json` — **planering är en regel, inte ett schema**.
-
-**Städ-pass per område:** varje nivå-2-område inleds eller avslutas med ett scoped städ-/struktur-pass — standard sista nivå-3-aktivitet `Z-städ`: radera oanvänt, omorganisera områdets mappyta, konsolidera dubbletter. Smalt till områdets `owner_files`, körs efter att huvudarbetet är verifierat. Repo-bred städning hör till det gemensamma städområdet, inte hit.
-
-## Frontmatter (fristående planfiler)
-
-Koncentratet och andra index-/router-filer behöver ingen frontmatter. En **fristående** planfil (scope-doc, audit) som ligger i `archived/` eller `avklarat/` ska ha minimum:
-
-```yaml
----
-id: <kort-slug>              # P34, 2026-06-17-repo-tvatt, etc.
-status: active|paused|done|scope
-created: YYYY-MM-DD
-linear: SAJ-<n> | null
-parent: <plan-id> | null     # vad gav upphov till planen? null om rotplan
-supersedes: <plan-id> | null # ersätter denna en tidigare plan?
----
+```text
+00-master-plan.md       nivå 1: målbild/index
+NN-område.md            nivå 2: domänområde
+aktiviteter/*.md        nivå 3: smala agentuppgifter, just-in-time
 ```
 
-`parent`/`supersedes` är **lineage-fält** — de förklarar varför planen finns och vad den ersätter. Filnamn: kebab-case, `YYYY-MM-DD-<slug>` för tidsbundna docs eller `<P-ID>-<slug>` för projekt-ID:n.
+## Cleanup-regel
 
-## Strävan mot avslut
+Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `active/`. Uppdatera länkar/README i samma ändring.
 
-Varje spår landar i: (a) invävt i `active/README.md`, (b) levererat → `avklarat/`, eller (c) skrotat/parkerat → `archived/`. Inget progress på 14 dagar → sammanfatta i koncentratet eller arkivera. `active/` ska aldrig bli filzoo igen.
+## Buggar
 
-## Linear-bridge
-
-| Händelse | Aktion |
-|---|---|
-| Spår har Linear-issue | Sätt `linear: SAJ-<n>` (frontmatter eller koncentrat-rad) |
-| Spår levereras | Kommentera Linear med commit-länk + stäng issue |
-| Spår parkeras/arkiveras | Kommentera Linear om varför + sätt prio låg |
-| Spår utan Linear-koppling | OK för scope-/audit-/lokala docs (`linear: null`) |
-
-## Bug-rapporter (`.cursor/bugs/`)
-
-Gitignored lokal mirror (Linear är sanning). Ny bugg via `/buggrapport` → lokal fil + Linear-issue (`YYYY-MM-DD_HHMM_<LINEAR-ID>_<slug>.md`). Åtgärdad + mergad → **radera** lokal fil. Agent som vill rapportera bug måste först grep:a `.cursor/bugs/` för dubletter.
-
-## Anti-mönster
-
-Ny fristående planfil när koncentrat-rad / Linear / `.cursor/bugs/` räcker · löst fragment kvar i `active/` · plan i `archived/`/`avklarat/` utan frontmatter/`parent` · bug-rapport kvar lokalt efter fix.
-
-## `docs/inspiration/`
-
-Framtidsidéer/lärdomar — **inte** planfiler, transkript eller status. Mogen idé → väv in i `active/README.md` (ev. scope-doc med `parent: inspiration/<fil>`). Städa varje runda.
+`.cursor/bugs/` är lokal mirror. Linear eller GitHub issue är källa för status. Åtgärdad och mergad lokal bug-fil ska raderas.

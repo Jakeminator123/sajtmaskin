@@ -1,39 +1,38 @@
 ---
-description: Delat working tree → använd git worktree, inte git checkout. Read-only subagenter byter aldrig branch.
+description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Använd git worktree för skrivarbete."
 alwaysApply: true
 ---
 
 # Agent worktree-isolation
 
-**Kärnregel:** Alla agenter (cloud, background, subagent, parent) + användaren delar **samma lokala working tree**. `git checkout`/`git switch` till en icke-HEAD-branch flyttar HEAD **globalt** → andra ser sin branch byta mitt i arbetet och tappar context. Tävla aldrig om HEAD.
+**Kärnregel:** huvudcheckouten delas av användaren och agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
 
-## Read-only subagenter (explore, Task, 818-svärm)
+## Förbjudet i huvudcheckouten
 
-Byt **aldrig** branch, skapa **aldrig** worktree, `Set-Location` **aldrig** ut ur repo-roten. Läs filer på nuvarande HEAD. Detta är annars exakt varför subagenter "hamnar fel och inte vet var de är".
-
-## Förbjudet i delat tree
-
-`git checkout`/`git switch` mot icke-HEAD · `git reset --hard` mot annan ref · `git stash pop` utan att först läsa `git stash list` · långkörande `rebase`/`merge --no-ff` mot annan branch.
+- `git checkout <annan-branch>` / `git switch <annan-branch>`
+- `git reset --hard <annan-ref>`
+- lång `rebase` / konfliktfylld merge
+- `git stash pop` utan att först läsa `git stash list`
 
 ## Tillåtet
 
-Läsa filer + `tsc --noEmit`/`vitest` mot HEAD · `git fetch`/`log`/`diff` · `git push origin <lokal>:<remote>` (refspec — HEAD spelar ingen roll) · `git stash push -m "<namn>" -- <filer>` · FF-merge in i branchen du redan står på.
+- läsa filer, `git status`, `git diff`, `git log`, `git fetch`
+- köra typecheck/test mot aktuell HEAD
+- `git push origin <local>:<remote>` om användaren bett om push
+- `git stash push -m "namn" -- <filer>` vid räddning
 
-## Långkörande WRITE-arbete → eget worktree
+## Skrivarbete som kan ta tid
+
+Skapa separat worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
-# bredvid huvudcheckouten, ALDRIG under C:\Users\jakem\.cursor\ (trasiga Windows-länkar):
-git worktree add ..\sajtmaskin-feat-X -b feat/X       # ny branch
-git worktree add ..\sajtmaskin-feat-X feat/X          # befintlig branch
-Set-Location ..\sajtmaskin-feat-X                     # egen HEAD, eget tree
-# ...committa/pusha/rebasea fritt — huvudcheckouten påverkas inte...
-Set-Location ..\sajtmaskin; git worktree remove ..\sajtmaskin-feat-X
+git worktree add ..\sajtmaskin-feat-X -b feat/X
+Set-Location ..\sajtmaskin-feat-X
+# jobba, testa, commit/push vid OK
+Set-Location ..\sajtmaskin
+git worktree remove ..\sajtmaskin-feat-X
 ```
 
-Måste du merga i huvudcheckouten utan att flytta HEAD: `git update-ref refs/heads/master <commit>` + `git push origin refs/heads/master:refs/heads/master`. Cherry-pick/icke-FF-merge → gör i ett worktree.
+## Om regeln brutits
 
-## Om du brutit regeln
-
-1. Stoppa — ingen mer git-op mot annans WIP. 2. `git stash push -u -m "rescue-<beskrivning>-<tid>"`. 3. ev. `git checkout master`. 4. Rapportera: vilken branch HEAD låg på, stash-namn, ändrade refs.
-
-Nyckelfraser i output som avslöjar överträdelse: `Switched to branch '...'`, `Saved working directory and index state On <branch>`, `checkout: moving from <X> to <Y>`.
+Stoppa. Kör `git status`. Rädda ändringar med `git stash push -u -m "rescue-<kort>-<tid>"`. Rapportera branch, stash-namn och ändrade filer.

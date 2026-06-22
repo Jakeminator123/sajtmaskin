@@ -1,37 +1,23 @@
 ---
-description: Always fetch and evaluate automated PR review findings (Cursor Bugbot, Codex, Vercel Agent/VADE, GitGuardian) before merging any pull request. Read when merging, approving, or deciding to merge a PR.
-alwaysApply: true
+description: "Läs denna innan merge/approval av PR. Mergeable betyder inte granskad."
+alwaysApply: false
 ---
 
 # PR merge review-gate
 
-`MERGEABLE` i GitHub betyder bara "inga git-konflikter" — **inte** "granskad". Innan du mergar **någon** PR måste du hämta och värdera de automatiska review-fynden. Merga aldrig grönt blint.
+Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 
-## Obligatorisk koll före merge
+## Steg
 
-1. **CI-checks:** `gh pr checks <n>` — relevanta måste vara `pass` (t.ex. `quality`, `Cursor Bugbot`, `GitGuardian`, `Vercel`).
-2. **Bot-reviews + inline-kommentarer** — hämta och läs:
+1. `gh pr checks <n>` — relevanta checks ska passera.
+2. Läs reviews/kommentarer:
    - `gh pr view <n> --json reviews,comments`
-   - `gh api repos/<owner>/<repo>/pulls/<n>/comments` (inline review-kommentarer)
-3. **Källor att alltid uppmärksamma:**
-
-| Bot | Konto | Vad |
-|---|---|---|
-| Cursor Bugbot | `cursor[bot]` | Severity-taggade buggar (Low/Medium/High) |
-| Codex | `chatgpt-codex-connector[bot]` | P1/P2-badges |
-| Vercel Agent / VADE | `vercel` | maintainability/security-förslag |
-| GitGuardian | check | läckta secrets |
-
-4. **Triagera per allvar:**
-
-| Fynd | Åtgärd |
-|---|---|
-| P1 / High / "blocker" / security / cross-tenant-läckage | **Blockera merge** tills åtgärdat |
-| P2 / Medium | Åtgärda, eller motivera medvetet varför det lämnas |
-| Low / nit | Får lämnas med kort notis |
-
-5. Efter fix: pusha till PR-branchen, **låt botarna köra om**, och kolla fynden igen innan merge.
+   - `gh api repos/<owner>/<repo>/pulls/<n>/comments`
+3. Triagera botar: Cursor Bugbot, Codex, Vercel/VADE, GitGuardian.
+4. P1/High/security/cross-tenant = blockera.
+5. P2/Medium = fixa eller motivera varför den lämnas.
+6. Efter fix: låt botar/checks köra om.
 
 ## Princip
 
-Bot-fynd ska **alltid** uppmärksammas och värderas innan merge — även när CI är grön och PR:en är "MERGEABLE". En oadresserad P1/blocking-finding stoppar merge.
+`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker.

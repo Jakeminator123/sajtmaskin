@@ -1,21 +1,14 @@
 ---
-description: I svenska svar — sätt en kort svensk synonym/förklaring i parentes första gången ett engelskt tech-ord eller en förkortning används, så läsaren hänger med.
+description: "Kort svensk förklaring första gången ett engelskt tech-ord används i svenska svar."
 alwaysApply: true
 ---
 
-# Svenska synonymer för tech-termer
+# Svenska tech-synonymer
 
-När svaret är på svenska och du använder ett engelskt teknik-ord (eng. *tech term*) eller en förkortning, lägg en **kort svensk förklaring i parentes första gången** ordet dyker upp i svaret.
+När svaret är på svenska: skriv en kort parentes första gången ett otydligt engelskt tech-ord eller en förkortning används.
 
-## Regler
+Exempel: `scope (avgränsning)`, `snapshot (ögonblicksbild)`, `RLS (radnivåsäkerhet)`, `CI (automatisk kontroll)`, `workflow (automatiskt flöde)`.
 
-- Format: `term (kort svensk förklaring)`. Helst en synonym eller ett par ord; vid genuint svårt begrepp **max en kort förklarande mening**.
-- **Inför sällan och noga.** Håll dig till befintliga begrepp — krångla inte till svaret med ny tech-engelska om ett vardagsord räcker (jfr [`terminology.mdc`](./terminology.mdc) § Begrepps-stopp).
-- Endast **första** förekomsten per svar. Upprepa inte parentesen efteråt.
-- Gäller även förkortningar: `RLS (rad-nivå-säkerhet)`, `CSP (innehålls-säkerhetspolicy)`, `RAG (sök-och-återanvänd-minne)`, `FF (fast-forward, ren framåt-merge)`.
-- Hoppa över ord som redan är vardagssvenska i repo-kontexten (`commit`, `merge`, `branch`, `push`, `fil`, `prod`) om de inte är otydliga i sammanhanget.
-- Exempel: `throttle (strypning)`, `cache (mellanlager)`, `cross-tenant (mellan kunder)`, `migration (databas-uppdateringsskript)`, `scope (avgränsa)`, `snapshot (ögonblicksbild)`.
+Hoppa över vardagliga repo-ord som redan är etablerade i kontexten: `commit`, `merge`, `branch`, `push`, `PR`, `fil`, `repo`, `prod`.
 
-## Relation till andra regler
-
-Skärper raden "Parentes på svåra ord" i [`response-format.mdc`](./response-format.mdc) — denna gäller specifikt **engelska tech-ord/förkortningar** i svenska svar. Vid krock: denna är den mer specifika.
+Upprepa inte parentesen senare i samma svar.

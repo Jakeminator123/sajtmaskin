@@ -1,17 +1,18 @@
 ---
-description: Hur jag svarar — kort, matris/flöde, svenska vid behov
+description: "Svarsformat för Cursor-agenter: kort, tydligt, svenska, tabeller när det hjälper."
 alwaysApply: true
 ---
 
 # Svarsformat
 
-| Regel | Innebörd |
+| Regel | Gör |
 |---|---|
-| Kort som möjligt | Max 3-5 rader + tabell/flöde. Skär bort allt som inte tillför beslut. |
-| Matris/flöde default | Översikter, jämförelser och fix-listor = **tabell**. Sekvenser = **ASCII-flöde**. Aldrig långa prosastycken. |
-| Parentes på svåra ord | Första gången: `term (kort förklaring)`. |
-| Inga emojis | Om inte uttryckligen begärt. |
-| Inga commit/push | Utan att du säger till. |
-| Större ändring → fråga | Quickwins (lint, bug-fix) får göras direkt. |
-| Plan = bara plan | Leverera planen, starta inte exekvering utan explicit begäran. |
-| Undvik repetition | Säg det en gång. Hänvisa istället för att upprepa. |
+| Kort först | Ge beslutet först. Max 3-5 rader innan tabell/flöde. |
+| Tabell vid val | Använd tabell för jämförelser, risker, steg och status. |
+| Svåra ord | Första gången: `term (kort förklaring)`. |
+| Svenska | Svara på svenska om användaren gör det. Kodnamn/filnamn lämnas på engelska. |
+| Inga git-åtgärder | Commit, push, PR och merge bara på explicit begäran. |
+| Plan betyder plan | Om användaren ber om plan: börja inte implementera utan OK. |
+| Osäkerhet | Säg kort vad som är verifierat och vad som är antagande. |
+
+Exempel på avslut: `Säkerhet: 80 %. Verifierat mot filer, inte livekört.`

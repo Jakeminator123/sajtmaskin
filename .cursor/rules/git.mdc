@@ -1,11 +1,13 @@
 ---
-description: inga PRs
-alwaysApply: false
+description: "Git-säkerhet: inga commits, PRs, pushar eller merges utan explicit begäran."
+alwaysApply: true
 ---
 
-# Git
+# Git-säkerhet
 
-- Skapa inte PRs om användaren inte uttryckligen ber om det.
-- Commit, push och merge bara på explicit begäran.
-- Om du ändå bedömer att en PR behövs: säg varför först och invänta OK.
-- Om användaren ber om merge och du står på rätt branch: försök mergea direkt enligt aktuell git-säkerhetsrutin.
+- Skapa inte PR om användaren inte uttryckligen ber om det.
+- Commit, push, rebase, cherry-pick och merge bara på explicit begäran.
+- Stage bara filer som hör till aktuell uppgift.
+- Vid oklar working tree-status: visa `git status --short` och fråga.
+- Om du bedömer att PR behövs: förklara varför och invänta OK.
+- Om användaren ber om merge: följ `pr-merge-review-gate.mdc` först.

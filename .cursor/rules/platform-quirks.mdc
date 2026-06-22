@@ -1,22 +1,24 @@
 ---
-description: Windows/PowerShell och repo-specifika fallgropar
+description: "Windows/PowerShell, line endings och repo-specifika fallgropar. Läs vid shell/edit-problem."
 alwaysApply: false
 ---
 
 # Platform quirks
 
-Använd vid plattforms-, shell-, Playwright-, stream- eller preview-skrivningskänsliga uppgifter.
+## PowerShell och citat
 
-**Shell-default:** PowerShell 7 (`pwsh.exe` från `C:\Program Files\PowerShell\7\`). Konfigurerad via `.vscode/settings.json` `terminal.integrated.defaultProfile.windows` + `automationProfile.windows` (subagent-terminaler). Använd `pwsh`-syntax, inte legacy `powershell` 5.x. Om en subagent verkar köra äldre powershell: kontrollera `$PSVersionTable.PSVersion` — ska vara 7.x.
+Undvik långa `node -e` / `python -c` med nästlade citat. Skriv hellre en temporär scriptfil eller använd repo-script.
 
-**PowerShell:** inga bash-heredocs (`<<'EOF'`). Git commit: skriv message till tempfil + `git commit -F filename` (eller flera `-m`). Vercel env via pipe kan ge `\n` i värdet — tempfil + `cmd /c "type ..."`. Undvik långa `node -e` / `python -c` med nästlade citat; använd repo-scripts eller filer. `Select-Object` finns INTE i cmd-shells — kör via `pwsh -Command`. Undvik bash-style escaping i PowerShell; använd single quotes, här-strings (`@" ... "@`) eller tempfil när citaten blir svåra.
+## LF/CRLF-fälla
 
-**Line-endings i textersättning (PowerShell på Windows mot LF-filer):** repo-filer har ofta LF (kollat med `(Get-Content -Raw file).Contains("`r`n")` = `False`), men PowerShell here-strings (`@"..."@` och `@'...'@`) serialiseras med CRLF när de används som literal-argument. Detta bryter tyst `[string]::Replace($content, $search, $replace)` och liknande mot filer med LF — ingen träff, inget fel. Välj en av:
+Repo-filer är ofta LF. PowerShell here-strings kan skapa CRLF och göra `.Replace()` utan träff.
 
-- **Rad-för-rad-insert:** `Get-Content` (returnerar `string[]` utan radbrytningstecken), leta efter marker-rad med `[Array]::FindIndex`, `list.Insert(idx+1, newLine)`, skriv tillbaka med `[System.IO.File]::WriteAllLines(path, list)`. Radbrytnings-frågan förbi helt.
-- **Normalisera först:** `$content = (Get-Content -Raw path).Replace("`r`n","`n")` innan du jämför mot en here-string. Skriv tillbaka med `[System.IO.File]::WriteAllText(path, $result)` så CRLF inte smyger in igen.
-- **Repo-verktyg:** för strukturerade edits i källkod, använd `StrReplace`-verktyget eller en dedikerad node-/python-scriptfil istället för `$content.Replace()` i shell.
+Säkra sätt:
 
-Samma fälla gäller `sed -i`, `awk` med here-docs och `python -c "..."` med triple-quoted multiline — alla genererar host-default line-endings.
+- läs rad-för-rad och skriv med `[System.IO.File]::WriteAllLines`
+- normalisera: `.Replace("`r`n", "`n")`
+- använd Cursor StrReplace eller scriptfil
 
-**Runtime:** Vercel Sandbox (stor upload): `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])`. Playwright: ev. `npx playwright install chromium`. Stream proxy: inte `reader.releaseLock()` medan `read()` väntar — avbryt via `reader.cancel()` i `ReadableStream.cancel()`.
+## Playwright/preview
+
+Installera Chromium vid behov: `npx playwright install chromium`. Rör inte användarens aktiva builder-session, se `builder-coexistence.mdc`.
