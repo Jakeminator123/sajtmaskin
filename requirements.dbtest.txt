@@ -1,0 +1,4 @@
+# Dependencies for pydatabastest.py (DB + Blob order/regression test).
+# Pure-Python Postgres driver so the CI gate needs no compiler / Node toolchain.
+# Blob is checked via the Vercel Blob REST API using only the Python stdlib.
+pg8000==1.31.5
