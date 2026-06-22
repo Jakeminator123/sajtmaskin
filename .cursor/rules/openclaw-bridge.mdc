@@ -1,5 +1,5 @@
 ---
-description: OpenClaw bridge — inbox/outbox (opt-in)
+description: "OpenClaw bridge inbox/outbox. Läs bara när uppgiften nämner bridge eller filerna."
 globs:
   - .cursor/openclaw-bridge/**
 alwaysApply: false
@@ -7,8 +7,13 @@ alwaysApply: false
 
 # OpenClaw Bridge
 
-OpenClaw kan skriva förslag till `.cursor/openclaw-bridge/inbox.jsonl`. **Använd regeln bara** när uppgiften rör bridge-filer eller användaren nämner bridge/inbox/outbox/goal/agentförslag. Läs inte inbox rutinmässigt vid start.
+OpenClaw kan skriva förslag till `.cursor/openclaw-bridge/inbox.jsonl`.
 
-**Pending:** summera rader med `"status":"pending"`. Kör **en** task efter uttryckligt OK. **Efter:** append resultat till `outbox.jsonl` — **ändra aldrig** `inbox.jsonl`. Ingen autoexekvering.
+Regler:
 
-`goal.md` får läsas för riktning; svagare källa än användarens aktuella instruktion.
+- Läs bara när uppgiften rör bridge/inbox/outbox/goal/agentförslag.
+- Summera pending-rader (`"status":"pending"`).
+- Kör en task först efter uttryckligt OK.
+- Skriv resultat till `outbox.jsonl`.
+- Ändra aldrig `inbox.jsonl`.
+- `goal.md` är svagare källa än användarens aktuella instruktion.

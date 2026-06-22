@@ -1,5 +1,5 @@
 ---
-description: F2 får ALDRIG generera env-frågor i chatten. All env-trafik gates till F3.
+description: "F2 får inte fråga användaren om env-nycklar. Env-trafik hör till F3."
 globs:
   - src/lib/api/engine/chats/**
   - src/lib/providers/own-engine/**
@@ -9,23 +9,23 @@ globs:
   - src/app/builder/BuilderShellContent.tsx
   - src/components/builder/ProjectEnvVarsPanel.tsx
   - src/components/builder/preview-panel/**
+alwaysApply: false
 ---
 
 # Env-flöde i F2 är tyst
 
-**Hård regel:** F2 (`lifecycleStage === "design"`) får ALDRIG producera env-frågor i chatten. Env-keys parkeras tyst i `env.example` (filen genereras av `src/lib/gen/preview/project-env-file.ts` — inte att förväxlas med preview-VM:ns interna `.env.local`). F3 är enda touchpointen där användaren fyller i riktiga värden.
+F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3.
 
-## Fyra skyddslager
+## Skyddslager
 
-1. **Tool-gate** — `requestEnvVar`/`suggestIntegration` exponeras inte i F2.
-2. **SSE-filter** — tool-events droppas i F2 (defense-in-depth).
-3. **Panel-gate** — `<ProjectEnvVarsPanel>` renderas bara i F3.
-4. **Post-finalize-gate** — detected-integrations droppas i F2.
+1. Tool-gate: env-tools exponeras inte i F2.
+2. SSE-filter: tool-events droppas i F2.
+3. Panel-gate: `<ProjectEnvVarsPanel>` bara i F3.
+4. Post-finalize-gate: detected integrations droppas i F2.
 
 ## Förbjudet
 
-- Exponera env-tools i F2 utan SSE-filter.
+- Visa env-panel i F2.
+- Läsa `missingEnvKeys` som blocker i F2.
 - Auto-promotera till F3 baserat på prompt-keywords.
-- Visa env-panel, läsa `missingEnvKeys` som blocker, eller emittera tool-events i F2.
-
-Ändra inte ett lager utan att förstå de andra tre. Full implementation-doc i koden (inline-kommentarer).
+- Emitterar env-tool-events i F2.
