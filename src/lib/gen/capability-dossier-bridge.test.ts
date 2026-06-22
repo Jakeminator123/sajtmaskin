@@ -142,4 +142,25 @@ describe("filterDossierCapabilitiesForPrompt", () => {
       }),
     ).toEqual(["contact-form", "carousel"]);
   });
+
+  it("drops LLM-suggested visual-3d on a cinematic/immersive prompt with no 3D words", () => {
+    expect(
+      filterDossierCapabilitiesForPrompt({
+        capabilities: ["visual-3d"],
+        prompt:
+          "A cinematic western cinema premiere landing page that feels immersive, dramatic, and moody",
+        previewPolicy: "fidelity2",
+      }),
+    ).toEqual([]);
+  });
+
+  it("keeps visual-3d when the prompt explicitly asks for 3D/WebGL", () => {
+    expect(
+      filterDossierCapabilitiesForPrompt({
+        capabilities: ["visual-3d"],
+        prompt: "Build a hero with a rotating 3D model using WebGL / three.js",
+        previewPolicy: "fidelity2",
+      }),
+    ).toEqual(["visual-3d"]);
+  });
 });
