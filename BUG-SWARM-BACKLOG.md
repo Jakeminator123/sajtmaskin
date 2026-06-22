@@ -45,7 +45,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 
 | ID | % | Vad | Ankare |
 | --- | --- | --- | --- |
-| G#40 | 90% | **SÄKERHET** — inspector SSRF: publik DNS→privat IP, ingen rebind-guard | `services/inspector-worker/server.mjs:106,450` |
+| G#40 | 90% → app-side **FIXAD #196** | **SÄKERHET** — DNS→privat IP. App-guard (`src/lib/ssrf-guard.ts`, delad av fetch-html/media-upload/webscraper) nu DNS-resolv+blockad. Worker-kopian kvar men ej deployad i prod | `services/inspector-worker/server.mjs:106,450` (kvar) · `src/lib/ssrf-guard.ts` (fixad) |
 | G#20 | 88% | F3 build-plan från `preGenerationContracts`, ej version-filer (drift) | `session-contracts.ts:159` vs `finalize-design/route.ts:87` |
 | G#26 | 76% | init vs follow-up olika capability-universum | `follow-up-orchestration-input.ts:103` |
 | G#25 | 68% | capability multi-source; snapshot-fix hjälpte bara finalize-design | `orchestrate.ts:1314-1342` |
@@ -213,7 +213,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen policy-fråga | P2 | Publik PDF-parse-yta / 10MB input | G#38, R#12 | EDGE (triage 2026-06-18): Auth-delen är fixad (kräver user/guest-session). Kvar är ren CPU-/storleks-policy (är 10MB rätt cap?) — produktbeslut, inte buggfix. Lämnas öppen som policy-fråga. |
 | [x] | Fixad nu | P2 | Transcribe loggar första 80 chars | G#39, U#21 | Fixad: loggar bara transcript-längd. |
 | [x] | Fixad nu | P2 | `/api/transcribe` saknar auth men kör kostnadsdrivet OpenAI-anrop | R#11 | Fixad: kräver user eller befintlig guest-session innan Whisper-anrop; regressionstest tillagt. |
-| [ ] | Öppen säkerhetsrisk | P2 | Inspector SSRF-edge publik DNS -> privat IP | G#40, U#50 | EDGE (triage 2026-06-18): `services/inspector-worker/server.mjs` har `isDisallowedHost` som blockar literala privata IPv4/IPv6, men returnerar `false` för icke-IP-hostnamn (rad ~106) → publik DNS som resolvar till privat IP släpps igenom före `page.goto`. Robust fix kräver request-nivå-interception (TOCTOU mot Playwrights egen DNS) = säkerhetsarkitektur; workern saknar vitest-harness. Lämnas öppen med tydligt repro-/fix-krav. |
+| [ ] | Öppen säkerhetsrisk | P2 | Inspector SSRF-edge publik DNS -> privat IP | G#40, U#50 | EDGE (triage 2026-06-18): `services/inspector-worker/server.mjs` har `isDisallowedHost` som blockar literala privata IPv4/IPv6, men returnerar `false` för icke-IP-hostnamn (rad ~106) → publik DNS som resolvar till privat IP släpps igenom före `page.goto`. Robust fix kräver request-nivå-interception (TOCTOU mot Playwrights egen DNS) = säkerhetsarkitektur; workern saknar vitest-harness. **App-side-varianten FIXAD i #196:** den delade `src/lib/ssrf-guard.ts` (`safeFetch`, används av `fetch-html`/`media-upload`/`webscraper`) DNS-resolvar nu hostnamn + blockar privat/intern IP (inkl. IPv4-mappad IPv6), på initial + varje redirect-hopp. Workerns egen `isDisallowedHost`-kopia kvar men **ej deployad i prod** (`INSPECTOR_CAPTURE_WORKER_URL` bara i Development) + ersätts av inspect-bridge (#164). Residual i båda: connect-tid TOCTOU (rebinding) → kräver IP-pinning. |
 | [x] | Inte bug | P3 | `/api/v0/*` finns kvar | G#41, G#42 | Avsiktlig API-version/naming debt, inte runtime-bugg. |
 | [x] | Inte bug / naming debt | P3 | `TemplateCatalogSource = "v0"` | G#43, U#40 | Inte bug; kan städas separat om glossary/legacy-plan kräver. |
 | [x] | Inte bug / naming debt | P3 | `ModelProviderFamily` innehåller `v0` | G#44 | Inte bug; naming debt. |
