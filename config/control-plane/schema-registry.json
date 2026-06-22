@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "ai-models-manifest",
+      "sourceOfTruth": "config/ai_models/manifest.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "AI Models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.json",
+        "danger": "low"
+      },
+      "mobility": "risky",
+      "notes": "authority is Zod in src/lib/ai-models/load-manifest.ts; env vars override."
+    },
+    {
+      "id": "ai-models-manifest-jsonschema",
+      "sourceOfTruth": "config/ai_models/manifest.schema.json",
+      "type": "schema",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "AI Models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.schema.json",
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "editor/CI mirror only; runtime authority is the Zod schema in load-manifest.ts."
+    },
+    {
+      "id": "env-server-schema",
+      "sourceOfTruth": "src/lib/env.ts",
+      "type": "runtime-authority",
+      "validator": "typecheck",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Env Policy",
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "serverSchema (Zod) is the canonical list of env the app reads."
+    },
+    {
+      "id": "chat-request-schemas",
+      "sourceOfTruth": "src/lib/validations/chatSchemas.ts",
+      "type": "runtime-authority",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "createChat/sendMessage Zod + ModelTier."
+    },
+    {
+      "id": "db-schema",
+      "sourceOfTruth": "src/lib/db/schema.ts",
+      "type": "runtime-authority",
+      "validator": "db:schema-drift",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Database Health",
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Drizzle schema; drift-gated vs db-init/migrations."
+    },
+    {
+      "id": "dossier-manifest-schema",
+      "sourceOfTruth": "docs/schemas/strict/dossier.schema.json",
+      "type": "schema",
+      "validator": "dossiers:validate-all",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Dossiers",
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "AJV-validated at runtime in src/lib/gen/dossiers/validate-manifest.ts; 18 data manifests reference it."
+    },
+    {
+      "id": "scaffold-variant-schema",
+      "sourceOfTruth": "docs/schemas/strict/scaffold-variant.schema.json",
+      "type": "schema",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "editor $schema only; runtime hand-parses variants in scaffold-variants/registry.ts."
+    },
+    {
+      "id": "scaffold-manifests",
+      "sourceOfTruth": "src/lib/gen/scaffolds/*/manifest.ts",
+      "type": "runtime-authority",
+      "validator": "scaffolds:validate",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "TS scaffold manifests; structurally validated by scaffold-manifest-validation.test.ts."
+    },
+    {
+      "id": "telemetry-strict-schemas",
+      "sourceOfTruth": "docs/schemas/strict/*.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "telemetry/health JSON-schema contracts asserted by health-schemas.test.ts + llm-telemetry-schemas.test.ts; some are forward-declared (no emitter yet)."
+    },
+    {
+      "id": "integration-manifest-schema",
+      "sourceOfTruth": "src/lib/integrations/integration-manifest.ts",
+      "type": "runtime-authority",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "Zod for generated sajtmaskin.integration-manifest.json; registry-parity test."
+    },
+    {
+      "id": "plan-artifact-schema",
+      "sourceOfTruth": "src/lib/gen/plan/schema.ts",
+      "type": "runtime-authority",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "plan-mode/F3 build plan cards."
+    },
+    {
+      "id": "control-plane-registry-schema",
+      "sourceOfTruth": "docs/schemas/strict/control-plane-registry.schema.json",
+      "type": "schema",
+      "validator": "control-plane:check",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Control Plane",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "schema for the registries themselves (self-describing); prevents the map from drifting."
+    }
+  ]
+}

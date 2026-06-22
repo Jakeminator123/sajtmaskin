@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "env-policy",
+      "sourceOfTruth": "config/env-policy.json",
+      "type": "policy",
+      "validator": "env:audit",
+      "ciStatus": "manual",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "Env Policy",
+        "editable": true,
+        "writePath": "config/env-policy.json",
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "classification/governance read by env-audit.ts + manage_env.py + backoffice; not a runtime read-path (serverSchema in env.ts is)."
+    },
+    {
+      "id": "manifest-repair-policies",
+      "sourceOfTruth": "config/ai_models/manifest.json#repairPolicies",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "AI Models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.json",
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "read via gen/defaults.ts -> autofix/repair loops."
+    },
+    {
+      "id": "manifest-quality-gate-tiers",
+      "sourceOfTruth": "config/ai_models/manifest.json#qualityGateTiers",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "AI Models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.json",
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "F2 designPreview / F3 integrationsBuild lanes; quality-gate-checks.ts."
+    },
+    {
+      "id": "manifest-pre-generation-contracts",
+      "sourceOfTruth": "config/ai_models/manifest.json#preGenerationContracts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "AI Models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.json",
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "provider/auth/db/payment inference."
+    },
+    {
+      "id": "manifest-per-tier-timeouts",
+      "sourceOfTruth": "config/ai_models/manifest.json#perTierTimeouts",
+      "type": "policy",
+      "validator": "control-plane:check",
+      "ciStatus": "warn",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "AI Models > Per-tier policy",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "VALIDATE-ONLY. Present in manifest + shown read-only in backoffice but NOT wired to runtime; global routeTimeouts apply. Validated by Zod (optional) after this change."
+    },
+    {
+      "id": "manifest-per-tier-repair-policies",
+      "sourceOfTruth": "config/ai_models/manifest.json#perTierRepairPolicies",
+      "type": "policy",
+      "validator": "control-plane:check",
+      "ciStatus": "warn",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "AI Models > Per-tier policy",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "VALIDATE-ONLY; global repairPolicies apply at runtime."
+    },
+    {
+      "id": "manifest-per-tier-briefing",
+      "sourceOfTruth": "config/ai_models/manifest.json#perTierBriefing",
+      "type": "policy",
+      "validator": "control-plane:check",
+      "ciStatus": "warn",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "AI Models > Per-tier policy",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "VALIDATE-ONLY; global briefing defaults apply."
+    },
+    {
+      "id": "domain-rules",
+      "sourceOfTruth": "config/domain-rules.json",
+      "type": "policy",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Codegen Core",
+        "editable": true,
+        "writePath": "config/domain-rules.json",
+        "danger": "low"
+      },
+      "mobility": "risky",
+      "notes": "read by src/lib/builder/domain-inference.ts."
+    },
+    {
+      "id": "prompt-heuristic-tokens",
+      "sourceOfTruth": "config/prompt-heuristic-tokens.json",
+      "type": "policy",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Orchestration",
+        "editable": true,
+        "writePath": "config/prompt-heuristic-tokens.json",
+        "danger": "low"
+      },
+      "mobility": "risky",
+      "notes": "read by prompt-heuristics.ts."
+    },
+    {
+      "id": "tier3-sdk-deny",
+      "sourceOfTruth": "config/integrations/tier3-sdk-deny.json",
+      "type": "policy",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": true,
+        "writePath": "config/integrations/tier3-sdk-deny.json",
+        "danger": "low"
+      },
+      "mobility": "risky",
+      "notes": "F2 deny-list read by tier3-sdk-deny.ts."
+    },
+    {
+      "id": "naming-dictionary",
+      "sourceOfTruth": "config/naming-dictionary.json",
+      "type": "policy",
+      "validator": "check:terms",
+      "ciStatus": "warn",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": true,
+        "writePath": "config/naming-dictionary.json",
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "CI terminology check only (check-term-coverage.mjs); not app runtime."
+    },
+    {
+      "id": "shadcn-mirror-audit-policy",
+      "sourceOfTruth": "config/shadcn-mirror-audit-policy.json",
+      "type": "policy",
+      "validator": "mirror:audit",
+      "ciStatus": "manual",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "Shadcn Audit",
+        "editable": true,
+        "writePath": "config/shadcn-mirror-audit-policy.json",
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "research audit only."
+    },
+    {
+      "id": "user-degraded-env",
+      "sourceOfTruth": "config/user_degraded_env.txt",
+      "type": "policy",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "User Degraded Env",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "human policy text for generated-site degraded env; no runtime loader reads it."
+    },
+    {
+      "id": "structural-file-priorities",
+      "sourceOfTruth": "config/structural-file-priorities.json",
+      "type": "policy",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": "Scaffold Lifecycle",
+        "editable": true,
+        "writePath": "config/structural-file-priorities.json",
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "backoffice scaffold-lifecycle display only."
+    },
+    {
+      "id": "placeholder-harmless",
+      "sourceOfTruth": "src/lib/integrations/placeholder-harmless.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "per-key tier classification for preview env; parity test."
+    },
+    {
+      "id": "generated-site-placeholders",
+      "sourceOfTruth": "config/ai_models/40-harmless-placeholders.env.txt",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "leave",
+      "notes": "also config/ai_models/41-tier3-stub-placeholders.env.txt; merged into preview .env.local; parity test placeholder-harmless.parity.test.ts."
+    },
+    {
+      "id": "agent-rules",
+      "sourceOfTruth": ".cursor/rules",
+      "type": "rule",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "Cursor agent governance (*.mdc); not app runtime; Cursor expects this path."
+    },
+    {
+      "id": "code-policy-modules",
+      "sourceOfTruth": "src/lib/builder/server-auto-brief-policy.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "representative of in-code policy modules (also build-spec/policy-inference.ts, orchestrate/policy-helpers.ts, dossiers/verbatim-policy.ts, finalize-version/policy.ts, verify/server-repair-policy.ts, openclaw/chat-context-policy.ts); kept near domain by design."
+    }
+  ]
+}
