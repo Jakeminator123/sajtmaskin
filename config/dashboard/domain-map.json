@@ -5,7 +5,7 @@
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
-    ".cursor": "Cursor-projektregler och skills. 15 regler: 5 generella (`builder-coexistence`, `repo-router`, `response-format`, `terminology`, `workflow`), 5 glob-triggrade (`env-flow-f2-mute`, `openclaw-bridge`, `pipeline-rules`, `plan-lifecycle`, `scaffold-rules`) och 5 manuella (`agent-observatory`, `git`, `platform-quirks`, `unicode-regex`, `useful-commands`). Slash-kommandon: `/avslutning`, `/buggrapport`, `/långbänk`."
+    ".cursor": "Cursor-projektregler (`.cursor/rules/*.mdc`) och skills. Komplett, aktuellt regelindex med kategorier: `.cursor/README.md` (source of truth — räkna/lista inte reglerna här, det driftar). Slash-kommandon: `/avslutning`, `/buggrapport`, `/långbänk`."
   },
   "pages": {
     "Översikt": {
@@ -397,7 +397,6 @@
       "summary": "Ordlista, struktur och aktiv backlog — alla 15 projektregler + arkitektur + en samlad planfil. Slash-kommandon: /avslutning, /buggrapport, /långbänk.",
       "canonicalPaths": [
         ".cursor/rules/agent-observatory.mdc",
-        ".cursor/rules/builder-coexistence.mdc",
         ".cursor/rules/env-flow-f2-mute.mdc",
         ".cursor/rules/git.mdc",
         ".cursor/rules/openclaw-bridge.mdc",
