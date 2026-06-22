@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/domain-rules.schema.json",
+  "title": "Sajtmaskin domain rules",
+  "description": "Editor validate-on-save contract for config/domain-rules.json. The runtime authority is src/lib/builder/domain-inference.ts, which builds Unicode-aware keyword regexes per domain from keywords_sv + keywords_en. This schema only guards the backoffice editor against schema-breaking edits; it does not run at runtime.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["domain", "briefHint", "keywords_sv", "keywords_en"],
+    "properties": {
+      "domain": {
+        "type": "string",
+        "enum": [
+          "restaurant",
+          "hotel",
+          "spa-salon",
+          "clinic",
+          "event-venue",
+          "ecommerce",
+          "portfolio",
+          "saas",
+          "agency",
+          "education",
+          "real-estate",
+          "general"
+        ],
+        "description": "DomainProfile the rule maps to. Mirrors DOMAIN_PROFILES in src/lib/builder/domain-inference.ts (the runtime casts entry.domain to DomainProfile)."
+      },
+      "briefHint": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Site-type hint returned by inferSiteTypeHintFromDomain() and fed to the brief LLM prompt."
+      },
+      "keywords_sv": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "description": "Swedish keywords. Spread together with keywords_en into one alternation regex; may be empty when a domain has no Swedish triggers."
+      },
+      "keywords_en": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "description": "English keywords. Spread together with keywords_sv into one alternation regex; may be empty when a domain has no English triggers."
+      }
+    }
+  }
+}
