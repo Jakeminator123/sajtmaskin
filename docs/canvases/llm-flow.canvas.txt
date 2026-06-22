@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c2ccd7ef",
-    "commitDate": "2026-06-21",
+    "commit": "66578d25",
+    "commitDate": "2026-06-22",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 4,
-    "openP2": 18,
+    "openP2": 17,
     "openP3": 26,
     "blocked": 6,
     "shaky": 1,
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 23,
+      "openBugs": 22,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
-        "P2": 11,
+        "P2": 10,
         "P3": 10,
         "other": 0
       },
@@ -309,7 +309,7 @@ const DATA: CanvasData = {
       "fynd": "Preview kan visas trots verifier-blocked draft"
     }
   ],
-  "topOpenRisksOmitted": 14,
+  "topOpenRisksOmitted": 13,
   "evals": null,
   "phases": [
     "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
