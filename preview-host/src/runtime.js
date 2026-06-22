@@ -20,6 +20,13 @@ const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
 const VERIFY_WORKSPACES_DIR = path.join(getDataDir(), "verify-workspaces");
 
+// Inspector-bridge (opt-in): injicera bridge-scriptet i HTML-svar BARA när
+// klienten ber om det via `?inspect=1` OCH app-origin är konfigurerad. App-origin
+// tas medvetet från EGEN env (inte query) för att undvika injektionshål. Utan
+// env är injektionen helt inert → ingen beteendeförändring för dagens previews.
+const INSPECT_APP_ORIGIN = (process.env.SAJTMASKIN_APP_ORIGIN || "").trim().replace(/\/+$/, "");
+const INSPECT_BRIDGE_MAX_HTML_BYTES = 5 * 1024 * 1024;
+
 const VERIFY_COMMANDS = {
   typecheck: "npx tsc --noEmit",
   build: "npx next build",
@@ -1478,6 +1485,22 @@ function acceptAndHoldWebSocket(req, socket) {
   return true;
 }
 
+/**
+ * Returnerar `<script>`-taggen att injicera om requesten är ett opt-in
+ * inspektera-anrop (`?inspect=1`) och app-origin är satt; annars `null`.
+ * Script-källan kommer från preview-hostens EGEN env (`SAJTMASKIN_APP_ORIGIN`),
+ * aldrig från query — så ingen kan be oss injicera en godtycklig origin.
+ */
+function inspectInjectionTag(search) {
+  if (!INSPECT_APP_ORIGIN) return null;
+  let qs = String(search || "");
+  if (qs.startsWith("?")) qs = qs.slice(1);
+  let on = false;
+  try { on = new URLSearchParams(qs).get("inspect") === "1"; } catch { on = false; }
+  if (!on) return null;
+  return `<script src="${INSPECT_APP_ORIGIN}/api/inspect-bridge?parent=${encodeURIComponent(INSPECT_APP_ORIGIN)}"><\/script>`;
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
@@ -1490,7 +1513,17 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
     rewriteRequestUrl(req, info.chatId, info.restPath, search);
-    proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
+    const inspectTag = inspectInjectionTag(search);
+    if (inspectTag) {
+      // Buffra svaret själva (proxyRes-handlern injicerar scriptet före </body>).
+      req.__inspectInjectTag = inspectTag;
+      proxy.web(req, res, {
+        target: `http://${LOOPBACK}:${state.runtimePort}`,
+        selfHandleResponse: true,
+      });
+    } else {
+      proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
+    }
     return true;
   }
   queueRuntimeBoot(info.chatId);
@@ -1531,6 +1564,67 @@ async function hibernateChatRuntime(chatId) {
 async function destroyChatWorkspace(chatId) {
   await removeDirWithRetries(workspaceDirForChat(chatId));
 }
+
+// Inspector-bridge-injektion: aktiv ENDAST när `req.__inspectInjectTag` satts
+// (dvs `?inspect=1` + konfigurerad app-origin). Allt annat: ren passthrough så
+// att dagens preview-beteende är oförändrat.
+proxy.on("proxyRes", (proxyRes, req, res) => {
+  const tag = req.__inspectInjectTag;
+  if (!tag) return; // selfHandleResponse var av → http-proxy skriver själv
+
+  const status = proxyRes.statusCode || 502;
+  const headers = Object.assign({}, proxyRes.headers);
+  const ct = String(headers["content-type"] || "").toLowerCase();
+  const enc = String(headers["content-encoding"] || "").toLowerCase();
+  const injectable = ct.includes("text/html") && (!enc || enc === "identity");
+
+  if (!injectable) {
+    // Icke-HTML eller komprimerat → ingen säker injektion, passthrough rakt av.
+    if (!res.headersSent) res.writeHead(status, headers);
+    proxyRes.pipe(res);
+    return;
+  }
+
+  const chunks = [];
+  let total = 0;
+  let bailed = false;
+  proxyRes.on("data", (chunk) => {
+    if (bailed) return;
+    total += chunk.length;
+    if (total > INSPECT_BRIDGE_MAX_HTML_BYTES) {
+      // För stort att buffra → spola ut det vi har och fall tillbaka till pipe.
+      bailed = true;
+      if (!res.headersSent) {
+        delete headers["content-length"];
+        res.writeHead(status, headers);
+      }
+      for (const c of chunks) res.write(c);
+      res.write(chunk);
+      proxyRes.pipe(res);
+    } else {
+      chunks.push(chunk);
+    }
+  });
+  proxyRes.on("end", () => {
+    if (bailed) { try { res.end(); } catch { /* redan stängd */ } return; }
+    let body = Buffer.concat(chunks).toString("utf8");
+    const idx = body.toLowerCase().lastIndexOf("</body>");
+    body = idx !== -1 ? body.slice(0, idx) + tag + body.slice(idx) : body + tag;
+    const out = Buffer.from(body, "utf8");
+    // Vi skickar en helt buffrad body med explicit Content-Length, så ev.
+    // upstream Transfer-Encoding (t.ex. chunked) MASTE bort — att skicka bade
+    // Content-Length och Transfer-Encoding ger ett ogiltigt HTTP-svar som
+    // bracker preview-laddningen for chunkad HTML.
+    delete headers["transfer-encoding"];
+    headers["content-length"] = String(out.length);
+    headers["cache-control"] = "no-store";
+    if (!res.headersSent) res.writeHead(status, headers);
+    res.end(out);
+  });
+  proxyRes.on("error", () => {
+    try { if (!res.headersSent) res.writeHead(502); res.end(); } catch { /* ignore */ }
+  });
+});
 
 proxy.on("error", (err, req, res) => {
   const isHttpResponse = res && typeof res.writeHead === "function";

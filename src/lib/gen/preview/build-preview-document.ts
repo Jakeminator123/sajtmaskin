@@ -4,6 +4,10 @@ import { findPageFile, findCssFiles, findComponentFiles } from "./file-resolutio
 import { normalizePreviewCss, buildPreviewBaseCss } from "./css";
 import { buildPreviewScript } from "./script-builder";
 import { isShimPreviewDisabled } from "./legacy/compatibility-shim";
+import {
+  INSPECT_BRIDGE_SCRIPT_ROUTE,
+  isInspectBridgeEnabled,
+} from "@/lib/builder/inspect-bridge-feature";
 
 const PREVIEW_BOOT_TIMEOUT_MS = 7_000;
 const TAILWIND_CDN_URL = "https://cdn.tailwindcss.com";
@@ -28,6 +32,12 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
   const allContent = [pageFile, ...componentFiles, ...cssFiles].map((f) => f.content).join("\n");
   const wantsDark = /className=["'][^"']*\bdark\b/.test(allContent) || /class=["'][^"']*\bdark\b/.test(allContent);
   const htmlClass = wantsDark ? ' class="dark"' : "";
+
+  // Inspector-bridge (opt-in, default av). Same-origin shim → relativ src,
+  // ingen parent-param (scriptet accepterar same-origin). Reversibelt via flagga.
+  const inspectBridgeTag = isInspectBridgeEnabled()
+    ? `<script src="${INSPECT_BRIDGE_SCRIPT_ROUTE}"><\/script>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="sv"${htmlClass}>
@@ -109,6 +119,7 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
   <script>
     ${previewScript}
   <\/script>
+  ${inspectBridgeTag}
 </body>
 </html>`;
 }

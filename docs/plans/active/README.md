@@ -81,3 +81,5 @@ P1/P2 adresseras i grandmaster-områdena 5/6/7.
 | parked | L1/L2/L3, P32, pixelkällaren | [`../archived/parked/`](../archived/parked/) |
 
 Längre horisont (ej P1/P2): core-split v2, WebContainers-migration, ÅÄÖ pre-commit. Detaljer: [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md).
+
+Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-arkitektur — render-worker vs instrumenterad preview → [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md).

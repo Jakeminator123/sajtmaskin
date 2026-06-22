@@ -205,6 +205,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */
+  NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */
   NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES: z.string().optional(),
 });

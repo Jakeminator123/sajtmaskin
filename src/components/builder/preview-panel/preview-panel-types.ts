@@ -145,7 +145,7 @@ export type ComposerAiFallbackPayload = {
 };
 
 export type PreviewViewMode = "preview" | "code" | "registry";
-export type InspectEngine = "playwright" | "ai" | "map";
+export type InspectEngine = "playwright" | "ai" | "map" | "bridge";
 
 export type AiMatchResult = {
   tag: string;
