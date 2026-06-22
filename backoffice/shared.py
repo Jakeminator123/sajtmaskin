@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import pandas as pd
 import streamlit as st
@@ -132,22 +133,47 @@ def write_json(path: Path, data: Any) -> None:
         f.write("\n")
 
 
+def _manifest_uri_format_is_valid(value: object) -> bool:
+    """FormatChecker for JSON Schema ``format: "uri"`` on manifest URL fields.
+
+    python-jsonschema does not assert string ``format`` keywords unless a
+    ``FormatChecker`` is supplied, and its built-in ``uri`` checker additionally
+    needs an optional dependency (``rfc3987`` / ``rfc3986-validator``) that is
+    not in ``requirements.backoffice.txt``. This self-contained check mirrors the
+    runtime ``z.string().url()`` guard in ``src/lib/ai-models/load-manifest.ts``
+    closely enough to reject values like ``not-a-url`` before they are written:
+    it requires an absolute URL with both a scheme and a host.
+
+    Returns ``True`` for non-string instances so the ``type`` keyword (not the
+    format checker) reports the proper error for those.
+    """
+    if not isinstance(value, str):
+        return True
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    return bool(parsed.scheme and parsed.netloc)
+
+
 def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
     """Validate a proposed ai_models manifest against its JSON Schema.
 
     Checks ``manifest`` against ``config/ai_models/manifest.schema.json``
-    (JSON Schema Draft 2020-12). Returns a list of human-readable error
-    strings; an empty list means the manifest is schema-valid and safe to
-    write. The backoffice manifest editors (``ai_models.py`` / ``autofix.py``)
-    call this before every ``write_json`` so a schema-breaking edit is blocked
-    with ``st.error`` instead of silently corrupting the manifest.
+    (JSON Schema Draft 2020-12) with string ``format`` enforcement enabled
+    (so malformed ``docLinks[].url`` values are rejected). Returns a list of
+    human-readable error strings; an empty list means the manifest is
+    schema-valid and safe to write. The backoffice manifest editors
+    (``ai_models.py`` / ``autofix.py``) call this before every ``write_json``
+    so a schema-breaking edit is blocked with ``st.error`` instead of silently
+    corrupting the manifest.
 
     Fails closed: if the validator infrastructure is unavailable (missing
     ``jsonschema`` package or schema file) the returned list is non-empty, so
     callers skip the write rather than persist unvalidated data.
     """
     try:
-        from jsonschema import Draft202012Validator
+        from jsonschema import Draft202012Validator, FormatChecker
     except ImportError:
         return [
             "Schemavalidering kunde inte köras: Python-paketet `jsonschema` saknas. "
@@ -170,7 +196,13 @@ def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
     except (OSError, ValueError) as exc:
         return [f"Schemavalidering kunde inte köras: kunde inte läsa schema ({exc})."]
 
-    validator = Draft202012Validator(schema)
+    # Enforce `format: "uri"` deterministically (jsonschema skips formats by
+    # default). A fresh FormatChecker with our own `uri` check avoids depending
+    # on the optional rfc3987/rfc3986 extras.
+    format_checker = FormatChecker()
+    format_checker.checks("uri")(_manifest_uri_format_is_valid)
+
+    validator = Draft202012Validator(schema, format_checker=format_checker)
     messages: list[str] = []
     for err in sorted(validator.iter_errors(manifest), key=lambda e: list(e.path)):
         location = "/".join(str(part) for part in err.path) or "(root)"
