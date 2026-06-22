@@ -118,6 +118,49 @@ export default function Page() {
     expect(result.code).toContain('import { useState } from "react"');
   });
 
+  it("prefers next/image default import over the lucide Image icon (non-JSX)", () => {
+    // `Image` exists in BOTH LUCIDE_ICONS and KNOWN_MODULE_SPECIFIERS. The Next
+    // component (default import) must win, otherwise we promote the wrong
+    // component and keep failing on Next-specific props.
+    const content = project(
+      FILE,
+      `export default function Page() {
+  const HeroImage = Image;
+  return <HeroImage src="/hero.png" alt="" width={1200} height={600} />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Image'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Image", module: "next/image" },
+    ]);
+    expect(result.code).toContain('import Image from "next/image"');
+    expect(result.code).not.toContain('from "lucide-react"');
+  });
+
+  it("prefers next/link default import over the lucide Link icon (non-JSX)", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  const Anchor = Link;
+  return <Anchor href="/">home</Anchor>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Link'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Link", module: "next/link" },
+    ]);
+    expect(result.code).toContain('import Link from "next/link"');
+    expect(result.code).not.toContain('from "lucide-react"');
+  });
+
   it("does nothing when there are no Cannot-find-name diagnostics", () => {
     const content = project(FILE, `export default function Page() { return null; }`);
 

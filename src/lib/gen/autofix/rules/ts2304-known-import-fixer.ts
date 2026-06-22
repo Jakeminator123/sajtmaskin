@@ -58,13 +58,19 @@ const DEFAULT_IMPORT_NAMES: Record<string, string> = {
 };
 
 function resolveKnownImport(name: string): ResolvedImport | null {
-  if (LUCIDE_ICONS.has(name)) return { module: "lucide-react", kind: "named" };
+  // KNOWN_MODULE_SPECIFIERS wins over lucide-react: `Image` and `Link` exist in
+  // BOTH sets, but a non-JSX `Cannot find name 'Image'` almost always means the
+  // Next component (`import Image from "next/image"`), not the lucide glyph.
+  // Emitting the lucide named import would promote the wrong component and keep
+  // failing on Next-specific props. So check the Next defaults and the known
+  // module specifiers first, and only fall back to the lucide named import.
   if (DEFAULT_IMPORT_NAMES[name]) {
     return { module: DEFAULT_IMPORT_NAMES[name], kind: "default" };
   }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return { module, kind: "named" };
   }
+  if (LUCIDE_ICONS.has(name)) return { module: "lucide-react", kind: "named" };
   return null;
 }
 
