@@ -374,6 +374,14 @@
         "src/lib/gen/preview/project-preview-env.ts"
       ]
     },
+    "Generation History": {
+      "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/autofix, preflight, quality gate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
+      "canonicalPaths": [
+        "backoffice/pages/generation_history.py",
+        "scripts/db/generation-history.mjs",
+        "src/lib/db/schema.ts"
+      ]
+    },
     "Eval": {
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manuellt och sparar datumstämplade rapporter under docs/evals/ utan att uppdatera baseline.",
       "canonicalPaths": [
