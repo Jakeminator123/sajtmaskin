@@ -72,6 +72,8 @@ Bot-fynd från PR #164 (Vercel VADE + Codex). Loggade här per `pr-merge-review-
 | [x] | P2 | Spoof-skydd: kräv `source:"sajtmaskin-inspect"`-markör + aktivt `liveRef` för hover/pick | `usePreviewInspectBridge.ts:131` |
 | [x] | P2 | Identity-encoding: be uppströms om okomprimerad HTML annars hoppas injektion över | `preview-host/src/runtime.js:1517` |
 | [x] | P2 | Bevara `?inspect=1` vid imperativ iframe-reload/route-nav (`withInspectParam`) | `PreviewPanel.tsx:620,654` |
+| [x] | P2 | **#203** Origin-validering tyst avstängd när `originForUrl` → null (`if (allowed && …)` kortsluts) + `postMode` till `"*"`. Fix: window-identitet hård gräns, origin krävs (ej tyst accept), aldrig `"*"` | `usePreviewInspectBridge.ts:90,124,129` |
+| [x] | P2 | **#203** Inspektorn fastnar på vid pick utan registry-match (`if (!match) return` före `setInspectMode(false)`) trots att punkten lagts. Fix: lämna alltid inspect-läget | `PreviewPanel.tsx:341` |
 | [ ] | P2 | Fallback till `map`/`ai` när bridge inte kan injiceras (flagga ON men ingen `ready`) → inspektor inert | `PreviewPanel.tsx:170` |
 | [ ] | P2 | `config/env-policy.json`-regel för `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` (env-sync defaultar okända `NEXT_PUBLIC_*` till preview+prod) | `src/lib/env.ts:209`, `scripts/env/manage_env.py:get_rule` |
 | [ ] | P2 | Bevara faktisk klick-punkt för bridge-captures (skickar element-center, ej klick-koord) | `usePreviewInspectBridge.ts:164` |
