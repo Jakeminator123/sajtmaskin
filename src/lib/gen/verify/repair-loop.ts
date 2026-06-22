@@ -1,5 +1,6 @@
 import path from "node:path";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { fixKnownTs2304Imports } from "@/lib/gen/autofix/rules/ts2304-known-import-fixer";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
@@ -410,6 +411,26 @@ export async function runRepairLoop<TPayload = unknown>(
   // have already autofixed (verifier rerun, eval). Idempotent if input is
   // already clean.
   let content = (await runAutoFix(params.initialContent)).fixedContent;
+
+  // Deterministic TS2304 pre-pass (runs BEFORE the LLM fixer). The quality gate
+  // that produced `failedOutputs` already ran tsc; its `Cannot find name 'X'`
+  // diagnostics catch missing imports in NON-JSX positions (e.g.
+  // `const Icon = Clapperboard;`) that the JSX-scan import-validator inside
+  // runAutoFix never sees. Resolve the ones we know with certainty
+  // (lucide icons / known module specifiers) mechanically and instantly so the
+  // deterministic promotion below can pass the gate, instead of paying a slow
+  // (~90s) LLM round-trip for a missing import. Unknown names are left for the
+  // LLM fixer.
+  const ts2304Diagnostics = params.failedOutputs
+    .flatMap(parseDiagnosticsFromFailure)
+    .filter((diagnostic) => /Cannot find name '/.test(diagnostic.message));
+  if (ts2304Diagnostics.length > 0) {
+    const knownImportResult = fixKnownTs2304Imports(content, ts2304Diagnostics);
+    if (knownImportResult.addedImports.length > 0) {
+      content = knownImportResult.code;
+    }
+  }
+
   let syntaxResult = await validateGeneratedCode(content);
   const initialSyntaxErrorCount = syntaxResult.errors.length;
   let errorManifest = buildRepairErrorManifest({

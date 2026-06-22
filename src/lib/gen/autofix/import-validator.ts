@@ -9,7 +9,7 @@ import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
 
-const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
+export const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
   react: [
     "useState", "useEffect", "useRef", "useCallback", "useMemo",
     "useContext", "useReducer", "useId", "useLayoutEffect",
