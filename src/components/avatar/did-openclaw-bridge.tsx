@@ -85,6 +85,8 @@ function sanitizePublicEnv(value: string | undefined): string | undefined {
 
 const AGENT_ID = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_AGENT_ID);
 const CLIENT_KEY = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY);
+// Avatar is active only when the explicit enable-flag is "1" AND both keys exist.
+const AVATAR_ENABLED = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_ENABLED) === "1";
 
 function createMessageId() {
   try {
@@ -226,7 +228,7 @@ export function DidOpenClawBridge({
 
   const initAgent = useCallback(async () => {
     if (testMode) return null;
-    if (!AGENT_ID || !CLIENT_KEY) return null;
+    if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return null;
     if (agentRef.current) return agentRef.current;
 
     const did = await loadDidSdk();
@@ -272,7 +274,7 @@ export function DidOpenClawBridge({
       setAvatarReady(true);
       return;
     }
-    if (!AGENT_ID || !CLIENT_KEY) return;
+    if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return;
     if (connectionState === "connected" || connectionState === "speaking") return;
 
     try {
@@ -447,7 +449,9 @@ export function DidOpenClawBridge({
     setInterimTranscript("");
   }, []);
 
+  const flagDisabled = !testMode && !AVATAR_ENABLED;
   const missingEnv = !testMode && (!AGENT_ID || !CLIENT_KEY);
+  const avatarUnavailable = flagDisabled || missingEnv;
 
   return (
     <div
@@ -495,7 +499,7 @@ export function DidOpenClawBridge({
               </div>
             )}
 
-            {!avatarReady && !missingEnv && !testMode && (
+            {!avatarReady && !avatarUnavailable && !testMode && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/75 text-sm text-muted-foreground">
                 Förbered D-ID-klienten...
               </div>
@@ -504,10 +508,20 @@ export function DidOpenClawBridge({
         </div>
 
         <div className="flex min-h-[320px] flex-col">
-          {missingEnv ? (
+          {avatarUnavailable ? (
             <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-100">
-              Saknar publika env-vars för bridge-läget: <code>NEXT_PUBLIC_AVATAR_AGENT_ID</code>{" "}
-              eller <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>.
+              {flagDisabled ? (
+                <>
+                  Avataren är avstängd: <code>NEXT_PUBLIC_AVATAR_ENABLED</code> är inte satt
+                  till <code>1</code>. Bridge-läget faller tillbaka till textchatt tills flaggan
+                  slås på för den här miljön.
+                </>
+              ) : (
+                <>
+                  Saknar publika env-vars för bridge-läget: <code>NEXT_PUBLIC_AVATAR_AGENT_ID</code>{" "}
+                  eller <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>.
+                </>
+              )}
               <div className="mt-3">
                 <Link className="underline" href={iframeHref} data-testid="avatar-bridge-fallback-link">
                   Byt till iframe-fallback

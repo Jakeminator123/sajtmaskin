@@ -16,6 +16,8 @@ function sanitizePublicEnv(value: string | undefined): string | undefined {
 
 const AGENT_ID = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_AGENT_ID);
 const CLIENT_KEY = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY);
+// Avatar is active only when the explicit enable-flag is "1" AND both keys exist.
+const AVATAR_ENABLED = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_ENABLED) === "1";
 
 function buildShareUrl(agentId: string, clientKey: string): string {
   return `https://studio.d-id.com/agents/share?id=${encodeURIComponent(agentId)}&key=${encodeURIComponent(clientKey)}`;
@@ -25,11 +27,21 @@ export function DidAvatarEmbed() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
-  if (!AGENT_ID || !CLIENT_KEY) {
+  if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) {
     return (
       <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-100">
-        Saknar publika env-vars: <code>NEXT_PUBLIC_AVATAR_AGENT_ID</code> eller{" "}
-        <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>.
+        {!AVATAR_ENABLED ? (
+          <>
+            Avataren är avstängd: <code>NEXT_PUBLIC_AVATAR_ENABLED</code> är inte satt till{" "}
+            <code>1</code>. Sätt flaggan till <code>1</code> för den här miljön för att aktivera
+            avataren.
+          </>
+        ) : (
+          <>
+            Saknar publika env-vars: <code>NEXT_PUBLIC_AVATAR_AGENT_ID</code> eller{" "}
+            <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>.
+          </>
+        )}
       </div>
     );
   }

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  AVATAR_FLAG_ENABLED,
+  AVATAR_KEYS_PRESENT,
+  DID_AVATAR_AVAILABLE,
+} from "@/lib/openclaw/use-did-avatar";
 
 type HealthPayload = {
   status?: "ok" | "unconfigured" | "unhealthy" | "unreachable";
@@ -20,6 +25,14 @@ export function AvatarIntegrationStatus({
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [loading, setLoading] = useState(mode === "bridge");
   const [requestError, setRequestError] = useState<string | null>(null);
+
+  const avatarStateLabel = DID_AVATAR_AVAILABLE
+    ? "Aktiv (flagga på + nycklar)"
+    : !AVATAR_FLAG_ENABLED
+      ? "Avstängd (NEXT_PUBLIC_AVATAR_ENABLED != 1)"
+      : !AVATAR_KEYS_PRESENT
+        ? "Avstängd (saknar nycklar)"
+        : "Avstängd";
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- loading flags for bridge health fetch */
@@ -68,6 +81,9 @@ export function AvatarIntegrationStatus({
           </div>
           <div data-testid="avatar-integration-mock">
             Testläge: <strong className="text-foreground">{mockMode ? "Mockad avatartransport" : "Riktig D-ID-transport"}</strong>
+          </div>
+          <div data-testid="avatar-integration-enabled">
+            Avatar-flagga: <strong className="text-foreground">{avatarStateLabel}</strong>
           </div>
           <div>
             Rekommenderad användning: <strong className="text-foreground">isolerad pilot på <code>/avatar</code></strong>

@@ -12,9 +12,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const publicEnvVars = ["NEXT_PUBLIC_AVATAR_AGENT_ID", "NEXT_PUBLIC_AVATAR_CLIENT_KEY"];
+const publicEnvVars = [
+  "NEXT_PUBLIC_AVATAR_ENABLED",
+  "NEXT_PUBLIC_AVATAR_AGENT_ID",
+  "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
+];
 
 const allowedOrigins = ["http://localhost:3000", "https://sajtmaskin.vercel.app"];
+
+const avatarFlagEnabled = (process.env.NEXT_PUBLIC_AVATAR_ENABLED ?? "").trim().replace(/^['"]|['"]$/g, "") === "1";
 
 type AvatarPageProps = {
   searchParams?: Promise<{
@@ -110,6 +116,23 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
                 <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
                   Våra egna env-namn får vara enkla, så länge klientkomponenten läser samma namn. På
                   den här testsidan används:
+                </p>
+                <div
+                  className={`mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
+                    avatarFlagEnabled
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                      : "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                  }`}
+                  data-testid="avatar-flag-state"
+                >
+                  <span className={`h-2 w-2 rounded-full ${avatarFlagEnabled ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  {avatarFlagEnabled
+                    ? "Avatar aktiverad (NEXT_PUBLIC_AVATAR_ENABLED=1)"
+                    : "Avatar avstängd (NEXT_PUBLIC_AVATAR_ENABLED != 1)"}
+                </div>
+                <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+                  Avataren kräver både <code>NEXT_PUBLIC_AVATAR_ENABLED=1</code> och bägge nycklarna.
+                  Är flaggan av faller ytan tillbaka till textchatt även om nycklarna finns.
                 </p>
                 <ul className="text-foreground mt-4 space-y-2 text-sm">
                   {publicEnvVars.map((envVar) => (

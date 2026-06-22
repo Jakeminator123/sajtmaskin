@@ -131,6 +131,7 @@
     "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
     "NEXT_PUBLIC_AVATAR_AGENT_ID",
     "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
+    "NEXT_PUBLIC_AVATAR_ENABLED",
     "NEXT_PUBLIC_BETA_BANNER",
     "NEXT_PUBLIC_ELASTICSEARCH_NODE_URL",
     "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY",
@@ -664,6 +665,15 @@
         "preview"
       ],
       "notes": "Public D-ID client key for the isolated /avatar test route."
+    },
+    {
+      "key": "NEXT_PUBLIC_AVATAR_ENABLED",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": [
+        "production",
+        "preview"
+      ],
+      "notes": "Build-time enable-flag for the D-ID avatar. The avatar is active only when this equals \"1\" AND both NEXT_PUBLIC_AVATAR_AGENT_ID and NEXT_PUBLIC_AVATAR_CLIENT_KEY are present. Default (unset or != \"1\") = avatar off (text chat), even with the keys set."
     },
     {
       "key": "GOOGLE_REDIRECT_URI",
