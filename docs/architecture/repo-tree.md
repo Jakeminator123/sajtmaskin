@@ -40,7 +40,7 @@ repo/
 ├── backoffice/           Streamlit-backoffice (npm run backoffice → sajtmaskin_backoffice.py)
 ├── preview-host/         preview-host runtime/verify/workspace-livscykel
 ├── services/             hjälpprocesser (inspector-worker, port 3310)
-├── e2e/                  Playwright: deploy/ (aktiv, opt-in, skippas utan env) + vercel-templates/ (legacy referens, ej CI)
+├── e2e/                  Playwright: deploy/ (aktiv deploy-smoke, opt-in, skippas utan env)
 ├── infra/                OpenClaw m.m.
 ├── drizzle/              genererade DB-migrationsartefakter
 ├── templates_v0/         builderns Mallar-tab (v0-mallar); out/ + downloads/ gitignorade
