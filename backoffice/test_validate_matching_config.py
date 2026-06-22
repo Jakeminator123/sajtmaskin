@@ -9,12 +9,12 @@ The currently-committed config files must stay schema-valid so a legitimate
 save is never blocked, and an obviously-broken value must be caught before it
 can corrupt the matching config.
 
-NOTE (pre-existing drift, NOT introduced here): three committed scaffold
-variants exceed the curated limits in ``scaffold-variant.schema.json``
-(``corporate-grid`` has >20 keywords; ``asymmetric-stack`` and
-``hero-fullbleed-bg`` have an over-long ``signatureMotif`` / >4 antiPatterns).
-This test therefore asserts a stable known-good variant passes rather than the
-whole set; the scaffold-variant schema is unchanged by this phase.
+NOTE: a previous drift (``corporate-grid`` >20 keywords; ``asymmetric-stack``
+and ``hero-fullbleed-bg`` over-long ``signatureMotif`` / >4 antiPatterns) was
+trimmed alongside this validate-on-save guard, so every committed variant now
+satisfies ``scaffold-variant.schema.json``. ``test_all_committed_variants_pass``
+asserts the whole set stays valid; the scaffold-variant schema itself is
+unchanged by this phase.
 """
 
 from __future__ import annotations
@@ -62,6 +62,37 @@ class DomainRulesSchemaTests(unittest.TestCase):
         data = [{"domain": "restaurant", "briefHint": "x", "keywords_en": ["foo"]}]
         self.assertTrue(validate_json_against_schema(data, DOMAIN_RULES_SCHEMA))
 
+    def test_both_keyword_arrays_empty_is_rejected(self) -> None:
+        """A rule with both keyword arrays empty compiles to an empty-alternation
+        regex at runtime (src/lib/builder/domain-inference.ts), which matches
+        almost any prompt and shadows every later rule. The schema must reject it
+        before the backoffice editor can save such a rule."""
+        data = [
+            {
+                "domain": "restaurant",
+                "briefHint": "x",
+                "keywords_sv": [],
+                "keywords_en": [],
+            }
+        ]
+        self.assertTrue(
+            validate_json_against_schema(data, DOMAIN_RULES_SCHEMA),
+            "expected an anyOf error when both keyword arrays are empty",
+        )
+
+    def test_one_keyword_array_empty_is_allowed(self) -> None:
+        """A rule with exactly one non-empty keyword array is legitimate (a domain
+        may have only Swedish or only English triggers) and must NOT be blocked."""
+        data = [
+            {
+                "domain": "restaurant",
+                "briefHint": "x",
+                "keywords_sv": ["restaurang"],
+                "keywords_en": [],
+            }
+        ]
+        self.assertEqual(validate_json_against_schema(data, DOMAIN_RULES_SCHEMA), [])
+
 
 class PromptHeuristicTokensSchemaTests(unittest.TestCase):
     def test_committed_tokens_pass(self) -> None:
@@ -83,6 +114,9 @@ class PromptHeuristicTokensSchemaTests(unittest.TestCase):
         self.assertTrue(validate_json_against_schema(data, HEURISTIC_TOKENS_SCHEMA))
 
 
+VARIANTS_DIR = REPO_ROOT / "config" / "scaffold-variants"
+
+
 class ScaffoldVariantSchemaTests(unittest.TestCase):
     def test_known_good_variant_passes(self) -> None:
         """A stable committed variant must validate so re-saving it is never
@@ -90,6 +124,28 @@ class ScaffoldVariantSchemaTests(unittest.TestCase):
         self.assertTrue(KNOWN_GOOD_VARIANT.is_file(), f"missing {KNOWN_GOOD_VARIANT}")
         data = read_json(KNOWN_GOOD_VARIANT)
         self.assertEqual(validate_json_against_schema(data, VARIANT_SCHEMA), [])
+
+    def test_all_committed_variants_pass(self) -> None:
+        """EVERY committed scaffold variant must satisfy scaffold-variant.schema.json
+        so that the backoffice validate-on-save guard never blocks re-saving an
+        existing variant. Guards against the drift that was trimmed alongside this
+        phase (corporate-grid keyword count, asymmetric-stack / hero-fullbleed-bg
+        signatureMotif length + antiPattern count) ever creeping back."""
+        # config/scaffold-variants/<scaffoldId>/<variant>.json — skip the
+        # tooling-only `_index/` dir (variant-embeddings.json is not a variant).
+        variant_files = sorted(
+            f
+            for f in VARIANTS_DIR.glob("*/*.json")
+            if not f.parent.name.startswith("_")
+        )
+        self.assertTrue(variant_files, f"no variant files under {VARIANTS_DIR}")
+        failures: list[str] = []
+        for variant_file in variant_files:
+            errors = validate_json_against_schema(read_json(variant_file), VARIANT_SCHEMA)
+            if errors:
+                rel = variant_file.relative_to(REPO_ROOT).as_posix()
+                failures.append(f"{rel}: {'; '.join(errors)}")
+        self.assertEqual(failures, [], "schema-invalid committed variants:\n" + "\n".join(failures))
 
     def test_missing_required_field_is_rejected(self) -> None:
         """Dropping a required field (signatureMotif) must be caught before

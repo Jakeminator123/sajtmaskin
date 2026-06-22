@@ -35,7 +35,7 @@
       "body": "DM Sans"
     }
   ],
-  "signatureMotif": "alternating left/right anchored typography blocks with floating illustration fragments that bleed across section boundaries — vertical rhythm replaces hero-split",
+  "signatureMotif": "alternating left/right typography blocks, floating fragments bleed across boundaries, vertical rhythm not hero-split",
   "colorMode": "light",
   "promptHints": [
     "Build the hero as a tall vertical typography block, NOT a left-text/right-image grid. Anchor the headline hard to one side (left or right), let the opposite side breathe with empty space, and place a small illustration or product fragment floating asymmetrically across the boundary into the next section.",
@@ -60,8 +60,7 @@
       "Never use a left-text + right-image grid for the hero. The whole point of this variant is breaking that template — if the hero looks like a 60/40 split, the variant has failed.",
       "Avoid card-based feature grids (3-up or 4-up cards with icons). Replace with tall stacked feature blocks anchored to alternating sides.",
       "Do not use heavy product screenshots or dashboard mockups; this variant favors illustration fragments, photographic crops, or no imagery at all over saturated UI screenshots.",
-      "Avoid centered everything (centered hero text, centered CTAs, centered cards) — centering kills the asymmetric rhythm. Anchor each block hard to one edge.",
-      "Never stack content as one continuous narrow centered column (max-w-3xl mx-auto for the entire page) — this variant requires the alternating left/right rhythm to read."
+      "Avoid centering everything (hero text, CTAs, cards) or one continuous narrow centered column (max-w-3xl mx-auto) for the whole page — centering kills the asymmetric rhythm; anchor each block hard to one alternating edge."
     ]
   },
   "themeTokens": {

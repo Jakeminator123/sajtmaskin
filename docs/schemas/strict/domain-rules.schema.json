@@ -9,6 +9,11 @@
     "type": "object",
     "additionalProperties": false,
     "required": ["domain", "briefHint", "keywords_sv", "keywords_en"],
+    "anyOf": [
+      { "properties": { "keywords_sv": { "minItems": 1 } } },
+      { "properties": { "keywords_en": { "minItems": 1 } } }
+    ],
+    "description": "A single domain rule. At least one of keywords_sv/keywords_en must be non-empty (enforced via anyOf): the runtime spreads both into ONE alternation regex, so an all-empty rule compiles to `(?:)` — an empty alternation that matches almost any prompt and would shadow every later rule (a schema-valid but runtime-broken false-green).",
     "properties": {
       "domain": {
         "type": "string",
@@ -36,12 +41,12 @@
       "keywords_sv": {
         "type": "array",
         "items": { "type": "string", "minLength": 1 },
-        "description": "Swedish keywords. Spread together with keywords_en into one alternation regex; may be empty when a domain has no Swedish triggers."
+        "description": "Swedish keywords spread together with keywords_en into one alternation regex. May be empty when a domain has no Swedish triggers, but at least one of keywords_sv/keywords_en must be non-empty (see the rule-level anyOf)."
       },
       "keywords_en": {
         "type": "array",
         "items": { "type": "string", "minLength": 1 },
-        "description": "English keywords. Spread together with keywords_sv into one alternation regex; may be empty when a domain has no English triggers."
+        "description": "English keywords spread together with keywords_sv into one alternation regex. May be empty when a domain has no English triggers, but at least one of keywords_sv/keywords_en must be non-empty (see the rule-level anyOf)."
       }
     }
   }
