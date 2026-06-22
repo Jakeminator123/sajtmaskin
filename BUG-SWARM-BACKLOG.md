@@ -77,6 +77,10 @@ Bot-fynd från PR #164 (Vercel VADE + Codex). Loggade här per `pr-merge-review-
 | [ ] | P2 | Bevara faktisk klick-punkt för bridge-captures (skickar element-center, ej klick-koord) | `usePreviewInspectBridge.ts:164` |
 | [ ] | P2 | Läck inte `?inspect=1` in i preview-appen (genererad sida kan läsa `searchParams.inspect`) | `PreviewPanel.tsx:withInspectParam` |
 
+### Naming-debt: `v0ChatId` — kräver migrationsplan, ej quick-removal (2026-06-22)
+
+Verifierat under live-test-städningen (Fas 5): `v0ChatId` är **inte** ett dött null-fält. Det är en **live DB-kolumn** (`chats.v0_chat_id`, notNull/unique, bär faktiskt chat-id) + en **load-bearing konsument** — `src/app/builder/useBuilderVmPreview.ts` (`isLegacyMappedChatRecord`, rad 22–25/210) gatar VM-preview-bootstrap för legacy-mappade chattar. Full borttagning = tyst regression och bryter DB/payload-nyckel → per `docs/architecture/repository-and-platform.md` krävs **migrationsplan** (byt internt symbolnamn, behåll DB/payload-kompat). Säker delmängd finns om man vill (död `|| data.v0ChatId`-läsning i `useCreateChat.ts:274` + okonsumerat duplikatfält i `/api/projects/[id]/chat`), men huvudfältet i `/api/engine/chats/[chatId]` + DB-kolumnen lämnas orörda tills migrationsplan finns.
+
 **Behöver repro (kan ej avgöras statiskt):** E#1 (eval), R#9 (scaffold-export), G#53 (font), U#29 (media-URL från preview-VM), U#56 (analytics före cookie-consent — integritet), U#77.
 
 Resten (~25 P2/P3) = policy/edge, låg-%, lämnas öppna som beslut-/verifieringsrader.
