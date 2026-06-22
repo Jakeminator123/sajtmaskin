@@ -9,6 +9,10 @@ Code is always source of truth (see `AGENTS.md`). These registries are an
 index/map, not a new enforcement layer. The validator
 `npm run control-plane:check` keeps the map honest, and it is hard-gated in CI.
 
+> For the **env** layers specifically (Sajtmaskin app env vs generated-site
+> preview env, F2 vs F3, harmless vs tier3-stub placeholders, merge order) see
+> the companion [`env-flow-map.md`](env-flow-map.md).
+
 ## The two registries
 
 | Registry | Holds | File |
