@@ -175,6 +175,16 @@ type PreviewInspectorContextValue = {
   removeMarkedSection: (routeId: string, sectionId: string) => void;
   clearMarkedSections: () => void;
   /**
+   * "Hoppa till element": klick på en markerings-chip i FloatingChat
+   * sätter denna ref OCH slår på Markera modul-läget. Overlayn scrollar
+   * previewn till sektionen och pulsar den, och nollar sedan signalen via
+   * clearFocusedMarkSection. Docker-fri "direktlänk": från chatten → exakt
+   * plats på sajten, utan filträd/kod-rail.
+   */
+  focusedMarkRef: MarkedSectionRef | null;
+  focusMarkedSection: (ref: MarkedSectionRef) => void;
+  clearFocusedMarkSection: () => void;
+  /**
    * Senaste åtgärds-request från sektionsmenyn (overlayn) — konsumeras
    * (nollas) av BuilderShell. Null när ingen åtgärd väntar.
    */
@@ -226,6 +236,9 @@ export function PreviewInspectorProvider({
   const [inspectModeActive, setInspectModeActiveInternal] = useState(false);
   const [markModeActive, setMarkModeActiveInternal] = useState(false);
   const [markedSections, setMarkedSections] = useState<MarkedSectionRef[]>([]);
+  const [focusedMarkRef, setFocusedMarkRef] = useState<MarkedSectionRef | null>(
+    null,
+  );
   const [sectionActionRequest, setSectionActionRequest] =
     useState<SectionActionRequest | null>(null);
   const [previewPageHeightPx, setPreviewPageHeightPx] = useState<number | null>(
@@ -302,6 +315,18 @@ export function PreviewInspectorProvider({
     setMarkedSections([]);
   }, []);
 
+  const focusMarkedSection = useCallback((ref: MarkedSectionRef) => {
+    setFocusedMarkRef(ref);
+    // Slå på markeringsläget så overlayn monteras + hämtar element-kartan;
+    // granska stängs av (ömsesidigt uteslutande som setMarkModeActive).
+    setMarkModeActiveInternal(true);
+    setInspectModeActiveInternal(false);
+  }, []);
+
+  const clearFocusedMarkSection = useCallback(() => {
+    setFocusedMarkRef(null);
+  }, []);
+
   const requestSectionAction = useCallback(
     (request: Omit<SectionActionRequest, "requestedAt">) => {
       setSectionActionRequest({ ...request, requestedAt: Date.now() });
@@ -334,6 +359,9 @@ export function PreviewInspectorProvider({
       addMarkedSection,
       removeMarkedSection,
       clearMarkedSections,
+      focusedMarkRef,
+      focusMarkedSection,
+      clearFocusedMarkSection,
       sectionActionRequest,
       requestSectionAction,
       clearSectionAction,
@@ -362,6 +390,9 @@ export function PreviewInspectorProvider({
       addMarkedSection,
       removeMarkedSection,
       clearMarkedSections,
+      focusedMarkRef,
+      focusMarkedSection,
+      clearFocusedMarkSection,
       sectionActionRequest,
       requestSectionAction,
       clearSectionAction,
@@ -399,6 +430,9 @@ const FALLBACK_VALUE: PreviewInspectorContextValue = {
   addMarkedSection: () => {},
   removeMarkedSection: () => {},
   clearMarkedSections: () => {},
+  focusedMarkRef: null,
+  focusMarkedSection: () => {},
+  clearFocusedMarkSection: () => {},
   sectionActionRequest: null,
   requestSectionAction: () => {},
   clearSectionAction: () => {},

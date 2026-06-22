@@ -224,6 +224,8 @@ export function PreviewInspectorOverlay({
     requestSectionAction,
     previewPageHeightPx,
     setPreviewPageHeightPx,
+    focusedMarkRef,
+    clearFocusedMarkSection,
   } = usePreviewInspector();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -286,6 +288,12 @@ export function PreviewInspectorOverlay({
   );
   const routeMapTokenRef = useRef(0);
   const fetchTokenRef = useRef(0);
+  // "Hoppa till element" (chip-klick i FloatingChat): när focusedMarkRef satts
+  // + kartan laddats scrollar vi previewn till matchande sektion och pulsar
+  // den ~1,8s. pulseSectionId driver puls-rektangeln; pulseRef pekar på den så
+  // scrollIntoView hittar den skrollbara preview-wrappern automatiskt.
+  const [pulseSectionId, setPulseSectionId] = useState<string | null>(null);
+  const pulseRef = useRef<HTMLDivElement | null>(null);
 
   const overlayActive =
     active && (placementPickActive || inspectMode || markMode);
@@ -346,6 +354,40 @@ export function PreviewInspectorOverlay({
       canonical: false,
     }));
   }, [elementMap, sectionZones]);
+
+  // Konsumera focusedMarkRef när kartan har sektioner: matcha sektionen
+  // (sectionId på aktuell sida) → pulsa den. Nollar signalen direkt så den
+  // inte fastnar; saknas matchen (annan route/okänt id) räcker det att
+  // markeringsläget öppnats så operatören ser zonerna. queueMicrotask så
+  // setState landar efter render (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    if (!markMode || !focusedMarkRef) return;
+    if (markableSections.length === 0) return;
+    const match = markableSections.find(
+      (s) => s.sectionId === focusedMarkRef.sectionId,
+    );
+    queueMicrotask(() => {
+      clearFocusedMarkSection();
+      if (match) setPulseSectionId(match.sectionId);
+    });
+  }, [markMode, focusedMarkRef, markableSections, clearFocusedMarkSection]);
+
+  // När puls-rektangeln renderats: skrolla in den (scrollIntoView hittar den
+  // skrollbara wrappern själv) och nolla pulsen efter 1,8s.
+  useEffect(() => {
+    if (!pulseSectionId) return;
+    pulseRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = window.setTimeout(() => setPulseSectionId(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [pulseSectionId]);
+
+  const pulseSection = useMemo(
+    () =>
+      pulseSectionId
+        ? (markableSections.find((s) => s.sectionId === pulseSectionId) ?? null)
+        : null,
+    [pulseSectionId, markableSections],
+  );
 
   // Route-id-kartan (path → routeId) ur runens site-plan. Hämtas när
   // Markera modul-läget aktiveras; utan run/plan faller markeringen
@@ -1394,6 +1436,23 @@ export function PreviewInspectorOverlay({
               backend-kapacitet utlovas. Flytt-alternativen visas BARA
               för sektioner backendens inline-allowlist kan flytta
               (MOVABLE_SECTION_TYPES + home-routen, ADR 0042). */}
+          {/* "Hoppa till element": pulserande markör på sektionen som chip-
+              klicket pekade ut. Ren visuell highlight (pointer-events-none),
+              scrollas in av effekten ovan och fade:as bort efter ~1,8s. */}
+          {pulseSection ? (
+            <div
+              ref={pulseRef}
+              aria-hidden
+              className="pointer-events-none absolute z-[8] rounded-lg border-2 border-emerald-500 bg-emerald-400/10 shadow-[0_0_0_4px_rgba(16,185,129,0.15)] motion-safe:animate-pulse"
+              style={{
+                top: `${pulseSection.top}%`,
+                left: `${pulseSection.left}%`,
+                width: `${pulseSection.width}%`,
+                height: `${Math.max(pulseSection.bottom - pulseSection.top, 2)}%`,
+              }}
+            />
+          ) : null}
+
           {markMode && actionMenu
             ? (() => {
                 const { section, routeId, anchorXPercent, anchorYPercent } =

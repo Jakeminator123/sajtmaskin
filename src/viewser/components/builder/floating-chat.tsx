@@ -1012,6 +1012,19 @@ function summarizeBuildResult(
  */
 const BUSY_SUBMIT_HINT = "Vänta — ett bygge/svar pågår redan.";
 
+// Läsbar brödsmula för markerings-chips (Sida › Sektion). Docker-fri
+// "direktlänk": vi visar en mänsklig väg i stället för rå routeId/sectionId
+// eller ett filträd. headingText (närmaste rubrik) är bästa mänskliga
+// sektionsnamnet; faller tillbaka på en humaniserad sektions-id.
+const ROUTE_LABELS: Record<string, string> = { home: "Hem" };
+function humanizeSlug(slug: string): string {
+  const s = slug.replace(/[-_]+/g, " ").trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : slug;
+}
+function routeLabel(routeId: string): string {
+  return ROUTE_LABELS[routeId] ?? humanizeSlug(routeId);
+}
+
 export function FloatingChat({
   siteId,
   onBuildDone,
@@ -1078,8 +1091,12 @@ export function FloatingChat({
   // modul-läget i PreviewInspectorOverlay, visas som chips i composern
   // och skickas som markedSections[] i nästa /api/prompt-anrop. Rensas
   // efter skickat — markeringen gäller EN följdprompt, inte en session.
-  const { markedSections, removeMarkedSection, clearMarkedSections } =
-    usePreviewInspector();
+  const {
+    markedSections,
+    removeMarkedSection,
+    clearMarkedSections,
+    focusMarkedSection,
+  } = usePreviewInspector();
   // Snabbförslag-chips ligger under en collapsed "Förslag"-toggle
   // för att hålla composern minimalistisk. State persisteras så
   // operatörens preference (kollapsad/öppen) lever över reloads.
@@ -2418,44 +2435,53 @@ export function FloatingChat({
             </div>
           ) : null}
 
-          {/* Markerade moduler (sektionsmarkering i preview). Chips med
-            routeId/sectionId + X — samma mönster som bilage-chipsen.
+          {/* Markerade moduler (sektionsmarkering i preview). Chips visar en
+            läsbar brödsmula "Sida › Sektion" och är klickbara → hoppar till +
+            pulsar elementet i previewn (docker-fri direktlänk). X tar bort.
             Rensas när prompten skickas (markeringen gäller en prompt). */}
           {markedSections.length > 0 ? (
             <div className="-mx-0.5 mb-2 flex flex-wrap gap-1">
-              {markedSections.map((ref) => (
-                <span
-                  key={`${ref.routeId}:${ref.sectionId}`}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-900 dark:text-emerald-200"
-                >
-                  <Crosshair
-                    className="h-3 w-3 shrink-0 text-emerald-600"
-                    aria-hidden
-                  />
+              {markedSections.map((ref) => {
+                const page = routeLabel(ref.routeId);
+                const section =
+                  ref.headingText?.trim() || humanizeSlug(ref.sectionId);
+                return (
                   <span
-                    className="truncate"
-                    title={
-                      ref.headingText
-                        ? `${ref.routeId} · ${ref.sectionId} · ${ref.headingText}`
-                        : `${ref.routeId} · ${ref.sectionId}`
-                    }
+                    key={`${ref.routeId}:${ref.sectionId}`}
+                    className="inline-flex max-w-full items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 py-0.5 pr-1 pl-2 text-[11px] text-emerald-900 dark:text-emerald-200"
                   >
-                    {ref.routeId === "home"
-                      ? ref.sectionId
-                      : `${ref.routeId}/${ref.sectionId}`}
+                    <button
+                      type="button"
+                      onClick={() => focusMarkedSection(ref)}
+                      title={`Hoppa till ${page} › ${section}`}
+                      aria-label={`Hoppa till ${page} › ${section} i förhandsvisningen`}
+                      className="hover:text-emerald-950 dark:hover:text-emerald-50 inline-flex min-w-0 items-center gap-1 rounded active:scale-[0.98]"
+                    >
+                      <Crosshair
+                        className="h-3 w-3 shrink-0 text-emerald-600"
+                        aria-hidden
+                      />
+                      <span className="max-w-[150px] truncate">
+                        {page}
+                        <span className="mx-0.5 opacity-40" aria-hidden>
+                          ›
+                        </span>
+                        {section}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeMarkedSection(ref.routeId, ref.sectionId)
+                      }
+                      aria-label={`Ta bort markeringen ${section}`}
+                      className="text-emerald-700/80 hover:text-emerald-900 min-tap md:min-tap-0 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded active:scale-95 dark:text-emerald-300/80 dark:hover:text-emerald-100"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      removeMarkedSection(ref.routeId, ref.sectionId)
-                    }
-                    aria-label={`Ta bort markeringen ${ref.sectionId}`}
-                    className="text-emerald-700/80 hover:text-emerald-900 min-tap md:min-tap-0 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded active:scale-95 dark:text-emerald-300/80 dark:hover:text-emerald-100"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-              ))}
+                );
+              })}
             </div>
           ) : null}
 
