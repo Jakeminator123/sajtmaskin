@@ -265,6 +265,36 @@
         "src/lib/ai-models/load-generated-site-placeholders.ts"
       ]
     },
+    "Selection Rationale (read-only)": {
+      "summary": "Read-only fokuserad lins (Backoffice 2.0 fas 4) som svarar på 'varför valdes denna scaffold/variant/dossier (och modell/tier)?' för de senaste genereringarna, byggd av EXISTERANDE trace-signaler. Rikaste källan är prompt-dumpens generation-input-package.json (scaffoldSelection-meta: selectionMethod/selectionConfidence/embeddingOverrideReason/topCandidates/keywordScores/briefContextApplied samt buildSpec) — endast senaste körningen. Generationsloggen kompletterar per körning med modelId/buildIntent/buildMethod/qualityTarget + skannat scaffoldId/resolvedTier och fil-tillgängliga scaffold-retry.suggested-events. Drift-/dossier-signalerna (scaffold_drift/variant_drift/dossiers_selected/dossier_capability_unresolved) och dossierns SelectedDossier.reason är console.info/DB-only och visas som tom kolumnstruktur, inte krasch. Inga env-värden/secrets läses. Kompletterar (duplicerar inte) sidan LLM-flöde telemetri som visar full tidslinje.",
+      "canonicalPaths": [
+        "backoffice/pages/selection_rationale.py",
+        "logs/generationslogg/",
+        "data/prompt-dumps/orchestration-dynamic/",
+        "src/lib/gen/scaffolds/matcher.ts",
+        "src/lib/gen/orchestrate.ts",
+        "src/lib/gen/dossiers/select.ts",
+        "src/lib/gen/orchestrate/generation-package.ts",
+        "src/lib/gen/generation-input-package.ts",
+        "src/lib/gen/stream/finalize-version/persist-telemetry.ts",
+        "src/lib/models/trace.ts",
+        "src/lib/logging/generation-log-writer.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/llm-signal-flow.md",
+        "docs/llm/dossier-selection-flow.md",
+        "docs/architecture/scaffold-system.md"
+      ],
+      "humanSchemaPaths": [
+        "docs/schemas/orchestration-signal-contract.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/selection_rationale.py",
+        "backoffice/pages/llm_flode_telemetry.py",
+        "backoffice/observability_io.py",
+        "backoffice/shared.py"
+      ]
+    },
     "shadcn-audit": {
       "summary": "Målstack och sökvägar för audit-skript mot shadcn-mirror-repon (bygg-/CI-verktyg, inte runtime i appen).",
       "canonicalPaths": [
