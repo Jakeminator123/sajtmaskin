@@ -15,21 +15,15 @@
 | Spår | Syfte i Sajtmaskin |
 |------|-------------------|
 | **`v0-mallar`** | Builderns Mallar-tab. Källa: `templates_v0/*` → `src/lib/templates/*`. **Inte** samma data som Vercel-katalogen. |
-| **Vercel-mallar / externa referenser** | Upptäcks här (`vercel-templates/scrape-catalog.spec.ts`) → `data/external-template-pipeline/` → **`template-library`** → scaffold research → runtime-scaffolds. |
+| **Vercel-mallar / externa referenser** | Legacy referens-spår (`vercel-templates/scrape-catalog-light.spec.ts`, ej CI) → `data/external-template-pipeline/`. Pipelinen togs bort 2026-04-17; specarna är manuell referens. |
 
 ---
 
-## Vercel.com Templates discovery
+## Vercel.com Templates discovery (LEGACY — v1-pipe, ej CI)
 
-**Spec (tracked):** [`vercel-templates/scrape-catalog.spec.ts`](vercel-templates/scrape-catalog.spec.ts)
+**Spec (tracked):** [`vercel-templates/scrape-catalog-light.spec.ts`](vercel-templates/scrape-catalog-light.spec.ts) (+ `enrich-template-details.spec.ts`, `smoke-enrich-detail.spec.ts`).
 
-**Npm:** `references:discover`, `references:discover:second-pass`, `references:discover:full`.
-
-Output: `data/external-template-pipeline/raw-discovery/current/` (see spec header). This är **extern intake av Vercel-mallar**, inte builderns `v0-mallar` och inte runtime-scaffolds.
-
-**Scaffolds:** this spec does **not** edit `src/lib/gen/scaffolds/` or `scaffold-embeddings.json` directly. After discovery you run the **template-library** pipeline (`template-library:import`, hydrate, `template-library:build`, `template-library:embeddings`) before scaffold research / runtime enrichment see new data. Se [`scripts/README.md`](../scripts/README.md) (template-library) och [`docs/schemas/external-template-pipeline-contract.md`](../docs/schemas/external-template-pipeline-contract.md).
-
-**OpenClaw app e2e:** `npm run test:openclaw:e2e` uses `playwright.openclaw.config.ts` and `tests/openclaw/` — unrelated to this spec.
+> **Status:** legacy referens-spår. De gamla npm-scripten (`references:discover*`, `template-library:*`, `dossiers:enrich`) togs bort 2026-04-17 (se [`scripts/README.md`](../scripts/README.md)). Specarna körs **inte** automatiskt och har ingen CI-yta — de finns kvar som manuell referens. Output: `data/external-template-pipeline/raw-discovery/current/` (se spec-header). Detta är **extern intake av Vercel-mallar**, inte builderns `v0-mallar` och inte runtime-scaffolds.
 
 ## Builder & deploy API (regression idag)
 

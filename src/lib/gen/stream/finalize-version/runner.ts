@@ -553,7 +553,7 @@ export async function finalizeAndSaveVersion(
   // Verifier-LLM blocking findings alone do NOT pre-commit: server-verify
   // (with its real tsc+build) is the authority on terminal verification
   // state. This prevents the "Fel"-badge from appearing before server-verify
-  // has actually confirmed anything. See docs/arch/version-status-state-machine.md.
+  // has actually confirmed anything. See docs/architecture/version-status-state-machine.md.
   if (hasVerificationBlockingPreflightErrors) {
     const failedVersion = await maybeFailVersionVerification({
       chatId,

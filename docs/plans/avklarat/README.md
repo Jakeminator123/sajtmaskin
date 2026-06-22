@@ -30,7 +30,7 @@ Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — 
 | `P22` | Hård `forceDeepBrief`-guard på follow-up, `lockedVariantForFollowUp`, `inheritQualityTargetFromPriorVersion`, `classifyFollowUpIntentWithLlmFallback`. Caller-wiring konsoliderat i samma wave. |
 | `P23` | `checkMotionReduceTrap` i verifier, `needsPhysics`-flagga, motion-safe-instruction, `deduplicateLocaleAlternateRoutes`. |
 | `P24` | AST-baserad `patchNextConfigViaAst` (acorn), korrekt `startOutcome`-label, `runId` end-to-end, `VersionMismatchOverlayPayload`-typ. |
-| `P25` | Mixpanel-allowlist i CSP, mjuk avatar-offline-state istället för error-toast. Tooltip + overlay-rendering uppskjuten — spåras som UX polish-debt i `active/Kvarvarande-uppgifter.md`. |
+| `P25` | Mixpanel-allowlist i CSP, mjuk avatar-offline-state istället för error-toast. Tooltip + overlay-rendering uppskjuten — spåras som UX polish-debt i [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md). |
 | `P26` | `resolveRunDirFromContext`, `extractReasoningTokens`, per-tier 5×5 matris i `ModelTraceOverlay`. |
 | `P27` | Sektion A+B+D körda. Owner-file-konfliktscan grön. Sektion C (manuell browser-spotcheck) och sektion E (commits) lämnade till användaren. |
 

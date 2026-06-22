@@ -278,3 +278,42 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad i HEAD | P3 | Template-search diakritik strip | U#75 | Avfärdad/redan hanterad: `normalizeForSearch` i `template-search.ts` gör NFD + strip av combining marks (`[\u0300-\u036f]`) på både query och haystack, så `Malmö`↔`malmo`/`café`↔`cafe` matchar redan. Unicode-aware folding finns. (Residual: shadcn `searchBlocks` använder bara `toLowerCase()` — separat komponent-sök, inte template-search.) |
 | [ ] | Öppen preview-risk | P3 | `previewUrlHint` base path + chatId | U#77 | EDGE (triage 2026-06-18): Verifieringsrad — `previewUrlHint` byggs i `generation-stream-post-finalize.ts` och täcks redan av tester (`generation-stream-post-finalize.test.ts`, `stream-handlers.test.ts`). Full verifiering kräver jämförelse mot live preview-host (ej tillgänglig i triage-VM). Lämnas öppen. |
 | [x] | Inte bug / ej bekräftad | P3 | SSE ping `Date.now` var 15s loggar | U#78 | Avskriven: backend skickar ping med timestamp men grep visar ingen `console.*`-logg kopplad till SSE-pingen. |
+
+## Grandmaster-arkivering 2026-06-22 — överförda öppna spår
+
+Grandmaster-stabiliseringsplanen arkiverades till `docs/plans/avklarat/grandmaster/` (scope 100 % klart). Den parallella bugg-letar-agenten är avvecklad. Dess **öppna** spår flyttas hit så denna fil förblir **enda backlog-/buggsanningen**. Historik-källor: `docs/plans/avklarat/grandmaster/_backlog-deferrad.md`, `.../bug-swarm-koppling.md`, `docs/plans/avklarat/bug-swarm/README.md`, `docs/handoffs/2026-06-21-grandmaster-closing-handoff.md`.
+
+### Bugg-agentens öppna bana (orphan — agenten avvecklad, ägs nu här)
+
+| Klar | Prio | Fynd | Källa | Kod-ankare / minsta åtgärd |
+| --- | --- | --- | --- | --- |
+| [ ] | P1 | B01-klient: vit/blank iframe — `fetchPreviewHostStatus` versionId-blind polling (re-pin saknas) | B01 | `preview-host-client.ts:134` kollar bara `running`, aldrig `versionId`; polling i `useBuilderVmPreview.ts:204-246`. Server skickar redan `versionId`. **Kräver live-verifiering mot preview-host (separat repo).** branch `fix/preview-version-mismatch-polling` |
+| [ ] | P2 | B12: F3 auto-kick `onF3Ready` kringgår stale-base-409-gaten | B12 | `chat-message-stream-post.ts:361-388` + `PreviewPanelF3Trigger.tsx:138-199` + `useSendMessage.ts:261-281`. Servergate: jämför `parentVersionId` mot preferred F2-version → 409. branch `fix/f3-stale-base-gate` |
+| [ ] | P2 | B13: clear-redesign delta-brief tappas vid contract-gate-retry (tur 2) | B13 | `chat-message-stream-post.ts:416-422,492-551` + `follow-up-orchestration-input.ts:85-87`. Persistera delta-brief i chat-meta vid contract-gate, återläs tur 2. branch `fix/clear-redesign-contract-gate-retry` |
+
+### Deferrad härdning / arkitektur (ej buggar — medvetet uppskjutet, kräver scope/beslut)
+
+| Klar | Allvar | Post | Vad | Beslut / blockare |
+| --- | --- | --- | --- | --- |
+| [ ] | Medel–hög (korrekthet) | B3 / E2 | Event-bus in-memory/efemär → multi-instans kan splittra status/finalize | **Enda kvarvarande korrekthetsrisken.** Ofarlig på single-instance Render; risk på serverless/multi-instans. Deploy-topologi-beslut, ej cleanup-PR. |
+| [ ] | Låg–medel | B1 | S3 single-writer-status warn-only-lane → blockerande `test:ci` | Lane-arkitekturbeslut (bryter "hela stability-lanen är warn-only"). Testet är deterministiskt → flyttbart men kräver rename/include-undantag. |
+| [ ] | Låg (hygien) | B4 | Canvas auto-PR via `GITHUB_TOKEN` → ingen CI på den PR:en | Dedikerad `CANVAS_PR_TOKEN` (secret-beslut, protected path `.github/workflows/**`). Artefakten är `.txt` → minimal risk. |
+| [ ] | — | F4 / F5 | Odefinierade bus-emits / manifest `perTier*`-Zod-validering | Se closing-handoff Appendix C. |
+| [ ] | Hög (säkerhet) | B7 / #140 | DB+Blob-gate-PR bot-fynd: Codex P1 (PR-kontrollerad kod kör med prod-Postgres/Blob-secrets på `pull_request`) + Bugbot High (EMPTY-check ignorerar failed counts → kan PASS:a tom tabell) | Annans infra-spår; lever i öppen PR #140. |
+
+### Appendix A — dina policybeslut (systemet funkar som det är)
+
+| Post | Vad | Status |
+| --- | --- | --- |
+| B05 / A7-2 | `refuseDossierStubs` kod-default OFF (env redan satt i Vercel; env-doc finns i `docs/ENV.md`) | Ditt beslut: flippa kod-default eller ej. |
+| B07 | publik vs privat media | Du valde **öppet**; säkerhet som eget senare pass. |
+| B08 | quality-gate fail-open | Du valde **släpp igenom**; felet loggas redan (DB-oberoende `console.warn`). |
+
+### Observationer (repo-städ-pass 2026-06-22)
+
+| Klar | Prio | Fynd | Beslut |
+| --- | --- | --- | --- |
+| [ ] | Låg | `error_log_events` (Postgres RAG-historik) är append-only **utan auto-gallring** — enda obegränsade DB-tillväxten (läses bara senaste ~5000 rader vid TF-IDF-reindex; `engine_version_error_logs`/`generation_telemetry` CASCADE-raderas med chat/version) | Gallrings-/TTL-policy som eget scope:at pass; härdning utanför stabiliseringsfasen. |
+| [ ] | Låg | Test-läckage: route-/golden-tester med versionId `ver_1`/`ver_golden_1`/`ver_test_1` får event-bus `emit()` att skriva `data/runs/<id>/` mot riktig `cwd` i st.f. temp-dir | Lokal-only (gitignorad), ingen runtime-effekt. Test-hygien: isolera event-bus-`cwd` i berörda tester (bred → eget test-pass). |
+| [ ] | Låg | `config/dashboard/` namnskuld (`dashboard/` är legacy-namn men **load-bearing**: backoffice + canvas-script + paritetstest läser `domain-map.json`) | Samma spår som U#63; bred ref-diff + paritetstest-omskrivning → eget pass, ingen quick-win. |
+| [ ] | P3 (data-hygien) | **`company_profiles` orphan vid projekt-radering** — `deleteProject()` (`src/lib/db/services/projects.ts:234-254`) litar på FK CASCADE för `company_profiles`, men `project_id` är `TEXT` **utan FK** (`schema.ts:375-379`, `db-init.mjs:254`). Den raderas inte heller explicit → rader blir kvar efter `DELETE FROM app_projects`. Kod-kommentaren + `cleanup-test-projects.mjs` påstår felaktigt "FK CASCADE". Hittad i städ-audit via `docs/architecture/db-cascade-graph.md`. | Fix kräver beslut: (a) FK-migration `ON DELETE CASCADE` på `company_profiles.project_id`, eller (b) explicit `tx.delete(companyProfiles)` i `deleteProject` + cleanup-script. Ej runtime-ändring i detta städ-pass. |

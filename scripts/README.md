@@ -1,6 +1,6 @@
 # Scripts
 
-GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`** och **`master`**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`master`**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 > **Status (2026-04-21):** **`package.json` är source of truth för npm-script-namn.** Vid avvikelse mellan denna README och `package.json` gäller `package.json`.
 >
@@ -35,7 +35,7 @@ Delad logik ligger i `backoffice/shared.py`. `config/dashboard/` håller bara `d
 | [`scaffolds/`](scaffolds/) | Variant-embeddings, variant-patterns, manifest-validering |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
-| [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
+| [`audit/`](audit/) | Shadcn-mirror-repo audit (`mirror:audit*`) |
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
 | [`observability/`](observability/) | RAG-index, fixer-registry dump och `faults:report` för återkommande fault patterns |
 

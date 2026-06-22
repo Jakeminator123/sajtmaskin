@@ -12,7 +12,7 @@ Tre nivåer, kodade i regeln [`plan-lifecycle.mdc`](../../.cursor/rules/plan-lif
 
 | Nivå | Vad | Var |
 |---|---|---|
-| **1** | Målbild + index + körordning | [`grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md) |
+| **1** | Målbild + index + körordning | [`grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) |
 | **2** | Ett dokument per område (syfte, ägd yta, klart-när) | `grandmaster/01..08-*.md` |
 | **3** | Konkreta agentjobb med smala `owner_files`, **skapas just-in-time** när området är på tur | `grandmaster/aktiviteter/*.md` |
 

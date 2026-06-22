@@ -8,7 +8,7 @@
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
 | **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
-| **Arkiv** | Avklarade planer i git-historik; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) |
+| **Arkiv** | Avklarade planer + icke-plan-historik (`archive/`); scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) |
 
 ## Terminology (two layers — do not duplicate)
 
@@ -111,7 +111,7 @@ Not runtime dependencies:
 | Plans (all buckets) | `docs/plans/README.md` |
 | **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |
 | **Delivery-bias** (förmåga före dokumentation) | [`docs/delivery-bias.md`](delivery-bias.md) |
-| Plan / agent handoff (historik) | Borttagen — git-historik. Handoffs sker i chatten. |
+| Plan / agent handoff (historik) | [`handoffs/`](handoffs/) — daterade agent-handoffs. |
 | Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |

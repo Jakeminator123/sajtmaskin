@@ -1,6 +1,6 @@
 # Handoff — Grandmaster: redo för städpasset (2026-06-21, kväll)
 
-**Master:** `b4993271a` · **Status:** alla arbetsområden klara/täckta — **bara den breda Område 8-städrundan återstår** · **Föregångare:** [`2026-06-21-grandmaster-execution-handoff.md`](2026-06-21-grandmaster-execution-handoff.md) (morgonens, nu historik) · **Plan:** [`../plans/active/grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md) · **Kanonisk status:** [`../plans/active/grandmaster/_loggbok.md`](../plans/active/grandmaster/_loggbok.md)
+**Master:** `b4993271a` · **Status:** alla arbetsområden klara/täckta — **bara den breda Område 8-städrundan återstår** · **Föregångare:** [`2026-06-21-grandmaster-execution-handoff.md`](2026-06-21-grandmaster-execution-handoff.md) (morgonens, nu historik) · **Plan:** [`../plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) · **Kanonisk status:** [`../plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md)
 
 > Denna handoff ersätter morgonens som **aktuell**. Efter att Område 7 false-green-kärnan stängts (#179 + #180) och Område 4 verifierats redan uppfyllt, finns i praktiken **inget arbete kvar i själva planen** — bara den **breda, gemensamma Område 8-städrundan** (görs ihop med Jake, per-rad-ok) + en katalogiserad backlog vid sidan. Kod = source of truth om docs/kod skiljer.
 
@@ -10,7 +10,7 @@ En separat bugg-letar-agent kör parallellt och kan flytta `master` / öppna PR:
 
 - **Anta aldrig att din vy är färsk.** `git fetch` ofta; `git rev-list --left-right --count origin/master...HEAD`.
 - **Bugg-agentens gren (2026-06-21):** `origin/cursor/modell-och-autofixlogik-3376` (autofix-timing + scaffold/phase-routing) — **rör inte** false-green/status-ytan, så ingen krock med det som gjordes denna session.
-- **Bugg-agentens findings** ligger **untracked** i arbetsträdet: `docs/plans/active/bug-swarm/findings/01–16 + PRIO-*` (dess Fas-1-katalog). **Committa/skriv inte över dem** — det är dess yta. De är inte i git-historiken → rör dem inte vid en `git clean`.
+- **Bugg-agentens findings** ligger **untracked** i arbetsträdet: `docs/plans/avklarat/bug-swarm/findings/01–16 + PRIO-*` (dess Fas-1-katalog). **Committa/skriv inte över dem** — det är dess yta. De är inte i git-historiken → rör dem inte vid en `git clean`.
 - **Kollidera inte om worktrees/brancher** — distinkta namn, fetch+rebasa före gate/merge.
 
 ## 1. Nuläge (verifierat 2026-06-21 kväll)
@@ -21,7 +21,7 @@ En separat bugg-letar-agent kör parallellt och kan flytta `master` / öppna PR:
 | Öppna grandmaster-PR:er | **Inga** — #179 + #180 mergade denna session |
 | Öppna PR:er totalt | **#175** (chgenberg, Viewser/Sajtbyggaren — ej grandmaster, **merga aldrig**, master-blockad) · **#164** (inspect-bridge, parkerad) · **#140** (DB+Blob-gate, parkerad) |
 | Worktrees | main `[master]` · `sajtmaskin-db-sync-test` (#140) · `sajtmaskin-inspect-bridge` (#164) — **rör ej de två sista** |
-| Ostagat i arbetsträdet (ej mina, lämna) | `.vscode/launch.json`, `.cursor/settings.json`, `docs/canvases/llm-flow.canvas.txt` (canvas regenereras), + untracked `docs/plans/active/bug-swarm/` (bugg-agentens findings) |
+| Ostagat i arbetsträdet (ej mina, lämna) | `.vscode/launch.json`, `.cursor/settings.json`, `docs/canvases/llm-flow.canvas.txt` (canvas regenereras), + untracked `docs/plans/avklarat/bug-swarm/` (bugg-agentens findings) |
 | Progress | **~89 %** |
 
 ## 2. Gjort denna session (allt mergat, allt gated + bot-rent)
@@ -49,7 +49,7 @@ En separat bugg-letar-agent kör parallellt och kan flytta `master` / öppna PR:
 
 ## 4. DET ENDA SOM ÅTERSTÅR I PLANEN: bred Område 8-cleanup
 
-**Gemensam, ej autonom** (master-plan §7). Karta: [`08-cleanup-och-hygien.md`](../plans/active/grandmaster/08-cleanup-och-hygien.md) + [`_backlog-deferrad.md`](../plans/active/grandmaster/_backlog-deferrad.md) B6.
+**Gemensam, ej autonom** (master-plan §7). Karta: [`08-cleanup-och-hygien.md`](../plans/avklarat/grandmaster/08-cleanup-och-hygien.md) + [`_backlog-deferrad.md`](../plans/avklarat/grandmaster/_backlog-deferrad.md) B6.
 
 | Kandidat | Vad | Säkerhet |
 |---|---|---|
@@ -82,11 +82,11 @@ det enda kvar i planen är den BREDA Område 8-städrundan (gemensam, ej autonom
 per-rad-ok för ignore-prune). OBS: en separat BUGG-AGENT kör parallellt och kan
 flytta master — git fetch ofta, rebasa, kollidera ej (dess gren:
 cursor/modell-och-autofixlogik-3376; dess findings ligger untracked i
-docs/plans/active/bug-swarm/ → rör ej).
+docs/plans/avklarat/bug-swarm/ → rör ej).
 LÄS FÖRST:
 1. docs/handoffs/2026-06-21-grandmaster-cleanup-ready-handoff.md  (denna)
-2. docs/plans/active/grandmaster/_loggbok.md
-3. docs/plans/active/grandmaster/08-cleanup-och-hygien.md + _backlog-deferrad.md
+2. docs/plans/avklarat/grandmaster/_loggbok.md
+3. docs/plans/avklarat/grandmaster/08-cleanup-och-hygien.md + _backlog-deferrad.md
 4. .cursor/rules/ — workflow, agent-worktree, pr-merge-review-gate, auto-merge-automation
 STÄDPASS (ihop med Jake): arkivera källdocs · next-bump-stäng (redan 16.2.9) ·
 bred .gitignore/.cursorignore-prune (KRÄVER per-rad-ok). Radera inget utan beslut per rad.
