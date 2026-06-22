@@ -1013,7 +1013,8 @@
       ],
       "authEnv": [
         "OPENAI_API_KEY"
-      ]
+      ],
+      "defaultModel": "gpt-5-nano"
     },
     {
       "id": "wizard_enrich_competitors",
@@ -1092,6 +1093,62 @@
         "OPENAI_API_KEY"
       ],
       "defaultModel": "gpt-5-mini"
+    },
+    {
+      "id": "analyze_website",
+      "title": "Website analysis",
+      "description": "generateText + createDirectModel against the direct OpenAI API.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/app/api/analyze-website/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "openai/gpt-5-mini"
+    },
+    {
+      "id": "company_lookup",
+      "title": "Company lookup (AI fallback)",
+      "description": "generateText + createDirectModel fallback when Cheerio/Brave allabolag lookup fails.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/app/api/wizard/company-lookup/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "openai/gpt-5-mini"
+    },
+    {
+      "id": "domain_suggestions",
+      "title": "Domain name suggestions",
+      "description": "generateText + createDirectModel against the direct OpenAI API.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/app/api/domain-suggestions/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "openai/gpt-5.2"
+    },
+    {
+      "id": "analyze_presentation_vision",
+      "title": "Presentation analysis (vision)",
+      "description": "OpenAI chat.completions with image frames for body-language analysis (vision path of analyze-presentation).",
+      "invocation": "openai_chat_completions",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/app/api/analyze-presentation/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "gpt-4o"
     }
   ]
 }

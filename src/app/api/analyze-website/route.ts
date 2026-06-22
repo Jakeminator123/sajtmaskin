@@ -11,6 +11,7 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rateLimit";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 
 export const maxDuration = 60;
 
@@ -121,7 +122,8 @@ export async function POST(req: NextRequest) {
 
     const hasContent = contentForAnalysis?.textSummary && contentForAnalysis.textSummary.length > 20;
 
-    const selectedModel = "openai/gpt-5-mini";
+    const selectedModel =
+      getWorkloadDefaultModelFromManifest("analyze_website") ?? "openai/gpt-5-mini";
 
     let userPrompt: string;
     let systemPrompt: string;

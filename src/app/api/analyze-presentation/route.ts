@@ -19,6 +19,7 @@ import {
   ANALYZE_PRESENTATION_DEFAULT_MODEL,
   ANALYZE_PRESENTATION_FALLBACK_MODELS,
 } from "@/lib/gen/defaults";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -258,7 +259,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
   }));
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-4o",
     messages: [
       { role: "system", content: VISION_PROMPT },
       {

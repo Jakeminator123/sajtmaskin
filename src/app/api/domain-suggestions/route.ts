@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 30 seconds for domain checks
@@ -60,7 +61,9 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 
   try {
     const result = await generateText({
-      model: createDirectModel("openai/gpt-5.2"),
+      model: createDirectModel(
+        getWorkloadDefaultModelFromManifest("domain_suggestions") ?? "openai/gpt-5.2",
+      ),
       messages: [
         {
           role: "system",
