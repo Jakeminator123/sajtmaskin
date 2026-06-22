@@ -1,7 +1,8 @@
 ---
 id: gm-00-master-plan
-status: active
+status: done
 created: 2026-06-18
+closed: 2026-06-22
 linear: null
 parent: 2026-06-17-cleanup-forenkling-handoff
 supersedes: 2026-06-18-stabilitet-schemas-aktivitetsplan

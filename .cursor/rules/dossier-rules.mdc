@@ -1,0 +1,36 @@
+---
+description: "Dossier-regler: skilj runtime dossiers från template references och variant-katalog."
+globs:
+  - data/dossiers/**
+  - data/template-references/**
+  - data/external-template-pipeline/**
+  - scripts/dossiers/**
+  - backoffice/pages/dossiers.py
+  - src/lib/gen/dossiers/**
+  - config/scaffold-variants/**
+alwaysApply: false
+---
+
+# Dossier-regler
+
+Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGER, inte tre kopior. Runtime läser **bara** `data/dossiers/{hard,soft}/`.
+
+## Canonical map
+
+| Yta | Path | Roll |
+|---|---|---|
+| Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` | **Enda** source of truth för dossiers i runtime (läses av `src/lib/gen/dossiers/registry.ts`) |
+| Capability map | `data/dossiers/_index/capability-map.json` | Genererad/tooling-index, läses inte i runtime |
+| Dossier scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
+| Backoffice | `backoffice/pages/dossiers.py` | Adminvy för runtime dossiers |
+| Template reference repos | `data/template-references/repos/<id>/` | Rå input till AI-kuration (gitignorerad, lokal) |
+| Reference catalog (LEGACY) | `data/external-template-pipeline/reference-library/catalog.json` | **Borttagen 2026-04-20, gitignorerad, läses ej i runtime.** Endast backoffice (`scaffold_lifecycle.py`) rör den för `sourceTemplateIds`-QA. Skapa inget nytt beroende hit. |
+| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Visuellt uttryck (eget subsystem, ej dossier); `sourceTemplateIds` är proveniens-etikett, ingen runtime-join |
+
+## Regler
+
+- Flytta inte runtime dossiers till template-reference-mappar.
+- Behandla `capability-map.json` som genererad vy; bygg om från manifests (`npm run dossiers:capability-map:write`).
+- Efter manifeständring: kör `npm run dossiers:validate-all` och vid behov `npm run dossiers:capability-map:check`.
+- `sourceTemplateIds` är bara en proveniens-etikett — bygg ingen runtime-logik som slår upp `catalog.json` (legacy).
+- Vid radering av en dossier: kontrollera capability, defaultForCapability, envVars, dependencies och `capability-map`.

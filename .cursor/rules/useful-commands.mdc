@@ -1,56 +1,26 @@
 ---
-description: Snabb kommandoöversikt. package.json är kanonisk källa.
+description: "Snabb kommandolista. package.json är kanonisk källa."
 alwaysApply: false
 ---
 
-# Useful Commands
+# Useful commands
 
-`package.json` är kanonisk källa om något här blir inaktuellt.
-
-## Vanligast
+`package.json` är kanonisk källa om listan blir inaktuell.
 
 | Kommando | Vad |
-|----------|-----|
-| `npm run dev` | Starta lokalt (predev kör preflight, schema-drift soft, shadcn sync, token refresh, db:init + perf-index soft) |
-| `npm run dev:clean` | Rensa .next/cache + starta (vid 404-routes, efter reinstall) |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run test:ci` | Hela Vitest-sviten |
-| `npm run test:focused` | Kort kärn-subset (~12 filer) — snabb dev-loop |
+|---|---|
+| `npm run dev` | start lokalt |
+| `npm run dev:clean` | rensa Next-cache + start |
+| `npm run typecheck` | TypeScript-check |
 | `npm run lint` | ESLint |
-| `npm run lint:fix` | ESLint --fix |
-| `npm run devtest` | typecheck + scaffolds:validate + dossiers:validate-all + test + lint |
-| `npm run backoffice` | Starta Streamlit-backoffice (kanonisk entry; se AGENTS.md) |
-
-## Databas
-
-| Kommando | Vad |
-|----------|-----|
-| `npm run db:init` | Bootstrap + SQL-migrationer |
-| `npm run db:check` | Read-only sanity-koll |
-| `npm run db:rows` | Read-only radantal per tabell |
-| `npm run db:latest` | Read-only: senaste sajten/prompten (engine_versions + prompt_logs). `-- --limit N`. `-- --prod` läser riktiga prod-DB (kräver `vercel env pull .env.vercel.production.pulled --environment=production --yes`); annars `-- --allow-insecure-ssl` mot Supabase |
-| `npm run db:migrate` | Kör SQL-migrationer via gemensam DB-env-resolver |
-| `npm run db:push` | Guardad Drizzle push |
-
-## Scaffolds & templates
-
-| Kommando | Vad |
-|----------|-----|
-| `npm run scaffolds:validate` | Snabb manifestvalidering |
-| `npm run scaffolds:embeddings:check` | Kontrollera scaffold-embeddings inför build |
-| `npm run scaffolds:eval` | Utvärdera scaffold-selection |
-| `npm run dossiers:curate` | Kurera externa referenser till dossier-pipen |
-| `npm run dossiers:validate-all` | Validera dossier-artefakter |
-| `npm run typography:validate-pairings` | Font-pairing CI |
-
-## Plans & env
-
-| Kommando | Vad |
-|----------|-----|
-| `npm run plans:archive` | Dry-run: lista klara plan-filer |
-| `npm run plans:archive:apply` | Flytta klara plans till avklarat/ |
-| `npm run env:status` | Snabb env-status |
-| `npm run env:pull` | Hämta Vercel-envs till .env.local |
-| `npm run env:audit` | Audit av env-policy |
-
-Resten: se `package.json` eller `scripts/README.md`.
+| `npm run test:ci` | hela Vitest-sviten |
+| `npm run test:focused` | snabb kärnsubset |
+| `npm run devtest` | typecheck + scaffold/dossier/test/lint |
+| `npm run backoffice` | starta Streamlit-backoffice |
+| `npm run scaffolds:validate` | validera scaffold-manifests |
+| `npm run dossiers:validate-all` | validera dossiers |
+| `npm run dossiers:capability-map:check` | capability-map i synk |
+| `npm run plans:archive` | dry-run planarkiv |
+| `npm run plans:archive:apply` | flytta klara planer |
+| `npm run env:status` | env-status |
+| `npm run db:check` | read-only DB sanity |

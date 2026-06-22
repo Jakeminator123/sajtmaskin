@@ -1,6 +1,8 @@
 # Bug-backlog (konsoliderad)
 
-Kanonisk lista efter sammanslagning av de tidigare rålistorna: `BUG-SWARM-BACKLOG-MASTER.md`, `BUG-SWARM-BACKLOG.md` och `gpt_sammanställnin.txt`. De rålistorna är borttagna; den här filen är nu enda aktiva backloggen.
+**Enda aktiva bugglistan i repot** (kanonisk; preflight `check-bug-backlog.mjs` + canvas-generatorn läser den). Sammanslagen från tidigare rålistor (`BUG-SWARM-BACKLOG-MASTER.md`, `gpt_sammanställnin.txt` — borttagna). Grandmaster-svärmens **B01–B15 är arkiverad/löst historik** i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md) — **inte** en parallell aktiv lista; dess kvarvarande öppna items (B05/B12/B13) är inlyfta i triage-sektionen nedan.
+
+> **Aktuell aktiv kö = sektionen "Triage-svärm 2026-06-22" nedan** (verifierad mot master `c2ccd7efd`). Den långa **G#/N#/R#-tabellen längst ned = historik + beslut**, inte en daglig att-göra-kö. Låt inte dess längd lura dig: de flesta öppna `[ ]`-rader är **policyval eller edge utan repro**, inte aktiva buggar (svärmen 2026-06-22 klassade dem). 82 `[x]`-rader = avslutad historik.
 
 ## Legend
 
@@ -34,6 +36,35 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P1 | 4 | Triage 2026-06-18: G#10/G#13/N#1 BLOCKER (pipeline/policy), E#1 Edge (kräver eval-run mot LLM-providers). Inga säkra smala fix. |
 | P2 | 18 | Triage 2026-06-18: 14 BLOCKER (F3/dossier/capability/verify/status-pipeline + policy) + 4 Edge (G#16 env-audit, G#18 docs, G#38 PDF-CPU-policy, G#40 SSRF-rebind). F3-batch: G#21 delvis fixad (empty-files false-green → `409`); G#20 BLOCKER-rot fördjupad (F3-prompt härleds från contracts, ej version-filer); G#22 omverifierad BLOCKER. |
 | P3 | 26 | Triage 2026-06-18: 8 kodfix + 5 avfärdade i HEAD; reconcile 2026-06-18 stängde G#67/U#43 (PR #142), G#75/U#11/U#12 + U#6/U#79 (PR #143), G#58/U#80 (copy verifierad) och G#55 (docs-städ). 26 kvar = Edge/BLOCKER (UI-race utan repro, degraded-state-policy, breda refaktorer, live-infra-verifiering). |
+
+### Triage-svärm 2026-06-22 (orchestrator äger nu — parallell bugg-agent avslutad)
+
+7 read-only composer-agenter verifierade öppna rader mot master `c2ccd7efd`. `%` = sannolikhet reell kvarvarande bugg.
+
+**Reella, ej bara policy (kandidater för fix):**
+
+| ID | % | Vad | Ankare |
+| --- | --- | --- | --- |
+| G#40 | 90% | **SÄKERHET** — inspector SSRF: publik DNS→privat IP, ingen rebind-guard | `services/inspector-worker/server.mjs:106,450` |
+| G#20 | 88% | F3 build-plan från `preGenerationContracts`, ej version-filer (drift) | `session-contracts.ts:159` vs `finalize-design/route.ts:87` |
+| G#26 | 76% | init vs follow-up olika capability-universum | `follow-up-orchestration-input.ts:103` |
+| G#25 | 68% | capability multi-source; snapshot-fix hjälpte bara finalize-design | `orchestrate.ts:1314-1342` |
+| G#21 | 52% | F3 `ready:true` när `detectIntegrationsFromVersionFiles` ger `[]` på läsbara filer | `finalize-design/route.ts:190-201` |
+| B05 | 90% | `refuseDossierStubs` matchar HELA registret (ej `selectedDossierIds`) + flaggan ON i Vercel → false-RED-risk i prod | `cross-file-import-checker.ts:670-688` |
+| B13 | 78% | clear-redesign delta-brief tappas vid contract-gate-retry (NEEDS_REPRO) | `chat-message-stream-post.ts:419` |
+| B12 | 72% | F3 auto-kick kringgår stale-base-409 (NEEDS_REPRO) | `useSendMessage.ts:276` |
+
+Full B-serie-detalj (arkiverad): [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
+
+**Dina policybeslut (höga % men medvetna val, ej fix):** G#10 88% (F2-gate default-off), G#13 90% (brief-fallback), N#1 85% (dossier-stub) — kopplade till B05/B07/B08 + default-off-flaggor.
+
+**NOT_A_BUG / cheap cleanup:** G#56 — vestigial död drift-kod (`variantNomination` produceras ej av schemat → drift alltid null; `orchestrate.ts:1464`). Kan raderas.
+
+**Bekräftat LÖST (grandmaster):** N#6 (Område 6 event-bus-cutover) → flippad till `[x]` nedan.
+
+**Behöver repro (kan ej avgöras statiskt):** E#1 (eval), R#9 (scaffold-export), G#53 (font), U#29 (media-URL från preview-VM), U#56 (analytics före cookie-consent — integritet), U#77.
+
+Resten (~25 P2/P3) = policy/edge, låg-%, lämnas öppna som beslut-/verifieringsrader.
 
 ### Avskrivet / inte bug
 
@@ -156,7 +187,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen prompt-risk | P2 | Recurring verifier-fynd saknas i nästa codegen-prompt | N#5 | BLOCKER (triage 2026-06-18): Att mata 3-5 senaste verifier-fynd in i nästa codegen-prompt är ett nytt prompt-composition-steg (system-prompt-section + verifier-historik-hämtning) — pipeline-beslut per `pipeline-rules.mdc` (statisk prompt vs nytt steg). Eskaleras. |
 | [ ] | Öppen UX-risk | P2 | Placeholder-bild maskerar trasigt original | G#35, U#72, N#H4 | BLOCKER (triage 2026-06-18): Degraded-state-policy (samma spår som G#22/G#51, N#H4) — kräver beslut om hur placeholder-bild signaleras som degraded vs success över image-materializer/validator + UI. Eskaleras. |
 | [ ] | Öppen regression-risk | P2 | Follow-up context-budget saknar hård regression-gate | N#3 | BLOCKER (triage 2026-06-18): `eval:followup` finns; att göra den till en hård PR/CI-regression-gate är ett process-/CI-beslut (var gaten körs, tröskelvärden, baseline). Inte ett kodfix i triage-scope. Eskaleras. |
-| [ ] | Öppen UI-status-risk | P2 | Event-bus statusprojektion inte fullt inkopplad i builder-UI | N#6 | BLOCKER (triage 2026-06-18): `selectVersionStatus(events)` finns men att koppla in den över centrala builder-UI-ytor (ersätta DB-statusresolver) är en bred UI-rewire med status-mismatch-risk. Eskaleras. |
+| [x] | Fixad (Område 6) | P2 | Event-bus statusprojektion inte fullt inkopplad i builder-UI | N#6 | LÖST 2026-06-22 (triage-svärm, 4% kvar): Område 6 #159–163 kopplade in `useVersionStatus`/`busStatus` i `BuilderShellContent`/`VersionHistory`; legacy `resolveEngineVersionDisplayStatus` raderad; S3 single-writer-grep-invariant vaktar mot återinförande. |
 | [x] | Fixad nu | P2 | `upload-from-url` läser body före size-check | G#36, U#20 | Fixad: content-length precheck + streamad läsning med 4MB stopp. |
 | [x] | Fixad nu | P2 | SVG/HTML tillåts i media-upload | G#37, U#15, U#16, R#13 | Fixad för `/api/media/upload`: `image/svg+xml` och `text/html` tas bort ur upload-allowlist. Se separat project-upload-rad för kvarvarande edge. |
 | [x] | Fixad nu | P2 | Project image upload tillåter SVG trots media-upload-policy | R#13 | Fixad: `/api/projects/[id]/upload` speglar nu media-upload allowlist och nekar `image/svg+xml`; regressionstest tillagt. |

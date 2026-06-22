@@ -226,7 +226,7 @@ function deriveStatus({ override, matched, churn, evalForProcess, churnHot }) {
 
 // --- bygg DATA -----------------------------------------------------------
 
-function buildData() {
+export function buildData() {
   const config = readJson(CONFIG_REL) || {};
   const sinceDays = Number.isFinite(config.churnSinceDays) ? config.churnSinceDays : 14;
   const churnHot = Number.isFinite(config.churnHotThreshold) ? config.churnHotThreshold : 4;

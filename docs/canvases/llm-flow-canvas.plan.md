@@ -84,11 +84,14 @@ visas separat i sektionen "Oppna huvudrisker" direkt ur backloggen.
 ## Korning (manuellt)
 
 ```
-node scripts/canvas/build-llm-flow-canvas.mjs   # generera artefakten
+npm run canvas:open                              # HTML i webblasare (ett kommando)
+node scripts/canvas/build-llm-flow-canvas.mjs   # generera Cursor-artefakten
 node scripts/canvas/sync-to-cursor.mjs          # rendera lokalt i Cursor
 ```
 
-Fardefarbete lokalt: `git pull` -> `node scripts/canvas/sync-to-cursor.mjs` ->
+Vanlig rutin i webblasare: `npm run canvas:open`.
+
+Fardefarbete lokalt i Cursor: `git pull` -> `node scripts/canvas/sync-to-cursor.mjs` ->
 oppna canvasen bredvid chatten.
 
 ## Utbyggnad

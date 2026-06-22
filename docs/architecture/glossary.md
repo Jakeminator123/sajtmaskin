@@ -119,7 +119,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 
 ## Stabilitet, kontrakt & planering
 
-Kanoniska termer från grandmaster-planen (`docs/plans/avklarat/grandmaster/`).
+Kanoniska termer från grandmaster-planen (`docs/plans/avklarat/grandmaster/`, avklarad 2026-06-22).
 
 | Term | Kort |
 |------|------|

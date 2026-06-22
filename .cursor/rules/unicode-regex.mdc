@@ -1,61 +1,36 @@
 ---
-description: Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b`
+description: "Regex mot mänsklig text ska vara Unicode-medveten. Undvik JS ASCII word-boundaries."
+globs:
+  - src/lib/gen/**
+  - src/lib/providers/own-engine/**
+  - src/lib/api/engine/**
+  - src/lib/images/**
+  - src/lib/builder/**
+  - scripts/**
 alwaysApply: false
 ---
 
-# Unicode-medveten regex för mänsklig text
+# Unicode-medveten regex
 
-Gäller all regex som matchar **mänsklig text** (prompter, beskrivningar, brief-ord, intent-klassificering, sökfrågor, stilnyckelord, mm) — svenska, engelska, och alla andra språk. Backend-lager som orkestrerar LLM-flödet (`src/lib/gen/**`, `src/lib/providers/own-engine/**`, `src/lib/api/engine/**`, `src/lib/images/**`, `src/lib/builder/**`) har särskilt hög risk.
+Regex mot mänsklig text ska inte använda JavaScripts ASCII-baserade `\b` eller `\w`. Svenska ord som `ändra`, `öka`, `naturmiljö` kan annars missa tyst.
 
-## Regeln
-
-**Använd aldrig `\b` eller `\w` i regex mot mänsklig text.** De är ASCII-baserade i JavaScript, så `/\bändra\b/` matchar aldrig "ändra", `/\böka\b/` matchar aldrig "öka", och `/\bnaturmiljö\b/` matchar aldrig "naturmiljö". Tester gröna, produktion degraderad — tyst `false` utan kastad exception.
-
-**Använd i stället `uWordRegex` / `uWord` från `src/lib/utils/unicode-word-boundary.ts`.**
+## Använd
 
 ```ts
 import { uWordRegex, uWord } from "@/lib/utils/unicode-word-boundary";
 
-// Enkel matchning:
-const refineRx = uWordRegex("ändra|byt|justera|fixa", "iu");
-refineRx.test("Ändra rubriken"); // → true
-
-// När du behöver bygga ihop flera fragment:
-const source = uWord("ändra|byt|lägg\\s+till");
-const rx = new RegExp(`${source}.*${uWord("färg|tema|stil")}`, "iu");
+const rx = uWordRegex("ändra|byt|justera", "iu");
+const source = uWord("lägg\\s+till|ta\\s+bort");
 ```
 
-För inline-fragment inom en större pattern (t.ex. när `uWordRegex` inte passar strukturellt): importera `UNICODE_WB_LEFT` + `UNICODE_WB_RIGHT` och läs dem som strängkonstanter i template literals, eller skriv dem ordagrant som `(?<![\p{L}\p{N}_])…(?![\p{L}\p{N}_])` **med `u`-flagga**.
-
-## Varför `u`-flaggan krävs
-
-`\p{L}`, `\p{N}` och liknande Unicode property escapes fungerar **bara** när regexen har `u`-flaggan. Utan den blir `\p` tolkat som en literal `p`, och regexen matchar inget förnuftigt. `uWordRegex()` tvingar på `u` åt dig; inline patterns måste sätta den själva.
+Inline: använd `(?<![\p{L}\p{N}_])... (?![\p{L}\p{N}_])` med `u`-flagga.
 
 ## När `\b` är OK
 
-- Patterns som **garanterat bara matchar ASCII-text** (t.ex. filnamn, URL-paths, konfigurationsnycklar, enum-värden) — där fungerar `\b` helt normalt.
-- Lexing/tokenisering av kod (TS-syntax, CSS-regler), där "ord" = ASCII-identifier.
+Filnamn, URL-paths, enum-värden, config-nycklar och kod-tokenisering där ord är ASCII.
 
-Om du är osäker på om texten kan vara svensk/tysk/japansk/emoji: använd `uWordRegex`. Det fungerar för ASCII också.
+## Check
 
-## Snabb self-check innan commit
-
-Kör den automatiska guarden:
-
-```pwsh
+```powershell
 node scripts/dev/check-unicode-regex.mjs
 ```
-
-Den ingår också i `npm run preflight:common`.
-
-Sök efter nya `\b`-regex i diffen:
-
-```pwsh
-git diff HEAD~1..HEAD --unified=0 -- '*.ts' '*.tsx' | Select-String '\\b[a-zA-ZåäöÅÄÖéüñ]'
-```
-
-Om träff — fråga dig: "Kan denna text innehålla icke-ASCII-bokstäver?" Om ja → byt till `uWordRegex`.
-
-## Bakgrund
-
-Den här konventionen etablerades 2026-04-22 efter en audit där samma språkbugg hade smugit in i `follow-up-clarification.ts`, `request-kind.ts`, `capability-inference.ts` och `unsplash-query-fallback.ts`. Se `audit-reports/2026-04-22-llm-flow/SUMMARY.md`.

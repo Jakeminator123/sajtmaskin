@@ -10,6 +10,23 @@ Alla scoutfiler (`findings/`), aktivitetsspecs (`activities/`), `triage.md` och 
 
 ---
 
+## 0. STATUS — verifierad mot master `c2ccd7efd` (triage-svärm 2026-06-22)
+
+Parallell bugg-agent **avslutad** (gren `cursor/modell-och-autofixlogik-3376`, inga öppna PR:er) → orchestrator äger nu listan. 7 read-only composer-agenter verifierade varje B-item mot kod:
+
+| ID | Verifierat läge | % reell bugg |
+|---|---|---|
+| B01, B03, B04, B06, B09, B10, B11, B14, B15, B-GA | **LÖST** — fix bekräftad i cited filer (#181/183/184/185/186/187) | ≤15% |
+| **B05** | **POLICY men LATENT PROD-RISK** — refusal matchar hela registret utan `selectedDossierIds`-filter, och flaggan är ON i Vercel → false-RED-risk. Rekommenderad fix: filtrera på valda dossiers (`cross-file-import-checker.ts:670-688`). | 90% |
+| B07 | POLICY (Jake: media öppet; säkerhet eget pass) | 95% |
+| B08 | POLICY (Jake: fail-open; felet loggas via `console.warn`) | 95% |
+| B12, B13 | EDGE / NEEDS_REPRO — kvarvarande follow-up-gap (F3 stale-base bypass; clear-redesign contract-retry) | 72–78% |
+| B01-klient | NEEDS_REPRO — kräver live preview-host (separat repo) | — |
+
+**Slutsats:** sessionens 10 fixar håller. Öppet kvar = **B05** (latent prod, rekommenderas fix) + **B12/B13** (edge, kräver repro) + dina 3 policybeslut (B05-policy/B07/B08).
+
+---
+
 ## 1. Snabb verdict-tabell
 
 | ID | Titel | Verdict | Prob | Impact | Effort | Yta | Cross-confirmed | blocked_by |

@@ -6,11 +6,37 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ---
 
-## Ingen aktiv drivlinje just nu (stabilisering klar 2026-06-22)
+## Status: Grandmaster-plan AVKLARAD (arkiverad 2026-06-22)
 
-Grandmaster-stabiliseringsplanen är **avklarad** och arkiverad: [`../avklarat/grandmaster/00-master-plan.md`](../avklarat/grandmaster/00-master-plan.md) (8 områden, nivå 1–3). Bugg-letar-agentens findings ligger i [`../avklarat/bug-swarm/`](../avklarat/bug-swarm/). Kontraktslager: [`docs/contracts/`](../../contracts/README.md). Repo-tvätt-initiativet ingick som område 1 (term-check light); historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+Stabiliserings-/kontrakts-/städplanen (8 områden nivå 1–3 + bug-swarm-drive) är **levererad och arkiverad** → [`../avklarat/grandmaster/`](../avklarat/grandmaster/) (master-plan, områdesdokument, aktiviteter, `_loggbok.md`, `_backlog-deferrad.md`). Closing-handoff: [`../../handoffs/2026-06-21-grandmaster-closing-handoff.md`](../../handoffs/2026-06-21-grandmaster-closing-handoff.md). Tag/backup: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
 
-Återstående öppna spår (bugg-agentens orphan-bana B01-klient/B12/B13, deferrad härdning/arkitektur B1/B3/B4/B7, policybeslut, observationer) lever nu i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) — **enda backlog-sanningen**. Nästa fokus enligt closing-handoff: pivotera från härdning till produktbygge mot [`llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md).
+**Ingen aktiv drivlinje just nu.** Nästa fas = pivot "härda → bygga" mot [`../../architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md). Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+
+## Kvarvarande efter grandmaster (live backlog)
+
+**Ägarbeslut (dina — systemet funkar som det är, inte buggar):**
+
+| Post | Vad | Läge |
+|---|---|---|
+| B05 / A7-2 | `refuseDossierStubs` kod-default OFF (env redan ON i Vercel) | ditt beslut |
+| B07 | publik vs privat media-GET | du valde öppet; säkerhet = eget pass |
+| B08 | quality-gate fail-open | du valde släpp-igenom; felet loggas redan |
+
+**Arkitektur-/hygien-backlog (egna scope:ade pass):**
+
+| Post | Vad | Allvar |
+|---|---|---|
+| B3 / E2 | durable event-bus (in-memory/efemär → multi-instans serverless) | **enda korrekthetsrisken** |
+| B1 | S3 false-green-lane warn-only → blockerande `test:ci` | lane-arkitekturbeslut |
+| B4 | canvas auto-PR `CANVAS_PR_TOKEN` (ingen CI på `chore/llm-flow-canvas`) | secret-beslut |
+| F4 / F5 | odefinierade bus-emits · manifest `perTier*` ej i Zod | detalj |
+
+Detalj: [`../avklarat/grandmaster/_backlog-deferrad.md`](../avklarat/grandmaster/_backlog-deferrad.md).
+
+**Bugg-backlog (orchestrator äger nu — parallell bugg-agent avslutad 2026-06-22):**
+
+- Grandmaster-svärm **B01–B15**: 10 fixade (#181–#187), 3 ägarbeslut (B05/B07/B08), B12/B13/B01-klient = edge → [`../avklarat/bug-swarm/README.md`](../avklarat/bug-swarm/README.md).
+- Bred **G#/N#/R#-lista** (rot, load-bearing — preflight + canvas läser den): [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). ~48 öppna = mest policy-/edge-rader; triage-svärm kör 2026-06-22.
 
 ---
 
