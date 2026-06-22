@@ -1517,6 +1517,10 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     if (inspectTag) {
       // Buffra svaret själva (proxyRes-handlern injicerar scriptet före </body>).
       req.__inspectInjectTag = inspectTag;
+      // Be uppströms-runtimen om OKOMPRIMERAD HTML — annars kan svaret komma
+      // gzip:at (content-encoding) och proxyRes-handlern hoppar då injektionen
+      // (icke-injicerbart), så inspektorn blir inert trots ?inspect=1.
+      req.headers["accept-encoding"] = "identity";
       proxy.web(req, res, {
         target: `http://${LOOPBACK}:${state.runtimePort}`,
         selfHandleResponse: true,

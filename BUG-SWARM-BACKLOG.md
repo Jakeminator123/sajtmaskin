@@ -62,6 +62,21 @@ Full B-serie-detalj (arkiverad): [`docs/plans/avklarat/bug-swarm/README.md`](doc
 
 **Bekräftat LÖST (grandmaster):** N#6 (Område 6 event-bus-cutover) → flippad till `[x]` nedan.
 
+### Inspect-bridge (#164) review-fynd (2026-06-22)
+
+Bot-fynd från PR #164 (Vercel VADE + Codex). Loggade här per `pr-merge-review-gate.mdc` så inget tappas. `[x]` = fixad i `fix/inspect-bridge-p2`; `[ ]` = öppen P2.
+
+| Klar | Prio | Fynd | Fil/ankare |
+| --- | --- | --- | --- |
+| [x] | P1 | chunked + Content-Length → ogiltigt HTTP-svar (bröt chunkad preview) | `preview-host/src/runtime.js` (drop transfer-encoding) |
+| [x] | P2 | Spoof-skydd: kräv `source:"sajtmaskin-inspect"`-markör + aktivt `liveRef` för hover/pick | `usePreviewInspectBridge.ts:131` |
+| [x] | P2 | Identity-encoding: be uppströms om okomprimerad HTML annars hoppas injektion över | `preview-host/src/runtime.js:1517` |
+| [x] | P2 | Bevara `?inspect=1` vid imperativ iframe-reload/route-nav (`withInspectParam`) | `PreviewPanel.tsx:620,654` |
+| [ ] | P2 | Fallback till `map`/`ai` när bridge inte kan injiceras (flagga ON men ingen `ready`) → inspektor inert | `PreviewPanel.tsx:170` |
+| [ ] | P2 | `config/env-policy.json`-regel för `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` (env-sync defaultar okända `NEXT_PUBLIC_*` till preview+prod) | `src/lib/env.ts:209`, `scripts/env/manage_env.py:get_rule` |
+| [ ] | P2 | Bevara faktisk klick-punkt för bridge-captures (skickar element-center, ej klick-koord) | `usePreviewInspectBridge.ts:164` |
+| [ ] | P2 | Läck inte `?inspect=1` in i preview-appen (genererad sida kan läsa `searchParams.inspect`) | `PreviewPanel.tsx:withInspectParam` |
+
 **Behöver repro (kan ej avgöras statiskt):** E#1 (eval), R#9 (scaffold-export), G#53 (font), U#29 (media-URL från preview-VM), U#56 (analytics före cookie-consent — integritet), U#77.
 
 Resten (~25 P2/P3) = policy/edge, låg-%, lämnas öppna som beslut-/verifieringsrader.

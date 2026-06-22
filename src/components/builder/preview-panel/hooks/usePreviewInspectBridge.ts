@@ -128,14 +128,25 @@ export function usePreviewInspectBridge(options: {
       if (win && event.source !== win) return; // bara vår preview-iframe
       if (allowed && event.origin !== allowed && event.origin !== "null") return;
 
-      const data = event.data as { type?: string; payload?: BridgeElement } | null;
+      const data = event.data as
+        | { type?: string; source?: string; payload?: BridgeElement }
+        | null;
       if (!data || typeof data.type !== "string") return;
+      // Only accept messages stamped by our injected bridge script — a generated
+      // preview page shares the iframe's window/origin and could otherwise post a
+      // forged inspect message.
+      if (data.source !== "sajtmaskin-inspect") return;
 
       if (data.type === INSPECT_BRIDGE_MESSAGE.ready) {
         childReadyRef.current = true;
         postMode(liveRef.current);
         return;
       }
+
+      // Hover/pick are only honored while inspection is actively live; otherwise a
+      // page could inject fake inspector points/toasts merely because bridge mode
+      // is selected.
+      if (!liveRef.current) return;
 
       if (data.type === INSPECT_BRIDGE_MESSAGE.hover) {
         const el = data.payload;
