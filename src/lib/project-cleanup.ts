@@ -219,8 +219,16 @@ export async function canCreateProject(
 
     return { allowed: true, limit, current };
   } else if (sessionId) {
-    // Anonymous session
-    const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
+    // Anonymous session. On non-production surfaces — local dev AND Vercel
+    // preview deployments (VERCEL_ENV=preview, e.g. branch previews) — the
+    // per-session project cap is lifted so branches can test freely. Real
+    // production (master, VERCEL_ENV=production) keeps the abuse cap.
+    const isNonProdSurface =
+      process.env.NODE_ENV !== "production" ||
+      process.env.VERCEL_ENV === "preview";
+    const limit = isNonProdSurface
+      ? Number.MAX_SAFE_INTEGER
+      : CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(appProjects)
