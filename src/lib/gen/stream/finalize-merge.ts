@@ -185,6 +185,11 @@ export function mergeGeneratedProjectFiles({
   previousFiles,
   selectedDossiers,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
+  // B05: ids of the dossiers selected for THIS generation. Threaded into
+  // checkCrossFileImports so the refuseDossierStubs gate only fires for an
+  // unresolved import owned by a selected dossier (not any registry-wide match).
+  const selectedDossierIds = selectedDossiers?.map((dossier) => dossier.id);
+
   // SCAFFOLD_PROTECTED_PATHS: drop LLM emissions targeting paths that must
   // come from the scaffold default. This guard runs BEFORE merge so both the
   // init branch (scaffold-base wins) and the follow-up branch (previousFiles
@@ -247,7 +252,7 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles);
+    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
     let finalFiles = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -357,7 +362,7 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles);
+    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
     let afterCrossFile = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -402,7 +407,7 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
-  const crossFileResult = checkCrossFileImports(generatedFiles);
+  const crossFileResult = checkCrossFileImports(generatedFiles, selectedDossierIds);
   let crossFileFiles = crossFileResult.files;
   if (crossFileResult.fixes.length > 0) {
     devLogAppend("in-progress", {
