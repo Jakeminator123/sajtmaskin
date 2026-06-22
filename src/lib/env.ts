@@ -200,6 +200,7 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_ADMIN_EMAILS: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  NEXT_PUBLIC_AVATAR_ENABLED: z.string().optional(),
   NEXT_PUBLIC_AVATAR_AGENT_ID: z.string().optional(),
   NEXT_PUBLIC_AVATAR_CLIENT_KEY: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),

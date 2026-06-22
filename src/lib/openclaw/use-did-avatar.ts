@@ -23,8 +23,18 @@ function sanitizePublicEnv(value: string | undefined): string | undefined {
 
 const AGENT_ID = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_AGENT_ID);
 const CLIENT_KEY = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY);
+const AVATAR_ENABLED = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_ENABLED) === "1";
 
-export const DID_AVATAR_AVAILABLE = Boolean(AGENT_ID && CLIENT_KEY);
+/** True when both public D-ID keys are present (regardless of the enable-flag). */
+export const AVATAR_KEYS_PRESENT = Boolean(AGENT_ID && CLIENT_KEY);
+/** True when the build-time enable-flag `NEXT_PUBLIC_AVATAR_ENABLED` is set to "1". */
+export const AVATAR_FLAG_ENABLED = AVATAR_ENABLED;
+
+// The avatar is active ONLY when the explicit enable-flag is "1" AND both public
+// D-ID keys are present. Default (flag unset or != "1") => avatar inactive, even
+// with keys, so the keys can live in every environment while staying off until
+// the flag is flipped to "1" per environment.
+export const DID_AVATAR_AVAILABLE = Boolean(AVATAR_ENABLED && AGENT_ID && CLIENT_KEY);
 
 type DidClientSdk = typeof import("@d-id/client-sdk");
 type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
