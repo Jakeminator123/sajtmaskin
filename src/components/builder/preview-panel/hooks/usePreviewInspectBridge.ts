@@ -87,12 +87,14 @@ export function usePreviewInspectBridge(options: {
     liveRef.current = enabled && active && inspectMode;
   }, [enabled, active, inspectMode]);
 
-  const targetOrigin = originForUrl(previewUrl) || "*";
+  const targetOrigin = originForUrl(previewUrl);
 
   const postMode = useCallback(
     (on: boolean) => {
       const win = iframeRef.current?.contentWindow;
-      if (!win) return;
+      // Never broadcast set-mode to "*": if we can't resolve the preview origin
+      // (absent/malformed previewUrl) we don't post at all rather than to any origin.
+      if (!win || !targetOrigin) return;
       try {
         win.postMessage({ type: INSPECT_BRIDGE_MESSAGE.setMode, enabled: on }, targetOrigin);
       } catch {
@@ -125,8 +127,14 @@ export function usePreviewInspectBridge(options: {
 
     const handler = (event: MessageEvent) => {
       const win = iframeRef.current?.contentWindow;
-      if (win && event.source !== win) return; // bara vår preview-iframe
-      if (allowed && event.origin !== allowed && event.origin !== "null") return;
+      // Primär gräns: window-identitet — bara vår preview-iframes window. Saknas
+      // window (ej monterad) kan vi inte verifiera → avvisa (aldrig "skippa kollen").
+      if (!win || event.source !== win) return;
+      // Origin måste matcha previewens origin. `"null"` = sandboxad/opaque dokument
+      // (väntat för vissa previews) och tillåts. För alla andra origins: om vi inte
+      // kunde härleda förväntad origin (malformed/avsaknad previewUrl) avvisar vi
+      // hellre än att tyst acceptera vilken origin som helst.
+      if (event.origin !== "null" && (!allowed || event.origin !== allowed)) return;
 
       const data = event.data as
         | { type?: string; source?: string; payload?: BridgeElement }

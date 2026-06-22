@@ -338,8 +338,12 @@ export function PreviewPanel({
 
   const handleBridgePick = useCallback(
     (match: RegistryMatch | null) => {
-      if (!match) return;
+      // Punkten är redan fångad (tillagd i chatten) i bridge-hooken oavsett om en
+      // JSX-registry-match hittades — lämna därför alltid inspect-läget så användaren
+      // ser den nya punkten i stället för att fastna kvar i inspektorn. Endast
+      // vy-bytet till kodvyn kräver en match.
       setInspectMode(false);
+      if (!match) return;
       startViewSwitchTransition(() => {
         setViewMode("registry");
         setSelectedRegistryId(match.item.id);
