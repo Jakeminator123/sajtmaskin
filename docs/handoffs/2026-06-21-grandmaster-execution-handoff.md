@@ -2,7 +2,7 @@
 
 > **SUPERSEDED 2026-06-21 (kväll):** aktuell handoff = [`2026-06-21-grandmaster-cleanup-ready-handoff.md`](2026-06-21-grandmaster-cleanup-ready-handoff.md). Område 7 false-green-kärna stängd (#179 + #180), Område 4 verifierat täckt → bara bred Område 8-cleanup kvar. Denna fil = historik.
 
-**Master:** `96b27f8ef` · **Status:** ren överlämning till nästa orchestrator · **Föregångare:** [`2026-06-18-grandmaster-execution-handoff.md`](2026-06-18-grandmaster-execution-handoff.md) (historik) · **Plan:** [`../plans/active/grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md) · **Kanonisk löpande status:** [`../plans/active/grandmaster/_loggbok.md`](../plans/active/grandmaster/_loggbok.md)
+**Master:** `96b27f8ef` · **Status:** ren överlämning till nästa orchestrator · **Föregångare:** [`2026-06-18-grandmaster-execution-handoff.md`](2026-06-18-grandmaster-execution-handoff.md) (historik) · **Plan:** [`../plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) · **Kanonisk löpande status:** [`../plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md)
 
 > Denna fil ersätter 2026-06-18-handoffen som **aktuell** status. Loggboken är fortfarande den finkorniga sanningen — läs dess `Logg` + `handoff-snapshot` + denna fil först. Kod är source of truth om docs/kod skiljer.
 
@@ -31,9 +31,9 @@ Jake startar **parallellt med dig (nästa orchestrator)** en **separat bugg-leta
 
 Plan-livscykeln är kodad i [`.cursor/rules/plan-lifecycle.mdc`](../../.cursor/rules/plan-lifecycle.mdc).
 
-- **Nivå 1 — målbild + index.** [`00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md): nordstjärnan (rolig/aggressiv/snabb + små hårda kontrakt, inte ett styrningslager), de 8 områdena, och **§6 körordning** (skiljer sig från filnumret).
+- **Nivå 1 — målbild + index.** [`00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md): nordstjärnan (rolig/aggressiv/snabb + små hårda kontrakt, inte ett styrningslager), de 8 områdena, och **§6 körordning** (skiljer sig från filnumret).
 - **Nivå 2 — ett dokument per område** (`01`–`08` i `grandmaster/`): syfte, `owner-surface` (verifierad mot HEAD), och en aktivitetslista. Skapas när området är på tur.
-- **Nivå 3 — aktiviteter** i `grandmaster/aktiviteter/*.md`: byggar-agent-körbara, smal `owner_files` var, `blocked_by`-beroenden. Just-in-time per område. Status per aktivitet i [`aktiviteter/README.md`](../plans/active/grandmaster/aktiviteter/README.md).
+- **Nivå 3 — aktiviteter** i `grandmaster/aktiviteter/*.md`: byggar-agent-körbara, smal `owner_files` var, `blocked_by`-beroenden. Just-in-time per område. Status per aktivitet i [`aktiviteter/README.md`](../plans/avklarat/grandmaster/aktiviteter/README.md).
 
 ### Status per område (nivå 2)
 
@@ -64,7 +64,7 @@ Plan-livscykeln är kodad i [`.cursor/rules/plan-lifecycle.mdc`](../../.cursor/r
 ## 4. Nästa konkreta steg (Jakes val, ej låst)
 
 1. **Verifiera A7-2 i prod** efter nästa deploy (plockades env-varianten upp? rimlig block-frekvens?).
-2. **Område 8-svans** (gemensam, ej helt autonom): arkivera källdokument (`_parkering/deep-research-report.md`, cleanup-handoff), stäng `next`-bump (redan `16.2.9`), **bred `.gitignore`/`.cursorignore`-prune** = eget pass med **per-rad-ok** från Jake (`workflow.mdc`). Karta: [`_backlog-deferrad.md`](../plans/active/grandmaster/_backlog-deferrad.md) B6 + [`08-cleanup-och-hygien.md`](../plans/active/grandmaster/08-cleanup-och-hygien.md).
+2. **Område 8-svans** (gemensam, ej helt autonom): arkivera källdokument (`_parkering/deep-research-report.md`, cleanup-handoff), stäng `next`-bump (redan `16.2.9`), **bred `.gitignore`/`.cursorignore`-prune** = eget pass med **per-rad-ok** från Jake (`workflow.mdc`). Karta: [`_backlog-deferrad.md`](../plans/avklarat/grandmaster/_backlog-deferrad.md) B6 + [`08-cleanup-och-hygien.md`](../plans/avklarat/grandmaster/08-cleanup-och-hygien.md).
 3. **Backlog-härdning** (egna pass): VADE-perf `readAll`-per-rad på pollade `/versions` (B2); E2 multi-instans/efemär event-bus (B3); reshapad 5-6 (preview re-pinnar efter follow-up-finalize / anti-stale-falsk-grön); F4 (odefinierade bus-emits); F5 (manifest `perTier*` ej i Zod + hårdkodade modeller).
 4. **Område 4 init-prompt** om Jake vill (ej separat körd).
 
@@ -97,8 +97,8 @@ PARALLELLT och kan flytta master/öppna PR:er medan du jobbar — git fetch ofta
 rebasa worktrees, kollidera inte om brancher/worktrees.
 LÄS FÖRST:
 1. docs/handoffs/2026-06-21-grandmaster-execution-handoff.md  (denna)
-2. docs/plans/active/grandmaster/_loggbok.md                  (finkornig status + logg)
-3. docs/plans/active/grandmaster/00-master-plan.md            (nivå 1 + §6)
+2. docs/plans/avklarat/grandmaster/_loggbok.md                  (finkornig status + logg)
+3. docs/plans/avklarat/grandmaster/00-master-plan.md            (nivå 1 + §6)
 4. docs/architecture/llm-callsite-matrix.md                   (LLM-karta; F4/F5 backlog)
 5. .cursor/rules/ — agent-worktree, builder-coexistence, pr-merge-review-gate,
    auto-merge-automation, terminology, workflow

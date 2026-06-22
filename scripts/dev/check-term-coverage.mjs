@@ -10,7 +10,7 @@
  *
  * Deliberately SOFTER than the Sajtbyggare term-check: no 1500-row allowlist, no hard
  * enforcement. This script ALWAYS exits 0 - turning any of this into a blocking gate is a
- * separate, later decision (see docs/plans/active/grandmaster/aktiviteter/C2-ordlista-check.md).
+ * separate, later decision (see docs/plans/avklarat/grandmaster/aktiviteter/C2-ordlista-check.md).
  *
  * Run from repo root:
  *   npm run check:terms

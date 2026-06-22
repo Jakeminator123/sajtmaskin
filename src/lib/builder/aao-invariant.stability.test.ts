@@ -7,8 +7,8 @@ import { formatSSEEvent } from "@/lib/streaming";
 /**
  * Grandmaster S2 — åäö-invariant i builder-chat.
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/S2-aao-invariant.md
- *        docs/plans/active/grandmaster/02-stabilitetstester.md  (seed: "åäö i
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/S2-aao-invariant.md
+ *        docs/plans/avklarat/grandmaster/02-stabilitetstester.md  (seed: "åäö i
  *        användarprompt renderas i builder-chatten under generering").
  *
  * Invariant som låses: en svensk prompt med åäö/ÅÄÖ som strömmas under generering

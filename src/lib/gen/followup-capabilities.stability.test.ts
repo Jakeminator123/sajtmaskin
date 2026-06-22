@@ -8,7 +8,7 @@ import {
 /**
  * Grandmaster Område 5 — 5-5: capabilities can-only-grow.
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/5-5-capabilities-can-only-grow.md
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/5-5-capabilities-can-only-grow.md
  *
  * Invariant som låses: en follow-up får ALDRIG tyst tappa en capability som
  * basversionen redan etablerat. `FollowUpContract.capabilities` (snapshotens

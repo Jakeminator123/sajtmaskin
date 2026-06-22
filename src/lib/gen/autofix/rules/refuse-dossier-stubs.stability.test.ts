@@ -6,8 +6,8 @@ import type { CodeFile } from "@/lib/gen/parser";
  * Grandmaster område 7 — A7-2 (false-green-härdning), flag-gated default-OFF.
  *
  * Källa (N#1):
- *   docs/plans/active/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md
- *   docs/plans/active/grandmaster/07-false-green-hardning.md
+ *   docs/plans/avklarat/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md
+ *   docs/plans/avklarat/grandmaster/07-false-green-hardning.md
  *
  * Invariant som låses: `checkCrossFileImports` får ALDRIG tyst fabricera en
  * null-render-stub för en dossier-exponerad import NÄR `FEATURES.refuseDossierStubs`

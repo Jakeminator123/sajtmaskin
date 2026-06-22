@@ -13,7 +13,7 @@ import type { FollowUpContract } from "./orchestration-snapshot";
 /**
  * Grandmaster Område 5 — 5-3: frys-enforcement (freeze-enforcement).
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/5-3-frys-enforcement.md
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/5-3-frys-enforcement.md
  *
  * Invariant som låses: en *neutral* follow-up får inte drifta bort från
  * basversionens frysta scaffold/variant/route. `FollowUpContract` är den
@@ -271,7 +271,7 @@ describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {
 /**
  * Grandmaster Område 5 — 5-6: route HARD-CLAMP + explicit route-removal.
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/5-6-route-hard-clamp.md
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/5-6-route-hard-clamp.md
  *
  * Invariant som låses: en *neutral* follow-up får inte SILENTLY (tyst) tappa
  * en route som basversionen hade. Kontraktets frysta routes (existing + shell)

@@ -1,6 +1,6 @@
 # Handoff — Grandmaster: stabiliseringsplanen STÄNGD (2026-06-21, kväll)
 
-**Master:** `984eae4d2` · **Status:** grandmaster-stabiliseringsplanens **scope är 100 % klart**; det som återstår är tre medvetet avgränsade **appendix-spår** (ägarbeslut · bugg-agentens bana · arkitektur-backlog) — inte halvfärdigt planarbete. · **Föregångare:** [`2026-06-21-grandmaster-cleanup-ready-handoff.md`](2026-06-21-grandmaster-cleanup-ready-handoff.md) (superseded) · **Plan:** [`../plans/active/grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md) · **Kanonisk logg:** [`../plans/active/grandmaster/_loggbok.md`](../plans/active/grandmaster/_loggbok.md)
+**Master:** `984eae4d2` · **Status:** grandmaster-stabiliseringsplanens **scope är 100 % klart**; det som återstår är tre medvetet avgränsade **appendix-spår** (ägarbeslut · bugg-agentens bana · arkitektur-backlog) — inte halvfärdigt planarbete. · **Föregångare:** [`2026-06-21-grandmaster-cleanup-ready-handoff.md`](2026-06-21-grandmaster-cleanup-ready-handoff.md) (superseded) · **Plan:** [`../plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) · **Kanonisk logg:** [`../plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md)
 
 > Kod = source of truth om docs/kod skiljer. En parallell **bugg-letar-agent** kör fortfarande (gren `cursor/modell-och-autofixlogik-3376`) — den äger bug-swarm-findings-ytan; `git fetch` ofta, kollidera ej.
 
@@ -53,7 +53,7 @@
 ### Appendix C — Arkitektur-/hygien-backlog (egna scope:ade pass)
 - **B3 / E2** durable event-bus (in-memory/efemär → multi-instans serverless kan splittra status/finalize). **Enda kvarvarande korrekthetsrisken.** Deploy-topologi-beslut.
 - **B1** S3/false-green-stabilitet warn-only-lane → blockerande `test:ci` (lane-arkitekturbeslut).
-- **B4** canvas auto-PR `CANVAS_PR_TOKEN` (secret-beslut). **F4/F5** odefinierade bus-emits / manifest `perTier*`-Zod. Detalj: [`../plans/active/grandmaster/_backlog-deferrad.md`](../plans/active/grandmaster/_backlog-deferrad.md).
+- **B4** canvas auto-PR `CANVAS_PR_TOKEN` (secret-beslut). **F4/F5** odefinierade bus-emits / manifest `perTier*`-Zod. Detalj: [`../plans/avklarat/grandmaster/_backlog-deferrad.md`](../plans/avklarat/grandmaster/_backlog-deferrad.md).
 
 ## 4. Föreslaget nästa steg (i allmänhet)
 

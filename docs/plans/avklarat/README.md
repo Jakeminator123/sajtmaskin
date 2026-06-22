@@ -2,6 +2,10 @@
 
 Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas i din klon).
 
+## Grandmaster-stabiliseringsplanen (arkiverad 2026-06-22)
+
+[`grandmaster/`](grandmaster/) — 8 områden (nivå 1–3), scope 100 % klart. [`bug-swarm/`](bug-swarm/) — bugg-letar-agentens findings (agenten avvecklad). Öppna spår som återstod flyttades till [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) (enda backlog-sanningen) innan arkiveringen, så inget tappades. Handoffs: [`../../handoffs/`](../../handoffs/).
+
 ## Wave 2026-04-20 (cleanup)
 
 Åtta plan-filer levererades i cleanup-waven och är nu konsoliderade här. Detaljplanerna rensades 2026-04-29; använd git-historik vid behov.

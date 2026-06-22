@@ -352,7 +352,7 @@ export const FEATURES = {
   // instead of shipping false-green hollow output. Default OFF so master
   // runtime behavior is unchanged; flipping the default is a separate
   // decision once område 5/6 land. See
-  // docs/plans/active/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md.
+  // docs/plans/avklarat/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md.
   refuseDossierStubs: isAffirmativeEnvValue(env.SAJTMASKIN_REFUSE_DOSSIER_STUBS),
 
   // The four previously dormant flags below were hardcoded ON on 2026-04-22

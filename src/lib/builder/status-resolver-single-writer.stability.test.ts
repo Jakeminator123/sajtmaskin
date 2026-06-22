@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 /**
  * Grandmaster S3 — statusresolver-invariant (single-writer-vakt).
  *
- * Källa: docs/plans/active/grandmaster/aktiviteter/S3-statusresolver-invariant.md
- *        docs/plans/active/grandmaster/02-stabilitetstester.md  (N#6: "Central
+ * Källa: docs/plans/avklarat/grandmaster/aktiviteter/S3-statusresolver-invariant.md
+ *        docs/plans/avklarat/grandmaster/02-stabilitetstester.md  (N#6: "Central
  *        builder-yta läser inte legacy resolveEngineVersionDisplayStatus").
  *        Delivery-bias: varje stabilitetstest pekar på sin källa.
  *

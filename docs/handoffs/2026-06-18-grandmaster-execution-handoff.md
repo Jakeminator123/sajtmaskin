@@ -2,7 +2,7 @@
 
 **Datum:** 2026-06-18 · **Status:** körnings-handoff till nästa agent · **Föregångare:** [`2026-06-18-grandmaster-stabilitet-handoff.md`](2026-06-18-grandmaster-stabilitet-handoff.md) (planerings-handoff) · **master:** `a76f77eed`
 
-> Denna handoff = vad som **byggts och mergats** efter planen. Planen själv: [`docs/plans/active/grandmaster/00-master-plan.md`](../plans/active/grandmaster/00-master-plan.md). Löpande logg + progress: [`docs/plans/active/grandmaster/_loggbok.md`](../plans/active/grandmaster/_loggbok.md).
+> Denna handoff = vad som **byggts och mergats** efter planen. Planen själv: [`docs/plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md). Löpande logg + progress: [`docs/plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md).
 
 ## 1. Orchestrator-modellen (så här kördes det — fortsätt likadant)
 
@@ -42,7 +42,7 @@ En Cursor Automation (cloud, ID `59ae4961-…`, syns som check `Cursor Automatio
 
 ## 5. Progress — "av vad?"
 
-Av grandmaster-planens **7 viktade arbetsområden = 100 poäng** (grov uppskattning, [`_loggbok.md`](../plans/active/grandmaster/_loggbok.md) är källan):
+Av grandmaster-planens **7 viktade arbetsområden = 100 poäng** (grov uppskattning, [`_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md) är källan):
 
 | Steg (§6 körordning) | Vikt | Klart |
 |---|---:|---:|
@@ -76,7 +76,7 @@ Löpande: Område 8 Cleanup & hygien (gemensamt, ej autonomt)
 Wave 2: Område 4 Prompter (init+follow-up) — saknar eget §6-steg, körs med steg 4–5
 ```
 
-Bug-swarm → område-koppling: [`bug-swarm-koppling.md`](../plans/active/grandmaster/bug-swarm-koppling.md).
+Bug-swarm → område-koppling: [`bug-swarm-koppling.md`](../plans/avklarat/grandmaster/bug-swarm-koppling.md).
 
 ## 8. Worktrees vid handoff
 

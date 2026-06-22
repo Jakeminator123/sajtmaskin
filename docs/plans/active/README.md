@@ -6,13 +6,11 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ---
 
-## Aktiv drivlinje: Grandmaster-plan (2026-06-18)
+## Ingen aktiv drivlinje just nu (stabilisering klar 2026-06-22)
 
-Konsoliderad körplan: **[`grandmaster/00-master-plan.md`](grandmaster/00-master-plan.md)** (nivå 1) + 8 områden (nivå 2) i samma mapp; nivå 3-aktiviteter skapas just-in-time. Slår ihop deep-research, cleanup-handoff och "Controlled Aggression" till en lättviktig stabilitets-/kontrakt-/städplan. Kontraktslager: [`docs/contracts/`](../../contracts/README.md).
+Grandmaster-stabiliseringsplanen är **avklarad** och arkiverad: [`../avklarat/grandmaster/00-master-plan.md`](../avklarat/grandmaster/00-master-plan.md) (8 områden, nivå 1–3). Bugg-letar-agentens findings ligger i [`../avklarat/bug-swarm/`](../avklarat/bug-swarm/). Kontraktslager: [`docs/contracts/`](../../contracts/README.md). Repo-tvätt-initiativet ingick som område 1 (term-check light); historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
 
-**Körordning** (skiljer sig från områdesnumret): branch-hygien → stabilitetstester (omr 2) → dokumentation (omr 3) → kontrakt/regler (omr 1) → event-bus UI (omr 6) → FollowUpContract (omr 5) → false-green (omr 7). Städning (omr 8) löpande/gemensamt.
-
-Repo-tvätt-initiativet är infällt som **område 1 (term-check light)**; full historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+Återstående öppna spår (bugg-agentens orphan-bana B01-klient/B12/B13, deferrad härdning/arkitektur B1/B3/B4/B7, policybeslut, observationer) lever nu i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) — **enda backlog-sanningen**. Nästa fokus enligt closing-handoff: pivotera från härdning till produktbygge mot [`llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md).
 
 ---
 
