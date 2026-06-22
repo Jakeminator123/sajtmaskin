@@ -82,6 +82,36 @@ interface CapabilityRule {
   patterns: RegExp[];
 }
 
+/**
+ * 3D / WebGL / Canvas detection patterns. Shared between the `needs3D`
+ * capability rule below and {@link explicitlyRequests3D} so the deterministic
+ * inference and the orchestrate-side `visual-3d` gate agree on exactly what
+ * counts as an explicit 3D request. None of these use the `g`/`y` flag, so
+ * reusing the RegExp instances across call sites is stateless and safe.
+ *
+ * Do not narrow/broaden these without checking the regression matrix in
+ * `src/lib/providers/own-engine/follow-up-clarification.test.ts`.
+ */
+export const NEEDS_3D_PATTERNS: RegExp[] = [
+  /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
+  /\b3d[a-zåäö-]+\b/i,
+  /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
+  /\b(gltf|glb|usegltf)\b/i,
+];
+
+/**
+ * True when the prompt literally asks for 3D / WebGL / Canvas, using the exact
+ * same pattern bank as the `needs3D` capability rule. Consumed by
+ * `filterDossierCapabilitiesForPrompt` in `src/lib/gen/orchestrate.ts` to drop
+ * an LLM-suggested `visual-3d` dossier capability when the prompt only implies
+ * a cinematic/immersive/dramatic mood (which belongs to `motionLevel`/
+ * `qualityBar`) rather than real 3D. Mirrors how `carousel` is gated by
+ * `explicitlyRequestsCarousel`.
+ */
+export function explicitlyRequests3D(prompt: string): boolean {
+  return NEEDS_3D_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
 const RULES: CapabilityRule[] = [
   {
     key: "needsMotion",
@@ -132,12 +162,7 @@ const RULES: CapabilityRule[] = [
   },
   {
     key: "needs3D",
-    patterns: [
-      /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
-      /\b3d[a-zåäö-]+\b/i,
-      /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
-      /\b(gltf|glb|usegltf)\b/i,
-    ],
+    patterns: NEEDS_3D_PATTERNS,
   },
   {
     key: "needsPhysics",

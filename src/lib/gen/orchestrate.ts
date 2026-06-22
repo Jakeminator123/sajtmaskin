@@ -34,6 +34,7 @@ import {
 import {
   inferCapabilities,
   buildCapabilityHints,
+  explicitlyRequests3D,
   type InferredCapabilities,
 } from "./capability-inference";
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
@@ -345,6 +346,14 @@ export function filterDossierCapabilitiesForPrompt(params: {
       return false;
     }
     if (capability === "carousel" && !explicitlyRequestsCarousel(params.prompt)) {
+      return false;
+    }
+    // `visual-3d` can arrive from the Deep-Brief LLM on "cinematic"/"immersive"/
+    // "dramatic" prompts that never asked for 3D, which produced WebGL heroes
+    // that crashed with THREE.WebGLRenderer context-loss + CSP unsafe-eval.
+    // Drop it unless the prompt literally asks for 3D/WebGL/Canvas, mirroring
+    // the carousel gate above.
+    if (capability === "visual-3d" && !explicitlyRequests3D(params.prompt)) {
       return false;
     }
     return true;
