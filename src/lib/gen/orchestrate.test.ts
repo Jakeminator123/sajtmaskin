@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  filterDossierCapabilitiesForPrompt,
   inheritQualityTargetFromPriorVersion,
   resolveBuildIntentPromotion,
   type BuildIntentPromotionInput,
@@ -180,5 +181,38 @@ describe("resolveBuildIntentPromotion (P26 / OMTAG Fas 2·A)", () => {
   it("does not promote when scaffoldMode is manual (user pinned the scaffold explicitly)", () => {
     const result = resolveBuildIntentPromotion(makeInput({ scaffoldMode: "manual" }));
     expect(result.wouldPromote).toBe(false);
+  });
+});
+
+describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () => {
+  it("drops physics-3d when visual-3d is gated out on a non-3D prompt", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["physics-3d", "visual-3d"],
+      prompt: "a cinematic landing page for a law firm",
+      previewPolicy: "fidelity2",
+    });
+    // visual-3d is dropped (no explicit 3D request) → physics-3d must follow,
+    // otherwise we ship a physics dossier with no Three.js renderer.
+    expect(result).not.toContain("visual-3d");
+    expect(result).not.toContain("physics-3d");
+  });
+
+  it("keeps physics-3d when the prompt explicitly requests 3D", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["physics-3d", "visual-3d"],
+      prompt: "a three.js webgl scene with gravity and falling objects",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).toContain("visual-3d");
+    expect(result).toContain("physics-3d");
+  });
+
+  it("leaves unrelated capabilities untouched", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["parallax-scroll", "command-search"],
+      prompt: "a marketing site",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).toEqual(["parallax-scroll", "command-search"]);
   });
 });
