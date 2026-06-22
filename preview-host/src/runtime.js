@@ -1611,6 +1611,11 @@ proxy.on("proxyRes", (proxyRes, req, res) => {
     const idx = body.toLowerCase().lastIndexOf("</body>");
     body = idx !== -1 ? body.slice(0, idx) + tag + body.slice(idx) : body + tag;
     const out = Buffer.from(body, "utf8");
+    // Vi skickar en helt buffrad body med explicit Content-Length, så ev.
+    // upstream Transfer-Encoding (t.ex. chunked) MASTE bort — att skicka bade
+    // Content-Length och Transfer-Encoding ger ett ogiltigt HTTP-svar som
+    // bracker preview-laddningen for chunkad HTML.
+    delete headers["transfer-encoding"];
     headers["content-length"] = String(out.length);
     headers["cache-control"] = "no-store";
     if (!res.headersSent) res.writeHead(status, headers);
