@@ -528,9 +528,17 @@ ${extraExports ? `${extraExports}\n\n` : ""}export default DateDisplay;
  */
 export function checkCrossFileImports(
   files: CodeFile[],
+  selectedDossierIds?: readonly string[],
 ): { files: CodeFile[]; fixes: CrossFileImportFix[] } {
   const fileMap = new Map<string, CodeFile>();
   for (const f of files) fileMap.set(f.path, f);
+  // B05: scope the refuseDossierStubs gate to dossiers actually selected for
+  // this generation. Without this, getDossierExposesByImportPath matches the
+  // WHOLE dossier registry, so an unresolved import owned by a dossier that was
+  // never selected would still be refused — blocking legitimate builds
+  // (false-RED) when the flag is ON in prod. When the selected set is unknown
+  // (undefined/empty) we never refuse, preserving the silent-stub behavior.
+  const selectedDossierIdSet = new Set(selectedDossierIds ?? []);
 
   for (const f of files) {
     if (!f.path.match(/\.(tsx?|jsx?)$/)) continue;
@@ -666,8 +674,14 @@ export function checkCrossFileImports(
     // version degrades/blocks instead of shipping false-green hollow output.
     // The refusal is recorded as a `refused` fix for observability. This is the
     // loud-error path the earlier TODO described. Default-OFF → the silent-stub
-    // branch below runs exactly as on master.
-    if (dossierMatch && FEATURES.refuseDossierStubs) {
+    // branch below runs exactly as on master. B05: only refuse when the matched
+    // dossier was actually selected for this generation (else it's an unrelated
+    // registry path and refusing would be a false-RED).
+    if (
+      dossierMatch &&
+      FEATURES.refuseDossierStubs &&
+      selectedDossierIdSet.has(dossierMatch.dossierId)
+    ) {
       console.warn(
         `[cross-file-import-checker] dossier_exposed_path refused: import "${source}" ` +
           `from dossier "${dossierMatch.dossierId}" (capability: ${dossierMatch.capability}) ` +

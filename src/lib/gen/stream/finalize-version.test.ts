@@ -906,7 +906,10 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(mergeVersionFilesWithWarnings).not.toHaveBeenCalled();
-    expect(checkCrossFileImports).toHaveBeenCalledWith(
+    // First arg is the files array; a second `selectedDossierIds` arg (B05) may
+    // also be passed, so assert on the files arg directly rather than full arity.
+    expect(checkCrossFileImports).toHaveBeenCalled();
+    expect(checkCrossFileImports.mock.calls[0][0]).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           path: "src/app/page.tsx",

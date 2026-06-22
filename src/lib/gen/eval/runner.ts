@@ -398,6 +398,10 @@ async function evaluatePrompt(
     originalFilesJson: JSON.stringify(project.files),
     generatedFiles: project.files,
     resolvedScaffold: generationInput.resolvedScaffold,
+    // B05: scope refuseDossierStubs to the eval's selected dossiers so eval
+    // green/red parity matches the production streaming finalize path.
+    selectedDossiers:
+      generationInput.dossierSelection?.selected.map((s) => s.entry) ?? [],
   });
   const mergedFiles = (
     JSON.parse(mergeResult.filesJson) as Array<{

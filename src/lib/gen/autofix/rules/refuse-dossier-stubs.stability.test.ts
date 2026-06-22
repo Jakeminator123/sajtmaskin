@@ -123,7 +123,12 @@ describe("A7-2 — autofix refuses dossier stubs (flag-gated, default-OFF)", () 
   it("flag ON: refuses the stub and emits a degrade/blocker signal instead", () => {
     mockState.refuseDossierStubs = true;
 
-    const result = checkCrossFileImports([importerImportingDossierPath()]);
+    // B05: the matched dossier WAS selected for this generation, so the gate
+    // legitimately refuses the hollow stub.
+    const result = checkCrossFileImports(
+      [importerImportingDossierPath()],
+      [mockState.dossierMatch.dossierId],
+    );
 
     // No silent stub is fabricated → the dossier import stays unresolved.
     expect(result.files.some((f) => f.path === STUB_PATH)).toBe(false);
@@ -144,6 +149,32 @@ describe("A7-2 — autofix refuses dossier stubs (flag-gated, default-OFF)", () 
     );
     expect(blocker).toBeDefined();
     expect(blocker?.severity).toBe("error");
+  });
+
+  it("flag ON but matched dossier NOT selected: creates the silent stub (B05 — no false-RED)", () => {
+    mockState.refuseDossierStubs = true;
+
+    // The import matches a dossier in the registry, but that dossier was NOT
+    // selected for this generation. The gate must NOT refuse — otherwise a
+    // registry-wide match blocks a legitimate build (false-RED) in prod.
+    const result = checkCrossFileImports(
+      [importerImportingDossierPath()],
+      ["some-other-unrelated-dossier"],
+    );
+
+    // Silent stub IS created → import resolves, build does not break.
+    const stub = result.files.find((f) => f.path === STUB_PATH);
+    expect(stub).toBeDefined();
+    expect(stub?.content).toContain("PaymentsCheckout");
+
+    const fix = result.fixes.find((f) => f.missingImport === mockState.dossierImport);
+    expect(fix).toBeDefined();
+    expect(fix?.refused).toBeUndefined();
+
+    // Downstream parity: with the stub present the import resolves, so the
+    // false-green guard does NOT flag it.
+    const sanity = runProjectSanityChecks(result.files);
+    expect(sanity.issues.some((i) => i.message.includes(mockState.dossierImport))).toBe(false);
   });
 
   it("flag ON: leaves non-dossier cross-file stubs untouched (warning-only branch unchanged)", () => {

@@ -240,6 +240,13 @@ export async function generateOwnEngineSiteFromPrompt(
       imageGenerations,
       scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
       buildSpec: orchestrationBase.buildSpec,
+      // B05: carry the dossier selection so resolveSelectedDossiersFromStreamMeta
+      // can rebuild it in finalize. Without this the MCP/non-stream path passed
+      // no selected ids → the refuseDossierStubs gate went silent here (the
+      // streaming builder path already sets these via own-engine-build-session).
+      selectedDossierIds:
+        orchestrationBase.dossierSelection?.selected.map((s) => s.entry.id) ?? [],
+      requestedCapabilities: orchestrationBase.dossierRequestedCapabilities ?? [],
     },
   });
 
