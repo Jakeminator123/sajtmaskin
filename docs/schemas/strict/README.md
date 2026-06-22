@@ -14,6 +14,7 @@ Rules:
 | Schema | Validates | Source of truth | Runtime check? |
 |--------|-----------|-----------------|----------------|
 | `dossier.schema.json` | `data/dossiers/<class>/<id>/manifest.json` | `src/lib/gen/dossiers/types.ts` + `validate-manifest.ts` | **Yes** — AJV in `validate-manifest.ts` |
+| `control-plane-registry.schema.json` | `config/control-plane/{schema,policy}-registry.json` | `config/control-plane/README.md` | CI: `npm run control-plane:check` (AJV 2020-12) + `src/lib/control-plane/registry.test.ts`. No runtime read. |
 | `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` | Editor-only (runtime in `registry.ts`) |
 | `preview-session-contract.schema.json` | Preview session objects (machine-readable spec, not a draft-07 schema) | See file | No — TS contracts are source of truth |
 | `db-health-check-report.schema.json` | stdout-payload from `scripts/db/db-health-check.mjs` | `scripts/db/db-health-check.mjs` | CI: AJV mot fixtures (`src/lib/db/health-schemas.test.ts`). Ingen live-DB-validering i CI; manuell roundtrip-validering kan köras lokalt med `node scripts/db/db-health-check.mjs \| ajv …` |
