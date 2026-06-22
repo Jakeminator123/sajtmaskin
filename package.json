@@ -46,7 +46,6 @@
     "test:stability": "npm run db:schema-drift && vitest run --passWithNoTests -c vitest.stability.config.ts",
     "test:followup-contract": "vitest run -c vitest.stability.config.ts src/lib/gen/followup-freeze.stability.test.ts src/lib/gen/followup-capabilities.stability.test.ts",
     "test:focused": "vitest run src/components/builder/BuilderMessageTooling.test.tsx src/lib/hooks/chat/helpers.test.ts src/lib/hooks/chat/post-checks.test.ts src/lib/hooks/chat/stream-handlers.test.ts src/lib/gen/stream/finalize-version.test.ts src/lib/gen/post-process/image-materializer.test.ts src/lib/gen/verify/preview-quality-gate.test.ts src/lib/gen/verify/server-verify.test.ts src/lib/providers/own-engine/generation-stream-post-finalize.test.ts src/lib/gen/eval/runner.test.ts src/lib/gen/eval/baseline.test.ts src/lib/gen/eval/scorecard.test.ts src/app/api/engine/chats/[chatId]/quality-gate/route.test.ts src/lib/integrations/tier3-build-spec.test.ts src/lib/gen/preview/warm-typecheck.test.ts src/lib/gen/autofix/rules/tier3-sdk-guard-fixer.test.ts",
-    "test:openclaw:e2e": "playwright test -c playwright.openclaw.config.ts",
     "test:deploy-smoke:e2e": "playwright test -c playwright.deploy-smoke.config.ts",
     "templates:sync": "node scripts/v0-templates/sync-v0-templates.mjs",
     "templates:validate": "node scripts/v0-templates/validate-templates.mjs",

@@ -16,7 +16,7 @@
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 5 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `drizzle/` | Genererade Drizzle DB-migrationsartefakter (`meta/`). Config: `drizzle.config.ts`. |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `debug/`, `cursor/`, `fly_vm/`. |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `canvas/`, `debug/`, `cursor/`. |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `public/` | Next.js statiska assets (branding, bilder, ikoner, video). |
@@ -24,6 +24,61 @@
 | `.cursor/` | Cursor-regler, skills, repo-lokala slash-kommandon och README — [`.cursor/README.md`](../../.cursor/README.md). |
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) (öppna P1/P2-buggsanning) · `sajtmaskin_backoffice.py` (backoffice-entry). Kanoniska env-skript ligger under `scripts/env/`.
+
+## Kanonisk struktur (filträd + logik)
+
+Ett ställe för "var ligger vad och varför". Filträd (rensat 2026-06-22):
+
+```
+repo/
+├── src/                  Next.js App Router + API + UI; egen motor i src/lib/gen/, src/lib/own-engine/, src/lib/providers/own-engine/
+├── config/               kanonisk config: ai_models/, prompt-core/, env-policy.json, scaffold-variants/, dashboard/domain-map.json (load-bearing; namnet legacy)
+├── data/                 lokal lagring + dossiers/{hard,soft}/ (committad); runs/ + prompt-dumps/ + observability/ är gitignorade runtime-artefakter
+├── docs/                 mänsklig dokumentation (träd nedan)
+├── scripts/              Node/Python-hjälp (package.json = sanning för npm-namn; scripts/README.md = karta)
+├── backoffice/           Streamlit-backoffice (npm run backoffice → sajtmaskin_backoffice.py)
+├── preview-host/         preview-host runtime/verify/workspace-livscykel
+├── services/             hjälpprocesser (inspector-worker, port 3310)
+├── e2e/                  Playwright: deploy/ (aktiv, opt-in, skippas utan env) + vercel-templates/ (legacy referens, ej CI)
+├── infra/                OpenClaw m.m.
+├── drizzle/              genererade DB-migrationsartefakter
+├── templates_v0/         builderns Mallar-tab (v0-mallar); out/ + downloads/ gitignorade
+├── _parkering/           medveten parkeringsyta (ej indexerad, fortf. i git)
+└── .cursor/              regler, skills, slash-kommandon
+
+docs/
+├── README.md             NAV — enda fulla navtabellen
+├── architecture/         kanonisk systembeskrivning + glossary + repo-tree + db-cascade-graph + documentation-lifecycle (+ _archived/)
+├── schemas/              människoläsbara kontrakt + strict/ (maskin-scheman; dossier/health/LLM-telemetri AJV-validerade i CI)
+├── plans/
+│   ├── active/           ENDA aktiva ytan = README.md (router). Ingen drivlinje just nu (stabilisering klar)
+│   ├── archived/         vilande / parkerat / reverterat (kan återupptas)
+│   └── avklarat/         klart/mergat (historik) — t.ex. grandmaster/, bug-swarm/
+├── archive/              icke-plan-historik (status/)
+├── operating/            driftdokument: cheatsheets + incidents/
+├── contracts/            lätt kontraktsindex (schema/policy/regel/beslut)
+├── handoffs/             daterade agent-handoffs (historik)
+├── llm/ · evals/ · howto/ · external-pipelines/ · agent-reports/   ämnesdocs
+└── old/                  pekare → git-historik
+```
+
+**Var ska nytt innehåll ligga? (beslutslogik)**
+
+| Innehåll | Plats |
+|---|---|
+| Bug / öppen risk / observation | [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) — **enda buggsanningen** |
+| Aktiv plan / spår-router | `docs/plans/active/README.md` (väv in; skapa inte filzoo) |
+| Klar/mergad plan | `docs/plans/avklarat/` |
+| Parkerad / reverterad plan | `docs/plans/archived/` |
+| Kanonisk arkitektur / diagram | `docs/architecture/` |
+| Maskinläsbart kontrakt | `docs/schemas/strict/` (backa med kod + ev. AJV-test) |
+| Incidentrapport / postmortem | `docs/operating/incidents/` |
+| Status-ögonblicksbild | `docs/archive/status/` |
+| Runtime-kod (motor) | `src/lib/gen/`, `src/lib/own-engine/`, `src/lib/providers/own-engine/` |
+| npm-script | `package.json` (sanning) + entry under `scripts/<domän>/` |
+| Term / begrepp | `docs/architecture/glossary.md` (registrera; duplicera inte) |
+
+**Princip:** kod är source of truth; docs speglar. En sanning, ett ställe — länka, duplicera inte. `archived` ≠ `avklarat` (parkerat vs klart). Genererade CI-artefakter (`docs/canvases/`) är **inte** arkiv.
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 
