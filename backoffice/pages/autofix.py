@@ -23,6 +23,7 @@ from backoffice.shared import (
     phase_token_budget_entry,
     read_autofix_runtime_config,
     read_json,
+    validate_manifest_or_error,
     write_json,
     write_phase_thinking,
 )
@@ -412,6 +413,13 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
                     bool(cfg.get("thinking", False)),
                     str(cfg.get("reasoningEffort", "medium")),
                 )
+        errs = validate_manifest_or_error(manifest)
+        if errs:
+            st.error(
+                "Sparar inte — manifestet bryter mot schemat:\n"
+                + "\n".join(f"- {message}" for message in errs)
+            )
+            st.stop()
         try:
             write_json(ctx.manifest_json, manifest)
             st.success(

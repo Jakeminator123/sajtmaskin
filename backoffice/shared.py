@@ -132,6 +132,52 @@ def write_json(path: Path, data: Any) -> None:
         f.write("\n")
 
 
+def validate_manifest_or_error(manifest: dict[str, Any]) -> list[str]:
+    """Validate a proposed ai_models manifest against its JSON Schema.
+
+    Checks ``manifest`` against ``config/ai_models/manifest.schema.json``
+    (JSON Schema Draft 2020-12). Returns a list of human-readable error
+    strings; an empty list means the manifest is schema-valid and safe to
+    write. The backoffice manifest editors (``ai_models.py`` / ``autofix.py``)
+    call this before every ``write_json`` so a schema-breaking edit is blocked
+    with ``st.error`` instead of silently corrupting the manifest.
+
+    Fails closed: if the validator infrastructure is unavailable (missing
+    ``jsonschema`` package or schema file) the returned list is non-empty, so
+    callers skip the write rather than persist unvalidated data.
+    """
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError:
+        return [
+            "Schemavalidering kunde inte köras: Python-paketet `jsonschema` saknas. "
+            "Installera det (se requirements.backoffice.txt). Sparar inte för att "
+            "undvika att skada manifestet."
+        ]
+
+    try:
+        schema_path = find_repo_root() / "config" / "ai_models" / "manifest.schema.json"
+    except FileNotFoundError as exc:
+        return [f"Schemavalidering kunde inte köras: {exc}"]
+
+    if not schema_path.is_file():
+        return [
+            f"Schemavalidering kunde inte köras: saknar {schema_path.as_posix()}."
+        ]
+
+    try:
+        schema = read_json(schema_path)
+    except (OSError, ValueError) as exc:
+        return [f"Schemavalidering kunde inte köras: kunde inte läsa schema ({exc})."]
+
+    validator = Draft202012Validator(schema)
+    messages: list[str] = []
+    for err in sorted(validator.iter_errors(manifest), key=lambda e: list(e.path)):
+        location = "/".join(str(part) for part in err.path) or "(root)"
+        messages.append(f"{location}: {err.message}")
+    return messages
+
+
 @st.cache_data
 def load_domain_map(path_str: str) -> dict[str, Any]:
     path = Path(path_str)

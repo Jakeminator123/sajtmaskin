@@ -24,10 +24,28 @@ from backoffice.shared import (
     read_text,
     render_where_panel,
     sync_route_timeout_literals,
+    validate_manifest_or_error,
     write_json,
     write_phase_thinking,
     write_text,
 )
+
+
+def _guard_manifest_or_stop(manifest: dict[str, Any]) -> None:
+    """Block the save when the proposed manifest breaks the schema.
+
+    Validates against ``config/ai_models/manifest.schema.json`` and, on any
+    error, renders ``st.error`` + ``st.stop()`` so the write never happens.
+    No-op (returns) when the manifest is valid, leaving behavior identical to
+    before for valid edits.
+    """
+    errs = validate_manifest_or_error(manifest)
+    if errs:
+        st.error(
+            "Sparar inte — manifestet bryter mot schemat:\n"
+            + "\n".join(f"- {message}" for message in errs)
+        )
+        st.stop()
 
 
 def _render_generator_chain(
@@ -185,6 +203,7 @@ def _render_generator_chain(
                     bool(cfg.get("thinking", False)),
                     str(cfg.get("reasoningEffort", "medium")),
                 )
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat generator-kedjan.")
         st.rerun()
@@ -258,6 +277,7 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         briefing["requestModel"] = request_model.strip()
         briefing["serverAutoOpenAI"] = auto_openai.strip()
         briefing["serverAutoAnthropic"] = auto_anthropic.strip()
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat assist / brief / polish.")
         st.rerun()
@@ -388,6 +408,7 @@ def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
         soft_targets.setdefault("appChars", {})["default"] = int(soft_app)
         phase_thresholds.setdefault("defaultChars", {})["default"] = int(phase_default)
         phase_thresholds.setdefault("auditChars", {})["default"] = int(phase_audit)
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat orkestreringsgränserna.")
         st.rerun()
@@ -478,6 +499,7 @@ def _render_provider_contracts(man_path, manifest: dict[str, Any]) -> None:
                 payload["status"] = status
             cleaned_rules.append(payload)
         contracts_cfg["providerRules"] = cleaned_rules
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat provider-/kontraktsregler.")
         st.rerun()
@@ -616,6 +638,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         rp["manualRepairRouteLlmPasses"] = int(manual_passes)
         rp["serverRepairPasses"] = int(server_passes)
         rp["repairAcceptTimeoutMinutes"] = int(repair_accept_timeout)
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         changed = sync_route_timeout_literals(ctx.repo_root, int(engine_timeout), int(assist_timeout))
         st.success(f"Sparat repair / budget / timeout. Synkade {changed} statiska route-filer.")
@@ -755,6 +778,7 @@ def _render_other_route_models(man_path, manifest: dict[str, Any]) -> None:
                 workload["fallbackModels"] = fallback_models
             else:
                 workload.pop("fallbackModels", None)
+        _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat route-modeller.")
         st.rerun()
@@ -800,6 +824,7 @@ def _render_manifest_json(ctx: BackofficeContext, man_path, manifest: dict[str, 
     if st.button("Spara manifest.json", type="primary"):
         try:
             parsed = json.loads(edited)
+            _guard_manifest_or_stop(parsed)
             write_json(man_path, parsed)
             route_timeouts = parsed.get("routeTimeouts") or {}
             engine_timeout = int(
