@@ -226,6 +226,45 @@
         "src/lib/env-audit.ts"
       ]
     },
+    "Control Plane (cockpit)": {
+      "summary": "Read-only operatörsöversikt (Backoffice 2.0 fas 1) över control-plane-registren: schema- + policy-registret renderas som en samlad cockpit (source of truth, validator, ciStatus, runtimeEnforced/runtimeStatus, backoffice-redigerbarhet/danger, mobility, notes). Ingen redigering här — `backoffice.writePath`/`surface` pekar operatören till respektive ägaryta. Strict-schema för registren själva och human-läsbar karta listas som sökvägar.",
+      "canonicalPaths": [
+        "config/control-plane/schema-registry.json",
+        "config/control-plane/policy-registry.json",
+        "config/control-plane/README.md",
+        "backoffice/pages/control_plane.py",
+        "scripts/control-plane/check-registry.mjs"
+      ],
+      "docsPaths": [
+        "docs/architecture/schema-policy-map.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/control-plane-registry.schema.json"
+      ],
+      "codeReaders": [
+        "src/lib/control-plane/registry.test.ts"
+      ]
+    },
+    "Env Readiness (read-only)": {
+      "summary": "Read-only operatörsmatris (Backoffice 2.0 fas 2) över env-lagren: Sajtmaskin-appens egen env (klassning i config/env-policy.json, ultimat auktoritet src/lib/env.ts serverSchema) vs den genererade sajtens preview-env (placeholder-fragment + mergeordning i src/lib/gen/preview/env-local.ts där generated vinner). Per nyckel: source/provenance, requiredFor (app|preview-host|F2|F3|deploy), enforcement, hasValue (maskerad boolean), isPlaceholder, blocksF3 och sourceOfTruth. Värden är maskerade by design — inga hemligheter visas eller loggas. harmless = safe in F3, tier3-stub = F2-only (stripped in F3). Ingen redigering här.",
+      "canonicalPaths": [
+        "config/env-policy.json",
+        "config/ai_models/40-harmless-placeholders.env.txt",
+        "config/ai_models/41-tier3-stub-placeholders.env.txt",
+        "src/lib/integrations/placeholder-harmless.ts",
+        "src/lib/gen/preview/env-local.ts",
+        "backoffice/pages/env_readiness.py"
+      ],
+      "docsPaths": [
+        "docs/architecture/env-flow-map.md",
+        "docs/ENV.md"
+      ],
+      "codeReaders": [
+        "src/lib/env.ts",
+        "src/lib/env-audit.ts",
+        "src/lib/ai-models/load-generated-site-placeholders.ts"
+      ]
+    },
     "shadcn-audit": {
       "summary": "Målstack och sökvägar för audit-skript mot shadcn-mirror-repon (bygg-/CI-verktyg, inte runtime i appen).",
       "canonicalPaths": [
