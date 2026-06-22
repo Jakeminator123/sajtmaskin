@@ -144,24 +144,49 @@ export default function Home() {
   // landningen aldrig visas. Läses synkront vid FÖRSTA render — innan
   // PromptBuilder hinner konsumera handoffen i sin mount-effekt (child-
   // effekter körs före parent-effekter, så vi får inte missa nyckeln).
-  const [coldStudioEntry] = useState(() => {
-    if (typeof window === "undefined") return false;
+  // Två signaler läses synkront vid FÖRSTA render (innan PromptBuilder hinner
+  // konsumera handoffen i sin mount-effekt):
+  //  - hasHandoffEntry: en init/wizard/direct-build-handoff finns → ett bygge
+  //    eller wizard-flöde är på väg, så studion ska INTE redirecta.
+  //  - coldStudioEntry: varken handoff ELLER sparat val → ett "kallt" besök →
+  //    redirecta direkt till / (snabb, ingen blink).
+  const [{ coldStudioEntry, hasHandoffEntry }] = useState(() => {
+    if (typeof window === "undefined") {
+      return { coldStudioEntry: false, hasHandoffEntry: false };
+    }
     try {
-      const entryKeys = [
+      const handoffKeys = [
         "sajtbyggaren:init-prompt",
         "sajtbyggaren:wizard-handoff",
         "sajtbyggaren:wizard-seed",
         "sajtbyggaren:direct-build",
-        STUDIO_SELECTION_STORAGE_KEY,
       ];
-      return !entryKeys.some((key) => window.sessionStorage.getItem(key));
+      const hasHandoff = handoffKeys.some((key) =>
+        window.sessionStorage.getItem(key),
+      );
+      const hasSelection = Boolean(
+        window.sessionStorage.getItem(STUDIO_SELECTION_STORAGE_KEY),
+      );
+      return {
+        coldStudioEntry: !hasHandoff && !hasSelection,
+        hasHandoffEntry: hasHandoff,
+      };
     } catch {
-      return false;
+      return { coldStudioEntry: false, hasHandoffEntry: false };
     }
   });
   useEffect(() => {
     if (coldStudioEntry) router.replace("/");
   }, [coldStudioEntry, router]);
+  // Andra redirect-vakten (limbo-skydd): en STALE sessionStorage-selection
+  // (eller en auto-vald projektinput) kan förhindra den synkrona cold-
+  // redirecten UTAN att ge builder-läge → studion fastnar på ViewerPanels
+  // pre-build-hero ("gamla startsidan"). När ingen handoff/wizard fanns vid
+  // mount och studion efter runs-laddning varken bygger eller är i builder-
+  // läge finns inget att visa → tillbaka till /. Gatas på !hasHandoffEntry så
+  // direct-build/init/wizard-flöden (som sätter building / öppnar wizarden)
+  // aldrig avbryts.
+  const postLoadRedirectedRef = useRef(false);
   // Live Build Sync: pending-build-state delas mellan BuilderShell
   // (som äger FloatingChat + dialogerna) och Versions-tab. Sätts
   // av onBuildStart-callbacks, rensas av onBuildEnd.
@@ -502,6 +527,26 @@ export default function Home() {
   ]);
 
   const builderActive = builderTarget !== null;
+
+  // Limbo-skyddet (se postLoadRedirectedRef ovan): kör en gång när runs
+  // laddats. Inget handoff-flöde, inget bygge och ingen builder → studion har
+  // bara pre-build-heron att visa, vilket är exakt "gamla startsidan" vi tagit
+  // bort. Skicka tillbaka till / så startsidan förblir enda ingången.
+  useEffect(() => {
+    if (postLoadRedirectedRef.current || coldStudioEntry || hasHandoffEntry) {
+      return;
+    }
+    if (runsLoading || building || builderActive) return;
+    postLoadRedirectedRef.current = true;
+    router.replace("/");
+  }, [
+    coldStudioEntry,
+    hasHandoffEntry,
+    runsLoading,
+    building,
+    builderActive,
+    router,
+  ]);
 
   function handleBuildDone(
     runId: string,
