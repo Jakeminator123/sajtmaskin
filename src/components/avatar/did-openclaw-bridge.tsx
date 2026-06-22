@@ -479,15 +479,7 @@ export function DidOpenClawBridge({
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="overflow-hidden rounded-[24px] border border-border/20 bg-black/80">
           <div className="relative aspect-4/5 min-h-[320px]">
-            {!testMode ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted={connectionState !== "speaking"}
-                className="h-full w-full object-contain object-top"
-              />
-            ) : (
+            {testMode ? (
               <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#1e293b,transparent_55%),linear-gradient(180deg,#0f172a,#020617)] p-6 text-center">
                 <div>
                   <div className="mx-auto h-20 w-20 rounded-full border border-sky-400/30 bg-sky-400/10" />
@@ -497,6 +489,27 @@ export function DidOpenClawBridge({
                   </p>
                 </div>
               </div>
+            ) : avatarUnavailable ? (
+              <div
+                className="flex h-full items-center justify-center bg-[linear-gradient(180deg,#0f172a,#020617)] p-6 text-center"
+                data-testid="avatar-bridge-video-disabled"
+              >
+                <div>
+                  <div className="mx-auto h-20 w-20 rounded-full border border-border/30 bg-muted/10" />
+                  <p className="mt-4 text-sm font-medium text-muted-foreground">Avatar avstängd</p>
+                  <p className="mt-2 text-xs text-muted-foreground/70">
+                    Textchatten till höger fungerar som vanligt.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={connectionState !== "speaking"}
+                className="h-full w-full object-contain object-top"
+              />
             )}
 
             {!avatarReady && !avatarUnavailable && !testMode && (
@@ -508,137 +521,134 @@ export function DidOpenClawBridge({
         </div>
 
         <div className="flex min-h-[320px] flex-col">
-          {avatarUnavailable ? (
-            <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-100">
+          {avatarUnavailable && (
+            <div
+              className="mb-4 rounded-2xl border border-border/30 bg-card/30 p-4 text-sm text-muted-foreground"
+              data-testid="avatar-bridge-notice"
+            >
               {flagDisabled ? (
                 <>
                   Avataren är avstängd: <code>NEXT_PUBLIC_AVATAR_ENABLED</code> är inte satt
-                  till <code>1</code>. Bridge-läget faller tillbaka till textchatt tills flaggan
+                  till <code>1</code>. Bridge-läget kör vidare som textchatt tills flaggan
                   slås på för den här miljön.
                 </>
               ) : (
                 <>
-                  Saknar publika env-vars för bridge-läget: <code>NEXT_PUBLIC_AVATAR_AGENT_ID</code>{" "}
-                  eller <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>.
+                  Avatarvideon saknar publika env-vars (<code>NEXT_PUBLIC_AVATAR_AGENT_ID</code>{" "}
+                  eller <code>NEXT_PUBLIC_AVATAR_CLIENT_KEY</code>), men textchatten nedan
+                  fungerar ändå.
                 </>
               )}
-              <div className="mt-3">
-                <Link className="underline" href={iframeHref} data-testid="avatar-bridge-fallback-link">
-                  Byt till iframe-fallback
-                </Link>
-              </div>
             </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                {!testMode && (
-                  <button
-                    type="button"
-                    onClick={() => void ensureConnected()}
-                    className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
-                    data-testid="avatar-bridge-connect"
-                  >
-                    Anslut avatar
-                  </button>
-                )}
-                <Link
-                  href={iframeHref}
-                  className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
-                  data-testid="avatar-bridge-fallback-link"
-                >
-                  Öppna iframe-fallback
-                </Link>
-              </div>
-
-              <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-border/20 bg-card/20 p-3">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : message.isError
-                            ? "border border-red-500/20 bg-red-500/10 text-foreground"
-                            : "bg-muted/70 text-foreground"
-                      }`}
-                    >
-                      <p
-                        data-testid={
-                          message.role === "assistant" ? "avatar-bridge-last-assistant" : undefined
-                        }
-                      >
-                        {message.content}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-
-                {interimTranscript && listening && (
-                  <div className="rounded-xl border border-dashed border-primary/30 px-3 py-2 text-sm text-muted-foreground">
-                    Lyssnar: {interimTranscript}
-                  </div>
-                )}
-
-                {thinking && (
-                  <div className="inline-flex items-center gap-2 rounded-xl bg-muted/70 px-3 py-2 text-sm text-muted-foreground">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary/40" />
-                    Tänker...
-                  </div>
-                )}
-              </div>
-
-              {(lastError || testMode) && (
-                <div
-                  className="mt-4 rounded-2xl border border-border/20 bg-card/30 p-3 text-xs text-muted-foreground"
-                  data-testid="avatar-bridge-debug"
-                >
-                  {lastError ? `Senaste fel: ${lastError}` : "Testläge aktivt: mockad D-ID-transport."}
-                  {lastSpokenText ? ` Senaste tal: ${lastSpokenText}` : ""}
-                </div>
-              )}
-
-              <form
-                className="mt-4 flex items-center gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void sendMessage(textInput);
-                  setTextInput("");
-                }}
-              >
-                {speechSupported && (
-                  <button
-                    type="button"
-                    onClick={listening ? stopListening : startListening}
-                    disabled={thinking}
-                    className={`rounded-xl px-3 py-2 text-sm ${
-                      listening ? "bg-red-500 text-white" : "border border-border/30 bg-card/50"
-                    }`}
-                    data-testid="avatar-bridge-mic"
-                  >
-                    {listening ? "Stoppa" : "Tala"}
-                  </button>
-                )}
-                <input
-                  value={textInput}
-                  onChange={(event) => setTextInput(event.target.value)}
-                  placeholder="Skriv till avataren..."
-                  className="h-11 flex-1 rounded-xl border border-border/30 bg-background px-3 text-sm outline-none"
-                  data-testid="avatar-bridge-input"
-                />
-                <button
-                  type="submit"
-                  disabled={thinking || !textInput.trim()}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
-                  data-testid="avatar-bridge-send"
-                >
-                  Skicka
-                </button>
-              </form>
-            </>
           )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!testMode && !avatarUnavailable && (
+              <button
+                type="button"
+                onClick={() => void ensureConnected()}
+                className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
+                data-testid="avatar-bridge-connect"
+              >
+                Anslut avatar
+              </button>
+            )}
+            <Link
+              href={iframeHref}
+              className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
+              data-testid="avatar-bridge-fallback-link"
+            >
+              Öppna iframe-fallback
+            </Link>
+          </div>
+
+          <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-border/20 bg-card/20 p-3">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : message.isError
+                        ? "border border-red-500/20 bg-red-500/10 text-foreground"
+                        : "bg-muted/70 text-foreground"
+                  }`}
+                >
+                  <p
+                    data-testid={
+                      message.role === "assistant" ? "avatar-bridge-last-assistant" : undefined
+                    }
+                  >
+                    {message.content}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {interimTranscript && listening && (
+              <div className="rounded-xl border border-dashed border-primary/30 px-3 py-2 text-sm text-muted-foreground">
+                Lyssnar: {interimTranscript}
+              </div>
+            )}
+
+            {thinking && (
+              <div className="inline-flex items-center gap-2 rounded-xl bg-muted/70 px-3 py-2 text-sm text-muted-foreground">
+                <span className="h-2 w-2 animate-bounce rounded-full bg-primary/40" />
+                Tänker...
+              </div>
+            )}
+          </div>
+
+          {(lastError || testMode) && (
+            <div
+              className="mt-4 rounded-2xl border border-border/20 bg-card/30 p-3 text-xs text-muted-foreground"
+              data-testid="avatar-bridge-debug"
+            >
+              {lastError ? `Senaste fel: ${lastError}` : "Testläge aktivt: mockad D-ID-transport."}
+              {lastSpokenText ? ` Senaste tal: ${lastSpokenText}` : ""}
+            </div>
+          )}
+
+          <form
+            className="mt-4 flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void sendMessage(textInput);
+              setTextInput("");
+            }}
+          >
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={listening ? stopListening : startListening}
+                disabled={thinking}
+                className={`rounded-xl px-3 py-2 text-sm ${
+                  listening ? "bg-red-500 text-white" : "border border-border/30 bg-card/50"
+                }`}
+                data-testid="avatar-bridge-mic"
+              >
+                {listening ? "Stoppa" : "Tala"}
+              </button>
+            )}
+            <input
+              value={textInput}
+              onChange={(event) => setTextInput(event.target.value)}
+              placeholder="Skriv till avataren..."
+              className="h-11 flex-1 rounded-xl border border-border/30 bg-background px-3 text-sm outline-none"
+              data-testid="avatar-bridge-input"
+            />
+            <button
+              type="submit"
+              disabled={thinking || !textInput.trim()}
+              className="rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+              data-testid="avatar-bridge-send"
+            >
+              Skicka
+            </button>
+          </form>
         </div>
       </div>
     </div>
