@@ -112,6 +112,42 @@ function nameAppearsInFile(code: string, name: string): boolean {
 }
 
 /**
+ * True when the file already declares or re-exports `name` locally, so it must
+ * not be imported from elsewhere. Guards against e.g. adding
+ * `import { cn } from "@/lib/utils"` into `lib/utils.ts` itself (#201), and more
+ * generally against a registry import shadowing a local declaration.
+ */
+function fileDeclaresSymbol(code: string, name: string): boolean {
+  const n = escapeRegExp(name);
+  const declaration = new RegExp(
+    `(?:^|\\n)\\s*export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b` +
+      `|(?:^|\\n)\\s*(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b`,
+  );
+  if (declaration.test(code)) return true;
+  // Re-export: `export { name }` / `export { x as name }`.
+  return new RegExp(`export\\s*\\{[^}]*\\b${n}\\b[^}]*\\}`).test(code);
+}
+
+/**
+ * True when `module` (e.g. `@/lib/utils`) resolves to the file currently being
+ * edited, which would produce a self-/circular-import. Only path-alias modules
+ * (`@/…`, `~/…`) can point back at a project file; bare package specifiers
+ * (`lucide-react`, `next/image`) never do.
+ */
+function moduleMatchesFile(module: string, filePath: string): boolean {
+  if (!filePath) return false;
+  let target: string | null = null;
+  if (module.startsWith("@/") || module.startsWith("~/")) {
+    target = module.slice(2);
+  } else {
+    return false;
+  }
+  const stripIndex = (value: string): string => value.replace(/\/index$/, "");
+  const fileNoExt = stripIndex(toPosixPath(filePath).replace(/\.(tsx?|jsx?)$/, ""));
+  return stripIndex(target) === fileNoExt;
+}
+
+/**
  * Add the resolved imports for `missingNames` into a single file's source.
  * Merges into an existing value named-import line for the same module when one
  * exists; otherwise inserts a fresh import after the existing import block.
@@ -119,6 +155,7 @@ function nameAppearsInFile(code: string, name: string): boolean {
 function addKnownImportsToFile(
   code: string,
   missingNames: string[],
+  filePath = "",
 ): { code: string; added: Array<{ name: string; module: string }> } {
   const alreadyImported = collectImportedNames(code);
   const namedByModule = new Map<string, string[]>();
@@ -127,8 +164,14 @@ function addKnownImportsToFile(
   for (const name of missingNames) {
     if (alreadyImported.has(name)) continue;
     if (!nameAppearsInFile(code, name)) continue;
+    // Never import a symbol the file already declares/exports locally — the
+    // local declaration is the source of truth, not the registry. #201
+    if (fileDeclaresSymbol(code, name)) continue;
     const resolved = resolveKnownImport(name);
     if (!resolved) continue;
+    // Never import from a module that resolves to this same file (e.g. adding
+    // `import { cn } from "@/lib/utils"` into lib/utils.ts → self-import). #201
+    if (moduleMatchesFile(resolved.module, filePath)) continue;
     if (resolved.kind === "default") {
       defaultImports.push({ name, module: resolved.module });
     } else {
@@ -245,7 +288,7 @@ export function fixKnownTs2304Imports(
     const missing = missingByFile.get(toPosixPath(file.path));
     if (!missing || missing.size === 0) return file;
 
-    const result = addKnownImportsToFile(file.content, [...missing]);
+    const result = addKnownImportsToFile(file.content, [...missing], file.path);
     if (result.added.length === 0) return file;
 
     changed = true;

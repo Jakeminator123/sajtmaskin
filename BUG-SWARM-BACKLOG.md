@@ -87,6 +87,22 @@ Bot-fynd från PR #202 (Codex). Loggat per `pr-merge-review-gate.mdc`. #202 merg
 | --- | --- | --- | --- |
 | [ ] | P2 | `#fragment`-källreferenser valideras inte: validatorn strippar allt efter `#` och kollar bara att filen finns, inte att den refererade top-level-nyckeln/sökvägen existerar. En framtida typo/borttagning av `repairPolicies`/`perTier*` håller kartan grön men pekar på en obefintlig auktoritet (false-green i själva self-validating-kartan). Fix: resolva JSON-fragment och faila när nyckeln saknas. | `scripts/control-plane/check-registry.mjs:114` |
 
+### Post-review-svärm (#196–#203) triage (2026-06-22)
+
+Granskning av nyligen mergade PR:er. De tre säkra+självklara fixades; säkerhets-/omdömesfynd deprioriterade per ägarbeslut (inte aggressiv säkerhetshärdning i detta skede).
+
+| Klar | Prio | Fynd | Fil/ankare |
+| --- | --- | --- | --- |
+| [x] | P2 | **#190** `company_profiles` orphanas vid `deleteProject` — kommentaren påstod FK CASCADE men `project_id TEXT` saknar `references()`. Fix: explicit `tx.delete(companyProfiles)` i transaktionen + rättad kommentar. | `src/lib/db/services/projects.ts:251` · `schema.ts:375` |
+| [x] | P2 | **#201** TS2304-fixer `cn` self-/circular-import: kunde lägga `import { cn } from "@/lib/utils"` i `lib/utils.ts` självt. Fix: `fileDeclaresSymbol`-guard (lokal deklaration vinner över registry) + `moduleMatchesFile`-guard (importera aldrig modul som resolvar till samma fil) + 2 tester. | `src/lib/gen/autofix/rules/ts2304-known-import-fixer.ts` |
+| [x] | P2 | **#198** `physics-3d` kunde bli kvar utan `visual-3d` (Three-shell saknas → dependency-kollision). Fix: invariant i `filterDossierCapabilitiesForPrompt` droppar `physics-3d` när `visual-3d` gateats bort + 3 tester. | `src/lib/gen/orchestrate.ts:329` |
+| [ ] | P2 | **#197 SÄKERHET (deprio)** inspect-bridge spoof-skydd svagt: `source:"sajtmaskin-inspect"`-markören är publik och förfalskbar av generated code i samma iframe. Kräver nonce/token-kanal. | `usePreviewInspectBridge.ts` |
+| [ ] | P3 | **#197 (deprio)** `?inspect=1` kan nå genererad apps `searchParams`/`window.location.search` — instrumentering mer app-synlig än nödvändigt. | `PreviewPanel.tsx:withInspectParam` |
+| [ ] | P2 | **#196 SÄKERHET (deprio)** SSRF connect-time TOCTOU / DNS-rebinding: `safeFetch` resolvar+blockar privat IP statiskt, men faktisk fetch kan re-resolva. Kräver IP-pinning. | `src/lib/ssrf-guard.ts` |
+| [ ] | P3 | **#198 (omdöme)** `visual-3d`-heuristik bred: `canvas`/`mesh`/`scene`/`particle`/`tilt` kan släppa igenom 3D. Heuristik-tuning, kräver regression mot `follow-up-clarification.test.ts` — ej enrad-fix. | `capability-inference.ts:95` |
+| [ ] | P3 | **#199 (omdöme)** watchdog mäter timeout från `version.created_at`, inte från verify-start → kan ge falsk timeout. Felcopy redan fixad; kräver ny signal (`verification_started_at`). | `readiness/route.ts:36` |
+| [ ] | P3 | **#200/#201 (omdöme)** bred registry-vs-lokal kvar i `detectMissingImports`/ts2304 (cross-file lokal export borde vinna). Same-file-fallet löst i #201; cross-file kräver projekt-export-index. | `import-validator.ts:471` |
+
 ### Naming-debt: `v0ChatId` — kräver migrationsplan, ej quick-removal (2026-06-22)
 
 Verifierat under live-test-städningen (Fas 5): `v0ChatId` är **inte** ett dött null-fält. Det är en **live DB-kolumn** (`chats.v0_chat_id`, notNull/unique, bär faktiskt chat-id) + en **load-bearing konsument** — `src/app/builder/useBuilderVmPreview.ts` (`isLegacyMappedChatRecord`, rad 22–25/210) gatar VM-preview-bootstrap för legacy-mappade chattar. Full borttagning = tyst regression och bryter DB/payload-nyckel → per `docs/architecture/repository-and-platform.md` krävs **migrationsplan** (byt internt symbolnamn, behåll DB/payload-kompat). Säker delmängd finns om man vill (död `|| data.v0ChatId`-läsning i `useCreateChat.ts:274` + okonsumerat duplikatfält i `/api/projects/[id]/chat`), men huvudfältet i `/api/engine/chats/[chatId]` + DB-kolumnen lämnas orörda tills migrationsplan finns.

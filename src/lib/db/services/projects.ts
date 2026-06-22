@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
+  companyProfiles,
   domainOrders,
   projectData,
   projectFiles,
@@ -232,23 +233,27 @@ export async function deleteProject(id: string, scope?: ProjectOwnerScope): Prom
   if (!existing) return false;
 
   // Tack vare FK CASCADE räcker det med en DELETE på app_projects:
-  //   project_data, project_files, images, company_profiles      (FK CASCADE)
+  //   project_data, project_files, images                         (FK CASCADE)
   //   engine_chats → engine_messages, engine_versions,            (FK CASCADE,
   //     engine_generation_logs, engine_version_error_logs,         add-cascade-
   //     generation_telemetry, version_comments, version_approvals  *.sql)
   //
-  // Två tabeller saknar FK och raderas explicit:
-  //   domain_orders   – text-kolumn utan FK; finansiella records som annars
-  //                     blir dangling efter projekt-radering.
-  //   media_library   – text-kolumn utan FK *by design*: media ägs av
-  //                     användaren och kan delas mellan projekt, så vi rör
-  //                     den INTE här.
+  // Tabeller utan FK raderas explicit (annars orphanas raderna):
+  //   company_profiles – `project_id TEXT` utan references() i schema.ts, så
+  //                      ingen CASCADE finns. Raderades tidigare aldrig och
+  //                      blev orphan vid projekt-radering (#190).
+  //   domain_orders    – text-kolumn utan FK; finansiella records som annars
+  //                      blir dangling efter projekt-radering.
+  //   media_library    – text-kolumn utan FK *by design*: media ägs av
+  //                      användaren och kan delas mellan projekt, så vi rör
+  //                      den INTE här.
   //
-  // Wrap:as i en transaktion så vi inte hamnar i partial-failure där
-  // domain_orders raderats men app_projects-rensningen faller (deadlock,
+  // Wrap:as i en transaktion så vi inte hamnar i partial-failure där en
+  // explicit delete körts men app_projects-rensningen faller (deadlock,
   // timeout etc). Motsvarande pattern finns i scripts/db/cleanup-test-
   // projects.mjs (`deleteProjectsCascade`).
   await db.transaction(async (tx) => {
+    await tx.delete(companyProfiles).where(eq(companyProfiles.project_id, id));
     await tx.delete(domainOrders).where(eq(domainOrders.project_id, id));
     await tx.delete(appProjects).where(eq(appProjects.id, id));
   });

@@ -331,7 +331,7 @@ export function filterDossierCapabilitiesForPrompt(params: {
   prompt: string;
   previewPolicy: BuildSpec["previewPolicy"];
 }): string[] {
-  return params.capabilities.filter((capability) => {
+  const filtered = params.capabilities.filter((capability) => {
     if (
       params.previewPolicy !== "fidelity3" &&
       F3_ONLY_DOSSIER_CAPABILITIES.has(capability)
@@ -358,6 +358,15 @@ export function filterDossierCapabilitiesForPrompt(params: {
     }
     return true;
   });
+
+  // `physics-3d` depends on the same Three.js shell/deps that `visual-3d`
+  // provides. If visual-3d was gated out (the prompt never asked for 3D) but the
+  // Deep-Brief still emitted physics-3d, drop physics-3d too — otherwise we ship
+  // a physics dossier with no 3D renderer (dependency collision / dead WebGL). #198
+  if (filtered.includes("physics-3d") && !filtered.includes("visual-3d")) {
+    return filtered.filter((capability) => capability !== "physics-3d");
+  }
+  return filtered;
 }
 
 export interface OrchestrationBase {

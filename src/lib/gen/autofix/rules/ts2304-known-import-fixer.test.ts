@@ -171,4 +171,46 @@ export default function Page() {
     expect(result.code).toBe(content);
     expect(result.addedImports).toEqual([]);
   });
+
+  it("does not self-import cn into lib/utils.ts where cn is declared (#201)", () => {
+    // `cn` resolves to `@/lib/utils`. When the diagnosed file IS lib/utils.ts and
+    // it declares `cn`, adding `import { cn } from "@/lib/utils"` would be a
+    // self-/circular-import. The fixer must leave the file byte-identical.
+    const utilsFile = "lib/utils.ts";
+    const content = project(
+      utilsFile,
+      `import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: utilsFile, message: "Cannot find name 'cn'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+    expect(result.code).not.toContain('import { cn } from "@/lib/utils"');
+  });
+
+  it("still adds the cn import for a normal file that uses but does not declare it", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <div className={cn("p-4", "text-center")} />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'cn'." },
+    ]);
+
+    expect(result.code).toContain('import { cn } from "@/lib/utils"');
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "cn", module: "@/lib/utils" },
+    ]);
+  });
 });
