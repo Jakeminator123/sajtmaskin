@@ -259,7 +259,9 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
   }));
 
   const completion = await openai.chat.completions.create({
-    model: getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-4o",
+    model: toOpenAiDirectModelId(
+      getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-4o",
+    ),
     messages: [
       { role: "system", content: VISION_PROMPT },
       {
