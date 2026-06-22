@@ -224,6 +224,38 @@ const embeddingEntrySchema = z.object({
   codeEntry: z.array(z.string()).optional(),
 });
 
+/**
+ * Backoffice 2.0 fas 6 — matching strategy switch.
+ *
+ * `keyword`   = deterministic regex/keyword matching (today's default for
+ *               intent + capability + domain inference).
+ * `embedding` = precomputed embedding + cosine similarity (today's default
+ *               for scaffold + variant selection).
+ * `small-llm` = manifest-gated small-LLM classifier (workloads.match_classifier)
+ *               with fail-safe fallback to the deterministic result.
+ */
+const matchStrategyEnum = z.enum(["keyword", "embedding", "small-llm"]);
+export type MatchStrategy = z.infer<typeof matchStrategyEnum>;
+
+/** Matching points that can be routed via {@link getMatchStrategy}. */
+export const MATCH_POINTS = [
+  "followUpIntent",
+  "capabilityDetection",
+  "scaffoldSelection",
+  "variantSelection",
+  "domainInference",
+] as const;
+export type MatchPoint = (typeof MATCH_POINTS)[number];
+
+const matchingSchema = z.object({
+  followUpIntent: matchStrategyEnum.optional(),
+  capabilityDetection: matchStrategyEnum.optional(),
+  scaffoldSelection: matchStrategyEnum.optional(),
+  variantSelection: matchStrategyEnum.optional(),
+  domainInference: matchStrategyEnum.optional(),
+  notes: z.string().optional(),
+});
+
 const generatedSiteIntegrationPlaceholdersSchema = z.object({
   harmlessEnvFragmentFile: z.string(),
   tier3StubEnvFragmentFile: z.string(),
@@ -311,6 +343,10 @@ const aiModelsManifestSchema = z.object({
     streamSafetyTimeoutMs: intTimeoutSchema,
   }),
   embeddingModels: z.record(z.string(), embeddingEntrySchema).optional(),
+  // Backoffice 2.0 fas 6 — optional per matching-point strategy switch.
+  // Omitting it (or any point) keeps the current-default method, so the
+  // switch is a no-op until a point is explicitly set to a new strategy.
+  matching: matchingSchema.optional(),
   generatedSiteIntegrationPlaceholders:
     generatedSiteIntegrationPlaceholdersSchema.optional(),
   workloads: z.array(workloadSchema),
@@ -505,6 +541,30 @@ export function getWorkloadFallbackModelsFromManifest(
   workloadId: string,
 ): readonly string[] {
   return getWorkloadByIdFromManifest(workloadId)?.fallbackModels ?? [];
+}
+
+/**
+ * Default matching strategy per point = the method used today. Keeping these
+ * here (and not requiring the manifest to declare them) guarantees that the
+ * matchStrategy switch is a strict no-op until a point is explicitly set to a
+ * different strategy in `config/ai_models/manifest.json` `matching`.
+ */
+const MATCH_STRATEGY_DEFAULTS: Record<MatchPoint, MatchStrategy> = {
+  followUpIntent: "keyword",
+  capabilityDetection: "keyword",
+  scaffoldSelection: "embedding",
+  variantSelection: "embedding",
+  domainInference: "keyword",
+};
+
+/**
+ * Resolve the configured matching strategy for a point, falling back to the
+ * current-default method when the manifest omits it. Returns `keyword` /
+ * `embedding` / `small-llm`.
+ */
+export function getMatchStrategy(point: MatchPoint): MatchStrategy {
+  const configured = getAiModelsManifest().matching?.[point];
+  return configured ?? MATCH_STRATEGY_DEFAULTS[point];
 }
 
 /**
