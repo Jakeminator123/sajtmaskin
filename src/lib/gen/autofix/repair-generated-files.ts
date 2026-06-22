@@ -28,6 +28,7 @@ import {
   fixIconComponentValueMisuse,
   ensureTier2PreviewBasePathInNextConfig,
 } from "./pipeline";
+import { runImportValidator } from "./import-validator";
 
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
@@ -112,6 +113,21 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       }
 
       return content === file.content ? file : { ...file, content };
+    }
+
+    // import-validator (mirror of pipeline.ts step 2): adds missing
+    // lucide-react / shadcn / next.js / React-hook imports inferred from JSX
+    // & hook usage, and corrects shadcn import paths. This is the missing
+    // post-merge link that repairs esbuild-green / tsc-red white screens such
+    // as `<Clapperboard />` rendered without
+    // `import { Clapperboard } from "lucide-react"`: a missing icon import
+    // keeps esbuild green, so the full `runAutoFix` escalation in
+    // finalize-preflight never fires and the import was previously never added
+    // on the post-merge repair path.
+    const importValidatorResult = runImportValidator(content);
+    content = importValidatorResult.code;
+    for (const fix of importValidatorResult.fixes) {
+      fixes.push({ ...fix, category: "mechanical", file: file.path });
     }
 
     const namedImportResult = fixLocalNamedImportDefaultMismatches(content, file.path, files, moduleExportIndex);
