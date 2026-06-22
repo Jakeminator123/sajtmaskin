@@ -232,6 +232,45 @@ const generatedSiteIntegrationPlaceholdersSchema = z.object({
   notes: z.string().optional(),
 });
 
+/**
+ * Per-tier policy overrides.
+ *
+ * VALIDATE-ONLY: these are present in config/ai_models/manifest.json and shown
+ * read-only in backoffice, but nothing in the generation pipeline consumes them
+ * yet. Global routeTimeouts / repairPolicies / briefing defaults are what apply
+ * at runtime. See config/control-plane/policy-registry.json
+ * (manifest-per-tier-* entries, runtimeStatus "declared-only"). Do NOT wire the
+ * getters below into the pipeline without flipping those registry entries.
+ */
+function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
+  return z.object({
+    fast: inner,
+    pro: inner,
+    max: inner,
+    codex: inner,
+    anthropic: inner,
+  });
+}
+
+const perTierTimeoutSchema = z.object({
+  engineRouteMaxDurationSeconds: z.number(),
+  verifierTimeoutMs: z.number(),
+});
+
+const perTierRepairPolicySchema = z.object({
+  deterministicAutofixPasses: z.number(),
+  syntaxFixPasses: z.number(),
+  serverRepairPasses: z.number(),
+});
+
+const perTierBriefingEntrySchema = z.object({
+  briefingModel: z.string(),
+});
+
+const perTierTimeoutsSchema = tierKeyedSchema(perTierTimeoutSchema);
+const perTierRepairPoliciesSchema = tierKeyedSchema(perTierRepairPolicySchema);
+const perTierBriefingSchema = tierKeyedSchema(perTierBriefingEntrySchema);
+
 const aiModelsManifestSchema = z.object({
   schemaVersion: z.number().int().positive(),
   title: z.string().optional(),
@@ -254,6 +293,10 @@ const aiModelsManifestSchema = z.object({
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
   qualityGateTiers: qualityGateTiersSchema,
+  // VALIDATE-ONLY per-tier policy overrides (declared-only, not wired to runtime).
+  perTierTimeouts: perTierTimeoutsSchema.optional(),
+  perTierRepairPolicies: perTierRepairPoliciesSchema.optional(),
+  perTierBriefing: perTierBriefingSchema.optional(),
   promptOrchestration: promptOrchestrationSchema,
   postGenerationPasses: postGenerationPassesSchema,
   preGenerationContracts: preGenerationContractsConfigSchema,
@@ -289,6 +332,9 @@ export type ContractProviderRuleFromManifest = z.infer<typeof contractProviderRu
 export type PreGenerationContractsConfigFromManifest = z.infer<
   typeof preGenerationContractsConfigSchema
 >;
+export type PerTierTimeoutsFromManifest = z.infer<typeof perTierTimeoutsSchema>;
+export type PerTierRepairPoliciesFromManifest = z.infer<typeof perTierRepairPoliciesSchema>;
+export type PerTierBriefingFromManifest = z.infer<typeof perTierBriefingSchema>;
 
 function parseManifest(): AiModelsManifest {
   const parsed = aiModelsManifestSchema.safeParse(rawManifest);
@@ -459,6 +505,27 @@ export function getWorkloadFallbackModelsFromManifest(
   workloadId: string,
 ): readonly string[] {
   return getWorkloadByIdFromManifest(workloadId)?.fallbackModels ?? [];
+}
+
+/**
+ * VALIDATE-ONLY read-only accessors for the per-tier policy overrides.
+ *
+ * These intentionally do NOT alter runtime behavior — they only expose the
+ * validated (optional) manifest fields so backoffice/tooling can read them.
+ * The generation pipeline still uses the global routeTimeouts / repairPolicies /
+ * briefing defaults. See the note above `perTierTimeoutsSchema` before wiring
+ * any of these into the pipeline.
+ */
+export function getPerTierTimeoutsFromManifest(): PerTierTimeoutsFromManifest | undefined {
+  return getAiModelsManifest().perTierTimeouts;
+}
+
+export function getPerTierRepairPoliciesFromManifest(): PerTierRepairPoliciesFromManifest | undefined {
+  return getAiModelsManifest().perTierRepairPolicies;
+}
+
+export function getPerTierBriefingFromManifest(): PerTierBriefingFromManifest | undefined {
+  return getAiModelsManifest().perTierBriefing;
 }
 
 /** Metadata for generated-site preview env placeholders (see config/ai_models/). */

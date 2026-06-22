@@ -113,6 +113,42 @@
         "integrationsBuild": { "$ref": "#/$defs/qualityGateCheckArray" }
       }
     },
+    "perTierTimeouts": {
+      "type": "object",
+      "description": "VALIDATE-ONLY per-tier timeout overrides. Declared-only: validated but not wired to runtime (global routeTimeouts apply). See config/control-plane/policy-registry.json.",
+      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "properties": {
+        "fast": { "$ref": "#/$defs/perTierTimeout" },
+        "pro": { "$ref": "#/$defs/perTierTimeout" },
+        "max": { "$ref": "#/$defs/perTierTimeout" },
+        "codex": { "$ref": "#/$defs/perTierTimeout" },
+        "anthropic": { "$ref": "#/$defs/perTierTimeout" }
+      }
+    },
+    "perTierRepairPolicies": {
+      "type": "object",
+      "description": "VALIDATE-ONLY per-tier repair-pass overrides. Declared-only: validated but not wired to runtime (global repairPolicies apply).",
+      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "properties": {
+        "fast": { "$ref": "#/$defs/perTierRepairPolicy" },
+        "pro": { "$ref": "#/$defs/perTierRepairPolicy" },
+        "max": { "$ref": "#/$defs/perTierRepairPolicy" },
+        "codex": { "$ref": "#/$defs/perTierRepairPolicy" },
+        "anthropic": { "$ref": "#/$defs/perTierRepairPolicy" }
+      }
+    },
+    "perTierBriefing": {
+      "type": "object",
+      "description": "VALIDATE-ONLY per-tier briefing-model overrides. Declared-only: validated but not wired to runtime (global briefing defaults apply).",
+      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "properties": {
+        "fast": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "pro": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "max": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "codex": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "anthropic": { "$ref": "#/$defs/perTierBriefingEntry" }
+      }
+    },
     "promptOrchestration": {
       "type": "object",
       "required": ["hardCaps", "softTargets", "phaseThresholds"],
@@ -328,6 +364,30 @@
       "items": {
         "type": "string",
         "enum": ["typecheck", "build", "lint"]
+      }
+    },
+    "perTierTimeout": {
+      "type": "object",
+      "required": ["engineRouteMaxDurationSeconds", "verifierTimeoutMs"],
+      "properties": {
+        "engineRouteMaxDurationSeconds": { "type": "number" },
+        "verifierTimeoutMs": { "type": "number" }
+      }
+    },
+    "perTierRepairPolicy": {
+      "type": "object",
+      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "serverRepairPasses"],
+      "properties": {
+        "deterministicAutofixPasses": { "type": "number" },
+        "syntaxFixPasses": { "type": "number" },
+        "serverRepairPasses": { "type": "number" }
+      }
+    },
+    "perTierBriefingEntry": {
+      "type": "object",
+      "required": ["briefingModel"],
+      "properties": {
+        "briefingModel": { "type": "string" }
       }
     }
   }
