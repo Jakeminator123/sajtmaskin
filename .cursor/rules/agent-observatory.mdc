@@ -24,4 +24,4 @@ Kontrollera run-tid och `repoHead`/`repoBranch` om de finns. Gamla runs är hist
 
 ## Läs inte live builder
 
-Följ `builder-coexistence.mdc`. Använd loggar, prompt-dumps eller be om screenshot/export.
+Använd loggar, prompt-dumps eller be om screenshot/export.

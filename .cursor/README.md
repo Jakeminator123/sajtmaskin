@@ -28,7 +28,6 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 |-------|-------|
 | [agent-worktree.mdc](rules/agent-worktree.mdc) | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
 | [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | En Cursor-side automation kan auto-merga gröna PR:er — håll risk-/runtime-PR:er som draft tills granskade |
-| [builder-coexistence.mdc](rules/builder-coexistence.mdc) | Agent får inte navigera till användarens aktiva builder-URL |
 | [repo-router.mdc](rules/repo-router.mdc) | Snabb repo-router + env/indexering |
 | [response-format.mdc](rules/response-format.mdc) | Hur agenten svarar — kort, matris/flöde, svenska vid behov |
 | [terminology.mdc](rules/terminology.mdc) | Snabb förväxlingstabell + signal-ownership; pekar till glossaryn |

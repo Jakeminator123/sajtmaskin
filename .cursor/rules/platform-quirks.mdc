@@ -21,4 +21,4 @@ Säkra sätt:
 
 ## Playwright/preview
 
-Installera Chromium vid behov: `npx playwright install chromium`. Rör inte användarens aktiva builder-session, se `builder-coexistence.mdc`.
+Installera Chromium vid behov: `npx playwright install chromium`.
