@@ -226,6 +226,25 @@
         "src/lib/env-audit.ts"
       ]
     },
+    "Control Plane (cockpit)": {
+      "summary": "Read-only operatörsöversikt (Backoffice 2.0 fas 1) över control-plane-registren: schema- + policy-registret renderas som en samlad cockpit (source of truth, validator, ciStatus, runtimeEnforced/runtimeStatus, backoffice-redigerbarhet/danger, mobility, notes). Ingen redigering här — `backoffice.writePath`/`surface` pekar operatören till respektive ägaryta. Strict-schema för registren själva och human-läsbar karta listas som sökvägar.",
+      "canonicalPaths": [
+        "config/control-plane/schema-registry.json",
+        "config/control-plane/policy-registry.json",
+        "config/control-plane/README.md",
+        "backoffice/pages/control_plane.py",
+        "scripts/control-plane/check-registry.mjs"
+      ],
+      "docsPaths": [
+        "docs/architecture/schema-policy-map.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/control-plane-registry.schema.json"
+      ],
+      "codeReaders": [
+        "src/lib/control-plane/registry.test.ts"
+      ]
+    },
     "shadcn-audit": {
       "summary": "Målstack och sökvägar för audit-skript mot shadcn-mirror-repon (bygg-/CI-verktyg, inte runtime i appen).",
       "canonicalPaths": [

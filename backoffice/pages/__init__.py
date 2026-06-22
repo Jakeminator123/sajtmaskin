@@ -7,6 +7,7 @@ from . import (
     ai_models,
     autofix,
     codegen_core,
+    control_plane,
     cursor_agents,
     database_health,
     dossiers,
@@ -51,6 +52,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
     PageSpec("Preview och versioner", "Konfiguration", preview.render),
     PageSpec("env-policy", "Konfiguration", env_policy.render),
+    PageSpec("Control Plane (cockpit)", "Konfiguration", control_plane.render),
     PageSpec("shadcn-audit", "Konfiguration", shadcn_audit.render),
     PageSpec("user_degraded_env", "Konfiguration", user_degraded_env.render),
     PageSpec("Cursor-agenter", "Konfiguration", cursor_agents.render),
@@ -78,6 +80,8 @@ PAGE_NAMES = tuple(spec.name for spec in PAGE_SPECS)
 PAGE_GROUPS = ("Konfiguration", "Overhead")
 PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
+    "control-plane": "Control Plane (cockpit)",
+    "cockpit": "Control Plane (cockpit)",
     "core": "prompt-core",
     "dossiers": "Dossiers (legoklossar)",
     "db": "Databashälsa",
