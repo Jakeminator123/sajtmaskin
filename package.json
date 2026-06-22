@@ -16,6 +16,8 @@
     "predev": "node scripts/dev/predev.mjs",
     "dev": "node scripts/dev/next-runner.mjs dev",
     "dev:clean": "node scripts/dev/clean-next-cache.mjs && npm run dev",
+    "clean:orphans": "node scripts/dev/clean-orphans.mjs",
+    "clean:orphans:dry": "node scripts/dev/clean-orphans.mjs --dry-run",
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",
     "dev:fast": "node scripts/dev/dev-fast.mjs",
     "refresh-token": "node scripts/dev/refresh-token.mjs",

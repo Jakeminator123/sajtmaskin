@@ -22,6 +22,7 @@ Checklista:
 3. Undvik bred formattering.
 4. Stage bara aktuell uppgift.
 5. Kör riktad verifiering.
+6. Tar du bort en spårad fil/mapp: radera även dess ospårade syskon (t.ex. `__pycache__`, `*.pyc`, byggcache). `git` raderar bara spårade filer, så ospårade artefakter överlever annars `git pull` och håller mappen kvar på disk. Verifiera att sökvägen är borta med både `git status` och `Test-Path <sökväg>` (eller kör `npm run clean:orphans`).
 
 ## Verifiering
 
