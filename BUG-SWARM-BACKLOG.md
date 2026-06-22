@@ -50,7 +50,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | G#26 | 76% | init vs follow-up olika capability-universum | `follow-up-orchestration-input.ts:103` |
 | G#25 | 68% | capability multi-source; snapshot-fix hjälpte bara finalize-design | `orchestrate.ts:1314-1342` |
 | G#21 | 52% | F3 `ready:true` när `detectIntegrationsFromVersionFiles` ger `[]` på läsbara filer | `finalize-design/route.ts:190-201` |
-| B05 | 90% → **FIXAD #210** | `refuseDossierStubs` matchade HELA registret → false-RED-risk i prod. Fix: `checkCrossFileImports` tar nu `selectedDossierIds` (trådas från `mergeGeneratedProjectFiles`); refuse sker bara när matchad dossier var **vald** för genereringen. Okänd/tom selektion → ingen refuse. Stability-test utökat. | `cross-file-import-checker.ts` · `finalize-merge.ts` |
+| B05 | 90% → **FIXAD #211** | `refuseDossierStubs` matchade HELA registret → false-RED-risk i prod. Fix: `checkCrossFileImports` tar nu `selectedDossierIds` (trådas från `mergeGeneratedProjectFiles`); refuse sker bara när matchad dossier var **vald** för genereringen. Okänd/tom selektion → ingen refuse. Stability-test utökat. | `cross-file-import-checker.ts` · `finalize-merge.ts` |
 | B13 | 78% | clear-redesign delta-brief tappas vid contract-gate-retry (NEEDS_REPRO) | `chat-message-stream-post.ts:419` |
 | B12 | 72% | F3 auto-kick kringgår stale-base-409 (NEEDS_REPRO) | `useSendMessage.ts:276` |
 
