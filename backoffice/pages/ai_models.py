@@ -496,7 +496,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     autofix_tokens = st.number_input(
         "Autofix / fixer max output tokens",
-        value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
+        value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 82000)),
         step=512,
         key="tb_autofix",
     )
@@ -520,7 +520,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     stream_timeout = st.number_input(
         "Klientens stream-safety-timeout (millisekunder)",
-        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 720000)),
+        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 840000)),
         step=1000,
         key="rt_stream",
     )
@@ -531,19 +531,19 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     p_ver_snip = pgp.setdefault("verifierSnippetCharsPerFile", {})
     ver_out = st.number_input(
         "Verifier: max output tokens",
-        value=int(p_ver_tok.get("default", 8192)),
+        value=int(p_ver_tok.get("default", 32000)),
         step=256,
         key="pgp_ver_out",
     )
     ver_ms = st.number_input(
         "Verifier: timeout (ms)",
-        value=int(p_ver_ms.get("default", 60000)),
+        value=int(p_ver_ms.get("default", 120000)),
         step=1000,
         key="pgp_ver_ms",
     )
     ver_snip = st.number_input(
         "Verifier: snippet-tecken per fil",
-        value=int(p_ver_snip.get("default", 14000)),
+        value=int(p_ver_snip.get("default", 40000)),
         step=500,
         key="pgp_ver_snip",
     )
