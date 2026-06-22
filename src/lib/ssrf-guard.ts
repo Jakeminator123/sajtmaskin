@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import net from "node:net";
 
 const PREVIEW_ALLOWED_HOST_SUFFIXES = [".vusercontent.net"];
@@ -34,6 +35,44 @@ function isPrivateIpv6(host: string): boolean {
   if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
   if (normalized.startsWith("fe80:")) return true;
   return false;
+}
+
+/** True if a single resolved IP literal is private/internal. Handles
+ *  IPv4-mapped IPv6 (`::ffff:a.b.c.d`) by checking the embedded v4. */
+function isResolvedAddressPrivate(address: string): boolean {
+  const version = net.isIP(address);
+  if (version === 4) return isPrivateIpv4(address);
+  if (version === 6) {
+    const mapped = address.toLowerCase().match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (mapped) return isPrivateIpv4(mapped[1]);
+    return isPrivateIpv6(address);
+  }
+  return true; // unparseable → treat as disallowed (defensive)
+}
+
+/**
+ * True if `hostname` RESOLVES (DNS) to any private/internal address.
+ *
+ * `isDisallowedHost` only blocks LITERAL private IPs, so a public hostname that
+ * resolves to e.g. `127.0.0.1` or `169.254.169.254` (cloud metadata) slips
+ * through — the classic DNS-based SSRF hole (BUG-SWARM G#40). Literal IPs are
+ * already covered by `isDisallowedHost`, so we only resolve real names.
+ *
+ * NOTE: a residual TOCTOU window remains — `fetch` re-resolves at connect time
+ * and the record could flip (DNS rebinding) between this check and the actual
+ * connection. Closing that fully needs connect-time IP pinning (follow-up); this
+ * closes the common static-resolution hole that the routes are exposed to today.
+ */
+async function hostResolvesToPrivate(hostname: string): Promise<boolean> {
+  const host = normalizeHost(hostname);
+  if (!host || net.isIP(host) !== 0) return false; // literal IP → already checked sync
+  let records: { address: string; family: number }[];
+  try {
+    records = await lookup(host, { all: true });
+  } catch {
+    return false; // unresolvable → fetch fails on its own, no SSRF reachable
+  }
+  return records.some((r) => isResolvedAddressPrivate(r.address));
 }
 
 export function isDisallowedHost(hostname: string): boolean {
@@ -91,6 +130,7 @@ export async function safeFetch(
 
   try {
     let currentUrl: string;
+    let currentHostname: string;
     try {
       const initialUrl = new URL(url);
       const initialCheck = validateSsrfTarget(initialUrl, { allowlistOnly });
@@ -98,8 +138,15 @@ export async function safeFetch(
         return new Response(`Request blocked: ${initialCheck.reason}`, { status: 403 });
       }
       currentUrl = initialUrl.toString();
+      currentHostname = initialUrl.hostname;
     } catch {
       return new Response("Invalid URL", { status: 400 });
+    }
+
+    if (await hostResolvesToPrivate(currentHostname)) {
+      return new Response("Request blocked: hostname resolves to a private/internal IP", {
+        status: 403,
+      });
     }
 
     let redirectCount = 0;
@@ -129,6 +176,12 @@ export async function safeFetch(
       const check = validateSsrfTarget(redirectUrl, { allowlistOnly });
       if (!check.ok) {
         return new Response(`Redirect blocked: ${check.reason}`, { status: 403 });
+      }
+
+      if (await hostResolvesToPrivate(redirectUrl.hostname)) {
+        return new Response("Redirect blocked: hostname resolves to a private/internal IP", {
+          status: 403,
+        });
       }
 
       currentUrl = redirectUrl.toString();
