@@ -174,4 +174,58 @@ describe("materializeImages", () => {
     expect(result.content).toContain("images.unsplash.com/photo-");
     expect(result.content).not.toContain("placeholder.svg");
   });
+
+  it("uses provided assets for the first placeholders, Unsplash for the rest", async () => {
+    const content = [
+      '<img src="/placeholder.svg?width=1200&height=600&text=hero+banner" />',
+      '<img src="/placeholder.svg?width=800&height=600&text=gallery+one" />',
+      '<img src="/placeholder.svg?width=800&height=600&text=gallery+two" />',
+    ].join("\n");
+
+    const providedUrl =
+      "https://x.blob.vercel-storage.com/studio-guest/media/logo.png";
+    const result = await materializeImages(content, {
+      maxReplacements: 3,
+      providedAssets: [{ url: providedUrl, alt: "Logo" }],
+    });
+
+    expect(result.replacedCount).toBe(3);
+    // First placeholder → the operator's uploaded image (not Unsplash).
+    expect(result.content).toContain(providedUrl);
+    expect(result.content).not.toContain("text=hero+banner");
+    // Remaining placeholders still resolve via Unsplash.
+    expect(result.content).toContain("https://images.unsplash.com/gallery%20one");
+    expect(result.resolvedUrls.has(providedUrl)).toBe(true);
+    // Only 2 Unsplash searches (the first slot used the provided asset).
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const searchCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/search/photos"),
+    );
+    expect(searchCalls).toHaveLength(2);
+  });
+
+  it("uses provided assets in order and skips Unsplash when they cover all placeholders", async () => {
+    const content = [
+      '<img src="/placeholder.svg?width=1200&height=600&text=hero" />',
+      '<img src="/placeholder.svg?width=800&height=600&text=about" />',
+    ].join("\n");
+
+    const result = await materializeImages(content, {
+      maxReplacements: 2,
+      providedAssets: [
+        { url: "https://b.blob.vercel-storage.com/a.png" },
+        { url: "https://b.blob.vercel-storage.com/b.png" },
+      ],
+    });
+
+    expect(result.replacedCount).toBe(2);
+    expect(result.content).toContain("https://b.blob.vercel-storage.com/a.png");
+    expect(result.content).toContain("https://b.blob.vercel-storage.com/b.png");
+    expect(result.content).not.toContain("placeholder.svg");
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const searchCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/search/photos"),
+    );
+    expect(searchCalls).toHaveLength(0);
+  });
 });

@@ -147,6 +147,14 @@ export interface MaterializeResult {
 
 export interface MaterializeImagesOptions {
   maxReplacements?: number;
+  /**
+   * User-uploaded images (ordered) to use INSTEAD of Unsplash for the first
+   * placeholder(s): first asset → first placeholder (≈ hero), second → next,
+   * etc. Remaining placeholders fall back to Unsplash. Empty/absent → all
+   * Unsplash (today's behavior). Lets operator-provided material win over
+   * stock photos in the generated site.
+   */
+  providedAssets?: Array<{ url: string; alt?: string | null }>;
 }
 
 export const DEFAULT_IMAGE_MATERIALIZATION_LIMIT = 3;
@@ -190,7 +198,13 @@ export async function materializeImages(
   options: MaterializeImagesOptions = {},
 ): Promise<MaterializeResult> {
   const accessKey = SECRETS.unsplashAccessKey;
-  if (!accessKey || !FEATURES.useUnsplash) {
+  const hasProvidedAssets = (options.providedAssets ?? []).some((a) =>
+    Boolean(a?.url?.trim()),
+  );
+  // Skip only when Unsplash is unavailable AND there are no operator-provided
+  // images to apply — provided images don't need Unsplash, so we must still
+  // run the substitution pass for them.
+  if ((!accessKey || !FEATURES.useUnsplash) && !hasProvidedAssets) {
     warnLog("images", "Image materialization skipped — UNSPLASH_ACCESS_KEY not configured. Placeholder images will remain.");
     return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
   }
@@ -227,9 +241,19 @@ export async function materializeImages(
   const selectedMatches = maxReplacements > 0 ? matches.slice(0, maxReplacements) : [];
   const skippedCount = Math.max(0, matches.length - selectedMatches.length);
 
+  // Operator-provided images win over Unsplash for the FIRST placeholder(s)
+  // (order-based: first asset → first placeholder ≈ hero). The rest fall back
+  // to the Unsplash pipeline below.
+  const providedUrls = (options.providedAssets ?? [])
+    .map((a) => a?.url?.trim())
+    .filter((u): u is string => Boolean(u));
+  const providedCount = Math.min(providedUrls.length, selectedMatches.length);
+  const unsplashMatches = selectedMatches.slice(providedCount);
+
   debugLog(
     "images",
-    `Materializing ${selectedMatches.length}/${matches.length} placeholder images`,
+    `Materializing ${selectedMatches.length}/${matches.length} placeholder images` +
+      (providedCount > 0 ? ` (${providedCount} from provided assets)` : ""),
   );
 
   const seen = new Map<string, ImageResolution>();
@@ -238,7 +262,7 @@ export async function materializeImages(
     match: (typeof selectedMatches)[number];
   }> = [];
   const uniqueKeys = new Set<string>();
-  for (const match of selectedMatches) {
+  for (const match of unsplashMatches) {
     const cacheKey = `${match.text}|${match.width}|${match.height}`;
     if (uniqueKeys.has(cacheKey)) continue;
     uniqueKeys.add(cacheKey);
@@ -253,6 +277,9 @@ export async function materializeImages(
     async ({ cacheKey, match }) => {
       let resolution = seen.get(cacheKey);
       if (resolution) return resolution;
+      // No Unsplash key (we only got here because provided assets exist) →
+      // leave the remaining placeholders untouched rather than emitting stock.
+      if (!accessKey || !FEATURES.useUnsplash) return undefined;
 
       const orientation = chooseUnsplashOrientation(match.width, match.height);
       const candidates = buildUnsplashSearchCandidates(match.text);
@@ -313,16 +340,24 @@ export async function materializeImages(
   let result = content;
   const appliedKeys = new Set<string>();
 
-  for (const match of selectedMatches) {
+  selectedMatches.forEach((match, index) => {
+    // First `providedCount` placeholders use the operator's uploaded images
+    // directly; the rest resolve via the Unsplash `seen` cache.
+    if (index < providedCount) {
+      result = result.replace(match.fullMatch, providedUrls[index]!);
+      replaced++;
+      queries.push("provided-asset");
+      return;
+    }
     const cacheKey = `${match.text}|${match.width}|${match.height}`;
     const resolution = seen.get(cacheKey);
-    if (!resolution) continue;
+    if (!resolution) return;
 
     result = result.replace(match.fullMatch, resolution.url);
     replaced++;
     queries.push(appliedKeys.has(cacheKey) ? match.text : resolution.queryUsed);
     appliedKeys.add(cacheKey);
-  }
+  });
 
   debugLog(
     "images",
@@ -334,6 +369,11 @@ export async function materializeImages(
     replacedCount: replaced,
     skippedCount,
     queries,
-    resolvedUrls: new Set(Array.from(seen.values(), (resolution) => resolution.url)),
+    // Provided URLs are operator-supplied (trusted) + Unsplash-resolved URLs —
+    // both safe to skip the downstream HEAD-check.
+    resolvedUrls: new Set<string>([
+      ...providedUrls.slice(0, providedCount),
+      ...Array.from(seen.values(), (resolution) => resolution.url),
+    ]),
   };
 }

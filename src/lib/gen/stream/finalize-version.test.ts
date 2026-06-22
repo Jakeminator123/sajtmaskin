@@ -1390,9 +1390,10 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       );
-      expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 7,
-      });
+      expect(materializeImages).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ maxReplacements: 7 }),
+      );
       expect(runVerifierPass).toHaveBeenCalled();
       expect(result.telemetryRecordId).not.toBeNull();
     });
@@ -1435,9 +1436,10 @@ describe("finalizeAndSaveVersion", () => {
       });
 
       expect(runVerifierPass).not.toHaveBeenCalled();
-      expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 6,
-      });
+      expect(materializeImages).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ maxReplacements: 6 }),
+      );
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({

@@ -62,6 +62,28 @@ function isPreVmTypecheckForcedByEnv(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
+/**
+ * Operator-uploaded images arrive woven into the prompt as
+ * `![alt](url) (assetId=…, role=…)` (start-page box / wizard direct-build).
+ * Extract them IN ORDER so the image-materializer can use the operator's own
+ * images for the first placeholder(s) instead of Unsplash stock. Video lines
+ * (`[alt](url) (film…)`, no leading `!`) are intentionally NOT matched.
+ */
+function extractProvidedImageAssets(
+  prompt: string | undefined,
+): Array<{ url: string; alt?: string | null }> {
+  if (!prompt) return [];
+  const out: Array<{ url: string; alt?: string | null }> = [];
+  const re =
+    /!\[([^\]]*)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)\s*\(assetId=[^,)]+,\s*role=[^)]+\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(prompt)) !== null) {
+    const url = m[2]?.trim();
+    if (url) out.push({ url, alt: m[1]?.trim() || null });
+  }
+  return out;
+}
+
 export async function runFinalizeFastPath(params: {
   chatId: string;
   model: string;
@@ -254,9 +276,15 @@ export async function runFinalizeFastPath(params: {
   if (finalizePath.runDeepPath) {
     const imageStartedAt = Date.now();
     const maxReplacements = resolveImageMaterializationLimit(buildSpec);
+    // Operator-uploaded images (start-page box / wizard) woven into the prompt
+    // → use them for the first placeholder(s) instead of Unsplash stock.
+    const providedAssets = extractProvidedImageAssets(originalPrompt);
     onProgress?.("materialize_images", { phase: "start" });
     try {
-      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
+      const imgResult = await materializeImages(contentForVersion, {
+        maxReplacements,
+        providedAssets,
+      });
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
