@@ -83,11 +83,11 @@ import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import {
   buildAwaitingClarificationStream,
-  classifyFollowUpIntent,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
+import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/follow-up-intent-router";
 import { buildFollowUpFileContextDecision } from "./follow-up-file-context";
 import { buildBoundedChatHistory } from "./follow-up-history";
 import {
@@ -417,8 +417,13 @@ export async function handleMessageStreamRequest(
           metaPromptSourcePreservePayload ||
           metaPromptSourceTechnical ||
           contractAnswerContext.currentReplyWasConsumed;
+        // Backoffice 2.0 fas 6: strategy-aware classification. Default
+        // manifest config is "keyword", so this resolves to the exact same
+        // deterministic result as before; only an explicit `small-llm` opt-in
+        // takes the LLM path (with fail-safe fallback to the same keyword
+        // classifier). See follow-up-intent-router.ts.
         const followUpIntent = hasFollowUpBase && !skipIntentClassification
-          ? classifyFollowUpIntent(message)
+          ? await classifyFollowUpIntentWithStrategy(message)
           : "neutral";
         // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
         // follow-up text so `selectDossiersForRequest` actually sees the

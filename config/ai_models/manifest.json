@@ -789,6 +789,14 @@
       ]
     }
   },
+  "matching": {
+    "followUpIntent": "keyword",
+    "capabilityDetection": "keyword",
+    "scaffoldSelection": "embedding",
+    "variantSelection": "embedding",
+    "domainInference": "keyword",
+    "notes": "Backoffice 2.0 fas 6 — per matching-point strategy switch. Allowed values: keyword | embedding | small-llm. Each point defaults to the method used today, so runtime behavior is unchanged until a value is explicitly changed. Only points wired in code consume this; setting a wired point to small-llm enables the manifest-gated LLM classifier (workloads.match_classifier) with fail-safe fallback to the deterministic keyword/embedding result on any error or timeout."
+  },
   "generatedSiteIntegrationPlaceholders": {
     "harmlessEnvFragmentFile": "40-harmless-placeholders.env.txt",
     "tier3StubEnvFragmentFile": "41-tier3-stub-placeholders.env.txt",
@@ -1149,6 +1157,21 @@
         "OPENAI_API_KEY"
       ],
       "defaultModel": "gpt-4o"
+    },
+    {
+      "id": "match_classifier",
+      "title": "Small-LLM match classifier",
+      "description": "Tiny generateObject classifier used by manifest-gated matchStrategy='small-llm' matching points (first wired point: follow-up intent classification). Minimal tokens, short timeout. Fail-safe: any error/timeout falls back to the deterministic keyword/embedding result, so this never runs unless a matching point is explicitly set to small-llm.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/lib/providers/own-engine/follow-up-intent-llm-classifier.ts",
+        "src/lib/providers/own-engine/follow-up-intent-router.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "openai/gpt-5-mini"
     }
   ]
 }

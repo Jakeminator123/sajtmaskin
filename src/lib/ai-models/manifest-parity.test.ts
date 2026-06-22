@@ -7,6 +7,7 @@ import {
   getAiModelsManifest,
   getBriefingDefaultsFromManifest,
   getBuildProfileDefaultOwnEngineModel,
+  getMatchStrategy,
   getPostGenerationPassesFromManifest,
   getPreGenerationContractsConfigFromManifest,
   getPromptOrchestrationFromManifest,
@@ -186,5 +187,21 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(verifier?.invocation).toBe("ai_generateObject");
     expect(verifier?.codeEntry).toContain("src/lib/gen/verify/verifier-pass.ts");
     expect(m.workloads.some((w) => w.id === "post_generation_polish")).toBe(false);
+  });
+
+  it("exposes the matchStrategy switch defaulting every point to its current method (B2.0 fas 6)", () => {
+    // Every wired matching point defaults to the method used today, so the
+    // switch is a no-op until explicitly changed.
+    expect(getMatchStrategy("followUpIntent")).toBe("keyword");
+    expect(getMatchStrategy("capabilityDetection")).toBe("keyword");
+    expect(getMatchStrategy("scaffoldSelection")).toBe("embedding");
+    expect(getMatchStrategy("variantSelection")).toBe("embedding");
+    expect(getMatchStrategy("domainInference")).toBe("keyword");
+
+    // The small-LLM classifier workload exists and points at a small model.
+    const m = getAiModelsManifest();
+    const matchClassifier = m.workloads.find((w) => w.id === "match_classifier");
+    expect(matchClassifier?.invocation).toBe("ai_generateObject");
+    expect(matchClassifier?.defaultModel).toBeTruthy();
   });
 });
