@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { lookup } from "node:dns/promises";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isAllowedPreviewHost,
   isDisallowedHost,
@@ -6,7 +7,19 @@ import {
   validateSsrfTarget,
 } from "./ssrf-guard";
 
+vi.mock("node:dns/promises", () => {
+  const lookup = vi.fn();
+  return { lookup, default: { lookup } };
+});
+const mockedLookup = vi.mocked(lookup);
+
 const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  // Default: hostnames resolve to a public IP so the existing fetch/redirect
+  // tests are unaffected. DNS-based-SSRF tests override per-case below.
+  mockedLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as never);
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -163,5 +176,68 @@ describe("ssrf-guard", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("final");
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  // --- DNS-based SSRF (G#40): public hostname resolving to a private IP -------
+
+  it("blocks a hostname that resolves to a private IP before fetching", async () => {
+    mockedLookup.mockResolvedValue([{ address: "169.254.169.254", family: 4 }] as never);
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://metadata.evil.example");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("private/internal IP");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("blocks a hostname resolving to an IPv4-mapped private IPv6", async () => {
+    mockedLookup.mockResolvedValue([{ address: "::ffff:127.0.0.1", family: 6 }] as never);
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://rebind.example.com");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("private/internal IP");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("allows a hostname that resolves only to public IPs", async () => {
+    mockedLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as never);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not block when DNS resolution fails (the fetch itself will fail)", async () => {
+    mockedLookup.mockRejectedValue(new Error("ENOTFOUND"));
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://nonexistent.example");
+    expect(res.status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a redirect to a hostname that resolves to a private IP", async () => {
+    mockedLookup.mockImplementation(((host: string) =>
+      Promise.resolve(
+        host === "hop.example.org"
+          ? [{ address: "10.0.0.5", family: 4 }]
+          : [{ address: "93.184.216.34", family: 4 }],
+      )) as never);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://hop.example.org/x" } }),
+      ) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("private/internal IP");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 });
