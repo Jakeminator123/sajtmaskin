@@ -127,6 +127,26 @@ export function resolveRepairQualityGateChecks(
   return Array.isArray(checks) && checks.length > 0 ? checks : DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
 }
 
+const MAX_GATE_DETAIL_LENGTH = 200;
+
+/**
+ * First meaningful (non-empty, trimmed) line of a check's raw output, capped to
+ * keep failure summaries short. Lets callers surface the concrete error (e.g.
+ * the tsc `Cannot find name 'X'` line) instead of only the check name.
+ */
+export function firstGateOutputLine(
+  output: string | null | undefined,
+  maxLength: number = MAX_GATE_DETAIL_LENGTH,
+): string | null {
+  if (!output) return null;
+  for (const rawLine of output.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    return line.length > maxLength ? `${line.slice(0, maxLength).trimEnd()}...` : line;
+  }
+  return null;
+}
+
 export function describeQualityGateVerification(
   results: QualityGateCheckResult[],
 ): string {
@@ -138,11 +158,18 @@ export function describeQualityGateVerification(
     return "Automatic verification could not run because no checks executed.";
   }
 
-  const failedChecks = results
-    .filter((result) => !result.passed)
-    .map((result) => result.check);
+  const failedResults = results.filter((result) => !result.passed);
+  const summary = `Automatic verification failed: ${failedResults
+    .map((result) => result.check)
+    .join(", ")}.`;
 
-  return `Automatic verification failed: ${failedChecks.join(", ")}.`;
+  // Append the concrete first error line from the failed check so the message
+  // is actionable (e.g. the tsc error text) instead of just the check name.
+  const firstDetail = failedResults
+    .map((result) => firstGateOutputLine(result.output))
+    .find((line): line is string => line !== null);
+
+  return firstDetail ? `${summary} ${firstDetail}` : summary;
 }
 
 export function maybeAnalyzeVisualQAForPassedExportable(params: {

@@ -3,6 +3,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { resetServerEnvCacheForTests } from "@/lib/env";
 import {
   describeQualityGateVerification,
+  firstGateOutputLine,
   maybeAnalyzeVisualQAForPassedExportable,
   qualityGateAllPassed,
   resolveRepairQualityGateChecks,
@@ -151,6 +152,69 @@ describe("describeQualityGateVerification", () => {
     expect(describeQualityGateVerification([])).toBe(
       "Automatic verification could not run because no checks executed.",
     );
+  });
+
+  it("appends the first error line from the failed typecheck", () => {
+    const message = describeQualityGateVerification([
+      {
+        check: "typecheck",
+        passed: false,
+        exitCode: 1,
+        output:
+          "app/page.tsx(11,14): error TS2304: Cannot find name 'Clapperboard'.\nFound 1 error.",
+      },
+    ]);
+
+    expect(message).toContain("Automatic verification failed: typecheck.");
+    expect(message).toContain(
+      "app/page.tsx(11,14): error TS2304: Cannot find name 'Clapperboard'.",
+    );
+  });
+
+  it("skips blank leading lines and uses the first meaningful output line", () => {
+    const message = describeQualityGateVerification([
+      { check: "typecheck", passed: true, exitCode: 0, output: "" },
+      {
+        check: "build",
+        passed: false,
+        exitCode: 1,
+        output: "\n\n   \nError: Module not found: foo",
+      },
+    ]);
+
+    expect(message).toBe(
+      "Automatic verification failed: build. Error: Module not found: foo",
+    );
+  });
+
+  it("falls back to the check name when the failed check has no usable output", () => {
+    expect(
+      describeQualityGateVerification([
+        { check: "lint", passed: false, exitCode: 1, output: "   \n  " },
+      ]),
+    ).toBe("Automatic verification failed: lint.");
+  });
+});
+
+describe("firstGateOutputLine", () => {
+  it("returns null for empty or whitespace-only output", () => {
+    expect(firstGateOutputLine("")).toBeNull();
+    expect(firstGateOutputLine(null)).toBeNull();
+    expect(firstGateOutputLine("\n   \n\t")).toBeNull();
+  });
+
+  it("returns the first non-empty trimmed line", () => {
+    expect(firstGateOutputLine("\n  first useful line  \nsecond")).toBe(
+      "first useful line",
+    );
+  });
+
+  it("truncates long lines to the cap with a trailing ellipsis", () => {
+    const line = firstGateOutputLine(`error: ${"x".repeat(500)}`, 50);
+
+    expect(line).not.toBeNull();
+    expect(line?.endsWith("...")).toBe(true);
+    expect((line ?? "").length).toBeLessThanOrEqual(53);
   });
 });
 
