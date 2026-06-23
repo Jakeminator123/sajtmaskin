@@ -764,9 +764,12 @@ function patchTouchesStructuralPath(paths) {
 /**
  * Apply a Fast Edit Lane patch to the live runtime for a chat.
  * - Structural/config change -> full restart (npm install / config reload).
- * - Runtime not running -> queue a normal (non-restart) boot from the merged
- *   session filesJson (caller merges before invoking this).
+ * - Runtime not running, OR a (re)boot already in flight -> force a restart boot
+ *   from the merged session filesJson (caller merges before invoking this).
  * - Otherwise -> write only the changed files; leave the dev process alive.
+ * - On a synchronous workspace-write failure (e.g. ENOSPC) -> return
+ *   `{ mode: "error" }` so the caller can roll the session back instead of
+ *   advertising a version that never actually landed on disk.
  */
 function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
   const changed = files && typeof files === "object" ? files : {};
@@ -777,16 +780,35 @@ function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
     return { mode: "restarted", reason: "structural_change" };
   }
   const runtimeState = getRuntimeStateForChat(chatId);
-  if (!runtimeState.running) {
-    // Not running (or still cold-booting). A plain non-restart boot would dedupe
+  if (!runtimeState.running || runtimeState.booting) {
+    // Not running / still cold-booting -> a plain non-restart boot would dedupe
     // to an in-flight boot that may have already snapshotted the pre-patch
     // filesJson, so the VM could come up serving stale files even though the
-    // session was advanced. Force a restart boot: ensureRuntimeForChat waits for
-    // any in-flight boot to finish, then re-boots from the merged filesJson.
+    // session was advanced.
+    //
+    // FEL-4: even when the OLD dev process is still alive (`running === true`)
+    // but a restart boot is already in flight (`booting === true`), a hot file
+    // write races that boot — the boot may rewrite the whole workspace from a
+    // pre-patch snapshot and clobber the patched files. In both cases force a
+    // restart boot: ensureRuntimeForChat waits for any in-flight boot to finish,
+    // then re-boots from the merged filesJson the caller already committed.
     queueRuntimeBoot(chatId, { restart: true });
-    return { mode: "booted", reason: "runtime_not_running" };
+    return {
+      mode: "booted",
+      reason: runtimeState.running ? "runtime_booting" : "runtime_not_running",
+    };
   }
-  patchWorkspaceFiles(chatId, changed, removed);
+  try {
+    patchWorkspaceFiles(chatId, changed, removed);
+  } catch (error) {
+    // Surface the failure so the patch route can roll the session back (the
+    // dev process is still serving the pre-patch files). ENOSPC messages flow
+    // back to the app client, which triggers /admin/cleanup + one retry.
+    return {
+      mode: "error",
+      reason: error instanceof Error ? error.message : "Workspace patch write failed.",
+    };
+  }
   return { mode: "patched", reason: null };
 }
 

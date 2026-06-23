@@ -175,6 +175,9 @@ export async function tryPatchPreviewSession(params: {
     versionId,
     files: params.changedFiles,
     removedPaths: params.removedPaths,
+    // Re-checked under the host store lock so a session that advances between
+    // the optimistic precheck above and the host write is refused (TOCTOU close).
+    expectedBaseVersionId: expectedBase,
   });
   if (patched.ok) {
     await touchPreviewSessionAsync({
@@ -193,6 +196,9 @@ export async function tryPatchPreviewSession(params: {
   }
   if ("sessionMissing" in patched && patched.sessionMissing === true) {
     return { ok: false, reason: "session_missing", message: patched.message };
+  }
+  if ("baseMismatch" in patched && patched.baseMismatch === true) {
+    return { ok: false, reason: "base_mismatch", message: patched.message };
   }
   return { ok: false, reason: "host_error", message: patched.message };
 }

@@ -176,6 +176,33 @@ async function main() {
     const filesAfterPatch = readSessionFilesJsonFromStore(sessionId);
     assert.deepEqual(Object.keys(filesAfterPatch).sort(), ["app/about.tsx", "app/page.tsx"]);
 
+    // FEL-3: a patch whose expectedBaseVersionId no longer matches the live
+    // session is refused under the lock with 409 and must NOT mutate the session
+    // (the session still serves ver_patch_1, not the rejected ver_patch_stale).
+    const staleBasePatch = await postJson(`${baseUrl}/preview/session/patch`, {
+      previewSessionId,
+      versionId: "ver_patch_stale",
+      expectedBaseVersionId: "ver_not_the_current_base",
+      files: { "app/page.tsx": "export default function Page(){return <div>Stale</div>;}" },
+    });
+    assert.equal(staleBasePatch.status, 409);
+    assert.equal(staleBasePatch.body.error, "base_mismatch");
+    const afterStaleBase = await getJson(`${baseUrl}/preview/session/${sessionId}`);
+    assert.equal(afterStaleBase.status, 200);
+    assert.equal(afterStaleBase.body.versionId, "ver_patch_1");
+
+    // FEL-3 happy path: a matching expectedBaseVersionId is accepted and advances
+    // the session as a normal patch would.
+    const matchingBasePatch = await postJson(`${baseUrl}/preview/session/patch`, {
+      previewSessionId,
+      versionId: "ver_patch_base_ok",
+      expectedBaseVersionId: "ver_patch_1",
+      files: { "app/contact.tsx": "export default function Contact(){return <div>Contact</div>;}" },
+    });
+    assert.equal(matchingBasePatch.status, 200);
+    assert.equal(matchingBasePatch.body.versionId, "ver_patch_base_ok");
+    assert.ok(["patched", "booted", "restarted"].includes(matchingBasePatch.body.patchMode));
+
     // Structural change (package.json) forces a restart mode, not a hot patch.
     const structuralPatch = await postJson(`${baseUrl}/preview/session/patch`, {
       previewSessionId,

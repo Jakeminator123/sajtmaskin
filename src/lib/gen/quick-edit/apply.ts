@@ -1,6 +1,6 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { isQuickEditSafePath, normalizeQuickEditPath } from "./guards";
+import { isBlockedQuickEditPath, isQuickEditSafePath, normalizeQuickEditPath } from "./guards";
 import type { QuickEditApplyResult, QuickEditOp } from "./types";
 
 function countOccurrences(haystack: string, needle: string): number {
@@ -58,6 +58,13 @@ export function applyQuickEdits(
     const path = normalizeQuickEditPath(op.path);
     if (!isQuickEditSafePath(path)) {
       return { ok: false, reason: "unsafe_path", message: `Unsafe path: ${op.path}` };
+    }
+    if (isBlockedQuickEditPath(path)) {
+      return {
+        ok: false,
+        reason: "unsafe_path",
+        message: `Blocked path: ${op.path} (sensitive file — secrets/lockfiles cannot be quick-edited).`,
+      };
     }
 
     if (op.kind === "replace_content") {

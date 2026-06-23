@@ -5,6 +5,7 @@ import {
   simplifiedBriefSchema,
   siteBriefSchema,
 } from "./site-brief-generation";
+import { getTemperatureConfig } from "./direct-model";
 
 describe("siteBriefSchema", () => {
   it("accepts canonical init signals consumed by orchestration", () => {
@@ -131,5 +132,37 @@ describe("buildBriefTrace", () => {
     expect(client.traceId).not.toBe(server.traceId);
     expect(client.source).toBe("dynamic_instructions");
     expect(server.source).toBe("server_auto_brief");
+  });
+});
+
+describe("getTemperatureConfig (brief sampling, MB-2)", () => {
+  it("strips temperature for Claude Opus across every id form", () => {
+    // The brief path posts temperature: 0.2 (useInitBrief) and forwards it into
+    // generateSiteBriefObject → getTemperatureConfig. Opus rejects custom
+    // sampling, so every Opus id variant must yield no temperature.
+    expect(getTemperatureConfig("anthropic/claude-opus-4.8", 0.2)).toEqual({});
+    expect(getTemperatureConfig("anthropic-direct/claude-opus-4-8", 0.2)).toEqual({});
+    expect(getTemperatureConfig("claude-opus-4-8", 0.2)).toEqual({});
+    // Back-compat Opus id retained for MB-1 is also stripped.
+    expect(getTemperatureConfig("anthropic/claude-opus-4.6", 0.7)).toEqual({});
+  });
+
+  it("still strips temperature for OpenAI reasoning models", () => {
+    expect(getTemperatureConfig("openai/gpt-5.5", 0.2)).toEqual({});
+    expect(getTemperatureConfig("openai/gpt-5.4", 0.2)).toEqual({});
+  });
+
+  it("keeps temperature for non-reasoning, non-Opus models (e.g. Sonnet)", () => {
+    expect(getTemperatureConfig("anthropic/claude-sonnet-4.6", 0.2)).toEqual({
+      temperature: 0.2,
+    });
+    expect(getTemperatureConfig("anthropic-direct/claude-haiku-4-5-20251001", 0.5)).toEqual({
+      temperature: 0.5,
+    });
+  });
+
+  it("omits temperature when the caller provided none", () => {
+    expect(getTemperatureConfig("anthropic/claude-opus-4.8")).toEqual({});
+    expect(getTemperatureConfig("anthropic/claude-sonnet-4.6")).toEqual({});
   });
 });

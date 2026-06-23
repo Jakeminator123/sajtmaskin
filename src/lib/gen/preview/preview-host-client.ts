@@ -428,6 +428,12 @@ export type PreviewHostPatchOk = PreviewHostStartOk & {
 };
 export type PreviewHostPatchErr = PreviewHostStartErr & {
   sessionMissing?: boolean;
+  /**
+   * Host returned 409: the live session no longer points at `expectedBaseVersionId`
+   * (it advanced between our optimistic precheck and the host store lock — the
+   * TOCTOU race). Caller should do a full (re)start instead of a partial patch.
+   */
+  baseMismatch?: boolean;
 };
 
 export async function patchPreviewHostSession(params: {
@@ -437,6 +443,12 @@ export async function patchPreviewHostSession(params: {
   files: Record<string, string>;
   /** Optional paths to delete from the live workspace. */
   removedPaths?: string[];
+  /**
+   * Version the `files` were derived from. When set, the host re-checks it under
+   * its store lock and returns 409 if the session already advanced past it, so
+   * two concurrent quick edits cannot both merge into the same session.
+   */
+  expectedBaseVersionId?: string;
 }): Promise<PreviewHostPatchOk | PreviewHostPatchErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -448,6 +460,7 @@ export async function patchPreviewHostSession(params: {
   }
   return retryPreviewHostRequestAfterCleanup(async () => {
     try {
+      const expectedBaseVersionId = params.expectedBaseVersionId?.trim() || null;
       const requestBody = {
         ...previewSessionRefBody({ previewSessionId: params.previewSessionId }),
         versionId: params.versionId,
@@ -455,6 +468,7 @@ export async function patchPreviewHostSession(params: {
         ...(params.removedPaths && params.removedPaths.length > 0
           ? { removedPaths: params.removedPaths }
           : {}),
+        ...(expectedBaseVersionId ? { expectedBaseVersionId } : {}),
       };
       const res = await fetch(`${base}/preview/session/patch`, {
         method: "POST",
@@ -475,6 +489,17 @@ export async function patchPreviewHostSession(params: {
               : "preview-host session not found",
           retryable: false,
           sessionMissing: true,
+        };
+      }
+      if (res.status === 409) {
+        return {
+          ok: false,
+          message:
+            typeof responseBody.message === "string" && responseBody.message
+              ? responseBody.message
+              : "preview-host session advanced past the expected base version",
+          retryable: false,
+          baseMismatch: true,
         };
       }
       if (!res.ok) {

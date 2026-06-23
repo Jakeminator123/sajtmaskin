@@ -307,6 +307,84 @@ describe("patchPreviewHostSession (Fast Edit Lane)", () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body.removedPaths).toEqual(["app/old.tsx"]);
   });
+
+  it("threads expectedBaseVersionId into the body for the host TOCTOU re-check (FEL-3)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          previewSessionId: "ps_123",
+          patchMode: "patched",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await patchPreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "version-new",
+      files: { "app/page.tsx": "x" },
+      expectedBaseVersionId: "version-base",
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.expectedBaseVersionId).toBe("version-base");
+  });
+
+  it("omits expectedBaseVersionId when not provided (back-compat with older hosts)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          previewSessionId: "ps_123",
+          patchMode: "patched",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await patchPreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "version-new",
+      files: { "app/page.tsx": "x" },
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect("expectedBaseVersionId" in body).toBe(false);
+  });
+
+  it("flags a host 409 as baseMismatch so callers do a full (re)start (FEL-3)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "base_mismatch",
+            message:
+              "Preview session has advanced past the expected base version; refusing partial patch.",
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+
+    const result = await patchPreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "version-new",
+      files: { "app/page.tsx": "x" },
+      expectedBaseVersionId: "version-base",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.baseMismatch).toBe(true);
+      expect(result.sessionMissing).toBeUndefined();
+      expect(result.retryable).toBe(false);
+    }
+  });
 });
 
 describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
