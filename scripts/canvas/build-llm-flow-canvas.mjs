@@ -28,10 +28,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..");
 
 const OUT_REL = "docs/canvases/llm-flow.canvas.txt";
+const OUT_JSON_REL = "docs/canvases/llm-flow.canvas.json";
 const CONFIG_REL = "scripts/canvas/llm-flow-canvas.config.json";
 const DOMAIN_MAP_REL = "config/dashboard/domain-map.json";
 const BACKLOG_REL = "BUG-SWARM-BACKLOG.md";
-const EVAL_SUMMARY_REL = "evals/results/baseline-master/_summary.json";
+// Kanonisk LLM-fas-doc: faserna l\u00e5ses mot dess "## FAS N"-rubriker n\u00e4r den finns.
+const LLM_PIPELINE_REL = "docs/architecture/llm-pipeline.md";
+// Eval-scorecard: prova de kanoniska rapport-platserna i tur och ordning i st\u00e4llet
+// f\u00f6r en enda (ev. borttagen) path. F\u00f6rsta som finns och parsar vinner.
+const EVAL_SUMMARY_CANDIDATES = [
+  "data/scaffold-eval/reports/scaffold-selection-latest.json",
+  "evals/results/baseline-master/_summary.json",
+];
 
 /** Default-fokus: vilka domain-map-sidor som hor till LLM-flodet, i visningsordning.
  *  Inget av detta ar ett krav — sidor som saknas hoppas bara over, och en
@@ -72,6 +80,35 @@ function readJson(rel) {
   } catch {
     return null;
   }
+}
+
+/** Returnerar f\u00f6rsta JSON som finns och parsar bland kandidat-sokv\u00e4garna. */
+function readFirstJson(relPaths) {
+  for (const rel of relPaths) {
+    const parsed = readJson(rel);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/** Faser: l\u00e5s mot llm-pipeline.md (kanonisk LLM-fas-doc) n\u00e4r den finns.
+ *  Parsar "## FAS N ..."-rubrikerna deterministiskt; faller annars tillbaka
+ *  p\u00e5 de tre k\u00e4nda faserna s\u00e5 att canvasen aldrig blir tom (doc kan saknas
+ *  p\u00e5 \u00e4ldre brancher eller vara avindexerad). */
+function derivePhases() {
+  const FALLBACK = [
+    "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
+    "FAS 2 - Orkestrering & build: system prompt, codegen, finalize, autofix, verifier, persist",
+    "FAS 3 - Preview & deploy: preview-host/VM, quality-gate, repair, deploy",
+  ];
+  const md = readText(LLM_PIPELINE_REL);
+  if (!md) return FALLBACK;
+  const heads = [];
+  for (const line of md.split(/\r?\n/)) {
+    const m = line.match(/^##\s+(FAS\s+\d[^\n]*?)\s*$/u);
+    if (m) heads.push(m[1].replace(/\s+/g, " ").trim());
+  }
+  return heads.length >= 2 ? heads : FALLBACK;
 }
 
 function git(args) {
@@ -245,7 +282,7 @@ export function buildData() {
 
   const backlogMd = readText(BACKLOG_REL);
   const backlogRows = parseBacklogRows(backlogMd);
-  const evals = evalSignal(readJson(EVAL_SUMMARY_REL));
+  const evals = evalSignal(readFirstJson(EVAL_SUMMARY_CANDIDATES));
 
   const processes = [];
   for (const name of orderedNames) {
@@ -314,14 +351,7 @@ export function buildData() {
     .slice(0, 5)
     .map((p) => ({ name: p.name, statusLabel: p.statusLabel, tone: p.tone, reason: p.note }));
 
-  const phases = [];
-  if (readText("docs/architecture/llm-flow-end-to-end.md") != null || Object.keys(pages).length) {
-    phases.push(
-      "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
-      "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
-      "Fas 3 - Verify/preview/deploy: quality-gate, repair, preview-VM, deploy",
-    );
-  }
+  const phases = derivePhases();
 
   // Globala huvudrisker: oppna P0/BLOCKER/P1/P2-rader direkt ur backloggen, sa den
   // rika listan syns aven nar en rad inte kan mappas till en enskild process. P0 ar
@@ -571,8 +601,12 @@ function main() {
   const outPath = join(REPO_ROOT, OUT_REL);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, content, "utf8");
+  // JSON-sidecar: samma buildData()-payload som .txt:en, s\u00e5 backoffice-fliken
+  // (och andra konsumenter) kan l\u00e4sa strukturerad data utan att tolka TSX.
+  const jsonPath = join(REPO_ROOT, OUT_JSON_REL);
+  writeFileSync(jsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
   console.info(
-    `[build-llm-flow-canvas] skrev ${OUT_REL} (${data.totals.processes} processer, ` +
+    `[build-llm-flow-canvas] skrev ${OUT_REL} + ${OUT_JSON_REL} (${data.totals.processes} processer, ` +
       `${data.totals.blocked} blockerade, ${data.totals.shaky} skakiga, commit ${data.meta.commit})`,
   );
 }

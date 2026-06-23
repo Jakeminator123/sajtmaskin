@@ -86,6 +86,9 @@ src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
+# LLM-flow canvas JSON-sidecar: lokal runtime-artefakt (regenereras vid backoffice-start
+# och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
+docs/canvases/llm-flow.canvas.json
 
 # --- Canonical external-template pipeline (local mutable data) ---
 data/external-template-pipeline/scrape-cache/**
