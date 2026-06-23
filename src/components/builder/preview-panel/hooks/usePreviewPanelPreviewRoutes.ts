@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import { fetchChatVersionFilesJson } from "../chat-version-files-fetch";
-import { extractPreviewRoutesFromFileNames } from "../preview-route-helpers";
+import { derivePreviewRoutes, type PreviewRouteInfo } from "../preview-route-helpers";
 
 /**
- * Loads derived Next/Pages routes from the active chat version file list (for preview chrome).
+ * Loads reachable page routes from the active chat version files (for preview
+ * chrome tabs). Reachability is computed from internal links so orphaned page
+ * files (left behind by union-merge follow-ups or unlinked scaffold defaults)
+ * are filtered out — see `derivePreviewRoutes`.
+ *
+ * `refreshToken` is part of the dependency set so the tab list re-derives after
+ * an add/remove page edit that keeps the same selected version id, and the
+ * fetch is `no-store` so a reused `?versionId=` URL never serves a stale list.
  */
 export function usePreviewPanelPreviewRoutes(
   chatId: string | null,
   versionId: string | null,
+  refreshToken?: number,
 ): {
-  previewRoutes: string[];
+  previewRoutes: PreviewRouteInfo[];
   previewRoutesLoading: boolean;
 } {
-  const [previewRoutes, setPreviewRoutes] = useState<string[]>([]);
+  const [previewRoutes, setPreviewRoutes] = useState<PreviewRouteInfo[]>([]);
   const [previewRoutesLoading, setPreviewRoutesLoading] = useState(false);
 
   useEffect(() => {
@@ -25,14 +33,18 @@ export function usePreviewPanelPreviewRoutes(
       }
       setPreviewRoutesLoading(true);
       try {
-        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId, {
+          cache: "no-store",
+        });
         if (!isActive) return;
         if (!response.ok) {
           setPreviewRoutes([]);
           return;
         }
-        const fileNames = Array.isArray(data?.files) ? data.files.map((file) => file.name) : [];
-        setPreviewRoutes(extractPreviewRoutesFromFileNames(fileNames));
+        const files = Array.isArray(data?.files)
+          ? data.files.map((file) => ({ name: file.name, content: file.content }))
+          : [];
+        setPreviewRoutes(derivePreviewRoutes(files));
       } catch {
         if (isActive) setPreviewRoutes([]);
       } finally {
@@ -42,7 +54,7 @@ export function usePreviewPanelPreviewRoutes(
 
     void load();
     return () => { isActive = false; };
-  }, [chatId, versionId]);
+  }, [chatId, versionId, refreshToken]);
 
   return { previewRoutes, previewRoutesLoading };
 }

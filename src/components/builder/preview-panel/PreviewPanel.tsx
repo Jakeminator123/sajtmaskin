@@ -65,7 +65,19 @@ import {
   resolveHomePageFilePath,
   tryInsertPageBlockIntoHomePage,
 } from "@/lib/builder/page-block-patch";
-import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
+import { patchEngineChatFile, quickEditChatFiles } from "@/lib/builder/engine-files-patch";
+import {
+  buildAddNavLinkOps,
+  buildNewPageContent,
+  buildRemoveNavLinkOps,
+  defaultLabelForRoute,
+  detectAppDir,
+  findRouteFilePaths,
+  normalizePageRouteInput,
+  pageFilePathForRoute,
+  routeHasPageFile,
+} from "@/lib/builder/preview-page-ops";
+import type { QuickEditClientOp, QuickEditClientResult } from "@/lib/builder/engine-files-patch";
 
 const PreviewPanelInspectorDev = dynamic(
   () =>
@@ -142,7 +154,16 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
-  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
+  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(
+    chatId,
+    versionId,
+    refreshToken,
+  );
+  const [pageOpBusy, setPageOpBusy] = useState(false);
+  // Synchronous lock: `pageOpBusy` updates async, so two submits in the same
+  // tick could both pass the guard and fork version history. The ref flips
+  // immediately so the second call bails.
+  const pageOpInFlightRef = useRef(false);
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -712,6 +733,146 @@ export function PreviewPanel({
     ],
   );
 
+  // Quick-edit op cap (mirrors the route's zod `.max(50)`). Page removal of a
+  // heavily colocated route can exceed it, so ops are chunked into sequential
+  // minor versions chaining off each previous result.
+  const QUICK_EDIT_OPS_PER_CALL = 50;
+  const runQuickEditChunked = useCallback(
+    async (
+      activeChatId: string,
+      baseVersionId: string,
+      ops: QuickEditClientOp[],
+      summary: string,
+    ): Promise<QuickEditClientResult> => {
+      let currentBase = baseVersionId;
+      let last: QuickEditClientResult | null = null;
+      for (let i = 0; i < ops.length; i += QUICK_EDIT_OPS_PER_CALL) {
+        const slice = ops.slice(i, i + QUICK_EDIT_OPS_PER_CALL);
+        const res = await quickEditChatFiles({
+          chatId: activeChatId,
+          baseVersionId: currentBase,
+          ops: slice,
+          summary,
+        });
+        if (!res.ok) return res;
+        currentBase = res.versionId;
+        last = res;
+      }
+      return last ?? { ok: false, error: "Inga ändringar att tillämpa." };
+    },
+    [],
+  );
+
+  const handleAddPage = useCallback(
+    async (rawRoute: string) => {
+      if (!chatId || !versionId || pageOpInFlightRef.current) return;
+      const route = normalizePageRouteInput(rawRoute);
+      if (!route) {
+        toast.error("Ogiltig sökväg. Använd t.ex. /om eller /tjanster/pris.");
+        return;
+      }
+      pageOpInFlightRef.current = true;
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        if (routeHasPageFile(files, route)) {
+          toast.error(`Sidan ${route} finns redan.`);
+          return;
+        }
+        const appDir = detectAppDir(files);
+        const pagePath = pageFilePathForRoute(route, appDir);
+        const label = defaultLabelForRoute(route);
+        const nav = buildAddNavLinkOps(files, route, label);
+        const result = await quickEditChatFiles({
+          chatId,
+          baseVersionId: versionId,
+          ops: [
+            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
+            ...nav.ops,
+          ],
+          summary: `La till sidan ${route}`,
+        });
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte skapa sidan.");
+          return;
+        }
+        if (nav.navUpdated) {
+          toast.success(`Sidan ${route} skapades och länkades i menyn.`);
+        } else {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Hittade ingen meny att länka från automatiskt — be i chatten att länka sidan så syns den i menyn.",
+          });
+        }
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle skapas.");
+      } finally {
+        pageOpInFlightRef.current = false;
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, onFilesSaved],
+  );
+
+  const handleRemovePage = useCallback(
+    async (route: string) => {
+      if (!chatId || !versionId || route === "/" || pageOpInFlightRef.current) return;
+      pageOpInFlightRef.current = true;
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        const routeFiles = findRouteFilePaths(files, route);
+        if (routeFiles.length === 0) {
+          toast.error(`Hittade inga filer för sidan ${route}.`);
+          return;
+        }
+        const ops: QuickEditClientOp[] = [
+          ...routeFiles.map((path) => ({ kind: "delete_file" as const, path })),
+          ...buildRemoveNavLinkOps(files, route),
+        ];
+        const result = await runQuickEditChunked(
+          chatId,
+          versionId,
+          ops,
+          `Tog bort sidan ${route}`,
+        );
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte ta bort sidan.");
+          return;
+        }
+        toast.success(`Sidan ${route} togs bort.`);
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle tas bort.");
+      } finally {
+        pageOpInFlightRef.current = false;
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, onFilesSaved, runQuickEditChunked],
+  );
+
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -771,6 +932,10 @@ export function PreviewPanel({
 
   const isV0Preview = Boolean(
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
+  );
+  /** +/- page controls: own-engine/tier-2 design versions only (F3 declines quick-edit). */
+  const canManagePages = Boolean(
+    chatId && versionId && !isV0Preview && lifecycleStage !== "integrations",
   );
   /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
   const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
@@ -939,6 +1104,10 @@ export function PreviewPanel({
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
+        canManagePages={canManagePages}
+        pageOpBusy={pageOpBusy}
+        onAddPage={handleAddPage}
+        onRemovePage={handleRemovePage}
         showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}

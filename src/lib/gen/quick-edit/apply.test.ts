@@ -138,4 +138,36 @@ describe("applyQuickEdits", () => {
       expect(result.files.some((f) => f.path === "components/New.tsx")).toBe(true);
     }
   });
+
+  it("deletes an existing file and reports removedPaths", () => {
+    const filesWithRoute: CodeFile[] = [
+      ...baseFiles,
+      { path: "app/blog/page.tsx", content: "export default function P(){return null;}", language: "tsx" },
+    ];
+    const result = applyQuickEdits(filesWithRoute, [
+      { kind: "delete_file", path: "app/blog/page.tsx" },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.removedPaths).toEqual(["app/blog/page.tsx"]);
+      expect(result.changedPaths).toEqual(["app/blog/page.tsx"]);
+      expect(result.files.some((f) => f.path === "app/blog/page.tsx")).toBe(false);
+    }
+  });
+
+  it("fails to delete a missing file", () => {
+    const result = applyQuickEdits(baseFiles, [
+      { kind: "delete_file", path: "app/ghost/page.tsx" },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("file_not_found");
+  });
+
+  it("refuses to delete a protected essential file", () => {
+    const result = applyQuickEdits(baseFiles, [
+      { kind: "delete_file", path: "app/page.tsx" },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("protected_path");
+  });
 });
