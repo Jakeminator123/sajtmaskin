@@ -506,7 +506,7 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/patch") {
     const raw = await readJsonBody(req);
     const validated = validatePatchPayload(raw);
-    const patched = await withStoreLock((data) => {
+    const patchOutcome = await withStoreLock((data) => {
       let session = null;
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
@@ -515,11 +515,40 @@ async function routeRequest(req, res) {
         session = findSessionByPreviewSessionId(data, validated.previewSessionId);
       }
       if (!session) {
-        return null;
+        return { type: "missing" };
       }
       if (!isSessionUsable(session, Date.now())) {
-        return null;
+        return { type: "missing" };
       }
+      // Finding #2 (FEL-3): re-check the expected base under the store lock.
+      // The app does an optimistic precheck, but two near-simultaneous quick
+      // edits derived from the same base can both pass it before the host
+      // advances the session. Re-checking here — atomically with the mutation —
+      // closes that TOCTOU window: if the live session no longer points at the
+      // base the patch was derived from, refuse the merge (without mutating) so
+      // the caller does a full (re)start instead of writing a hybrid file set.
+      if (
+        validated.expectedBaseVersionId &&
+        typeof session.versionId === "string" &&
+        session.versionId &&
+        session.versionId !== validated.expectedBaseVersionId
+      ) {
+        return { type: "base_mismatch", currentVersionId: session.versionId };
+      }
+      // Finding #3 (FEL-5): snapshot the fields we are about to advance so a
+      // failed workspace write (e.g. ENOSPC in the hot-patch path) can be rolled
+      // back. Otherwise the session would advertise a new versionId/filesJson
+      // that never actually landed on disk -> false-green stale preview.
+      const rollback = {
+        versionId: session.versionId,
+        filesJson: session.filesJson,
+        status: session.status,
+        lastAction: session.lastAction,
+        startOutcome: session.startOutcome,
+        changeClass: session.changeClass,
+        updatedAt: session.updatedAt,
+        sessionExpiresAt: session.sessionExpiresAt,
+      };
       session.versionId = validated.versionId;
       // Merge the changed files into the stored set and apply removals so a
       // later full boot reflects the patch. This mirrors update's
@@ -546,19 +575,62 @@ async function routeRequest(req, res) {
         session.previewSessionId,
         `Session patched (${Object.keys(validated.files).length} file(s), ${validated.removedPaths.length} removed).`,
       );
-      return session;
+      return {
+        type: "ok",
+        sessionId: session.sessionId,
+        chatId: getSessionChatId(session),
+        rollback,
+      };
     });
-    if (!patched) {
+    if (patchOutcome.type === "missing") {
       return json(res, 404, {
         error: "session_not_found",
         message: "No preview session matched the provided id.",
       });
     }
-    const patchResult = applyRuntimePatch(getSessionChatId(patched), {
+    if (patchOutcome.type === "base_mismatch") {
+      return json(res, 409, {
+        error: "base_mismatch",
+        message:
+          "Preview session has advanced past the expected base version; refusing partial patch.",
+        versionId: patchOutcome.currentVersionId,
+      });
+    }
+    const patchResult = applyRuntimePatch(patchOutcome.chatId, {
       files: validated.files,
       removedPaths: validated.removedPaths,
     });
-    const latest = findSessionById(readStoreSync(), patched.sessionId) ?? patched;
+    if (patchResult.mode === "error") {
+      // Finding #3 (FEL-5): the workspace patch did not land. Roll the session
+      // back to its pre-patch snapshot so /status (and a later resume) never
+      // reports the new version as live while the dev process still serves the
+      // old files. Skip the rollback if another patch advanced the session past
+      // ours in the meantime (don't clobber a newer successful write).
+      await withStoreLock((data) => {
+        const session = data.sessions[patchOutcome.sessionId];
+        if (!session || session.versionId !== validated.versionId) {
+          return session ?? null;
+        }
+        Object.assign(session, patchOutcome.rollback);
+        appendLog(
+          data,
+          session.previewSessionId,
+          `Patch rolled back; workspace write failed: ${patchResult.reason ?? "unknown error"}.`,
+        );
+        return session;
+      });
+      return json(res, 500, {
+        error: "patch_failed",
+        message: patchResult.reason ?? "Preview-host failed to apply the patch.",
+      });
+    }
+    const latest = findSessionById(readStoreSync(), patchOutcome.sessionId);
+    if (!latest) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
     return json(res, 200, {
       ...sessionResponse(latest),
       patchMode: patchResult.mode,

@@ -54,11 +54,23 @@ function isReasoningModel(model: string): boolean {
   );
 }
 
+/**
+ * Claude Opus rejects custom sampling on the structured brief path
+ * (generateObject), so temperature/top-p/top-k must be omitted. Every Opus id
+ * variant contains the `claude-opus` token: gateway (`anthropic/claude-opus-4.8`),
+ * direct (`anthropic-direct/claude-opus-4-8`) and the version-normalized form
+ * sent to the API (`claude-opus-4-8`). Sonnet/Haiku are unaffected and keep the
+ * caller-provided temperature.
+ */
+function isClaudeOpusModel(model: string): boolean {
+  return model.trim().toLowerCase().includes("claude-opus");
+}
+
 export function getTemperatureConfig(
   model: string,
   temperature?: number,
 ): { temperature?: number } {
   if (typeof temperature !== "number") return {};
-  if (isReasoningModel(model)) return {};
+  if (isReasoningModel(model) || isClaudeOpusModel(model)) return {};
   return { temperature };
 }

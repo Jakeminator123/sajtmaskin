@@ -106,6 +106,28 @@ describe("applyQuickEdits", () => {
     if (!result.ok) expect(result.reason).toBe("unsafe_path");
   });
 
+  it.each([".env.local", "yarn.lock", "secret.pem"])(
+    "blocks sensitive file %s with unsafe_path before any change",
+    (blockedPath) => {
+      const result = applyQuickEdits(baseFiles, [
+        { kind: "replace_content", path: blockedPath, content: "SECRET=1" },
+      ]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe("unsafe_path");
+    },
+  );
+
+  it.each(["package.json", "src/app/page.tsx"])(
+    "allows ordinary editable path %s",
+    (allowedPath) => {
+      const result = applyQuickEdits(baseFiles, [
+        { kind: "replace_content", path: allowedPath, content: "export const ok = 1;" },
+      ]);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.changedPaths).toContain(allowedPath);
+    },
+  );
+
   it("creates a new file via replace_content", () => {
     const result = applyQuickEdits(baseFiles, [
       { kind: "replace_content", path: "components/New.tsx", content: "export const New = 1;" },

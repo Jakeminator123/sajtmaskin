@@ -434,6 +434,10 @@ export function PreviewPanel({
         versionId,
         fileName: last.fileName,
         content: last.before,
+        // Composer patches the active version directly; it is the client's only
+        // version notion in scope, so forward it so the server's stale-base 409
+        // can fire when another writer advanced the chat head past it.
+        engineLatestKnownVersionId: versionId,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -466,6 +470,9 @@ export function PreviewPanel({
         versionId,
         fileName: next.fileName,
         content: next.after,
+        // See handleComposerUndo: forward the active version as the latest-known
+        // signal so the server's stale-base 409 guard can fire.
+        engineLatestKnownVersionId: versionId,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -573,6 +580,9 @@ export function PreviewPanel({
           versionId,
           fileName: path,
           content: patchResult.content,
+          // See handleComposerUndo: forward the active version as the
+          // latest-known signal so the server's stale-base 409 guard can fire.
+          engineLatestKnownVersionId: versionId,
         });
 
         if (!saved.ok) {

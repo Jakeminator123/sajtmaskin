@@ -124,6 +124,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
   /** Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host); required when preview-host runs outside local dev. */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
+  /** Fast Edit Lane hot patch (server): when `"true"`, a quick edit pushes changed files into the live preview VM workspace without restarting Next dev. Read via `isPreviewPatchLaneEnabled` in `src/lib/gen/preview/preview-session.ts`. Default off. */
+  SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
@@ -206,6 +208,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Fast Edit Lane (client): when affirmative, exact code-view/file-tree/inspector edits create an immutable minor version + hot-patch the preview instead of an in-place save. Read via `isQuickEditEnabled` in `src/lib/builder/engine-files-patch.ts`. Default off. */
+  NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT: z.string().optional(),
   /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */
   NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */

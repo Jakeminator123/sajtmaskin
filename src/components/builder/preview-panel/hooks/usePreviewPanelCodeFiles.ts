@@ -116,6 +116,12 @@ export function usePreviewPanelCodeFiles(options: {
           versionId: baseVersionId,
           fileName: selectedFile.path,
           content: nextContent,
+          // The code view's only version notion in scope is the base it is
+          // editing/chained to (no access to the builder's full version list
+          // here), so forward it as the latest-known signal. The server's
+          // stale-base 409 then fires when another writer advanced the chat head
+          // past this base instead of silently forking a minor version.
+          engineLatestKnownVersionId: baseVersionId,
         });
         if (!saved.ok) {
           throw new Error(saved.error || "Kunde inte spara filinnehåll");

@@ -228,6 +228,14 @@ function validatePatchPayload(payload) {
     throw new Error("Provide previewSessionId or sessionId");
   }
   const versionId = requireTrimString(p.versionId, "versionId");
+  // Optional base-version guard (Fast Edit Lane TOCTOU close): when the caller
+  // supplies the version the patch was derived from, the patch route re-checks
+  // it under the store lock before mutating, so two near-simultaneous quick
+  // edits from the same base cannot both advance the session.
+  const expectedBaseVersionId =
+    typeof p.expectedBaseVersionId === "string" && p.expectedBaseVersionId.trim()
+      ? p.expectedBaseVersionId.trim()
+      : undefined;
   const files = validateFilesJson(p.files, "files");
   const removedPaths = [];
   if (p.removedPaths !== undefined && p.removedPaths !== null) {
@@ -254,6 +262,7 @@ function validatePatchPayload(payload) {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     previewSessionId,
     versionId,
+    expectedBaseVersionId,
     files: files ?? {},
     removedPaths,
   };
