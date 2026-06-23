@@ -7,15 +7,20 @@ import {
   ExternalLink,
   FileText,
   LayoutGrid,
+  Loader2,
+  Plus,
   Redo2,
   RefreshCw,
   Search,
   Undo2,
+  X,
 } from "lucide-react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
+import type { PreviewRouteInfo } from "./preview-route-helpers";
 import { cn } from "@/lib/utils";
 
 type SurfaceDescriptor = {
@@ -57,9 +62,15 @@ interface PreviewPanelChromeProps {
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
-  previewRoutes: string[];
+  previewRoutes: PreviewRouteInfo[];
   activePreviewRoute: string | null;
   handleNavigateRoute: (route: string) => void;
+  /** Whether the +/- page controls should be shown (own-engine/tier-2 only). */
+  canManagePages?: boolean;
+  /** True while an add/remove page edit is in flight. */
+  pageOpBusy?: boolean;
+  onAddPage?: (route: string) => void;
+  onRemovePage?: (route: string) => void;
   showTier2UnifiedStrip: boolean;
   showBlobWarning: boolean;
   showBlobConfigWarning: boolean;
@@ -126,6 +137,10 @@ export function PreviewPanelChrome({
   previewRoutes,
   activePreviewRoute,
   handleNavigateRoute,
+  canManagePages = false,
+  pageOpBusy = false,
+  onAddPage,
+  onRemovePage,
   showTier2UnifiedStrip,
   showBlobWarning,
   showBlobConfigWarning,
@@ -140,6 +155,26 @@ export function PreviewPanelChrome({
   onF3MissingEnv,
   onF3Ready,
 }: PreviewPanelChromeProps) {
+  const [addingPage, setAddingPage] = useState(false);
+  const [newPagePath, setNewPagePath] = useState("");
+  // Synchronous guard so a double Enter/click cannot dispatch two add flows
+  // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
+  const submitLockRef = useRef(false);
+
+  const submitNewPage = () => {
+    const value = newPagePath.trim();
+    if (!value || pageOpBusy || submitLockRef.current) return;
+    submitLockRef.current = true;
+    onAddPage?.(value);
+    setNewPagePath("");
+    setAddingPage(false);
+    // Release on the next tick; by then the form is closed and `pageOpBusy`
+    // has taken over as the disable signal.
+    setTimeout(() => {
+      submitLockRef.current = false;
+    }, 0);
+  };
+
   const showF3Trigger =
     typeof chatId === "string" &&
     chatId.length > 0 &&
@@ -377,30 +412,120 @@ export function PreviewPanelChrome({
         )
       ) : null}
 
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) ? (
+      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0 || canManagePages) ? (
         <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-300">
+            <span>Sidor i skapad preview</span>
+            {pageOpBusy ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
             {previewRoutesLoading && previewRoutes.length === 0 ? (
               <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
             ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
+              previewRoutes.map((info) => {
+                const isHome = info.route === "/";
+                const isActive = activePreviewRoute === info.route;
+                // Removal cleanup only strips exact route matches, so a dynamic
+                // (bracketed) route cannot be removed reliably — hide the control.
+                const removable = canManagePages && !isHome && !info.dynamic;
+                return (
+                  <span
+                    key={info.route}
+                    className={cn(
+                      "inline-flex items-center overflow-hidden rounded-md border",
+                      isActive
+                        ? "border-sky-500/60 bg-sky-500/10"
+                        : "border-gray-700 bg-transparent",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      disabled={!info.navigable || pageOpBusy}
+                      className={cn(
+                        "h-6 px-2 text-[11px]",
+                        info.navigable
+                          ? "text-gray-300 hover:bg-gray-800 hover:text-white"
+                          : "cursor-default text-gray-500",
+                        isActive && "text-sky-200",
+                      )}
+                      onClick={() => info.navigable && handleNavigateRoute(info.route)}
+                      title={
+                        info.navigable
+                          ? `Visa ${info.label}`
+                          : `${info.label} är en dynamisk route och kan inte öppnas direkt`
+                      }
+                    >
+                      {info.label}
+                    </button>
+                    {removable ? (
+                      <button
+                        type="button"
+                        disabled={pageOpBusy}
+                        aria-label={`Ta bort sidan ${info.label}`}
+                        title={`Ta bort sidan ${info.label}`}
+                        className="flex h-6 w-5 items-center justify-center border-l border-gray-700 text-gray-500 hover:bg-rose-900/40 hover:text-rose-200 disabled:opacity-50"
+                        onClick={() => onRemovePage?.(info.route)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                  </span>
+                );
+              })
             )}
+
+            {canManagePages ? (
+              addingPage ? (
+                <span className="inline-flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={newPagePath}
+                    onChange={(e) => setNewPagePath(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitNewPage();
+                      if (e.key === "Escape") {
+                        setNewPagePath("");
+                        setAddingPage(false);
+                      }
+                    }}
+                    placeholder="/om"
+                    disabled={pageOpBusy}
+                    className="h-6 w-24 rounded-md border border-gray-700 bg-black/40 px-2 text-[11px] text-gray-200 placeholder:text-gray-600 focus:border-sky-500/60 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={pageOpBusy || !newPagePath.trim()}
+                    onClick={submitNewPage}
+                    className="flex h-6 items-center rounded-md border border-emerald-700/60 bg-emerald-900/30 px-2 text-[11px] text-emerald-200 hover:bg-emerald-900/50 disabled:opacity-50"
+                  >
+                    Lägg till
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Avbryt"
+                    onClick={() => {
+                      setNewPagePath("");
+                      setAddingPage(false);
+                    }}
+                    className="flex h-6 w-5 items-center justify-center rounded-md text-gray-500 hover:text-gray-300"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pageOpBusy}
+                  onClick={() => setAddingPage(true)}
+                  title="Lägg till en ny sida"
+                  aria-label="Lägg till en ny sida"
+                  className="flex h-6 items-center gap-1 rounded-md border border-dashed border-gray-600 px-2 text-[11px] text-gray-400 hover:border-emerald-600/60 hover:text-emerald-200 disabled:opacity-50"
+                >
+                  <Plus className="h-3 w-3" />
+                  Sida
+                </button>
+              )
+            ) : null}
           </div>
         </div>
       ) : null}

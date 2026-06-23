@@ -1,6 +1,11 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { isBlockedQuickEditPath, isQuickEditSafePath, normalizeQuickEditPath } from "./guards";
+import {
+  isBlockedQuickEditPath,
+  isDeletableQuickEditPath,
+  isQuickEditSafePath,
+  normalizeQuickEditPath,
+} from "./guards";
 import type { QuickEditApplyResult, QuickEditOp } from "./types";
 
 function countOccurrences(haystack: string, needle: string): number {
@@ -53,6 +58,7 @@ export function applyQuickEdits(
     next.set(file.path, { ...file });
   }
   const changed = new Set<string>();
+  const removed = new Set<string>();
 
   for (const op of ops) {
     const path = normalizeQuickEditPath(op.path);
@@ -65,6 +71,23 @@ export function applyQuickEdits(
         reason: "unsafe_path",
         message: `Blocked path: ${op.path} (sensitive file — secrets/lockfiles cannot be quick-edited).`,
       };
+    }
+
+    if (op.kind === "delete_file") {
+      if (!isDeletableQuickEditPath(path)) {
+        return {
+          ok: false,
+          reason: "protected_path",
+          message: `Refusing to delete protected file: ${path}`,
+        };
+      }
+      if (!next.has(path)) {
+        return { ok: false, reason: "file_not_found", message: `File not found: ${path}` };
+      }
+      next.delete(path);
+      changed.add(path);
+      removed.add(path);
+      continue;
     }
 
     if (op.kind === "replace_content") {
@@ -123,5 +146,6 @@ export function applyQuickEdits(
     ok: true,
     files: Array.from(next.values()),
     changedPaths: Array.from(changed),
+    removedPaths: Array.from(removed),
   };
 }

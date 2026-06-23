@@ -65,7 +65,19 @@ import {
   resolveHomePageFilePath,
   tryInsertPageBlockIntoHomePage,
 } from "@/lib/builder/page-block-patch";
-import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
+import { patchEngineChatFile, quickEditChatFiles } from "@/lib/builder/engine-files-patch";
+import {
+  buildAddNavLinkOps,
+  buildNewPageContent,
+  buildRemoveNavLinkOps,
+  defaultLabelForRoute,
+  detectAppDir,
+  findRouteFilePaths,
+  normalizePageRouteInput,
+  pageFilePathForRoute,
+  routeHasPageFile,
+} from "@/lib/builder/preview-page-ops";
+import type { QuickEditClientOp, QuickEditClientResult } from "@/lib/builder/engine-files-patch";
 
 const PreviewPanelInspectorDev = dynamic(
   () =>
@@ -142,7 +154,16 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
-  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
+  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(
+    chatId,
+    versionId,
+    refreshToken,
+  );
+  const [pageOpBusy, setPageOpBusy] = useState(false);
+  // Synchronous lock: `pageOpBusy` updates async, so two submits in the same
+  // tick could both pass the guard and fork version history. The ref flips
+  // immediately so the second call bails.
+  const pageOpInFlightRef = useRef(false);
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -422,6 +443,16 @@ export function PreviewPanel({
     [onComposerAiFallback],
   );
 
+  // FEL-2: chain rapid composer actions off the version each one creates, so a
+  // second drop/undo/redo fired before the parent re-renders builds on the
+  // first instead of forking from the stale `versionId` prop (mirrors the code
+  // view's baseVersionRef in usePreviewPanelCodeFiles). Re-synced when the
+  // selected version prop changes.
+  const composerBaseVersionRef = useRef<string | null>(versionId);
+  useEffect(() => {
+    composerBaseVersionRef.current = versionId;
+  }, [versionId]);
+
   const handleComposerUndo = useCallback(async () => {
     if (!chatId || !versionId || composerHistoryBusy) return;
     const last = composerUndoStack[composerUndoStack.length - 1];
@@ -429,20 +460,22 @@ export function PreviewPanel({
 
     setComposerHistoryBusy(true);
     try {
+      const base = composerBaseVersionRef.current ?? versionId;
       const saved = await patchEngineChatFile({
         chatId,
-        versionId,
+        versionId: base,
         fileName: last.fileName,
         content: last.before,
-        // Composer patches the active version directly; it is the client's only
-        // version notion in scope, so forward it so the server's stale-base 409
-        // can fire when another writer advanced the chat head past it.
-        engineLatestKnownVersionId: versionId,
+        // Composer chains off the version each action creates (FEL-2); forward
+        // that base as the latest-known signal so the server's stale-base 409
+        // fires when another writer advanced the chat head past it.
+        engineLatestKnownVersionId: base,
       });
       if (!saved.ok) {
         toast.error(saved.error);
         return;
       }
+      if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
       setComposerUndoStack((prev) => prev.slice(0, -1));
       setComposerRedoStack((prev) => [last, ...prev].slice(0, 20));
       setLastComposerActionLabel("Ångra direkt patch");
@@ -465,19 +498,21 @@ export function PreviewPanel({
 
     setComposerHistoryBusy(true);
     try {
+      const base = composerBaseVersionRef.current ?? versionId;
       const saved = await patchEngineChatFile({
         chatId,
-        versionId,
+        versionId: base,
         fileName: next.fileName,
         content: next.after,
-        // See handleComposerUndo: forward the active version as the latest-known
-        // signal so the server's stale-base 409 guard can fire.
-        engineLatestKnownVersionId: versionId,
+        // See handleComposerUndo: chain off the latest composer version (FEL-2)
+        // and forward it as the latest-known signal for the stale-base 409.
+        engineLatestKnownVersionId: base,
       });
       if (!saved.ok) {
         toast.error(saved.error);
         return;
       }
+      if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
       setComposerRedoStack((prev) => prev.slice(1));
       setComposerUndoStack((prev) => [...prev.slice(-19), next]);
       setLastComposerActionLabel("Gör om direkt patch");
@@ -523,8 +558,9 @@ export function PreviewPanel({
         anchorSection: detail.anchorSection,
       };
 
+      const base = composerBaseVersionRef.current ?? versionId;
       try {
-        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        const { response, data } = await fetchChatVersionFilesJson(chatId, base);
         if (!response.ok || !data?.files || !Array.isArray(data.files)) {
           toast.error("Kunde inte läsa versionens filer.");
           await runComposerAiFallback({
@@ -577,12 +613,12 @@ export function PreviewPanel({
 
         const saved = await patchEngineChatFile({
           chatId,
-          versionId,
+          versionId: base,
           fileName: path,
           content: patchResult.content,
-          // See handleComposerUndo: forward the active version as the
-          // latest-known signal so the server's stale-base 409 guard can fire.
-          engineLatestKnownVersionId: versionId,
+          // See handleComposerUndo: chain off the latest composer version (FEL-2)
+          // and forward it as the latest-known signal for the stale-base 409.
+          engineLatestKnownVersionId: base,
         });
 
         if (!saved.ok) {
@@ -594,6 +630,7 @@ export function PreviewPanel({
           return;
         }
 
+        if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
         setComposerUndoStack((prev) => [
           ...prev.slice(-19),
           { fileName: path, before: homePageContent, after: patchResult.content },
@@ -712,6 +749,160 @@ export function PreviewPanel({
     ],
   );
 
+  // Quick-edit op cap (mirrors the route's zod `.max(50)`). Page removal of a
+  // heavily colocated route can exceed it, so ops are chunked into sequential
+  // minor versions chaining off each previous result.
+  const QUICK_EDIT_OPS_PER_CALL = 50;
+  const runQuickEditChunked = useCallback(
+    async (
+      activeChatId: string,
+      baseVersionId: string,
+      ops: QuickEditClientOp[],
+      summary: string,
+    ): Promise<QuickEditClientResult> => {
+      let currentBase = baseVersionId;
+      let last: QuickEditClientResult | null = null;
+      for (let i = 0; i < ops.length; i += QUICK_EDIT_OPS_PER_CALL) {
+        const slice = ops.slice(i, i + QUICK_EDIT_OPS_PER_CALL);
+        const res = await quickEditChatFiles({
+          chatId: activeChatId,
+          baseVersionId: currentBase,
+          // First chunk's base is the page op's base version; later chunks chain
+          // off the previous result. Forwarding `currentBase` as latest-known
+          // means the stale-base 409 only fires when another writer advanced the
+          // head past our base, never on our own chain.
+          engineLatestKnownVersionId: currentBase,
+          ops: slice,
+          summary,
+        });
+        if (!res.ok) return res;
+        currentBase = res.versionId;
+        last = res;
+      }
+      return last ?? { ok: false, error: "Inga ändringar att tillämpa." };
+    },
+    [],
+  );
+
+  const handleAddPage = useCallback(
+    async (rawRoute: string) => {
+      if (!chatId || !versionId || pageOpInFlightRef.current) return;
+      const route = normalizePageRouteInput(rawRoute);
+      if (!route) {
+        toast.error("Ogiltig sökväg. Använd t.ex. /om eller /tjanster/pris.");
+        return;
+      }
+      pageOpInFlightRef.current = true;
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        if (routeHasPageFile(files, route)) {
+          toast.error(`Sidan ${route} finns redan.`);
+          return;
+        }
+        const appDir = detectAppDir(files);
+        const pagePath = pageFilePathForRoute(route, appDir);
+        const label = defaultLabelForRoute(route);
+        const nav = buildAddNavLinkOps(files, route, label);
+        const result = await quickEditChatFiles({
+          chatId,
+          baseVersionId: versionId,
+          // Forward the active version as the latest-known signal so the server's
+          // stale-base 409 fires if another writer advanced the chat head.
+          engineLatestKnownVersionId: versionId,
+          ops: [
+            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
+            ...nav.ops,
+          ],
+          summary: `La till sidan ${route}`,
+        });
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte skapa sidan.");
+          return;
+        }
+        if (nav.navUpdated) {
+          toast.success(`Sidan ${route} skapades och länkades i menyn.`);
+        } else {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Hittade ingen meny att länka från automatiskt — be i chatten att länka sidan så syns den i menyn.",
+          });
+        }
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle skapas.");
+      } finally {
+        pageOpInFlightRef.current = false;
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, onFilesSaved],
+  );
+
+  const handleRemovePage = useCallback(
+    async (route: string) => {
+      if (!chatId || !versionId || route === "/" || pageOpInFlightRef.current) return;
+      pageOpInFlightRef.current = true;
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        const routeFiles = findRouteFilePaths(files, route);
+        if (routeFiles.length === 0) {
+          toast.error(`Hittade inga filer för sidan ${route}.`);
+          return;
+        }
+        // Exclude the files we are about to delete from nav-cleanup — a file
+        // inside the deleted subtree that also links to the route would
+        // otherwise get a redundant replace_content op targeting a path that the
+        // same batch deletes.
+        const deletedPaths = new Set(routeFiles.map((p) => p.replace(/\\/g, "/")));
+        const navFiles = files.filter((f) => !deletedPaths.has(f.name.replace(/\\/g, "/")));
+        const ops: QuickEditClientOp[] = [
+          ...routeFiles.map((path) => ({ kind: "delete_file" as const, path })),
+          ...buildRemoveNavLinkOps(navFiles, route),
+        ];
+        const result = await runQuickEditChunked(
+          chatId,
+          versionId,
+          ops,
+          `Tog bort sidan ${route}`,
+        );
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte ta bort sidan.");
+          return;
+        }
+        toast.success(`Sidan ${route} togs bort.`);
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle tas bort.");
+      } finally {
+        pageOpInFlightRef.current = false;
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, onFilesSaved, runQuickEditChunked],
+  );
+
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -771,6 +962,10 @@ export function PreviewPanel({
 
   const isV0Preview = Boolean(
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
+  );
+  /** +/- page controls: own-engine/tier-2 design versions only (F3 declines quick-edit). */
+  const canManagePages = Boolean(
+    chatId && versionId && !isV0Preview && lifecycleStage !== "integrations",
   );
   /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
   const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
@@ -939,6 +1134,10 @@ export function PreviewPanel({
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
+        canManagePages={canManagePages}
+        pageOpBusy={pageOpBusy}
+        onAddPage={handleAddPage}
+        onRemovePage={handleRemovePage}
         showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}

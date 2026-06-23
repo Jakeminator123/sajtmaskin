@@ -15,7 +15,8 @@ export function isQuickEditEnabled(): boolean {
 
 export type QuickEditClientOp =
   | { kind: "replace_content"; path: string; content: string }
-  | { kind: "replace_text"; path: string; find: string; replace: string; occurrence?: number };
+  | { kind: "replace_text"; path: string; find: string; replace: string; occurrence?: number }
+  | { kind: "delete_file"; path: string };
 
 export type QuickEditClientResult =
   | {
