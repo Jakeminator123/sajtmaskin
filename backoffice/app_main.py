@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from backoffice.pages import PAGE_GROUPS, PAGE_MAP, PAGE_NAMES, PAGE_QUERY_ALIASES
+from backoffice.pages.llm_flow_status import build_canvas
 from backoffice.shared import build_backoffice_context, ensure_utf8_stdio, load_domain_map
 
 
@@ -50,6 +51,17 @@ def run_backoffice_app(
     if "backoffice_repo" not in st.session_state:
         st.session_state["backoffice_repo"] = build_backoffice_context().repo_root
     ctx = build_backoffice_context(Path(st.session_state["backoffice_repo"]))
+
+    # Regenerera den deterministiska LLM-flöde-canvasen en gång per session, så
+    # `docs/canvases/llm-flow.canvas.{txt,json}` speglar nuvarande signaler när
+    # backoffice startar. Mjuk: blockerar aldrig appen om `node` saknas/fel.
+    if not st.session_state.get("canvas_built"):
+        st.session_state["canvas_built"] = True
+        with st.spinner("Uppdaterar LLM-flöde-canvas ..."):
+            _canvas_res = build_canvas(ctx.repo_root)
+        if not _canvas_res.get("ok"):
+            st.session_state["canvas_build_warning"] = _canvas_res.get("error")
+
     domain_map = load_domain_map(str(ctx.domain_map_json))
 
     if "backoffice_nav" not in st.session_state:
