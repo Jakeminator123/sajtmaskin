@@ -10,8 +10,10 @@ import {
 } from "@/lib/gen/preview/env-local";
 import {
   destroyPreviewHostSession,
+  patchPreviewHostSession,
   startPreviewHostSession,
   updatePreviewHostSession,
+  type PreviewHostPatchMode,
 } from "@/lib/gen/preview/preview-host-client";
 import {
   clearPreviewSessionAsync,
@@ -105,6 +107,82 @@ async function destroyAndClearPreviewSession(chatId: string): Promise<void> {
     );
   }
   await clearPreviewSessionAsync(chatId);
+}
+
+/**
+ * Fast Edit Lane flag. When off (default) callers must fall back to the normal
+ * generation/update flow. Kept as a plain env read so both the Next app and any
+ * background workers see the same gate.
+ */
+export function isPreviewPatchLaneEnabled(): boolean {
+  return (process.env.SAJTMASKIN_PREVIEW_PATCH_LANE ?? "").trim() === "true";
+}
+
+export type TryPatchPreviewSessionResult =
+  | {
+      ok: true;
+      previewUrl: string;
+      previewSessionId: string;
+      patchMode: PreviewHostPatchMode;
+    }
+  | {
+      ok: false;
+      reason: "disabled" | "no_session" | "session_missing" | "host_error";
+      message?: string;
+    };
+
+/**
+ * Fast Edit Lane: push only the changed files to the chat's live preview-host
+ * session without a full generation/update. Returns `disabled` when the flag is
+ * off and `no_session`/`session_missing` when there is nothing live to patch —
+ * the caller is expected to fall back to `startPreviewSession` in those cases.
+ *
+ * `changedFiles` are exact `path -> content` entries (already repaired/scaffold
+ * paths as stored in the version). No LLM, no scaffold rebuild.
+ */
+export async function tryPatchPreviewSession(params: {
+  chatId: string;
+  versionId: string;
+  changedFiles: Record<string, string>;
+  removedPaths?: string[];
+}): Promise<TryPatchPreviewSessionResult> {
+  if (!isPreviewPatchLaneEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+  const chatId = params.chatId.trim();
+  const versionId = params.versionId.trim();
+  if (!chatId || !versionId) {
+    return { ok: false, reason: "no_session" };
+  }
+  const sess = await getActivePreviewSessionAsync(chatId);
+  if (!sess?.previewSessionId) {
+    return { ok: false, reason: "no_session" };
+  }
+  const patched = await patchPreviewHostSession({
+    previewSessionId: sess.previewSessionId,
+    versionId,
+    files: params.changedFiles,
+    removedPaths: params.removedPaths,
+  });
+  if (patched.ok) {
+    await touchPreviewSessionAsync({
+      chatId,
+      previewSessionId: patched.previewSessionId,
+      previewUrl: patched.previewUrl,
+      versionId,
+      tier2Provider: "preview_host",
+    });
+    return {
+      ok: true,
+      previewUrl: patched.previewUrl,
+      previewSessionId: patched.previewSessionId,
+      patchMode: patched.patchMode,
+    };
+  }
+  if ("sessionMissing" in patched && patched.sessionMissing === true) {
+    return { ok: false, reason: "session_missing", message: patched.message };
+  }
+  return { ok: false, reason: "host_error", message: patched.message };
 }
 
 export type StartPreviewSessionOptions = {

@@ -74,7 +74,12 @@ export interface PreviewPanelProps {
    */
   onRestartGeneration?: () => void;
   refreshToken?: number;
-  onFilesSaved?: () => void;
+  /**
+   * Called after a manual file save. When the Fast Edit Lane created a new minor
+   * version, `info.versionId` carries it so the builder can select the new
+   * version (otherwise the in-place save kept the current version).
+   */
+  onFilesSaved?: (info?: { versionId?: string }) => void;
   imageGenerationsEnabled?: boolean;
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;

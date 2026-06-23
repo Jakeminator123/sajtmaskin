@@ -699,6 +699,92 @@ function writeWorkspaceFiles(chatId, filesJson) {
   return writeFilesIntoWorkspace(workspaceDirForChat(chatId), filesJson);
 }
 
+/**
+ * Fast Edit Lane: write ONLY the changed files into an existing workspace and
+ * remove `removedPaths`, without deleting any other files. The manifest is
+ * updated to the union of prior + changed minus removed so a later full boot
+ * stays consistent. Does not touch the running dev process — Next dev's file
+ * watcher lazily recompiles the changed route on the next request.
+ */
+function patchWorkspaceFiles(chatId, files, removedPaths = []) {
+  const workspaceDir = workspaceDirForChat(chatId);
+  ensureDir(workspaceDir);
+  const priorManifest = readJsonIfExists(manifestPathForWorkspace(workspaceDir));
+  const manifestSet = new Set(Array.isArray(priorManifest?.files) ? priorManifest.files : []);
+  for (const relPath of removedPaths) {
+    if (typeof relPath !== "string" || !relPath) continue;
+    fs.rmSync(path.join(workspaceDir, relPath), { recursive: true, force: true });
+    manifestSet.delete(relPath);
+  }
+  for (const [relPath, content] of Object.entries(files || {})) {
+    const absPath = path.join(workspaceDir, relPath);
+    ensureDir(path.dirname(absPath));
+    if (typeof content === "string" && content.startsWith(BINARY_BASE64_PREFIX)) {
+      fs.writeFileSync(absPath, Buffer.from(content.slice(BINARY_BASE64_PREFIX.length), "base64"));
+    } else {
+      fs.writeFileSync(absPath, content, "utf8");
+    }
+    manifestSet.add(relPath);
+  }
+  fs.writeFileSync(
+    manifestPathForWorkspace(workspaceDir),
+    JSON.stringify({ files: Array.from(manifestSet) }, null, 2),
+    "utf8",
+  );
+  return workspaceDir;
+}
+
+const PATCH_DEP_CRITICAL_PATHS = new Set([
+  "package.json",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "pnpm-lock.yml",
+  "yarn.lock",
+]);
+
+/**
+ * Returns true when any of the supplied paths is dependency/config-critical and
+ * therefore requires a full runtime restart (npm install and/or Next config
+ * reload) rather than a hot file patch. `.env*` is included because Next reads
+ * env only at boot.
+ */
+function patchTouchesStructuralPath(paths) {
+  for (const relPath of paths) {
+    const p = String(relPath || "").replace(/\\/g, "/").trim().toLowerCase();
+    if (!p) continue;
+    if (PATCH_DEP_CRITICAL_PATHS.has(p)) return true;
+    if (/^next\.config\.(?:js|cjs|mjs|ts)$/.test(p)) return true;
+    if (/^tsconfig(?:\.[\w.-]+)?\.json$/.test(p)) return true;
+    if (p === ".env" || p.startsWith(".env.")) return true;
+    if (/^(?:postcss|tailwind)\.config\.[\w.-]+$/.test(p)) return true;
+  }
+  return false;
+}
+
+/**
+ * Apply a Fast Edit Lane patch to the live runtime for a chat.
+ * - Structural/config change -> full restart (npm install / config reload).
+ * - Runtime not running -> queue a normal (non-restart) boot from the merged
+ *   session filesJson (caller merges before invoking this).
+ * - Otherwise -> write only the changed files; leave the dev process alive.
+ */
+function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
+  const changed = files && typeof files === "object" ? files : {};
+  const removed = Array.isArray(removedPaths) ? removedPaths : [];
+  const allPaths = [...Object.keys(changed), ...removed];
+  if (patchTouchesStructuralPath(allPaths)) {
+    queueRuntimeBoot(chatId, { restart: true });
+    return { mode: "restarted", reason: "structural_change" };
+  }
+  const runtimeState = getRuntimeStateForChat(chatId);
+  if (!runtimeState.running) {
+    queueRuntimeBoot(chatId);
+    return { mode: "booted", reason: "runtime_not_running" };
+  }
+  patchWorkspaceFiles(chatId, changed, removed);
+  return { mode: "patched", reason: null };
+}
+
 function responseHeadersLookLikeHtmlDocument(res) {
   if (!res.ok) return false;
   const ct = res.headers.get("content-type")?.toLowerCase() ?? "";
@@ -1188,9 +1274,12 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
         // inte spammas med "WebSocket connection ... failed". Hot-reload
         // tappas men sajten reload:as ändå vid varje generation. Sätt till
         // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
-        // direkt).
-        SAJTMASKIN_PREVIEW_DISABLE_HMR:
-          process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true",
+        // direkt). Fast Edit Lane Fas 4: när HMR-proxyn är på tvingar vi
+        // DISABLE_HMR=false så Next behåller HMR-pluginen och emitterar events
+        // som proxyn vidarebefordrar (true hot reload utan iframe-reload).
+        SAJTMASKIN_PREVIEW_DISABLE_HMR: isHmrProxyEnabled()
+          ? "false"
+          : (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true"),
         ...(runId ? { SAJTMASKIN_PREVIEW_RUN_ID: runId } : {}),
       }),
     },
@@ -1444,7 +1533,22 @@ function isHmrPath(pathname) {
   if (!pathname) return false;
   return HMR_PATH_RE.test(pathname);
 }
+
+/**
+ * Fast Edit Lane Fas 4: when `SAJTMASKIN_PREVIEW_HMR_PROXY=true` the host proxies
+ * the `_next/(webpack|turbopack)-hmr` WebSocket through to the live Next dev
+ * server (true hot reload, no iframe refresh) instead of the no-op stub. Default
+ * OFF — unset/`false` keeps today's behaviour exactly (HMR silenced + stubbed).
+ * Reversible by toggling this single env var; no redeploy required to turn off.
+ */
+function isHmrProxyEnabled() {
+  return (process.env.SAJTMASKIN_PREVIEW_HMR_PROXY ?? "").trim() === "true";
+}
+
 function hmrSilencedForRequest() {
+  // When the HMR proxy is enabled we must NOT silence/stub — let HMR paths flow
+  // through the normal proxy to the runtime so Fast Refresh works end to end.
+  if (isHmrProxyEnabled()) return false;
   return (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true") === "true";
 }
 
@@ -1839,6 +1943,7 @@ module.exports = {
   getRuntimeStateForChat,
   getSessionChatId,
   queueRuntimeBoot,
+  applyRuntimePatch,
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   findSessionByChatId,
@@ -1856,5 +1961,7 @@ module.exports = {
     patchNextConfigForPreviewBasePath,
     stripTsToWhitespace,
     findConfigObjectExpression,
+    patchTouchesStructuralPath,
+    patchWorkspaceFiles,
   },
 };

@@ -442,6 +442,7 @@ const schemaQueries = [
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS repair_available_at TIMESTAMPTZ`,
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMPTZ`,
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS parent_version_id TEXT`,
+  `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS edit_kind TEXT`,
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS lifecycle_stage TEXT`,
   `UPDATE engine_versions SET lifecycle_stage = 'design' WHERE lifecycle_stage IS NULL`,
   `ALTER TABLE engine_versions ALTER COLUMN lifecycle_stage SET DEFAULT 'design'`,

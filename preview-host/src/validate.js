@@ -212,6 +212,54 @@ function validateSessionRefPayload(payload) {
 }
 
 /**
+ * Fast Edit Lane patch payload. Unlike `update`, this carries only the
+ * changed files (partial set) plus optional removals, and the host applies
+ * them to the live workspace without a full file-set replacement.
+ *
+ * @param {unknown} payload
+ */
+function validatePatchPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Body must be a JSON object");
+  }
+  const p = /** @type {Record<string, unknown>} */ (payload);
+  const previewSessionId = readPreviewSessionId(p);
+  if (!p.sessionId && !previewSessionId) {
+    throw new Error("Provide previewSessionId or sessionId");
+  }
+  const versionId = requireTrimString(p.versionId, "versionId");
+  const files = validateFilesJson(p.files, "files");
+  const removedPaths = [];
+  if (p.removedPaths !== undefined && p.removedPaths !== null) {
+    if (!Array.isArray(p.removedPaths)) {
+      throw new Error("Invalid removedPaths: expected array");
+    }
+    for (const value of p.removedPaths) {
+      const rel = String(value || "").trim();
+      if (!rel) continue;
+      if (rel.length > MAX_PATH_LEN) {
+        throw new Error("Invalid removedPaths: path too long");
+      }
+      if (!isSafeRelativePath(rel)) {
+        throw new Error(`Invalid removedPaths: unsafe path "${rel}"`);
+      }
+      removedPaths.push(rel);
+    }
+  }
+  const fileCount = files ? Object.keys(files).length : 0;
+  if (fileCount === 0 && removedPaths.length === 0) {
+    throw new Error("Invalid patch: provide at least one file or removed path");
+  }
+  return {
+    sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
+    previewSessionId,
+    versionId,
+    files: files ?? {},
+    removedPaths,
+  };
+}
+
+/**
  * @param {unknown} payload
  */
 function validateVerifyPayload(payload) {
@@ -258,6 +306,7 @@ function validateVerifyPayload(payload) {
 module.exports = {
   validateStartPayload,
   validateUpdatePayload,
+  validatePatchPayload,
   validateSessionRefPayload,
   validateVerifyPayload,
 };

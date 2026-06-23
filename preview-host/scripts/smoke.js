@@ -160,6 +160,41 @@ async function main() {
     assert.equal(afterInvalidReplace.status, 200);
     assert.equal(afterInvalidReplace.body.versionId, "ver_replace");
 
+    // Fast Edit Lane: a partial patch merges into the live file set (no full
+    // replacement) and reports a patch mode.
+    const patched = await postJson(`${baseUrl}/preview/session/patch`, {
+      previewSessionId,
+      versionId: "ver_patch_1",
+      files: {
+        "app/about.tsx": "export default function About() { return <div>About</div>; }",
+      },
+    });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.versionId, "ver_patch_1");
+    assert.equal(patched.body.lastAction, "patch");
+    assert.ok(["patched", "booted", "restarted"].includes(patched.body.patchMode));
+    const filesAfterPatch = readSessionFilesJsonFromStore(sessionId);
+    assert.deepEqual(Object.keys(filesAfterPatch).sort(), ["app/about.tsx", "app/page.tsx"]);
+
+    // Structural change (package.json) forces a restart mode, not a hot patch.
+    const structuralPatch = await postJson(`${baseUrl}/preview/session/patch`, {
+      previewSessionId,
+      versionId: "ver_patch_2",
+      files: {
+        "package.json": JSON.stringify({ name: "demo-project", private: true }, null, 2),
+      },
+    });
+    assert.equal(structuralPatch.status, 200);
+    assert.equal(structuralPatch.body.patchMode, "restarted");
+
+    // Patching a non-existent session 404s so callers can fall back to update/start.
+    const missingPatch = await postJson(`${baseUrl}/preview/session/patch`, {
+      previewSessionId: "ps_does_not_exist",
+      versionId: "ver_patch_3",
+      files: { "app/page.tsx": "export default function Page(){return null;}" },
+    });
+    assert.equal(missingPatch.status, 404);
+
     const hibernated = await postJson(`${baseUrl}/preview/session/hibernate`, {
       previewSessionId,
     });

@@ -213,12 +213,47 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 
 - `POST /preview/session/start`
 - `POST /preview/session/update`
+- `POST /preview/session/patch` (Fast Edit Lane — partial, usually no restart)
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
 - `GET /preview/session/:previewSessionId/status`
 - `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
 - `GET /preview/logs/:previewSessionId`
+
+#### Fast Edit Lane patch route (`POST /preview/session/patch`)
+
+Used for trivial, exact edits (file-tree / code-view / inspector) so a single
+changed file reaches the live VM without a full generation or a forced Next dev
+restart. Distinct from `update`:
+
+- Carries only the changed files in `files` (partial set), plus optional
+  `removedPaths` — not a full `filesJson`.
+- The host merges `files` into the stored set, writes only those paths into the
+  live workspace, and leaves the running dev process alive so Next lazily
+  recompiles the changed route. `update` always replaces and restarts.
+
+Request fields (validated in `preview-host/src/validate.js` → `validatePatchPayload`):
+
+- `previewSessionId` (or `sessionId`)
+- `versionId`
+- `files` (object `path -> content`, at least one entry unless `removedPaths` set)
+- `removedPaths` (optional `string[]`)
+
+Response adds two fields on top of the standard session response:
+
+- `patchMode`: `patched` (hot, no restart), `restarted` (a dependency/config path
+  forced a full boot), or `booted` (runtime was not running and a boot was queued).
+- `patchReason`: stable reason string or `null`.
+
+A dependency/config-critical change (`package.json`, lockfiles, `next.config.*`,
+`tsconfig*.json`, `.env*`, `postcss/tailwind.config.*`) always falls back to a full
+restart. A 404 (`session_not_found`) means the caller should fall back to
+`update`/`start`.
+
+App side: `patchPreviewHostSession` in `src/lib/gen/preview/preview-host-client.ts`,
+gated by `SAJTMASKIN_PREVIEW_PATCH_LANE` via `tryPatchPreviewSession` in
+`src/lib/gen/preview/preview-session.ts`.
 
 When preview-host runs outside local development, all `/preview/*` routes require
 auth via the shared preview-host key:

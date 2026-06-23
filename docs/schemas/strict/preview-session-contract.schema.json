@@ -325,6 +325,52 @@
           }
         }
       }
+    },
+    "PreviewHostPatchRequest": {
+      "route": "POST /preview/session/patch",
+      "purpose": "Fast Edit Lane. Pushes only the changed files of a trivial edit into the live preview workspace; usually no Next dev restart.",
+      "type": "object",
+      "required": ["versionId"],
+      "oneOfSessionRef": ["previewSessionId", "sessionId"],
+      "legacyAcceptedAliases": {
+        "sandboxId": "previewSessionId"
+      },
+      "properties": {
+        "previewSessionId": { "type": "string", "required": false },
+        "sessionId": { "type": "string", "required": false },
+        "versionId": { "type": "string", "required": true },
+        "files": {
+          "type": "object",
+          "required": false,
+          "note": "Partial set of changed files (path -> content). At least one of `files` or `removedPaths` must be non-empty."
+        },
+        "removedPaths": {
+          "type": "array",
+          "required": false,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "PreviewHostPatchResponse": {
+      "route": "POST /preview/session/patch",
+      "type": "object",
+      "required": ["sessionId", "previewSessionId", "versionId", "previewUrl", "patchMode"],
+      "properties": {
+        "sessionId": { "type": "string", "required": true },
+        "previewSessionId": { "type": "string", "required": true },
+        "sandboxId": { "type": "string", "required": false, "note": "Legacy alias for previewSessionId." },
+        "chatId": { "type": "string", "required": false },
+        "versionId": { "type": "string", "required": true },
+        "previewUrl": { "type": "string", "required": true },
+        "lastAction": { "type": "string", "required": false, "const": "patch" },
+        "patchMode": {
+          "type": "string",
+          "required": true,
+          "enum": ["patched", "restarted", "booted"],
+          "note": "patched=hot file write, no restart; restarted=dependency/config change forced a full boot; booted=runtime was not running."
+        },
+        "patchReason": { "type": ["string", "null"], "required": false }
+      }
     }
   }
 }

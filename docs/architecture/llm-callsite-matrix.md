@@ -16,6 +16,14 @@ USER PROMPT
 
 Grenval: `src/lib/gen/follow-up-predicate.ts` (`deriveFollowUpStateFromInputs`) + intent-regex `src/lib/providers/own-engine/follow-up-clarification.ts:248-309`. Init-route `POST /api/engine/chats/stream`; follow-up-route `POST /api/engine/chats/[chatId]/stream`.
 
+### Fast Edit Lane (deterministisk, 0 LLM)
+
+```
+EXAKT TOOL-EDIT (kodvy / filträd / inspector) → applyQuickEdits (DETERMINISTISK) → ny minor-version (quick_edit) → preview-host patch (ingen restart) → klar
+```
+
+Triviala, användarutpekade ändringar går helt utanför LLM-codegen/finalize. Ingen prompt-tolkning, ingen gissning — kräver exakt fil (och, vid textbyte, unik/utpekad sträng). Route `POST /api/engine/chats/[chatId]/quick-edit`; motor `src/lib/gen/quick-edit/{apply,service}.ts`; preview `POST /preview/session/patch` (preview-host). Flagga: `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT` (klient) + `SAJTMASKIN_PREVIEW_PATCH_LANE` (hot patch). **LLM-anrop: 0.**
+
 ## Modell-routing i runtime (en väg)
 
 ```
@@ -77,7 +85,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 | Embeddings (scaffold/mall/variant) | `scaffold-search.ts`, `template-search.ts`, `scaffold-variants/matcher.ts` | `text-embedding-3-small` | embeddings SDK | ja (`embeddingModels`) |
 
 ## Deterministiska steg i kedjan (ingen LLM — viktigt för mental modell)
-`route-plan-builder.ts:24-72` (routes) · `capability-dossier-bridge.ts:26-37` (capability→dossier) · `dossiers/select.ts` (dossier-pick) · `build-dynamic-context.ts:118` + `compose.ts:38` (system-prompt) · `pre-generation-contract-gate.ts:37` (SSE only) · `follow-up-clarification.ts` intent-regex · `domain-inference.ts` + `prompt-heuristics.ts` (brief-signaler) · `error-log-retriever.ts` (TF-IDF rerank).
+`route-plan-builder.ts:24-72` (routes) · `capability-dossier-bridge.ts:26-37` (capability→dossier) · `dossiers/select.ts` (dossier-pick) · `build-dynamic-context.ts:118` + `compose.ts:38` (system-prompt) · `pre-generation-contract-gate.ts:37` (SSE only) · `follow-up-clarification.ts` intent-regex · `domain-inference.ts` + `prompt-heuristics.ts` (brief-signaler) · `error-log-retriever.ts` (TF-IDF rerank) · **`quick-edit/{apply,service}.ts` (Fast Edit Lane — hela vägen 0 LLM)**.
 
 ## Verifierade fynd (kod-kollade, kandidat-buggar — F1/F2/F3 åtgärdade; F4/F5 backlog)
 

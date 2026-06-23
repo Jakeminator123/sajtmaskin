@@ -69,6 +69,14 @@ type VersionSummary = {
   pinned?: boolean;
   canPin?: boolean;
   /**
+   * Fast Edit Lane provenance. `"quick_edit"` rows are deterministic, exact
+   * edits and are rendered as a minor version (v3.1, v3.2) grouped under their
+   * `parentVersionId`. Null/undefined = a normal full version.
+   */
+  editKind?: string | null;
+  /** Engine version id this row was forked from (major for quick_edit rows). */
+  parentVersionId?: string | null;
+  /**
    * Lifecycle stage from `engine_versions.lifecycle_stage`. Threaded so
    * tooltip/label can tell F2 design rows ("Klar — server-verify körs
    * först vid Bygg integrationer") apart from F3 integrations rows
@@ -101,6 +109,59 @@ function versionRowSortKey(version: VersionSummary): number {
   if (!createdAt) return 0;
   const timestamp = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
   return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function resolveVersionInternalId(version: VersionSummary): string | null {
+  if (typeof version.id === "string" && version.id.trim()) return version.id;
+  if (typeof version.versionId === "string" && version.versionId.trim()) return version.versionId;
+  return null;
+}
+
+/**
+ * Fast Edit Lane label derivation. `quick_edit` rows render as a minor version
+ * (`v3.1`, `v3.2`) under the integer version of their `parentVersionId`, in
+ * `versionNumber` order. Everything else keeps its plain `v{versionNumber}`.
+ * Returns a map keyed by engine version id.
+ */
+function buildVersionLabelMap(versions: VersionSummary[]): Map<string, string> {
+  const byId = new Map<string, VersionSummary>();
+  for (const version of versions) {
+    const id = resolveVersionInternalId(version);
+    if (id) byId.set(id, version);
+  }
+  const childrenByParent = new Map<string, VersionSummary[]>();
+  for (const version of versions) {
+    if (version.editKind === "quick_edit" && version.parentVersionId) {
+      const siblings = childrenByParent.get(version.parentVersionId) ?? [];
+      siblings.push(version);
+      childrenByParent.set(version.parentVersionId, siblings);
+    }
+  }
+  const minorIndexById = new Map<string, number>();
+  for (const siblings of childrenByParent.values()) {
+    siblings.sort((a, b) => (a.versionNumber ?? 0) - (b.versionNumber ?? 0));
+    siblings.forEach((version, index) => {
+      const id = resolveVersionInternalId(version);
+      if (id) minorIndexById.set(id, index + 1);
+    });
+  }
+  const labels = new Map<string, string>();
+  for (const version of versions) {
+    const id = resolveVersionInternalId(version);
+    if (!id) continue;
+    if (version.editKind === "quick_edit" && version.parentVersionId) {
+      const parentNumber = byId.get(version.parentVersionId)?.versionNumber;
+      const minor = minorIndexById.get(id);
+      if (typeof parentNumber === "number" && typeof minor === "number") {
+        labels.set(id, `v${parentNumber}.${minor}`);
+        continue;
+      }
+    }
+    if (typeof version.versionNumber === "number") {
+      labels.set(id, `v${version.versionNumber}`);
+    }
+  }
+  return labels;
 }
 
 type BlobExportResponse = {
@@ -176,6 +237,7 @@ export function VersionHistory({
     (max, entry) => Math.max(max, versionRowSortKey(entry)),
     Number.NEGATIVE_INFINITY,
   );
+  const versionLabelById = buildVersionLabelMap(versionList);
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
@@ -766,11 +828,31 @@ export function VersionHistory({
                         <span className="text-muted-foreground text-xs">
                           {formatVersionTime(version.createdAt)}
                         </span>
-                        {typeof version.versionNumber === "number" && (
-                          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                            v{version.versionNumber}
-                          </Badge>
-                        )}
+                        {(() => {
+                          const derivedLabel = internalVersionId
+                            ? versionLabelById.get(internalVersionId)
+                            : undefined;
+                          const versionLabel =
+                            derivedLabel ??
+                            (typeof version.versionNumber === "number"
+                              ? `v${version.versionNumber}`
+                              : null);
+                          if (!versionLabel) return null;
+                          const isQuickEdit = version.editKind === "quick_edit";
+                          return (
+                            <Badge
+                              variant="outline"
+                              className="px-1.5 py-0 text-[10px]"
+                              title={
+                                isQuickEdit
+                                  ? "Snabbredigering (direkt filändring, ingen ombyggnad)"
+                                  : undefined
+                              }
+                            >
+                              {versionLabel}
+                            </Badge>
+                          );
+                        })()}
                         <Badge
                           variant={lifecycleBadge.variant}
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadge.className)}

@@ -587,6 +587,14 @@ export const engineVersions = pgTable(
      */
     parentVersionId: text("parent_version_id"),
     /**
+     * Edit provenance:
+     *   - `null` (default) — a normal full generation/follow-up version.
+     *   - `"quick_edit"` — Fast Edit Lane: a deterministic, exact edit
+     *     (file-tree / code-view / inspector) applied without LLM codegen.
+     *     Rendered as a minor version (v3.1, v3.2) under its `parentVersionId`.
+     */
+    editKind: text("edit_kind"),
+    /**
      * Lifecycle stage:
      *   - `"design"` (default) — F2 design preview row.
      *   - `"integrations"` — F3 row produced by `/finalize-design`.

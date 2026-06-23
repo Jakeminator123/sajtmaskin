@@ -1,6 +1,6 @@
 "use client";
 
-import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import type { FileNode } from "@/lib/builder/types";
 import type { Dispatch, SetStateAction } from "react";
@@ -18,7 +18,7 @@ export function usePreviewPanelCodeFiles(options: {
   chatId: string | null;
   versionId: string | null;
   refreshToken: number | undefined;
-  onFilesSaved?: () => void;
+  onFilesSaved?: (info?: { versionId?: string }) => void;
 }): {
   files: FileNode[];
   setFiles: Dispatch<SetStateAction<FileNode[]>>;
@@ -94,22 +94,18 @@ export function usePreviewPanelCodeFiles(options: {
       if (nextContent === currentContent) return false;
 
       try {
-        const response = await fetch(`${engineChatBaseUrl(chatId)}/files`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            versionId,
-            fileName: selectedFile.path,
-            content: nextContent,
-          }),
+        const saved = await patchEngineChatFile({
+          chatId,
+          versionId,
+          fileName: selectedFile.path,
+          content: nextContent,
         });
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        if (!response.ok) {
-          throw new Error(data?.error || `Kunde inte spara metadata (HTTP ${response.status})`);
+        if (!saved.ok) {
+          throw new Error(saved.error || "Kunde inte spara filinnehåll");
         }
 
         setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
-        onFilesSaved?.();
+        onFilesSaved?.({ versionId: saved.versionId });
         return true;
       } catch (error) {
         throw new Error(

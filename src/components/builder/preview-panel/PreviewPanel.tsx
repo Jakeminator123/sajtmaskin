@@ -443,7 +443,7 @@ export function PreviewPanel({
       setComposerRedoStack((prev) => [last, ...prev].slice(0, 20));
       setLastComposerActionLabel("Ångra direkt patch");
       toast.success("Senaste composer-patch ångrad.");
-      onFilesSaved?.();
+      onFilesSaved?.({ versionId: saved.versionId });
     } finally {
       setComposerHistoryBusy(false);
     }
@@ -470,7 +470,7 @@ export function PreviewPanel({
       setComposerUndoStack((prev) => [...prev.slice(-19), next]);
       setLastComposerActionLabel("Gör om direkt patch");
       toast.success("Composer-patch återställd igen.");
-      onFilesSaved?.();
+      onFilesSaved?.({ versionId: saved.versionId });
     } finally {
       setComposerHistoryBusy(false);
     }
@@ -581,7 +581,7 @@ export function PreviewPanel({
         setComposerRedoStack([]);
         setLastComposerActionLabel(`Direkt patch (${detail.placementLabel})`);
         toast.success(`Sektion infogad direkt (${path})`);
-        onFilesSaved?.();
+        onFilesSaved?.({ versionId: saved.versionId });
       } catch {
         toast.error("Något gick fel vid infogning.");
         await runComposerAiFallback({

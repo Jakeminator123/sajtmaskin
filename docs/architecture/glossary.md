@@ -114,6 +114,9 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | EnvVar enforcement | Per envVar i hard-dossier: `build` (default, krävs i F3) / `feature-runtime` (banner när nyckel saknas) / `warn-only` (self-disable). |
 | `allowPlaceholdersInF3` | Toggle på `project_data.meta`. När true: placeholder-täckta build-keys passerar F3-gaten med varning. |
 | Preview ID-set | `appProjectId` = builder-projekt, `chatId` = own-engine chat/lane + preview-host path key, `versionId` = `engine_versions`-rad, `previewSessionId` = aktiv preview-session, `previewUrl` = publik preview-URL, `runId` = observability/logg-run. Legacy: `sandboxId`/`sandboxUrl` bara som kompatibilitetsalias. |
+| Fast Edit Lane | Deterministisk snabbredigeringsväg (0 LLM) för exakta, användarutpekade ändringar (kodvy/filträd/inspector). Motor: `src/lib/gen/quick-edit/`. Route: `POST /api/engine/chats/[chatId]/quick-edit`. Flagga: `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT`. Ingen prompt-tolkning, ingen gissning. |
+| Preview patch (hot patch) | `POST /preview/session/patch` på preview-host: skriver bara ändrade filer i den levande VM-workspacen utan att starta om Next dev. Dependency/config-ändring tvingar full restart. Flagga: `SAJTMASKIN_PREVIEW_PATCH_LANE`. Skiljt från `update` (full ersättning + restart). |
+| Minor-version | `engine_versions`-rad med `edit_kind = "quick_edit"` och `parent_version_id` = major-version. Visas som `v3.1`, `v3.2` under sin major i VersionHistory. Immutabel (rollback bevaras), ingen ny heltalslinje per småändring. |
 
 ---
 

@@ -354,7 +354,10 @@ export async function updatePreviewHostSession(params: {
         versionId: params.versionId,
         filesJson: params.filesJson,
         replaceFiles: true,
-        changeClass: "patch",
+        // Must be one of the host's CHANGE_CLASSES (fresh|light|medium|heavy);
+        // "patch" was rejected with 400 and forced a full-start fallback. The
+        // partial, no-restart fast lane lives on the dedicated /preview/session/patch route.
+        changeClass: "light",
       };
       const res = await fetch(`${base}/preview/session/update`, {
         method: "POST",
@@ -401,6 +404,117 @@ export async function updatePreviewHostSession(params: {
       return { ok: true, previewUrl, previewSessionId, startOutcome: "resumed" };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host update failed";
+      return { ok: false, message, retryable: true };
+    }
+  });
+}
+
+/**
+ * Fast Edit Lane: push ONLY the changed files to an existing preview-host
+ * session via `POST /preview/session/patch`. The host writes the changed files
+ * into the live workspace without restarting Next dev (unless a structural /
+ * dependency-critical path changed), so trivial text/prop edits appear in a few
+ * seconds instead of triggering a full rebuild.
+ *
+ * `patchMode` reports what the host did: `"patched"` (hot, no restart),
+ * `"restarted"` (structural change forced a full boot), or `"booted"` (runtime
+ * was not running and a fresh boot was queued). 404 -> `sessionMissing: true`,
+ * caller should fall back to `updatePreviewHostSession` / `startPreviewHostSession`.
+ */
+export type PreviewHostPatchMode = "patched" | "restarted" | "booted";
+export type PreviewHostPatchOk = PreviewHostStartOk & {
+  patchMode: PreviewHostPatchMode;
+  patchReason: string | null;
+};
+export type PreviewHostPatchErr = PreviewHostStartErr & {
+  sessionMissing?: boolean;
+};
+
+export async function patchPreviewHostSession(params: {
+  previewSessionId: string;
+  versionId: string;
+  /** Only the changed files (path -> content). Partial set, merged on the host. */
+  files: Record<string, string>;
+  /** Optional paths to delete from the live workspace. */
+  removedPaths?: string[];
+}): Promise<PreviewHostPatchOk | PreviewHostPatchErr> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL is not set.",
+      retryable: false,
+    };
+  }
+  return retryPreviewHostRequestAfterCleanup(async () => {
+    try {
+      const requestBody = {
+        ...previewSessionRefBody({ previewSessionId: params.previewSessionId }),
+        versionId: params.versionId,
+        files: params.files,
+        ...(params.removedPaths && params.removedPaths.length > 0
+          ? { removedPaths: params.removedPaths }
+          : {}),
+      };
+      const res = await fetch(`${base}/preview/session/patch`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...previewHostAuthHeaders(),
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+      });
+      const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (res.status === 404) {
+        return {
+          ok: false,
+          message:
+            typeof responseBody.message === "string" && responseBody.message
+              ? responseBody.message
+              : "preview-host session not found",
+          retryable: false,
+          sessionMissing: true,
+        };
+      }
+      if (!res.ok) {
+        const msg =
+          typeof responseBody.message === "string" && responseBody.message.trim()
+            ? responseBody.message.trim()
+            : `Preview host HTTP ${res.status}`;
+        return {
+          ok: false,
+          message: msg,
+          retryable: res.status >= 500 || res.status === 429,
+        };
+      }
+      const previewUrl = readPreviewUrlFromHostBody(responseBody);
+      const previewSessionId = readPreviewSessionIdFromHostBody(responseBody);
+      if (!previewUrl || !previewSessionId) {
+        return {
+          ok: false,
+          message: "Preview host returned an invalid patch payload.",
+          retryable: true,
+        };
+      }
+      const rawMode =
+        typeof responseBody.patchMode === "string" ? responseBody.patchMode.trim() : "patched";
+      const patchMode: PreviewHostPatchMode =
+        rawMode === "restarted" || rawMode === "booted" ? rawMode : "patched";
+      const patchReason =
+        typeof responseBody.patchReason === "string" && responseBody.patchReason.trim()
+          ? responseBody.patchReason.trim()
+          : null;
+      return {
+        ok: true,
+        previewUrl,
+        previewSessionId,
+        startOutcome: "resumed",
+        patchMode,
+        patchReason,
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview host patch failed";
       return { ok: false, message, retryable: true };
     }
   });

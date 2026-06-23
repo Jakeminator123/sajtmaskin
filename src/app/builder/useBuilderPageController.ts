@@ -1502,11 +1502,21 @@ export function useBuilderPageController() {
     };
   }, [chatId, derived.activeVersionId, state.previewRefreshToken, filesContextKeyRef, setExistingUiComponents, setCurrentPageCode]);
 
-  const handleFilesSaved = useCallback(() => {
-    filesContextKeyRef.current = null;
-    promptFetchDoneRef.current = null;
-    setPreviewRefreshToken(Date.now());
-  }, [filesContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
+  const handleFilesSaved = useCallback(
+    (info?: { versionId?: string }) => {
+      filesContextKeyRef.current = null;
+      promptFetchDoneRef.current = null;
+      // Fast Edit Lane: a quick edit created a new minor version — select it so
+      // follow-ups build on the patched version (avoids a stale-base reject) and
+      // refresh the version list so the new v.x row appears.
+      if (info?.versionId) {
+        setSelectedVersionId(info.versionId);
+        void mutateVersions();
+      }
+      setPreviewRefreshToken(Date.now());
+    },
+    [filesContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken, setSelectedVersionId, mutateVersions],
+  );
 
   // Auto-start generation for prompt-handoff flows from landing page.
   // Triggers when user submitted a prompt on `/` and was navigated to /builder
