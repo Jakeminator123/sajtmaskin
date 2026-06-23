@@ -29,6 +29,10 @@ const opSchema = z.union([
     replace: z.string(),
     occurrence: z.number().int().positive().optional(),
   }),
+  z.object({
+    kind: z.literal("delete_file"),
+    path: z.string().min(1),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -41,6 +45,7 @@ const bodySchema = z.object({
 function httpStatusForQuickEditFailure(reason: string): number {
   switch (reason) {
     case "unsafe_path":
+    case "protected_path":
     case "empty_ops":
       return 400;
     case "ambiguous_match":

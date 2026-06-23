@@ -115,11 +115,17 @@ export async function runQuickEdit(params: {
   let previewMode: QuickEditPreviewMode | null = null;
   let previewError: string | null = null;
 
+  // Deleted paths (page "−") are expressed to the patch lane via `removedPaths`
+  // so the live preview drops the route's file(s) — union-merge never deletes,
+  // so without this a removed page would linger. When the patch lane is off or
+  // there is no live session, the full (re)start below materializes the exact
+  // post-delete file set from `applied.files`, which is also correct.
   const patch = await tryPatchPreviewSession({
     chatId: params.chatId,
     versionId: newVersionId,
     expectedBaseVersionId: baseVersion.id,
     changedFiles,
+    removedPaths: applied.removedPaths.length > 0 ? applied.removedPaths : undefined,
   });
 
   if (patch.ok) {

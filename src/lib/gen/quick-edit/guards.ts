@@ -41,3 +41,31 @@ export function isStructuralQuickEditPath(rawPath: string): boolean {
   if (/^(?:postcss|tailwind)\.config\.[\w.-]+$/.test(path)) return true;
   return false;
 }
+
+/**
+ * Essential project files that must never be deleted via a quick-edit
+ * `delete_file` op. Removing any of these would break the runnable Next
+ * project (home/layout/styles) or the build itself (structural config). The
+ * preview "−" page control only ever deletes sub-route page subtrees, but this
+ * guard is the hard backstop regardless of caller.
+ */
+const UNDELETABLE_EXACT = new Set([
+  "app/page.tsx",
+  "src/app/page.tsx",
+  "app/layout.tsx",
+  "src/app/layout.tsx",
+  "app/globals.css",
+  "src/app/globals.css",
+  "app/icon.svg",
+  "src/app/icon.svg",
+  "next-env.d.ts",
+  "lib/utils.ts",
+]);
+
+export function isDeletableQuickEditPath(rawPath: string): boolean {
+  const normalized = normalizeQuickEditPath(rawPath);
+  if (!isQuickEditSafePath(normalized)) return false;
+  if (isStructuralQuickEditPath(normalized)) return false;
+  if (UNDELETABLE_EXACT.has(normalized)) return false;
+  return true;
+}

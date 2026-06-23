@@ -54,27 +54,62 @@ function extractTier2BasePrefix(pathname: string): string {
   return segments.length > 0 ? `/${segments[0]}` : "";
 }
 
-export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
-  const routes = new Set<string>();
+/**
+ * A single page route derived from the version's file set, enriched with
+ * reachability + display metadata so the preview chrome can render an
+ * accurate, navigable tab list (see `derivePreviewRoutes`).
+ */
+export interface PreviewRouteInfo {
+  /** Canonical app route, e.g. "/", "/about", "/blog/[slug]". Used for nav. */
+  route: string;
+  /** Human label for the tab, e.g. "/", "/about", "/blog/:slug". */
+  label: string;
+  /** True when the route contains a dynamic segment (`[param]`). */
+  dynamic: boolean;
+  /** Whether the tab can be opened directly in the iframe (static only). */
+  navigable: boolean;
+}
 
-  const pushRoute = (segments: string[]) => {
-    const normalized = segments
-      .filter(Boolean)
-      .map((segment) => segment.trim())
-      .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
-    if (normalized.some((segment) => segment.includes("[") || segment.includes("]"))) return;
-    routes.add(normalized.length > 0 ? `/${normalized.join("/")}` : "/");
+type RawPageRoute = { route: string; dynamic: boolean };
+
+function routeSegmentsFromAppRelative(relative: string): string[] | null {
+  if (relative !== "page.tsx" && !relative.endsWith("/page.tsx")) return null;
+  const routeDir = relative.replace(/\/?page\.tsx$/, "");
+  return routeDir ? routeDir.split("/") : [];
+}
+
+function buildRouteFromSegments(segments: string[]): RawPageRoute | null {
+  const normalized = segments
+    .filter(Boolean)
+    .map((segment) => segment.trim())
+    // Route groups `(marketing)` and parallel/intercept slots `@modal` do not
+    // contribute a URL segment in the Next App Router.
+    .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
+  const dynamic = normalized.some((segment) => segment.includes("[") || segment.includes("]"));
+  return {
+    route: normalized.length > 0 ? `/${normalized.join("/")}` : "/",
+    dynamic,
   };
+}
+
+/**
+ * Collect every page route (static AND dynamic) from a flat list of file
+ * names. Unlike `extractPreviewRoutesFromFileNames` this keeps dynamic routes
+ * so the chrome can show e.g. `/blog/:slug` (non-navigable) for an accurate
+ * page count.
+ */
+export function collectPageRoutes(fileNames: string[]): RawPageRoute[] {
+  const byRoute = new Map<string, RawPageRoute>();
 
   for (const rawName of fileNames) {
     const name = rawName.replace(/\\/g, "/");
 
     const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
     if (appMatch) {
-      const relative = appMatch[1];
-      if (relative === "page.tsx" || relative.endsWith("/page.tsx")) {
-        const routeDir = relative.replace(/\/?page\.tsx$/, "");
-        pushRoute(routeDir ? routeDir.split("/") : []);
+      const segments = routeSegmentsFromAppRelative(appMatch[1]);
+      if (segments) {
+        const built = buildRouteFromSegments(segments);
+        if (built) byRoute.set(built.route, built);
       }
       continue;
     }
@@ -90,15 +125,156 @@ export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[]
         : routeFile === "index"
           ? ""
           : routeFile;
-      pushRoute(routePath ? routePath.split("/") : []);
+      const built = buildRouteFromSegments(routePath ? routePath.split("/") : []);
+      if (built) byRoute.set(built.route, built);
     }
   }
 
-  const orderedRoutes = Array.from(routes).sort((a, b) => {
-    if (a === "/") return -1;
-    if (b === "/") return 1;
-    if (a.length !== b.length) return a.length - b.length;
-    return a.localeCompare(b);
+  return Array.from(byRoute.values());
+}
+
+export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
+  const routes = collectPageRoutes(fileNames)
+    .filter((entry) => !entry.dynamic)
+    .map((entry) => entry.route);
+
+  return Array.from(new Set(routes)).sort(comparePreviewRoutes);
+}
+
+const ASSET_LINK_PATTERN =
+  /\.(svg|png|jpe?g|gif|webp|avif|ico|css|js|mjs|cjs|json|txt|xml|map|woff2?|ttf|otf|eot|mp4|webm|mov|mp3|wav|pdf)$/i;
+
+/**
+ * Normalize a raw quoted path literal found in source into a canonical internal
+ * link path, or `null` when it is not a usable internal route reference.
+ *
+ * Template-literal interpolation (`/blog/${slug}`) collapses to the static
+ * prefix WITH a trailing slash (`/blog/`) so callers can treat it as a
+ * "something under /blog is linked" signal.
+ */
+export function normalizeLinkPath(raw: string): string | null {
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null; // protocol-relative / external
+  // Strip query + hash.
+  let path = raw.split("?")[0]!.split("#")[0]!;
+  // Collapse template-literal interpolation to its static prefix.
+  const interpolationIndex = path.indexOf("${");
+  if (interpolationIndex !== -1) {
+    path = path.slice(0, interpolationIndex);
+    if (!path.endsWith("/")) path = `${path}/`;
+  }
+  if (path === "") return null;
+  if (path === "/") return "/";
+  if (path.startsWith("/api/") || path === "/api") return null;
+  if (ASSET_LINK_PATTERN.test(path)) return null;
+  // Trim a trailing slash unless it marks a template prefix where the segment
+  // before it is meaningful (we keep `/blog/` to mean "child of /blog").
+  return path;
+}
+
+/**
+ * Collect the set of internal link paths referenced anywhere in the project
+ * source. Used to decide which page routes are actually reachable.
+ */
+export function collectInternalLinkPaths(contents: string[]): Set<string> {
+  const links = new Set<string>();
+  const quoted = /["'`](\/[^"'`\s]*)["'`]/g;
+  for (const content of contents) {
+    if (!content) continue;
+    let match: RegExpExecArray | null;
+    quoted.lastIndex = 0;
+    while ((match = quoted.exec(content)) !== null) {
+      const normalized = normalizeLinkPath(match[1]!);
+      if (normalized) links.add(normalized);
+    }
+  }
+  return links;
+}
+
+function staticPrefixForRoute(route: string): string {
+  const segments = route.split("/").filter(Boolean);
+  const staticSegments: string[] = [];
+  for (const segment of segments) {
+    if (segment.includes("[")) break;
+    staticSegments.push(segment);
+  }
+  return staticSegments.length > 0 ? `/${staticSegments.join("/")}` : "";
+}
+
+function trimTrailingSlash(path: string): string {
+  return path !== "/" && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+/**
+ * Whether a derived page route is reachable given the set of internal links.
+ * Home (`/`) is always reachable. A static route is reachable when it is linked
+ * directly or has a linked child. A dynamic route is reachable when something
+ * under its static prefix is linked.
+ */
+export function isRouteReachable(
+  route: RawPageRoute,
+  linkPaths: Set<string>,
+): boolean {
+  if (route.route === "/") return true;
+
+  const links = Array.from(linkPaths);
+
+  if (!route.dynamic) {
+    const target = route.route;
+    return links.some((raw) => {
+      const link = trimTrailingSlash(raw);
+      return link === target || link.startsWith(`${target}/`);
+    });
+  }
+
+  const prefix = staticPrefixForRoute(route.route);
+  if (prefix === "") {
+    // Root-level dynamic route (`/[slug]`): reachable when any single-segment
+    // internal link exists.
+    return links.some((raw) => /^\/[^/]+$/.test(trimTrailingSlash(raw)));
+  }
+  return links.some((raw) => {
+    const link = trimTrailingSlash(raw);
+    return link === prefix || link.startsWith(`${prefix}/`);
   });
-  return orderedRoutes;
+}
+
+function labelForRoute(route: string): string {
+  return route.replace(/\[(?:\.\.\.)?([^\]]+)\]/g, ":$1");
+}
+
+function comparePreviewRoutes(a: string, b: string): number {
+  if (a === "/") return -1;
+  if (b === "/") return 1;
+  const depthA = a.split("/").length;
+  const depthB = b.split("/").length;
+  if (depthA !== depthB) return depthA - depthB;
+  if (a.length !== b.length) return a.length - b.length;
+  return a.localeCompare(b);
+}
+
+/**
+ * Derive the reachable page routes for the preview chrome from the version's
+ * files. Filters out orphaned routes (page files left behind by union-merge
+ * follow-ups, or unlinked scaffold defaults) by requiring an internal link.
+ * Dynamic routes are surfaced (non-navigable) so the page count is accurate.
+ */
+export function derivePreviewRoutes(
+  files: Array<{ name: string; content?: string | null }>,
+): PreviewRouteInfo[] {
+  const fileNames = files.map((file) => file.name);
+  const contents = files.map((file) => file.content ?? "");
+  const linkPaths = collectInternalLinkPaths(contents);
+  const rawRoutes = collectPageRoutes(fileNames);
+
+  const reachable = rawRoutes.filter((route) => isRouteReachable(route, linkPaths));
+
+  return reachable
+    .sort((a, b) => comparePreviewRoutes(a.route, b.route))
+    .map((entry) => ({
+      route: entry.route,
+      label: labelForRoute(entry.route),
+      dynamic: entry.dynamic,
+      navigable: !entry.dynamic,
+    }));
 }

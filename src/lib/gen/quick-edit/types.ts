@@ -26,12 +26,23 @@ export type QuickEditOp =
        * as ambiguous (no guessing).
        */
       occurrence?: number;
+    }
+  | {
+      kind: "delete_file";
+      /**
+       * File to remove from the version. Used by the preview "−" page control
+       * to actually drop a route's file(s) (union-merge follow-ups never
+       * delete, so without this a "removed" page lingers in the file set).
+       * Essential/structural paths are refused (see `isDeletableQuickEditPath`).
+       */
+      path: string;
     };
 
 export type QuickEditFailureReason =
   | "no_base_files"
   | "empty_ops"
   | "unsafe_path"
+  | "protected_path"
   | "file_not_found"
   | "no_match"
   | "ambiguous_match"
@@ -39,5 +50,5 @@ export type QuickEditFailureReason =
   | "integrations_base";
 
 export type QuickEditApplyResult =
-  | { ok: true; files: CodeFile[]; changedPaths: string[] }
+  | { ok: true; files: CodeFile[]; changedPaths: string[]; removedPaths: string[] }
   | { ok: false; reason: QuickEditFailureReason; message: string };

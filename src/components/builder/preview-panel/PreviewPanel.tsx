@@ -65,7 +65,16 @@ import {
   resolveHomePageFilePath,
   tryInsertPageBlockIntoHomePage,
 } from "@/lib/builder/page-block-patch";
-import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
+import { patchEngineChatFile, quickEditChatFiles } from "@/lib/builder/engine-files-patch";
+import {
+  buildAddNavLinkOps,
+  buildNewPageContent,
+  buildRemoveNavLinkOps,
+  defaultLabelForRoute,
+  findRouteFilePaths,
+  normalizePageRouteInput,
+  pageFilePathForRoute,
+} from "@/lib/builder/preview-page-ops";
 
 const PreviewPanelInspectorDev = dynamic(
   () =>
@@ -142,7 +151,12 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
-  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
+  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(
+    chatId,
+    versionId,
+    refreshToken,
+  );
+  const [pageOpBusy, setPageOpBusy] = useState(false);
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -702,6 +716,111 @@ export function PreviewPanel({
     ],
   );
 
+  const handleAddPage = useCallback(
+    async (rawRoute: string) => {
+      if (!chatId || !versionId || pageOpBusy) return;
+      const route = normalizePageRouteInput(rawRoute);
+      if (!route) {
+        toast.error("Ogiltig sökväg. Använd t.ex. /om eller /tjanster/pris.");
+        return;
+      }
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        const pagePath = pageFilePathForRoute(route);
+        if (files.some((f) => f.name === pagePath)) {
+          toast.error(`Sidan ${route} finns redan.`);
+          return;
+        }
+        const label = defaultLabelForRoute(route);
+        const nav = buildAddNavLinkOps(files, route, label);
+        const result = await quickEditChatFiles({
+          chatId,
+          baseVersionId: versionId,
+          ops: [
+            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
+            ...nav.ops,
+          ],
+          summary: `La till sidan ${route}`,
+        });
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte skapa sidan.");
+          return;
+        }
+        if (nav.navUpdated) {
+          toast.success(`Sidan ${route} skapades och länkades i menyn.`);
+        } else {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Hittade ingen meny att länka från automatiskt — be i chatten att länka sidan så syns den i menyn.",
+          });
+        }
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle skapas.");
+      } finally {
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, pageOpBusy, onFilesSaved],
+  );
+
+  const handleRemovePage = useCallback(
+    async (route: string) => {
+      if (!chatId || !versionId || route === "/" || pageOpBusy) return;
+      setPageOpBusy(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          return;
+        }
+        const files = data.files.map((f) => ({ name: f.name, content: f.content ?? "" }));
+        const routeFiles = findRouteFilePaths(files, route);
+        if (routeFiles.length === 0) {
+          toast.error(`Hittade inga filer för sidan ${route}.`);
+          return;
+        }
+        const ops = [
+          ...routeFiles.map((path) => ({ kind: "delete_file" as const, path })),
+          ...buildRemoveNavLinkOps(files, route),
+        ];
+        const result = await quickEditChatFiles({
+          chatId,
+          baseVersionId: versionId,
+          ops,
+          summary: `Tog bort sidan ${route}`,
+        });
+        if (!result.ok) {
+          toast.error(result.error || "Kunde inte ta bort sidan.");
+          return;
+        }
+        toast.success(`Sidan ${route} togs bort.`);
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+      } catch {
+        toast.error("Något gick fel när sidan skulle tas bort.");
+      } finally {
+        setPageOpBusy(false);
+      }
+    },
+    [chatId, versionId, pageOpBusy, onFilesSaved],
+  );
+
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -761,6 +880,10 @@ export function PreviewPanel({
 
   const isV0Preview = Boolean(
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
+  );
+  /** +/- page controls: own-engine/tier-2 design versions only (F3 declines quick-edit). */
+  const canManagePages = Boolean(
+    chatId && versionId && !isV0Preview && lifecycleStage !== "integrations",
   );
   /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
   const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
@@ -929,6 +1052,10 @@ export function PreviewPanel({
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
+        canManagePages={canManagePages}
+        pageOpBusy={pageOpBusy}
+        onAddPage={handleAddPage}
+        onRemovePage={handleRemovePage}
         showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}
