@@ -54,20 +54,50 @@ export function normalizePageRouteInput(raw: string): string | null {
   return `/${segments.join("/")}`;
 }
 
+export type AppDirPrefix = "app" | "src/app";
+
 function routeSegments(route: string): string[] {
   return route.split("/").filter(Boolean);
 }
 
+/**
+ * Detect whether a project is `app/`- or `src/app/`-rooted from its files.
+ * The pipeline emits either layout; add-page must write into the SAME tree the
+ * live site serves, otherwise Next mounts a second (unserved) router tree.
+ */
+export function detectAppDir(files: PageFileShape[]): AppDirPrefix {
+  let hasApp = false;
+  let hasSrcApp = false;
+  for (const file of files) {
+    const name = normalizeName(file.name);
+    if (name.startsWith("src/app/")) hasSrcApp = true;
+    else if (name.startsWith("app/")) hasApp = true;
+  }
+  if (hasSrcApp && !hasApp) return "src/app";
+  return "app";
+}
+
 /** App-router directory for a route, e.g. "/about" → "app/about", "/" → "app". */
-export function routeDirForRoute(route: string): string {
+export function routeDirForRoute(route: string, appDir: AppDirPrefix = "app"): string {
   const segments = routeSegments(route);
-  return segments.length > 0 ? `app/${segments.join("/")}` : "app";
+  return segments.length > 0 ? `${appDir}/${segments.join("/")}` : appDir;
 }
 
 /** Page file path for a route, e.g. "/about" → "app/about/page.tsx". */
-export function pageFilePathForRoute(route: string): string {
-  const dir = routeDirForRoute(route);
+export function pageFilePathForRoute(route: string, appDir: AppDirPrefix = "app"): string {
+  const dir = routeDirForRoute(route, appDir);
   return `${dir}/page.tsx`;
+}
+
+/** Whether a page file already exists for `route` under EITHER app prefix. */
+export function routeHasPageFile(files: PageFileShape[], route: string): boolean {
+  const segments = routeSegments(route);
+  if (segments.length === 0) return files.some((f) => /^(?:src\/)?app\/page\.tsx$/.test(normalizeName(f.name)));
+  const joined = segments.join("/");
+  return files.some((f) => {
+    const name = normalizeName(f.name);
+    return name === `app/${joined}/page.tsx` || name === `src/app/${joined}/page.tsx`;
+  });
 }
 
 /** A human label for a generated page, e.g. "/about/team" → "Team". */

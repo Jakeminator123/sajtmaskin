@@ -4,10 +4,12 @@ import {
   buildNewPageContent,
   buildRemoveNavLinkOps,
   defaultLabelForRoute,
+  detectAppDir,
   findRouteFilePaths,
   normalizePageRouteInput,
   pageFilePathForRoute,
   routeDirForRoute,
+  routeHasPageFile,
   stripRouteFromContent,
 } from "./preview-page-ops";
 
@@ -36,8 +38,36 @@ describe("route <-> file path", () => {
     expect(pageFilePathForRoute("/")).toBe("app/page.tsx");
     expect(routeDirForRoute("/tjanster/pris")).toBe("app/tjanster/pris");
   });
+  it("honors a src/app prefix", () => {
+    expect(pageFilePathForRoute("/about", "src/app")).toBe("src/app/about/page.tsx");
+    expect(routeDirForRoute("/about", "src/app")).toBe("src/app/about");
+  });
   it("derives a readable label", () => {
     expect(defaultLabelForRoute("/about-us")).toBe("About Us");
+  });
+});
+
+describe("detectAppDir", () => {
+  it("returns app for an app/-rooted project", () => {
+    expect(detectAppDir([{ name: "app/page.tsx" }, { name: "app/about/page.tsx" }])).toBe("app");
+  });
+  it("returns src/app only when the project is exclusively src/app-rooted", () => {
+    expect(detectAppDir([{ name: "src/app/page.tsx" }, { name: "src/app/about/page.tsx" }])).toBe(
+      "src/app",
+    );
+  });
+  it("defaults to app when both are present (avoids a split tree)", () => {
+    expect(detectAppDir([{ name: "app/page.tsx" }, { name: "src/app/legacy/page.tsx" }])).toBe(
+      "app",
+    );
+  });
+});
+
+describe("routeHasPageFile", () => {
+  it("detects an existing page under either prefix", () => {
+    expect(routeHasPageFile([{ name: "app/about/page.tsx" }], "/about")).toBe(true);
+    expect(routeHasPageFile([{ name: "src/app/about/page.tsx" }], "/about")).toBe(true);
+    expect(routeHasPageFile([{ name: "app/blog/page.tsx" }], "/about")).toBe(false);
   });
 });
 

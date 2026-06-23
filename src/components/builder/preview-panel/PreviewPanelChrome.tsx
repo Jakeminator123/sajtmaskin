@@ -15,7 +15,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -157,13 +157,22 @@ export function PreviewPanelChrome({
 }: PreviewPanelChromeProps) {
   const [addingPage, setAddingPage] = useState(false);
   const [newPagePath, setNewPagePath] = useState("");
+  // Synchronous guard so a double Enter/click cannot dispatch two add flows
+  // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
+  const submitLockRef = useRef(false);
 
   const submitNewPage = () => {
     const value = newPagePath.trim();
-    if (!value || pageOpBusy) return;
+    if (!value || pageOpBusy || submitLockRef.current) return;
+    submitLockRef.current = true;
     onAddPage?.(value);
     setNewPagePath("");
     setAddingPage(false);
+    // Release on the next tick; by then the form is closed and `pageOpBusy`
+    // has taken over as the disable signal.
+    setTimeout(() => {
+      submitLockRef.current = false;
+    }, 0);
   };
 
   const showF3Trigger =
