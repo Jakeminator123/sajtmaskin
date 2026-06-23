@@ -32,6 +32,17 @@ Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras sem
 - Follow-up = delta på existerande graph. Snapshot-brief, fryst scaffold/variant/routes utom `clear-redesign`.
 - F2 = design/preview. F3 = integrationer/build, explicit användarval.
 
+## Agent- och modellplan
+
+Blanda inte ihop:
+
+- **Extern coach/LLM** = användarens externa ChatGPT/LLM-råd. Inte automatiskt en repo-aktör.
+- **Cursor/IDE-agent** = bygger repot via `.cursor/**` + `Task`-subagenter. Modellnamn = Cursor-slug:ar.
+- **GitHub/Vercel-botar** = Codex-review, checks, Vercel deploy-preview. Codex-review ≠ Sajtmaskins `verifier`-fas; Vercel "Ready" = deploy-status, inte kodkvalitet.
+- **Sajtmaskins produktmodeller** = own-engine, prompt-assist, Deep Brief, verifier, embeddings. Styrs av `config/ai_models/manifest.json` + `src/lib/models/`; id-format `gpt-5.5`, `claude-opus-4.8`.
+
+Gissa aldrig slug, modell-id eller botstatus — fråga vid oklarhet. Användarens vardagsspråk ("agent", "modell", "review") är löst; tolka via kontext, lås inte ett casual ord till en exakt definition.
+
 ## Signal-gate
 
 Ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.

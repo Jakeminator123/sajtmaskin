@@ -33,10 +33,9 @@ description: >-
 
 ## When NOT to use
 
-- Huge multi-area refactors → `/långbänk` or scoped plan.
+- Huge multi-area refactors → scoped plan.
 - User only wants a single-file typo fix → skip swarm.
 
 ## Related
 
 - Command file: `.cursor/commands/818.md`
-- Heavy parallel audits with model matrix: `/långbänk`
