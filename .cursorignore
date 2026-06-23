@@ -157,3 +157,5 @@ next-env.d.ts
 # Parkeringsyta: filer/mappar man jobbar med 'senare'. Ej indexerad, ej bevakad
 # (se .vscode/settings.json watcherExclude/search.exclude). Fortfarande i git.
 _parkering/
+data/prompt-dumps/**
+
