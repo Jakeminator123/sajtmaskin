@@ -113,7 +113,8 @@ Unknown IDs are rejected by the Zod request schema.
 
 Important current nuance:
 
-- the normal builder routes always call `resolveEngineModelId(..., false)`
+- the **codegen** model is resolved per phase via `resolvePhaseModel(tier, "generator")` (e.g. `claude-opus-4.8` on the anthropic tier) — see `phaseRouting` below and MB-3 in `BUG-SWARM-BACKLOG.md`
+- `resolveEngineModelId(tier)` still maps the profile to the own-engine model used for the persisted `chat.model` (tier round-trip via `ownModelIdToCanonicalModelId`) and as the `selected_build_model` base
 - the active builder flow therefore uses the own engine, even though the routes still live under `/api/v0/...`
 
 ## Product lane (prompt assist)
