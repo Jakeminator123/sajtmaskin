@@ -23,6 +23,7 @@ export type QuickEditClientResult =
       versionId: string;
       changedFiles: string[];
       previewUrl: string | null;
+      previewSessionId: string | null;
       previewMode: string | null;
     }
   | { ok: false; error: string; reason?: string };
@@ -57,6 +58,7 @@ export async function quickEditChatFiles(params: {
           versionId?: string;
           changedFiles?: string[];
           previewUrl?: string | null;
+          previewSessionId?: string | null;
           previewMode?: string | null;
           error?: string;
           reason?: string;
@@ -74,6 +76,7 @@ export async function quickEditChatFiles(params: {
       versionId: data.versionId,
       changedFiles: Array.isArray(data.changedFiles) ? data.changedFiles : [],
       previewUrl: data.previewUrl ?? null,
+      previewSessionId: data.previewSessionId ?? null,
       previewMode: data.previewMode ?? null,
     };
   } catch (e) {
@@ -85,14 +88,22 @@ export async function quickEditChatFiles(params: {
 }
 
 export type PatchEngineChatFileResult =
-  | { ok: true; versionId?: string }
+  | {
+      ok: true;
+      /** New minor version id when the Fast Edit Lane created one; absent for in-place saves. */
+      versionId?: string;
+      previewUrl?: string | null;
+      previewSessionId?: string | null;
+      previewMode?: string | null;
+    }
   | { ok: false; error: string };
 
 /**
  * Save a single file's full content. When the Fast Edit Lane flag is on this
  * creates a minor version and patches the live preview (returns the new
- * `versionId`); otherwise it mutates the current version in place via
- * `PATCH /files` (today's behaviour, no `versionId` returned).
+ * `versionId` + preview metadata so the caller can stay no-restart); otherwise
+ * (or when quick-edit declines, e.g. F3 base) it mutates the current version in
+ * place via `PATCH /files` (today's behaviour).
  */
 export async function patchEngineChatFile(params: {
   chatId: string;
@@ -109,9 +120,16 @@ export async function patchEngineChatFile(params: {
       ops: [{ kind: "replace_content", path: fileName, content }],
     });
     if (result.ok) {
-      return { ok: true, versionId: result.versionId };
+      return {
+        ok: true,
+        versionId: result.versionId,
+        previewUrl: result.previewUrl,
+        previewSessionId: result.previewSessionId,
+        previewMode: result.previewMode,
+      };
     }
-    return { ok: false, error: result.error };
+    // Quick edit declined (e.g. F3/integrations base, stale base, no change) —
+    // fall through to the in-place save so the edit still persists like today.
   }
 
   try {

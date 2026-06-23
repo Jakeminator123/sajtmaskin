@@ -1503,7 +1503,12 @@ export function useBuilderPageController() {
   }, [chatId, derived.activeVersionId, state.previewRefreshToken, filesContextKeyRef, setExistingUiComponents, setCurrentPageCode]);
 
   const handleFilesSaved = useCallback(
-    (info?: { versionId?: string }) => {
+    (info?: {
+      versionId?: string;
+      previewUrl?: string | null;
+      previewSessionId?: string | null;
+      previewMode?: string | null;
+    }) => {
       filesContextKeyRef.current = null;
       promptFetchDoneRef.current = null;
       // Fast Edit Lane: a quick edit created a new minor version — select it so
@@ -1512,10 +1517,34 @@ export function useBuilderPageController() {
       if (info?.versionId) {
         setSelectedVersionId(info.versionId);
         void mutateVersions();
+        // If the live preview was patched in place (same preview session, new
+        // version + URL), thread the session meta and mark the new version's
+        // bootstrap as done so useBuilderVmPreview does NOT re-POST
+        // /preview-session — i.e. keep the no-restart fast path. Without this the
+        // version switch would clear the session meta and trigger a full VM
+        // bootstrap right after the hot patch.
+        if (info.previewUrl && info.previewSessionId && chatId) {
+          state.setCurrentPreviewUrl(info.previewUrl);
+          onPreviewSessionMeta({
+            previewSessionId: info.previewSessionId,
+            versionId: info.versionId,
+          });
+          vmPreview.previewBootstrapDoneKeysRef.current.add(`${chatId}:${info.versionId}`);
+        }
       }
       setPreviewRefreshToken(Date.now());
     },
-    [filesContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken, setSelectedVersionId, mutateVersions],
+    [
+      filesContextKeyRef,
+      promptFetchDoneRef,
+      setPreviewRefreshToken,
+      setSelectedVersionId,
+      mutateVersions,
+      chatId,
+      state,
+      onPreviewSessionMeta,
+      vmPreview,
+    ],
   );
 
   // Auto-start generation for prompt-handoff flows from landing page.

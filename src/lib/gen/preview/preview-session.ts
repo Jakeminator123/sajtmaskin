@@ -127,7 +127,7 @@ export type TryPatchPreviewSessionResult =
     }
   | {
       ok: false;
-      reason: "disabled" | "no_session" | "session_missing" | "host_error";
+      reason: "disabled" | "no_session" | "session_missing" | "host_error" | "base_mismatch";
       message?: string;
     };
 
@@ -145,6 +145,14 @@ export async function tryPatchPreviewSession(params: {
   versionId: string;
   changedFiles: Record<string, string>;
   removedPaths?: string[];
+  /**
+   * The version the `changedFiles` were derived from. A partial patch is only
+   * correct when the live preview session is currently serving this exact base;
+   * if the stored session points at a different version we bail to `base_mismatch`
+   * so the caller does a full (re)start instead of merging files into the wrong
+   * workspace (which would yield a hybrid file set + a preview URL for it).
+   */
+  expectedBaseVersionId?: string;
 }): Promise<TryPatchPreviewSessionResult> {
   if (!isPreviewPatchLaneEnabled()) {
     return { ok: false, reason: "disabled" };
@@ -157,6 +165,10 @@ export async function tryPatchPreviewSession(params: {
   const sess = await getActivePreviewSessionAsync(chatId);
   if (!sess?.previewSessionId) {
     return { ok: false, reason: "no_session" };
+  }
+  const expectedBase = params.expectedBaseVersionId?.trim();
+  if (expectedBase && sess.versionId && sess.versionId !== expectedBase) {
+    return { ok: false, reason: "base_mismatch" };
   }
   const patched = await patchPreviewHostSession({
     previewSessionId: sess.previewSessionId,

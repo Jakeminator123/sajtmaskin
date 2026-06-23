@@ -58,18 +58,33 @@ export async function runQuickEdit(params: {
   appProjectId: string | null;
   summary?: string;
 }): Promise<RunQuickEditResult> {
+  const { baseVersion } = params;
+
+  // F3 (integrations) versions go through server verification before they can be
+  // a deploy target. A quick edit never schedules that, so a quick_edit row on an
+  // integrations base would sit "Verifierar" until the readiness watchdog fails
+  // it. Decline here so the caller falls back to the normal flow (in-place save /
+  // full generation) which keeps F3 verification semantics intact.
+  if (baseVersion.lifecycle_stage === "integrations") {
+    return {
+      ok: false,
+      reason: "integrations_base",
+      message: "Quick edit is not supported on an F3/integrations version.",
+    };
+  }
+
   const applied = applyQuickEdits(params.baseFiles, params.ops);
   if (!applied.ok) {
     return { ok: false, reason: applied.reason, message: applied.message };
   }
 
-  const { baseVersion } = params;
   const parentVersionId =
     baseVersion.edit_kind === "quick_edit" && baseVersion.parent_version_id
       ? baseVersion.parent_version_id
       : baseVersion.id;
-  const lifecycleStage: "design" | "integrations" =
-    baseVersion.lifecycle_stage === "integrations" ? "integrations" : "design";
+  // Integrations bases are declined above, so a quick-edit child is always a
+  // design-stage minor version.
+  const lifecycleStage: "design" | "integrations" = "design";
 
   const filesJson = JSON.stringify(applied.files);
   const persisted = await addAssistantMessageAndCreateDraftVersion(
@@ -103,6 +118,7 @@ export async function runQuickEdit(params: {
   const patch = await tryPatchPreviewSession({
     chatId: params.chatId,
     versionId: newVersionId,
+    expectedBaseVersionId: baseVersion.id,
     changedFiles,
   });
 

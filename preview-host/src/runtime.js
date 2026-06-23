@@ -778,7 +778,12 @@ function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
   }
   const runtimeState = getRuntimeStateForChat(chatId);
   if (!runtimeState.running) {
-    queueRuntimeBoot(chatId);
+    // Not running (or still cold-booting). A plain non-restart boot would dedupe
+    // to an in-flight boot that may have already snapshotted the pre-patch
+    // filesJson, so the VM could come up serving stale files even though the
+    // session was advanced. Force a restart boot: ensureRuntimeForChat waits for
+    // any in-flight boot to finish, then re-boots from the merged filesJson.
+    queueRuntimeBoot(chatId, { restart: true });
     return { mode: "booted", reason: "runtime_not_running" };
   }
   patchWorkspaceFiles(chatId, changed, removed);

@@ -18,7 +18,12 @@ export function usePreviewPanelCodeFiles(options: {
   chatId: string | null;
   versionId: string | null;
   refreshToken: number | undefined;
-  onFilesSaved?: (info?: { versionId?: string }) => void;
+  onFilesSaved?: (info?: {
+    versionId?: string;
+    previewUrl?: string | null;
+    previewSessionId?: string | null;
+    previewMode?: string | null;
+  }) => void;
 }): {
   files: FileNode[];
   setFiles: Dispatch<SetStateAction<FileNode[]>>;
@@ -105,7 +110,12 @@ export function usePreviewPanelCodeFiles(options: {
         }
 
         setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
-        onFilesSaved?.({ versionId: saved.versionId });
+        onFilesSaved?.({
+          versionId: saved.versionId,
+          previewUrl: saved.previewUrl,
+          previewSessionId: saved.previewSessionId,
+          previewMode: saved.previewMode,
+        });
         return true;
       } catch (error) {
         throw new Error(

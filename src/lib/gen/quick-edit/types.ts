@@ -35,7 +35,8 @@ export type QuickEditFailureReason =
   | "file_not_found"
   | "no_match"
   | "ambiguous_match"
-  | "no_change";
+  | "no_change"
+  | "integrations_base";
 
 export type QuickEditApplyResult =
   | { ok: true; files: CodeFile[]; changedPaths: string[] }
