@@ -928,6 +928,14 @@ export async function handleMessageStreamRequest(
             });
           }
         }
+        const engineModel = resolveEngineModelId(resolvedModelTier);
+        // MB-3: the actual codegen + telemetry model is the generator-phase
+        // model (manifest phaseRouting). On the `anthropic` tier this is
+        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
+        // other tier in the default config it equals `engineModel`. The chat's
+        // persisted `chat.model` (set at init) stays the tier build model so
+        // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
+        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
         // P32 Fas B next step: external-fetch needs web-search integration
         // before it can short-circuit safely; keep it on normal codegen for now.
         const orchestrationInput = buildFollowUpOrchestrationInput({
@@ -952,7 +960,9 @@ export async function handleMessageStreamRequest(
           followUpIntent,
           orchestrationSnapshot:
             engineChat.orchestration_snapshot as Record<string, unknown> | null,
-          engineModelId: resolveEngineModelId(resolvedModelTier),
+          // Q5a + MB-3: budget scales to the generator-phase model's context
+          // window (Opus 4.8 on the anthropic tier), not the tier build-default.
+          engineModelId: generatorModel,
           persistedVariantId: snapshotVariantId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
@@ -1015,14 +1025,6 @@ export async function handleMessageStreamRequest(
 
         const chatHistory = buildBoundedChatHistory(engineChat.messages);
 
-        const engineModel = resolveEngineModelId(resolvedModelTier);
-        // MB-3: the actual codegen + telemetry model is the generator-phase
-        // model (manifest phaseRouting). On the `anthropic` tier this is
-        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
-        // other tier in the default config it equals `engineModel`. The chat's
-        // persisted `chat.model` (set at init) stays the tier build model so
-        // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
-        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
         debugLog("build", "Follow-up chat stream request", {
           chatId,
           buildProfileId,

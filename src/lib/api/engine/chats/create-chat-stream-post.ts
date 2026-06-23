@@ -641,6 +641,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const metaPalette = parsedMeta.palette;
         const designReferences = summarizeDesignReferences(requestAttachments);
 
+        const engineModel = resolveEngineModelId(resolvedModelTier);
+        // MB-3: the actual codegen + telemetry model is the generator-phase
+        // model (manifest phaseRouting). On the `anthropic` tier this is
+        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
+        // other tier in the default config it equals `engineModel`. We keep
+        // `engineModel` for `chat.model` so repair/server-verify can round-trip
+        // the tier from it via ownModelIdToCanonicalModelId.
+        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
+
         const orchestrationInput = {
           prompt: optimizedMessage,
           rawPrompt: message,
@@ -679,9 +688,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           persistedVariantId: preMatchVariant?.id ?? null,
           embeddingScaffoldMatch: !simpleWebsitePath.enabled,
           simpleWebsitePath: simpleWebsitePath.enabled,
-          // Q5a: pass resolved engine model id so deriveBuildSpec scales
-          // tokenBudgets to the model's actual context window.
-          engineModelId: resolveEngineModelId(resolvedModelTier),
+          // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
+          // scales tokenBudgets to the context window of the model that
+          // actually generates (e.g. Opus 4.8's larger window on the anthropic
+          // tier), not the tier build-default.
+          engineModelId: generatorModel,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -711,14 +722,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           context: preGenerationContracts,
         });
 
-        const engineModel = resolveEngineModelId(resolvedModelTier);
-        // MB-3: the actual codegen + telemetry model is the generator-phase
-        // model (manifest phaseRouting). On the `anthropic` tier this is
-        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
-        // other tier in the default config it equals `engineModel`. We keep
-        // `engineModel` for `chat.model` so repair/server-verify can round-trip
-        // the tier from it via ownModelIdToCanonicalModelId.
-        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,
