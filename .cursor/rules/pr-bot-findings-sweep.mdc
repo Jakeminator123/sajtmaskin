@@ -1,0 +1,37 @@
+---
+description: "Vid PR-merge/granskning: hämta + triagera EXTERNA bot-fynd (Codex/Bugbot/Vercel/GitGuardian). gh pr checks räcker inte — fynden ligger som review-kommentarer. Svep även senaste 12h PRs."
+alwaysApply: false
+---
+
+# PR bot-findings sweep
+
+`gh pr checks` visar bara grönt/rött. De faktiska bug-fynden från externa botar (Codex, Bugbot, Vercel/VADE, GitGuardian) ligger som **review-kommentarer** och **reviews** — och missas tyst om du bara kollar checks eller `--json comments`.
+
+## Hämta ALLA fynd, inte bara checks
+
+```powershell
+# Inline review-fynd — HÄR ligger Codex P1/P2 (missas av `gh pr checks` OCH av `gh pr view --json comments`)
+gh api repos/<owner>/<repo>/pulls/<n>/comments --jq '.[] | .user.login + " " + .path + ": " + .body'
+# Reviews — Codex "Review"-sammanfattning, godkännanden, requested changes
+gh api repos/<owner>/<repo>/pulls/<n>/reviews  --jq '.[] | .user.login + " [" + .state + "] " + (.body // "")'
+# PR-nivå-kommentarer — Vercel-deploy + författarens egna triage-noter
+gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " + .body'
+```
+
+## Svep senaste ~12h PRs (även redan mergade)
+
+Ett bot-fynd på en syskon-/mergad PR kan peka på en reell bugg i delad kod. Lista PRs som rörts senaste 12h och läs deras review-kommentarer med kommandona ovan.
+
+```powershell
+gh pr list --state all --limit 30 --json number,updatedAt,state,title |
+  ConvertFrom-Json |
+  Where-Object { $_.updatedAt -gt (Get-Date).ToUniversalTime().AddHours(-12).ToString("o") }
+```
+
+## Triagera (per `pr-merge-review-gate.mdc`)
+
+Varje fynd → exakt ett utfall: **Fixat** (i PR) · **Loggat** (rad i `BUG-SWARM-BACKLOG.md` med fil-ankare) · **Avfärdat** (en rad om varför). P1/High/säkerhet blockerar merge. Lämna aldrig ett P2 tyst — även om CI är grön och PR redan mergats.
+
+## Meta vs produkt
+
+Skilj alltid på **meta** (modeller/verktyg som bygger Sajtmaskin: Cursor, Codex-review, `Task`-subagenter — slug-format `claude-opus-4-8-thinking-max`) och **produkt** (modeller i `config/ai_models/manifest.json` som betjänar användarsajter — id-format `gpt-5.5`, `openai/gpt-5.5`). Ange vilket plan ett fynd hör till så de inte blandas ihop.

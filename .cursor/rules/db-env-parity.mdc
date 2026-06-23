@@ -1,0 +1,39 @@
+---
+description: "DB/env-paritet: dev/lokala värden måste speglas till alla Vercel-miljöer + prod-DB (annars funkar det lokalt men inte i prod)."
+globs:
+  - src/lib/db/**
+  - scripts/db/**
+  - config/env-policy.json
+  - docs/ENV.md
+  - preview-host/fly.toml
+alwaysApply: false
+---
+
+# DB- och env-paritet (lokalt ≠ prod)
+
+Lokal framgång bevisar **inte** prod. Prod kan ha en annan Postgres (Supabase prod-region) och egna Upstash/Redis/Blob-instanser. När du sätter något för dev/lokalt: gör motsvarande för **alla** Vercel-miljöer och rätt databas.
+
+## Migrationer (körs INTE automatiskt vid Vercel-deploy)
+
+Lägger du en migration i `src/lib/db/migrations/` (och rör en INSERT/kolumn): kör mot **både** dev och prod innan merge går live. Annars bryts även vanlig drift i prod.
+
+- Registrera i `MIGRATION_ORDER` (`scripts/db/run-migrations.ts`) + `db-init.mjs`.
+- Dev: `npm run db:migrate` (env `DB_SSL_REJECT_UNAUTHORIZED=false` för Supabase).
+- Prod: använd den **pooled** prod-URL:en (`*.pooler.supabase.com`, ej direct/IPv6 som timear ut), `DB_ALLOW_PROD_LIKE_WRITE=1`. Hämta via `vercel env pull .env.vercel.production.pulled --environment=production`.
+- Verifiera kolumnen finns i prod (read mot `information_schema.columns`).
+
+## Env-variabler
+
+Sätter du en flagga/nyckel: gör det på **alla tre** ställen, inte bara `.env.local`.
+
+- `.env.local` (lokalt) **och** `vercel env add <NAMN> production|preview|development` (preview kräver `--value <v> --yes`).
+- Registrera i `config/env-policy.json` (`extraKnownKeys`; + `knownEmptyOk` om unset=av).
+- `NEXT_PUBLIC_*` inlineas vid build → kräver ny Vercel-deploy för att slå igenom i prod.
+
+## Preview-host (Fly) är en egen miljö
+
+Env för preview-VM:en sätts i `preview-host/fly.toml` (`[env]`) eller `fly secrets set ... -a vm-fly-jakem` + `fly deploy`. Vercel-env når inte Fly-hosten.
+
+## Innan merge/leverans
+
+Fråga: "funkar detta i prod, inte bara lokalt?" Saknad migration eller env i prod = tyst prod-brott. Logga avvikelse om paritet medvetet skjuts upp.
