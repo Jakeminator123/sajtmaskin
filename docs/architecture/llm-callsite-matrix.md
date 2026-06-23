@@ -24,6 +24,8 @@ EXAKT TOOL-EDIT (kodvy / filträd / inspector) → applyQuickEdits (DETERMINISTI
 
 Triviala, användarutpekade ändringar går helt utanför LLM-codegen/finalize. Ingen prompt-tolkning, ingen gissning — kräver exakt fil (och, vid textbyte, unik/utpekad sträng). Route `POST /api/engine/chats/[chatId]/quick-edit`; motor `src/lib/gen/quick-edit/{apply,service}.ts`; preview `POST /preview/session/patch` (preview-host). Flagga: `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT` (klient) + `SAJTMASKIN_PREVIEW_PATCH_LANE` (hot patch). **LLM-anrop: 0.**
 
+Samma lane driver även preview-panelens **+/- sidhantering** (route-tabs): `replace_content`/`replace_text` för edits, `delete_file` (+ `removedPaths`) för borttagning, med route-group-/Pages-Router-medveten fil↔route-mappning i `src/lib/builder/preview-page-ops.ts`. Känsliga filer (`.env*`, secrets, lockfiles) blockas av `isBlockedQuickEditPath`. Onåbara/orphan-routes visas (badge + ta-bort-knapp) i stället för att döljas. Patch-routen skickar `expectedBaseVersionId` för optimistisk concurrency (409 `base_mismatch` → full restart).
+
 ## Modell-routing i runtime (en väg)
 
 ```

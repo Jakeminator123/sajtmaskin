@@ -237,19 +237,34 @@ Request fields (validated in `preview-host/src/validate.js` → `validatePatchPa
 
 - `previewSessionId` (or `sessionId`)
 - `versionId`
+- `expectedBaseVersionId` (optional) — the version the `files` were derived from.
+  When set, the host re-checks it **inside the store lock** before advancing the
+  session (optimistic-concurrency guard, added 2026-06-23): if the live session no
+  longer serves that base, the patch is refused so two near-simultaneous quick
+  edits can never merge into a hybrid workspace.
 - `files` (object `path -> content`, at least one entry unless `removedPaths` set)
 - `removedPaths` (optional `string[]`)
 
 Response adds two fields on top of the standard session response:
 
 - `patchMode`: `patched` (hot, no restart), `restarted` (a dependency/config path
-  forced a full boot), or `booted` (runtime was not running and a boot was queued).
-- `patchReason`: stable reason string or `null`.
+  — or an in-flight boot/restart — forced a full boot), or `booted` (runtime was
+  not running and a boot was queued).
+- `patchReason`: stable reason string or `null` (e.g. `structural_change`,
+  `runtime_not_running`, `runtime_booting`).
+
+Error / edge responses:
+
+- `404 session_not_found` → caller should fall back to `update`/`start`.
+- `409 base_mismatch` (carries the current `versionId`) → the live session advanced
+  past `expectedBaseVersionId`; caller does a full (re)start instead of patching.
+- `500 patch_failed` → the workspace write failed (e.g. ENOSPC); the host **rolls
+  the session back** to its pre-patch snapshot so `/status` never advertises a
+  version that never actually landed on disk.
 
 A dependency/config-critical change (`package.json`, lockfiles, `next.config.*`,
 `tsconfig*.json`, `.env*`, `postcss/tailwind.config.*`) always falls back to a full
-restart. A 404 (`session_not_found`) means the caller should fall back to
-`update`/`start`.
+restart.
 
 App side: `patchPreviewHostSession` in `src/lib/gen/preview/preview-host-client.ts`,
 gated by `SAJTMASKIN_PREVIEW_PATCH_LANE` via `tryPatchPreviewSession` in

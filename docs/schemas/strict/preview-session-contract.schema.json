@@ -339,6 +339,11 @@
         "previewSessionId": { "type": "string", "required": false },
         "sessionId": { "type": "string", "required": false },
         "versionId": { "type": "string", "required": true },
+        "expectedBaseVersionId": {
+          "type": "string",
+          "required": false,
+          "note": "The version `files` were derived from. When set, the host re-checks it inside the store lock and refuses with 409 base_mismatch if the live session advanced past it (optimistic-concurrency guard, 2026-06-23)."
+        },
         "files": {
           "type": "object",
           "required": false,
@@ -349,6 +354,11 @@
           "required": false,
           "items": { "type": "string" }
         }
+      },
+      "errorResponses": {
+        "404": "session_not_found — caller falls back to update/start.",
+        "409": "base_mismatch — live session advanced past expectedBaseVersionId; caller does a full (re)start.",
+        "500": "patch_failed — workspace write failed; host rolls the session back to its pre-patch snapshot."
       }
     },
     "PreviewHostPatchResponse": {
