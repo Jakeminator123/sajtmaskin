@@ -49,6 +49,5 @@ describe("toAnthropicEffort", () => {
     expect(toAnthropicEffort("low")).toBe("low");
     expect(toAnthropicEffort("medium")).toBe("medium");
     expect(toAnthropicEffort("high")).toBe("high");
-    expect(toAnthropicEffort("xhigh")).toBe("max");
   });
 });

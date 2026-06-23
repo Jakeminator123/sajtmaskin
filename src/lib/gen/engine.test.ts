@@ -55,14 +55,14 @@ describe("generateCode providerOptions", () => {
       systemPrompt: "System",
       model: "claude-sonnet-4.6",
       thinking: true,
-      reasoningEffort: "xhigh",
+      reasoningEffort: "high",
     });
 
     expect(streamTextMock).toHaveBeenCalledTimes(1);
     expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
       anthropic: {
         thinking: { type: "adaptive" },
-        effort: "max",
+        effort: "high",
       },
     });
   });

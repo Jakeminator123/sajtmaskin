@@ -53,14 +53,14 @@ These are neutral internal profile IDs.
 They are not the same thing as:
 
 - v0 Platform API model IDs such as `v0-1.5-lg`
-- prompt-assist model strings such as `openai/gpt-5.4`
-- concrete provider model IDs such as `gpt-5.4` or `claude-sonnet-4.6`
+- prompt-assist model strings such as `openai/gpt-5.5`
+- concrete provider model IDs such as `gpt-5.5` or `claude-sonnet-4.6`
 
 ## Default selection
 
 - default selected build profile: `pro`
 - default resolved own-engine build model: `gpt-5.3-codex`
-- default prompt-assist model: `openai/gpt-5.4`
+- default prompt-assist model: `openai/gpt-5.5`
 - default polish model: `openai/gpt-5.3-codex`
 
 ## Build profile mapping
@@ -69,7 +69,7 @@ They are not the same thing as:
 |---------|----------|---------|--------------------------|-------------------------|--------------------------|
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-5.4-mini` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
-| `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
+| `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.5` | OpenAI | `v0-1.5-lg` |
 | `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex` | OpenAI | `v0-gpt-5` |
 | `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
 
@@ -143,10 +143,10 @@ Important current nuance:
 
 Prompt assist accepts provider-coded model strings such as:
 
-- `openai/gpt-5.4`
+- `openai/gpt-5.5`
 - `openai/gpt-5.3-codex`
 - `anthropic/claude-sonnet-4.6`
-- `anthropic/claude-opus-4.6`
+- `anthropic/claude-opus-4.8`
 - `anthropic-direct/claude-sonnet-4-6`
 
 Current provider categories:
@@ -212,7 +212,7 @@ Model routing still works like this:
 - **codex**: **planner**, **generator**, and **fixer** follow
   `selected_build_model`; **verifier** and **deploy-assistant** use
   **`gpt-5.3-codex`**.
-- **anthropic**: **planner** and **generator** use **`claude-opus-4.6`**; **fixer**
+- **anthropic**: **planner** and **generator** use **`claude-opus-4.8`**; **fixer**
   and **verifier** follow `selected_build_model` (the tier’s primary Claude model,
   `claude-sonnet-4.6`); **deploy-assistant** uses **`claude-sonnet-4.6`**.
 

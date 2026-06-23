@@ -389,23 +389,28 @@ def _escape_ts_string(value: str) -> str:
 
 
 MODEL_LABELS = {
+    "openai/gpt-5.5": "OpenAI GPT-5.5",
     "openai/gpt-5.4": "OpenAI GPT-5.4",
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
     "openai/gpt-5.2": "OpenAI GPT-5.2",
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
     "gpt-4o-mini": "GPT-4o mini (legacy)",
     "gpt-4.1": "GPT-4.1",
+    "gpt-5.5": "GPT-5.5",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
     "gpt-5.3-codex-max": "GPT-5.3 Codex Max (deprecated id — use gpt-5.3-codex)",
     "text-embedding-3-small": "OpenAI text-embedding-3-small",
     "whisper-1": "OpenAI Whisper-1",
     "claude-sonnet-4.6": "Claude Sonnet 4.6",
+    "claude-opus-4.8": "Claude Opus 4.8",
     "claude-opus-4.6": "Claude Opus 4.6",
     "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
+    "anthropic/claude-opus-4.8": "Anthropic Claude Opus 4.8",
     "anthropic/claude-opus-4.6": "Anthropic Claude Opus 4.6",
     "anthropic-direct/claude-haiku-4-5-20251001": "Anthropic Claude Haiku 4.5 (direct)",
     "anthropic-direct/claude-sonnet-4-6": "Anthropic Claude Sonnet 4.6 (direct)",
+    "anthropic-direct/claude-opus-4-8": "Anthropic Claude Opus 4.8 (direct)",
     "anthropic-direct/claude-opus-4-6": "Anthropic Claude Opus 4.6 (direct)",
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
 }
@@ -418,15 +423,17 @@ PHASE_ORDER = (
     "verifier",
     "deploy-assistant",
 )
-REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high", "xhigh")
+REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high")
 AVAILABLE_PHASE_MODELS = (
     "selected_build_model",
     "gpt-4.1",
     "gpt-5.2",
+    "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
     "gpt-5.3-codex",
     "claude-sonnet-4.6",
+    "claude-opus-4.8",
     "claude-opus-4.6",
 )
 PHASE_LABELS = {

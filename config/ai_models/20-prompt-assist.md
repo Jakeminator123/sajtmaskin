@@ -4,9 +4,9 @@
 
 Prompt assist använder **`provider/model`**-format, t.ex.:
 
-- `openai/gpt-5.4`
+- `openai/gpt-5.5`
 - `anthropic/claude-sonnet-4.6`
-- `anthropic-direct/claude-opus-4-6` (direktlista med API-format i suffix)
+- `anthropic-direct/claude-opus-4-8` (direktlista med API-format i suffix)
 
 Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/ai-models/load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) och konsumeras av [`src/lib/builder/prompt-assist/`](../../src/lib/builder/prompt-assist/). Paritet säkerställs av `manifest-parity.test.ts`.
 

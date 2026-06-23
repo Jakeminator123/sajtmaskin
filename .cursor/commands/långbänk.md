@@ -19,7 +19,7 @@ Då ÄR mappen underlaget. Läs **README**, **INDEX**, **CHECKLIST**, **STATUS-*
 Stoppa innan du startar agenter. Fråga användaren via `AskQuestion`-tool eller ren text vad scopet är. Erbjud tre val:
 
 1. **"Jag pekar på en mapp/fil"** — användaren kommer skicka @-referens.
-2. **"Skapa underlag åt mig"** — du föreslår att lansera **en tung exploration-agent** (claude-4.6-sonnet-medium-thinking eller claude-opus-4-7-thinking-xhigh om problemet är kvalitativt komplext) som producerar ett kort scope-dokument under `docs/plans/active/<datum>-långbänk-scope.md`. Underlaget måste innehålla **3–7 distinkta spår** med konkreta frågor. När underlaget är klart pausar du och frågar användaren om det fångar rätt scope, sen fortsätter du.
+2. **"Skapa underlag åt mig"** — du föreslår att lansera **en tung exploration-agent** (claude-4.6-sonnet-medium-thinking eller claude-opus-4-8-thinking-high om problemet är kvalitativt komplext) som producerar ett kort scope-dokument under `docs/plans/active/<datum>-långbänk-scope.md`. Underlaget måste innehålla **3–7 distinkta spår** med konkreta frågor. När underlaget är klart pausar du och frågar användaren om det fångar rätt scope, sen fortsätter du.
 3. **"Buggjakt brett över repot"** — fri jakt utan specifikt scope. Du väljer själv 5 evergreen-spår: säkerhet, race conditions, dead code, schema-drift, doc-drift.
 
 Beskriv vad varje val innebär (tids- och commit-volym) så användaren kan välja informerat.
@@ -31,7 +31,7 @@ Det här är skillnaden mellan slö-långbänk och magisk-långbänk:
 | Spårstyp | Modell | Varför |
 |---|---|---|
 | Tung kvalitativ audit / arkitekturanalys / rotorsaksjakt | `claude-4.6-sonnet-medium-thinking` | Bra balans reasoning ↔ hastighet, läser stora mappar |
-| Allra svåraste reasoning där svaret är icke-trivialt | `claude-opus-4-7-thinking-xhigh` | Bara när kvaliteten verkligen krävs — dyrt och långsamt |
+| Allra svåraste reasoning där svaret är icke-trivialt | `claude-opus-4-8-thinking-high` | Bara när kvaliteten verkligen krävs — dyrt och långsamt |
 | Storskalig kod-refactor / kodgenerering (när du ska SKRIVA mycket) | `gpt-5.3-codex-high-fast` | Tunga edits över många filer |
 | Snabba inventeringar, dead-code-listor, dublettkollar | `composer-2-fast` | Billig + snabb, räcker för "lista filer som inte importeras" |
 | Snabba doc-konsolideringar, listfilter | `composer-2-fast` eller utan modell-flag | Default räcker |

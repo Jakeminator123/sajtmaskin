@@ -14,22 +14,20 @@ import {
 } from "./system-prompt-assert";
 
 export type { StreamMeta };
-export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort = "none" | "low" | "medium" | "high";
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
 
 export function toAnthropicEffort(
   effort: ReasoningEffort,
-): "low" | "medium" | "high" | "max" {
+): "low" | "medium" | "high" {
   switch (effort) {
     case "none":
     case "low":
       return "low";
     case "medium":
       return "medium";
-    case "xhigh":
-      return "max";
     case "high":
     default:
       return "high";

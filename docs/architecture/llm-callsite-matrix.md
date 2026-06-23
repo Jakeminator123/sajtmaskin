@@ -26,7 +26,7 @@ config/ai_models/manifest.json
   → src/lib/models/selection.ts                (request → tier)
   → src/lib/gen/models.ts getOpenAIModel()     → streamText/generateObject
 ```
-Build-profil-defaults (`manifest.json:50-57`): fast=`gpt-5.4-mini` · pro/codex=`gpt-5.3-codex` · max=`gpt-5.4` · anthropic=`claude-sonnet-4.6`.
+Build-profil-defaults (`manifest.json:50-57`): fast=`gpt-5.4-mini` · pro/codex=`gpt-5.3-codex` · max=`gpt-5.5` · anthropic=`claude-sonnet-4.6`.
 
 ## Callsite-matris — LLM-anrop
 
@@ -35,7 +35,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 ### Brief (kluster A)
 | Fas | Syfte | Ägar-fil:rad | Route/trigger | Modellkälla | API-stil | Tools | Events |
 |---|---|---|---|---|---|---|---|
-| init | Deep Brief | `site-brief-generation.ts:527,599` | `POST /api/ai/brief` + server-auto-brief `create-chat-stream-post.ts:247-266` | `briefing.requestModel` → `gpt-5.4`; Anthropic-fallback (full→simplified schema) | `generateObject` | nej | `assist.brief.*`, `orchestration.server_auto_brief` |
+| init | Deep Brief | `site-brief-generation.ts:527,599` | `POST /api/ai/brief` + server-auto-brief `create-chat-stream-post.ts:247-266` | `briefing.requestModel` → `gpt-5.5`; Anthropic-fallback (full→simplified schema) | `generateObject` | nej | `assist.brief.*`, `orchestration.server_auto_brief` |
 | clear-redesign | Delta-brief | `chat-message-stream-post.ts:468` → `site-brief-generation.ts:527` | follow-up-route, intent=clear-redesign | samma som brief + `priorDesignContext` | `generateObject` | nej | debugLog (**ej till orchestrate, se F1**) |
 | follow-up (vanlig) | (snapshot-brief) | `orchestration-snapshot.ts:257-307` | follow-up-route | **ingen LLM** (deterministisk) | — | — | — |
 
@@ -64,7 +64,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 ### Övriga LLM-ytor (kluster D) — utanför kärn-pipelinen
 | Syfte | Ägar-fil:rad | Modell | API-stil | Manifest-styrd? |
 |---|---|---|---|---|
-| Prompt-assist ("Förbättra") | `app/api/ai/chat/route.ts:175` | route-default `gpt-5.3-codex` (manifest säger `gpt-5.4`) | `streamText` | delvis (avviker) |
+| Prompt-assist ("Förbättra") | `app/api/ai/chat/route.ts:175` | route-default `gpt-5.3-codex` (manifest säger `gpt-5.5`) | `streamText` | delvis (avviker) |
 | Webbplats-audit | `app/api/audit/route.ts:1258` | `gpt-5.2` + Anthropic-fallback | `responses.create`/`generateText` | ja (`audit_structured`) |
 | Text→sajtförslag | `app/api/text/analyze/route.ts:125` | `gpt-5-nano` (**hårdkodat**) | `responses.create` | nej |
 | Projektanalys | `app/api/projects/[id]/analyze/route.ts:182` | `gpt-5-mini` | `responses.create` | ja |
