@@ -12,8 +12,8 @@
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
-- Preview / VM / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
-- Modeller / assist / builder-generering: [`architecture/fas2-orchestration-and-build.md`](./architecture/fas2-orchestration-and-build.md), `src/lib/models/catalog.ts`
+- Preview / VM / credentials: [`architecture/llm-pipeline.md`](./architecture/llm-pipeline.md)
+- Modeller / assist / builder-generering: [`architecture/llm-pipeline.md`](./architecture/llm-pipeline.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
 ---
@@ -43,7 +43,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | OpenClaw / Sajtagenten | `OPENCLAW_GATEWAY_URL`, `OPENCLAW_GATEWAY_TOKEN`, `IMPLEMENT_UNDERSCORE_CLAW` | Alla tre krävs för att den flytande widgeten och Sajtagenten-ytorna ska aktiveras. Utan en enda av dem visas ingen widget. **`OPENCLAW_GATEWAY_URL` får aldrig peka mot egen Next-host (`http://localhost:3000` eller appens egen prod-URL)** — då loopar `/api/openclaw/chat` och `/api/did/chat` tillbaka till `/v1/chat/completions` på sig själv och returnerar 404. Värdet ska peka mot den **separata gateway-tjänsten** (egen Render-instans, t.ex. `https://<din-gateway>.onrender.com`). Gateway-sidans tillåtna origins styrs av `SAJTAGENT_ALLOWED_ORIGINS` (+ `SAJTAGENT_TARGET_SITE_URL`) i `infra/openclaw/`, inte här — ny hostname kräver ingen kodändring. |
 | D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_ENABLED`, `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Avataren aktiveras endast när `NEXT_PUBLIC_AVATAR_ENABLED=1` **och** bägge nycklarna finns. **Default av** (flaggan osatt eller `!= 1`) → ren textchatt även om nycklarna är satta. Det gör att nycklarna kan ligga i alla miljöer medan avataren hålls av tills flaggan vänds till `1` per miljö. Styr videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Origins måste vara allowlistade i D-ID Studio. |
-| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `fas3-preview-and-deploy.md`. |
+| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `llm-pipeline.md`. |
 | Inspector bridge (opt-in) | `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` (app), `SAJTMASKIN_APP_ORIGIN` (preview-host) | **Opt-in, default av.** Slår på instrumenterad "Inspektera preview" via injicerat script + `postMessage` (ingen Playwright/worker). App-flaggan aktiverar `bridge`-engine + `?inspect=1`-opt-in + serverar scriptet på `/api/inspect-bridge`; preview-hostens `SAJTMASKIN_APP_ORIGIN` är källa för det injicerade scriptet + tillåten parent-origin (tas från env, **aldrig** query). Båda osatta → dagens `map`/`ai`-beteende, ingen injektion. Källa: `src/lib/builder/inspect-bridge-*.ts`, `preview-host/src/runtime.js`. Plan: `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`. |
 | F2 Product Postcheck | `SAJTMASKIN_F2_PRODUCT_POSTCHECK=true` | **Opt-in.** Kör server-side Playwright-kontroller mot betrodda F2-preview-URL:er (localhost / konfigurerad preview-host / `vm-fly-jakem.fly.dev`) och skriver `product_postcheck.*`-warnings till befintlig versionsdiagnostik. Default av. Fail-open: om Playwright saknas, URL ej tillåts eller timeout sker loggas `product_postcheck.skipped`; F2-render blockas inte. Blockerande produktfel kan däremot stoppa F3-triggern tills F2-previewn fungerar. Källa: `src/lib/gen/verify/product-postcheck.ts` + `/api/engine/chats/[chatId]/product-postcheck`. |
 | Dossier-stub-refusal (false-green-härdning, A7-2) | `SAJTMASKIN_REFUSE_DOSSIER_STUBS=true` | **Opt-in (grandmaster A7-2).** När `true`/`1`: autofix vägrar fabricera en tyst null-render-stub för en dossier-exponerad import som LLM:n inte emitterade — den oresolvade importen **degraderar/blockar previewn ärligt** (preview blockad med orsak via `runProjectSanityChecks` `code_structure_failure`) i st.f. att skeppa en ihålig falsk-grön sida. **Default av** (kod-default oförändrad; aktiveras via env). Reversibelt: sätt `false`/unset för tyst-stub-beteendet. **Rekommenderad utrullning:** slå på i **preview** först och bevaka hur ofta legitima byggen blockas (frekvensen är LLM-runtime-beroende) innan production. Källa: `src/lib/gen/autofix/rules/cross-file-import-checker.ts` (`FEATURES.refuseDossierStubs`). |
@@ -140,16 +140,16 @@ F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel 
 
 Djupare ämnen:
 
-- Modellprofiler och override-nycklar: `docs/schemas/model-build-profiles.md`, `docs/architecture/fas2-orchestration-and-build.md`, `config/ai_models/manifest.json`
+- Modellprofiler och override-nycklar: `docs/schemas/model-build-profiles.md`, `docs/architecture/llm-pipeline.md`, `config/ai_models/manifest.json`
 - OpenClaw / avatar: `docs/architecture/system-overview.md`, `src/lib/config.ts`
-- Exporterade Next-projekt och preview-host: `docs/architecture/fas3-preview-and-deploy.md`, `preview-host/README.md`
+- Exporterade Next-projekt och preview-host: `docs/architecture/llm-pipeline.md`, `preview-host/README.md`
 - DB-skrivskydd: `scripts/README.md`
 
 ---
 
 ## Genererade användarsajter (preview / VM runtime)
 
-Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **fas3-preview-and-deploy.md**, avsnitt om tier-2 preview `.env.local`.
+Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **llm-pipeline.md**, avsnitt om tier-2 preview `.env.local`.
 
 ### Project env file (`env.example`) — användar­synlig dokumentationsfil
 

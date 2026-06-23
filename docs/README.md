@@ -6,7 +6,7 @@
 
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
+| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md) |
 | **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer + icke-plan-historik (`archive/`); scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) |
 
@@ -25,7 +25,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 (operativt kördokument). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
@@ -102,11 +102,11 @@ Not runtime dependencies:
 | **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) |
 | **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
-| Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/fas2-orchestration-and-build.md`](architecture/fas2-orchestration-and-build.md) |
+| Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
 | **LLM-flöde målbild** (vart vi siktar) | [`docs/architecture/llm-flow-target-worldclass.md`](architecture/llm-flow-target-worldclass.md) |
 | LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/llm-signal-flow.md`](architecture/llm-signal-flow.md) |
-| Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/fas2-orchestration-and-build.md`](architecture/fas2-orchestration-and-build.md) |
-| Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
+| Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
+| Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |

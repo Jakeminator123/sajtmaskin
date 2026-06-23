@@ -68,7 +68,7 @@ P1/P2 adresseras i grandmaster-områdena 5/6/7.
 
 | ID | Spår (nästa steg) | Källa |
 |---|---|---|
-| O | LLM-masterplan startlinje (init/follow-up-konsistens, latency, prompt-kvalitet) | [`2026-04-28-llm-flode-startlinje.md`](../archived/2026-04-28-llm-flode-startlinje.md) |
+| O | LLM-masterplan startlinje (init/follow-up-konsistens, latency, prompt-kvalitet) — superseded | [`../../architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md) + [`llm-pipeline.md`](../../architecture/llm-pipeline.md) |
 | R | Builder follow-up/preview-incident (kvar: E UX-copy + e2e) | [`2026-05-02-builder-followup-preview-incident.md`](../archived/2026-05-02-builder-followup-preview-incident.md) |
 | P | Prompt-slim (Core Rules <35k, follow-up <45k) | [`prompt-slim-systemprompt.md`](../archived/prompt-slim-systemprompt.md) |
 | A | P34 blocking lint (Fas C–E) | [`P34-blocking-lint-in-validate-and-fix.md`](../archived/P34-blocking-lint-in-validate-and-fix.md) |

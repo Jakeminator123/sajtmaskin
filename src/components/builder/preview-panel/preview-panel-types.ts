@@ -50,7 +50,7 @@ export interface PreviewPanelProps {
   versionId: string | null;
   /** Active preview URL (iframe target); not the API JSON field name. */
   previewUrl: string | null;
-  /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/fas3-preview-and-deploy.md`. */
+  /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/llm-pipeline.md`. */
   alternatePreviewUrls?: AlternatePreviewUrls;
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;

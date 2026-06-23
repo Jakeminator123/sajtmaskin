@@ -5,7 +5,7 @@
  * logic that the builder UI uses to recognise an active tier-2 preview vs the
  * legacy compatibility shim. It is intentionally independent of
  * `legacy/compatibility-shim.ts` so the F1 shim helpers can be retired in
- * isolation — see docs/architecture/fas3-preview-and-deploy.md.
+ * isolation — see docs/architecture/llm-pipeline.md.
  */
 
 const PREVIEW_URL_BASE = "https://preview.local";

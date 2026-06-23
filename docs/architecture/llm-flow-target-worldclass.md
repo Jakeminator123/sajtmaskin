@@ -6,10 +6,7 @@
 > **Den här filen är inte source of truth för runtime.** Det är `src/lib/gen/`, `docs/architecture/fas{1,2,3}-*.md` och `glossary.md`. Den här filen är en **referensvision** att jämföra emot.
 
 För **vad som faktiskt finns idag**, läs:
-- [`fas1-startprompt-flow.md`](./fas1-startprompt-flow.md) — prompt → streamstart
-- [`fas2-orchestration-and-build.md`](./fas2-orchestration-and-build.md) — orchestrate → finalize
-- [`fas3-preview-and-deploy.md`](./fas3-preview-and-deploy.md) — preview → deploy
-- [`mental-model-vs-actual-flow.md`](./mental-model-vs-actual-flow.md) — kvarvarande gap
+- [`llm-pipeline.md`](./llm-pipeline.md) — kanoniskt körflöde FAS 1→2→3 (prompt → streamstart → orchestrate → finalize → preview → deploy)
 
 ---
 
@@ -21,7 +18,7 @@ Ett världsklass-LLM-flöde har **fem singel-sanningskällor**:
 |---|---------|------|
 | 1 | **En sanningskälla för intent** (Deep Brief) | ✅ I huvudsak — men brief-vägar (klient-brief, server-auto-brief, snapshot-brief) parallellexisterar |
 | 2 | **En sanningskälla för prompt composition** (Core Rules + Dynamic Context) | ✅ `composeEngineSystemPrompt` |
-| 3 | **En sanningskälla för runtime status** (event bus) | ⚠️ Delvis — DB-flaggor och SSE-events lever parallellt; OMTAG fas 3 levererade `selectVersionStatus` men UI läser fortfarande gamla flaggor |
+| 3 | **En sanningskälla för runtime status** (event bus) | ⚠️ Delvis — `selectVersionStatus` är nu kanonisk projektion läst av `useVersionStatus`-hooken (`resolveEngineVersionDisplayStatus` borttagen); enstaka DB-flaggor + `done`-SSE lever fortfarande parallellt |
 | 4 | **Ett enda repair-kontrakt** (mekanisk autofix → en LLM-fix-gate) | ⚠️ Idag flera fixer-call-sites (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer); samma `runLlmFixer` men olika gates |
 | 5 | **Tydlig skillnad F2 vs F3** | ✅ Implementerat (lifecycle stage + check-profiler), men UI-text glider ihop |
 
@@ -219,9 +216,7 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 
 | Dokument | Vad |
 |---|---|
-| [`llm-flow-end-to-end.md`](./llm-flow-end-to-end.md) | Vad som faktiskt händer när användaren skickar en prompt |
-| [`fas1-startprompt-flow.md`](./fas1-startprompt-flow.md) · [`fas2-*.md`](./fas2-orchestration-and-build.md) · [`fas3-*.md`](./fas3-preview-and-deploy.md) | Per-fas-detalj |
-| [`mental-model-vs-actual-flow.md`](./mental-model-vs-actual-flow.md) | Vart användarintuition divergerar från koden |
+| [`llm-pipeline.md`](./llm-pipeline.md) | Vad som faktiskt händer när användaren skickar en prompt — kanoniskt körflöde FAS 1→2→3 |
 | [`llm-signal-flow.md`](./llm-signal-flow.md) | Signal-ownership-matris |
 | [`docs/plans/active/README.md`](../plans/active/README.md) | Koncentrat med konkreta öppna punkter (inkl. event-bus UI-flip, spår A) |
 | [`docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`](../plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md) | F2/F3 copy-konsolidering (spår B, arkiverad) |

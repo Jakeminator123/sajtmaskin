@@ -38,7 +38,6 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
       "tests/**/*.{test,spec}.{ts,tsx}",
       "scripts/**/*.{test,spec}.ts",
-      "_isolated_tests/**/*.{test,spec}.ts",
     ],
     exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS],
   },

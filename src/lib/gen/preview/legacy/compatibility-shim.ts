@@ -1,7 +1,7 @@
 /**
  * Legacy compatibility-preview URL helpers (`/api/preview-render`) and shim
  * detection. Primary product preview is the tier-2 live preview; see
- * `docs/architecture/fas3-preview-and-deploy.md`.
+ * `docs/architecture/llm-pipeline.md`.
  *
  * Tier-2 helpers live in `@/lib/gen/preview/preview-url-classifier`.
  */

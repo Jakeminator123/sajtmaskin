@@ -31,7 +31,7 @@
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt; not duplicated here.
  *  - **Chat history** = prior turns, assembled by the generation pipeline.
- * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
+ * Canonical map: `docs/architecture/llm-pipeline.md`.
  *
  * Split out of the pre-OMTAG-03 monolith `system-prompt.ts` into the
  * `system-prompt/` package. Public API stays identical and is re-exported

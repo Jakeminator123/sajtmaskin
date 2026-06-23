@@ -9,7 +9,7 @@
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Fasindelad LLM-kedja: docs/architecture/README.md. Fas 2 (orkestrering/finalize/validering): docs/architecture/fas2-orchestration-and-build.md.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Fasindelad LLM-kedja: docs/architecture/README.md. Fas 2 (orkestrering/finalize/validering): docs/architecture/llm-pipeline.md § FAS 2.",
       "canonicalPaths": [
         "config/codegen-core-manifest.json",
         "config/prompt-core/",
@@ -23,7 +23,7 @@
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json",
         "docs/architecture/README.md",
-        "docs/architecture/fas2-orchestration-and-build.md"
+        "docs/architecture/llm-pipeline.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -47,7 +47,7 @@
         "docs/schemas/model-build-profiles.md",
         "docs/schemas/llm-role-matrix.md",
         "docs/schemas/quality-gate.md",
-        "docs/architecture/fas2-orchestration-and-build.md"
+        "docs/architecture/llm-pipeline.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -69,7 +69,7 @@
         "config/prompt-heuristic-tokens.json"
       ],
       "docsPaths": [
-        "docs/architecture/fas2-orchestration-and-build.md",
+        "docs/architecture/llm-pipeline.md",
         "docs/architecture/glossary.md"
       ],
       "codeReaders": [
@@ -86,7 +86,7 @@
         "config/prompt-core/_READ_ME_FIRST.md"
       ],
       "docsPaths": [
-        "docs/architecture/fas2-orchestration-and-build.md",
+        "docs/architecture/llm-pipeline.md",
         "docs/architecture/glossary.md"
       ],
       "codeReaders": [
@@ -94,7 +94,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/fas2-orchestration-and-build.md. Post-stream finalize/verifier/server-verify: docs/architecture/fas2-orchestration-and-build.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-pipeline.md § FAS 2. Post-stream finalize/verifier/server-verify: docs/architecture/llm-pipeline.md § FAS 2. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -105,7 +105,7 @@
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
-        "docs/architecture/fas2-orchestration-and-build.md"
+        "docs/architecture/llm-pipeline.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -143,7 +143,7 @@
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
         "docs/architecture/scaffold-system.md",
-        "docs/architecture/fas2-orchestration-and-build.md"
+        "docs/architecture/llm-pipeline.md"
       ],
       "codeReaders": [
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -200,7 +200,7 @@
         "src/lib/gen/preview/warm-typecheck.ts"
       ],
       "docsPaths": [
-        "docs/architecture/fas3-preview-and-deploy.md"
+        "docs/architecture/llm-pipeline.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"

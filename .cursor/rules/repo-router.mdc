@@ -13,8 +13,8 @@ Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommi
 
 | Uppgift | Börja här |
 |---|---|
-| LLM/generation | `src/lib/gen/`, `src/lib/providers/own-engine/`, `docs/architecture/fas2-orchestration-and-build.md` |
-| Preview/VM | `preview-host/`, `src/lib/gen/preview/`, `src/components/builder/preview-panel/`, `docs/architecture/fas3-preview-and-deploy.md` |
+| LLM/generation | `src/lib/gen/`, `src/lib/providers/own-engine/`, `docs/architecture/llm-pipeline.md` (FAS 2) |
+| Preview/VM | `preview-host/`, `src/lib/gen/preview/`, `src/components/builder/preview-panel/`, `docs/architecture/llm-pipeline.md` (FAS 3) |
 | Builder UI/chat | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
 | Deploy | `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/` |
 | Env/config | `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`, `config/ai_models/` |

@@ -1,6 +1,6 @@
 # Arkitektur — översikt
 
-**Senast uppdaterad:** 2026-04-27.
+**Senast uppdaterad:** 2026-06-23.
 
 Ingångssida för arkitekturdokumentationen.
 
@@ -24,22 +24,19 @@ Ingångssida för arkitekturdokumentationen.
 
 ---
 
-## Kanonisk LLM-kedja (fasdokument)
+## Kanonisk LLM-kedja
 
-| Fas | Dokument | Fokus |
-|---|---|---|
-| 1 | [fas1-startprompt-flow.md](./fas1-startprompt-flow.md) | Prompt in, assist, brief, init/follow-up-ingång |
-| 2 | [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) | Orkestrering, LLM-input, finalize/autofix/verify/persist |
-| 3 | [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) | Preview-host/VM, lifecycle, quality-gate, deploy |
+| Dokument | Fokus |
+|---|---|
+| [**llm-pipeline.md**](./llm-pipeline.md) | **Kanoniskt körflöde FAS 1→2→3** — prompt, brief, orkestrering, codegen, finalize/autofix/verifier, preview, quality-gate, deploy. Ersätter de tidigare separata `fas1/2/3`-filerna. |
 
 Komplement:
 
 | Dokument | Vad det täcker |
 |---|---|
 | [**llm-flow-target-worldclass.md**](./llm-flow-target-worldclass.md) | **Målbild** — vart LLM-flödet siktar (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer). Använd som referens vid PR-review och triage. |
-| [llm-flow-end-to-end.md](./llm-flow-end-to-end.md) | "Vad händer när användaren skickar en prompt?" — kort end-to-end |
+| [llm-callsite-matrix.md](./llm-callsite-matrix.md) | Fil:rad-index per LLM-anrop (modellkälla, deterministiska steg) |
 | [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar + ägarmatris (canonical source per signal) |
-| [mental-model-vs-actual-flow.md](./mental-model-vs-actual-flow.md) | Användarintuition vs verklig implementation + gap mot målbild |
 | [followup-design-intent-gap.md](./followup-design-intent-gap.md) | Varför design-intent follow-ups ibland missar `globals.css` |
 
 ---
@@ -58,7 +55,6 @@ Komplement:
 | Dokument | Vad |
 |---|---|
 | [dossier-system.md](./dossier-system.md) | Format, schema, urvalsalgoritm, hur man lägger till nya. Allt i en fil. |
-| [_archived/dossier-format.md](./_archived/dossier-format.md), [_archived/dossier-pipeline-roadmap.md](./_archived/dossier-pipeline-roadmap.md), [_archived/dossier-promotion-flow.md](./_archived/dossier-promotion-flow.md) | Legacy v1-pipeline (auto-curate, embeddings, scaffold-recommendations) — ersatt 2026-04-20. Bara historik. |
 
 ---
 

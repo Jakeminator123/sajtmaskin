@@ -43,7 +43,7 @@ superseded; **historical** notes may exist in git under `docs/plans/avklarat/`
 The own-engine system prompt lives in Core Rules
 (`config/codegen-core-manifest.json` + `config/prompt-core/*.md`), not here.
 Pipeline behavior is documented in
-[`docs/architecture/fas2-orchestration-and-build.md`](../architecture/fas2-orchestration-and-build.md).
+[`docs/architecture/llm-pipeline.md`](../architecture/llm-pipeline.md) § FAS 2.
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 

@@ -33,7 +33,7 @@
  * Preview Cache:
  *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  *
- * Preview session (optional cross-instance reuse; `docs/architecture/fas3-preview-and-deploy.md`):
+ * Preview session (optional cross-instance reuse; `docs/architecture/llm-pipeline.md`):
  *   {prefix}preview-session:session:{chatId} → PreviewSessionEntry JSON (TTL: hard-cap, ~45 min)
  */
 

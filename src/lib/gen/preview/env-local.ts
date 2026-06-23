@@ -1,5 +1,5 @@
 /**
- * Merge `.env.local` for live preview (`docs/architecture/fas3-preview-and-deploy.md` § Preview `.env.local`):
+ * Merge `.env.local` for live preview (`docs/architecture/llm-pipeline.md` § Preview `.env.local`):
  *
  * Layered by `EnvVarProvenance` (later overrides earlier):
  *   1. **harmless** — placeholder values that are SAFE to leave fake even
@@ -171,15 +171,6 @@ export function loadAllPlaceholderRecordForF2(): Record<string, string> {
     ...loadHarmlessPlaceholderRecord(),
     ...loadTier3StubPlaceholderRecord(),
   };
-}
-
-/**
- * Combined record (harmless + tier3-stub).
- * @deprecated Prefer the per-tier loaders so callers can decide whether to
- *   strip tier-3 stubs in F3.
- */
-export function loadPlaceholderRecord(): Record<string, string> {
-  return loadAllPlaceholderRecordForF2();
 }
 
 /** Set of keys covered by preview placeholder fragments. */
