@@ -18,7 +18,7 @@ Primary code sources:
 - `src/app/api/engine/chats/[chatId]/versions/route.ts`
 - `src/app/api/engine/chats/[chatId]/route.ts`
 - `src/app/api/engine/chats/[chatId]/readiness/route.ts`
-- `docs/architecture/fas3-preview-and-deploy.md`
+- `docs/architecture/llm-pipeline.md` § FAS 3
 
 Machine-oriented companion:
 

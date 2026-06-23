@@ -23,8 +23,8 @@ Primära kodkällor:
 Närliggande docs:
 
 - `docs/schemas/preview-session-contract.md`
-- `docs/architecture/fas3-preview-and-deploy.md`
-- `docs/architecture/fas2-orchestration-and-build.md`
+- `docs/architecture/llm-pipeline.md` § FAS 3
+- `docs/architecture/llm-pipeline.md` § FAS 2
 
 ## Vad quality gate är
 
@@ -288,7 +288,7 @@ medan esbuild-passet senare rapporterade 0 fel.
 Quality gate finns redan dokumenterad, men utspritt:
 
 - `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
-- `docs/architecture/fas3-preview-and-deploy.md` — runtimebild, tier-2 vs verify-lane
-- `docs/architecture/fas2-orchestration-and-build.md` — relation till finalize och `server-verify`
+- `docs/architecture/llm-pipeline.md` § FAS 3 — runtimebild, tier-2 vs verify-lane
+- `docs/architecture/llm-pipeline.md` § FAS 2 — relation till finalize och `server-verify`
 
 Den här sidan finns för att ge en enda sammanhållen ingångspunkt.

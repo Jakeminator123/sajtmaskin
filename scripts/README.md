@@ -9,7 +9,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`master`
 > - **Dossier-pipeline v1** togs bort 2026-04-20 — gamla 16-pipelinens scripts ligger i `archive/dossiers-legacy-2026-04-20/`. Aktiv dossier-pipe är **`npm run dossiers:curate`** som anropar `scripts/dossiers/curate-from-reference.ts`.
 > - **`scaffold_cli.py`-meta-CLI** är borttagen — aktiva scaffold-script är bara `scaffolds:variant-embeddings`, `scaffolds:variant-patterns`, `scaffolds:variant-patterns:dry`, `scaffolds:validate`.
 >
-> Arkitekturreferens för borttagningarna: [`docs/architecture/llm-flow-end-to-end.md`](../docs/architecture/llm-flow-end-to-end.md) sektion *"Borttaget"*.
+> Arkitekturreferens för borttagningarna: [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md) § Borttaget/legacy.
 
 ## Översikt och inventering
 

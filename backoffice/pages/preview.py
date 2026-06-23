@@ -26,7 +26,7 @@ def render(ctx: BackofficeContext) -> None:
     c1, c2, c3 = st.columns(3)
     c1.metric("Generationslogg", "finns" if log_dir.is_dir() else "saknas")
     c2.metric("Senaste körningar", len(latest_runs))
-    c3.metric("Tier-2 docs", "fas3-preview-and-deploy.md")
+    c3.metric("Tier-2 docs", "llm-pipeline.md (FAS 3)")
 
     if latest_runs:
         st.markdown("**Senaste generationskörningar**")

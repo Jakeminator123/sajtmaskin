@@ -18,7 +18,7 @@ Detta är **inte** kopplat till v0:s mall-API eller någon «mallmapp».
 
 ## Builder & deploy API — täcks av Vitest
 
-Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: [`docs/architecture/fas3-preview-and-deploy.md`](../docs/architecture/fas3-preview-and-deploy.md). En full Playwright-smoke mot `POST /api/v0/deployments` kräver autentiserad session — se opt-in ovan.
+Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: [`docs/architecture/llm-pipeline.md`](../docs/architecture/llm-pipeline.md) § FAS 3. En full Playwright-smoke mot `POST /api/v0/deployments` kräver autentiserad session — se opt-in ovan.
 
 ## Terminologi: `v0-mallar` ≠ Vercel-mallar
 

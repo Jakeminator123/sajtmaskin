@@ -1,6 +1,6 @@
 # Scaffold-systemet
 
-**Senast uppdaterad:** 2026-04-27. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
+**Senast uppdaterad:** 2026-06-23 (variantantal synkat mot `config/scaffold-variants/`). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
 Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
@@ -11,16 +11,16 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 | ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant |
 |---|---|---|---|---|---|---|
 | `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` |
-| `landing-page` | Landing Page | marketing | medium | website, template | **7** | `corporate-grid` |
+| `landing-page` | Landing Page | marketing | medium | website, template | **9** | `corporate-grid` |
 | `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` |
 | `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` |
 | `blog` | Blog | editorial | medium | website, template | 2 | `editorial-serif` |
 | `dashboard` | Dashboard | app | advanced | app | 2 | `glass-frosted` |
-| `auth-pages` | Auth Pages | app | simple | website, app, template | 1 | `clean-auth` |
+| `auth-pages` | Auth Pages | app | simple | website, app, template | 2 | `clean-auth` |
 | `ecommerce` | E-handel | commerce | advanced | website, template | 3 | `megastore-clean` |
 | `app-shell` | App Shell | app | medium | app | 2 | `clean-utility` |
 
-**Totalt:** 9 scaffolds, 26 variants. Variants ojämnt fördelade.
+**Totalt:** 9 scaffolds, 28 variants (variant-JSON under `config/scaffold-variants/<scaffold>/`, exkl. `_index/`). Variants ojämnt fördelade.
 
 > Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
 > för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
@@ -55,7 +55,7 @@ det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
 
 ### 2.3 `auth-pages` som egen scaffold?
 
-**Fakta:** Endast 1 variant. `recommendedScaffoldIds` på Clerk-dossiern är `["auth-pages", "dashboard", "app-shell"]` — auth-sidor är nästan alltid del av en app.
+**Fakta:** Endast 2 varianter (`clean-auth`, `glass-modern`). `recommendedScaffoldIds` på Clerk-dossiern är `["auth-pages", "dashboard", "app-shell"]` — auth-sidor är nästan alltid del av en app.
 
 **Rekommendation:** Behåll som scaffold för "skapa bara login-flödet"-use-case, men säkerställ att den inte automatiskt väljs för bredare prompts.
 
@@ -141,7 +141,7 @@ Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `Rout
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
 ### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
-`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för token-budget-tabellen.
+`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](./llm-pipeline.md) § FAS 2 för token-budget-tabellen.
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
 Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRoute, generationToValidate }`.
@@ -184,7 +184,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 LLM tar emot system prompt + user turn + bilagor. Producerar `CodeFile[]`.
 
 ### STEG 12 — Post-generation
-Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för finalize-pipeline. Scaffold-aware retry: `inferScaffoldRetrySuggestion()` föreslår scaffold-pivot vid misslyckad generation.
+Se [llm-pipeline.md](./llm-pipeline.md) § FAS 2 för finalize-pipeline. Scaffold-aware retry: `inferScaffoldRetrySuggestion()` föreslår scaffold-pivot vid misslyckad generation.
 
 ---
 
@@ -357,7 +357,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 ## 12. Hänvisningar
 
 - [Glossary](./glossary.md)
-- [Fas 2 — Orkestrering och Build](./fas2-orchestration-and-build.md)
+- [LLM-fasen — kanoniskt körflöde](./llm-pipeline.md)
 - [LLM Signal Flow](./llm-signal-flow.md)
 - Variant-typ: `src/lib/gen/scaffold-variants/types.ts`
 - Variant-skript: `scripts/scaffolds/auto-curate-variant-patterns.ts`

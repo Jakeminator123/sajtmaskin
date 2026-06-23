@@ -3,7 +3,7 @@
  * Readiness route remains the primary user-facing gate; deploy logs this for observability.
  * `invalidFiles` fylls när preflight inte kan normalisera en path (t.ex. ogiltig `package.json`); påverkar inte `ready` (env-nycklar styr det).
  * Samma ogiltiga strikta JSON-filer (`package.json`, `components.json`, `jsconfig.json`) på den **sparade versionen** ger **readiness-blocker** via `findInvalidJsonConfigPaths` i `version-file-integrity.ts` (tidigare varning i UI).
- * Se `docs/architecture/fas3-preview-and-deploy.md` (detalj: arkiv `deploy-precheck.md`) för hela preflight-kedjan (auto-fixar, 409, precheckOnly).
+ * Se `docs/architecture/llm-pipeline.md` (detalj: arkiv `deploy-precheck.md`) för hela preflight-kedjan (auto-fixar, 409, precheckOnly).
  */
 export type DeployReadiness = {
   ready: boolean;

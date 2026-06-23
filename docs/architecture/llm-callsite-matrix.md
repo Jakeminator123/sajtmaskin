@@ -1,8 +1,8 @@
 # LLM-callsite-matris (kanonisk karta)
 
 > **Syfte:** EN läsbar karta över **var** Sajtmaskin anropar en LLM/embedding, vilken fas/modell/API-stil, och var flödet är deterministiskt (ingen LLM). Svar på "vad byggs var?" för LLM-flödet.
-> **Källa:** kod = source of truth. Kartlagd read-only mot HEAD `cccc843dd` av 5 parallella explore-agenter 2026-06-19 + orchestrator-verifiering av de två konsekvensrika Område 5-fynden. Komplement till (ej ersättning för): praktiskt flöde [`llm-flow-end-to-end.md`](llm-flow-end-to-end.md) · ASCII-kedja [`../llm/llm-chain-flowchart.md`](../llm/llm-chain-flowchart.md) · målbild [`llm-flow-target-worldclass.md`](llm-flow-target-worldclass.md) · signal-ägarflöde [`llm-signal-flow.md`](llm-signal-flow.md).
-> **Underhåll:** uppdatera när en LLM-callsite tillkommer/tas bort eller byter modellkälla (samma regel som [`../llm/README.md`](../llm/README.md) § När du ska uppdatera).
+> **Källa:** kod = source of truth. Kartlagd read-only mot HEAD `cccc843dd` av 5 parallella explore-agenter 2026-06-19 + orchestrator-verifiering av de två konsekvensrika Område 5-fynden. Komplement till (ej ersättning för): kanoniskt körflöde [`llm-pipeline.md`](llm-pipeline.md) · målbild [`llm-flow-target-worldclass.md`](llm-flow-target-worldclass.md) · signal-ägarflöde [`llm-signal-flow.md`](llm-signal-flow.md).
+> **Underhåll:** uppdatera när en LLM-callsite tillkommer/tas bort eller byter modellkälla (samma synk-regel som [`llm-pipeline.md`](llm-pipeline.md) § Synk-checklista).
 
 ## Tre vägar (init / follow-up / clear-redesign)
 

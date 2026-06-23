@@ -1,6 +1,6 @@
 # Repository, terminologi och plattformsintegrationer
 
-**Senast uppdaterad:** 2026-04-08
+**Senast uppdaterad:** 2026-06-23 (dossier-antal synkat mot `data/dossiers/`).
 
 ## Terminologi (mappar och lager)
 
@@ -65,7 +65,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 ## Vercel Templates / extern intake (legacy — borttagen)
 
 - Den gamla Vercel-mall-discovery-pipen (npm-scripten `references:discover*` / `template-library:*` / `dossiers:enrich` + Playwright-specs under `e2e/vercel-templates/`) togs bort 2026-04-17; referens-specsen, som låg kvar utan CI som manuell referens, raderades 2026-06-22. Git-historiken har receptet. Bakgrund: [`scripts/README.md`](../../scripts/README.md), [`e2e/README.md`](../../e2e/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
-- `data/dossiers/{hard,soft}/<id>/` är den kanoniska dossier-platsen (v2 sedan 2026-04-20). Runtime own-engine läser manifests direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers via `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system prompt. **Inga embeddings, ingen domain-veto, inga cap.** Tre exempel ligger i poolen; resten av den auto-curated v1-poolen ligger i `archive/dossiers-legacy-2026-04-20/` (gitignored). Se [dossier-system.md](./dossier-system.md).
+- `data/dossiers/{hard,soft}/<id>/` är den kanoniska dossier-platsen (v2 sedan 2026-04-20). Runtime own-engine läser manifests direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers via `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system prompt. **Inga embeddings, ingen domain-veto, inga cap.** Poolen innehåller idag **19 dossiers** (8 `hard` med env-secrets, 11 `soft`) under `data/dossiers/{hard,soft}/`; resten av den auto-curated v1-poolen ligger i `archive/dossiers-legacy-2026-04-20/` (gitignored). Se [dossier-system.md](./dossier-system.md).
 
 ## Inspector / Playwright worker
 

@@ -5,7 +5,7 @@ import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
  * Public HTTP/SSE JSON uses `previewUrl` only (no response key `demoUrl`).
  * DB column remains `demo_url`. Inbound webhooks may still send legacy `demoUrl`.
  * Historical roadmap lives in git history; current public preview contract is
- * documented in docs/architecture/fas3-preview-and-deploy.md and docs/schemas/preview-session-contract.md.
+ * documented in docs/architecture/llm-pipeline.md and docs/schemas/preview-session-contract.md.
  */
 
 export function previewUrlField(url: string | null | undefined): { previewUrl: string | null } {

@@ -204,16 +204,17 @@ Model routing still works like this:
 
 - **fast**: every phase follows `selected_build_model` (the tier’s primary model,
   default `gpt-5.4-mini`).
-- **pro**: **planner**, **generator**, and **fixer** follow
-  `selected_build_model`; **verifier** and **deploy-assistant** use
-  **`gpt-5.3-codex`**.
+- **pro**: **fixer** follows `selected_build_model`; **planner**, **generator**,
+  **verifier**, and **deploy-assistant** are pinned to **`gpt-5.3-codex`** (same as
+  the tier's primary model, so identical unless overridden).
 - **max**: **planner** and **generator** follow `selected_build_model`;
   **fixer**, **verifier**, and **deploy-assistant** use **`gpt-5.3-codex`**.
 - **codex**: **planner**, **generator**, and **fixer** follow
   `selected_build_model`; **verifier** and **deploy-assistant** use
   **`gpt-5.3-codex`**.
-- **anthropic**: **planner**, **generator**, **fixer**, and **verifier** follow the
-  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`**.
+- **anthropic**: **planner** and **generator** use **`claude-opus-4.6`**; **fixer**
+  and **verifier** follow `selected_build_model` (the tier’s primary Claude model,
+  `claude-sonnet-4.6`); **deploy-assistant** uses **`claude-sonnet-4.6`**.
 
 Env overrides on the build profile still apply to the resolved **base** model for
 phases that resolve via `selected_build_model`. The `thinkingByTier` settings do

@@ -17,8 +17,10 @@
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 5 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `drizzle/` | Genererade Drizzle DB-migrationsartefakter (`meta/`). Config: `drizzle.config.ts`. |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `canvas/`, `debug/`, `cursor/`. |
-| `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `canvas/`, `control-plane/`, `debug/`, `cursor/`. |
+| `infra/` | `infra/inspector-worker/` (docker-compose) + OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
+| `.github/` | CI-workflows (`workflows/*.yml`). |
+| `test_förslag_templates_blob/` | Lokala v0-mallsync-förslag (experiment, ej produktbana). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `public/` | Next.js statiska assets (branding, bilder, ikoner, video). |
 | `_parkering/` | Medveten **parkeringsyta** — ej indexerad/sökt, men får läsas direkt vid behov — [`_parkering/README.md`](../../_parkering/README.md). |
@@ -28,34 +30,38 @@
 
 ## Kanonisk struktur (filträd + logik)
 
-Ett ställe för "var ligger vad och varför". Filträd (rensat 2026-06-22):
+Ett ställe för "var ligger vad och varför". Filträd (rensat 2026-06-23):
 
 ```
 repo/
 ├── src/                  Next.js App Router + API + UI; egen motor i src/lib/gen/, src/lib/own-engine/, src/lib/providers/own-engine/
-├── config/               kanonisk config: ai_models/, prompt-core/, env-policy.json, scaffold-variants/, control-plane/ (schema+policy-registries), dashboard/domain-map.json (load-bearing; namnet legacy)
+├── config/               kanonisk config: ai_models/, prompt-core/, env-policy.json, scaffold-variants/, control-plane/ (schema+policy-registries), integrations/, dashboard/domain-map.json (load-bearing; namnet legacy)
 ├── data/                 lokal lagring + dossiers/{hard,soft}/ (committad); runs/ + prompt-dumps/ + observability/ är gitignorade runtime-artefakter
 ├── docs/                 mänsklig dokumentation (träd nedan)
 ├── scripts/              Node/Python-hjälp (package.json = sanning för npm-namn; scripts/README.md = karta)
 ├── backoffice/           Streamlit-backoffice (npm run backoffice → sajtmaskin_backoffice.py)
 ├── preview-host/         preview-host runtime/verify/workspace-livscykel
 ├── services/             hjälpprocesser (inspector-worker, port 3310)
+├── infra/                inspector-worker/ (docker-compose) + OpenClaw m.m.
 ├── e2e/                  Playwright: deploy/ (aktiv deploy-smoke, opt-in, skippas utan env)
-├── infra/                OpenClaw m.m.
 ├── drizzle/              genererade DB-migrationsartefakter
-├── templates_v0/         builderns Mallar-tab (v0-mallar); out/ + downloads/ gitignorade
+├── public/               Next.js statiska assets (branding/, images/, video/)
+├── logs/                 lokal loggutdata (gitignorerad; behåller senaste körningar)
+├── test_förslag_templates_blob/   lokala v0-mallsync-förslag (experiment, ej produktbana)
+├── .github/              CI-workflows
 ├── _parkering/           medveten parkeringsyta (ej indexerad, fortf. i git)
 └── .cursor/              regler, skills, slash-kommandon
 
 docs/
 ├── README.md             NAV — enda fulla navtabellen
-├── architecture/         kanonisk systembeskrivning + glossary + repo-tree + db-cascade-graph + documentation-lifecycle (+ _archived/)
+├── architecture/         kanonisk systembeskrivning + llm-pipeline + glossary + repo-tree + db-cascade-graph + documentation-lifecycle (+ _archived/)
 ├── schemas/              människoläsbara kontrakt + strict/ (maskin-scheman; dossier/health/LLM-telemetri AJV-validerade i CI)
 ├── plans/
-│   ├── active/           ENDA aktiva ytan = README.md (router). Ingen drivlinje just nu (stabilisering klar)
+│   ├── active/           router (README.md) + ev. enstaka aktiv planfil. Ingen drivlinje just nu (stabilisering klar)
 │   ├── archived/         vilande / parkerat / reverterat (kan återupptas)
 │   └── avklarat/         klart/mergat (historik) — t.ex. grandmaster/, bug-swarm/
 ├── archive/              icke-plan-historik (status/)
+├── canvases/             CI-genererad llm-flow-canvas (artefakt, inte arkiv)
 ├── operating/            driftdokument: cheatsheets + incidents/
 ├── contracts/            lätt kontraktsindex (schema/policy/regel/beslut)
 ├── handoffs/             daterade agent-handoffs (historik)

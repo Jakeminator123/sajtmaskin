@@ -1,6 +1,6 @@
 # Handoff — Grandmaster: stabiliseringsplanen STÄNGD (2026-06-21, kväll)
 
-**Master:** `984eae4d2` · **Status:** grandmaster-stabiliseringsplanens **scope är 100 % klart**; det som återstår är tre medvetet avgränsade **appendix-spår** (ägarbeslut · bugg-agentens bana · arkitektur-backlog) — inte halvfärdigt planarbete. · **Föregångare:** [`2026-06-21-grandmaster-cleanup-ready-handoff.md`](2026-06-21-grandmaster-cleanup-ready-handoff.md) (superseded) · **Plan:** [`../plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) · **Kanonisk logg:** [`../plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md)
+**Master:** `984eae4d2` · **Status:** grandmaster-stabiliseringsplanens **scope är 100 % klart**; det som återstår är tre medvetet avgränsade **appendix-spår** (ägarbeslut · bugg-agentens bana · arkitektur-backlog) — inte halvfärdigt planarbete. · **Föregångare:** `2026-06-21-grandmaster-cleanup-ready-handoff.md` (superseded, raderad — se git-historik) · **Plan:** [`../plans/avklarat/grandmaster/00-master-plan.md`](../plans/avklarat/grandmaster/00-master-plan.md) · **Kanonisk logg:** [`../plans/avklarat/grandmaster/_loggbok.md`](../plans/avklarat/grandmaster/_loggbok.md)
 
 > Kod = source of truth om docs/kod skiljer. En parallell **bugg-letar-agent** kör fortfarande (gren `cursor/modell-och-autofixlogik-3376`) — den äger bug-swarm-findings-ytan; `git fetch` ofta, kollidera ej.
 

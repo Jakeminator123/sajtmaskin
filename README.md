@@ -4,7 +4,7 @@ Detta är repo-rotens **snabba ingång** för människor och LLM:er som arbetar 
 
 Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orientering** över det committade trädet. Kod är alltid source of truth.
 
-> Gäller den **committade** versionen av repot på `master` per **2026-06-18** (rotkartan synkad mot faktisk struktur, aktivitet D2). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
+> Gäller den **committade** versionen av repot på `master` per **2026-06-23** (rotkartan synkad mot faktisk struktur; LLM-fasen konsoliderad till [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md)). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
 
 ## Borja har
 
@@ -50,7 +50,7 @@ Borja i denna ordning:
 
 Borja i denna ordning:
 
-1. [`docs/architecture/fas3-preview-and-deploy.md`](docs/architecture/fas3-preview-and-deploy.md)
+1. [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md) § FAS 3
 2. `preview-host/`
 3. `src/lib/gen/preview/`
 4. `src/components/builder/preview-panel/`
@@ -69,7 +69,7 @@ Borja i denna ordning:
 
 Borja i denna ordning:
 
-1. [`docs/architecture/fas3-preview-and-deploy.md`](docs/architecture/fas3-preview-and-deploy.md)
+1. [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md) § FAS 3
 2. `src/app/api/v0/deployments/route.ts`
 3. `src/lib/deploy/`
 4. `src/lib/vercelDeploy*`

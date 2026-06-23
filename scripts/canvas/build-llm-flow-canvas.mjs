@@ -315,7 +315,7 @@ export function buildData() {
     .map((p) => ({ name: p.name, statusLabel: p.statusLabel, tone: p.tone, reason: p.note }));
 
   const phases = [];
-  if (readText("docs/architecture/llm-flow-end-to-end.md") != null || Object.keys(pages).length) {
+  if (readText("docs/architecture/llm-pipeline.md") != null || Object.keys(pages).length) {
     phases.push(
       "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
       "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
