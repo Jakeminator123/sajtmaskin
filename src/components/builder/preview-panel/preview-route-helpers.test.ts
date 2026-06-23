@@ -77,11 +77,20 @@ export default function Page() {
     { name: "components/site-header.tsx", content: "export function H(){return null;}" },
   ];
 
-  it("includes reachable routes and excludes orphans", () => {
+  it("returns all routes and flags orphans as unreachable (listed after reachable)", () => {
     const routes = derivePreviewRoutes(files);
     const byRoute = Object.fromEntries(routes.map((r) => [r.route, r]));
-    expect(Object.keys(byRoute).sort()).toEqual(["/", "/about", "/blog", "/blog/[slug]"]);
-    expect(byRoute["/secret"]).toBeUndefined();
+    expect(Object.keys(byRoute).sort()).toEqual([
+      "/",
+      "/about",
+      "/blog",
+      "/blog/[slug]",
+      "/secret",
+    ]);
+    expect(byRoute["/about"]?.reachable).toBe(true);
+    // The orphan page file is still listed, flagged unreachable, and sorted last.
+    expect(byRoute["/secret"]?.reachable).toBe(false);
+    expect(routes[routes.length - 1]?.route).toBe("/secret");
   });
 
   it("marks dynamic routes non-navigable with a readable label", () => {
@@ -97,34 +106,42 @@ export default function Page() {
 });
 
 describe("derivePreviewRoutes — reachability from files outside the route's own subtree", () => {
-  it("excludes an orphan page whose only inbound link is its own self-link", () => {
-    const routes = derivePreviewRoutes([
-      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
-      // Orphan: the single link to /old lives inside /old's own page file.
-      { name: "app/old/page.tsx", content: `<a href="/old">Jag själv</a>` },
-    ]).map((r) => r.route);
-    expect(routes).toContain("/");
-    expect(routes).not.toContain("/old");
+  it("flags an orphan whose only inbound link is its own self-link as unreachable", () => {
+    const byRoute = Object.fromEntries(
+      derivePreviewRoutes([
+        { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+        // Orphan: the single link to /old lives inside /old's own page file.
+        { name: "app/old/page.tsx", content: `<a href="/old">Jag själv</a>` },
+      ]).map((r) => [r.route, r]),
+    );
+    expect(byRoute["/"]?.reachable).toBe(true);
+    expect(byRoute["/old"]).toBeDefined();
+    expect(byRoute["/old"]?.reachable).toBe(false);
   });
 
-  it("excludes an orphan kept alive only by a co-located page-local nav", () => {
-    const routes = derivePreviewRoutes([
-      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
-      { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
-      // Page-local nav copied into the orphan's own subtree links back to /old.
-      { name: "app/old/nav.tsx", content: `<a href="/old">Tillbaka</a>` },
-    ]).map((r) => r.route);
-    expect(routes).not.toContain("/old");
+  it("flags an orphan kept alive only by a co-located page-local nav as unreachable", () => {
+    const byRoute = Object.fromEntries(
+      derivePreviewRoutes([
+        { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+        { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
+        // Page-local nav copied into the orphan's own subtree links back to /old.
+        { name: "app/old/nav.tsx", content: `<a href="/old">Tillbaka</a>` },
+      ]).map((r) => [r.route, r]),
+    );
+    expect(byRoute["/old"]).toBeDefined();
+    expect(byRoute["/old"]?.reachable).toBe(false);
   });
 
-  it("includes a page linked from a shared header outside the route tree", () => {
-    const routes = derivePreviewRoutes([
-      { name: "app/page.tsx", content: "export default function P(){return null;}" },
-      { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
-      // Shared header belongs to no route subtree → counts as an external source.
-      { name: "components/site-header.tsx", content: `<a href="/old">Gammalt</a>` },
-    ]).map((r) => r.route);
-    expect(routes).toContain("/old");
+  it("marks a page linked from a shared header (outside the route tree) reachable", () => {
+    const byRoute = Object.fromEntries(
+      derivePreviewRoutes([
+        { name: "app/page.tsx", content: "export default function P(){return null;}" },
+        { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
+        // Shared header belongs to no route subtree → counts as an external source.
+        { name: "components/site-header.tsx", content: `<a href="/old">Gammalt</a>` },
+      ]).map((r) => [r.route, r]),
+    );
+    expect(byRoute["/old"]?.reachable).toBe(true);
   });
 
   it("always returns home even with no internal links at all", () => {
@@ -148,13 +165,31 @@ describe("derivePreviewRoutes — reachability from files outside the route's ow
     expect(routes).toContain("/blog/[slug]");
   });
 
-  it("drops a dynamic route linked only from within its own subtree", () => {
-    const routes = derivePreviewRoutes([
-      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
-      // /shop/[id] is referenced only by a pagination link inside itself.
-      { name: "app/shop/[id]/page.tsx", content: `<a href="/shop/42">Nästa</a>` },
-    ]).map((r) => r.route);
-    expect(routes).not.toContain("/shop/[id]");
+  it("flags a dynamic route linked only from within its own subtree as unreachable", () => {
+    const byRoute = Object.fromEntries(
+      derivePreviewRoutes([
+        { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+        // /shop/[id] is referenced only by a pagination link inside itself.
+        { name: "app/shop/[id]/page.tsx", content: `<a href="/shop/42">Nästa</a>` },
+      ]).map((r) => [r.route, r]),
+    );
+    expect(byRoute["/shop/[id]"]).toBeDefined();
+    expect(byRoute["/shop/[id]"]?.reachable).toBe(false);
+  });
+
+  it("surfaces a freshly added page that has no inbound nav link (BB-1)", () => {
+    // Reproduces the add-page-without-auto-nav case: the new page exists but
+    // nothing links to it. It must still be listed (flagged unreachable) so the
+    // user can see/open/remove it instead of it becoming an invisible dead end.
+    const byRoute = Object.fromEntries(
+      derivePreviewRoutes([
+        { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+        { name: "app/about/page.tsx", content: `<a href="/">Tillbaka</a>` },
+      ]).map((r) => [r.route, r]),
+    );
+    expect(byRoute["/about"]).toBeDefined();
+    expect(byRoute["/about"]?.reachable).toBe(false);
+    expect(byRoute["/about"]?.navigable).toBe(true);
   });
 });
 

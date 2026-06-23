@@ -3,10 +3,11 @@ import { fetchChatVersionFilesJson } from "../chat-version-files-fetch";
 import { derivePreviewRoutes, type PreviewRouteInfo } from "../preview-route-helpers";
 
 /**
- * Loads reachable page routes from the active chat version files (for preview
- * chrome tabs). Reachability is computed from internal links so orphaned page
- * files (left behind by union-merge follow-ups or unlinked scaffold defaults)
- * are filtered out — see `derivePreviewRoutes`.
+ * Loads page routes from the active chat version files (for preview chrome
+ * tabs). Each route carries a `reachable` flag (linked from nav vs orphan);
+ * orphan/unlinked routes are listed too (with a badge + remove control) so a
+ * page added without an auto-linked nav entry stays visible and orphan files
+ * stay removable — see `derivePreviewRoutes`.
  *
  * `refreshToken` is part of the dependency set so the tab list re-derives after
  * an add/remove page edit that keeps the same selected version id, and the
