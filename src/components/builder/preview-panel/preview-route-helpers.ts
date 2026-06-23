@@ -68,6 +68,14 @@ export interface PreviewRouteInfo {
   dynamic: boolean;
   /** Whether the tab can be opened directly in the iframe (static only). */
   navigable: boolean;
+  /**
+   * Whether the route is linked from the site's nav (computed from a file
+   * outside the route's own subtree). Orphan/unlinked page files have
+   * `reachable: false` — the chrome still lists them (with an "unlinked" badge +
+   * remove control) so a page added without an auto-linked nav entry stays
+   * visible and orphan files can still be removed.
+   */
+  reachable: boolean;
 }
 
 type RawPageRoute = { route: string; dynamic: boolean };
@@ -302,12 +310,15 @@ function comparePreviewRoutes(a: string, b: string): number {
 }
 
 /**
- * Derive the reachable page routes for the preview chrome from the version's
- * files. Filters out orphaned routes (page files left behind by union-merge
- * follow-ups, or unlinked scaffold defaults) by requiring an internal link from
- * a file *outside* the route's own subtree — a self-link or copied page-local
- * nav cannot keep an orphan visible. Home (`/`) is always reachable. Dynamic
- * routes are surfaced (non-navigable) so the page count is accurate.
+ * Derive the page routes for the preview chrome from the version's files.
+ *
+ * Reachability (linked from a file *outside* the route's own subtree — a
+ * self-link or copied page-local nav cannot make a route reachable) is computed
+ * per route and exposed as the `reachable` flag instead of being used to drop
+ * routes. The chrome lists reachable routes first (normal nav order) then
+ * orphan/unlinked routes (with a badge + remove control), so a page added
+ * without an auto-linked nav entry stays visible and orphan page files can still
+ * be removed. Home (`/`) is always reachable; dynamic routes are non-navigable.
  */
 export function derivePreviewRoutes(
   files: Array<{ name: string; content?: string | null }>,
@@ -323,22 +334,32 @@ export function derivePreviewRoutes(
     links: collectInternalLinkPaths([file.content ?? ""]),
   }));
 
-  const reachable = rawRoutes.filter((route) => {
-    if (route.route === "/") return true;
+  const withReachable = rawRoutes.map((route) => {
+    if (route.route === "/") return { route, reachable: true };
     const externalLinks = new Set<string>();
     for (const file of indexedFiles) {
       if (fileBelongsToRouteSubtree(file.subtreeRoute, route.route)) continue;
       for (const link of file.links) externalLinks.add(link);
     }
-    return isRouteReachable(route, externalLinks);
+    return { route, reachable: isRouteReachable(route, externalLinks) };
   });
 
-  return reachable
-    .sort((a, b) => comparePreviewRoutes(a.route, b.route))
-    .map((entry) => ({
-      route: entry.route,
-      label: labelForRoute(entry.route),
-      dynamic: entry.dynamic,
-      navigable: !entry.dynamic,
-    }));
+  const byRouteOrder = (
+    a: { route: RawPageRoute },
+    b: { route: RawPageRoute },
+  ): number => comparePreviewRoutes(a.route.route, b.route.route);
+
+  // Reachable (linked) routes first in nav order, then orphan/unlinked routes.
+  const ordered = [
+    ...withReachable.filter((entry) => entry.reachable).sort(byRouteOrder),
+    ...withReachable.filter((entry) => !entry.reachable).sort(byRouteOrder),
+  ];
+
+  return ordered.map(({ route, reachable }) => ({
+    route: route.route,
+    label: labelForRoute(route.route),
+    dynamic: route.dynamic,
+    navigable: !route.dynamic,
+    reachable,
+  }));
 }

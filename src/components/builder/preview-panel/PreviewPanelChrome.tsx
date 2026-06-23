@@ -428,6 +428,11 @@ export function PreviewPanelChrome({
                 // Removal cleanup only strips exact route matches, so a dynamic
                 // (bracketed) route cannot be removed reliably — hide the control.
                 const removable = canManagePages && !isHome && !info.dynamic;
+                // Orphan = the page file exists but is not linked from the site
+                // nav (added without an auto-link, or a follow-up dropped the
+                // link). Shown with a dashed amber chip + badge so it stays
+                // visible and removable instead of becoming an invisible dead end.
+                const isOrphan = !info.reachable && !isHome;
                 return (
                   <span
                     key={info.route}
@@ -435,7 +440,9 @@ export function PreviewPanelChrome({
                       "inline-flex items-center overflow-hidden rounded-md border",
                       isActive
                         ? "border-sky-500/60 bg-sky-500/10"
-                        : "border-gray-700 bg-transparent",
+                        : isOrphan
+                          ? "border-dashed border-amber-700/60 bg-amber-500/5"
+                          : "border-gray-700 bg-transparent",
                     )}
                   >
                     <button
@@ -457,6 +464,14 @@ export function PreviewPanelChrome({
                     >
                       {info.label}
                     </button>
+                    {isOrphan ? (
+                      <span
+                        className="px-1 text-[9px] font-medium tracking-wide text-amber-300/80 uppercase"
+                        title="Sidan finns men är inte länkad från menyn"
+                      >
+                        olänkad
+                      </span>
+                    ) : null}
                     {removable ? (
                       <button
                         type="button"
