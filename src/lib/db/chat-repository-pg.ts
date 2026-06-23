@@ -66,6 +66,8 @@ export interface Version {
   lifecycle_stage: "design" | "integrations";
   /** F3 versions point at the F2 version they were forked from. */
   parent_version_id: string | null;
+  /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
+  edit_kind: string | null;
   created_at: string;
 }
 
@@ -196,6 +198,8 @@ async function insertDraftVersionRow(
     lifecycleStage?: "design" | "integrations";
     /** When set, F3 row pointing at the F2 version it was forked from. */
     parentVersionId?: string | null;
+    /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
+    editKind?: string | null;
   },
 ): Promise<Version> {
   const id = uuid();
@@ -203,7 +207,7 @@ async function insertDraftVersionRow(
   for (let attempt = 0; attempt < MAX_VERSION_INSERT_RETRIES; attempt++) {
     try {
       await executor.execute(
-        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, created_at)
+        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, edit_kind, created_at)
             VALUES (
               ${id},
               ${params.chatId},
@@ -219,6 +223,7 @@ async function insertDraftVersionRow(
               ${null},
               ${params.lifecycleStage ?? "design"},
               ${params.parentVersionId ?? null},
+              ${params.editKind ?? null},
               NOW()
             )`,
       );
@@ -251,6 +256,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
     previewUrl?: string;
     lifecycleStage?: "design" | "integrations";
     parentVersionId?: string | null;
+    /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
+    editKind?: string | null;
     /**
      * Concatenated reasoning captured from the stream for this
      * assistant message. Persisted on the row so the builder UI can
@@ -259,7 +266,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
     thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId, thinking } = options;
+  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId, editKind, thinking } =
+    options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -284,6 +292,7 @@ export async function addAssistantMessageAndCreateDraftVersion(
       previewUrl,
       lifecycleStage,
       parentVersionId,
+      editKind,
     });
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);

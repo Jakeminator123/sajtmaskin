@@ -101,6 +101,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             v.repaired_files_json.trim().length > 0,
           repairAvailableAt: v.repair_available_at,
           promotedAt: v.promoted_at,
+          // Fast Edit Lane: parentVersionId + editKind let VersionHistory render
+          // quick_edit rows as minor versions (v3.1, v3.2) grouped under their
+          // parent instead of bumping the integer version line. Both additive.
+          parentVersionId: v.parent_version_id,
+          editKind: v.edit_kind,
           // Postmortem follow-up: VersionHistory-tooltip i frontend läser
           // `lifecycleStage` för att skilja F2-design-rader (där server-verify
           // är skipped via `design_preview_skip_verify`) från F3-integrations-

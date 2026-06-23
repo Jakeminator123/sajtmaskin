@@ -3,6 +3,7 @@ import {
   describePreviewHostHttpFailure,
   fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
+  patchPreviewHostSession,
   runPreviewHostQualityGate,
   startPreviewHostSession,
   updatePreviewHostSession,
@@ -77,6 +78,30 @@ describe("preview-host cleanup retry", () => {
       versionId: "version-2",
       replaceFiles: true,
     });
+  });
+
+  it("uses a valid changeClass on update (host rejects unknown values)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          previewSessionId: "ps_123",
+          startOutcome: "recreated",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updatePreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "version-2",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(["fresh", "light", "medium", "heavy"]).toContain(body.changeClass);
   });
 
   it("retries preview session start after cleanup on disk full", async () => {
@@ -194,6 +219,93 @@ describe("preview-host cleanup retry", () => {
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
+  });
+});
+
+describe("patchPreviewHostSession (Fast Edit Lane)", () => {
+  it("sends only changed files and surfaces the host patch mode", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          previewSessionId: "ps_123",
+          patchMode: "patched",
+          patchReason: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await patchPreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "version-3",
+      files: { "app/page.tsx": "export default function Page(){return <div>Hej</div>;}" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.patchMode).toBe("patched");
+      expect(result.previewSessionId).toBe("ps_123");
+    }
+    const [endpoint, init] = fetchMock.mock.calls[0] ?? [];
+    expect(endpoint).toBe("https://preview-host.example.com/preview/session/patch");
+    const body = JSON.parse(String(init?.body));
+    expect(body).toMatchObject({
+      previewSessionId: "ps_123",
+      versionId: "version-3",
+      files: { "app/page.tsx": "export default function Page(){return <div>Hej</div>;}" },
+    });
+    expect("filesJson" in body).toBe(false);
+  });
+
+  it("flags a missing session so callers fall back to update/start", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "No preview session matched the provided id." }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    const result = await patchPreviewHostSession({
+      previewSessionId: "ps_missing",
+      versionId: "version-3",
+      files: { "app/page.tsx": "x" },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.sessionMissing).toBe(true);
+    }
+  });
+
+  it("includes removedPaths only when provided", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          previewSessionId: "ps_123",
+          patchMode: "patched",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await patchPreviewHostSession({
+      previewSessionId: "ps_123",
+      versionId: "v",
+      files: { "app/page.tsx": "x" },
+      removedPaths: ["app/old.tsx"],
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.removedPaths).toEqual(["app/old.tsx"]);
   });
 });
 

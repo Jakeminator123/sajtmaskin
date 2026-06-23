@@ -74,7 +74,19 @@ export interface PreviewPanelProps {
    */
   onRestartGeneration?: () => void;
   refreshToken?: number;
-  onFilesSaved?: () => void;
+  /**
+   * Called after a manual file save. When the Fast Edit Lane created a new minor
+   * version, `info` carries the new `versionId` plus the live preview metadata
+   * (`previewUrl`/`previewSessionId`) so the builder can select the new version
+   * AND keep the existing preview session (no re-bootstrap / no VM restart).
+   * For in-place saves the fields are absent and the current version is kept.
+   */
+  onFilesSaved?: (info?: {
+    versionId?: string;
+    previewUrl?: string | null;
+    previewSessionId?: string | null;
+    previewMode?: string | null;
+  }) => void;
   imageGenerationsEnabled?: boolean;
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;

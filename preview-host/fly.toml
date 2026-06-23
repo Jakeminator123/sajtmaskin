@@ -16,6 +16,10 @@ primary_region = "arn"
   PREVIEW_SESSION_TTL_MS = "7200000"
   PREVIEW_HOST_DATA_DIR = "/data"
   PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
+  # Fast Edit Lane Fas 4: proxy Next dev HMR WebSocket to the runtime (true hot
+  # reload, no iframe refresh). Reversible: set to "false" (or remove) + redeploy
+  # to fall back to the no-op HMR stub. Default behaviour when unset is "off".
+  SAJTMASKIN_PREVIEW_HMR_PROXY = "true"
 
 [[mounts]]
   source = "preview_host_data"

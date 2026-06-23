@@ -263,3 +263,5 @@ data/runs/
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 .gitignore
+
+.vercel

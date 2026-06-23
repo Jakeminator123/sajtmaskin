@@ -13,6 +13,7 @@ const {
   withStoreLock,
 } = require("./store.js");
 const {
+  applyRuntimePatch,
   buildPreviewUrl,
   cleanupPreviewHostStorage,
   destroyChatWorkspace,
@@ -30,6 +31,7 @@ const {
 const {
   validateStartPayload,
   validateUpdatePayload,
+  validatePatchPayload,
   validateSessionRefPayload,
   validateVerifyPayload,
 } = require("./validate.js");
@@ -335,6 +337,7 @@ async function routeRequest(req, res) {
         "GET /health",
         "POST /preview/session/start",
         "POST /preview/session/update",
+        "POST /preview/session/patch",
         "POST /preview/session/hibernate",
         "POST /preview/session/destroy",
         "POST /preview/verify",
@@ -498,6 +501,69 @@ async function routeRequest(req, res) {
     }
     queueRuntimeBoot(getSessionChatId(updated), { restart: true });
     return json(res, 200, sessionResponse(findSessionById(readStoreSync(), updated.sessionId) ?? updated));
+  }
+
+  if (req.method === "POST" && url.pathname === "/preview/session/patch") {
+    const raw = await readJsonBody(req);
+    const validated = validatePatchPayload(raw);
+    const patched = await withStoreLock((data) => {
+      let session = null;
+      if (validated.sessionId) {
+        session = findSessionById(data, validated.sessionId);
+      }
+      if (!session && validated.previewSessionId) {
+        session = findSessionByPreviewSessionId(data, validated.previewSessionId);
+      }
+      if (!session) {
+        return null;
+      }
+      if (!isSessionUsable(session, Date.now())) {
+        return null;
+      }
+      session.versionId = validated.versionId;
+      // Merge the changed files into the stored set and apply removals so a
+      // later full boot reflects the patch. This mirrors update's
+      // replaceFiles:false merge but only for the changed paths.
+      const base =
+        session.filesJson && typeof session.filesJson === "object"
+          ? { ...session.filesJson }
+          : {};
+      for (const [relPath, content] of Object.entries(validated.files)) {
+        base[relPath] = content;
+      }
+      for (const relPath of validated.removedPaths) {
+        delete base[relPath];
+      }
+      session.filesJson = base;
+      session.status = "warm_project";
+      session.lastAction = "patch";
+      session.startOutcome = "resumed";
+      session.changeClass = "light";
+      session.updatedAt = nowIso();
+      session.sessionExpiresAt = sessionExpiresAtIso();
+      appendLog(
+        data,
+        session.previewSessionId,
+        `Session patched (${Object.keys(validated.files).length} file(s), ${validated.removedPaths.length} removed).`,
+      );
+      return session;
+    });
+    if (!patched) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
+    const patchResult = applyRuntimePatch(getSessionChatId(patched), {
+      files: validated.files,
+      removedPaths: validated.removedPaths,
+    });
+    const latest = findSessionById(readStoreSync(), patched.sessionId) ?? patched;
+    return json(res, 200, {
+      ...sessionResponse(latest),
+      patchMode: patchResult.mode,
+      patchReason: patchResult.reason ?? null,
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/hibernate") {

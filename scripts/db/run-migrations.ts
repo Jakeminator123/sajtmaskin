@@ -34,6 +34,7 @@ export const MIGRATION_ORDER: readonly string[] = [
   "add-engine-chat-orchestration-snapshot.sql",
   "add-engine-message-thinking.sql",
   "add-engine-version-lifecycle-stage.sql",
+  "add-engine-version-edit-kind.sql",
   "add-engine-version-repair-state.sql",
   "add-engine-versions-chat-version-unique.sql",
   "add-transactions-stripe-session-unique.sql",
