@@ -218,17 +218,32 @@ export function selectTopOpenRisks(backlogRows, cap = 12) {
 function evalSignal(summary) {
   if (!summary || typeof summary !== "object") return null;
   const s = summary.summary || {};
+  // Stöd båda rapport-scheman: nuvarande scaffold-selection-rapport
+  // (semanticTop1Accuracy / results[].semanticTop1Correct / semanticMethod /
+  // semanticConfidence) och äldre baseline (exactHitRatePercent / match /
+  // selectionMethod / selectionConfidence). Okänt schema -> null/tomt, så
+  // sektionen döljs i st.f. att felrapportera tomma "miss"-rader.
+  const rawAcc =
+    typeof s.semanticTop1Accuracy === "number"
+      ? s.semanticTop1Accuracy
+      : typeof s.exactHitRatePercent === "number"
+        ? s.exactHitRatePercent
+        : null;
+  // semanticTop1Accuracy kan vara fraktion (0–1) eller procent; normalisera till procent.
+  const exactHitPct =
+    rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
   const rows = Array.isArray(summary.results)
     ? summary.results.map((r) => ({
         id: String(r.id ?? "?"),
-        ok: r.match === true,
-        method: String(r.selectionMethod ?? ""),
-        confidence: String(r.selectionConfidence ?? ""),
+        ok: r.semanticTop1Correct === true || r.match === true,
+        method: String(r.semanticMethod ?? r.selectionMethod ?? ""),
+        confidence: String(r.semanticConfidence ?? r.selectionConfidence ?? ""),
       }))
     : [];
   return {
-    exactHitPct: typeof s.exactHitRatePercent === "number" ? s.exactHitRatePercent : null,
-    acceptableHitPct: typeof s.acceptableHitRatePercent === "number" ? s.acceptableHitRatePercent : null,
+    exactHitPct,
+    acceptableHitPct:
+      typeof s.acceptableHitRatePercent === "number" ? s.acceptableHitRatePercent : null,
     total: typeof summary.total === "number" ? summary.total : rows.length || null,
     errors: typeof s.errors === "number" ? s.errors : null,
     rows,
@@ -596,17 +611,22 @@ export default function LLMFlowCanvas() {
 // --- main ----------------------------------------------------------------
 
 function main() {
+  // `--json-only`: skriv bara den gitignorerade JSON-sidecaren, inte den spårade
+  // .txt:en. Backoffice använder detta vid start/refresh så att enbart öppna
+  // panelen aldrig smutsar working tree. Full build sker via `npm run canvas:build`.
+  const jsonOnly = process.argv.includes("--json-only");
   const data = buildData();
-  const content = renderCanvas(data);
-  const outPath = join(REPO_ROOT, OUT_REL);
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, content, "utf8");
+  mkdirSync(dirname(join(REPO_ROOT, OUT_JSON_REL)), { recursive: true });
   // JSON-sidecar: samma buildData()-payload som .txt:en, s\u00e5 backoffice-fliken
   // (och andra konsumenter) kan l\u00e4sa strukturerad data utan att tolka TSX.
   const jsonPath = join(REPO_ROOT, OUT_JSON_REL);
   writeFileSync(jsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  if (!jsonOnly) {
+    const outPath = join(REPO_ROOT, OUT_REL);
+    writeFileSync(outPath, renderCanvas(data), "utf8");
+  }
   console.info(
-    `[build-llm-flow-canvas] skrev ${OUT_REL} + ${OUT_JSON_REL} (${data.totals.processes} processer, ` +
+    `[build-llm-flow-canvas] skrev ${jsonOnly ? OUT_JSON_REL : `${OUT_REL} + ${OUT_JSON_REL}`} (${data.totals.processes} processer, ` +
       `${data.totals.blocked} blockerade, ${data.totals.shaky} skakiga, commit ${data.meta.commit})`,
   );
 }

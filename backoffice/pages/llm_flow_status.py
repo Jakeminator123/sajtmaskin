@@ -29,13 +29,20 @@ _TIMEOUT_S = 60
 
 
 def build_canvas(repo_root: Path) -> dict[str, Any]:
-    """Kör generatorn (node) som skriver om ``.txt`` + ``.json``. Mjuk felhantering."""
+    """Regenererar JSON-sidecaren via generatorn (node ``--json-only``).
+
+    ``--json-only`` gör att backoffice **bara** skriver den gitignorerade
+    ``docs/canvases/llm-flow.canvas.json`` och aldrig rör den spårade
+    ``.canvas.txt`` — så att starta backoffice eller klicka "Bygg om" inte
+    smutsar ner working tree. Den spårade .txt:en byggs via ``npm run canvas:build``.
+    Mjuk felhantering.
+    """
     script = repo_root / _BUILD_SCRIPT_REL
     if not script.exists():
         return {"ok": False, "error": f"Script saknas: {script}"}
     try:
         result = subprocess.run(
-            ["node", str(script)],
+            ["node", str(script), "--json-only"],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
