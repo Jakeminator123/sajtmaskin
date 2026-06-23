@@ -32,10 +32,10 @@ const OUT_JSON_REL = "docs/canvases/llm-flow.canvas.json";
 const CONFIG_REL = "scripts/canvas/llm-flow-canvas.config.json";
 const DOMAIN_MAP_REL = "config/dashboard/domain-map.json";
 const BACKLOG_REL = "BUG-SWARM-BACKLOG.md";
-// Kanonisk LLM-fas-doc: faserna l\u00e5ses mot dess "## FAS N"-rubriker n\u00e4r den finns.
+// Kanonisk LLM-fas-doc: faserna låses mot dess "## FAS N"-rubriker när den finns.
 const LLM_PIPELINE_REL = "docs/architecture/llm-pipeline.md";
-// Eval-scorecard: prova de kanoniska rapport-platserna i tur och ordning i st\u00e4llet
-// f\u00f6r en enda (ev. borttagen) path. F\u00f6rsta som finns och parsar vinner.
+// Eval-scorecard: prova de kanoniska rapport-platserna i tur och ordning i stället
+// för en enda (ev. borttagen) path. Första som finns och parsar vinner.
 const EVAL_SUMMARY_CANDIDATES = [
   "data/scaffold-eval/reports/scaffold-selection-latest.json",
   "evals/results/baseline-master/_summary.json",
@@ -82,7 +82,7 @@ function readJson(rel) {
   }
 }
 
-/** Returnerar f\u00f6rsta JSON som finns och parsar bland kandidat-sokv\u00e4garna. */
+/** Returnerar första JSON som finns och parsar bland kandidat-sökvägarna. */
 function readFirstJson(relPaths) {
   for (const rel of relPaths) {
     const parsed = readJson(rel);
@@ -91,10 +91,10 @@ function readFirstJson(relPaths) {
   return null;
 }
 
-/** Faser: l\u00e5s mot llm-pipeline.md (kanonisk LLM-fas-doc) n\u00e4r den finns.
+/** Faser: lås mot llm-pipeline.md (kanonisk LLM-fas-doc) när den finns.
  *  Parsar "## FAS N ..."-rubrikerna deterministiskt; faller annars tillbaka
- *  p\u00e5 de tre k\u00e4nda faserna s\u00e5 att canvasen aldrig blir tom (doc kan saknas
- *  p\u00e5 \u00e4ldre brancher eller vara avindexerad). */
+ *  på de tre kända faserna så att canvasen aldrig blir tom (doc kan saknas
+ *  på äldre brancher eller vara avindexerad). */
 function derivePhases() {
   const FALLBACK = [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
@@ -617,8 +617,8 @@ function main() {
   const jsonOnly = process.argv.includes("--json-only");
   const data = buildData();
   mkdirSync(dirname(join(REPO_ROOT, OUT_JSON_REL)), { recursive: true });
-  // JSON-sidecar: samma buildData()-payload som .txt:en, s\u00e5 backoffice-fliken
-  // (och andra konsumenter) kan l\u00e4sa strukturerad data utan att tolka TSX.
+  // JSON-sidecar: samma buildData()-payload som .txt:en, så backoffice-fliken
+  // (och andra konsumenter) kan läsa strukturerad data utan att tolka TSX.
   const jsonPath = join(REPO_ROOT, OUT_JSON_REL);
   writeFileSync(jsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
   if (!jsonOnly) {
