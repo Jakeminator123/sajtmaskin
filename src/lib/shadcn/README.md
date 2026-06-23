@@ -5,7 +5,7 @@
 **Not included here**
 
 - **`_template_refs/`**, **`config/shadcn-mirror-audit-policy.json`**, **`scripts/audit/audit-shadcn-mirror-repos.mjs`** — research/audit/mirror hygiene. They do **not** power runtime fetches; keep them separate from this layer.
-- **Scaffolds / template-library / dossiers** — own-engine starters and retrieval artifacts live under `src/lib/gen/scaffolds/` and `src/lib/gen/template-library/`.
+- **Scaffolds / dossiers** — own-engine starters and retrieval artifacts live under `src/lib/gen/scaffolds/` and committed dossiers under `data/dossiers/`.
 
 **Main modules**
 

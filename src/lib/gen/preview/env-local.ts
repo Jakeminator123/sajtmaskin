@@ -173,15 +173,6 @@ export function loadAllPlaceholderRecordForF2(): Record<string, string> {
   };
 }
 
-/**
- * Combined record (harmless + tier3-stub).
- * @deprecated Prefer the per-tier loaders so callers can decide whether to
- *   strip tier-3 stubs in F3.
- */
-export function loadPlaceholderRecord(): Record<string, string> {
-  return loadAllPlaceholderRecordForF2();
-}
-
 /** Set of keys covered by preview placeholder fragments. */
 export function loadPlaceholderKeySet(options: { includeTier3Stubs?: boolean } = {}): Set<string> {
   const record =
