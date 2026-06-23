@@ -161,12 +161,26 @@ function keywordsFor(name, page) {
 
 // --- signalkallor --------------------------------------------------------
 
-/** Plockar ut oppna backlog-rader ur "## Lista"-tabellen.
- *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift. */
+/** Plockar ut oppna backlog-rader ur "## Aktiv ko"-sektionen.
+ *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift.
+ *
+ *  Bara rader UNDER rubriken "## Aktiv ko" (fram till nasta "## ") raknas, sa
+ *  att "Beslut & policy"-, "Behover repro"- och arkiv-tabeller aldrig blastas
+ *  in som oppna risker. Saknas rubriken (aldre fil) faller vi tillbaka pa hela
+ *  filen sa canvasen aldrig blir tom. */
 export function parseBacklogRows(md) {
   if (!md) return [];
+  const lines = md.split(/\r?\n/);
+  // Begransa till "## Aktiv ko"-sektionen om den finns (Unicode-okansligt for o/ö).
+  const startIdx = lines.findIndex((l) => /^##\s+Aktiv\s+k/iu.test(l.trim()));
+  let scope = lines;
+  if (startIdx !== -1) {
+    const endRel = lines.slice(startIdx + 1).findIndex((l) => /^##\s+/u.test(l.trim()));
+    const endIdx = endRel === -1 ? lines.length : startIdx + 1 + endRel;
+    scope = lines.slice(startIdx + 1, endIdx);
+  }
   const rows = [];
-  for (const line of md.split(/\r?\n/)) {
+  for (const line of scope) {
     const t = line.trim();
     if (!t.startsWith("| [")) continue; // bara "Klar"-markerade datarader
     const cells = t.split("|").map((c) => c.trim());

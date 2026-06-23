@@ -63,54 +63,54 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "493dc0f3b",
-    "commitDate": "2026-06-22",
+    "commit": "da5b81020",
+    "commitDate": "2026-06-24",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 4,
-    "openP2": 17,
-    "openP3": 26,
-    "blocked": 6,
-    "shaky": 1,
+    "openP1": 0,
+    "openP2": 8,
+    "openP3": 3,
+    "blocked": 0,
+    "shaky": 4,
     "evalExactHitPct": null
   },
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 5,
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
+      "openBugs": 0,
       "openByPrio": {
         "P0": 0,
-        "P1": 1,
+        "P1": 0,
         "P2": 0,
-        "P3": 4,
+        "P3": 0,
         "other": 0
       },
-      "churn": 10,
+      "churn": 15,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+      "note": "Aktiv: 15 commits / 14d"
     },
     {
       "name": "Codegen core",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 5,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
-        "P1": 1,
-        "P2": 2,
-        "P3": 2,
+        "P1": 0,
+        "P2": 1,
+        "P3": 1,
         "other": 0
       },
-      "churn": 3,
+      "churn": 4,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "prompt-core",
@@ -131,40 +131,6 @@ const DATA: CanvasData = {
     },
     {
       "name": "ai_models",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 5,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 2,
-        "P3": 1,
-        "other": 2
-      },
-      "churn": 4,
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
-    },
-    {
-      "name": "Runtime scaffolds",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 10,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 2,
-        "P2": 3,
-        "P3": 3,
-        "other": 2
-      },
-      "churn": 10,
-      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
-      "note": "BLOCKER: Simplified brief fallback sänker premium/3D"
-    },
-    {
-      "name": "Scaffold Lifecycle",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -176,145 +142,153 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 0,
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
+      "churn": 11,
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
-      "name": "Preview och versioner",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 25,
+      "name": "Runtime scaffolds",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
-        "P1": 2,
-        "P2": 10,
-        "P3": 10,
-        "other": 3
+        "P1": 0,
+        "P2": 2,
+        "P3": 1,
+        "other": 0
       },
-      "churn": 7,
+      "churn": 13,
+      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
+    },
+    {
+      "name": "Scaffold Lifecycle",
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
+      "openBugs": 0,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
+      "note": "1 commits / 14d"
+    },
+    {
+      "name": "Preview och versioner",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 6,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 5,
+        "P3": 1,
+        "other": 0
+      },
+      "churn": 8,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
+      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:5 P3:1)"
     },
     {
       "name": "Eval",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 4,
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
+      "openBugs": 0,
       "openByPrio": {
         "P0": 0,
-        "P1": 1,
-        "P2": 1,
-        "P3": 2,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
         "other": 0
       },
-      "churn": 3,
+      "churn": 5,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
+      "note": "Aktiv: 5 commits / 14d"
     }
   ],
   "shaky": [
     {
       "name": "Preview och versioner",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:5 P3:1)"
     },
     {
       "name": "Runtime scaffolds",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: Simplified brief fallback sänker premium/3D"
-    },
-    {
-      "name": "LLM-faser & runtime-sanning",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
-    },
-    {
-      "name": "ai_models",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
     },
     {
       "name": "Codegen core",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+    },
+    {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "topOpenRisks": [
     {
-      "prio": "P1",
-      "blocker": true,
-      "fynd": "F2 quality gate fångar inte runtime/UI-fel"
-    },
-    {
-      "prio": "P1",
-      "blocker": true,
-      "fynd": "Simplified brief fallback sänker premium/3D"
-    },
-    {
-      "prio": "P1",
-      "blocker": true,
-      "fynd": "Autofix null-render/dossier stubs kan bli tyst success"
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "F3 build-plan härleds från `preGenerationContracts`, inte parent-versionens filer → tomt build-plan-block fas…"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "`allowPlaceholdersInF3` kan släppa stub secrets"
+      "blocker": false,
+      "fynd": "Init och follow-up har olika capability-universum (drift)"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "Generated `.env.local` kan vinna över user env"
+      "blocker": false,
+      "fynd": "Dossier/capability-threading svagt vissa paths (`capability-dossier-bridge.ts` → `orchestrate.ts`)"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "F3 Build Plan saknas när follow-up inte återinfererar integration"
+      "blocker": false,
+      "fynd": "`/finalize-design` detektionsfullständighet: `detect-integrations.ts`-regex kan missa en integration på filer…"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "`/finalize-design` kan säga ready utan integrationkrav"
+      "blocker": false,
+      "fynd": "Inspect-bridge: ingen fallback när flagga PÅ men bridge ej kan injiceras (`ready` saknas) → inspektor inert"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "Hard dossiers ger placeholder UI i stället för blocker"
+      "blocker": false,
+      "fynd": "`NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` saknar regel i `config/env-policy.json` (env-sync defaultar okända `N…"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "Dossier/capability-threading svagt vissa paths"
+      "blocker": false,
+      "fynd": "Bridge-captures skickar element-center, inte faktisk klick-koordinat"
     },
     {
       "prio": "P2",
-      "blocker": true,
-      "fynd": "Init och follow-up har olika capability-universum"
-    },
-    {
-      "prio": "P2",
-      "blocker": true,
-      "fynd": "Warm tsc/eslint fail-open vid kall cache"
-    },
-    {
-      "prio": "P2",
-      "blocker": true,
-      "fynd": "Preview kan visas trots verifier-blocked draft"
+      "blocker": false,
+      "fynd": "Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen …"
     }
   ],
-  "topOpenRisksOmitted": 13,
+  "topOpenRisksOmitted": 0,
   "evals": null,
   "phases": [
-    "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
-    "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
-    "Fas 3 - Verify/preview/deploy: quality-gate, repair, preview-VM, deploy"
+    "FAS 1 — Intent (prompt → OrchestrationInput)",
+    "FAS 2 — Orkestrering, codegen, finalize, persist",
+    "FAS 3 — Preview, quality gate, deploy"
   ],
   "legend": [
     "Klart",

@@ -36,4 +36,4 @@ Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `activ
 
 ## Buggar
 
-`.cursor/bugs/` är lokal mirror. Linear eller GitHub issue är källa för status. Åtgärdad och mergad lokal bug-fil ska raderas.
+`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.

@@ -36,31 +36,9 @@ Detalj: [`../avklarat/grandmaster/_backlog-deferrad.md`](../avklarat/grandmaster
 **Bugg-backlog (orchestrator äger nu — parallell bugg-agent avslutad 2026-06-22):**
 
 - Grandmaster-svärm **B01–B15**: 10 fixade (#181–#187), 3 ägarbeslut (B05/B07/B08), B12/B13/B01-klient = edge → [`../avklarat/bug-swarm/README.md`](../avklarat/bug-swarm/README.md).
-- Bred **G#/N#/R#-lista** (rot, load-bearing — preflight + canvas läser den): [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). ~48 öppna = mest policy-/edge-rader; triage-svärm kör 2026-06-22.
+- **Enda buggsanningen** (rot, load-bearing — preflight + canvas läser `## Aktiv kö`): [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Slimmad 2026-06-24 till **Aktiv kö** (verkliga öppna defekter), **Behöver repro** och **Beslut & policy** (medvetna val, ej buggar). Avslutad/historik utflyttad till [`../avklarat/bug-swarm/backlog-arkiv-2026-06-24.md`](../avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).
 
----
-
-## Öppna P1/P2 (koncentrat — full sanning i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md))
-
-### P1
-| Tema | Vad | Källa |
-|---|---|---|
-| F2 false-green | quality-gate fångar inte runtime/UI; Product Postcheck default-off/fail-open | G#10, N#4, N#H3, R#6 |
-| Autofix-stubbar | `cross-file-import-checker` null-render/dossier-stubbar → tyst success | N#1 |
-| Brief-degradering | simplified brief-fallback sänker premium/3D | G#13 |
-| Eval merge-syntax | `arcade-with-klarna` merged-syntax-fail, LLM-fixer abortar | E#1, R#10 |
-
-### P2 (teman)
-| Tema | Källa |
-|---|---|
-| Verify-gates fail-open | G#31–33, N#4 |
-| F3 readiness/integration | G#20–22, N#H2, R#7 |
-| Capability single-source | G#25, G#26, N#2 |
-| Env-sanning/precedence | G#16–19, N#H4 |
-| Status/degraded UX (event-bus UI-flip) | N#6, G#35, N#5, N#3 |
-| Säkerhet/policy | G#40, G#38, R#12 |
-
-P1/P2 adresseras i grandmaster-områdena 5/6/7.
+> Öppna P1/P2 listas **inte** här längre — det blev en parallell sanning som driftade. Full och enda sanning: `BUG-SWARM-BACKLOG.md § Aktiv kö`.
 
 ---
 

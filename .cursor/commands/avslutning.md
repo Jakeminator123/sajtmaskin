@@ -40,7 +40,7 @@ Om `git status` visar pre-existerande modifieringar som inte hör till din sessi
      - **Filvägs-konventioner** — innan du "låser" en path-prefix (`app/` vs `src/app/`, etc.): grep:a HELA repot för andra prefix; om båda används avsiktligt, dokumentera det istället för att förenkla bort.
      - **Schema-drift** — när du ändrar TS-typer / zod-schemas / DB-schema / JSON Schema: kontrollera de andra tre.
      - **Auth-yta** — om du rört `src/app/api/`: är `getCurrentUser` / `withAuth` / `withRateLimit` aktivt på routen?
-     - **Dublett-koll mot Linear** innan ny issue/rapport — `list_issues` med 2-4 nyckelord, eller grep:a `.cursor/bugs/` lokalt. Skapa kommentar på existerande hellre än ny issue.
+     - **Dublett-koll mot backloggen** innan ny buggrad — `Select-String -Path BUG-SWARM-BACKLOG.md -Pattern "<nyckelord>"` (+ grep:a `.cursor/bugs/`). Uppdatera befintlig rad hellre än att lägga en ny. Ingen Linear.
 2. **Städa inom berört scope:**
    - Ta bort tydligt död/duplicerad kod eller missvisande text.
    - Rensa halv-ersatta parallellspår: temporära hjälpfunktioner, dubbla beslutsvägar, gammal text som beskriver den ersatta vägen.

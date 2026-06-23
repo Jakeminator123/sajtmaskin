@@ -66,7 +66,13 @@ Minimal fix: <1 mening>
    - Avfärda falska positiva kort.
    - Fixa bara små, tydliga, bekräftade fynd inom scope.
    - Större arkitekturbeslut rapporteras som nästa steg.
-7. Verifiera med minsta relevanta set:
+7. **Backlog-avstämning** ([`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) — håll den sann i samma svep):
+   - **Fixade i svepet:** om en rad i `## Aktiv kö` adresserades → **flytta** den till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) som `[x]` med commit/PR-ref. Bocka inte av på plats.
+   - **Nya bekräftade defekter:** lägg en `[ ]`-rad i `## Aktiv kö` (källa `M#<n>`) med fil-ankare, per `/buggrapport`-formatet.
+   - **Visade sig vara val/repro:** flytta till `## Beslut & policy` eller `## Behöver repro` i stället.
+   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (preflighten `check-bug-backlog.mjs` failar på motsägelsen).
+   - Detta är den löpande sanningsmekanismen — backloggen får aldrig driva ur fas med koden.
+8. Verifiera med minsta relevanta set:
    - Alltid vid TS-kod: `npm run typecheck`
    - Pipeline/gen: relevanta `vitest`
    - Regex/prompt-regex: `node scripts/dev/check-unicode-regex.mjs`
@@ -74,7 +80,7 @@ Minimal fix: <1 mening>
    - Scaffolds: `npm run scaffolds:validate`
    - Backoffice: `python -m pytest backoffice/test_pages_import_smoke.py -q`
    - Slut: `git diff --check`
-8. Svara kort:
+9. Svara kort:
    - bekräftade fynd + fixar
    - avfärdade viktiga fynd
    - filer medvetet lämnade utanför scope

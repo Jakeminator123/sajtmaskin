@@ -12,7 +12,7 @@ Lägg bara till en test när den gör **minst ett** av:
 |---|---|
 | Skyddar nytt kontrakt | Låser ett nytt litet kontrakt (schema/policy/regel) som just införts. |
 | Ersätter ett äldre | Tar över för en svagare/överlappande test, som tas bort i samma svep. |
-| Låser en konkret fixad bugg | Pekar på en **konkret** tidigare bugg (`[x]`-rad i `BUG-SWARM-BACKLOG.md` eller en öppen P1/P2). |
+| Låser en konkret fixad bugg | Pekar på en **konkret** bugg: en öppen rad i `BUG-SWARM-BACKLOG.md § Aktiv kö`, eller en avslutad `[x]`-rad i arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`). |
 
 Varje test ska **peka på sin källa** (kontrakt eller bugg-rad). 
 

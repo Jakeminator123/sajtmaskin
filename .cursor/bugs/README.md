@@ -1,43 +1,32 @@
 # .cursor/bugs/
 
-Lokal mirror av buggrapporter. Mappen är **gitignored** och ligger alltså inte på GitHub.
+Valfri **lokal evidens-yta** för buggar — skärmdumpar, långa console-/network-dumpar och repro-anteckningar som inte ryms i en backlog-tabellcell. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
 
-Linear är fortsatt källan till sanning för status, tilldelning, prioritet och kommentarer. Filerna i den här mappen är lokala kopior som används för snabb läsning, grep, felsökning och för att Cursor-agenter inte ska rapportera samma bugg flera gånger.
+> **Källan till sanning är [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md)** (repo-rot). Den här mappen är **inte** en parallell bugglista och **inte** en tracker — bara lokal arbetsyta. Ingen Linear, ingen extern issue-tjänst används.
 
 ## Syfte
 
-- Samla lokala kopior av buggar som rapporteras via `/buggrapport`.
-- Ge Cursor-agenter kontext om redan kända buggar innan de letar efter nya.
-- Göra det möjligt att snabbt grep:a och läsa tidigare rapporter utan att öppna Linear.
-- Undvika dubletter genom att agenter först läser denna mapp innan nya buggar föreslås eller skapas.
-- Behålla Linear som riktig historik och källa till sanning.
+- Förvara tung evidens som en backlog-rad refererar till (bild, full stack trace, network-logg).
+- Ge agenter snabb grep-yta för repro-detaljer utan att blåsa upp `BUG-SWARM-BACKLOG.md`.
+- Stötta dublettkoll: agenter grep:ar både backloggen och denna mapp innan de lägger en ny rad.
 
-Mappen är **inte** i `.cursorignore`, eftersom Cursor-agenter ska kunna läsa innehållet.
+Mappen är **inte** i `.cursorignore`, så agenter kan läsa innehållet.
 
 ## Hur buggar hamnar här
 
-Buggar kan komma in på två sätt:
+1. **Via `/buggrapport`** — en `[ ]`-rad läggs i `BUG-SWARM-BACKLOG.md § Aktiv kö`. Om rapporten har tung evidens skrivs en valfri detaljfil hit.
+2. **Via agent/automation** — innan nya buggar föreslås: läs backloggen + denna mapp för att undvika dubletter.
 
-1. **Via `/buggrapport`**
-   - En bugg rapporteras manuellt.
-   - En Linear-issue skapas.
-   - En lokal kopia sparas i denna mapp.
+## Status
 
-2. **Via Cursor-agent eller automation**
-   - Agenten söker efter buggar i repot.
-   - Innan nya buggar rapporteras ska agenten läsa denna mapp.
-   - Buggar som redan finns här får inte rapporteras igen.
-   - Om agenten skapar en Linear-issue ska den också skapa en lokal kopia här.
-
-## Viktigt om status
-
-Den lokala filen är bara en frusen kopia av buggrapporten när den skapades.
-
-Status ska inte hanteras här som primär källa. Kontrollera alltid Linear för aktuell status, tilldelning, prioritet och kommentarer.
-
-När en bugg är åtgärdad ska motsvarande lokala buggdokument raderas från denna mapp. Linear behåller den riktiga historiken.
+Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen evidens-snapshot, inte en status-källa. När en bugg fixas: flytta backlog-raden till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) och radera ev. lokal evidens-fil här.
 
 ## Filnamn-konvention
 
 ```text
-YYYY-MM-DD_HHMM_<LINEAR-ID>_<kort-slug>.md
+YYYY-MM-DD_HHMM_M<n>_<kort-slug>.md
+```
+
+- `M<n>` = samma källa-id som backlog-raden (manuellt rapporterad bugg).
+- Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
+- Slug: 3–6 ord, kebab-case, transliterera å→a, ä→a, ö→o.

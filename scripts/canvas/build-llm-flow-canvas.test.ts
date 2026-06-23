@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { parseBacklogRows, selectTopOpenRisks } from "./build-llm-flow-canvas.mjs";
 
-/** Bygger en minimal "## Lista"-tabell i samma format som BUG-SWARM-BACKLOG.md.
+/** Bygger en minimal "## Aktiv ko"-tabell i samma format som BUG-SWARM-BACKLOG.md.
  *  Kolumner: | Klar | Status | Prio | Fynd | Kalla | Beslut | */
 function backlog(rows: string[]): string {
   return [
-    "## Lista",
+    "## Aktiv kö",
     "",
     "| Klar | Status | Prio | Fynd | Kalla | Beslut |",
     "| --- | --- | --- | --- | --- | --- |",
@@ -22,6 +22,40 @@ describe("parseBacklogRows", () => {
         "| [x] | Fixad | P0 | Redan stangd | R#2 | Klar |",
       ]),
     );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].prio).toBe("P0");
+  });
+
+  it("ignorerar checkbox-rader utanfor '## Aktiv ko'-sektionen", () => {
+    const md = [
+      "## Aktiv kö",
+      "",
+      "| Klar | Status | Prio | Fynd | Kalla | Beslut |",
+      "| --- | --- | --- | --- | --- | --- |",
+      "| [ ] | Oppen | P2 | Reell defekt | G#20 | fixa |",
+      "",
+      "## Behover repro",
+      "",
+      "| Klar | Status | Prio | Fynd | Kalla | Beslut |",
+      "| --- | --- | --- | --- | --- | --- |",
+      "| [ ] | Oppen | P0 | Kraver repro, ej aktiv | B12 | repro |",
+      "",
+      "## Avfardat",
+      "",
+      "| [ ] | Oppen | P1 | Policybeslut, ej bug | G#10 | BLOCKER |",
+    ].join("\n");
+    const rows = parseBacklogRows(md);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].fynd).toBe("Reell defekt");
+  });
+
+  it("faller tillbaka pa hela filen om '## Aktiv ko' saknas", () => {
+    const md = [
+      "## Lista",
+      "",
+      "| [ ] | Oppen | P0 | Aldre format utan Aktiv ko | R#1 | fixa |",
+    ].join("\n");
+    const rows = parseBacklogRows(md);
     expect(rows).toHaveLength(1);
     expect(rows[0].prio).toBe("P0");
   });
