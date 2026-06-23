@@ -28,10 +28,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..");
 
 const OUT_REL = "docs/canvases/llm-flow.canvas.txt";
+const OUT_JSON_REL = "docs/canvases/llm-flow.canvas.json";
 const CONFIG_REL = "scripts/canvas/llm-flow-canvas.config.json";
 const DOMAIN_MAP_REL = "config/dashboard/domain-map.json";
 const BACKLOG_REL = "BUG-SWARM-BACKLOG.md";
-const EVAL_SUMMARY_REL = "evals/results/baseline-master/_summary.json";
+// Kanonisk LLM-fas-doc: faserna låses mot dess "## FAS N"-rubriker när den finns.
+const LLM_PIPELINE_REL = "docs/architecture/llm-pipeline.md";
+// Eval-scorecard: prova de kanoniska rapport-platserna i tur och ordning i stället
+// för en enda (ev. borttagen) path. Första som finns och parsar vinner.
+const EVAL_SUMMARY_CANDIDATES = [
+  "data/scaffold-eval/reports/scaffold-selection-latest.json",
+  "evals/results/baseline-master/_summary.json",
+];
 
 /** Default-fokus: vilka domain-map-sidor som hor till LLM-flodet, i visningsordning.
  *  Inget av detta ar ett krav — sidor som saknas hoppas bara over, och en
@@ -72,6 +80,35 @@ function readJson(rel) {
   } catch {
     return null;
   }
+}
+
+/** Returnerar första JSON som finns och parsar bland kandidat-sökvägarna. */
+function readFirstJson(relPaths) {
+  for (const rel of relPaths) {
+    const parsed = readJson(rel);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/** Faser: lås mot llm-pipeline.md (kanonisk LLM-fas-doc) när den finns.
+ *  Parsar "## FAS N ..."-rubrikerna deterministiskt; faller annars tillbaka
+ *  på de tre kända faserna så att canvasen aldrig blir tom (doc kan saknas
+ *  på äldre brancher eller vara avindexerad). */
+function derivePhases() {
+  const FALLBACK = [
+    "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
+    "FAS 2 - Orkestrering & build: system prompt, codegen, finalize, autofix, verifier, persist",
+    "FAS 3 - Preview & deploy: preview-host/VM, quality-gate, repair, deploy",
+  ];
+  const md = readText(LLM_PIPELINE_REL);
+  if (!md) return FALLBACK;
+  const heads = [];
+  for (const line of md.split(/\r?\n/)) {
+    const m = line.match(/^##\s+(FAS\s+\d[^\n]*?)\s*$/u);
+    if (m) heads.push(m[1].replace(/\s+/g, " ").trim());
+  }
+  return heads.length >= 2 ? heads : FALLBACK;
 }
 
 function git(args) {
@@ -181,17 +218,32 @@ export function selectTopOpenRisks(backlogRows, cap = 12) {
 function evalSignal(summary) {
   if (!summary || typeof summary !== "object") return null;
   const s = summary.summary || {};
+  // Stöd båda rapport-scheman: nuvarande scaffold-selection-rapport
+  // (semanticTop1Accuracy / results[].semanticTop1Correct / semanticMethod /
+  // semanticConfidence) och äldre baseline (exactHitRatePercent / match /
+  // selectionMethod / selectionConfidence). Okänt schema -> null/tomt, så
+  // sektionen döljs i st.f. att felrapportera tomma "miss"-rader.
+  const rawAcc =
+    typeof s.semanticTop1Accuracy === "number"
+      ? s.semanticTop1Accuracy
+      : typeof s.exactHitRatePercent === "number"
+        ? s.exactHitRatePercent
+        : null;
+  // semanticTop1Accuracy kan vara fraktion (0–1) eller procent; normalisera till procent.
+  const exactHitPct =
+    rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
   const rows = Array.isArray(summary.results)
     ? summary.results.map((r) => ({
         id: String(r.id ?? "?"),
-        ok: r.match === true,
-        method: String(r.selectionMethod ?? ""),
-        confidence: String(r.selectionConfidence ?? ""),
+        ok: r.semanticTop1Correct === true || r.match === true,
+        method: String(r.semanticMethod ?? r.selectionMethod ?? ""),
+        confidence: String(r.semanticConfidence ?? r.selectionConfidence ?? ""),
       }))
     : [];
   return {
-    exactHitPct: typeof s.exactHitRatePercent === "number" ? s.exactHitRatePercent : null,
-    acceptableHitPct: typeof s.acceptableHitRatePercent === "number" ? s.acceptableHitRatePercent : null,
+    exactHitPct,
+    acceptableHitPct:
+      typeof s.acceptableHitRatePercent === "number" ? s.acceptableHitRatePercent : null,
     total: typeof summary.total === "number" ? summary.total : rows.length || null,
     errors: typeof s.errors === "number" ? s.errors : null,
     rows,
@@ -245,7 +297,7 @@ export function buildData() {
 
   const backlogMd = readText(BACKLOG_REL);
   const backlogRows = parseBacklogRows(backlogMd);
-  const evals = evalSignal(readJson(EVAL_SUMMARY_REL));
+  const evals = evalSignal(readFirstJson(EVAL_SUMMARY_CANDIDATES));
 
   const processes = [];
   for (const name of orderedNames) {
@@ -314,14 +366,7 @@ export function buildData() {
     .slice(0, 5)
     .map((p) => ({ name: p.name, statusLabel: p.statusLabel, tone: p.tone, reason: p.note }));
 
-  const phases = [];
-  if (readText("docs/architecture/llm-pipeline.md") != null || Object.keys(pages).length) {
-    phases.push(
-      "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
-      "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
-      "Fas 3 - Verify/preview/deploy: quality-gate, repair, preview-VM, deploy",
-    );
-  }
+  const phases = derivePhases();
 
   // Globala huvudrisker: oppna P0/BLOCKER/P1/P2-rader direkt ur backloggen, sa den
   // rika listan syns aven nar en rad inte kan mappas till en enskild process. P0 ar
@@ -566,13 +611,22 @@ export default function LLMFlowCanvas() {
 // --- main ----------------------------------------------------------------
 
 function main() {
+  // `--json-only`: skriv bara den gitignorerade JSON-sidecaren, inte den spårade
+  // .txt:en. Backoffice använder detta vid start/refresh så att enbart öppna
+  // panelen aldrig smutsar working tree. Full build sker via `npm run canvas:build`.
+  const jsonOnly = process.argv.includes("--json-only");
   const data = buildData();
-  const content = renderCanvas(data);
-  const outPath = join(REPO_ROOT, OUT_REL);
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, content, "utf8");
+  mkdirSync(dirname(join(REPO_ROOT, OUT_JSON_REL)), { recursive: true });
+  // JSON-sidecar: samma buildData()-payload som .txt:en, så backoffice-fliken
+  // (och andra konsumenter) kan läsa strukturerad data utan att tolka TSX.
+  const jsonPath = join(REPO_ROOT, OUT_JSON_REL);
+  writeFileSync(jsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  if (!jsonOnly) {
+    const outPath = join(REPO_ROOT, OUT_REL);
+    writeFileSync(outPath, renderCanvas(data), "utf8");
+  }
   console.info(
-    `[build-llm-flow-canvas] skrev ${OUT_REL} (${data.totals.processes} processer, ` +
+    `[build-llm-flow-canvas] skrev ${jsonOnly ? OUT_JSON_REL : `${OUT_REL} + ${OUT_JSON_REL}`} (${data.totals.processes} processer, ` +
       `${data.totals.blocked} blockerade, ${data.totals.shaky} skakiga, commit ${data.meta.commit})`,
   );
 }
