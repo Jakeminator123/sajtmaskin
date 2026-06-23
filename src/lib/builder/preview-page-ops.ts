@@ -89,15 +89,93 @@ export function pageFilePathForRoute(route: string, appDir: AppDirPrefix = "app"
   return `${dir}/page.tsx`;
 }
 
-/** Whether a page file already exists for `route` under EITHER app prefix. */
+/**
+ * Canonical route derivation, intentionally DUPLICATED from
+ * `preview-panel/preview-route-helpers.ts` (`collectPageRoutes` /
+ * `buildRouteFromSegments`). This module lives under `src/lib` and must not
+ * import from `src/components`, so the App Router rules are mirrored here: strip
+ * `(group)` and `@slot` segments (they contribute no URL segment), support both
+ * `app/` and `src/app/`, and resolve Pages Router files (`index` → parent,
+ * `api/*` ignored). Keep the two in sync when the route model changes.
+ */
+function canonicalRouteFromSegments(segments: string[]): string {
+  const normalized = segments
+    .filter(Boolean)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
+  return normalized.length > 0 ? `/${normalized.join("/")}` : "/";
+}
+
+/** Canonical app route for a single file, or null when it is not a page file. */
+function fileNameToRoute(rawName: string): string | null {
+  const name = normalizeName(rawName);
+
+  const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
+  if (appMatch) {
+    const relative = appMatch[1]!;
+    if (relative !== "page.tsx" && !relative.endsWith("/page.tsx")) return null;
+    const routeDir = relative.replace(/\/?page\.tsx$/, "");
+    return canonicalRouteFromSegments(routeDir ? routeDir.split("/") : []);
+  }
+
+  const pagesMatch = name.match(/^pages\/(.+)$/);
+  if (pagesMatch) {
+    const relative = pagesMatch[1]!;
+    if (relative.startsWith("api/")) return null;
+    if (!/\.(tsx|ts|jsx|js)$/.test(relative)) return null;
+    const routeFile = relative.replace(/\.(tsx|ts|jsx|js)$/, "");
+    const routePath = routeFile.endsWith("/index")
+      ? routeFile.slice(0, -"/index".length)
+      : routeFile === "index"
+        ? ""
+        : routeFile;
+    return canonicalRouteFromSegments(routePath ? routePath.split("/") : []);
+  }
+
+  return null;
+}
+
+/**
+ * Physical directory whose subtree should be removed for a page file, or null
+ * when it is not a page file. App Router → the on-disk directory holding
+ * `page.tsx` (route groups/slots kept, since they exist on disk). Pages Router →
+ * the route's directory (`pages/about.tsx` and `pages/about/index.tsx` both map
+ * to `pages/about`), so nested descendants under it are swept too.
+ */
+function routeDirForFile(rawName: string): string | null {
+  const name = normalizeName(rawName);
+
+  const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
+  if (appMatch) {
+    const relative = appMatch[1]!;
+    if (relative !== "page.tsx" && !relative.endsWith("/page.tsx")) return null;
+    const slash = name.lastIndexOf("/");
+    return slash >= 0 ? name.slice(0, slash) : null;
+  }
+
+  const pagesMatch = name.match(/^pages\/(.+)$/);
+  if (pagesMatch) {
+    const relative = pagesMatch[1]!;
+    if (relative.startsWith("api/")) return null;
+    if (!/\.(tsx|ts|jsx|js)$/.test(relative)) return null;
+    const withoutExt = name.replace(/\.(tsx|ts|jsx|js)$/, "");
+    return withoutExt.endsWith("/index")
+      ? withoutExt.slice(0, -"/index".length)
+      : withoutExt;
+  }
+
+  return null;
+}
+
+/**
+ * Whether a page file already exists for `route` under EITHER app prefix.
+ * Route-aware: a grouped path like `app/(marketing)/about/page.tsx` resolves to
+ * `/about`, so adding `/about` is correctly rejected as a duplicate instead of
+ * creating a second conflicting route. Pages Router (`pages/about.tsx`) and
+ * `src/app` groups are covered too.
+ */
 export function routeHasPageFile(files: PageFileShape[], route: string): boolean {
-  const segments = routeSegments(route);
-  if (segments.length === 0) return files.some((f) => /^(?:src\/)?app\/page\.tsx$/.test(normalizeName(f.name)));
-  const joined = segments.join("/");
-  return files.some((f) => {
-    const name = normalizeName(f.name);
-    return name === `app/${joined}/page.tsx` || name === `src/app/${joined}/page.tsx`;
-  });
+  return files.some((file) => fileNameToRoute(file.name) === route);
 }
 
 /** A human label for a generated page, e.g. "/about/team" → "Team". */
@@ -120,25 +198,32 @@ function normalizeName(name: string): string {
  * Every file path that belongs to a route's subtree (the route's own page plus
  * any nested route files/components colocated under it). Used by "−" so that
  * removing `/blog` also drops `/blog/[slug]`.
+ *
+ * Route-aware: it first finds the page file(s) whose CANONICAL route equals
+ * `route` (so a grouped `app/(marketing)/about/page.tsx` resolves for `/about`)
+ * then returns everything under each page file's PHYSICAL directory (colocated
+ * components and nested descendants like `.../about/team/page.tsx`). When
+ * several grouped page files map to the same route, all of their subtrees are
+ * returned (deterministically sorted). The home (`/`) subtree is never
+ * collected.
  */
 export function findRouteFilePaths(files: PageFileShape[], route: string): string[] {
-  const segments = routeSegments(route);
-  if (segments.length === 0) return []; // never collect the home subtree
-  const appDir = `app/${segments.join("/")}`;
-  const srcAppDir = `src/app/${segments.join("/")}`;
-  const matched: string[] = [];
-  for (const file of files) {
-    const name = normalizeName(file.name);
-    if (
-      name === `${appDir}/page.tsx` ||
-      name === `${srcAppDir}/page.tsx` ||
-      name.startsWith(`${appDir}/`) ||
-      name.startsWith(`${srcAppDir}/`)
-    ) {
-      matched.push(file.name);
+  if (routeSegments(route).length === 0) return []; // never collect the home subtree
+
+  const pageFiles = files.filter((file) => fileNameToRoute(file.name) === route);
+  if (pageFiles.length === 0) return [];
+
+  const matched = new Set<string>();
+  for (const pageFile of pageFiles) {
+    matched.add(pageFile.name); // a Pages Router file sits beside, not under, its dir
+    const dir = routeDirForFile(pageFile.name);
+    if (!dir) continue;
+    const prefix = `${dir}/`;
+    for (const file of files) {
+      if (normalizeName(file.name).startsWith(prefix)) matched.add(file.name);
     }
   }
-  return matched;
+  return Array.from(matched).sort();
 }
 
 /** Minimal, brand-neutral starter page using the scaffold design tokens. */
@@ -173,32 +258,47 @@ function escapeRegExp(value: string): string {
 }
 
 /**
+ * Regex source for a quoted href value equal to `route`, tolerating the same
+ * normalizations the route tabs apply: an optional trailing slash, a query
+ * (`?…`) or a hash (`#…`). The char right after the route must be the closing
+ * quote, `/`, `?` or `#`, so `/blog` never matches a longer sibling such as
+ * `/blogger` or `/blog/sub`. `escapedRoute` must already be regex-escaped.
+ */
+function hrefValuePattern(escapedRoute: string): string {
+  return `["'\`]${escapedRoute}/?(?:[?#][^"'\`]*)?["'\`]`;
+}
+
+/**
  * Remove every internal link to `route` from a single file's content.
  * Handles JSX `<Link>`/`<a>` elements and `{ …, href: "…", … }` data entries.
  * Returns the (possibly unchanged) content.
  */
 export function stripRouteFromContent(content: string, route: string): string {
   if (!content) return content;
-  const r = escapeRegExp(route);
+  const href = hrefValuePattern(escapeRegExp(route));
   let next = content;
 
-  // 1) Data-array object entries: { label: "…", href: "/route" }, (any key order)
+  // 1) Data-array object entries: { label: "…", href: "/route" } (any key
+  //    order). Only ARRAY elements are removed — the object must be preceded by
+  //    `[`/`,` and followed by `,`/`]`. A standalone `const cta = { href:
+  //    "/route" }` is left intact (deleting its body would leave invalid JS like
+  //    `const cta = ;`); the page file that owns the route is removed elsewhere.
   const objectEntry = new RegExp(
-    `\\{[^{}]*?href:\\s*["'\`]${r}["'\`][^{}]*?\\}\\s*,?`,
+    `(?<=[\\[,]\\s*)\\{[^{}]*?href:\\s*${href}[^{}]*?\\}(?=\\s*[,\\]])`,
     "g",
   );
   next = next.replace(objectEntry, "");
 
   // 2) Paired JSX elements: <Link href="/route" …>…</Link> and <a …>…</a>
   const pairedLink = new RegExp(
-    `<(Link|a)\\b[^>]*?href=\\{?["'\`]${r}["'\`]\\}?[^>]*?>[\\s\\S]*?<\\/\\1>\\s*`,
+    `<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?>[\\s\\S]*?<\\/\\1>\\s*`,
     "g",
   );
   next = next.replace(pairedLink, "");
 
   // 3) Self-closing JSX elements: <Link href="/route" … />
   const selfClosing = new RegExp(
-    `<(Link|a)\\b[^>]*?href=\\{?["'\`]${r}["'\`]\\}?[^>]*?/>\\s*`,
+    `<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/>\\s*`,
     "g",
   );
   next = next.replace(selfClosing, "");
@@ -237,9 +337,13 @@ function looksLikeNavFile(name: string): boolean {
 
 /** Try to insert a new entry into a `{ …, href }` data array. */
 function insertDataNavEntry(content: string, route: string, label: string): string | null {
-  // Find a representative existing entry with an internal href.
+  // Find a representative existing entry with an internal href that is an ARRAY
+  // element (preceded by `[`/`,`, followed by `,`/`]`). Appending `, {…}` after
+  // a standalone `const cta = {…}` object would produce invalid JS, so a file
+  // whose only nav-shaped object is standalone yields null here and the caller
+  // falls back to JSX insertion (or reports no nav).
   const entryMatch = content.match(
-    /\{[^{}]*?href:\s*["'`]\/[^"'`]*["'`][^{}]*?\}/,
+    /(?<=[\[,]\s*)\{[^{}]*?href:\s*["'`]\/[^"'`]*["'`][^{}]*?\}(?=\s*[,\]])/,
   );
   if (!entryMatch) return null;
   const template = entryMatch[0];

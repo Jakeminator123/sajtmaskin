@@ -443,6 +443,16 @@ export function PreviewPanel({
     [onComposerAiFallback],
   );
 
+  // FEL-2: chain rapid composer actions off the version each one creates, so a
+  // second drop/undo/redo fired before the parent re-renders builds on the
+  // first instead of forking from the stale `versionId` prop (mirrors the code
+  // view's baseVersionRef in usePreviewPanelCodeFiles). Re-synced when the
+  // selected version prop changes.
+  const composerBaseVersionRef = useRef<string | null>(versionId);
+  useEffect(() => {
+    composerBaseVersionRef.current = versionId;
+  }, [versionId]);
+
   const handleComposerUndo = useCallback(async () => {
     if (!chatId || !versionId || composerHistoryBusy) return;
     const last = composerUndoStack[composerUndoStack.length - 1];
@@ -450,20 +460,22 @@ export function PreviewPanel({
 
     setComposerHistoryBusy(true);
     try {
+      const base = composerBaseVersionRef.current ?? versionId;
       const saved = await patchEngineChatFile({
         chatId,
-        versionId,
+        versionId: base,
         fileName: last.fileName,
         content: last.before,
-        // Composer patches the active version directly; it is the client's only
-        // version notion in scope, so forward it so the server's stale-base 409
-        // can fire when another writer advanced the chat head past it.
-        engineLatestKnownVersionId: versionId,
+        // Composer chains off the version each action creates (FEL-2); forward
+        // that base as the latest-known signal so the server's stale-base 409
+        // fires when another writer advanced the chat head past it.
+        engineLatestKnownVersionId: base,
       });
       if (!saved.ok) {
         toast.error(saved.error);
         return;
       }
+      if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
       setComposerUndoStack((prev) => prev.slice(0, -1));
       setComposerRedoStack((prev) => [last, ...prev].slice(0, 20));
       setLastComposerActionLabel("Ångra direkt patch");
@@ -486,19 +498,21 @@ export function PreviewPanel({
 
     setComposerHistoryBusy(true);
     try {
+      const base = composerBaseVersionRef.current ?? versionId;
       const saved = await patchEngineChatFile({
         chatId,
-        versionId,
+        versionId: base,
         fileName: next.fileName,
         content: next.after,
-        // See handleComposerUndo: forward the active version as the latest-known
-        // signal so the server's stale-base 409 guard can fire.
-        engineLatestKnownVersionId: versionId,
+        // See handleComposerUndo: chain off the latest composer version (FEL-2)
+        // and forward it as the latest-known signal for the stale-base 409.
+        engineLatestKnownVersionId: base,
       });
       if (!saved.ok) {
         toast.error(saved.error);
         return;
       }
+      if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
       setComposerRedoStack((prev) => prev.slice(1));
       setComposerUndoStack((prev) => [...prev.slice(-19), next]);
       setLastComposerActionLabel("Gör om direkt patch");
@@ -544,8 +558,9 @@ export function PreviewPanel({
         anchorSection: detail.anchorSection,
       };
 
+      const base = composerBaseVersionRef.current ?? versionId;
       try {
-        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        const { response, data } = await fetchChatVersionFilesJson(chatId, base);
         if (!response.ok || !data?.files || !Array.isArray(data.files)) {
           toast.error("Kunde inte läsa versionens filer.");
           await runComposerAiFallback({
@@ -598,12 +613,12 @@ export function PreviewPanel({
 
         const saved = await patchEngineChatFile({
           chatId,
-          versionId,
+          versionId: base,
           fileName: path,
           content: patchResult.content,
-          // See handleComposerUndo: forward the active version as the
-          // latest-known signal so the server's stale-base 409 guard can fire.
-          engineLatestKnownVersionId: versionId,
+          // See handleComposerUndo: chain off the latest composer version (FEL-2)
+          // and forward it as the latest-known signal for the stale-base 409.
+          engineLatestKnownVersionId: base,
         });
 
         if (!saved.ok) {
@@ -615,6 +630,7 @@ export function PreviewPanel({
           return;
         }
 
+        if (saved.versionId) composerBaseVersionRef.current = saved.versionId;
         setComposerUndoStack((prev) => [
           ...prev.slice(-19),
           { fileName: path, before: homePageContent, after: patchResult.content },
@@ -751,6 +767,11 @@ export function PreviewPanel({
         const res = await quickEditChatFiles({
           chatId: activeChatId,
           baseVersionId: currentBase,
+          // First chunk's base is the page op's base version; later chunks chain
+          // off the previous result. Forwarding `currentBase` as latest-known
+          // means the stale-base 409 only fires when another writer advanced the
+          // head past our base, never on our own chain.
+          engineLatestKnownVersionId: currentBase,
           ops: slice,
           summary,
         });
@@ -791,6 +812,9 @@ export function PreviewPanel({
         const result = await quickEditChatFiles({
           chatId,
           baseVersionId: versionId,
+          // Forward the active version as the latest-known signal so the server's
+          // stale-base 409 fires if another writer advanced the chat head.
+          engineLatestKnownVersionId: versionId,
           ops: [
             { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
             ...nav.ops,
@@ -842,9 +866,15 @@ export function PreviewPanel({
           toast.error(`Hittade inga filer för sidan ${route}.`);
           return;
         }
+        // Exclude the files we are about to delete from nav-cleanup — a file
+        // inside the deleted subtree that also links to the route would
+        // otherwise get a redundant replace_content op targeting a path that the
+        // same batch deletes.
+        const deletedPaths = new Set(routeFiles.map((p) => p.replace(/\\/g, "/")));
+        const navFiles = files.filter((f) => !deletedPaths.has(f.name.replace(/\\/g, "/")));
         const ops: QuickEditClientOp[] = [
           ...routeFiles.map((path) => ({ kind: "delete_file" as const, path })),
-          ...buildRemoveNavLinkOps(files, route),
+          ...buildRemoveNavLinkOps(navFiles, route),
         ];
         const result = await runQuickEditChunked(
           chatId,

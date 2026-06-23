@@ -69,6 +69,21 @@ describe("routeHasPageFile", () => {
     expect(routeHasPageFile([{ name: "src/app/about/page.tsx" }], "/about")).toBe(true);
     expect(routeHasPageFile([{ name: "app/blog/page.tsx" }], "/about")).toBe(false);
   });
+
+  it("treats a grouped route as the same page (rejects a duplicate)", () => {
+    expect(routeHasPageFile([{ name: "app/(marketing)/about/page.tsx" }], "/about")).toBe(true);
+    expect(routeHasPageFile([{ name: "src/app/(marketing)/about/page.tsx" }], "/about")).toBe(
+      true,
+    );
+    // A parallel/intercept slot also contributes no URL segment.
+    expect(routeHasPageFile([{ name: "app/@modal/about/page.tsx" }], "/about")).toBe(true);
+  });
+
+  it("matches a Pages Router page file", () => {
+    expect(routeHasPageFile([{ name: "pages/about.tsx" }], "/about")).toBe(true);
+    expect(routeHasPageFile([{ name: "pages/index.tsx" }], "/")).toBe(true);
+    expect(routeHasPageFile([{ name: "pages/blog.tsx" }], "/about")).toBe(false);
+  });
 });
 
 describe("findRouteFilePaths", () => {
@@ -86,6 +101,64 @@ describe("findRouteFilePaths", () => {
     ]);
   });
   it("never collects the home subtree", () => {
+    expect(findRouteFilePaths(files, "/")).toEqual([]);
+  });
+});
+
+describe("findRouteFilePaths (route-aware)", () => {
+  it("collects a grouped route subtree incl. colocated + nested descendants", () => {
+    const files = [
+      { name: "app/(marketing)/page.tsx" }, // home via group — must not be swept
+      { name: "app/(marketing)/about/page.tsx" },
+      { name: "app/(marketing)/about/Hero.tsx" },
+      { name: "app/(marketing)/about/team/page.tsx" },
+      { name: "components/nav.tsx" },
+    ];
+    expect(findRouteFilePaths(files, "/about")).toEqual([
+      "app/(marketing)/about/Hero.tsx",
+      "app/(marketing)/about/page.tsx",
+      "app/(marketing)/about/team/page.tsx",
+    ]);
+  });
+
+  it("collects a grouped src/app route subtree", () => {
+    const files = [
+      { name: "src/app/(shop)/about/page.tsx" },
+      { name: "src/app/(shop)/about/parts/Card.tsx" },
+      { name: "src/app/(shop)/page.tsx" },
+    ];
+    expect(findRouteFilePaths(files, "/about")).toEqual([
+      "src/app/(shop)/about/page.tsx",
+      "src/app/(shop)/about/parts/Card.tsx",
+    ]);
+  });
+
+  it("collects a Pages Router file plus its nested subtree", () => {
+    const files = [
+      { name: "pages/index.tsx" },
+      { name: "pages/about.tsx" },
+      { name: "pages/about/team.tsx" },
+      { name: "pages/blog.tsx" },
+    ];
+    expect(findRouteFilePaths(files, "/about")).toEqual([
+      "pages/about.tsx",
+      "pages/about/team.tsx",
+    ]);
+  });
+
+  it("includes every grouped page file that maps to the same route", () => {
+    const files = [
+      { name: "app/(a)/about/page.tsx" },
+      { name: "app/(b)/about/page.tsx" },
+    ];
+    expect(findRouteFilePaths(files, "/about")).toEqual([
+      "app/(a)/about/page.tsx",
+      "app/(b)/about/page.tsx",
+    ]);
+  });
+
+  it("never collects the home subtree even under a route group", () => {
+    const files = [{ name: "app/(marketing)/page.tsx" }, { name: "app/page.tsx" }];
     expect(findRouteFilePaths(files, "/")).toEqual([]);
   });
 });
@@ -117,6 +190,33 @@ describe("stripRouteFromContent", () => {
     const next = stripRouteFromContent(content, "/blog");
     expect(next).not.toContain('href="/blog"');
     expect(next).toContain('href="/about"');
+  });
+
+  it("removes normalized href variants (trailing slash / query / hash)", () => {
+    const content = `<nav>
+  <Link href="/blog">Blogg</Link>
+  <Link href="/blog/">Trailing</Link>
+  <Link href="/blog?ref=nav">Query</Link>
+  <Link href="/blog#top">Hash</Link>
+  <Link href="/blogger">Blogger</Link>
+</nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    expect(next).not.toContain('href="/blog/"');
+    expect(next).not.toContain('href="/blog?ref=nav"');
+    expect(next).not.toContain('href="/blog#top"');
+    // A longer sibling segment must survive.
+    expect(next).toContain('href="/blogger"');
+  });
+
+  it("leaves a standalone href object intact but removes an array element", () => {
+    const standalone = `const cta = { label: "Book", href: "/x" };`;
+    expect(stripRouteFromContent(standalone, "/x")).toBe(standalone);
+
+    const arr = `const nav = [ { label: "Home", href: "/" }, { label: "X", href: "/x" } ];`;
+    const next = stripRouteFromContent(arr, "/x");
+    expect(next).not.toContain('href: "/x"');
+    expect(next).toContain('href: "/"');
   });
 });
 
@@ -177,5 +277,36 @@ describe("buildAddNavLinkOps", () => {
     const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
     expect(result.navUpdated).toBe(false);
     expect(result.ops).toHaveLength(0);
+  });
+
+  it("does not corrupt a file whose only href is a standalone object", () => {
+    // `insertDataNavEntry` must not append `, {…}` after a standalone object
+    // (that would yield invalid JS); with no array/JSX nav it falls through.
+    const files = [
+      { name: "components/cta.tsx", content: `const cta = { label: "Book", href: "/x" };` },
+    ];
+    const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
+    expect(result.navUpdated).toBe(false);
+    expect(result.ops).toHaveLength(0);
+  });
+
+  it("still inserts into a real array even when a standalone object precedes it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `const cta = { label: "Book", href: "/book" };
+const navItems = [
+  { label: "Home", href: "/" },
+  { label: "Blog", href: "/blog" },
+];`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      expect(result.ops[0].content).toContain('href: "/kontakt"');
+      // The standalone object must be untouched.
+      expect(result.ops[0].content).toContain('const cta = { label: "Book", href: "/book" };');
+    }
   });
 });

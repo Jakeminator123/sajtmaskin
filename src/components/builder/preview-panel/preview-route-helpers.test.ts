@@ -96,6 +96,68 @@ export default function Page() {
   });
 });
 
+describe("derivePreviewRoutes — reachability from files outside the route's own subtree", () => {
+  it("excludes an orphan page whose only inbound link is its own self-link", () => {
+    const routes = derivePreviewRoutes([
+      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+      // Orphan: the single link to /old lives inside /old's own page file.
+      { name: "app/old/page.tsx", content: `<a href="/old">Jag själv</a>` },
+    ]).map((r) => r.route);
+    expect(routes).toContain("/");
+    expect(routes).not.toContain("/old");
+  });
+
+  it("excludes an orphan kept alive only by a co-located page-local nav", () => {
+    const routes = derivePreviewRoutes([
+      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+      { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
+      // Page-local nav copied into the orphan's own subtree links back to /old.
+      { name: "app/old/nav.tsx", content: `<a href="/old">Tillbaka</a>` },
+    ]).map((r) => r.route);
+    expect(routes).not.toContain("/old");
+  });
+
+  it("includes a page linked from a shared header outside the route tree", () => {
+    const routes = derivePreviewRoutes([
+      { name: "app/page.tsx", content: "export default function P(){return null;}" },
+      { name: "app/old/page.tsx", content: "export default function P(){return null;}" },
+      // Shared header belongs to no route subtree → counts as an external source.
+      { name: "components/site-header.tsx", content: `<a href="/old">Gammalt</a>` },
+    ]).map((r) => r.route);
+    expect(routes).toContain("/old");
+  });
+
+  it("always returns home even with no internal links at all", () => {
+    const routes = derivePreviewRoutes([
+      { name: "app/page.tsx", content: "export default function P(){return null;}" },
+    ]).map((r) => r.route);
+    expect(routes).toEqual(["/"]);
+  });
+
+  it("keeps a dynamic route reachable via a concrete link outside its own files", () => {
+    const routes = derivePreviewRoutes([
+      {
+        name: "app/page.tsx",
+        content: `const nav = [{ href: "/" }, { href: "/blog" }];`,
+      },
+      // Concrete post link lives in the blog index, not under [slug].
+      { name: "app/blog/page.tsx", content: `<a href="/blog/hello">Läs</a>` },
+      { name: "app/blog/[slug]/page.tsx", content: "export default function P(){return null;}" },
+    ]).map((r) => r.route);
+    expect(routes).toContain("/blog");
+    expect(routes).toContain("/blog/[slug]");
+  });
+
+  it("drops a dynamic route linked only from within its own subtree", () => {
+    const routes = derivePreviewRoutes([
+      { name: "app/page.tsx", content: `<a href="/">Hem</a>` },
+      // /shop/[id] is referenced only by a pagination link inside itself.
+      { name: "app/shop/[id]/page.tsx", content: `<a href="/shop/42">Nästa</a>` },
+    ]).map((r) => r.route);
+    expect(routes).not.toContain("/shop/[id]");
+  });
+});
+
 describe("extractPreviewRoutesFromFileNames (legacy)", () => {
   it("still returns only static routes", () => {
     expect(

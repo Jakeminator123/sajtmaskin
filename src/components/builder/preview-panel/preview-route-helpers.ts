@@ -133,6 +133,54 @@ export function collectPageRoutes(fileNames: string[]): RawPageRoute[] {
   return Array.from(byRoute.values());
 }
 
+/**
+ * The route subtree a source file belongs to, used to exclude a route's own
+ * files when deciding whether something *else* links to it. Returns `null` for
+ * shared files (site header, components, lib, config) that live outside the
+ * route tree and therefore count as external link sources for every route.
+ *
+ * App Router: the directory that contains the file, so `app/blog/[slug]/page.tsx`
+ * and a co-located `app/blog/[slug]/parts.tsx` both belong to `/blog/[slug]`.
+ * Pages Router: the page's own route.
+ */
+function fileSubtreeRoute(rawName: string): string | null {
+  const name = rawName.replace(/\\/g, "/");
+
+  const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
+  if (appMatch) {
+    const segments = appMatch[1].split("/");
+    // Drop the filename; the containing directory defines the subtree.
+    segments.pop();
+    return buildRouteFromSegments(segments)?.route ?? null;
+  }
+
+  const pagesMatch = name.match(/^pages\/(.+)$/);
+  if (pagesMatch) {
+    const relative = pagesMatch[1];
+    if (relative.startsWith("api/")) return null;
+    if (!/\.(tsx|ts|jsx|js)$/.test(relative)) return null;
+    const routeFile = relative.replace(/\.(tsx|ts|jsx|js)$/, "");
+    const routePath = routeFile.endsWith("/index")
+      ? routeFile.slice(0, -"/index".length)
+      : routeFile === "index"
+        ? ""
+        : routeFile;
+    return buildRouteFromSegments(routePath ? routePath.split("/") : [])?.route ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Whether a file belongs to the candidate route's own subtree (the route itself
+ * or a descendant). Such files are excluded as link sources so an orphan page
+ * cannot keep itself reachable via a self-link or page-local nav.
+ */
+function fileBelongsToRouteSubtree(subtreeRoute: string | null, route: string): boolean {
+  if (subtreeRoute === null) return false;
+  return subtreeRoute === route || subtreeRoute.startsWith(`${route}/`);
+}
+
 export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
   const routes = collectPageRoutes(fileNames)
     .filter((entry) => !entry.dynamic)
@@ -256,18 +304,34 @@ function comparePreviewRoutes(a: string, b: string): number {
 /**
  * Derive the reachable page routes for the preview chrome from the version's
  * files. Filters out orphaned routes (page files left behind by union-merge
- * follow-ups, or unlinked scaffold defaults) by requiring an internal link.
- * Dynamic routes are surfaced (non-navigable) so the page count is accurate.
+ * follow-ups, or unlinked scaffold defaults) by requiring an internal link from
+ * a file *outside* the route's own subtree — a self-link or copied page-local
+ * nav cannot keep an orphan visible. Home (`/`) is always reachable. Dynamic
+ * routes are surfaced (non-navigable) so the page count is accurate.
  */
 export function derivePreviewRoutes(
   files: Array<{ name: string; content?: string | null }>,
 ): PreviewRouteInfo[] {
   const fileNames = files.map((file) => file.name);
-  const contents = files.map((file) => file.content ?? "");
-  const linkPaths = collectInternalLinkPaths(contents);
   const rawRoutes = collectPageRoutes(fileNames);
 
-  const reachable = rawRoutes.filter((route) => isRouteReachable(route, linkPaths));
+  // Index each file by its own internal links + the route subtree it belongs to.
+  // A candidate route is reachable only when linked from a file *outside* its own
+  // subtree, so a self-link or copied page-local nav cannot keep an orphan alive.
+  const indexedFiles = files.map((file) => ({
+    subtreeRoute: fileSubtreeRoute(file.name),
+    links: collectInternalLinkPaths([file.content ?? ""]),
+  }));
+
+  const reachable = rawRoutes.filter((route) => {
+    if (route.route === "/") return true;
+    const externalLinks = new Set<string>();
+    for (const file of indexedFiles) {
+      if (fileBelongsToRouteSubtree(file.subtreeRoute, route.route)) continue;
+      for (const link of file.links) externalLinks.add(link);
+    }
+    return isRouteReachable(route, externalLinks);
+  });
 
   return reachable
     .sort((a, b) => comparePreviewRoutes(a.route, b.route))

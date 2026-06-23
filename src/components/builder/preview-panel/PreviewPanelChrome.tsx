@@ -425,7 +425,9 @@ export function PreviewPanelChrome({
               previewRoutes.map((info) => {
                 const isHome = info.route === "/";
                 const isActive = activePreviewRoute === info.route;
-                const removable = canManagePages && !isHome;
+                // Removal cleanup only strips exact route matches, so a dynamic
+                // (bracketed) route cannot be removed reliably — hide the control.
+                const removable = canManagePages && !isHome && !info.dynamic;
                 return (
                   <span
                     key={info.route}
