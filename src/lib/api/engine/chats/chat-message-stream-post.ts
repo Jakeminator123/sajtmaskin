@@ -24,7 +24,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { resolvePhaseThinking } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -1016,6 +1016,13 @@ export async function handleMessageStreamRequest(
         const chatHistory = buildBoundedChatHistory(engineChat.messages);
 
         const engineModel = resolveEngineModelId(resolvedModelTier);
+        // MB-3: the actual codegen + telemetry model is the generator-phase
+        // model (manifest phaseRouting). On the `anthropic` tier this is
+        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
+        // other tier in the default config it equals `engineModel`. The chat's
+        // persisted `chat.model` (set at init) stays the tier build model so
+        // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
+        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
         debugLog("build", "Follow-up chat stream request", {
           chatId,
           buildProfileId,
@@ -1034,6 +1041,7 @@ export async function handleMessageStreamRequest(
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,
+          generatorModel,
           fallback: false,
         });
         devLogStartGeneration({
@@ -1173,7 +1181,7 @@ export async function handleMessageStreamRequest(
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
-            model: engineModel,
+            model: generatorModel,
             chatHistory,
             thinking: effectiveGeneratorThinking,
             abortSignal: req.signal,
@@ -1186,7 +1194,7 @@ export async function handleMessageStreamRequest(
           },
           meta: buildOwnEngineGenerationStreamMeta({
             routeVariant: "follow-up",
-            engineModel,
+            engineModel: generatorModel,
             resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
@@ -1201,7 +1209,7 @@ export async function handleMessageStreamRequest(
             scaffoldId: resolvedScaffold?.id ?? null,
             variantId: finalized.variantId,
           }),
-          engineModel,
+          engineModel: generatorModel,
           optimizedMessage,
           rawPrompt: message,
           engineIntent,

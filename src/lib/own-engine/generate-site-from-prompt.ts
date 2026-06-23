@@ -9,6 +9,7 @@ import { getAgentTools } from "@/lib/gen/agent-tools";
 import { normalizeBuildIntent, type BuildIntent } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
@@ -92,6 +93,12 @@ export async function generateOwnEngineSiteFromPrompt(
     fallbackTier: DEFAULT_MODEL_ID,
   });
   const engineModel = resolveEngineModelId(modelSelection.modelTier);
+  // MB-3: codegen + telemetry run on the generator-phase model (manifest
+  // phaseRouting). On the `anthropic` tier this is Claude Opus 4.8 instead of
+  // the tier build-default Sonnet; identical to `engineModel` for every other
+  // tier in the default config. `chat.model` keeps the tier build model so
+  // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
+  const generatorModel = resolvePhaseModel(modelSelection.modelTier, "generator").modelId;
 
   const orchestrationInput = {
     prompt,
@@ -122,7 +129,7 @@ export async function generateOwnEngineSiteFromPrompt(
   const pipelineStream = createGenerationPipeline({
     prompt: enginePrompt,
     systemPrompt: engineSystemPrompt,
-    model: String(engineModel),
+    model: String(generatorModel),
     thinking,
     tools: getAgentTools(),
     maxSteps: 4,
@@ -222,7 +229,7 @@ export async function generateOwnEngineSiteFromPrompt(
   const finalized = await finalizeAndSaveVersion({
     accumulatedContent,
     chatId: chat.id,
-    model: String(engineModel),
+    model: String(generatorModel),
     resolvedTier: modelSelection.modelTier,
     originalPrompt: prompt,
     buildIntent,
@@ -233,7 +240,7 @@ export async function generateOwnEngineSiteFromPrompt(
     startedAt,
     tokenUsage,
     orchestrationStreamMeta: {
-      modelId: String(engineModel),
+      modelId: String(generatorModel),
       modelTier: modelSelection.modelTier,
       enginePath: "own-engine",
       thinking,
@@ -305,6 +312,6 @@ export async function generateOwnEngineSiteFromPrompt(
     filesCount: files.length,
     files,
     contentForVersion: finalized.contentForVersion,
-    model: String(engineModel),
+    model: String(generatorModel),
   };
 }

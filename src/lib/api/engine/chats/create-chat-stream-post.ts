@@ -29,7 +29,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { resolvePhaseThinking } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -712,9 +712,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         });
 
         const engineModel = resolveEngineModelId(resolvedModelTier);
+        // MB-3: the actual codegen + telemetry model is the generator-phase
+        // model (manifest phaseRouting). On the `anthropic` tier this is
+        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
+        // other tier in the default config it equals `engineModel`. We keep
+        // `engineModel` for `chat.model` so repair/server-verify can round-trip
+        // the tier from it via ownModelIdToCanonicalModelId.
+        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,
+          generatorModel,
           fallback: false,
         });
 
@@ -895,7 +903,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
-            model: engineModel,
+            model: generatorModel,
             thinking: effectiveGeneratorThinking,
             abortSignal: req.signal,
             maxSteps: resolveOwnEngineMaxSteps({
@@ -909,7 +917,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             routeVariant: "new-chat",
             chatPrivacy: resolvedChatPrivacy,
             scaffoldLabel: resolvedScaffold?.label ?? null,
-            engineModel,
+            engineModel: generatorModel,
             resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
@@ -924,7 +932,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             scaffoldId: resolvedScaffold?.id ?? null,
             variantId: finalized.variantId,
           }),
-          engineModel,
+          engineModel: generatorModel,
           optimizedMessage,
           rawPrompt: message,
           engineIntent,

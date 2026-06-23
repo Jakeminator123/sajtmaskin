@@ -164,6 +164,11 @@ vi.mock("@/lib/models/phase-routing", () => ({
     reasoningEffort: "medium",
     reason: "mock",
   }),
+  resolvePhaseModel: () => ({
+    phase: "generator",
+    modelId: "gpt-5.4",
+    reason: "mock",
+  }),
 }));
 
 vi.mock("@/lib/builder/site-brief-generation", () => ({
