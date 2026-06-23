@@ -89,7 +89,7 @@ export type PerTierPhaseMatrixRow = {
   phase: "planner" | "generator" | "fixer" | "verifier" | "deploy-assistant";
   modelId: string;
   thinking: boolean;
-  reasoningEffort: "none" | "low" | "medium" | "high" | "xhigh";
+  reasoningEffort: "none" | "low" | "medium" | "high";
 };
 
 export interface ModelTraceSnapshot {

@@ -34,8 +34,8 @@ describe("resolvePhaseModel", () => {
   });
 
   it("uses full tier for planner/generator on max; fixer/verifier/deploy on gpt-5.3-codex", () => {
-    expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.4");
-    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.5");
+    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.5");
     expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "fixer").reason).toBe("manifest-phase-override");
     expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-5.3-codex");
@@ -58,8 +58,8 @@ describe("resolvePhaseModel", () => {
     const generator = resolvePhaseModel("anthropic", "generator");
     const fixer = resolvePhaseModel("anthropic", "fixer");
 
-    expect(planner.modelId).toBe("claude-opus-4.6");
-    expect(generator.modelId).toBe("claude-opus-4.6");
+    expect(planner.modelId).toBe("claude-opus-4.8");
+    expect(generator.modelId).toBe("claude-opus-4.8");
     expect(verifier.modelId).toBe("claude-sonnet-4.6");
     expect(fixer.modelId).toBe("claude-sonnet-4.6");
     expect(verifier.reason).toBe("anthropic-tier-unified");
@@ -67,12 +67,12 @@ describe("resolvePhaseModel", () => {
 
   it("generator always uses full tier for OpenAI profiles", () => {
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
-    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.5");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
       "gpt-5.3-codex",
     );
     expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
-      "claude-opus-4.6",
+      "claude-opus-4.8",
     );
   });
 });
@@ -106,8 +106,8 @@ describe("getPhaseRoutingSummary", () => {
 
   it("anthropic tier: opus for planner/generator, sonnet elsewhere", () => {
     const summary = getPhaseRoutingSummary("anthropic");
-    expect(summary.planner).toBe("claude-opus-4.6");
-    expect(summary.generator).toBe("claude-opus-4.6");
+    expect(summary.planner).toBe("claude-opus-4.8");
+    expect(summary.generator).toBe("claude-opus-4.8");
     expect(summary.fixer).toBe("claude-sonnet-4.6");
     expect(summary.verifier).toBe("claude-sonnet-4.6");
     expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");

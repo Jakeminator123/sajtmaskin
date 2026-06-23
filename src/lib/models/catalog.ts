@@ -21,14 +21,22 @@ export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
 export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
 
-/** Concrete model IDs for the own engine. */
+/**
+ * Concrete model IDs for the own engine.
+ *
+ * `gpt-5.5` and `claude-opus-4.8` are the current full-size defaults; the
+ * older `gpt-5.4` / `claude-opus-4.6` IDs are kept so persisted chat/version
+ * rows and env overrides that still reference them resolve cleanly.
+ */
 export const OWN_MODEL_IDS = [
+  "gpt-5.5",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.3-codex",
   "gpt-5.2",
   "gpt-4.1",
   "claude-sonnet-4.6",
+  "claude-opus-4.8",
   "claude-opus-4.6",
 ] as const;
 

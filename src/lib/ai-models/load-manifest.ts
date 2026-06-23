@@ -40,7 +40,7 @@ const _generationPhaseSchema = z.enum([
   "verifier",
   "deploy-assistant",
 ]);
-const reasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
+const reasoningEffortSchema = z.enum(["none", "low", "medium", "high"]);
 
 const buildProfilesSchema = z.object({
   defaults: z.object({

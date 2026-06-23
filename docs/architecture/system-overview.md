@@ -31,7 +31,7 @@ Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bak
 |---------------|---------------------------|------|
 | fast | `gpt-5.4-mini` | Snabba ändringar |
 | pro | `gpt-5.3-codex` | Balanserad kod (**default**) |
-| max | `gpt-5.4` | Tyngre reasoning |
+| max | `gpt-5.5` | Tyngre reasoning |
 | codex | `gpt-5.3-codex` | Kodprofil (högre reasoning-effort än `pro`; samma modell-id som Lagom) |
 | anthropic | `claude-sonnet-4.6` | Anthropic-väg |
 
