@@ -31,6 +31,16 @@ Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
 
 Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrott — även om CI är grön och PR:n redan mergats. Gäller särskilt funktions-/säkerhetsfynd (de "ser-grönt-men-går-sönder").
 
+## Codex rate-limitad → kör Cursor Bugbot
+
+Om Codex-review (`chatgpt-codex-connector`) inte producerar en review (usage-/rate-limit, "reached your Codex usage limits", eller helt saknas) räknas PR:en **inte** som bot-granskad bara för att CI är grön. Kör då en Cursor Bugbot-pass **före merge**:
+
+- Använd `review-bugbot`-skillen, eller `bugbot`-subagenten direkt (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`).
+- Triagera Bugbot-fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat).
+- P1/High/säkerhet blockerar merge; P2 fixas eller loggas i `BUG-SWARM-BACKLOG.md`.
+
+Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät — då finns Bugbot-täckning oavsett Codex-kvot.
+
 ## Princip
 
 `mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad.
