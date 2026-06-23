@@ -2,7 +2,8 @@
   "mcpServers": {
     "shadcn": {
       "command": "cmd",
-      "args": ["/d", "/s", "/c", "\"${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd\""]
+      "args": ["/d", "/s", "/c", "\"${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd\""],
+      "note": "shadcn/ui registry-MCP via lokal wrapper (scripts/cursor/shadcn-mcp.cmd → shadcn-mcp.cjs)."
     },
     "v0": {
       "url": "https://mcp.v0.dev"
@@ -10,8 +11,15 @@
     "openaiDeveloperDocs": {
       "url": "https://developers.openai.com/mcp"
     },
-    "Vercel": {
-      "url": "https://mcp.vercel.com"
+    "openclaw-docs": {
+      "type": "http",
+      "url": "https://docs.openclaw.ai/mcp",
+      "note": "Hostad docs-MCP direkt från docs.openclaw.ai — ingen lokal server behövs."
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com",
+      "note": "Vercels officiella remote MCP (OAuth). Inga secrets i filen — Cursor visar 'Needs login' första gången, autentisera i webbläsaren."
     }
   }
 }
