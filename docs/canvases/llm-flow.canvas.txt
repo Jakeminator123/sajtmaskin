@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c2ccd7ef",
-    "commitDate": "2026-06-21",
+    "commit": "493dc0f3b",
+    "commitDate": "2026-06-22",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 4,
-    "openP2": 18,
+    "openP2": 17,
     "openP3": 26,
     "blocked": 6,
     "shaky": 1,
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 6,
+      "churn": 10,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
     },
@@ -134,15 +134,15 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 3,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 2,
         "P3": 1,
-        "other": 0
+        "other": 2
       },
-      "churn": 2,
+      "churn": 4,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
     },
@@ -151,15 +151,15 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 8,
+      "openBugs": 10,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
         "P2": 3,
         "P3": 3,
-        "other": 0
+        "other": 2
       },
-      "churn": 8,
+      "churn": 10,
       "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
       "note": "BLOCKER: Simplified brief fallback sänker premium/3D"
     },
@@ -185,13 +185,13 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 23,
+      "openBugs": 25,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
-        "P2": 11,
+        "P2": 10,
         "P3": 10,
-        "other": 0
+        "other": 3
       },
       "churn": 7,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
@@ -235,16 +235,16 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
     },
     {
+      "name": "ai_models",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
+    },
+    {
       "name": "Codegen core",
       "statusLabel": "Blockerat",
       "tone": "danger",
       "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
-    },
-    {
-      "name": "Eval",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
     }
   ],
   "topOpenRisks": [
@@ -309,7 +309,7 @@ const DATA: CanvasData = {
       "fynd": "Preview kan visas trots verifier-blocked draft"
     }
   ],
-  "topOpenRisksOmitted": 14,
+  "topOpenRisksOmitted": 13,
   "evals": null,
   "phases": [
     "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
