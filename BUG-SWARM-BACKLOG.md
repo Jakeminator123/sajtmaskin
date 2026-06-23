@@ -39,6 +39,13 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P2 | 18 | Triage 2026-06-18: 14 BLOCKER (F3/dossier/capability/verify/status-pipeline + policy) + 4 Edge (G#16 env-audit, G#18 docs, G#38 PDF-CPU-policy, G#40 SSRF-rebind). F3-batch: G#21 delvis fixad (empty-files false-green → `409`); G#20 BLOCKER-rot fördjupad (F3-prompt härleds från contracts, ej version-filer); G#22 omverifierad BLOCKER. |
 | P3 | 26 | Triage 2026-06-18: 8 kodfix + 5 avfärdade i HEAD; reconcile 2026-06-18 stängde G#67/U#43 (PR #142), G#75/U#11/U#12 + U#6/U#79 (PR #143), G#58/U#80 (copy verifierad) och G#55 (docs-städ). 26 kvar = Edge/BLOCKER (UI-race utan repro, degraded-state-policy, breda refaktorer, live-infra-verifiering). |
 
+### Fast Edit Lane uppföljningar (PR #220, 2026-06-23)
+
+Öppna icke-blockerande fynd från review (Codex/Bugbot) på Fast Edit Lane. Funktionen är flag-gated (`NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT`, `SAJTMASKIN_PREVIEW_PATCH_LANE`). De korruptions-/no-restart-fynden fixades i PR:en; nedan är medvetet deprioriterade rester.
+
+- [ ] **FEL-1 (medium): quick-edit saknar concurrency-gate client-side.** `quickEditChatFiles`/`patchEngineChatFile` ([src/lib/builder/engine-files-patch.ts](src/lib/builder/engine-files-patch.ts)) skickar aldrig `engineLatestKnownVersionId`, så den server-sidiga stale-base-409-grinden i [quick-edit/route.ts](src/app/api/engine/chats/[chatId]/quick-edit/route.ts) aktiveras aldrig från buildern. Konsekvens: om chat-headen avancerar i en annan flik/generation forkar en quick-edit från den valda (äldre) versionen i stället för att returnera `stale_base_version`. By-design-tolerabelt för en manuell edit av det man ser; trådda `latestKnownVersionId` för full paritet med follow-up-streamen.
+- [ ] **FEL-2 (medium): composer rapid-action kan forka från stale base.** Kodvyn (`usePreviewPanelCodeFiles`) chainas nu via `baseVersionRef`, men composer-handlers (drop/undo/redo) i [PreviewPanel.tsx](src/components/builder/preview-panel/PreviewPanel.tsx) använder fortfarande `versionId`-propen direkt. Två composer-actions före parent-re-render kan forka två minor-versioner från samma major och tappa den första. Lägre frekvens (drag/klick med UI-feedback) än Ctrl+S; samma `ref`-mönster kan appliceras vid behov.
+
 ### Triage-svärm 2026-06-22 (orchestrator äger nu — parallell bugg-agent avslutad)
 
 7 read-only composer-agenter verifierade öppna rader mot master `c2ccd7efd`. `%` = sannolikhet reell kvarvarande bugg.

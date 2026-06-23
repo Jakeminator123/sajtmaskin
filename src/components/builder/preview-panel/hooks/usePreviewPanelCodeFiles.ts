@@ -4,7 +4,7 @@ import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import type { FileNode } from "@/lib/builder/types";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchChatVersionFilesJson } from "../chat-version-files-fetch";
 import {
   findFileNodeByPath,
@@ -38,7 +38,18 @@ export function usePreviewPanelCodeFiles(options: {
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);
+  // Fast Edit Lane: each quick-edit save creates a NEW minor version. The next
+  // save must chain off that new version, but the `versionId` prop only updates
+  // after the parent re-renders. This ref bridges the gap so back-to-back saves
+  // build v3 -> v3.1 -> v3.2 instead of forking twice from the stale base v3
+  // (which would silently drop the first save). Re-synced whenever the selected
+  // version prop changes.
+  const baseVersionRef = useRef<string | null>(versionId);
   const [filesError, setFilesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    baseVersionRef.current = versionId;
+  }, [versionId]);
 
   useEffect(() => {
     if (!isCodeView || !chatId || !versionId) return;
@@ -99,14 +110,19 @@ export function usePreviewPanelCodeFiles(options: {
       if (nextContent === currentContent) return false;
 
       try {
+        const baseVersionId = baseVersionRef.current ?? versionId;
         const saved = await patchEngineChatFile({
           chatId,
-          versionId,
+          versionId: baseVersionId,
           fileName: selectedFile.path,
           content: nextContent,
         });
         if (!saved.ok) {
           throw new Error(saved.error || "Kunde inte spara filinnehåll");
+        }
+        // Chain the next save off the version we just created (if any).
+        if (saved.versionId) {
+          baseVersionRef.current = saved.versionId;
         }
 
         setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
