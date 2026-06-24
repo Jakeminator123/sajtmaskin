@@ -27,6 +27,7 @@ import {
   inspectDbTarget,
   summarizeTarget,
 } from "./db-target-guard.mjs";
+import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -45,7 +46,15 @@ function argValue(name, fallback = null) {
 const envPath = argValue("env", ".env.local");
 // `quiet: true` — dotenv v17 otherwise prints an "[dotenv] injecting env" tip
 // to STDOUT, which would corrupt the JSON the backoffice parses.
-config({ path: envPath, quiet: true });
+//
+// dotenv does NOT overwrite already-set process.env vars, so a `POSTGRES_URL`
+// inherited from the parent process (e.g. the backoffice host) would otherwise
+// win over the `--env=<file>` the operator picked — silently reading the wrong
+// database. `effectiveEnv` makes the selected env file win for DB target
+// resolution. We still let dotenv populate process.env for any unrelated
+// consumers, but resolve the connection string / target / SSL from effectiveEnv.
+const parsedEnvFile = config({ path: envPath, quiet: true }).parsed ?? {};
+const effectiveEnv = mergeEnvFileOverProcess(parsedEnvFile, process.env);
 
 const limitRaw = Number.parseInt(argValue("limit", "50"), 10);
 const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 50;
@@ -118,18 +127,18 @@ if (kinds.length === 0) {
 }
 
 const cs = normalizeEnvUrl(
-  process.env.POSTGRES_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.STORAGE_POSTGRES_URL ||
-    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL,
+  effectiveEnv.POSTGRES_URL ||
+    effectiveEnv.POSTGRES_URL_NON_POOLING ||
+    effectiveEnv.STORAGE_POSTGRES_URL ||
+    effectiveEnv.STORAGE_POSTGRES_URL_NON_POOLING ||
+    effectiveEnv.DATABASE_URL,
 );
 if (!cs) {
   emitError(`Database URL missing in ${envPath} (POSTGRES_URL / DATABASE_URL).`);
   process.exit(1);
 }
 
-const inspection = inspectDbTarget(process.env);
+const inspection = inspectDbTarget(effectiveEnv);
 const targetLabel = summarizeTarget(inspection.current);
 
 const url = new URL(cs);
@@ -137,7 +146,7 @@ url.searchParams.delete("sslmode");
 url.searchParams.delete("supa");
 
 function resolveSsl() {
-  const raw = process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase();
+  const raw = effectiveEnv.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase();
   if (raw === "false" || allowInsecureSsl) return { rejectUnauthorized: false };
   return { rejectUnauthorized: true };
 }
