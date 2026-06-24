@@ -65,7 +65,7 @@ afterEach(() => {
 
 describe("resolveShadcnUiRecipes", () => {
   it("selects payment UI recipes from official registry candidates", async () => {
-    mockFetch.mockResolvedValue(registryResponse("dialog", "radix-vega"));
+    mockFetch.mockResolvedValue(registryResponse("dialog", "new-york-v4"));
 
     const result = await resolveShadcnUiRecipes({
       capabilities: caps({ needsPayments: true }),
@@ -83,7 +83,7 @@ describe("resolveShadcnUiRecipes", () => {
   it("falls back through shadcn styles when primary style is empty", async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: false, status: 404 })
-      .mockResolvedValueOnce(registryResponse("form", "new-york-v4"));
+      .mockResolvedValueOnce(registryResponse("form", "new-york"));
 
     const result = await resolveShadcnUiRecipes({
       capabilities: caps({ needsForms: true }),
@@ -97,7 +97,7 @@ describe("resolveShadcnUiRecipes", () => {
   });
 
   it("uses official registry for auth blocks instead of local example cache", async () => {
-    mockFetch.mockResolvedValue(registryResponse("login-03", "radix-vega", "registry:block"));
+    mockFetch.mockResolvedValue(registryResponse("login-03", "new-york-v4", "registry:block"));
 
     const result = await resolveShadcnUiRecipes({
       capabilities: caps({ needsAuth: true }),
