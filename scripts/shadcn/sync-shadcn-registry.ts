@@ -21,14 +21,14 @@ import { join } from "node:path";
 const INDEX_URL = "https://ui.shadcn.com/r/index.json";
 const REGISTRY_BASE = "https://ui.shadcn.com/r/styles";
 /**
- * Style-fallback-kedja: shadcn publicerar inte alltid alla komponenter i alla
- * styles. Senast 2026-04 saknar `radix-vega/form.json` files-arrayen helt
- * medan `new-york/form.json` har den intakt. Vi försöker primary först (matchar
- * runtime-default i `src/lib/shadcn/registry-url.ts`), sen `new-york-v4` och
- * `new-york` som fallback. Speglar mönstret i `src/lib/shadcn/registry-url.ts`
- * och `src/lib/gen/data/shadcn-ui-recipes.ts`.
+ * Style-fallback-kedja: ui.shadcn.com publicerar inte alla komponenter/bilder i
+ * alla styles. `new-york-v4` (Tailwind v4 / React 19 "New York") är den
+ * kompletta, screenshot-backade uppsättningen och matchar runtime-default i
+ * `src/lib/shadcn/registry-url.ts`. Den nyare `radix-vega`-etiketten är ännu
+ * ofullständig (tom `form.json`, inga chart-block, saknade preview-PNG:er), så
+ * vi hämtar `new-york-v4` först och faller bara tillbaka till `new-york`.
  */
-const STYLE_FALLBACK_CHAIN = ["radix-vega", "new-york-v4", "new-york"] as const;
+const STYLE_FALLBACK_CHAIN = ["new-york-v4", "new-york"] as const;
 const COMPONENTS_PATH = join(
   process.cwd(),
   "src/lib/gen/data/shadcn-components.ts",

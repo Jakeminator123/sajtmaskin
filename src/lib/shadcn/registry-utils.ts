@@ -141,7 +141,11 @@ export function buildShadcnBlockPrompt(
     existingUiComponents?: string[];
   } = {},
 ): string {
-  const MAX_PROMPT_CHARS = 12000;
+  // The block/component source code IS the payload the model adapts — never
+  // ship it half-truncated (that forces the model to guess and emit broken
+  // code). Keep full content for normal blocks; only a pathological payload
+  // falls back to the paths-only summary below.
+  const MAX_PROMPT_CHARS = 60000;
   const style = options.style ?? DEFAULT_STYLE;
   const blockName = item.name || "block";
   const displayName = options.displayName || blockName;
@@ -283,7 +287,11 @@ export function buildShadcnComponentPrompt(
     existingUiComponents?: string[];
   } = {},
 ): string {
-  const MAX_PROMPT_CHARS = 12000;
+  // The block/component source code IS the payload the model adapts — never
+  // ship it half-truncated (that forces the model to guess and emit broken
+  // code). Keep full content for normal blocks; only a pathological payload
+  // falls back to the paths-only summary below.
+  const MAX_PROMPT_CHARS = 60000;
   const style = options.style ?? DEFAULT_STYLE;
   const componentName = item.name || "component";
   const displayName = options.displayName || componentName;

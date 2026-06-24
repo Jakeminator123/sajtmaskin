@@ -3,9 +3,37 @@
  */
 
 const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
-const DEFAULT_REGISTRY_STYLE = "radix-vega";
 
-/** Default style segment when resolving legacy (v3) registry items — matches shadcn CLI "new-york". */
+/**
+ * Canonical registry style for ui.shadcn.com.
+ *
+ * `new-york-v4` is the Tailwind v4 / React 19 "New York" set — the COMPLETE,
+ * screenshot-backed style on ui.shadcn.com (full block + chart catalog, every
+ * `{name}-{theme}.png` preview, non-empty component payloads). The newer
+ * `radix-vega` label renders the same look but is only partially populated
+ * upstream (empty `form.json`, no chart blocks, missing preview PNGs), which
+ * made the Elements picker show "Ingen preview" walls and dropped charts.
+ * We therefore standardize the official registry on `new-york-v4` and coerce
+ * the incomplete/legacy aliases to it. Flip back to `radix-vega` once shadcn
+ * finishes populating that namespace upstream.
+ *
+ * NOTE: `components.json` deliberately keeps a schema-valid `style` alias
+ * (`radix-vega`). The official components.json `$schema` enum lists
+ * `default` / `new-york` / `radix-*` / `base-*` but NOT `new-york-v4`, so
+ * putting `new-york-v4` there would make the shadcn CLI/MCP reject the config.
+ * The canonical runtime style + coercion live HERE, not in components.json.
+ */
+const DEFAULT_REGISTRY_STYLE = "new-york-v4";
+
+/**
+ * Official ui.shadcn.com style aliases that are legacy or incompletely
+ * populated and must resolve to {@link DEFAULT_REGISTRY_STYLE} so the picker
+ * and insertion code always hit the fully-populated catalog. Custom registries
+ * (non ui.shadcn.com base URLs) pass through untouched.
+ */
+const OFFICIAL_COERCED_STYLES = new Set(["new-york", "default", "radix-vega"]);
+
+/** Last-resort fallback style for ui.shadcn.com (pre-v4 "New York"). */
 export const LEGACY_STYLE_DEFAULT = "new-york";
 
 /**
@@ -52,8 +80,12 @@ export function resolveRegistryStyle(
   const resolvedBase = baseUrl
     ? normalizeRegistryBaseUrl(baseUrl) || getRegistryBaseUrl()
     : getRegistryBaseUrl();
-  if (!options.allowLegacy && resolvedBase.includes("ui.shadcn.com") && rawStyle === "new-york") {
-    return "radix-vega";
+  if (
+    !options.allowLegacy &&
+    resolvedBase.includes("ui.shadcn.com") &&
+    OFFICIAL_COERCED_STYLES.has(rawStyle)
+  ) {
+    return DEFAULT_REGISTRY_STYLE;
   }
   return rawStyle;
 }

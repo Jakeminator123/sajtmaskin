@@ -358,13 +358,25 @@ def read_autofix_runtime_config(path: Path) -> dict[str, Any]:
     except Exception:
         return payload
 
-    m_attempts = re.search(r"const MAX_ATTEMPTS_PER_REASON = (\d+);", text)
-    if m_attempts:
-        payload["maxAttemptsPerReason"] = int(m_attempts.group(1))
+    # The constants are declared as `readClientNumberEnv("ENV_NAME", <default>)`
+    # (the env override is a build-time NEXT_PUBLIC_* value the backoffice can't
+    # see, so we read the source default). Older revisions used a plain
+    # `const X = <n>;`; accept both forms so this panel keeps working across
+    # branches instead of silently showing `None`.
+    def _read_const_int(name: str) -> int | None:
+        call_match = re.search(
+            rf"const {name}\s*=\s*readClientNumberEnv\([^)]*?,\s*(\d+)\s*,?\s*\)\s*;",
+            text,
+        )
+        if call_match:
+            return int(call_match.group(1))
+        literal_match = re.search(rf"const {name}\s*=\s*(\d+)\s*;", text)
+        if literal_match:
+            return int(literal_match.group(1))
+        return None
 
-    m_chat = re.search(r"const MAX_AUTOFIX_PER_CHAT = (\d+);", text)
-    if m_chat:
-        payload["maxAutofixPerChat"] = int(m_chat.group(1))
+    payload["maxAttemptsPerReason"] = _read_const_int("MAX_ATTEMPTS_PER_REASON")
+    payload["maxAutofixPerChat"] = _read_const_int("MAX_AUTOFIX_PER_CHAT")
 
     m_soft = re.search(
         r"const SOFT_ONLY_AUTOFIX_REASONS = new Set\(\[(.*?)\]\);",

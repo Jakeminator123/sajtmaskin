@@ -333,6 +333,9 @@ export function VersionDiagnosticsDialog({
       chatId,
       versionId,
       reasons: reasons.length > 0 ? reasons : ["diagnostic issue"],
+      // Explicit user click: bypass the automatic per-chat / per-reason caps so
+      // the button the cap-toast tells users to press actually runs.
+      manual: true,
       meta: { source: "version-diagnostics" },
     });
     onOpenChange(false);

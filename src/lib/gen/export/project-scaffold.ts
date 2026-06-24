@@ -43,7 +43,7 @@ const PACKAGE_JSON = `{
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
-    "lucide-react": "0.469.0",
+    "lucide-react": "0.563.0",
     "next-themes": "0.4.6",
     "sonner": "2.0.7",
     "recharts": "2.15.4",
@@ -58,8 +58,8 @@ const PACKAGE_JSON = `{
     "zod": "4.3.6",
     "framer-motion": "12.38.0",
     "@tanstack/react-table": "8.21.3",
-    "three": "0.176.0",
-    "@react-three/fiber": "9.1.2",
+    "three": "0.182.0",
+    "@react-three/fiber": "9.6.0",
     "@react-three/drei": "10.7.7",
     "date-fns": "4.1.0"
   },
@@ -70,8 +70,8 @@ const PACKAGE_JSON = `{
     "@types/node": "22.19.17",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
-    "@tailwindcss/postcss": "4.1.5",
-    "tailwindcss": "4.1.5"
+    "@tailwindcss/postcss": "4.1.18",
+    "tailwindcss": "4.1.18"
   },
   "overrides": {
     "postcss": "^8.5.10"

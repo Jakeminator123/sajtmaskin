@@ -877,7 +877,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             initialPrompt={vm.initialPrompt}
             onCreateChat={vm.requestCreateChat}
             onSendMessage={vm.sendMessage}
-            onStartFromRegistry={vm.handleStartFromRegistry}
             onRequestPlacement={handleRequestPlacement}
             onStartFromTemplate={vm.handleStartFromTemplate}
             onPaletteSelection={vm.handlePaletteSelection}

@@ -24,6 +24,19 @@ describe("findNearestIcon — semantic alias map (SAJ-15 / A2)", () => {
     expect(findNearestIcon("MailIcon")).toBe("Mail");
   });
 
+  it("strips leading 'Lucide' prefix before the substring fallback", () => {
+    // Regression: `Lucide*` aliases are not in the base-only allowlist. Without
+    // explicit prefix normalization the substring heuristic picks the shorter
+    // `Ear` ("lucid[ear]rowdown") instead of the intended `ArrowDown`.
+    expect(findNearestIcon("LucideArrowDown")).toBe("ArrowDown");
+    expect(findNearestIcon("LucideMail")).toBe("Mail");
+    expect(findNearestIcon("LucideCamera")).toBe("Camera");
+  });
+
+  it("normalizes combined Lucide prefix + Icon suffix", () => {
+    expect(findNearestIcon("LucideArrowDownIcon")).toBe("ArrowDown");
+  });
+
   it("does not invent Circle aliases when nothing matches", () => {
     expect(findNearestIcon("TotallyMadeUpThing")).toBeNull();
   });
