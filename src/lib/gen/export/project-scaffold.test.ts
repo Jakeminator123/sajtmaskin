@@ -34,7 +34,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies.next).toBe("16.2.9");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
-    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
+    expect(merged.dependencies["lucide-react"]).toBe("0.563.0");
   });
 
   it("lets the model override individual script names", () => {
@@ -78,10 +78,10 @@ describe("mergePackageJsonWithBaseline", () => {
         "@react-three/drei": "^10",
       },
     }) as { dependencies: Record<string, string> };
-    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
-    expect(merged.dependencies["@react-three/fiber"]).toBe("9.1.2");
+    expect(merged.dependencies["lucide-react"]).toBe("0.563.0");
+    expect(merged.dependencies["@react-three/fiber"]).toBe("9.6.0");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(merged.dependencies.three).toBe("0.176.0");
+    expect(merged.dependencies.three).toBe("0.182.0");
   });
 });
 
@@ -322,9 +322,9 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.dependencies.next).toBe("16.2.9");
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.1.2");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(pkg.dependencies.three).toBe("0.176.0");
+    expect(pkg.dependencies.three).toBe("0.182.0");
   });
 
   it("detects scoped @radix-ui imports via dep-completer in buildCompleteProject", () => {
