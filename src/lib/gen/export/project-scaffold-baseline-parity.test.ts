@@ -10,11 +10,12 @@ import { describe, expect, it } from "vitest";
  * projects, so a version skew (e.g. lucide-react drifting) can ship a component
  * that imports an icon/API the pinned runtime does not have -> user build break.
  *
- * `lucide-react` is checked at major.minor because the LUCIDE_ICONS allowlist
- * + check-lucide-icons.mjs + the shipped runtime must all agree on the exact
- * icon export set. If this fails after bumping the platform lucide, also bump
- * the `lucide-react` pin in project-scaffold.ts and run
- * `node scripts/dev/generate-lucide-icons.mjs`.
+ * Lock granularity per package is defined by the buckets below. The runtime-
+ * sensitive packages (lucide-react + the React-Three 3D stack) are locked at
+ * the full declared major.minor.patch because their pins currently match
+ * exactly and a silent minor/patch skew there is the highest build-break risk.
+ * If a lucide bump trips this, also bump the `lucide-react` pin in
+ * project-scaffold.ts and run `node scripts/dev/generate-lucide-icons.mjs`.
  */
 
 const ROOT = process.cwd();
@@ -45,14 +46,17 @@ function readGeneratedBaselineDeps(): Record<string, string> {
   return { ...(parsed.dependencies ?? {}), ...(parsed.devDependencies ?? {}) };
 }
 
-/** Packages whose major must match between platform and generated projects. */
+/**
+ * Packages whose MAJOR must match between platform and generated projects.
+ * `framer-motion` lives here (not major.minor) because the platform caret
+ * range (`^12.29.0`) and the generated pin (`12.38.0`) legitimately differ at
+ * the minor level; only a major bump is a real compatibility break.
+ */
 const MAJOR_LOCKED = [
   "react",
   "react-dom",
   "next",
   "radix-ui",
-  "three",
-  "@react-three/fiber",
   "framer-motion",
 ] as const;
 
@@ -60,19 +64,32 @@ const MAJOR_LOCKED = [
 const MAJOR_MINOR_LOCKED = ["tailwindcss"] as const;
 
 /**
- * Packages locked at the full major.minor.patch level. `lucide-react` is the
- * strictest: the LUCIDE_ICONS allowlist is generated from, and validated
- * (`check-lucide-icons.mjs`) against, the platform's lucide, while generated
- * projects ship the exact pin below. Locking the declared patch keeps those in
- * lockstep so the allowlist can never admit an icon the shipped runtime lacks.
+ * Packages locked at the full major.minor.patch level — the highest build-break
+ * risk if they drift.
+ *
+ * - `lucide-react`: the LUCIDE_ICONS allowlist is generated from, and validated
+ *   (`check-lucide-icons.mjs`) against, the platform's lucide, while generated
+ *   projects ship the exact pin below. Locking the declared patch keeps those
+ *   in lockstep so the allowlist can never admit an icon the shipped runtime
+ *   lacks.
+ * - The React-Three 3D stack (`three`, `@react-three/fiber`,
+ *   `@react-three/drei`): pre-1.0 `three` makes a major-only lock meaningless
+ *   (major is always 0), and Drei helpers imported by 3D dossiers are tightly
+ *   coupled to specific fiber/three minors. Their pins currently match exactly,
+ *   so lock the full patch.
  *
  * Residual (accepted): this compares the *declared* versions, not the resolved
- * lockfile. A pure lockfile patch bump on the platform's caret range is not
- * caught here — but the allowlist is BASE-names-only (stable across patches)
- * and `check-lucide-icons.mjs` re-validates every name against the installed
- * package in CI, so a removed/renamed export is still caught at build time.
+ * lockfile. A pure lockfile patch bump on a platform caret range is not caught
+ * here — but for lucide the allowlist is BASE-names-only (stable across
+ * patches) and `check-lucide-icons.mjs` re-validates every name against the
+ * installed package in CI, so a removed/renamed export is still caught.
  */
-const MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
+const MAJOR_MINOR_PATCH_LOCKED = [
+  "lucide-react",
+  "three",
+  "@react-three/fiber",
+  "@react-three/drei",
+] as const;
 
 describe("project-scaffold baseline parity with platform package.json", () => {
   const platform = readPlatformDeps();

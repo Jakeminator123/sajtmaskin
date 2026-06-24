@@ -37,9 +37,16 @@ for (const icon of LUCIDE_ICONS) {
  *
  * Strategy (in priority order):
  *  1. Case-insensitive exact match
- *  2. Strip common suffixes ("Icon", "Outlined", "Filled") then re-check
+ *  2. Normalize alias affixes (leading `Lucide` prefix + trailing
+ *     `Icon`/`Outlined`/`Filled`/`Sharp` suffix), then re-check exact
  *  3. Substring containment (icon name contained in query or vice versa)
  *  4. No match
+ *
+ * The `Lucide*` and `*Icon` alias forms are intentionally NOT in LUCIDE_ICONS
+ * (it holds base names only — see src/lib/gen/data/lucide-icons.ts). They must
+ * therefore be folded to the base name HERE, in step 2, BEFORE the loose
+ * substring fallback — otherwise e.g. `LucideArrowDown` substring-matches the
+ * much shorter `Ear` ("lucid**ear**rowdown") instead of `ArrowDown`.
  */
 export function findNearestIcon(name: string): string | null {
   const brandReplacement = LUCIDE_BRAND_ICON_REPLACEMENTS[name];
@@ -51,8 +58,9 @@ export function findNearestIcon(name: string): string | null {
   const exact = iconsLower.get(lower);
   if (exact) return exact;
 
-  // 2. Strip common suffixes
+  // 2. Normalize alias affixes (leading `lucide`, trailing icon/style suffix)
   const stripped = lower
+    .replace(/^lucide/, "")
     .replace(/icon$/i, "")
     .replace(/outlined$/i, "")
     .replace(/filled$/i, "")
@@ -62,12 +70,16 @@ export function findNearestIcon(name: string): string | null {
     if (match) return match;
   }
 
-  // 3. Substring containment — prefer shortest matching icon
+  // 3. Substring containment — prefer shortest matching icon.
+  // Guarded against degenerate short keys (a stray 1-2 char icon name would
+  // otherwise match almost anything); require a stripped query of length >= 3.
   let best: string | null = null;
-  for (const [key, icon] of iconsLower) {
-    if (key.includes(stripped) || stripped.includes(key)) {
-      if (!best || icon.length < best.length) {
-        best = icon;
+  if (stripped.length >= 3) {
+    for (const [key, icon] of iconsLower) {
+      if (key.includes(stripped) || stripped.includes(key)) {
+        if (!best || icon.length < best.length) {
+          best = icon;
+        }
       }
     }
   }
