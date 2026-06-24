@@ -53,6 +53,7 @@ const MAJOR_LOCKED = [
   "radix-ui",
   "three",
   "@react-three/fiber",
+  "framer-motion",
 ] as const;
 
 /** Packages whose major AND minor must match (exact-runtime-sensitive). */
