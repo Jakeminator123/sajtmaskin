@@ -96,6 +96,52 @@ export default function Page() { return <Button>Hi</Button>; }
     expect(result.reverted).toBe(false);
     expect(result.code).toContain('import { X } from "y"');
   });
+
+  // ---- Codex P2 finding 1: `.jsx` script kind ----------------------------
+  describe(".jsx is parsed with JSX support (Codex finding 1)", () => {
+    const VALID_JSX = `import { Button } from "./button";
+export default function Page() {
+  return <Button>Hi</Button>;
+}
+`;
+
+    it("treats valid .jsx with JSX as parseable before the fixer (so a corrupt output CAN be reverted)", () => {
+      // If .jsx were parsed as plain TS, the JSX `<Button>` would be a parse
+      // error on input → guard would think it was "already broken" and let a
+      // corrupt output pass. With JSX script kind, the corrupt output reverts.
+      const brokenRunner = () => ({
+        code: `import { Button } from "./button";
+ArrowDown,
+;
+from;
+"lucide-react";
+export default function Page() { return <Button>Hi</Button>; }
+`,
+        fixes: [{ fixer: "import-validator", description: "bogus" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(VALID_JSX, "app/page.jsx", brokenRunner);
+      expect(result.reverted).toBe(true);
+      expect(result.code).toBe(VALID_JSX);
+    });
+
+    it("does NOT mask an already-broken .jsx input (no false revert)", () => {
+      const alreadyBrokenJsx = `import { Button } from "./button";
+ArrowDown,
+;
+from;
+"lucide-react";
+export default function Page() { return <Button/>; }
+`;
+      const passthroughRunner = (c: string) => ({
+        code: c + "// touched\n",
+        fixes: [{ fixer: "import-validator", description: "noop-ish" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(alreadyBrokenJsx, "app/page.jsx", passthroughRunner);
+      expect(result.reverted).toBe(false);
+    });
+  });
 });
 
 describe("repairGeneratedFiles — post-merge guard wiring", () => {

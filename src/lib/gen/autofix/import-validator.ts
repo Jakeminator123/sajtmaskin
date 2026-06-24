@@ -1,4 +1,3 @@
-import ts from "typescript";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import {
@@ -6,7 +5,7 @@ import {
   isLucideTypeOnlyExport,
   parseSpecifier,
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
-import { createTsxSourceFile } from "./rules/import-binding-ast";
+import { countParseErrors } from "./rules/import-binding-ast";
 import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
@@ -793,24 +792,6 @@ export function runImportValidator(code: string): {
   const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
   const warnings = validateImports(missing.code);
   return { code: missing.code, fixes, warnings };
-}
-
-/**
- * Counts hard parser errors via the TypeScript parser (synchronous, already a
- * dependency). The TS parser flags the corruption classes the regex import
- * fixers can produce — unbalanced braces, unterminated tokens, AND the
- * "orphaned import specifier" comma/expression shape (`Zap,\n; from; "x";`)
- * that esbuild treats as syntactically valid.
- */
-function countParseErrors(code: string, filePath: string): number {
-  const sf = createTsxSourceFile(filePath, code);
-  // `parseDiagnostics` is the (internal) list of syntactic errors found while
-  // parsing. It is stable across TS versions and does not require a Program /
-  // type-checker, so it stays synchronous and cheap.
-  const diagnostics = (sf as ts.SourceFile & {
-    parseDiagnostics?: readonly ts.Diagnostic[];
-  }).parseDiagnostics;
-  return diagnostics?.length ?? 0;
 }
 
 /**

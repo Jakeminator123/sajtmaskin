@@ -7,9 +7,60 @@ export function isStubModuleSpecifier(spec: string): boolean {
   return STUB_PATH_RE.test(spec);
 }
 
+/**
+ * Picks the TypeScript `ScriptKind` from a file extension so the parser
+ * understands the dialect correctly:
+ *
+ *   - `.tsx` → TSX  (TypeScript + JSX)
+ *   - `.jsx` → JSX  (JavaScript + JSX) — without this, valid `.jsx` with JSX
+ *               was parsed as plain TS and looked "already broken", which let
+ *               a corrupt fixer output slip past the validity guard.
+ *   - `.js`  → JS   (JavaScript, no TS-only syntax)
+ *   - `.ts` / anything else → TS
+ *
+ * Note: `ScriptKind.JS`/`.JSX` still accept most syntax leniently; the point
+ * is that `.jsx` must NOT be parsed as `.ts` (where a bare `<Tag>` is a type
+ * assertion / comparison and trips the parser).
+ */
+export function scriptKindForFile(filePath: string): ts.ScriptKind {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  if (lower.endsWith(".jsx")) return ts.ScriptKind.JSX;
+  if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) {
+    return ts.ScriptKind.JS;
+  }
+  return ts.ScriptKind.TS;
+}
+
 export function createTsxSourceFile(filePath: string, code: string): ts.SourceFile {
-  const kind = filePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  return ts.createSourceFile(filePath, code, ts.ScriptTarget.Latest, true, kind);
+  return ts.createSourceFile(
+    filePath,
+    code,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindForFile(filePath),
+  );
+}
+
+/**
+ * Counts hard syntactic (parse) errors via the TypeScript parser. Synchronous
+ * and dependency-free (TS is a runtime dependency), so it works in
+ * production-style installs where the dev-only `esbuild` may be absent.
+ *
+ * Uses the correct per-extension `ScriptKind` (see {@link scriptKindForFile}),
+ * so valid `.jsx`/`.tsx` with JSX is NOT mis-flagged as broken. The TS parser
+ * also catches the orphaned-import comma shape (`Zap,\n; from; "x";`) that
+ * esbuild treats as syntactically valid.
+ *
+ * `parseDiagnostics` is the parser's syntactic-error list; it needs no Program
+ * / type-checker, so this stays cheap and synchronous.
+ */
+export function countParseErrors(code: string, filePath: string): number {
+  const sf = createTsxSourceFile(filePath, code);
+  const diagnostics = (sf as ts.SourceFile & {
+    parseDiagnostics?: readonly ts.Diagnostic[];
+  }).parseDiagnostics;
+  return diagnostics?.length ?? 0;
 }
 
 export type ImportBindingRow = {

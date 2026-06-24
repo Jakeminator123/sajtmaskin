@@ -12,6 +12,7 @@ import {
   fixNextImageImport,
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
+import { countParseErrors } from "./rules/import-binding-ast";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
@@ -253,18 +254,42 @@ async function validateSyntax(
  * no-op, but it can never be the step that introduces a syntax error. This is
  * the defence-in-depth recommended by the autofix deep-audit (2026-06-24).
  */
+/**
+ * Default validator: the synchronous TypeScript parser. Dependency-free (TS is
+ * a runtime dependency) and dialect-correct per extension, so it works in
+ * production-style installs where the dev-only `esbuild` may be absent — and it
+ * does NOT mis-flag valid `.jsx`/`.tsx` JSX as broken. Returns the
+ * `SyntaxValidation` shape so the (still injectable) signature is unchanged.
+ */
+function validateSyntaxViaTsParser(code: string, filePath: string): SyntaxValidation {
+  const errors = countParseErrors(code, filePath);
+  return errors === 0
+    ? { valid: true, errors: [] }
+    : { valid: false, errors: [{ line: 0, column: 0, message: `${errors} parse error(s)` }] };
+}
+
+const GUARDABLE_EXT_RE = /\.(tsx?|jsx?|mjs|cjs)$/i;
+
 export async function guardFixerSyntax(
   before: string,
   after: string,
   filePath: string,
   fixerId: string,
   warnings: string[],
-  /** Injectable for tests; defaults to the esbuild-backed validator. */
-  validate: (code: string, filePath: string) => Promise<SyntaxValidation> = validateSyntax,
+  /**
+   * Injectable for tests; defaults to the **TypeScript-parser** validator (no
+   * dev-only esbuild reliance). Previously defaulted to esbuild, which is only
+   * a dev/transitive dependency — in production-style installs `validateSyntax`
+   * could silently fall back to `valid: true` for everything, letting a broken
+   * jsx-checker output pass unreverted (Codex P2 finding on #237).
+   */
+  validate: (
+    code: string,
+    filePath: string,
+  ) => SyntaxValidation | Promise<SyntaxValidation> = validateSyntaxViaTsParser,
 ): Promise<{ code: string; reverted: boolean }> {
   if (after === before) return { code: after, reverted: false };
-  const loader = inferLoader(filePath);
-  if (!loader) return { code: after, reverted: false };
+  if (!GUARDABLE_EXT_RE.test(filePath)) return { code: after, reverted: false };
 
   const afterResult = await validate(after, filePath);
   if (afterResult.valid) return { code: after, reverted: false };
@@ -277,7 +302,7 @@ export async function guardFixerSyntax(
 
   warnings.push(
     `[${filePath}] ${fixerId} reverted: it made a parseable file unparseable ` +
-      `(esbuild: ${afterResult.errors[0]?.message ?? "syntax error"}) — kept pre-fixer content`,
+      `(${afterResult.errors[0]?.message ?? "syntax error"}) — kept pre-fixer content`,
   );
   return { code: before, reverted: true };
 }

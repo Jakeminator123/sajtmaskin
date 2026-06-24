@@ -63,10 +63,48 @@ describe("guardFixerSyntax (validity guard)", () => {
     expect(res.code).toBe(AFTER_OK);
   });
 
-  it("does not run for files with no esbuild loader (e.g. .md) — even if marked invalid", async () => {
+  it("does not run for non-ts/js files (e.g. .md) — even if marked invalid", async () => {
     const warnings: string[] = [];
     const res = await guardFixerSyntax("a {", "b {{", "notes.md", "x", warnings, fakeValidator(new Set(["b {{"])));
     expect(res.reverted).toBe(false);
     expect(res.code).toBe("b {{");
+  });
+
+  // ---- Codex P2 finding 2: default validator must not rely on dev-only esbuild ----
+  describe("default validator (TypeScript parser, no esbuild)", () => {
+    const VALID = `import { Button } from "@/components/ui/button";
+export default function Page() { return <Button>Hi</Button>; }
+`;
+    const BROKEN = `import { Button } from "@/components/ui/button";
+export default function Page() { return <Button>Hi</Button>;
+`; // missing closing brace
+
+    it("reverts a parseable->unparseable change using ONLY the default (no DI) validator", async () => {
+      const warnings: string[] = [];
+      // No 6th arg => uses the production default (TS parser). esbuild is never
+      // imported here; if the default still relied on esbuild it would fall
+      // back to valid:true and fail to revert.
+      const res = await guardFixerSyntax(VALID, BROKEN, "app/page.tsx", "jsx-checker", warnings);
+      expect(res.reverted).toBe(true);
+      expect(res.code).toBe(VALID);
+      expect(warnings.some((w) => w.includes("jsx-checker reverted"))).toBe(true);
+    });
+
+    it("keeps a valid change with the default validator", async () => {
+      const warnings: string[] = [];
+      const res = await guardFixerSyntax(VALID, VALID.replace("Hi", "Hello"), "app/page.tsx", "jsx-checker", warnings);
+      expect(res.reverted).toBe(false);
+    });
+
+    it("handles valid .jsx with JSX via the default validator (does not false-revert)", async () => {
+      const warnings: string[] = [];
+      const jsxValid = `import { Button } from "./button";
+export default function Page() { return <Button>Hi</Button>; }
+`;
+      const jsxAlsoValid = jsxValid.replace("Hi", "Yo");
+      const res = await guardFixerSyntax(jsxValid, jsxAlsoValid, "app/page.jsx", "jsx-checker", warnings);
+      expect(res.reverted).toBe(false);
+      expect(res.code).toBe(jsxAlsoValid);
+    });
   });
 });
