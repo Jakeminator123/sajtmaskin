@@ -101,4 +101,83 @@ export function Panel() {
     expect(result.code).toContain("new Map<string, string>()");
     expect(result.code).toContain("<Sidebar");
   });
+
+  it("picks an alias that does not collide with an existing local declaration", () => {
+    const code = `import Date from "@/components/date";
+
+function DateView() {
+  return null;
+}
+
+export function Row() {
+  return <Date label="Skapad" />;
+}
+`;
+    const result = fixGlobalShadowingImports(code, "components/row.tsx");
+    expect(result.fixed).toBe(true);
+    // "DateView" is already taken by the local function → must pick the next free
+    // alias instead of producing a duplicate-binding compile error.
+    expect(result.renamed).toEqual([{ from: "Date", to: "DateComponent" }]);
+    expect(result.code).toContain('import DateComponent from "@/components/date"');
+    expect(result.code).toContain("<DateComponent");
+    expect(result.code).toContain("function DateView()");
+  });
+
+  it("aliases a JSX member tag head instead of dropping the used import", () => {
+    const code = `import Date from "@/components/date";
+
+export function Row() {
+  return <Date.Icon title="Skapad" />;
+}
+`;
+    const result = fixGlobalShadowingImports(code, "components/row.tsx");
+    expect(result.fixed).toBe(true);
+    // The import IS used (its member is rendered) → it must be aliased, not removed.
+    expect(result.removed).toEqual([]);
+    expect(result.renamed).toEqual([{ from: "Date", to: "DateView" }]);
+    expect(result.code).toContain('import DateView from "@/components/date"');
+    expect(result.code).toContain("<DateView.Icon");
+    expect(result.code).not.toContain("<Date.Icon");
+  });
+
+  it("still removes a value-position member access (Date.now()) — not treated as JSX", () => {
+    const code = `import Date from "@/components/date";
+
+export function stamp() {
+  return Date.now();
+}
+`;
+    const result = fixGlobalShadowingImports(code, "lib/stamp.ts");
+    expect(result.fixed).toBe(true);
+    expect(result.removed).toContain("Date");
+    expect(result.code).not.toContain('from "@/components/date"');
+    expect(result.code).toContain("Date.now()");
+  });
+
+  it("gives multiple shadowing JSX components distinct aliases", () => {
+    const code = `import Date from "@/components/date";
+import Map from "@/components/map";
+
+export function Row() {
+  return (
+    <div>
+      <Date />
+      <Map />
+    </div>
+  );
+}
+`;
+    const result = fixGlobalShadowingImports(code, "components/row.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.renamed).toEqual(
+      expect.arrayContaining([
+        { from: "Date", to: "DateView" },
+        { from: "Map", to: "MapView" },
+      ]),
+    );
+    expect(result.code).toContain('import DateView from "@/components/date"');
+    expect(result.code).toContain('import MapView from "@/components/map"');
+    expect(result.code).toContain("<DateView");
+    expect(result.code).toContain("<MapView");
+  });
 });

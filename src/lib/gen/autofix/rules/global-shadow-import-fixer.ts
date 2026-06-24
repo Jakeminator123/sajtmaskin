@@ -79,22 +79,52 @@ export interface GlobalShadowFixResult {
   renamed: Array<{ from: string; to: string }>;
 }
 
-function collectBindingNames(sf: ts.SourceFile): Set<string> {
+/**
+ * Collects every identifier name that appears anywhere in the file —
+ * declarations AND references AND property names. Used as the "taken" set when
+ * picking a safe alias.
+ *
+ * The original implementation only scanned import bindings, so an alias like
+ * `DateView` could still collide with a local `function DateView()` /
+ * `const DateView` / `type DateView` / `class DateView` already present in the
+ * file, producing a duplicate-binding compile error. Scanning all identifiers
+ * guarantees the chosen alias clashes with nothing.
+ */
+function collectTakenNames(sf: ts.SourceFile): Set<string> {
   const names = new Set<string>();
-  for (const st of sf.statements) {
-    if (!ts.isImportDeclaration(st)) continue;
-    const ic = st.importClause;
-    if (!ic) continue;
-    if (ic.name) names.add(ic.name.text);
-    if (ic.namedBindings) {
-      if (ts.isNamespaceImport(ic.namedBindings)) {
-        names.add(ic.namedBindings.name.text);
-      } else if (ts.isNamedImports(ic.namedBindings)) {
-        for (const el of ic.namedBindings.elements) names.add(el.name.text);
-      }
-    }
-  }
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node)) names.add(node.text);
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sf, visit);
   return names;
+}
+
+/**
+ * True when `node` is the head (left-most) identifier of a property-access
+ * chain that is used as a JSX tag name, e.g. `Date` in `<Date.Icon />` or
+ * `<Date.Sub.Icon />`. Such a binding IS used as a component (its member is
+ * rendered) and therefore must be aliased, not dropped — dropping it would
+ * leave `<Date.Icon />` resolving to the (member-less) global `Date`.
+ *
+ * A value-position member access like `Date.now()` is deliberately NOT matched:
+ * there the global static is the intended target, so the import is still safe
+ * to remove.
+ */
+function isJsxTagMemberHead(node: ts.Identifier): boolean {
+  let cur: ts.Node = node;
+  let parent: ts.Node | undefined = node.parent;
+  while (parent && ts.isPropertyAccessExpression(parent) && parent.expression === cur) {
+    cur = parent;
+    parent = parent.parent;
+  }
+  return (
+    !!parent &&
+    (ts.isJsxOpeningElement(parent) ||
+      ts.isJsxSelfClosingElement(parent) ||
+      ts.isJsxClosingElement(parent)) &&
+    parent.tagName === cur
+  );
 }
 
 /**
@@ -102,9 +132,13 @@ function collectBindingNames(sf: ts.SourceFile): Set<string> {
  * tag references (`<name .../>`) from everything else (value, `new`, member,
  * type). Property names (`obj.name`, `{ name: ... }`) are not counted.
  */
-function analyzeUsage(sf: ts.SourceFile, name: string): { total: number; jsxTagRefs: number } {
+function analyzeUsage(
+  sf: ts.SourceFile,
+  name: string,
+): { total: number; jsxTagRefs: number; jsxMemberHeadRefs: number } {
   let total = 0;
   let jsxTagRefs = 0;
+  let jsxMemberHeadRefs = 0;
 
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node)) return; // skip the import itself
@@ -127,13 +161,14 @@ function analyzeUsage(sf: ts.SourceFile, name: string): { total: number; jsxTagR
             ts.isJsxClosingElement(p)) &&
           p.tagName === node;
         if (isJsxTag) jsxTagRefs += 1;
+        else if (isJsxTagMemberHead(node)) jsxMemberHeadRefs += 1;
       }
     }
     ts.forEachChild(node, visit);
   };
 
   ts.forEachChild(sf, visit);
-  return { total, jsxTagRefs };
+  return { total, jsxTagRefs, jsxMemberHeadRefs };
 }
 
 function makeAlias(name: string, taken: Set<string>): string {
@@ -209,18 +244,40 @@ function rebuildImportClause(
   );
 }
 
-function renameJsxTagName<T extends ts.JsxOpeningElement | ts.JsxSelfClosingElement | ts.JsxClosingElement>(
+function withJsxTagName<T extends ts.JsxOpeningElement | ts.JsxSelfClosingElement | ts.JsxClosingElement>(
   node: T,
-  newName: string,
+  newTag: ts.JsxTagNameExpression,
 ): T {
-  const tag = ts.factory.createIdentifier(newName);
   if (ts.isJsxSelfClosingElement(node)) {
-    return ts.factory.updateJsxSelfClosingElement(node, tag, node.typeArguments, node.attributes) as T;
+    return ts.factory.updateJsxSelfClosingElement(node, newTag, node.typeArguments, node.attributes) as T;
   }
   if (ts.isJsxOpeningElement(node)) {
-    return ts.factory.updateJsxOpeningElement(node, tag, node.typeArguments, node.attributes) as T;
+    return ts.factory.updateJsxOpeningElement(node, newTag, node.typeArguments, node.attributes) as T;
   }
-  return ts.factory.updateJsxClosingElement(node, tag) as T;
+  return ts.factory.updateJsxClosingElement(node, newTag) as T;
+}
+
+/** Leftmost identifier of a JSX tag name (`Date` in `<Date.Sub.Icon />`). */
+function leftmostTagIdentifier(tag: ts.JsxTagNameExpression): ts.Identifier | null {
+  let cur: ts.Node = tag;
+  while (ts.isPropertyAccessExpression(cur)) cur = cur.expression;
+  return ts.isIdentifier(cur) ? cur : null;
+}
+
+/**
+ * Rewrites only the head identifier of a JSX member tag, keeping the chain
+ * (`<Date.Sub.Icon/>` -> `<Alias.Sub.Icon/>`). Returns a plain
+ * `PropertyAccessExpression`; the call site casts it to the JSX-branded
+ * `JsxTagNameExpression` (the node is structurally a valid JSX tag name).
+ */
+function renameJsxTagMemberHead(
+  tag: ts.PropertyAccessExpression,
+  newHead: string,
+): ts.PropertyAccessExpression {
+  const newExpr = ts.isPropertyAccessExpression(tag.expression)
+    ? renameJsxTagMemberHead(tag.expression, newHead)
+    : ts.factory.createIdentifier(newHead);
+  return ts.factory.updatePropertyAccessExpression(tag, newExpr, tag.name);
 }
 
 export function fixGlobalShadowingImports(code: string, filePath: string): GlobalShadowFixResult {
@@ -246,14 +303,16 @@ export function fixGlobalShadowingImports(code: string, filePath: string): Globa
   }
   if (candidateNames.length === 0) return noop;
 
-  // 2. Decide per candidate: remove (not used as JSX) or rename (used as JSX).
+  // 2. Decide per candidate: remove (not used as JSX) or rename (used as a JSX
+  //    component, either as a plain tag `<Date/>` or as a member tag head
+  //    `<Date.Icon/>`). Aliases avoid colliding with ANY identifier in the file.
   const removeNames = new Set<string>();
   const renameMap = new Map<string, string>();
-  const taken = collectBindingNames(sf);
+  const taken = collectTakenNames(sf);
   for (const name of candidateNames) {
     if (removeNames.has(name) || renameMap.has(name)) continue;
     const usage = analyzeUsage(sf, name);
-    if (usage.jsxTagRefs === 0) {
+    if (usage.jsxTagRefs === 0 && usage.jsxMemberHeadRefs === 0) {
       removeNames.add(name);
     } else {
       const alias = makeAlias(name, taken);
@@ -270,14 +329,23 @@ export function fixGlobalShadowingImports(code: string, filePath: string): Globa
         return rebuildImportClause(node, removeNames, renameMap);
       }
       if (
-        (ts.isJsxOpeningElement(node) ||
-          ts.isJsxSelfClosingElement(node) ||
-          ts.isJsxClosingElement(node)) &&
-        ts.isIdentifier(node.tagName) &&
-        renameMap.has(node.tagName.text)
+        ts.isJsxOpeningElement(node) ||
+        ts.isJsxSelfClosingElement(node) ||
+        ts.isJsxClosingElement(node)
       ) {
-        const renamed = renameJsxTagName(node, renameMap.get(node.tagName.text)!);
-        return ts.visitEachChild(renamed, visit, context);
+        const tag = node.tagName;
+        if (ts.isIdentifier(tag) && renameMap.has(tag.text)) {
+          const renamed = withJsxTagName(node, ts.factory.createIdentifier(renameMap.get(tag.text)!));
+          return ts.visitEachChild(renamed, visit, context);
+        }
+        if (ts.isPropertyAccessExpression(tag)) {
+          const head = leftmostTagIdentifier(tag);
+          if (head && renameMap.has(head.text)) {
+            const newTag = renameJsxTagMemberHead(tag, renameMap.get(head.text)!) as ts.JsxTagNameExpression;
+            const renamed = withJsxTagName(node, newTag);
+            return ts.visitEachChild(renamed, visit, context);
+          }
+        }
       }
       return ts.visitEachChild(node, visit, context);
     };
