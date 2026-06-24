@@ -262,8 +262,4 @@ data/runs/
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
-.gitignore
-
-.vercel
-
-.vercel
+# (.vercel is ignored once near the top under "# Vercel".)

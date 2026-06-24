@@ -382,6 +382,24 @@
         "src/lib/db/schema.ts"
       ]
     },
+    "Logg-export": {
+      "summary": "Read-only loggexport: välj loggtyper (prompts/generations/versions/telemetry/errors/chats) och antal rader och ladda ner som JSON/CSV. Kör scripts/db/dump-logs.mjs via subprocess (SELECT only). Mål-DB väljs via env-fil — dev (.env.local) eller prod (.env.vercel.production.pulled). DB-target resolveras deterministiskt via effectiveEnv (vald env-fil vinner över parent process env, se scripts/db/env-merge.mjs) och kontrolleras mot pulled prod-snapshot via db-target-guard.mjs. Inga writes; prod-secrets ska raderas efter användning.",
+      "canonicalPaths": [
+        "backoffice/pages/log_export.py",
+        "scripts/db/dump-logs.mjs",
+        "scripts/db/env-merge.mjs",
+        "scripts/debug/latest-generations.mjs"
+      ],
+      "docsPaths": [
+        "docs/ENV.md",
+        ".cursor/rules/db-env-parity.mdc"
+      ],
+      "codeReaders": [
+        "backoffice/pages/__init__.py",
+        "backoffice/shared.py",
+        "scripts/db/db-target-guard.mjs"
+      ]
+    },
     "Eval": {
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manuellt och sparar datumstämplade rapporter under docs/evals/ utan att uppdatera baseline.",
       "canonicalPaths": [
