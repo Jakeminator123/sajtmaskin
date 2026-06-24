@@ -77,6 +77,15 @@ describe("summarizeVersionLogsForAutoFix", () => {
   });
 });
 
+// The per-chat cap is read from NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT at module
+// import time (default 3). The cap-dependent assertions below assume that
+// default; skip them when an env override is active (e.g. the documented
+// rollback NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=1) so a configured runtime doesn't
+// produce false failures.
+const capOverridden =
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT != null &&
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT !== "3";
+
 describe("useAutoFix", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -144,7 +153,7 @@ describe("useAutoFix", () => {
     );
   });
 
-  it("does not start a second autofix while one is still in flight (no overlap)", async () => {
+  it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
       () =>
@@ -198,7 +207,7 @@ describe("useAutoFix", () => {
     expect(sendMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("does not let a rapid duplicate event burn a chat-cap slot", async () => {
+  it.skipIf(capOverridden)("does not let a rapid duplicate event burn a chat-cap slot", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
       () =>
@@ -251,7 +260,7 @@ describe("useAutoFix", () => {
     expect(sendMessage).toHaveBeenCalledTimes(3);
   });
 
-  it("manual autofix bypasses the per-chat and per-reason caps but still sends", async () => {
+  it.skipIf(capOverridden)("manual autofix bypasses the per-chat and per-reason caps but still sends", async () => {
     const sendMessage = vi.fn(async () => undefined);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
@@ -293,7 +302,7 @@ describe("useAutoFix", () => {
     expect(sendMessage).toHaveBeenCalledTimes(4);
   });
 
-  it("manual sends do not consume the automatic per-chat budget", async () => {
+  it.skipIf(capOverridden)("manual sends do not consume the automatic per-chat budget", async () => {
     const sendMessage = vi.fn(async () => undefined);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
