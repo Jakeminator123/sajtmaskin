@@ -1,5 +1,5 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { runImportValidator } from "./import-validator";
+import { runImportValidatorGuarded } from "./import-validator";
 import { fixReactAndNavigationImports } from "./rules/react-import-consolidated";
 import {
   buildProjectModuleExportIndex,
@@ -12,6 +12,7 @@ import {
   fixNextImageImport,
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
+import { countParseErrors, GUARDABLE_EXT_RE } from "./rules/import-binding-ast";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixGlobalShadowingImports } from "./rules/global-shadow-import-fixer";
@@ -238,6 +239,73 @@ async function validateSyntax(
   }
 }
 
+/**
+ * Validity guard for a single mechanical fixer.
+ *
+ * A mechanical fixer must never leave a file LESS parseable than it found it.
+ * Given the code `before` and `after` a fixer ran, this returns `after` unless
+ * the fixer turned parseable input into UNPARSEABLE output (valid before,
+ * invalid after) — in which case it returns `before` and records a warning.
+ *
+ * It deliberately does NOT revert when the input was already unparseable: that
+ * breakage is upstream (model/stream output) and must stay visible to the
+ * syntax-validator / preflight gate rather than be masked here.
+ *
+ * Net effect: a guarded fixer becomes "revert-only safe" — it can fix or
+ * no-op, but it can never be the step that introduces a syntax error. This is
+ * the defence-in-depth recommended by the autofix deep-audit (2026-06-24).
+ */
+/**
+ * Default validator: the synchronous TypeScript parser. Dependency-free (TS is
+ * a runtime dependency) and dialect-correct per extension, so it works in
+ * production-style installs where the dev-only `esbuild` may be absent — and it
+ * does NOT mis-flag valid `.jsx`/`.tsx` JSX as broken. Returns the
+ * `SyntaxValidation` shape so the (still injectable) signature is unchanged.
+ */
+function validateSyntaxViaTsParser(code: string, filePath: string): SyntaxValidation {
+  const errors = countParseErrors(code, filePath);
+  return errors === 0
+    ? { valid: true, errors: [] }
+    : { valid: false, errors: [{ line: 0, column: 0, message: `${errors} parse error(s)` }] };
+}
+
+export async function guardFixerSyntax(
+  before: string,
+  after: string,
+  filePath: string,
+  fixerId: string,
+  warnings: string[],
+  /**
+   * Injectable for tests; defaults to the **TypeScript-parser** validator (no
+   * dev-only esbuild reliance). Previously defaulted to esbuild, which is only
+   * a dev/transitive dependency — in production-style installs `validateSyntax`
+   * could silently fall back to `valid: true` for everything, letting a broken
+   * jsx-checker output pass unreverted (Codex P2 finding on #237).
+   */
+  validate: (
+    code: string,
+    filePath: string,
+  ) => SyntaxValidation | Promise<SyntaxValidation> = validateSyntaxViaTsParser,
+): Promise<{ code: string; reverted: boolean }> {
+  if (after === before) return { code: after, reverted: false };
+  if (!GUARDABLE_EXT_RE.test(filePath)) return { code: after, reverted: false };
+
+  const afterResult = await validate(after, filePath);
+  if (afterResult.valid) return { code: after, reverted: false };
+
+  const beforeResult = await validate(before, filePath);
+  if (!beforeResult.valid) {
+    // Pre-existing breakage — not this fixer's fault. Keep `after`.
+    return { code: after, reverted: false };
+  }
+
+  warnings.push(
+    `[${filePath}] ${fixerId} reverted: it made a parseable file unparseable ` +
+      `(${afterResult.errors[0]?.message ?? "syntax error"}) — kept pre-fixer content`,
+  );
+  return { code: before, reverted: true };
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------
@@ -453,12 +521,19 @@ async function runAutoFixSinglePass(
     }
 
     if (isTsxOrJsx) {
-      // 2. import-validator
+      // 2. import-validator — routed through the centralized guarded entry
+      // (`runImportValidatorGuarded`) shared with the post-merge
+      // `repairGeneratedFiles()` path. Its regex/line-based import surgery is
+      // the highest-corruption-risk mechanical step per the audit, so the guard
+      // reverts it (TS-parser check) if it ever turns parseable code
+      // unparseable. This is the ONLY way import-validator runs in runtime.
       try {
-        const importResult = runImportValidator(currentCode);
+        const importResult = runImportValidatorGuarded(currentCode, file.path);
         currentCode = importResult.code;
-        for (const fix of importResult.fixes) {
-          allFixes.push({ ...fix, category: "mechanical", file: file.path });
+        if (!importResult.reverted) {
+          for (const fix of importResult.fixes) {
+            allFixes.push({ ...fix, category: "mechanical", file: file.path });
+          }
         }
         for (const w of importResult.warnings) {
           allWarnings.push(`[${file.path}] ${w}`);
@@ -1038,15 +1113,27 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 6. jsx-checker (fix missing imports & default export)
+      // 6. jsx-checker (fix missing imports & default export) — validity-guarded:
+      // it merges/inserts import lines via regex (e.g. lucide merge), so revert
+      // if it ever turns parseable code unparseable.
       try {
+        const beforeJsxChecker = currentCode;
         const jsxResult = runJsxChecker(currentCode, file.path);
-        currentCode = jsxResult.code;
-        for (const fix of jsxResult.fixes) {
-          allFixes.push({ ...fix, category: "mechanical", file: file.path });
-        }
-        for (const w of jsxResult.warnings) {
-          allWarnings.push(`[${file.path}] ${w}`);
+        const guarded = await guardFixerSyntax(
+          beforeJsxChecker,
+          jsxResult.code,
+          file.path,
+          "jsx-checker",
+          allWarnings,
+        );
+        currentCode = guarded.code;
+        if (!guarded.reverted) {
+          for (const fix of jsxResult.fixes) {
+            allFixes.push({ ...fix, category: "mechanical", file: file.path });
+          }
+          for (const w of jsxResult.warnings) {
+            allWarnings.push(`[${file.path}] ${w}`);
+          }
         }
       } catch (err) {
         allWarnings.push(

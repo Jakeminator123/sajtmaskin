@@ -5,6 +5,7 @@ import {
   isLucideTypeOnlyExport,
   parseSpecifier,
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
+import { countParseErrors, isGuardablePath } from "./rules/import-binding-ast";
 import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
@@ -791,4 +792,75 @@ export function runImportValidator(code: string): {
   const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
   const warnings = validateImports(missing.code);
   return { code: missing.code, fixes, warnings };
+}
+
+/**
+ * Canonical, **guarded** entry for `runImportValidator` in runtime paths.
+ *
+ * The raw `runImportValidator` rewrites imports with regex/line surgery and is
+ * the highest-corruption-risk mechanical step (per the autofix deep-audit). On
+ * BOTH the CodeProject `runAutoFix` pass AND the post-merge
+ * `repairGeneratedFiles()` path (finalize-preflight / preview-session /
+ * preview-render / export), it must never leave a file LESS parseable than it
+ * found it.
+ *
+ * This wrapper re-checks the result with the synchronous TypeScript parser and
+ * **reverts** the import-validator output when it turned parseable input into
+ * unparseable output — keeping the pre-fixer content and recording a warning.
+ * It deliberately does NOT revert when the input was already unparseable: that
+ * upstream model/stream breakage must stay visible to the syntax-validator /
+ * preflight gate rather than be masked here.
+ *
+ * Runtime callers MUST use this instead of `runImportValidator` directly so the
+ * fixer can never run unguarded. (`runImportValidator` stays exported only for
+ * focused unit tests of the underlying transforms.)
+ */
+export function runImportValidatorGuarded(
+  code: string,
+  filePath: string,
+  /** Injectable for tests; defaults to the real `runImportValidator`. */
+  runner: (code: string) => {
+    code: string;
+    fixes: AutoFixEntry[];
+    warnings: string[];
+  } = runImportValidator,
+): {
+  code: string;
+  fixes: AutoFixEntry[];
+  warnings: string[];
+  reverted: boolean;
+} {
+  const result = runner(code);
+  if (result.code === code) {
+    return { ...result, reverted: false };
+  }
+  // Guard all TS/JS dialects incl. module-suffixed paths (.mjs/.cjs/.mts/.cts);
+  // runAutoFixSinglePass enters import-validator by fence language, so these
+  // must not bypass the guard. Shared with the jsx-checker guard.
+  if (!isGuardablePath(filePath)) {
+    return { ...result, reverted: false };
+  }
+
+  const errorsAfter = countParseErrors(result.code, filePath);
+  if (errorsAfter === 0) {
+    return { ...result, reverted: false };
+  }
+
+  const errorsBefore = countParseErrors(code, filePath);
+  if (errorsBefore > 0) {
+    // Pre-existing breakage — not import-validator's fault. Keep its output so
+    // the broken state still flows downstream to preflight/diagnostics.
+    return { ...result, reverted: false };
+  }
+
+  return {
+    code,
+    fixes: [],
+    warnings: [
+      ...result.warnings,
+      `import-validator reverted: it made a parseable file unparseable ` +
+        `(${errorsAfter} parser error(s)) — kept pre-fixer content`,
+    ],
+    reverted: true,
+  };
 }
