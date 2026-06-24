@@ -16,6 +16,12 @@ const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
  * We therefore standardize the official registry on `new-york-v4` and coerce
  * the incomplete/legacy aliases to it. Flip back to `radix-vega` once shadcn
  * finishes populating that namespace upstream.
+ *
+ * NOTE: `components.json` deliberately keeps a schema-valid `style` alias
+ * (`radix-vega`). The official components.json `$schema` enum lists
+ * `default` / `new-york` / `radix-*` / `base-*` but NOT `new-york-v4`, so
+ * putting `new-york-v4` there would make the shadcn CLI/MCP reject the config.
+ * The canonical runtime style + coercion live HERE, not in components.json.
  */
 const DEFAULT_REGISTRY_STYLE = "new-york-v4";
 

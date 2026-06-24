@@ -176,12 +176,12 @@ export const DEFAULT_THINKING = true;
 const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js App Router with TypeScript (React 19)
 - Tailwind CSS v4 for styling (utility classes)
-- shadcn/ui components (\`@/components/ui/*\`, style "new-york-v4")
+- shadcn/ui components (\`@/components/ui/*\`, style "radix-vega")
 - Use Next.js route handlers for server logic (no custom Node/Express server)
 - Do not change core versions for next, react, react-dom, tailwindcss, postcss, typescript unless explicitly asked
 
 ## shadcn/ui Setup (summary)
-- components.json: style "new-york-v4", rsc true, baseColor "slate", css "src/app/globals.css", aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/lib/hooks
+- components.json: style "radix-vega", rsc true, baseColor "slate", css "src/app/globals.css", aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/lib/hooks
 - \`src/lib/utils.ts\`: export cn() using clsx + tailwind-merge
 - \`src/app/globals.css\`: define CSS variables for theme tokens (--background, --foreground, --primary, etc.)
 - Ensure deps exist: clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes
