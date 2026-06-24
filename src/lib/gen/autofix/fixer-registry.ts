@@ -291,6 +291,23 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "pre-syntax",
   },
   {
+    id: "global-shadow-import-fixer",
+    category: "mechanical-import",
+    sourcePath: "src/lib/gen/autofix/rules/global-shadow-import-fixer.ts",
+    targetFailureMode:
+      "Local import binding shadows a JS/Web global (e.g. `import Date from \"@/components/date\"`), breaking `new Date()` at runtime + tsc",
+    triggers: [
+      "local (@/, ./, ../) import whose name is a global (Date, Map, Image, Promise, …)",
+    ],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "name-guard. AST-based (cannot emit broken syntax). Drops the binding when " +
+      "it is not used as a JSX component; aliases it + rewrites JSX tags when it is. " +
+      "Never touches package imports (next/image's Image is intentional). " +
+      "Complements import-declaration-conflict-fixer (local shadowing).",
+  },
+  {
     id: "duplicate-import-binding-fixer",
     category: "mechanical-import",
     sourcePath: "src/lib/gen/autofix/rules/duplicate-import-binding-fixer.ts",
