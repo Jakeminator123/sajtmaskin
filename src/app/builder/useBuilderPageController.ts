@@ -1711,7 +1711,6 @@ export function useBuilderPageController() {
     // Prompt actions
     handlePromptAssistModeReset: promptActions.clearPromptAssistMode,
     requestCreateChat: promptActions.requestCreateChat,
-    handleStartFromRegistry: promptActions.handleStartFromRegistry,
     handleStartFromTemplate: promptActions.handleStartFromTemplate,
     templateSwitchDialog: promptActions.templateSwitchDialog,
     confirmTemplateSwitchDialog: promptActions.confirmTemplateSwitchDialog,
