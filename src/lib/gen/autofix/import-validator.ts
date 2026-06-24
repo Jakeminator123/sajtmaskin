@@ -5,7 +5,7 @@ import {
   isLucideTypeOnlyExport,
   parseSpecifier,
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
-import { countParseErrors } from "./rules/import-binding-ast";
+import { countParseErrors, isGuardablePath } from "./rules/import-binding-ast";
 import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
@@ -834,8 +834,10 @@ export function runImportValidatorGuarded(
   if (result.code === code) {
     return { ...result, reverted: false };
   }
-  // Only guard files the TS parser understands as TS/JS.
-  if (!/\.(tsx?|jsx?)$/i.test(filePath)) {
+  // Guard all TS/JS dialects incl. module-suffixed paths (.mjs/.cjs/.mts/.cts);
+  // runAutoFixSinglePass enters import-validator by fence language, so these
+  // must not bypass the guard. Shared with the jsx-checker guard.
+  if (!isGuardablePath(filePath)) {
     return { ...result, reverted: false };
   }
 

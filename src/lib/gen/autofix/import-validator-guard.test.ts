@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runImportValidatorGuarded } from "./import-validator";
 import { repairGeneratedFiles } from "./repair-generated-files";
+import { countParseErrors, isGuardablePath } from "./rules/import-binding-ast";
 import type { CodeFile } from "@/lib/gen/parser";
 
 /**
@@ -141,6 +142,77 @@ export default function Page() { return <Button/>; }
       const result = runImportValidatorGuarded(alreadyBrokenJsx, "app/page.jsx", passthroughRunner);
       expect(result.reverted).toBe(false);
     });
+  });
+
+  // ---- Codex P2 finding 1: validate JS dialect with JS rules ---------------
+  describe("JS-dialect files reject TS-only syntax (Codex finding 1)", () => {
+    it("countParseErrors flags `import type` in a .js file (TS parser is lenient, JS loader is not)", () => {
+      const jsWithImportType = `import type { LucideProps } from "lucide-react";
+export default function Page() { return null; }
+`;
+      // Same source is valid as TS, invalid as JS.
+      expect(countParseErrors(jsWithImportType, "app/page.ts")).toBe(0);
+      expect(countParseErrors(jsWithImportType, "app/page.js")).toBeGreaterThan(0);
+      expect(countParseErrors(jsWithImportType, "app/page.mjs")).toBeGreaterThan(0);
+    });
+
+    it("flags type annotations / interfaces / type aliases in JS dialect", () => {
+      expect(countParseErrors(`export function f(x: number){ return x; }\n`, "a.js")).toBeGreaterThan(0);
+      expect(countParseErrors(`interface Foo { a: number }\nexport const x = 1;\n`, "a.jsx")).toBeGreaterThan(0);
+      expect(countParseErrors(`type Foo = number;\nexport const x = 1;\n`, "a.cjs")).toBeGreaterThan(0);
+      // Plain valid JS/JSX stays clean.
+      expect(countParseErrors(`export default function P(){ return <div/>; }\n`, "a.jsx")).toBe(0);
+    });
+
+    it("reverts when a fixer injects `import type` into a .js file", () => {
+      const validJs = `export default function Page() { return null; }\n`;
+      const tsOnlyRunner = () => ({
+        code: `import type { LucideProps } from "lucide-react";\nexport default function Page() { return null; }\n`,
+        fixes: [{ fixer: "import-validator", description: "added type import" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(validJs, "app/page.js", tsOnlyRunner);
+      expect(result.reverted).toBe(true);
+      expect(result.code).toBe(validJs);
+    });
+
+    it("does NOT mask a .js input that ALREADY has TS-only syntax", () => {
+      const alreadyTsInJs = `import type { X } from "y";\nexport const a = 1;\n`;
+      const passthroughRunner = (c: string) => ({
+        code: c + "export const b = 2;\n",
+        fixes: [{ fixer: "import-validator", description: "noop-ish" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(alreadyTsInJs, "app/page.js", passthroughRunner);
+      expect(result.reverted).toBe(false);
+    });
+  });
+
+  // ---- Codex P2 finding 2: module-suffixed coverage ------------------------
+  describe("module-suffixed files are guarded (Codex finding 2)", () => {
+    it("isGuardablePath covers all TS/JS dialects incl. module suffixes", () => {
+      for (const ext of ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"]) {
+        expect(isGuardablePath(`next.config.${ext}`)).toBe(true);
+      }
+      expect(isGuardablePath("README.md")).toBe(false);
+      expect(isGuardablePath("styles.css")).toBe(false);
+      expect(isGuardablePath("data.json")).toBe(false);
+    });
+
+    it.each(["next.config.mjs", "app/foo.mjs", "next.config.mts", "lib/x.cts", "lib/y.cjs"])(
+      "reverts a corrupt import-validator output on %s",
+      (path) => {
+        const valid = `export const config = { reactStrictMode: true };\n`;
+        const brokenRunner = () => ({
+          code: `export const config = { reactStrictMode: true };\nZap,\n;\nfrom;\n"x";\n`,
+          fixes: [{ fixer: "import-validator", description: "bogus" }],
+          warnings: [],
+        });
+        const result = runImportValidatorGuarded(valid, path, brokenRunner);
+        expect(result.reverted).toBe(true);
+        expect(result.code).toBe(valid);
+      },
+    );
   });
 });
 

@@ -29,7 +29,55 @@ export function scriptKindForFile(filePath: string): ts.ScriptKind {
   if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) {
     return ts.ScriptKind.JS;
   }
+  // `.ts`, `.mts`, `.cts` and anything else → TS dialect.
   return ts.ScriptKind.TS;
+}
+
+/**
+ * Files the validity guards cover. Aligned with {@link scriptKindForFile} so
+ * module-suffixed paths (`next.config.mjs`, `app/foo.mts`, `.cjs`, `.cts`) are
+ * NOT silently bypassed — `runAutoFixSinglePass` enters import-validator based
+ * on fence language (`js`/`ts`), so the guard must cover those extensions too.
+ *
+ * Covers: ts, tsx, mts, cts, js, jsx, mjs, cjs.
+ */
+export const GUARDABLE_EXT_RE = /\.(?:[mc]?tsx?|[mc]?jsx?)$/i;
+
+export function isGuardablePath(filePath: string): boolean {
+  return GUARDABLE_EXT_RE.test(filePath);
+}
+
+/** JavaScript-dialect files where TS-only syntax is INVALID. */
+const JS_DIALECT_EXT_RE = /\.(?:[mc]?jsx?)$/i;
+
+/**
+ * True when `sf` contains TypeScript-only syntax that is invalid in a plain
+ * JavaScript file. The TS parser accepts TS grammar regardless of script kind
+ * (so `parseDiagnostics` stays 0 for `import type` / annotations in a `.js`
+ * file), so this AST walk is needed to detect what the JS/SWC/esbuild loader
+ * would later reject. Returns on the first hit (cheap).
+ */
+function hasTsOnlySyntax(sf: ts.SourceFile): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (
+      (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly === true) ||
+      (ts.isExportDeclaration(node) && node.isTypeOnly) ||
+      (ts.isImportSpecifier(node) && node.isTypeOnly) ||
+      (ts.isExportSpecifier(node) && node.isTypeOnly) ||
+      ts.isInterfaceDeclaration(node) ||
+      ts.isTypeAliasDeclaration(node) ||
+      ts.isEnumDeclaration(node) ||
+      ts.isTypeNode(node) // annotations, generics, `x as T` type child, etc.
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sf, visit);
+  return found;
 }
 
 export function createTsxSourceFile(filePath: string, code: string): ts.SourceFile {
@@ -52,6 +100,13 @@ export function createTsxSourceFile(filePath: string, code: string): ts.SourceFi
  * also catches the orphaned-import comma shape (`Zap,\n; from; "x";`) that
  * esbuild treats as syntactically valid.
  *
+ * For **JavaScript-dialect** files (`.js`/`.jsx`/`.mjs`/`.cjs`) it ALSO counts
+ * TypeScript-only syntax (e.g. `import type`, `export type`, interfaces, type
+ * aliases, type annotations) as an error: the TS parser accepts that grammar
+ * leniently (0 `parseDiagnostics`), but the JS/SWC/esbuild loader rejects it,
+ * so a fixer that injects `import type { LucideProps }` into `app/page.js`
+ * must be revertible.
+ *
  * `parseDiagnostics` is the parser's syntactic-error list; it needs no Program
  * / type-checker, so this stays cheap and synchronous.
  */
@@ -60,7 +115,11 @@ export function countParseErrors(code: string, filePath: string): number {
   const diagnostics = (sf as ts.SourceFile & {
     parseDiagnostics?: readonly ts.Diagnostic[];
   }).parseDiagnostics;
-  return diagnostics?.length ?? 0;
+  let count = diagnostics?.length ?? 0;
+  if (count === 0 && JS_DIALECT_EXT_RE.test(filePath) && hasTsOnlySyntax(sf)) {
+    count += 1;
+  }
+  return count;
 }
 
 export type ImportBindingRow = {

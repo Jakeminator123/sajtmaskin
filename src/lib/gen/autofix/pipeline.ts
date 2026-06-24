@@ -12,7 +12,7 @@ import {
   fixNextImageImport,
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
-import { countParseErrors } from "./rules/import-binding-ast";
+import { countParseErrors, GUARDABLE_EXT_RE } from "./rules/import-binding-ast";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixGlobalShadowingImports } from "./rules/global-shadow-import-fixer";
@@ -268,8 +268,6 @@ function validateSyntaxViaTsParser(code: string, filePath: string): SyntaxValida
     ? { valid: true, errors: [] }
     : { valid: false, errors: [{ line: 0, column: 0, message: `${errors} parse error(s)` }] };
 }
-
-const GUARDABLE_EXT_RE = /\.(tsx?|jsx?|mjs|cjs)$/i;
 
 export async function guardFixerSyntax(
   before: string,
