@@ -19,11 +19,11 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
 
-function parseVersion(range: string): { major: number; minor: number } {
+function parseVersion(range: string): { major: number; minor: number; patch: number } {
   const cleaned = range.trim().replace(/^[\^~>=<\s]+/, "");
   const match = cleaned.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) throw new Error(`Cannot parse a version out of "${range}"`);
-  return { major: Number(match[1]), minor: Number(match[2]) };
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
 }
 
 function readPlatformDeps(): Record<string, string> {
@@ -57,7 +57,22 @@ const MAJOR_LOCKED = [
 ] as const;
 
 /** Packages whose major AND minor must match (exact-runtime-sensitive). */
-const MAJOR_MINOR_LOCKED = ["lucide-react", "tailwindcss"] as const;
+const MAJOR_MINOR_LOCKED = ["tailwindcss"] as const;
+
+/**
+ * Packages locked at the full major.minor.patch level. `lucide-react` is the
+ * strictest: the LUCIDE_ICONS allowlist is generated from, and validated
+ * (`check-lucide-icons.mjs`) against, the platform's lucide, while generated
+ * projects ship the exact pin below. Locking the declared patch keeps those in
+ * lockstep so the allowlist can never admit an icon the shipped runtime lacks.
+ *
+ * Residual (accepted): this compares the *declared* versions, not the resolved
+ * lockfile. A pure lockfile patch bump on the platform's caret range is not
+ * caught here — but the allowlist is BASE-names-only (stable across patches)
+ * and `check-lucide-icons.mjs` re-validates every name against the installed
+ * package in CI, so a removed/renamed export is still caught at build time.
+ */
+const MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
 
 describe("project-scaffold baseline parity with platform package.json", () => {
   const platform = readPlatformDeps();
@@ -82,6 +97,16 @@ describe("project-scaffold baseline parity with platform package.json", () => {
       const pv = parseVersion(p);
       const gv = parseVersion(g);
       expect({ major: gv.major, minor: gv.minor }).toEqual({ major: pv.major, minor: pv.minor });
+    });
+  }
+
+  for (const pkg of MAJOR_MINOR_PATCH_LOCKED) {
+    it(`${pkg}: generated major.minor.patch matches platform (declared)`, () => {
+      const p = platform[pkg];
+      const g = generated[pkg];
+      expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
+      expect(g, `${pkg} missing from generated baseline`).toBeTruthy();
+      expect(parseVersion(g)).toEqual(parseVersion(p));
     });
   }
 });
