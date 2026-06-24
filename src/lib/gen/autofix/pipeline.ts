@@ -1,5 +1,5 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { runImportValidator } from "./import-validator";
+import { runImportValidatorGuarded } from "./import-validator";
 import { fixReactAndNavigationImports } from "./rules/react-import-consolidated";
 import {
   buildProjectModuleExportIndex,
@@ -497,27 +497,22 @@ async function runAutoFixSinglePass(
     }
 
     if (isTsxOrJsx) {
-      // 2. import-validator (validity-guarded: its regex/line-based import
-      // surgery is the highest-corruption-risk mechanical step per the audit,
-      // so revert if it ever turns parseable code unparseable).
+      // 2. import-validator — routed through the centralized guarded entry
+      // (`runImportValidatorGuarded`) shared with the post-merge
+      // `repairGeneratedFiles()` path. Its regex/line-based import surgery is
+      // the highest-corruption-risk mechanical step per the audit, so the guard
+      // reverts it (TS-parser check) if it ever turns parseable code
+      // unparseable. This is the ONLY way import-validator runs in runtime.
       try {
-        const beforeImportValidator = currentCode;
-        const importResult = runImportValidator(currentCode);
-        const guarded = await guardFixerSyntax(
-          beforeImportValidator,
-          importResult.code,
-          file.path,
-          "import-validator",
-          allWarnings,
-        );
-        currentCode = guarded.code;
-        if (!guarded.reverted) {
+        const importResult = runImportValidatorGuarded(currentCode, file.path);
+        currentCode = importResult.code;
+        if (!importResult.reverted) {
           for (const fix of importResult.fixes) {
             allFixes.push({ ...fix, category: "mechanical", file: file.path });
           }
-          for (const w of importResult.warnings) {
-            allWarnings.push(`[${file.path}] ${w}`);
-          }
+        }
+        for (const w of importResult.warnings) {
+          allWarnings.push(`[${file.path}] ${w}`);
         }
       } catch (err) {
         allWarnings.push(

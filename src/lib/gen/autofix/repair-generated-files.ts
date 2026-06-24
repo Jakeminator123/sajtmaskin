@@ -28,7 +28,7 @@ import {
   fixIconComponentValueMisuse,
   ensureTier2PreviewBasePathInNextConfig,
 } from "./pipeline";
-import { runImportValidator } from "./import-validator";
+import { runImportValidatorGuarded } from "./import-validator";
 
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
@@ -124,10 +124,26 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     // keeps esbuild green, so the full `runAutoFix` escalation in
     // finalize-preflight never fires and the import was previously never added
     // on the post-merge repair path.
-    const importValidatorResult = runImportValidator(content);
+    // Guarded: reverts import-validator if its regex/line surgery turns
+    // parseable code unparseable (TS-parser check). Closes the post-merge gap
+    // where finalize-preflight / preview-session / preview-render / export ran
+    // import-validator unguarded.
+    const importValidatorResult = runImportValidatorGuarded(content, file.path);
     content = importValidatorResult.code;
     for (const fix of importValidatorResult.fixes) {
       fixes.push({ ...fix, category: "mechanical", file: file.path });
+    }
+    for (const warning of importValidatorResult.warnings) {
+      if (warning.includes("import-validator reverted")) {
+        // Surface the revert as a fix-ledger note so it is observable in
+        // generation telemetry, mirroring the runAutoFix guard's warning.
+        fixes.push({
+          fixer: "import-validator",
+          category: "mechanical",
+          description: warning,
+          file: file.path,
+        });
+      }
     }
 
     const namedImportResult = fixLocalNamedImportDefaultMismatches(content, file.path, files, moduleExportIndex);
