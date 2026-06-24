@@ -265,3 +265,5 @@ docs/plans/**/run.log.jsonl
 .gitignore
 
 .vercel
+
+.vercel
