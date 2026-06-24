@@ -77,6 +77,15 @@ describe("summarizeVersionLogsForAutoFix", () => {
   });
 });
 
+// The per-chat cap is read from NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT at module
+// import time (default 3). The cap-dependent assertions below assume that
+// default; skip them when an env override is active (e.g. the documented
+// rollback NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=1) so a configured runtime doesn't
+// produce false failures.
+const capOverridden =
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT != null &&
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT !== "3";
+
 describe("useAutoFix", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -142,5 +151,223 @@ describe("useAutoFix", () => {
         scaffoldIdOverride: "landing-page",
       }),
     );
+  });
+
+  it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
+    let releaseFirst: (() => void) | null = null;
+    const sendMessage = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          // The first send hangs until released; later sends resolve at once.
+          if (!releaseFirst) releaseFirst = resolve;
+          else resolve();
+        }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["first reason"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // A second, distinct autofix arrives while the first is still streaming.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["second reason"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    // The in-flight gate blocked it — still only one send.
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // Releasing the first lets a later autofix proceed normally.
+    await act(async () => {
+      releaseFirst?.();
+      await vi.runAllTimersAsync();
+    });
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["third reason"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it.skipIf(capOverridden)("does not let a rapid duplicate event burn a chat-cap slot", async () => {
+    let releaseFirst: (() => void) | null = null;
+    const sendMessage = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          if (!releaseFirst) releaseFirst = resolve;
+          else resolve();
+        }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    // First event starts and hangs mid-send.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason A"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    // Second event fires while first is in flight → dropped without consuming
+    // the cap (the old code counted it even though it never sent).
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason B"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    await act(async () => {
+      releaseFirst?.();
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // Because the dropped event never consumed the cap, two further distinct
+    // reasons still fit under MAX_AUTOFIX_PER_CHAT (3): total real sends = 3.
+    for (const reason of ["reason C", "reason D"]) {
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: [reason],
+        });
+        await vi.runAllTimersAsync();
+      });
+    }
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it.skipIf(capOverridden)("manual autofix bypasses the per-chat and per-reason caps but still sends", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    // Drive the per-chat cap to MAX (3) with distinct automatic reasons.
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: [`auto reason ${i}`],
+        });
+        await vi.runAllTimersAsync();
+      });
+    }
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+
+    // A 4th automatic event (distinct reason) is blocked by the chat cap.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["auto reason blocked"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+
+    // A manual trigger — even reusing an already-attempted reason — bypasses
+    // both the chat cap and the per-reason cap and actually sends.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["auto reason 0"],
+        manual: true,
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(4);
+  });
+
+  it.skipIf(capOverridden)("manual sends do not consume the automatic per-chat budget", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    // One manual fix first.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["manual reason"],
+        manual: true,
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // The full automatic budget (3) must still be available afterwards.
+    for (const reason of ["auto 0", "auto 1", "auto 2"]) {
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: [reason],
+        });
+        await vi.runAllTimersAsync();
+      });
+    }
+    // 1 manual + 3 automatic — the manual one did not eat an automatic slot.
+    expect(sendMessage).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not get stuck 'busy' when a pending timer is cancelled by re-render", async () => {
+    const sendMessage1 = vi.fn(async () => undefined);
+    const sendMessage2 = vi.fn(async () => undefined);
+    const { result, rerender } = renderHook(({ send }) => useAutoFix(send), {
+      initialProps: { send: sendMessage1 },
+    });
+
+    // Schedule an autofix but DON'T let the timer fire yet.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason A"],
+      });
+    });
+
+    // A sendMessage-identity change re-runs the effect; its cleanup cancels the
+    // still-pending timer (whose callback would otherwise have released the gate).
+    await act(async () => {
+      rerender({ send: sendMessage2 });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage1).not.toHaveBeenCalled();
+
+    // The hook must NOT be stuck busy: a new autofix still proceeds.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason B"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage2).toHaveBeenCalledTimes(1);
   });
 });

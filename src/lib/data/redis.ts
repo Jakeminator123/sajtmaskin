@@ -34,7 +34,9 @@
  *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  *
  * Preview session (optional cross-instance reuse; `docs/architecture/llm-pipeline.md`):
- *   {prefix}preview-session:session:{chatId} → PreviewSessionEntry JSON (TTL: hard-cap, ~45 min)
+ *   {prefix}preview-session:session:{chatId} → PreviewSessionEntry JSON
+ *     (idle 90 min / hard-cap 2h — source of truth: PREVIEW_SESSION_IDLE_MS /
+ *      PREVIEW_SESSION_HARD_CAP_MS in src/lib/gen/preview/session-store.ts)
  */
 
 import Redis from "ioredis";
