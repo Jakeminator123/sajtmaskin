@@ -237,6 +237,51 @@ async function validateSyntax(
   }
 }
 
+/**
+ * Validity guard for a single mechanical fixer.
+ *
+ * A mechanical fixer must never leave a file LESS parseable than it found it.
+ * Given the code `before` and `after` a fixer ran, this returns `after` unless
+ * the fixer turned parseable input into UNPARSEABLE output (valid before,
+ * invalid after) — in which case it returns `before` and records a warning.
+ *
+ * It deliberately does NOT revert when the input was already unparseable: that
+ * breakage is upstream (model/stream output) and must stay visible to the
+ * syntax-validator / preflight gate rather than be masked here.
+ *
+ * Net effect: a guarded fixer becomes "revert-only safe" — it can fix or
+ * no-op, but it can never be the step that introduces a syntax error. This is
+ * the defence-in-depth recommended by the autofix deep-audit (2026-06-24).
+ */
+export async function guardFixerSyntax(
+  before: string,
+  after: string,
+  filePath: string,
+  fixerId: string,
+  warnings: string[],
+  /** Injectable for tests; defaults to the esbuild-backed validator. */
+  validate: (code: string, filePath: string) => Promise<SyntaxValidation> = validateSyntax,
+): Promise<{ code: string; reverted: boolean }> {
+  if (after === before) return { code: after, reverted: false };
+  const loader = inferLoader(filePath);
+  if (!loader) return { code: after, reverted: false };
+
+  const afterResult = await validate(after, filePath);
+  if (afterResult.valid) return { code: after, reverted: false };
+
+  const beforeResult = await validate(before, filePath);
+  if (!beforeResult.valid) {
+    // Pre-existing breakage — not this fixer's fault. Keep `after`.
+    return { code: after, reverted: false };
+  }
+
+  warnings.push(
+    `[${filePath}] ${fixerId} reverted: it made a parseable file unparseable ` +
+      `(esbuild: ${afterResult.errors[0]?.message ?? "syntax error"}) — kept pre-fixer content`,
+  );
+  return { code: before, reverted: true };
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------
@@ -452,15 +497,27 @@ async function runAutoFixSinglePass(
     }
 
     if (isTsxOrJsx) {
-      // 2. import-validator
+      // 2. import-validator (validity-guarded: its regex/line-based import
+      // surgery is the highest-corruption-risk mechanical step per the audit,
+      // so revert if it ever turns parseable code unparseable).
       try {
+        const beforeImportValidator = currentCode;
         const importResult = runImportValidator(currentCode);
-        currentCode = importResult.code;
-        for (const fix of importResult.fixes) {
-          allFixes.push({ ...fix, category: "mechanical", file: file.path });
-        }
-        for (const w of importResult.warnings) {
-          allWarnings.push(`[${file.path}] ${w}`);
+        const guarded = await guardFixerSyntax(
+          beforeImportValidator,
+          importResult.code,
+          file.path,
+          "import-validator",
+          allWarnings,
+        );
+        currentCode = guarded.code;
+        if (!guarded.reverted) {
+          for (const fix of importResult.fixes) {
+            allFixes.push({ ...fix, category: "mechanical", file: file.path });
+          }
+          for (const w of importResult.warnings) {
+            allWarnings.push(`[${file.path}] ${w}`);
+          }
         }
       } catch (err) {
         allWarnings.push(
@@ -1003,15 +1060,27 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 6. jsx-checker (fix missing imports & default export)
+      // 6. jsx-checker (fix missing imports & default export) — validity-guarded:
+      // it merges/inserts import lines via regex (e.g. lucide merge), so revert
+      // if it ever turns parseable code unparseable.
       try {
+        const beforeJsxChecker = currentCode;
         const jsxResult = runJsxChecker(currentCode, file.path);
-        currentCode = jsxResult.code;
-        for (const fix of jsxResult.fixes) {
-          allFixes.push({ ...fix, category: "mechanical", file: file.path });
-        }
-        for (const w of jsxResult.warnings) {
-          allWarnings.push(`[${file.path}] ${w}`);
+        const guarded = await guardFixerSyntax(
+          beforeJsxChecker,
+          jsxResult.code,
+          file.path,
+          "jsx-checker",
+          allWarnings,
+        );
+        currentCode = guarded.code;
+        if (!guarded.reverted) {
+          for (const fix of jsxResult.fixes) {
+            allFixes.push({ ...fix, category: "mechanical", file: file.path });
+          }
+          for (const w of jsxResult.warnings) {
+            allWarnings.push(`[${file.path}] ${w}`);
+          }
         }
       } catch (err) {
         allWarnings.push(
