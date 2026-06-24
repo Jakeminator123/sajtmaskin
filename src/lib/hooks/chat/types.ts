@@ -91,6 +91,14 @@ export type AutoFixPayload = {
   reasons: string[];
   /** Structured repair context from quality gate / post-checks. */
   repair?: RepairContext;
+  /**
+   * User-initiated autofix (e.g. the "Kör autofix" button in Version
+   * Diagnostics) rather than an automatic post-check dispatch. Manual triggers
+   * bypass the per-chat and per-reason throttles (those exist to stop runaway
+   * *automatic* loops, not explicit user clicks) but still respect the
+   * in-flight gate and the stale-version / under-repair guards.
+   */
+  manual?: boolean;
   /** General metadata — kept for backward compat with preview/diagnostics callers. */
   meta?: Record<string, unknown>;
 };

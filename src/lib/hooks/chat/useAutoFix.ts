@@ -87,6 +87,25 @@ function notifyAutofixCapReached(max: number) {
   });
 }
 
+let lastAutofixBusyToastAt = 0;
+const AUTOFIX_BUSY_TOAST_COOLDOWN_MS = 8_000;
+
+/**
+ * Manual ("Kör autofix") trigger arrived while another autofix is already
+ * scheduled or actively streaming. We refuse to start a second concurrent
+ * fix from the same base version (that overlap is the bug cap=1 used to mask),
+ * so tell the user to wait instead of failing silently.
+ */
+function notifyManualAutofixBusy() {
+  const now = Date.now();
+  if (now - lastAutofixBusyToastAt < AUTOFIX_BUSY_TOAST_COOLDOWN_MS) return;
+  lastAutofixBusyToastAt = now;
+  toast.message("En autofix körs redan", {
+    description: "Vänta tills den pågående autofixen är klar och försök sedan igen.",
+    duration: 6_000,
+  });
+}
+
 // Tak och timing för klient-driven autofix. Override via NEXT_PUBLIC_*
 // (klientside-bundling).
 //
@@ -447,89 +466,116 @@ export function useAutoFix(
       ) {
         return;
       }
+      const isManual = payload.manual === true;
       void (async () => {
-        if (autoFixInFlightRef.current) return;
+        // In-flight gate covers the WHOLE lifecycle (event accepted → scheduled
+        // → `sendMessage` resolved), not just the pre-schedule prelude. This is
+        // what actually prevents two autofixes from streaming into the same base
+        // version concurrently — the overlap the old cap=1 only accidentally
+        // masked.
+        if (autoFixInFlightRef.current) {
+          if (isManual) notifyManualAutofixBusy();
+          return;
+        }
         autoFixInFlightRef.current = true;
+        let scheduled = false;
         try {
-        const now = Date.now();
-        pruneStale(autoFixAttemptsRef.current, now);
+          const now = Date.now();
+          pruneStale(autoFixAttemptsRef.current, now);
 
-        const chatKey = makeChatKey(payload.chatId);
-        const chatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
-        if (chatTotal >= MAX_AUTOFIX_PER_CHAT) {
-          if (typeof window !== "undefined") {
-            console.info(
-              "[autofix] chat-cap reached",
-              { chatId: payload.chatId, max: MAX_AUTOFIX_PER_CHAT, chatTotal },
-            );
-            notifyAutofixCapReached(MAX_AUTOFIX_PER_CHAT);
-          }
-          return;
-        }
-
-        const reasonKey = makeReasonKey(payload);
-        const reasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
-        if (reasonAttempts >= MAX_ATTEMPTS_PER_REASON) {
-          if (typeof window !== "undefined") {
-            console.info(
-              "[autofix] reason-cap reached",
-              { chatId: payload.chatId, reasonKey, max: MAX_ATTEMPTS_PER_REASON },
-            );
-          }
-          return;
-        }
-
-        if (!(await isLatestVersionPayload(payload))) return;
-
-        autoFixAttemptsRef.current[reasonKey] = { count: reasonAttempts + 1, ts: now };
-        autoFixAttemptsRef.current[chatKey] = { count: chatTotal + 1, ts: now };
-
-        const enrichedPayload = await enrichAutoFixPayload(payload);
-        const prompt = buildAutoFixPrompt(enrichedPayload);
-        const scaffoldRetry =
-          enrichedPayload.repair?.scaffoldRetry
-          ?? (enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
-            ? (enrichedPayload.meta.scaffoldRetry as Record<string, unknown>)
-            : null);
-        const retryScaffoldId =
-          scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
-            ? scaffoldRetry.suggestedScaffoldId
-            : null;
-        const delayMs = chatTotal === 0 ? 1500 : 4000;
-
-        if (pendingTimerRef.current) {
-          clearTimeout(pendingTimerRef.current);
-          pendingTimerRef.current = null;
-        }
-        pendingPayloadKeyRef.current = reasonKey;
-
-        pendingTimerRef.current = setTimeout(() => {
-          pendingTimerRef.current = null;
-          void (async () => {
-            if (pendingPayloadKeyRef.current !== reasonKey) return;
-            if (!(await isLatestVersionPayload(payload))) return;
-            if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
-            pendingPayloadKeyRef.current = null;
-            const messageOptions: MessageOptions = {
-              engineBaseVersionIdOverride: payload.versionId,
-              promptSourceMeta: {
-                sourceKind: "autofix",
-                isTechnical: true,
-                preservePayload: true,
-              },
-            };
-            if (retryScaffoldId) {
-              messageOptions.scaffoldModeOverride = "manual";
-              messageOptions.scaffoldIdOverride = retryScaffoldId;
+          const chatKey = makeChatKey(payload.chatId);
+          const chatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
+          // Manual triggers bypass the throttles (they guard automatic loops,
+          // not explicit user clicks) but still go through every safety guard
+          // below.
+          if (!isManual && chatTotal >= MAX_AUTOFIX_PER_CHAT) {
+            if (typeof window !== "undefined") {
+              console.info(
+                "[autofix] chat-cap reached",
+                { chatId: payload.chatId, max: MAX_AUTOFIX_PER_CHAT, chatTotal },
+              );
+              notifyAutofixCapReached(MAX_AUTOFIX_PER_CHAT);
             }
-            await sendMessage(
-              prompt,
-              messageOptions,
-            );
-          })();
-        }, delayMs);
+            return;
+          }
+
+          const reasonKey = makeReasonKey(payload);
+          const reasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
+          if (!isManual && reasonAttempts >= MAX_ATTEMPTS_PER_REASON) {
+            if (typeof window !== "undefined") {
+              console.info(
+                "[autofix] reason-cap reached",
+                { chatId: payload.chatId, reasonKey, max: MAX_ATTEMPTS_PER_REASON },
+              );
+            }
+            return;
+          }
+
+          if (!(await isLatestVersionPayload(payload))) return;
+
+          const enrichedPayload = await enrichAutoFixPayload(payload);
+          const prompt = buildAutoFixPrompt(enrichedPayload);
+          const scaffoldRetry =
+            enrichedPayload.repair?.scaffoldRetry
+            ?? (enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
+              ? (enrichedPayload.meta.scaffoldRetry as Record<string, unknown>)
+              : null);
+          const retryScaffoldId =
+            scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
+              ? scaffoldRetry.suggestedScaffoldId
+              : null;
+          const delayMs = isManual ? 0 : chatTotal === 0 ? 1500 : 4000;
+
+          pendingPayloadKeyRef.current = reasonKey;
+          scheduled = true;
+
+          pendingTimerRef.current = setTimeout(() => {
+            pendingTimerRef.current = null;
+            void (async () => {
+              try {
+                if (pendingPayloadKeyRef.current !== reasonKey) return;
+                if (!(await isLatestVersionPayload(payload))) return;
+                if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
+                pendingPayloadKeyRef.current = null;
+
+                // Count the attempt only now that a real send is actually
+                // starting. Counting at schedule time (the old behaviour) let
+                // timers that were later aborted by the guards above silently
+                // consume the per-chat/per-reason budget.
+                const ts = Date.now();
+                autoFixAttemptsRef.current[reasonKey] = {
+                  count: (autoFixAttemptsRef.current[reasonKey]?.count ?? 0) + 1,
+                  ts,
+                };
+                autoFixAttemptsRef.current[chatKey] = {
+                  count: (autoFixAttemptsRef.current[chatKey]?.count ?? 0) + 1,
+                  ts,
+                };
+
+                const messageOptions: MessageOptions = {
+                  engineBaseVersionIdOverride: payload.versionId,
+                  promptSourceMeta: {
+                    sourceKind: "autofix",
+                    isTechnical: true,
+                    preservePayload: true,
+                  },
+                };
+                if (retryScaffoldId) {
+                  messageOptions.scaffoldModeOverride = "manual";
+                  messageOptions.scaffoldIdOverride = retryScaffoldId;
+                }
+                await sendMessage(prompt, messageOptions);
+              } finally {
+                // The scheduled cycle owns the in-flight gate until its send
+                // resolves/rejects, so a second autofix can't overlap it.
+                autoFixInFlightRef.current = false;
+              }
+            })();
+          }, delayMs);
         } finally {
-          autoFixInFlightRef.current = false;
+          // If we bailed before scheduling (capped / stale / soft-only), release
+          // the gate here. Once scheduled, the timer callback's finally owns it.
+          if (!scheduled) autoFixInFlightRef.current = false;
         }
       })();
     },
