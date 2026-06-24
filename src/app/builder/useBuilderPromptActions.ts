@@ -1,6 +1,5 @@
 "use client";
 
-import type { ShadcnBlockSelection } from "@/components/builder/UiElementPicker";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
@@ -258,17 +257,6 @@ export function useBuilderPromptActions({
     ],
   );
 
-  const handleStartFromRegistry = useCallback(
-    async (selection: ShadcnBlockSelection) => {
-      if (!selection.registryUrl) {
-        toast.error("Registry-URL saknas");
-        return false;
-      }
-      return false;
-    },
-    [],
-  );
-
   const handleStartFromTemplate = useCallback(
     (templateId: string) => {
       if (!templateId) return;
@@ -327,7 +315,6 @@ export function useBuilderPromptActions({
     clearPromptAssistMode,
     captureInstructionSnapshot,
     requestCreateChat,
-    handleStartFromRegistry,
     handleStartFromTemplate,
     handleGoHome,
     handlePaletteSelection,

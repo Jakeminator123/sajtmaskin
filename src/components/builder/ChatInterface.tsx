@@ -184,7 +184,6 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
-  onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<boolean | void>;
   onRequestPlacement?: (request: VisualPlacementRequest) => Promise<VisualPlacementDecision | void>;
   onStartFromTemplate?: (templateId: string) => void;
   onPaletteSelection?: (selection: PaletteSelection) => void;
@@ -255,7 +254,6 @@ export function ChatInterface({
   initialPrompt,
   onCreateChat,
   onSendMessage,
-  onStartFromRegistry,
   onRequestPlacement,
   onStartFromTemplate,
   onPaletteSelection,
@@ -706,20 +704,9 @@ export function ChatInterface({
       }
 
       if (action === "start") {
-        if (onStartFromRegistry) {
-          try {
-            const startedDirectly = await onStartFromRegistry(selection);
-            if (startedDirectly === true || typeof startedDirectly === "undefined") {
-              setPickerTab(null);
-              return;
-            }
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Kunde inte starta direkt från registry";
-            toast.error(`${message}. Fortsätter via fallback-läge.`);
-          }
-        }
-
+        // "Start from block" creates a new chat seeded with the block prompt.
+        // (There is no deterministic registry-scaffold path; the prompt path is
+        // the real, working flow — no dead indirection hook.)
         if (!onCreateChat) return;
         await sendMessagePayload(builtPrompt.message, {
           clearDraft: false,
