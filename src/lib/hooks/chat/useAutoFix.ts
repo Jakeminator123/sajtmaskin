@@ -67,13 +67,47 @@ function notifyAutofixSkipped(reasons: string[]) {
   });
 }
 
+let lastAutofixCapToastAt = 0;
+const AUTOFIX_CAP_TOAST_COOLDOWN_MS = 30_000;
+
+/**
+ * Surface the per-chat autofix cap to the user. Previously the cap was a
+ * silent `console.info` only, so the user just saw autofix "stop working"
+ * with no explanation. Throttled so a burst of post-checks can't spam toasts.
+ */
+function notifyAutofixCapReached(max: number) {
+  const now = Date.now();
+  if (now - lastAutofixCapToastAt < AUTOFIX_CAP_TOAST_COOLDOWN_MS) return;
+  lastAutofixCapToastAt = now;
+  toast.message("Autofix pausad för den här chatten", {
+    description:
+      `Automatisk autofix nådde taket (${max} per chatt på kort tid). ` +
+      'Kör "Kör autofix" manuellt på versionen, eller höj NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT.',
+    duration: 8_000,
+  });
+}
+
 // Tak och timing för klient-driven autofix. Override via NEXT_PUBLIC_*
-// (klientside-bundling). Defaults är aggressivt konservativa: max 1 försök
-// per fel-typ OCH max 1 totalt per chat. Tidigare default på 2 totalt
-// gjorde att två sekventiella followups kunde skrivas in i samma version
-// utan möjlighet till rollback (se generationslogg 235012/235205).
-// Användare som vill ha den gamla "2 retries"-loopen kan fortfarande
-// opt-in via NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2.
+// (klientside-bundling).
+//
+// Två tak med olika syften — blanda inte ihop dem:
+//   - MAX_ATTEMPTS_PER_REASON (1): loop-skydd. Laga ALDRIG exakt samma
+//     fel-signatur (canonical reason-key, se makeReasonKey) mer än en gång
+//     automatiskt — att köra om på identiskt fel hjälper sällan och
+//     riskerar en autofix-loop. Lämnas medvetet på 1.
+//   - MAX_AUTOFIX_PER_CHAT (3): totalt antal automatiska fixar per chat
+//     inom DEDUPE_TTL_MS-fönstret. Var tidigare 1, vilket var för
+//     aggressivt: en generation med flera OLIKA fel fick bara en enda
+//     auto-fix och användaren fastnade. 3 låter autofix beta av några
+//     skilda problem innan den pausar.
+//
+// Rollback-säkerheten som motiverade det gamla "1"-taket ligger numera i
+// den canonical reason-keyn + isLatestVersionPayload /
+// isVersionUnderServerRepair-vakterna, inte i själva chat-taket. Därför är
+// det säkert att höja per-chat-taket utan att återintroducera buggen där
+// två sekventiella followups skrevs in i samma version (generationslogg
+// 235012/235205). Sänk till 1 via NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=1 om den
+// gamla konservativa loopen önskas.
 function readClientNumberEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -86,7 +120,7 @@ const MAX_ATTEMPTS_PER_REASON = readClientNumberEnv(
 );
 const MAX_AUTOFIX_PER_CHAT = readClientNumberEnv(
   "NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT",
-  1,
+  3,
 );
 const DEDUPE_TTL_MS = readClientNumberEnv(
   "NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS",
@@ -428,6 +462,7 @@ export function useAutoFix(
               "[autofix] chat-cap reached",
               { chatId: payload.chatId, max: MAX_AUTOFIX_PER_CHAT, chatTotal },
             );
+            notifyAutofixCapReached(MAX_AUTOFIX_PER_CHAT);
           }
           return;
         }
