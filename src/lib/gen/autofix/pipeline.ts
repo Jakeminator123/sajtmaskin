@@ -14,6 +14,7 @@ import {
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
+import { fixGlobalShadowingImports } from "./rules/global-shadow-import-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
@@ -734,6 +735,40 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] duplicate-import-local-type-collision-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3i-3. global-shadow-import-fixer (name-guard) — a LOCAL import whose
+      // binding name shadows a JS/Web global (`import Date from "@/components/date"`).
+      // AST-based: drops the binding when it is not used as a JSX component (so
+      // `new Date()` resolves to the real global again), or aliases it when it
+      // is rendered as `<Date .../>`. Never touches package imports such as
+      // `import Image from "next/image"`.
+      try {
+        const shadowResult = fixGlobalShadowingImports(currentCode, file.path);
+        if (shadowResult.fixed) {
+          currentCode = shadowResult.code;
+          const parts: string[] = [];
+          if (shadowResult.removed.length > 0) {
+            parts.push(`removed global-shadowing imports: ${shadowResult.removed.join(", ")}`);
+          }
+          if (shadowResult.renamed.length > 0) {
+            parts.push(
+              `aliased global-shadowing imports: ${shadowResult.renamed
+                .map((r) => `${r.from}→${r.to}`)
+                .join(", ")}`,
+            );
+          }
+          allFixes.push({
+            fixer: "global-shadow-import-fixer",
+            category: "mechanical",
+            description: parts.join("; "),
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] global-shadow-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
