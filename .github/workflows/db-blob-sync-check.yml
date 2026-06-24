@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Don't leave the GITHUB_TOKEN in git config while PR-controlled code runs.
           persist-credentials: false
