@@ -539,18 +539,22 @@ export function useAutoFix(
                 pendingPayloadKeyRef.current = null;
 
                 // Count the attempt only now that a real send is actually
-                // starting. Counting at schedule time (the old behaviour) let
-                // timers that were later aborted by the guards above silently
-                // consume the per-chat/per-reason budget.
-                const ts = Date.now();
-                autoFixAttemptsRef.current[reasonKey] = {
-                  count: (autoFixAttemptsRef.current[reasonKey]?.count ?? 0) + 1,
-                  ts,
-                };
-                autoFixAttemptsRef.current[chatKey] = {
-                  count: (autoFixAttemptsRef.current[chatKey]?.count ?? 0) + 1,
-                  ts,
-                };
+                // starting, and only for AUTOMATIC fixes. Counting at schedule
+                // time (the old behaviour) let timers that were later aborted by
+                // the guards above silently consume the budget; counting manual
+                // sends here would let a user-initiated fix starve the automatic
+                // per-chat/per-reason budget for later post-checks.
+                if (!isManual) {
+                  const ts = Date.now();
+                  autoFixAttemptsRef.current[reasonKey] = {
+                    count: (autoFixAttemptsRef.current[reasonKey]?.count ?? 0) + 1,
+                    ts,
+                  };
+                  autoFixAttemptsRef.current[chatKey] = {
+                    count: (autoFixAttemptsRef.current[chatKey]?.count ?? 0) + 1,
+                    ts,
+                  };
+                }
 
                 const messageOptions: MessageOptions = {
                   engineBaseVersionIdOverride: payload.versionId,
@@ -595,7 +599,15 @@ export function useAutoFix(
     window.addEventListener(AUTO_FIX_EVENT_NAME, handler as EventListener);
     return () => {
       window.removeEventListener(AUTO_FIX_EVENT_NAME, handler as EventListener);
-      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      if (pendingTimerRef.current) {
+        // Cancelling a still-pending send means its timer callback (which owns
+        // the in-flight release) will never run. Release the gate here too, or
+        // the hook would stay permanently "busy" after a sendMessage-identity
+        // change and silently drop every later autofix.
+        clearTimeout(pendingTimerRef.current);
+        pendingTimerRef.current = null;
+        autoFixInFlightRef.current = false;
+      }
       pendingPayloadKeyRef.current = null;
     };
   }, [handleAutoFix]);

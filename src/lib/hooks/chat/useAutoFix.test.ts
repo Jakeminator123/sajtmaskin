@@ -292,4 +292,73 @@ describe("useAutoFix", () => {
     });
     expect(sendMessage).toHaveBeenCalledTimes(4);
   });
+
+  it("manual sends do not consume the automatic per-chat budget", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    // One manual fix first.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["manual reason"],
+        manual: true,
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    // The full automatic budget (3) must still be available afterwards.
+    for (const reason of ["auto 0", "auto 1", "auto 2"]) {
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: [reason],
+        });
+        await vi.runAllTimersAsync();
+      });
+    }
+    // 1 manual + 3 automatic — the manual one did not eat an automatic slot.
+    expect(sendMessage).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not get stuck 'busy' when a pending timer is cancelled by re-render", async () => {
+    const sendMessage1 = vi.fn(async () => undefined);
+    const sendMessage2 = vi.fn(async () => undefined);
+    const { result, rerender } = renderHook(({ send }) => useAutoFix(send), {
+      initialProps: { send: sendMessage1 },
+    });
+
+    // Schedule an autofix but DON'T let the timer fire yet.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason A"],
+      });
+    });
+
+    // A sendMessage-identity change re-runs the effect; its cleanup cancels the
+    // still-pending timer (whose callback would otherwise have released the gate).
+    await act(async () => {
+      rerender({ send: sendMessage2 });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage1).not.toHaveBeenCalled();
+
+    // The hook must NOT be stuck busy: a new autofix still proceeds.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["reason B"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage2).toHaveBeenCalledTimes(1);
+  });
 });
