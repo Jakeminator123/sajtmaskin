@@ -63,3 +63,5 @@ Längre horisont (ej P1/P2): core-split v2, WebContainers-migration, ÅÄÖ pre-
 Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-arkitektur — render-worker vs instrumenterad preview → [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md).
 
 Beslutsunderlag (scope, ej startat): PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
+
+Aktiv fix (in-progress): preview-surface-stabilitet + iframe-fokus (F2) — iframe-tangentbordsfokus, preview-host reset-recovery, HMR-no-storm under reboot, Next stdout/stderr i runtime-logg → [`2026-06-25-preview-surface-stability-och-iframe-fokus.md`](2026-06-25-preview-surface-stability-och-iframe-fokus.md).
