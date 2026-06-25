@@ -169,27 +169,40 @@ function measureRenderedContentLength(content: string): number {
  * component file in the same project. Package imports (e.g. `next/link`,
  * `lucide-react`) are ignored because their content does not live in the
  * generated file set.
+ *
+ * Only `@/` (the alias the generated tsconfig actually configures — see
+ * `src/lib/gen/export/project-scaffold.ts`) and relative paths are treated
+ * as resolvable. `~/` is intentionally NOT supported: the generated project
+ * cannot resolve it at build/preview time, so counting a `~/`-imported
+ * component would let a thin home page pass the gate while runtime fails.
  */
-const LOCAL_IMPORT_PREFIX = /^(?:\.\.?\/|@\/|~\/)/;
+const LOCAL_IMPORT_PREFIX = /^(?:\.\.?\/|@\/)/;
+
+type LocalComponentImport = { source: string; exportName: string };
 
 /**
  * Parse local-component imports from a page module, mapping each imported
- * binding name (the identifier used in JSX) to its module source. Handles
- * default, named, and aliased (`{ Foo as Bar }`) imports.
+ * binding name (the identifier used in JSX) to its module source AND the
+ * name it is exported under (`"default"` for default imports, the original
+ * name for `{ Foo as Bar }`). The export name lets us measure only the
+ * rendered component, not unrelated module-level exports/data.
  */
-function parseLocalComponentImports(content: string): Map<string, string> {
-  const map = new Map<string, string>();
+function parseLocalComponentImports(content: string): Map<string, LocalComponentImport> {
+  const map = new Map<string, LocalComponentImport>();
   const importRe =
     /import\s+(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
   let match: RegExpExecArray | null;
   while ((match = importRe.exec(content)) !== null) {
     const [, defaultName, named, source] = match;
     if (!source || !LOCAL_IMPORT_PREFIX.test(source)) continue;
-    if (defaultName) map.set(defaultName, source);
+    if (defaultName) map.set(defaultName, { source, exportName: "default" });
     if (named) {
       for (const part of named.split(",")) {
-        const binding = part.split(/\s+as\s+/).pop()?.trim();
-        if (binding) map.set(binding, source);
+        const trimmed = part.trim();
+        if (!trimmed) continue;
+        const [original, alias] = trimmed.split(/\s+as\s+/).map((s) => s.trim());
+        const binding = alias || original;
+        if (binding) map.set(binding, { source, exportName: original });
       }
     }
   }
@@ -215,7 +228,7 @@ function resolveRelativeImport(fromPath: string, relative: string): string {
 
 /**
  * Resolve an import source from `fromPath` to a file in the generated set.
- * Supports `@/`/`~/` root aliases (with and without a `src/` prefix) plus
+ * Supports the `@/` root alias (with and without a `src/` prefix) plus
  * relative paths, trying common TS/JS extensions and `index` files.
  */
 function resolveImportToFile(
@@ -224,7 +237,7 @@ function resolveImportToFile(
   byNorm: Map<string, { path: string; content: string }>,
 ): { path: string; content: string } | null {
   let base: string;
-  if (source.startsWith("@/") || source.startsWith("~/")) {
+  if (source.startsWith("@/")) {
     base = source.slice(2);
   } else if (source.startsWith("./") || source.startsWith("../")) {
     base = resolveRelativeImport(fromPath, source);
@@ -249,10 +262,125 @@ function resolveImportToFile(
 }
 
 /**
- * Composition-aware home-route content measure. Adds the rendered-content
- * length of each local component that is BOTH imported and rendered as JSX
- * in the page, resolved against the generated file set (one level deep —
- * enough to distinguish a real composed page from an empty `<main />`).
+ * Find a balanced `{...}` / `(...)` / `[...]` range starting at the first
+ * opening delimiter at or after `fromIndex`. String/template literals are
+ * skipped so delimiters inside them do not break the balance. Returns the
+ * inclusive `[start, end]` indices, or `null` if none is found.
+ */
+function findBalancedRange(
+  content: string,
+  fromIndex: number,
+): { start: number; end: number } | null {
+  const openers: Record<string, string> = { "{": "}", "(": ")", "[": "]" };
+  let start = -1;
+  for (let i = fromIndex; i < content.length; i++) {
+    if (openers[content[i]]) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return null;
+  const stack: string[] = [];
+  let quote: string | null = null;
+  for (let i = start; i < content.length; i++) {
+    const ch = content[i];
+    if (quote) {
+      if (ch === "\\") {
+        i++;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (openers[ch]) {
+      stack.push(openers[ch]);
+    } else if (ch === "}" || ch === ")" || ch === "]") {
+      if (stack.pop() !== ch) return { start, end: i };
+      if (stack.length === 0) return { start, end: i };
+    }
+  }
+  return { start, end: content.length - 1 };
+}
+
+function captureBalancedBlock(content: string, fromIndex: number): string | null {
+  const range = findBalancedRange(content, fromIndex);
+  return range ? content.slice(range.start, range.end + 1) : null;
+}
+
+/** Capture a function body `{...}`, skipping the parameter list `(...)`. */
+function captureFunctionBody(content: string, afterName: number): string | null {
+  const params = findBalancedRange(content, afterName);
+  const bodyFrom = params ? params.end + 1 : afterName;
+  return captureBalancedBlock(content, bodyFrom);
+}
+
+/** Capture an arrow function's body (block, parenthesized JSX, or expression). */
+function captureAfterArrow(content: string, afterArrow: number): string | null {
+  let i = afterArrow;
+  while (i < content.length && /\s/.test(content[i])) i++;
+  const ch = content[i];
+  if (ch === "{" || ch === "(") return captureBalancedBlock(content, i);
+  const rest = content.slice(i);
+  return rest.split(/;\s*\n|\n\s*\n/)[0] ?? null;
+}
+
+/**
+ * Extract the source of a specific exported component (`exportName`, or
+ * `"default"`) from a module, so we can measure only the rendered component
+ * and not unrelated module-level exports/data arrays. Returns `null` when
+ * the declaration cannot be located (caller then treats it as no content).
+ */
+function extractExportedComponentSource(content: string, exportName: string): string | null {
+  let name = exportName;
+  if (name === "default") {
+    const directFn = /export\s+default\s+(?:async\s+)?function\b/.exec(content);
+    if (directFn) {
+      const body = captureFunctionBody(content, directFn.index + directFn[0].length);
+      return body ? `${directFn[0]} ${body}` : null;
+    }
+    const directArrow = /export\s+default\s+(?:async\s+)?\([^)]*\)\s*=>/.exec(content);
+    if (directArrow) {
+      return captureAfterArrow(content, directArrow.index + directArrow[0].length);
+    }
+    const refDefault = /export\s+default\s+([A-Za-z_$][\w$]*)\s*;?/.exec(content);
+    if (refDefault) {
+      name = refDefault[1];
+    } else {
+      return null;
+    }
+  }
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fnDecl = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${escaped}\\b`).exec(content);
+  if (fnDecl) {
+    const body = captureFunctionBody(content, fnDecl.index + fnDecl[0].length);
+    return body ? `${fnDecl[0]} ${body}` : null;
+  }
+  const constDecl = new RegExp(`(?:export\\s+)?const\\s+${escaped}\\b`).exec(content);
+  if (constDecl) {
+    const after = constDecl.index + constDecl[0].length;
+    const arrowIdx = content.indexOf("=>", after);
+    const eqIdx = content.indexOf("=", after);
+    if (arrowIdx !== -1) return captureAfterArrow(content, arrowIdx + 2);
+    if (eqIdx !== -1) {
+      const block = captureBalancedBlock(content, eqIdx + 1);
+      return block ?? content.slice(eqIdx + 1).split(/\n\s*\n/)[0] ?? null;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Composition-aware home-route content measure. For each local component
+ * that is BOTH imported and rendered as JSX in the page, resolve the file
+ * and measure ONLY the rendered export's body (not the whole module), so a
+ * large unrelated module-level export/data array cannot inflate the count
+ * past the gate. One level deep — enough to distinguish a real composed
+ * page from an empty `<main />` whose delegated component is also empty.
  */
 function measureComposedHomeRenderedLength(
   home: { path: string; content: string },
@@ -265,15 +393,17 @@ function measureComposedHomeRenderedLength(
     files.map((file) => [file.path.replace(/\\/g, "/"), file]),
   );
   const counted = new Set<string>();
-  for (const [name, source] of imports) {
+  for (const [name, info] of imports) {
     const renderedAsJsx = new RegExp(`<${name}(?=[\\s/>])`).test(home.content);
     if (!renderedAsJsx) continue;
-    const file = resolveImportToFile(source, home.path, byNorm);
+    const file = resolveImportToFile(info.source, home.path, byNorm);
     if (!file) continue;
-    const key = file.path.replace(/\\/g, "/");
+    const key = `${file.path.replace(/\\/g, "/")}#${info.exportName}`;
     if (counted.has(key)) continue;
     counted.add(key);
-    total += measureRenderedContentLength(file.content);
+    const exportSource = extractExportedComponentSource(file.content, info.exportName);
+    if (!exportSource) continue;
+    total += measureRenderedContentLength(exportSource);
   }
   return total;
 }
