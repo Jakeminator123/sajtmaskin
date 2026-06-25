@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "feature-grid",
+  "label": "Feature Grid",
+  "capability": "feature-grid",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Responsive grid of feature cards, each with a title, a short description, and an optional icon slot. Server-renderable (no client JS) and built from Tailwind primitives so it inherits the active scaffold's theme tokens. Use it to communicate 3-9 product capabilities or service offerings.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/feature-grid.tsx",
+      "role": "shared"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "FeatureGrid",
+      "type": "component",
+      "import": "@/components/feature-grid"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}

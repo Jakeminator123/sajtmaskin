@@ -33,6 +33,8 @@ Verkliga öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar
 | [ ] | Öppen inspektor-edge | P2 | Bridge-captures skickar element-center, inte faktisk klick-koordinat | #164 | Bevara klick-punkten. `usePreviewInspectBridge.ts:164`. |
 | [ ] | Öppen läck-risk | P3 | `?inspect=1` kan nå genererad apps `searchParams`/`window.location.search` | #164, #197 | Strippa innan iframe-navigering. `PreviewPanel.tsx:withInspectParam`. |
 | [ ] | Öppen validator-risk | P2 | Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen finns) → false-green i self-validating-kartan | #202 | Resolva JSON-fragment och faila när top-level-nyckeln saknas. `scripts/control-plane/check-registry.mjs:114`. |
+| [ ] | Öppen kvalitet-risk | P2 | Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, `stepper`) exponeras bara via Deep Brief-prompten → korta init-prompts + follow-ups missar dem | #242 | Tråda in i capability-inference + follow-up-detektion (`capability-dossier-bridge.ts`, `follow-up-capability-detection.ts`). Samma spår som G#25/G#26. |
+| [ ] | Öppen a11y-polish | P2 | `gallery-lightbox`-lightbox saknar focus-trap + focus-restore (fokus stannar på thumbnail; Tab når dolt galleri bakom overlay) | #242 | Flytta fokus till close vid open, återställ till opener vid close, ev. full trap. `data/dossiers/soft/gallery-lightbox/components/gallery-lightbox.tsx`. F2-acceptabelt. |
 
 ## Behöver repro
 

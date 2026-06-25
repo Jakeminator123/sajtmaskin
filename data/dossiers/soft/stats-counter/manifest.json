@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "stats-counter",
+  "label": "Stats Counter",
+  "capability": "stats-counter",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Animated key-metrics band that counts up from zero to each target value when the section scrolls into view. Respects prefers-reduced-motion (jumps straight to the final value) and uses tabular figures so digits do not jitter. No external dependencies; inherits the active scaffold's theme tokens.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/stats-counter.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "StatsCounter",
+      "type": "component",
+      "import": "@/components/stats-counter"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}
