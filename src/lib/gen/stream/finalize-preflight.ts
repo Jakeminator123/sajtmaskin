@@ -135,8 +135,17 @@ function resolveAppPagePath(files: Array<{ path: string }>): string | null {
  * "Non-trivial" = > 200 chars of rendered content body after stripping
  * imports, exports, and JSX braces. Picked empirically from observed
  * "blank" pages (~80–120 chars of import + skeleton vs ~600+ for any
- * real branded landing) so a sparse but real page (e.g. `<Hero />`-
- * only) still passes.
+ * real branded landing).
+ *
+ * The measure is composition-aware: a modern App Router home page often
+ * delegates its body to a local section/page component
+ * (`return <PalmaGuide />`), leaving little inline text in `app/page.tsx`
+ * itself. Counting the page file in isolation then mis-flags a perfectly
+ * real, content-rich site as "trivial/blank" and forces a manual "Fixa
+ * projekt" re-run. `measureComposedHomeRenderedLength` therefore also
+ * counts the rendered content of local components that are imported AND
+ * rendered as JSX in the page, so a sparse-but-composing page passes while
+ * a truly empty `<main />` is still blocked.
  */
 const HOME_PAGE_MIN_RENDERED_CHARS = 200;
 const HOME_PAGE_REQUIRED_PATHS = ["app/page.tsx", "src/app/page.tsx"] as const;
@@ -155,6 +164,120 @@ function measureRenderedContentLength(content: string): number {
   return stripped.length;
 }
 
+/**
+ * Local (non-package) import sources that may resolve to a generated
+ * component file in the same project. Package imports (e.g. `next/link`,
+ * `lucide-react`) are ignored because their content does not live in the
+ * generated file set.
+ */
+const LOCAL_IMPORT_PREFIX = /^(?:\.\.?\/|@\/|~\/)/;
+
+/**
+ * Parse local-component imports from a page module, mapping each imported
+ * binding name (the identifier used in JSX) to its module source. Handles
+ * default, named, and aliased (`{ Foo as Bar }`) imports.
+ */
+function parseLocalComponentImports(content: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const importRe =
+    /import\s+(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
+  let match: RegExpExecArray | null;
+  while ((match = importRe.exec(content)) !== null) {
+    const [, defaultName, named, source] = match;
+    if (!source || !LOCAL_IMPORT_PREFIX.test(source)) continue;
+    if (defaultName) map.set(defaultName, source);
+    if (named) {
+      for (const part of named.split(",")) {
+        const binding = part.split(/\s+as\s+/).pop()?.trim();
+        if (binding) map.set(binding, source);
+      }
+    }
+  }
+  return map;
+}
+
+function posixDirname(filePath: string): string {
+  const norm = filePath.replace(/\\/g, "/");
+  const idx = norm.lastIndexOf("/");
+  return idx === -1 ? "" : norm.slice(0, idx);
+}
+
+function resolveRelativeImport(fromPath: string, relative: string): string {
+  const segments = `${posixDirname(fromPath)}/${relative}`.split("/");
+  const out: string[] = [];
+  for (const segment of segments) {
+    if (segment === "" || segment === ".") continue;
+    if (segment === "..") out.pop();
+    else out.push(segment);
+  }
+  return out.join("/");
+}
+
+/**
+ * Resolve an import source from `fromPath` to a file in the generated set.
+ * Supports `@/`/`~/` root aliases (with and without a `src/` prefix) plus
+ * relative paths, trying common TS/JS extensions and `index` files.
+ */
+function resolveImportToFile(
+  source: string,
+  fromPath: string,
+  byNorm: Map<string, { path: string; content: string }>,
+): { path: string; content: string } | null {
+  let base: string;
+  if (source.startsWith("@/") || source.startsWith("~/")) {
+    base = source.slice(2);
+  } else if (source.startsWith("./") || source.startsWith("../")) {
+    base = resolveRelativeImport(fromPath, source);
+  } else {
+    return null;
+  }
+  base = base.replace(/^\/+/, "");
+  if (!base) return null;
+  const exts = [".tsx", ".ts", ".jsx", ".js"];
+  const bases = base.startsWith("src/") ? [base] : [base, `src/${base}`];
+  const candidates: string[] = [];
+  for (const candidateBase of bases) {
+    candidates.push(candidateBase);
+    for (const ext of exts) candidates.push(`${candidateBase}${ext}`);
+    for (const ext of exts) candidates.push(`${candidateBase}/index${ext}`);
+  }
+  for (const candidate of candidates) {
+    const hit = byNorm.get(candidate);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * Composition-aware home-route content measure. Adds the rendered-content
+ * length of each local component that is BOTH imported and rendered as JSX
+ * in the page, resolved against the generated file set (one level deep —
+ * enough to distinguish a real composed page from an empty `<main />`).
+ */
+function measureComposedHomeRenderedLength(
+  home: { path: string; content: string },
+  files: Array<{ path: string; content: string }>,
+): number {
+  let total = measureRenderedContentLength(home.content);
+  const imports = parseLocalComponentImports(home.content);
+  if (imports.size === 0) return total;
+  const byNorm = new Map(
+    files.map((file) => [file.path.replace(/\\/g, "/"), file]),
+  );
+  const counted = new Set<string>();
+  for (const [name, source] of imports) {
+    const renderedAsJsx = new RegExp(`<${name}(?=[\\s/>])`).test(home.content);
+    if (!renderedAsJsx) continue;
+    const file = resolveImportToFile(source, home.path, byNorm);
+    if (!file) continue;
+    const key = file.path.replace(/\\/g, "/");
+    if (counted.has(key)) continue;
+    counted.add(key);
+    total += measureRenderedContentLength(file.content);
+  }
+  return total;
+}
+
 function findHomePageFile(
   files: Array<{ path: string; content: string }>,
 ): { path: string; content: string } | null {
@@ -168,6 +291,7 @@ function findHomePageFile(
 
 function buildMissingHomeRouteIssue(
   detected: { path: string; content: string } | null,
+  allFiles?: Array<{ path: string; content: string }>,
 ): FinalizePreflightIssue | null {
   if (!detected) {
     return createIssue(
@@ -177,7 +301,9 @@ function buildMissingHomeRouteIssue(
       "code_structure_failure",
     );
   }
-  const renderedLength = measureRenderedContentLength(detected.content);
+  const renderedLength = allFiles
+    ? measureComposedHomeRenderedLength(detected, allFiles)
+    : measureRenderedContentLength(detected.content);
   if (renderedLength < HOME_PAGE_MIN_RENDERED_CHARS) {
     return createIssue(
       detected.path,
@@ -237,7 +363,7 @@ async function tryRecoverMissingHomeRoute(params: {
   repairScopeId?: string;
 }): Promise<{ files: CodeFile[]; recovered: boolean; attempted: boolean; message?: string }> {
   const detectedHome = findHomePageFile(params.files);
-  const homeIssue = buildMissingHomeRouteIssue(detectedHome);
+  const homeIssue = buildMissingHomeRouteIssue(detectedHome, params.files);
   if (!homeIssue) {
     return { files: params.files, recovered: false, attempted: false };
   }
@@ -972,6 +1098,7 @@ export async function runFinalizePreflight({
     // reaches persist without a renderable Home route.
     const homePageGateIssue = buildMissingHomeRouteIssue(
       findHomePageFile(completeProjectFiles),
+      completeProjectFiles,
     );
     if (homePageGateIssue) {
       preflightIssues.push(homePageGateIssue);
