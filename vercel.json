@@ -2,12 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "src/app/api/engine/chats/stream/route.ts": {
-      "supportsCancellation": true,
-      "memory": 3009
+      "supportsCancellation": true
     },
     "src/app/api/engine/chats/*/stream/route.ts": {
-      "supportsCancellation": true,
-      "memory": 3009
+      "supportsCancellation": true
     },
     "src/app/api/template/route.ts": {
       "maxDuration": 300
