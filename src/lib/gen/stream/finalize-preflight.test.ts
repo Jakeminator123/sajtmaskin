@@ -703,6 +703,211 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(false);
   });
 
+  it("does not flag a composed home route that delegates to a real local component", async () => {
+    // Regression: prod chat bb918df9 (version 103e60b5) shipped a thin
+    // `app/page.tsx` that delegated its whole body to `<PalmaGuide />`.
+    // The old isolated char-count measured ≈26 chars and blocked preview,
+    // forcing a manual "Fixa projekt". The composed measure must count the
+    // imported-and-rendered local component so the real site passes.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinComposedHome = [
+      'import { PalmaGuide } from "@/components/palma-guide";',
+      "",
+      "export default function Page() {",
+      "  return (",
+      "    <>",
+      "      <PalmaGuide />",
+      "    </>",
+      "  );",
+      "}",
+    ].join("\n");
+    const richComponent = [
+      "export function PalmaGuide() {",
+      "  return (",
+      "    <main>",
+      "      <section>",
+      "        <h1>Ölbodar i Palma – guide till cervecerías och ölstopp</h1>",
+      "        <p>",
+      "          Upptäck lokala ölbodar i Palma de Mallorca med tips om områden,",
+      "          stämning, bästa tider, klassiska cervecerías, craft beer-ställen",
+      "          och tapasvänliga stopp för en enkel och minnesvärd kvällsrunda.",
+      "        </p>",
+      "        <button>Boka bord</button>",
+      "      </section>",
+      "    </main>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_composed_home",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinComposedHome, language: "tsx" },
+        { path: "components/palma-guide.tsx", content: richComponent, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeUndefined();
+    expect(result.previewStart.canStartPreview).toBe(true);
+  });
+
+  it("still blocks a thin home route when its delegated component is absent", async () => {
+    // Safety net: a page that delegates to a component which is NOT in the
+    // file set has no resolvable content and would render nothing, so the
+    // trivial-content gate must still fire.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinHomeMissingComponent = [
+      'import { GhostGuide } from "@/components/ghost-guide";',
+      "",
+      "export default function Page() {",
+      "  return <GhostGuide />;",
+      "}",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_missing_component_home",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinHomeMissingComponent, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
+  it("counts only the rendered export body, not unrelated module-level data (Codex P2)", async () => {
+    // The composed measure must not be inflated by a large unused
+    // module-level export/data array. A page that renders <Hero /> where
+    // Hero itself is an empty <main /> must still be blocked even if the
+    // module also ships a big DATA array.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinHome = [
+      'import { Hero } from "@/components/hero";',
+      "",
+      "export default function Page() {",
+      "  return <Hero />;",
+      "}",
+    ].join("\n");
+    const bigData = Array.from(
+      { length: 40 },
+      (_, i) => `  { id: ${i}, label: "Item number ${i} with descriptive padding text for length" },`,
+    ).join("\n");
+    const emptyHeroWithBigData = [
+      "export const DATA = [",
+      bigData,
+      "];",
+      "",
+      "export function Hero() {",
+      "  return <main />;",
+      "}",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_empty_hero_big_data",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinHome, language: "tsx" },
+        { path: "components/hero.tsx", content: emptyHeroWithBigData, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
+  it("does not count ~/ imports the generated project cannot resolve (Codex P2)", async () => {
+    // The generated tsconfig only configures `@/*`, so a `~/`-imported
+    // component is unresolvable at build/preview. Its content must not
+    // satisfy the gate, otherwise a thin home persists but fails at runtime.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinHome = [
+      'import { TildeGuide } from "~/components/tilde-guide";',
+      "",
+      "export default function Page() {",
+      "  return <TildeGuide />;",
+      "}",
+    ].join("\n");
+    const richComponent = [
+      "export function TildeGuide() {",
+      "  return (",
+      "    <main>",
+      "      <h1>Massor av riktigt innehåll här som annars skulle räknas</h1>",
+      `      <p>${"verkligt synligt innehåll ".repeat(20)}</p>`,
+      "    </main>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_tilde_home",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinHome, language: "tsx" },
+        { path: "components/tilde-guide.tsx", content: richComponent, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
+  it("does not count an unbalanced/malformed component body (Bugbot)", async () => {
+    // If the delegated component's body never closes its brace, the balance
+    // matcher must fail closed (not span to EOF), so trailing module data
+    // cannot inflate the measure and slip a thin home past the gate.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinHome = [
+      'import { Hero } from "@/components/hero";',
+      "",
+      "export default function Page() {",
+      "  return <Hero />;",
+      "}",
+    ].join("\n");
+    const bigData = Array.from(
+      { length: 40 },
+      (_, i) => `  "Item number ${i} with descriptive padding text for length",`,
+    ).join("\n");
+    // Hero's function body is missing its closing brace; a large data array
+    // follows at module scope.
+    const malformed = [
+      "export function Hero() {",
+      "  return <main />;",
+      "",
+      "export const DATA = [",
+      bigData,
+      "];",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_unbalanced_hero",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinHome, language: "tsx" },
+        { path: "components/hero.tsx", content: malformed, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
   it("plan-11 bug 1: emits count-parity error when buildCompleteProject mutates the array length silently", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     // Assemble a "drift" scenario: input has 1 file, the assembled
