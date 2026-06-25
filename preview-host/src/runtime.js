@@ -1742,6 +1742,15 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   // refreshToken plockar upp det nya innehållet.
   if (isHmrProxyEnabled() && isHmrPath(info.restPath)) {
     const state = getRuntimeStateForChat(info.chatId);
+    // Unknown session: there is no preview session for this chatId, so there is
+    // nothing to boot or hold open for. Close the socket instead of holding a
+    // stale HMR connection (and instead of queueing a no-op boot for a session
+    // that does not exist). Without this guard the `!state.running` branch below
+    // would `acceptAndHoldWebSocket` an orphan socket indefinitely.
+    if (!state.session) {
+      try { socket.destroy(); } catch { /* already closed */ }
+      return true;
+    }
     if (!state.running) {
       if (!state.booting) queueRuntimeBoot(info.chatId);
       if (acceptAndHoldWebSocket(req, socket)) return true;
