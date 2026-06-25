@@ -37,11 +37,11 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   # ── Byggmodeller (kodgenerering, direkt mot OpenAI) ──────────
 //   SAJTMASKIN_MODEL_FAST=gpt-5.4-mini
 //   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
-//   SAJTMASKIN_MODEL_MAX=gpt-5.4
+//   SAJTMASKIN_MODEL_MAX=gpt-5.5
 //   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex
 //
 //   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
-//   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
+//   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.5
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────

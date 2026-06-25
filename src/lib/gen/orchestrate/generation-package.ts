@@ -1,4 +1,4 @@
-import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "../prompt-dump";
+import { PROMPT_DUMP_CATEGORY, isPromptDumpEnabled, writeLatestPromptDump } from "../prompt-dump";
 import {
   type GenerationInputPackage,
   buildGenerationPromptSize,
@@ -89,16 +89,23 @@ export function buildGenerationInputPackage(
 }
 
 export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void {
+  // `latest.md` is an existing string (cheap reference). The full-package JSON
+  // is a large pretty-printed serialization that writeLatestPromptDump only
+  // persists when dumping is enabled; building it unconditionally allocated a
+  // multi-MB string that prod discards, contributing to heap-OOM on large
+  // builds. Build it only when it will actually be written (same predicate the
+  // writer uses to decide whether files are written: isPromptDumpEnabled()).
+  const files: Record<string, string> = { "latest.md": pkg.dynamicContext };
+  if (isPromptDumpEnabled()) {
+    files["generation-input-package.json"] = JSON.stringify(
+      serializePackageForDump(pkg),
+      null,
+      2,
+    );
+  }
   writeLatestPromptDump(
     PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    {
-      "latest.md": pkg.dynamicContext,
-      "generation-input-package.json": JSON.stringify(
-        serializePackageForDump(pkg),
-        null,
-        2,
-      ),
-    },
+    files,
     {
       lineageHash: pkg.lineageHash,
       buildIntent: pkg.buildSpec.buildIntent,
