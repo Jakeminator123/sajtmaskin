@@ -93,7 +93,7 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 2. **CSP-header**: lägg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
 3. **Snabbare första boot**: förinstallera baseline-deps i Dockerfile eller cacha `node_modules` på volymen mer aggressivt.
 4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
-5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
+5. ~~**Observerbarhet**: tydligare loggning av Next.js stdout/stderr i runtime-loggar.~~ **Klart (2026-06-25):** `spawnDevServer` haller nu en ringbuffert (senaste ~60 rader) av `next dev` stdout/stderr och flushar en tail (~30 rader) till runtime-loggen vid **onormal** exit (krasch/boot-fel). Rena stopp (hibernate/destroy/restart) satter `ignoreExit` och dumpar inget, sa store:n floodas inte av HMR-brus.
 
 ### Kanda begransningar (acceptabla pa F2)
 
@@ -105,6 +105,14 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 `patchNextConfigForPreviewBasePath` (i `src/runtime.js`) injicerar `basePath` + en `webpack`-mutator (som filtrerar bort `HotModuleReplacementPlugin` nar `SAJTMASKIN_PREVIEW_DISABLE_HMR=true`) i workspaceens `next.config.{ts,mjs,js}` vid varje boot. Detta fixar `basePath` for `/{chatId}`-prefixet.
 
 **HMR-WebSocket-tystnad (2026-04-23):** Next 15:s app-router Fast Refresh ship:ar en egen WebSocket-klient som *inte* sitter i `HotModuleReplacementPlugin`, sa plugin-filtret rackte inte. I stallet gor `proxyPreviewUpgrade` i `src/runtime.js` en inline RFC 6455 101-handshake (`acceptAndHoldWebSocket`) for upgrade-requester till `/_next/(webpack|turbopack)-hmr` och haller sedan socketen oppen utan att skicka frames. Browsern ser sig som ansluten och slutar retry:a. Ingen ny dep kravs; handshaken ar en 10-raders SHA1+base64-snutt. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover akta HMR mot VM:en.
+
+**Reboot-stabilitet (2026-06-25):** tre samverkande ändringar i `src/runtime.js` mot "white screen"/`socket hang up`/Fly `[PU02]`-spam vid restart:
+
+- `proxy.on("error")` återhämtar nu **alla** recoverable transportfel (`ECONNREFUSED`, `ECONNRESET`/`socket hang up`, `EPIPE`, `ECONNABORTED`, `ETIMEDOUT`), inte bara `ECONNREFUSED`. En zombie-runtime som resettar mitt i ett svar recyclas (stop + restart om den lever, annars vanlig boot — dedupat mot pågående boot) och iframen får den vänliga auto-reloadande "Startar om preview"-sidan i stället för rå `{"error":"proxy_failed"}`-JSON.
+- `proxyPreviewUpgrade` håller HMR-WebSocket:en tyst (via `acceptAndHoldWebSocket`) när HMR-proxyn är på men runtimen inte kör/bootar, i stället för att proxya mot en ej-lyssnande port (som annars gav ECONNREFUSED → destroy → klientens reconnect-storm = PU02-spam under hela reboot-fönstret).
+- SIGTERM→SIGKILL-draina i `stopChildProcessTree` är nu konfigurerbar via `PREVIEW_HOST_RUNTIME_DRAIN_MS` (default 5000 ms = oförändrat); höj för att låta pågående svar hinna klart innan tvångsdöd.
+
+Alla tre är bakåtkompatibla (default = dagens beteende) och kräver `fly deploy -a vm-fly-jakem` för att aktiveras.
 
 **Inspector-bridge-injektion (opt-in, 2026-06-19):** nar `SAJTMASKIN_APP_ORIGIN` ar satt OCH ett dokument-anrop har `?inspect=1` buffrar `proxy.on("proxyRes")` (i `src/runtime.js`) HTML-svaret och injicerar `<script src="${SAJTMASKIN_APP_ORIGIN}/api/inspect-bridge?parent=...">` fore `</body>`. Allt annat (saknad env, ingen `?inspect=1`, icke-HTML eller komprimerade svar) ar ren passthrough -> oforandrat beteende. App-origin tas fran egen env, aldrig fran query, sa ingen kan be hosten injicera en godtycklig origin. Default av. Se `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`.
 

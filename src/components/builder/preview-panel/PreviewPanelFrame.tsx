@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
+import { AlertCircle, ExternalLink, Loader2, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
@@ -50,6 +50,11 @@ const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 // än att låta spinnern hänga kvar för evigt.
 const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
 
+// Hur länge "klicka för att fokusera"-ledtråden visas innan den auto-göms,
+// om användaren inte klickar i previewn. Kort nog att inte vara påträngande,
+// långt nog att hinna läsas. Ledtråden göms direkt när iframen får fokus.
+const FOCUS_HINT_TIMEOUT_MS = 7_000;
+
 export function PreviewPanelFrame({
   isLoading,
   iframeError,
@@ -94,8 +99,75 @@ export function PreviewPanelFrame({
   const topBarVisible = isLoading && !hardCapReached;
   const overlayVisible = isLoading && debounceElapsed && !hardCapReached;
 
+  // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
+  // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
+  // iframen, så användaren måste klicka i spelytan först — utan ledtråd om det.
+  // Vi fokuserar iframen vid klick i preview-ytan och visar en icke-blockerande
+  // ledtråd tills iframen fått fokus.
+  const [previewFocused, setPreviewFocused] = useState(false);
+  const [focusHintExpired, setFocusHintExpired] = useState(false);
+
+  const focusPreviewIframe = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      iframe.focus({ preventScroll: true });
+    } catch {
+      /* focus() kan kasta i vissa äldre webbläsare — icke-fatalt */
+    }
+    try {
+      // window.focus() är tillåtet cross-origin; guarda ändå defensivt.
+      iframe.contentWindow?.focus();
+    } catch {
+      /* cross-origin guard */
+    }
+  }, [iframeRef]);
+
+  // Detektera när iframen tagit fokus: parent-fönstret får då `blur` och
+  // document.activeElement blir iframe-elementet. Då kan ledtråden gömmas.
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      if (document.activeElement === iframeRef.current) {
+        setPreviewFocused(true);
+      }
+    };
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [iframeRef]);
+
+  // Auto-göm ledtråden efter en stund — men arma timern FÖRST när previewn
+  // faktiskt är interaktiv (`!isLoading && !iframeError`) och iframen inte
+  // redan fått fokus. Annars hinner en kall preview-host-boot (>7s) "förbruka"
+  // timern medan ledtråden ändå är dold av isLoading, så användaren aldrig
+  // ser den — exakt de långsamma bootarna där hjälpen behövs mest.
+  useEffect(() => {
+    if (!previewSrc || isLoading || iframeError || previewFocused) return;
+    const id = window.setTimeout(() => setFocusHintExpired(true), FOCUS_HINT_TIMEOUT_MS);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [previewSrc, isLoading, iframeError, previewFocused]);
+
+  // Återställ ledtråds-state vid reload (ny `previewSrc`). Görs i cleanup —
+  // inte synkront i effekt-kroppen — för att undvika cascading-render-varningen
+  // (samma mönster som debounce/hard-cap-effekten ovan). Cleanup körs när
+  // `previewSrc` ändras, då fokus återgår till parent och ledtråden ska kunna
+  // visas igen för den nya previewn.
+  useEffect(() => {
+    return () => {
+      setFocusHintExpired(false);
+      setPreviewFocused(false);
+    };
+  }, [previewSrc]);
+
+  const showFocusHint =
+    Boolean(previewSrc) && !focusHintExpired && !previewFocused && !isLoading && !iframeError;
+
   return (
-    <div className="relative h-full overflow-hidden bg-gray-950">
+    <div
+      className="relative h-full overflow-hidden bg-gray-950"
+      onMouseDown={focusPreviewIframe}
+    >
       {topBarVisible ? (
         <div
           aria-hidden="true"
@@ -154,11 +226,21 @@ export function PreviewPanelFrame({
         className="h-full w-full border-0"
         onLoad={handleIframeLoad}
         onError={handleIframeError}
+        onMouseDown={focusPreviewIframe}
         // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.
         // allow-modals: lets generated apps use window.alert/confirm without silent failures.
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals"
         title="Preview"
       />
+
+      {showFocusHint ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center">
+          <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-black/70 px-3 py-1.5 text-[11px] text-zinc-200 shadow-lg backdrop-blur-sm">
+            <MousePointerClick className="text-primary h-3.5 w-3.5" />
+            Klicka i previewn för att styra med tangentbordet
+          </div>
+        </div>
+      ) : null}
 
       {/*
         Suppress the version-mismatch overlay when the iframe itself is in
