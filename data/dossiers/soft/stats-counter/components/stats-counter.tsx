@@ -57,7 +57,11 @@ function useCountUp(target: number, active: boolean, durationMs: number): number
 function formatValue(value: number, target: number): string {
   const hasDecimals = !Number.isInteger(target);
   const rounded = hasDecimals ? Math.round(value * 10) / 10 : Math.round(value);
-  return rounded.toLocaleString(undefined, {
+  // Pin the locale so the server pre-render and the client hydration produce
+  // identical text. The host-default locale can differ between Node and the
+  // browser (e.g. "1,000" / "0.0" vs "1 000" / "0,0"), causing a hydration
+  // mismatch on the initial 0-state render.
+  return rounded.toLocaleString("en-US", {
     minimumFractionDigits: hasDecimals ? 1 : 0,
     maximumFractionDigits: hasDecimals ? 1 : 0,
   });
