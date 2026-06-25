@@ -1,7 +1,8 @@
 ---
 id: 2026-06-25-preview-surface-stability-och-iframe-fokus
-status: in-progress
+status: done
 created: 2026-06-25
+completed: 2026-06-25
 linear: null
 parent: null
 supersedes: null
@@ -83,3 +84,32 @@ i denna leverans). App-sidan (A) går live via vanlig Vercel-deploy av master.
 
 - Repo-rot: `npm run typecheck`, `npm run lint`, riktad `npx vitest run` (preview-panel).
 - Preview-host: `npm run check`, `npm run smoke`.
+
+---
+
+## Resultat (levererat 2026-06-25)
+
+**Status: implementerat, mergat och deployat.**
+
+### Leverans
+- PR **#241** `fix(preview): make embedded preview playable + harden preview-host reboots` — squash-mergad till `master` som `4bbbc87a28`.
+- Arbetet gjordes i isolerad worktree (`feat/preview-host-stability-and-iframe-focus`), huvudcheckouten orörd.
+
+### Bot-/extern review (alla åtgärdade i commit `2f24c2305`)
+Codex gav 4× P2 — identiska med en extern review. Alla fixade:
+1. `proxy.on("error")`: `sendRuntimeStartingPage` returnerar nu bool; om recovery-sidan inte kan skrivas (mid-response reset efter att headers/body redan skickats) destroy:as/avslutas svaret i stället för att lämna iframen hängande.
+2+3. Recovery köar **en** `queueRuntimeBoot(restart: true)` när `!state.booting` för både levande-zombie och död runtime — tar bort manuell stop-then-queue-glappet och kringgår "stopped recently"-cooldownen. `getRuntimeStateForChat().booting` (`inflightBootByChat.has() || status==="starting"`) täcker hela boot-fönstret, så ingen reboot-storm.
+4. Fokus-timern armas först när `!isLoading && !iframeError && !previewFocused`; reset i separat `previewSrc`-cleanup-effekt.
+
+### Verifiering (grön)
+`typecheck` 0 · `lint` 0 · `vitest` 27/27 · `check-unicode-regex` OK · preview-host `check` + `smoke` (passed) + `test:patch` 5/5. CI på `2f24c2305`: quality/stability/schema-drift/db-blob-sync/GitGuardian/Vercel — alla gröna.
+
+### Deploy
+- **App-sida (A):** live via Vercel prod-deploy av `master`.
+- **Preview-host (B/C/D/E):** `fly deploy -a vm-fly-jakem` (legacy remote builder; depot-buildern hängde på provisionering). Machine **v33**, ny image, health passing. Recovery-vägen verifierad live: preview-URL ger graceful "Startar preview"-sida (HTTP 200 HTML), inte rå `proxy_failed`-JSON. Inga PU02 sedan deploy.
+
+### Kvarstår (follow-ups, ej i denna leverans)
+- Blue-green-restart (ny runtime på ny port, dränera gammal först).
+- App-sidans in-iframe auto-retry-overlay vid mid-session-reboot.
+- Vercel `[error/deploy] Project not found or access denied` (blockerar "Publicera" — separat credential/`VERCEL_PROJECT_ID`-fråga, inga secrets i git).
+- **Ej slutverifierat av riktig användarklick:** snake-spelbarhet i builder-iframen + PU02-nivå under en verklig follow-up-reboot (deployat och redo; bekräftas via klick i spelplanen / "Öppna i ny flik").
