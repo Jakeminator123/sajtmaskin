@@ -86,7 +86,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
             <img
               src={current.src}
               alt={current.alt}
-              className="max-h-[80vh] w-auto rounded-lg object-contain"
+              className="max-h-[80vh] max-w-[calc(100vw-2rem)] w-auto rounded-lg object-contain"
             />
             {current.caption && (
               <p className="mt-3 text-center text-sm text-white/80">{current.caption}</p>
