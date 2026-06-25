@@ -17,6 +17,17 @@ const READINESS_MAX_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS 
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
 const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
+// Drain-fönster mellan SIGTERM och SIGKILL när en runtime stoppas (t.ex. vid
+// avsiktlig restart). Default 5000 ms = oförändrat beteende; höj för att låta
+// pågående HTTP-svar hinna klart innan processen tvångsdödas (mildrar
+// "socket hang up"/PU02 vid restart). Reversibelt via env.
+const RUNTIME_DRAIN_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_DRAIN_MS ?? "5000", 10);
+// Observability (README handoff #5): behåll en liten ringbuffert av senaste
+// stdout/stderr-rader per runtime så att en tail kan ytliggöras i runtime-loggen
+// vid onormal exit (i stället för att tystas helt).
+const RUNTIME_OUTPUT_RING_MAX = 60;
+const RUNTIME_OUTPUT_LINE_MAX = 500;
+const RUNTIME_OUTPUT_EXIT_TAIL = 30;
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
 const VERIFY_WORKSPACES_DIR = path.join(getDataDir(), "verify-workspaces");
 
@@ -1256,11 +1267,13 @@ function stopChildProcessTree(child) {
       return;
     }
     child.kill("SIGTERM");
+    const drainMs =
+      Number.isFinite(RUNTIME_DRAIN_MS) && RUNTIME_DRAIN_MS >= 0 ? RUNTIME_DRAIN_MS : 5000;
     const timeout = setTimeout(() => {
       if (child.exitCode === null) {
         child.kill("SIGKILL");
       }
-    }, 5000);
+    }, drainMs);
     child.once("close", () => {
       clearTimeout(timeout);
       resolve();
@@ -1319,15 +1332,28 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     workspaceDir,
     chatId,
     previewSessionId: session.previewSessionId,
+    // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
+    // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
+    // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
+    recentOutput: [],
   };
   runtimeChildren.set(session.sessionId, tracked);
 
-  child.stdout.on("data", () => {
-    // Avoid flooding the persistent log store with HMR/dev noise.
-  });
-  child.stderr.on("data", () => {
-    // Avoid flooding the persistent log store with HMR/dev noise.
-  });
+  const captureRuntimeOutput = (chunk) => {
+    const text = String(chunk);
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trimEnd();
+      if (!line) continue;
+      tracked.recentOutput.push(
+        line.length > RUNTIME_OUTPUT_LINE_MAX ? `${line.slice(0, RUNTIME_OUTPUT_LINE_MAX)}…` : line,
+      );
+    }
+    if (tracked.recentOutput.length > RUNTIME_OUTPUT_RING_MAX) {
+      tracked.recentOutput.splice(0, tracked.recentOutput.length - RUNTIME_OUTPUT_RING_MAX);
+    }
+  };
+  child.stdout.on("data", captureRuntimeOutput);
+  child.stderr.on("data", captureRuntimeOutput);
 
   child.once("exit", async (code, signal) => {
     runtimeChildren.delete(session.sessionId);
@@ -1341,6 +1367,15 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
       session.previewSessionId,
       `Runtime exited (code=${code ?? "null"}, signal=${signal ?? "null"}).`,
     );
+    // (D) Endast vid onormal exit (krasch/boot-fel) — rena stopp sätter
+    // `ignoreExit` och returnerar ovan, så hibernate/destroy/restart dumpar inget.
+    if (tracked.recentOutput.length > 0) {
+      const tail = tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
+      await appendRuntimeLog(
+        session.previewSessionId,
+        `Last Next.js output before exit (tail):\n${tail}`,
+      );
+    }
   });
 
   await appendRuntimeLog(
@@ -1497,15 +1532,23 @@ function rewriteRequestUrl(req, chatId, restPath, search) {
   req.url = `${prefix}${tail}${search || ""}`;
 }
 
-function sendRuntimeStartingPage(res, session) {
-  if (!res || res.headersSent || res.writableEnded) return;
+function sendRuntimeStartingPage(res, session, options = {}) {
+  // Returnerar `true` om sidan faktiskt skrevs, annars `false` så att
+  // anroparen (proxy.on("error")) kan avsluta/förstöra svaret i stället för
+  // att lämna iframen hängande när headers/body redan delvis skickats.
+  if (!res || res.headersSent || res.writableEnded) return false;
+  const recovering = options.recovering === true;
+  const heading = recovering ? "Startar om preview" : "Startar preview";
+  const intro = recovering
+    ? "Preview-runtimen startar om i bakgrunden. Sidan laddar om automatiskt om några sekunder."
+    : "Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.";
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
   res.end(`<!doctype html>
 <html lang="sv">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Startar preview</title>
+    <title>${heading}</title>
     <meta http-equiv="refresh" content="4" />
     <style>
       body { font-family: system-ui, sans-serif; margin: 0; background: #0b0b0d; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
@@ -1516,20 +1559,30 @@ function sendRuntimeStartingPage(res, session) {
   </head>
   <body>
     <main>
-      <h1>Startar preview</h1>
-      <p class="muted">Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.</p>
+      <h1>${heading}</h1>
+      <p class="muted">${intro}</p>
       <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
       <p class="muted">Status: <code>${session.status}</code></p>
     </main>
   </body>
 </html>`);
+  return true;
 }
 
-function isConnRefusedError(err) {
+// Proxy-fel som indikerar att runtimen är nere ELLER har blivit en zombie som
+// resettar mitt i ett svar. `socket hang up`/`ECONNRESET` är just det fall som
+// gav rå `{"error":"proxy_failed"}` i iframen + Fly PU02 — vi vill recycla
+// runtimen och servera den vänliga vänte-/omstartssidan i stället.
+function isRecoverableProxyError(err) {
   if (!err) return false;
-  if (err.code === "ECONNREFUSED") return true;
+  const code = typeof err.code === "string" ? err.code : "";
+  if (["ECONNREFUSED", "ECONNRESET", "ECONNABORTED", "EPIPE", "ETIMEDOUT"].includes(code)) {
+    return true;
+  }
   const msg = err instanceof Error ? err.message : String(err);
-  return /ECONNREFUSED/i.test(msg);
+  return /ECONNREFUSED|ECONNRESET|ECONNABORTED|EPIPE|ETIMEDOUT|socket hang up|connection closed|aborted/i.test(
+    msg,
+  );
 }
 
 /**
@@ -1681,6 +1734,30 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     try { socket.destroy(); } catch { /* already closed */ }
     return true;
   }
+  // (B) HMR-WS under (re)boot: när HMR-proxyn är på men runtimen inte kör skulle
+  // ett `proxy.ws` mot en ej-lyssnande port ge ECONNREFUSED → destroy →
+  // klientens HMR-reconnect-storm (syns som Fly `[PU02] connection closed`-spam
+  // under hela reboot-fönstret). Vänta i stället en boot (om ingen redan pågår)
+  // och håll socketen tyst tills runtimen är uppe; nästa full-reload via
+  // refreshToken plockar upp det nya innehållet.
+  if (isHmrProxyEnabled() && isHmrPath(info.restPath)) {
+    const state = getRuntimeStateForChat(info.chatId);
+    // Unknown session: there is no preview session for this chatId, so there is
+    // nothing to boot or hold open for. Close the socket instead of holding a
+    // stale HMR connection (and instead of queueing a no-op boot for a session
+    // that does not exist). Without this guard the `!state.running` branch below
+    // would `acceptAndHoldWebSocket` an orphan socket indefinitely.
+    if (!state.session) {
+      try { socket.destroy(); } catch { /* already closed */ }
+      return true;
+    }
+    if (!state.running) {
+      if (!state.booting) queueRuntimeBoot(info.chatId);
+      if (acceptAndHoldWebSocket(req, socket)) return true;
+      try { socket.destroy(); } catch { /* already closed */ }
+      return true;
+    }
+  }
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
   rewriteRequestUrl(req, info.chatId, info.restPath, search);
@@ -1764,23 +1841,40 @@ proxy.on("proxyRes", (proxyRes, req, res) => {
 proxy.on("error", (err, req, res) => {
   const isHttpResponse = res && typeof res.writeHead === "function";
 
-  if (isConnRefusedError(err) && isHttpResponse) {
+  // (C+E) Tidigare återhämtades bara `ECONNREFUSED`. En zombie-runtime som
+  // accepterar anslutningar men resettar mitt i svaret (`socket hang up` /
+  // ECONNRESET) gav i stället rå `{"error":"proxy_failed"}`-JSON i iframen +
+  // Fly PU02. Nu behandlas alla recoverable transportfel lika: recycla runtimen
+  // (utan restart-storm) och servera den vänliga auto-reloadande sidan.
+  if (isRecoverableProxyError(err) && isHttpResponse) {
     const rawUrl = req?.url || "/";
     const pathname = String(rawUrl).split("?")[0] || "/";
     const info = routeInfoFromPathname(pathname);
     if (info) {
       const session = findSessionByChatId(readStoreSync(), info.chatId);
       if (session) {
-        void (async () => {
-          try {
-            await stopRuntimeForSession(session);
-          } catch {
-            // ignore; boot will attempt recovery
-          } finally {
-            queueRuntimeBoot(info.chatId, { restart: true });
-          }
-        })();
-        sendRuntimeStartingPage(res, session);
+        const state = getRuntimeStateForChat(info.chatId);
+        // Köa EN restart-boot (dedupad mot pågående boot via `!state.booting`).
+        // `restart: true` täcker båda fallen den tidigare split-logiken missade:
+        //  - en levande-men-resettande zombie: `bootRuntimeForSession` stoppar
+        //    den själv först. Vi gör INTE längre manuell stop-then-queue, som
+        //    öppnade ett glapp där sessionen varken var running eller booting
+        //    och 4s-refreshen kunde köa en konkurrerande plain boot;
+        //  - ett redan dött barn (ECONNREFUSED): `restart: true` kringgår
+        //    "stopped recently"-cooldownen som annars markerar sessionen `error`
+        //    medan iframen säger att den startar om.
+        if (!state.booting) {
+          queueRuntimeBoot(info.chatId, { restart: true });
+        }
+        // Om reset:en skedde EFTER att upstream redan skickat headers/del av
+        // body kan vi varken skriva omstartssidan eller JSON-fallbacken nedan.
+        // Avsluta/förstör då svaret så iframen inte hänger på just det
+        // mid-response-reset-fall den här vägen ska återhämta.
+        const wrote = sendRuntimeStartingPage(res, session, { recovering: true });
+        if (!wrote && !res.writableEnded) {
+          if (typeof res.destroy === "function") res.destroy();
+          else res.end();
+        }
         return;
       }
     }

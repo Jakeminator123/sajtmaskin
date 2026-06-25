@@ -170,19 +170,23 @@ Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` d
 
 ## Nuvarande pool
 
-Per 2026-04-21 (efter manuell påfyllning): **7 dossiers**.
+Per 2026-06-25: **25 dossiers över 24 capabilities** (8 `hard`, 17 `soft`).
 
-| Capability | Dossier | Klass | Konfiguration |
-|------------|---------|-------|----------------|
-| `payments` | `stripe-checkout` | hard | Behöver `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
-| `ai-chat` | `openai-chat` | hard | Behöver `OPENAI_API_KEY` |
-| `pricing-section` | `pricing-tier-table` | soft | Självförsörjande |
-| `contact-form` | `resend-contact-form` | hard | Behöver `RESEND_API_KEY` + `EMAIL_FROM` + `CONTACT_EMAIL_TO` |
-| `analytics` | `vercel-analytics` | hard | Inga env-vars (Vercel injicerar token vid runtime) |
-| `faq-section` | `faq-accordion` | soft | Självförsörjande |
-| `testimonials-section` | `testimonials-grid` | soft | Självförsörjande |
+Den kanoniska, alltid-aktuella listan är den genererade vyn
+[`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json)
+(capability → dossier-id). Hårdkoda inte en kopia här — den driftar. Regenerera
+via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
 
-Vidare påfyllning planerades i OMTAG-waven (M2; planspec borttagen) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
+- `hard` kräver env-secrets — t.ex. `payments` (stripe-checkout), `auth`
+  (clerk-auth), `ai-chat` (openai-chat), `contact-form` (resend-contact-form),
+  `newsletter-subscribe` (mailchimp-newsletter), `analytics`
+  (plausible-analytics + vercel-analytics), `error-tracking`
+  (sentry-error-tracking).
+- `soft` är självförsörjande sektioner/interaktionsmönster — t.ex.
+  `pricing-section`, `faq-section`, `testimonials-section`, `carousel`,
+  `command-search`, `marquee`, `visual-3d`, `physics-3d`, samt
+  sektions-tillskotten 2026-06: `logo-cloud`, `stats-counter`, `feature-grid`,
+  `cta-section`, `gallery-lightbox`, `stepper`.
 
 ## Felsökning
 
