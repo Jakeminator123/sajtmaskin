@@ -57,7 +57,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     value: "max",
     label: "Tanker",
     description:
-      "GPT-5.4 — resonemang/thinking som standard i strömmen (inte samma profil som «Kod Max»/codex nedan).",
+      "GPT-5.5 med thinking på (resonemang, hög effort) som standard i strömmen — inte samma profil som «Kod Max»/codex nedan.",
     hint: "dyr",
   },
   {

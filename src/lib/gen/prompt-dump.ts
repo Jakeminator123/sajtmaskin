@@ -24,7 +24,7 @@ const PROMPT_DUMP_DIR_BY_CATEGORY: Record<PromptDumpCategory, string> = {
   [PROMPT_DUMP_CATEGORY.planModePlanner]: join(ROOT_DIR, PROMPT_DUMP_CATEGORY.planModePlanner),
 };
 
-function isPromptDumpEnabled(): boolean {
+export function isPromptDumpEnabled(): boolean {
   const v = process.env.SAJTMASKIN_PROMPT_DUMP?.trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes";
 }
