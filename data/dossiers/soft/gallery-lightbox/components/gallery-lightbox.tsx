@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface GalleryImage {
   src: string;
@@ -18,6 +18,11 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const isOpen = openIndex !== null;
 
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  // The thumbnail that opened the lightbox, so focus can return to it on close.
+  const openerRef = useRef<HTMLElement | null>(null);
+
   const close = useCallback(() => setOpenIndex(null), []);
   const step = useCallback(
     (dir: 1 | -1) => {
@@ -28,20 +33,64 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
     [items.length],
   );
 
+  // Lifecycle: lock body scroll, move focus into the dialog on open, and
+  // restore focus to the opener on close. Keyed on `isOpen` only, so changing
+  // the image set while the lightbox stays open does not re-run this and yank
+  // focus around.
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = openerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      opener?.focus();
+    };
+  }, [isOpen]);
+
+  // Keyboard: Escape closes, arrows navigate, Tab is trapped within the dialog
+  // so focus cannot reach the thumbnail grid behind the overlay. Re-binds when
+  // close/step identity changes; its cleanup only detaches the listener and
+  // never disturbs focus.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-      else if (event.key === "ArrowRight") step(1);
-      else if (event.key === "ArrowLeft") step(-1);
+      if (event.key === "Escape") {
+        close();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        step(1);
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        step(-1);
+        return;
+      }
+      if (event.key === "Tab") {
+        const root = dialogRef.current;
+        if (!root) return;
+        const focusable = Array.from(
+          root.querySelectorAll<HTMLElement>("button:not([disabled])"),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
+        const active = document.activeElement;
+        if (event.shiftKey) {
+          if (active === first || !root.contains(active)) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (active === last || !root.contains(active)) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, close, step]);
 
   const current = openIndex === null ? null : (items[openIndex] ?? null);
@@ -56,7 +105,10 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
           <li key={`${idx}-${item.src}`}>
             <button
               type="button"
-              onClick={() => setOpenIndex(idx)}
+              onClick={(event) => {
+                openerRef.current = event.currentTarget;
+                setOpenIndex(idx);
+              }}
               aria-label={`Open image: ${item.alt}`}
               className="group block w-full overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
@@ -76,6 +128,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
 
       {isOpen && current && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={current.caption ?? current.alt}
@@ -93,6 +146,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
             )}
 
             <button
+              ref={closeRef}
               type="button"
               onClick={close}
               aria-label="Close"
