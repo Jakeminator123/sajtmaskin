@@ -33,10 +33,28 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
     [items.length],
   );
 
+  // Lifecycle: lock body scroll, move focus into the dialog on open, and
+  // restore focus to the opener on close. Keyed on `isOpen` only, so changing
+  // the image set while the lightbox stays open does not re-run this and yank
+  // focus around.
   useEffect(() => {
     if (!isOpen) return;
     const opener = openerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      opener?.focus();
+    };
+  }, [isOpen]);
 
+  // Keyboard: Escape closes, arrows navigate, Tab is trapped within the dialog
+  // so focus cannot reach the thumbnail grid behind the overlay. Re-binds when
+  // close/step identity changes; its cleanup only detaches the listener and
+  // never disturbs focus.
+  useEffect(() => {
+    if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close();
@@ -51,8 +69,6 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
         return;
       }
       if (event.key === "Tab") {
-        // Trap Tab within the dialog so focus cannot reach the thumbnail grid
-        // hidden behind the overlay.
         const root = dialogRef.current;
         if (!root) return;
         const focusable = Array.from(
@@ -73,20 +89,8 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
         }
       }
     };
-
     document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    // Move focus into the dialog so keyboard users land on the controls instead
-    // of the now-obscured thumbnail.
-    closeRef.current?.focus();
-
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-      // Restore focus to the thumbnail that opened the lightbox.
-      opener?.focus();
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, close, step]);
 
   const current = openIndex === null ? null : (items[openIndex] ?? null);
