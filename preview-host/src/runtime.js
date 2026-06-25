@@ -1533,7 +1533,10 @@ function rewriteRequestUrl(req, chatId, restPath, search) {
 }
 
 function sendRuntimeStartingPage(res, session, options = {}) {
-  if (!res || res.headersSent || res.writableEnded) return;
+  // Returnerar `true` om sidan faktiskt skrevs, annars `false` så att
+  // anroparen (proxy.on("error")) kan avsluta/förstöra svaret i stället för
+  // att lämna iframen hängande när headers/body redan delvis skickats.
+  if (!res || res.headersSent || res.writableEnded) return false;
   const recovering = options.recovering === true;
   const heading = recovering ? "Startar om preview" : "Startar preview";
   const intro = recovering
@@ -1563,6 +1566,7 @@ function sendRuntimeStartingPage(res, session, options = {}) {
     </main>
   </body>
 </html>`);
+  return true;
 }
 
 // Proxy-fel som indikerar att runtimen är nere ELLER har blivit en zombie som
@@ -1841,25 +1845,27 @@ proxy.on("error", (err, req, res) => {
       const session = findSessionByChatId(readStoreSync(), info.chatId);
       if (session) {
         const state = getRuntimeStateForChat(info.chatId);
-        // Pågår redan en (re)boot? Då räcker det att visa vänte-/omstartssidan —
-        // boot:en är på väg. Annars: ett levande men resettande barn är en zombie
-        // (stop + restart), medan ett dött barn (ECONNREFUSED) bara behöver en
-        // vanlig boot. `queueRuntimeBoot` dedupar mot pågående boot.
+        // Köa EN restart-boot (dedupad mot pågående boot via `!state.booting`).
+        // `restart: true` täcker båda fallen den tidigare split-logiken missade:
+        //  - en levande-men-resettande zombie: `bootRuntimeForSession` stoppar
+        //    den själv först. Vi gör INTE längre manuell stop-then-queue, som
+        //    öppnade ett glapp där sessionen varken var running eller booting
+        //    och 4s-refreshen kunde köa en konkurrerande plain boot;
+        //  - ett redan dött barn (ECONNREFUSED): `restart: true` kringgår
+        //    "stopped recently"-cooldownen som annars markerar sessionen `error`
+        //    medan iframen säger att den startar om.
         if (!state.booting) {
-          void (async () => {
-            try {
-              if (state.running) {
-                await stopRuntimeForSession(session);
-                queueRuntimeBoot(info.chatId, { restart: true });
-              } else {
-                queueRuntimeBoot(info.chatId);
-              }
-            } catch {
-              queueRuntimeBoot(info.chatId, { restart: true });
-            }
-          })();
+          queueRuntimeBoot(info.chatId, { restart: true });
         }
-        sendRuntimeStartingPage(res, session, { recovering: true });
+        // Om reset:en skedde EFTER att upstream redan skickat headers/del av
+        // body kan vi varken skriva omstartssidan eller JSON-fallbacken nedan.
+        // Avsluta/förstör då svaret så iframen inte hänger på just det
+        // mid-response-reset-fall den här vägen ska återhämta.
+        const wrote = sendRuntimeStartingPage(res, session, { recovering: true });
+        if (!wrote && !res.writableEnded) {
+          if (typeof res.destroy === "function") res.destroy();
+          else res.end();
+        }
         return;
       }
     }

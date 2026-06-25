@@ -135,15 +135,26 @@ export function PreviewPanelFrame({
     return () => window.removeEventListener("blur", handleWindowBlur);
   }, [iframeRef]);
 
-  // Auto-göm ledtråden efter en stund. State återställs i cleanup (inte
-  // synkront i effekt-kroppen) för att undvika cascading-render-varningen —
-  // samma mönster som debounce/hard-cap-effekten ovan. Cleanup körs när
-  // `previewSrc` ändras (reload), då fokus återgår till parent och ledtråden
-  // ska visas igen.
+  // Auto-göm ledtråden efter en stund — men arma timern FÖRST när previewn
+  // faktiskt är interaktiv (`!isLoading && !iframeError`) och iframen inte
+  // redan fått fokus. Annars hinner en kall preview-host-boot (>7s) "förbruka"
+  // timern medan ledtråden ändå är dold av isLoading, så användaren aldrig
+  // ser den — exakt de långsamma bootarna där hjälpen behövs mest.
   useEffect(() => {
+    if (!previewSrc || isLoading || iframeError || previewFocused) return;
     const id = window.setTimeout(() => setFocusHintExpired(true), FOCUS_HINT_TIMEOUT_MS);
     return () => {
       window.clearTimeout(id);
+    };
+  }, [previewSrc, isLoading, iframeError, previewFocused]);
+
+  // Återställ ledtråds-state vid reload (ny `previewSrc`). Görs i cleanup —
+  // inte synkront i effekt-kroppen — för att undvika cascading-render-varningen
+  // (samma mönster som debounce/hard-cap-effekten ovan). Cleanup körs när
+  // `previewSrc` ändras, då fokus återgår till parent och ledtråden ska kunna
+  // visas igen för den nya previewn.
+  useEffect(() => {
+    return () => {
       setFocusHintExpired(false);
       setPreviewFocused(false);
     };
