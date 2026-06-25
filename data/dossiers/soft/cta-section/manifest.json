@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cta-section",
+  "label": "CTA Section",
+  "capability": "cta-section",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Conversion-focused call-to-action band with a heading, optional supporting line, and one primary plus optional secondary action button. Server-renderable and built from Tailwind primitives so it inherits the active scaffold's theme tokens. Place it near the end of a page to drive sign-ups, bookings, or contact.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/cta-section.tsx",
+      "role": "shared"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "CtaSection",
+      "type": "component",
+      "import": "@/components/cta-section"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}

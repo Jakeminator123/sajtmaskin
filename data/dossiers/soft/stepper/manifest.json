@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "stepper",
+  "label": "Stepper",
+  "capability": "stepper",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Multi-step progress indicator for wizards, checkouts, and onboarding flows. Shows completed, current, and upcoming steps with connectors, optional clickable navigation, and accessible aria-current marking. Controlled via a `current` index; client component with no external dependencies.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/stepper.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "Stepper",
+      "type": "component",
+      "import": "@/components/stepper"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}

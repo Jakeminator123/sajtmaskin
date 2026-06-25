@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "logo-cloud",
+  "label": "Logo Cloud",
+  "capability": "logo-cloud",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Responsive 'trusted by' / social-proof strip of customer or partner logos in a static, accessible row. Logos render muted and grayscale, then reveal full color on hover or keyboard focus. No external dependencies; uses Tailwind primitives so it inherits the active scaffold's theme tokens, and falls back to a text wordmark when a logo image is missing.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/logo-cloud.tsx",
+      "role": "shared"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "LogoCloud",
+      "type": "component",
+      "import": "@/components/logo-cloud"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}

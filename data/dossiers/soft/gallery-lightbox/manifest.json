@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "gallery-lightbox",
+  "label": "Gallery Lightbox",
+  "capability": "gallery-lightbox",
+  "codeFidelity": "rewritable",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Responsive image grid that opens a full-screen lightbox on click, with keyboard navigation (arrow keys to move, Escape to close), prev/next controls, and body-scroll locking while open. Client component with no external dependencies; inherits the active scaffold's theme tokens.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/gallery-lightbox.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "GalleryLightbox",
+      "type": "component",
+      "import": "@/components/gallery-lightbox"
+    }
+  ],
+  "lastVerified": "2026-06-25"
+}
