@@ -865,6 +865,49 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(false);
   });
 
+  it("does not count an unbalanced/malformed component body (Bugbot)", async () => {
+    // If the delegated component's body never closes its brace, the balance
+    // matcher must fail closed (not span to EOF), so trailing module data
+    // cannot inflate the measure and slip a thin home past the gate.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const thinHome = [
+      'import { Hero } from "@/components/hero";',
+      "",
+      "export default function Page() {",
+      "  return <Hero />;",
+      "}",
+    ].join("\n");
+    const bigData = Array.from(
+      { length: 40 },
+      (_, i) => `  "Item number ${i} with descriptive padding text for length",`,
+    ).join("\n");
+    // Hero's function body is missing its closing brace; a large data array
+    // follows at module scope.
+    const malformed = [
+      "export function Hero() {",
+      "  return <main />;",
+      "",
+      "export const DATA = [",
+      bigData,
+      "];",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_unbalanced_hero",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: thinHome, language: "tsx" },
+        { path: "components/hero.tsx", content: malformed, language: "tsx" },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
   it("plan-11 bug 1: emits count-parity error when buildCompleteProject mutates the array length silently", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     // Assemble a "drift" scenario: input has 1 file, the assembled

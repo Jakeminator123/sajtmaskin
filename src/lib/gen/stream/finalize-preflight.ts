@@ -303,7 +303,11 @@ function findBalancedRange(
       if (stack.length === 0) return { start, end: i };
     }
   }
-  return { start, end: content.length - 1 };
+  // Reached EOF with an open delimiter still on the stack: the input is
+  // unbalanced (truncated/malformed). Fail closed rather than returning a
+  // span to EOF, which would let unrelated trailing module text inflate the
+  // measured component body and slip a thin home route past the gate.
+  return null;
 }
 
 function captureBalancedBlock(content: string, fromIndex: number): string | null {
@@ -334,7 +338,13 @@ function captureAfterArrow(content: string, afterArrow: number): string | null {
  * and not unrelated module-level exports/data arrays. Returns `null` when
  * the declaration cannot be located (caller then treats it as no content).
  */
-function extractExportedComponentSource(content: string, exportName: string): string | null {
+function extractExportedComponentSource(rawContent: string, exportName: string): string | null {
+  // Strip comments before delimiter scanning so braces/quotes inside
+  // comments (e.g. `/* } */` or `// it's`) cannot confuse the balance
+  // matcher and mis-measure the component body.
+  const content = rawContent
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
   let name = exportName;
   if (name === "default") {
     const directFn = /export\s+default\s+(?:async\s+)?function\b/.exec(content);
