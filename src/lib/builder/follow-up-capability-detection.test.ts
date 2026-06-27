@@ -444,3 +444,61 @@ describe("detectFollowUpCapabilities — #242 section capabilities", () => {
     expect(result.capabilityIds).not.toContain("gallery-lightbox");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// #250 Codex P2 — false-positive guards
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Codex flagged four precision regressions in the #242 wiring. Each pair below
+// pins the exact false-positive example from the review plus a gated positive
+// that proves the capability still detects genuine requests.
+describe("detectFollowUpCapabilities — #250 Codex P2 false-positive guards", () => {
+  // 1. logo-cloud: bare Swedish "som syns i" / "används av" must need a logo cue.
+  it("does NOT detect logo-cloud for 'en knapp som syns i menyn'", () => {
+    const result = detectFollowUpCapabilities("lägg till en knapp som syns i menyn");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  it("does NOT detect logo-cloud for 'en regel som används av admins'", () => {
+    const result = detectFollowUpCapabilities("lägg till en regel som används av admins");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  it("still detects logo-cloud when a media cue follows ('som syns i medier')", () => {
+    const result = detectFollowUpCapabilities("lägg till en sektion som syns i medier");
+    expect(result.capabilityIds).toContain("logo-cloud");
+  });
+
+  // 2. stepper: bare "flera steg" must be tied to a form/wizard/process flow.
+  it("does NOT detect stepper for 'gör knappen flera steg större'", () => {
+    const result = detectFollowUpCapabilities("gör knappen flera steg större");
+    expect(result.capabilityIds).not.toContain("stepper");
+  });
+
+  it("still detects stepper for a genuine multi-step form ('formuläret till flera steg')", () => {
+    const result = detectFollowUpCapabilities("gör om formuläret till flera steg");
+    expect(result.capabilityIds).toContain("stepper");
+  });
+
+  // 3. cta-section: bare "cta" must not fire on a CTA *button* tweak.
+  it("does NOT detect cta-section for 'gör CTA-knappen större'", () => {
+    const result = detectFollowUpCapabilities("gör CTA-knappen större");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+
+  it("still detects cta-section for a bottom CTA add ('lägg till en CTA längst ner')", () => {
+    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
+    expect(result.capabilityIds).toContain("cta-section");
+  });
+
+  // 4. stats-counter: the StatCounter analytics provider is not a KPI band.
+  it("does NOT detect stats-counter for 'koppla på StatCounter'", () => {
+    const result = detectFollowUpCapabilities("koppla på StatCounter");
+    expect(result.capabilityIds).not.toContain("stats-counter");
+  });
+
+  it("still detects stats-counter for a genuine KPI band ('lägg till nyckeltal')", () => {
+    const result = detectFollowUpCapabilities("lägg till nyckeltal som räknar upp");
+    expect(result.capabilityIds).toContain("stats-counter");
+  });
+});

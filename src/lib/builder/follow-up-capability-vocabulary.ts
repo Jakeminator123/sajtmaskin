@@ -239,7 +239,13 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "logo-cloud",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:logo[-\s]?cloud|logo[-\s]?wall|logo[-\s]?rad|logorad|kund[-\s]?loggor|kundloggor|partner[-\s]?loggor|partnerloggor|brand[-\s]?logos|company[-\s]?logos|logos?[-\s]?(?:strip|grid|bar|wall))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:trusted[-\s]?by|as[-\s]?seen[-\s]?in|används\s+av|som\s+syns\s+i)(?![\p{L}\p{N}_])/iu,
+      // English logo-cloud headers (unambiguous).
+      /(?<![\p{L}\p{N}_])(?:trusted[-\s]?by|as[-\s]?seen[-\s]?in)(?![\p{L}\p{N}_])/iu,
+      // Codex P2: the bare Swedish "används av" / "som syns i" were dropped —
+      // they matched ordinary relative clauses ("en knapp som syns i menyn",
+      // "en regel som används av admins"). This variant requires an explicit
+      // logo / brand / partner / media cue after the phrase.
+      /(?<![\p{L}\p{N}_])(?:som\s+syns\s+i|används\s+av|anlitas\s+av)\s+(?:\p{L}+\s+){0,2}(?:loggor|logotyper|varumärken|partner(?:s|loggor)?|medier|media|press|tidningar|magasin)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -252,6 +258,13 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:stats?[-\s]?counter|stat[-\s]?counter|count[-\s]?up|räkneverk|nyckeltal|metrics?[-\s]?(?:band|counter|section)|statistik[-\s]?(?:band|sektion|sektionen))(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:animated[-\s]?(?:numbers|counters?)|siffror\s+som\s+(?:räknar|tickar)|räknande\s+siffror)(?![\p{L}\p{N}_])/iu,
     ],
+    // Codex P2: "StatCounter" is an analytics provider, not a visual KPI band.
+    // Veto the provider name and any analytics/tracking context so e.g.
+    // "koppla på StatCounter" routes as analytics, not a stats-counter section.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])statcounter(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:analytics|webbanalys|webb-?analys|tracking|spårning|spåra\s+besökare|besökarstatistik|plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo)(?![\p{L}\p{N}_])/iu,
+    ],
   },
   {
     // Feature / service card grid. Requires a grid/cards/section qualifier so
@@ -262,12 +275,15 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
-    // Call-to-action band. Bare "cta" is allowed (high-signal term); the
-    // add-verb gate in detectFollowUpCapabilities already suppresses
-    // refine/move prompts like "Flytta CTA-knappen under rubriken".
+    // Call-to-action band. Bare "cta" is high-signal, but Codex P2 flagged that
+    // "gör CTA-knappen större" (a single-button tweak) injected the section
+    // dossier because "gör" satisfies the add-verb gate. So bare "cta" now
+    // excludes "cta-knapp"/"cta button"; the explicit section/band/banner forms
+    // still match. The add-verb gate still suppresses "Flytta CTA-knappen ...".
     capability: "cta-section",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:cta|call[-\s]?to[-\s]?action|uppmaning\s+till\s+handling|avslutande\s+cta|boknings[-\s]?cta|cta[-\s]?(?:section|sektion|sektionen|band|banner|block))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])cta(?![\p{L}\p{N}_])(?![-\s]?(?:knapp|button|btn))/iu,
+      /(?<![\p{L}\p{N}_])(?:call[-\s]?to[-\s]?action|uppmaning\s+till\s+handling|avslutande\s+cta|boknings[-\s]?cta|cta[-\s]?(?:section|sektion|sektionen|band|banner|block))(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -284,7 +300,10 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // Multi-step form / wizard / progress stepper.
     capability: "stepper",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:stepper|wizard|multi-?step|flerstegs(?:formulär)?|flerstegsformulär|flera\s+steg|steg-?för-?steg|progress[-\s]?(?:stepper|indicator|steps)|stegindikator)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:stepper|wizard|multi-?step|flerstegs(?:formulär)?|flerstegsformulär|steg-?för-?steg|progress[-\s]?(?:stepper|indicator|steps)|stegindikator)(?![\p{L}\p{N}_])/iu,
+      // Codex P2: bare "flera steg" matched "gör knappen flera steg större".
+      // Only match it when tied to a form / wizard / process flow.
+      /(?<![\p{L}\p{N}_])(?:(?:formulär(?:et)?|form|process(?:en)?|flöde[t]?|checkout|onboarding|registrering(?:en)?|guide(?:n)?|wizard|anmälan|ansökan)\s+(?:i|med|på|över|till)?\s*flera\s+steg|flera\s+steg(?:s)?\s+(?:formulär|form|process|flöde|guide|wizard|onboarding|registrering))(?![\p{L}\p{N}_])/iu,
     ],
   },
 ];
