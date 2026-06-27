@@ -64,4 +64,6 @@ Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-ar
 
 Beslutsunderlag (scope, ej startat): PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
 
+Beslutsunderlag (P1, plan only — ingen kod/migration än): #4 distribuerat lås för server-verify/repair (process-local `Set` → Postgres lease-tabell `engine_version_jobs`). Samma multi-instans-korrekthetsrot som backlog B3/E2. Egen PR efter #251-merge; dev-migration först, prod manuellt → [`2026-06-27-server-verify-distributed-lock.md`](2026-06-27-server-verify-distributed-lock.md).
+
 Levererat (2026-06-25, PR #241 + Fly/Vercel-deploy): preview-surface-stabilitet + iframe-fokus (F2) — iframe-tangentbordsfokus, preview-host reset-recovery, HMR-no-storm under reboot, Next stdout/stderr i runtime-logg → [`../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md`](../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md).
