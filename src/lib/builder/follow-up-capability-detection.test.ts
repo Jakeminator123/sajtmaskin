@@ -502,3 +502,74 @@ describe("detectFollowUpCapabilities — #250 Codex P2 false-positive guards", (
     expect(result.capabilityIds).toContain("stats-counter");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// #250 Codex P2 — round 2 (re-review of the fix commit)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The re-review surfaced two more false-positives (slider-gallery, scrolling
+// logos) and four English/plural coverage gaps. Each is pinned here.
+describe("detectFollowUpCapabilities — #250 Codex P2 round 2", () => {
+  // FP: a gallery with a swipe/slider cue must route to carousel, not lightbox.
+  it("routes 'image gallery with swipe navigation' to carousel, not gallery-lightbox", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with swipe navigation");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+
+  it("still detects gallery-lightbox for a plain enlargeable gallery (no slider cue)", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with a lightbox");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  // FP: a scrolling logo strip is marquee, not the static logo-cloud.
+  it("routes 'scrolling brand logos' to marquee, not logo-cloud", () => {
+    const result = detectFollowUpCapabilities("add scrolling brand logos");
+    expect(result.capabilityIds).toContain("marquee");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  // Coverage: English customer/client/partner logo phrasings.
+  it("detects English 'customer logos' / 'client logos' / 'partner logos' as logo-cloud", () => {
+    for (const prompt of [
+      "add customer logos under the hero",
+      "add client logos",
+      "add partner logos",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("logo-cloud");
+    }
+  });
+
+  // Coverage: canonical "stats row" / "by the numbers" phrasing.
+  it("detects 'stats row' and 'by the numbers strip' as stats-counter", () => {
+    expect(detectFollowUpCapabilities("add a stats row").capabilityIds).toContain(
+      "stats-counter",
+    );
+    expect(
+      detectFollowUpCapabilities("add a by the numbers strip").capabilityIds,
+    ).toContain("stats-counter");
+  });
+
+  // Coverage: plural "features section/grid" + "services grid".
+  it("detects plural 'features section' and 'services grid' as feature-grid", () => {
+    expect(detectFollowUpCapabilities("add a features section").capabilityIds).toContain(
+      "feature-grid",
+    );
+    expect(detectFollowUpCapabilities("add a services grid").capabilityIds).toContain(
+      "feature-grid",
+    );
+  });
+
+  // Coverage: spaced "multi step" spelling.
+  it("detects spaced 'multi step form' as stepper", () => {
+    const result = detectFollowUpCapabilities("add a multi step form");
+    expect(result.capabilityIds).toContain("stepper");
+  });
+
+  // FP residual: bare CTA + size adjective ("gör CTA större") is a refine.
+  it("does NOT detect cta-section for 'gör CTA större'", () => {
+    const result = detectFollowUpCapabilities("gör CTA större");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+});

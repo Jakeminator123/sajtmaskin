@@ -195,7 +195,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // the F2/F3 gate that still requires one of these words before injection.
     capability: "carousel",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:carousel|karusell|bild[-\s]?karusell|produkt[-\s]?karusell|slider|slideshow|bildspel|hero[-\s]?slider|embla)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:carousel|karusell|bild[-\s]?karusell|produkt[-\s]?karusell|slider|swipe|swipa|slideshow|bildspel|hero[-\s]?slider|embla)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -213,7 +213,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   {
     capability: "marquee",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:marquee|löpande\s+text|löptext|ticker|logo[-\s]?marquee|brand[-\s]?marquee|scrolling[-\s]?logos)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:marquee|löpande\s+text|löptext|ticker|logo[-\s]?marquee|brand[-\s]?marquee|scrolling[-\s]?logos|scrolling\s+\p{L}+\s+logos|rullande\s+loggor|scrollande\s+loggor)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -238,7 +238,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // logo / favicon) does not false-trigger.
     capability: "logo-cloud",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:logo[-\s]?cloud|logo[-\s]?wall|logo[-\s]?rad|logorad|kund[-\s]?loggor|kundloggor|partner[-\s]?loggor|partnerloggor|brand[-\s]?logos|company[-\s]?logos|logos?[-\s]?(?:strip|grid|bar|wall))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:logo[-\s]?cloud|logo[-\s]?wall|logo[-\s]?rad|logorad|kund[-\s]?loggor|kundloggor|partner[-\s]?loggor|partnerloggor|brand[-\s]?logos|company[-\s]?logos|customer[-\s]?logos|client[-\s]?logos|partner[-\s]?logos|logos?[-\s]?(?:strip|grid|bar|wall))(?![\p{L}\p{N}_])/iu,
       // English logo-cloud headers (unambiguous).
       /(?<![\p{L}\p{N}_])(?:trusted[-\s]?by|as[-\s]?seen[-\s]?in)(?![\p{L}\p{N}_])/iu,
       // Codex P2: the bare Swedish "används av" / "som syns i" were dropped —
@@ -246,6 +246,11 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       // "en regel som används av admins"). This variant requires an explicit
       // logo / brand / partner / media cue after the phrase.
       /(?<![\p{L}\p{N}_])(?:som\s+syns\s+i|används\s+av|anlitas\s+av)\s+(?:\p{L}+\s+){0,2}(?:loggor|logotyper|varumärken|partner(?:s|loggor)?|medier|media|press|tidningar|magasin)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Codex P2: a scrolling/marquee logo request belongs to `marquee` (the
+    // logo-cloud dossier is an explicitly static grid). Suppress on scroll cues.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:scroll(?:ing|ande)?|scrolla(?:r|nde)?|rullande|löpande|marquee|ticker|auto-?scroll)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -255,7 +260,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // NOT matched (too close to analytics); the band/section forms are.
     capability: "stats-counter",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:stats?[-\s]?counter|stat[-\s]?counter|count[-\s]?up|räkneverk|nyckeltal|metrics?[-\s]?(?:band|counter|section)|statistik[-\s]?(?:band|sektion|sektionen))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:stats?[-\s]?counter|stat[-\s]?counter|stats?[-\s]?row|count[-\s]?up|räkneverk|nyckeltal|by[-\s]?the[-\s]?numbers|numbers[-\s]?strip|siffer(?:rad|band)|metrics?[-\s]?(?:band|counter|section|row)|statistik[-\s]?(?:band|sektion|sektionen))(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:animated[-\s]?(?:numbers|counters?)|siffror\s+som\s+(?:räknar|tickar)|räknande\s+siffror)(?![\p{L}\p{N}_])/iu,
     ],
     // Codex P2: "StatCounter" is an analytics provider, not a visual KPI band.
@@ -271,7 +276,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // bare "feature" (common in marketing copy) does not false-trigger.
     capability: "feature-grid",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:feature[-\s]?(?:grid|cards?|section)|funktions?[-\s]?(?:kort|rutor|grid)|funktionskort|tjänste[-\s]?kort|tjänstekort|service[-\s]?cards?|kort[-\s]?grid|kortgrid)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:features?[-\s]?(?:grid|cards?|section)|services?[-\s]?(?:grid|cards?|section)|funktions?[-\s]?(?:kort|rutor|grid)|funktionskort|tjänste[-\s]?kort|tjänstekort|kort[-\s]?grid|kortgrid)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -282,7 +287,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // still match. The add-verb gate still suppresses "Flytta CTA-knappen ...".
     capability: "cta-section",
     patterns: [
-      /(?<![\p{L}\p{N}_])cta(?![\p{L}\p{N}_])(?![-\s]?(?:knapp|button|btn))/iu,
+      /(?<![\p{L}\p{N}_])cta(?![\p{L}\p{N}_])(?![-\s]?(?:knapp|button|btn))(?!\s+(?:större|mindre|bredare|smalare|tjockare|rundare|fetare))/iu,
       /(?<![\p{L}\p{N}_])(?:call[-\s]?to[-\s]?action|uppmaning\s+till\s+handling|avslutande\s+cta|boknings[-\s]?cta|cta[-\s]?(?:section|sektion|sektionen|band|banner|block))(?![\p{L}\p{N}_])/iu,
     ],
   },
@@ -295,12 +300,17 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:lightbox|bild[-\s]?galleri|bildgalleri|foto[-\s]?galleri|fotogalleri|photo[-\s]?(?:wall|gallery)|image[-\s]?gallery|product[-\s]?gallery)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:förstora\s+bilder(?:na)?|zooma\s+(?:in\s+)?(?:på\s+)?bilder(?:na)?|klickbara\s+bilder|klicka\s+för\s+att\s+förstora)(?![\p{L}\p{N}_])/iu,
     ],
+    // Codex P2: a gallery with a carousel/slider/swipe cue should route to
+    // `carousel`, not the click-to-enlarge lightbox. Suppress on slider cues.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:carousel|karusell|slider|slideshow|swipe|swipa|bildspel|auto-?play|autoplay)(?![\p{L}\p{N}_])/iu,
+    ],
   },
   {
     // Multi-step form / wizard / progress stepper.
     capability: "stepper",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:stepper|wizard|multi-?step|flerstegs(?:formulär)?|flerstegsformulär|steg-?för-?steg|progress[-\s]?(?:stepper|indicator|steps)|stegindikator)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:stepper|wizard|multi[-\s]?step|flerstegs(?:formulär)?|flerstegsformulär|steg-?för-?steg|progress[-\s]?(?:stepper|indicator|steps)|stegindikator)(?![\p{L}\p{N}_])/iu,
       // Codex P2: bare "flera steg" matched "gör knappen flera steg större".
       // Only match it when tied to a form / wizard / process flow.
       /(?<![\p{L}\p{N}_])(?:(?:formulär(?:et)?|form|process(?:en)?|flöde[t]?|checkout|onboarding|registrering(?:en)?|guide(?:n)?|wizard|anmälan|ansökan)\s+(?:i|med|på|över|till)?\s*flera\s+steg|flera\s+steg(?:s)?\s+(?:formulär|form|process|flöde|guide|wizard|onboarding|registrering))(?![\p{L}\p{N}_])/iu,
