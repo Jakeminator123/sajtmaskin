@@ -15,8 +15,9 @@ import {
   engineMessages,
   engineVersions,
   engineGenerationLogs,
+  engineVersionJobs,
 } from "./schema";
-import { and, eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, gt, sql, type SQL } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 import { assertPromoteAllowed } from "./promote-guard";
 import { recordRepairPassedQualityGate } from "./services/generation-telemetry";
@@ -522,6 +523,7 @@ export async function saveRepairedFiles(
   versionId: string,
   repairedFilesJson: string,
   verificationSummary: string | null = "Server repair completed. Waiting for acceptance.",
+  runId?: string,
 ): Promise<Version | null> {
   if (!repairedFilesJson.trim()) return null;
   const result = await db
@@ -534,7 +536,7 @@ export async function saveRepairedFiles(
       verificationSummary,
       promotedAt: null,
     })
-    .where(eq(engineVersions.id, versionId));
+    .where(versionWriteWhere(versionId, runId));
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -671,9 +673,113 @@ export async function updateVersionPreviewUrl(
   return (result.rowCount ?? 0) > 0;
 }
 
+// ── Distributed version lease (Plan C / P1) ──────────────────────────────────
+//
+// engine_version_jobs gives a cross-instance lock so two serverless instances
+// can't run verify/repair on the same versionId concurrently, and so a frozen
+// instance that thaws after its lease expired can't silently clobber a newer
+// repair. The lock is per version_id (kind is metadata): whoever holds the one
+// active (status='running') lease owns every mutation of that engine_versions
+// row. See docs/plans/active/2026-06-27-server-verify-distributed-lock.md.
+
+export type VersionJobKind = "server_verify" | "build_error_repair" | "manual_repair";
+
+/**
+ * Lease TTL in seconds. Generous (verify+repair can run several LLM passes);
+ * holders call {@link renewVersionLease} between long passes. Tunable via the
+ * owner decision in the plan doc (open question 1).
+ */
+export const VERSION_LEASE_TTL_SECONDS = 15 * 60;
+
+const leaseTtlInterval = sql`now() + ${VERSION_LEASE_TTL_SECONDS} * interval '1 second'`;
+
+/**
+ * Atomically acquire the single active lease for a version. Returns the owning
+ * `runId` when this caller won the lease (fresh insert OR takeover of an EXPIRED
+ * lease), or `null` when another live lease already owns the version (caller
+ * must then NOT run — same semantics as the old process-local `inflight` Set).
+ */
+export async function acquireVersionLease(
+  versionId: string,
+  kind: VersionJobKind,
+): Promise<{ runId: string } | null> {
+  const runId = uuid();
+  const result = await db.execute(sql`
+    INSERT INTO engine_version_jobs (id, version_id, kind, run_id, status, lease_expires_at)
+    VALUES (${uuid()}, ${versionId}, ${kind}, ${runId}, 'running', ${leaseTtlInterval})
+    ON CONFLICT (version_id) WHERE status = 'running'
+    DO UPDATE SET run_id = EXCLUDED.run_id, kind = EXCLUDED.kind,
+                  lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
+      WHERE engine_version_jobs.lease_expires_at < now()
+    RETURNING run_id
+  `);
+  const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
+  return rows.length > 0 ? { runId } : null;
+}
+
+/** Extend the lease (call between long passes). False when the lease is no longer ours/active. */
+export async function renewVersionLease(versionId: string, runId: string): Promise<boolean> {
+  const result = await db
+    .update(engineVersionJobs)
+    .set({ leaseExpiresAt: leaseTtlInterval, updatedAt: sql`now()` })
+    .where(
+      and(
+        eq(engineVersionJobs.versionId, versionId),
+        eq(engineVersionJobs.runId, runId),
+        eq(engineVersionJobs.status, "running"),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/** Release the lease (status -> done|failed) so the version is free for the next job. */
+export async function releaseVersionLease(
+  versionId: string,
+  runId: string,
+  status: "done" | "failed" = "done",
+): Promise<void> {
+  await db
+    .update(engineVersionJobs)
+    .set({ status, updatedAt: sql`now()` })
+    .where(and(eq(engineVersionJobs.versionId, versionId), eq(engineVersionJobs.runId, runId)));
+}
+
+/** True when an UNEXPIRED active lease exists for the version (any owner). */
+export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: engineVersionJobs.id })
+    .from(engineVersionJobs)
+    .where(
+      and(
+        eq(engineVersionJobs.versionId, versionId),
+        eq(engineVersionJobs.status, "running"),
+        gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Build the WHERE for a server-owned version mutation. When `runId` is provided
+ * the UPDATE is conditioned (atomically) on this run still holding the active,
+ * unexpired lease — so a run whose lease was taken over no-ops instead of
+ * clobbering. When `runId` is omitted, behaviour is unchanged (finalize /
+ * createAndPromote paths own the row inline, before any background job).
+ */
+function versionWriteWhere(versionId: string, runId?: string): SQL | undefined {
+  const byId = eq(engineVersions.id, versionId);
+  if (!runId) return byId;
+  return and(
+    byId,
+    sql`EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.run_id = ${runId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+  );
+}
+
 export async function markVersionVerifying(
   versionId: string,
   verificationSummary: string | null = "Automatic verification in progress.",
+  runId?: string,
 ): Promise<Version | null> {
   const result = await db
     .update(engineVersions)
@@ -685,7 +791,7 @@ export async function markVersionVerifying(
       repairAvailableAt: null,
       promotedAt: null,
     })
-    .where(eq(engineVersions.id, versionId));
+    .where(versionWriteWhere(versionId, runId));
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -695,6 +801,7 @@ export async function markVersionVerifying(
 export async function markVersionRepairing(
   versionId: string,
   verificationSummary: string | null = "Server-side repair in progress.",
+  runId?: string,
 ): Promise<Version | null> {
   const result = await db
     .update(engineVersions)
@@ -706,7 +813,7 @@ export async function markVersionRepairing(
       repairAvailableAt: null,
       promotedAt: null,
     })
-    .where(eq(engineVersions.id, versionId));
+    .where(versionWriteWhere(versionId, runId));
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -716,6 +823,7 @@ export async function markVersionRepairing(
 export async function promoteVersion(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
+  runId?: string,
 ): Promise<Version | null> {
   // False-green invariant guard: refuse `promoted` while the finalize quality
   // gate (telemetry) says the verifier/preflight blocked this version. Every
@@ -741,7 +849,7 @@ export async function promoteVersion(
       repairAvailableAt: null,
       promotedAt,
     })
-    .where(eq(engineVersions.id, versionId));
+    .where(versionWriteWhere(versionId, runId));
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -751,6 +859,7 @@ export async function promoteVersion(
 export async function failVersionVerification(
   versionId: string,
   verificationSummary: string | null = "Automatic verification failed.",
+  runId?: string,
 ): Promise<Version | null> {
   const result = await db
     .update(engineVersions)
@@ -762,7 +871,7 @@ export async function failVersionVerification(
       repairAvailableAt: null,
       promotedAt: null,
     })
-    .where(eq(engineVersions.id, versionId));
+    .where(versionWriteWhere(versionId, runId));
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -772,11 +881,12 @@ export async function failVersionVerification(
 export async function markVersionSupersededByRepair(
   versionId: string,
   repairedVersionId: string | null = null,
+  runId?: string,
 ): Promise<Version | null> {
   const summary = repairedVersionId
     ? `Superseded by repaired version ${repairedVersionId}.`
     : "Superseded by repaired version.";
-  return failVersionVerification(versionId, summary);
+  return failVersionVerification(versionId, summary, runId);
 }
 
 export async function logGeneration(

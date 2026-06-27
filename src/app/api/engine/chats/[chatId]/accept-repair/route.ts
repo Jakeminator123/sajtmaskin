@@ -4,6 +4,7 @@ import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import {
   acceptRepair,
   getLatestVersion,
+  hasActiveVersionLease,
 } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
@@ -37,6 +38,20 @@ export async function POST(
     if (latest && latest.id !== scoped.version.id) {
       return NextResponse.json(
         { error: "A newer version exists. Accept repair on the latest version instead." },
+        { status: 409 },
+      );
+    }
+
+    // Distributed lease (Plan C / P1): don't accept (= promote) while a
+    // verify/repair job still holds an active lease on this version — that
+    // job may still be mutating the row. Fail-safe: a DB error degrades to
+    // allowing the accept (legacy behaviour).
+    if (await hasActiveVersionLease(scoped.version.id).catch(() => false)) {
+      return NextResponse.json(
+        {
+          error: "A verify/repair job is currently running on this version. Try again shortly.",
+          code: "version_busy",
+        },
         { status: 409 },
       );
     }

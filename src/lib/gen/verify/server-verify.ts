@@ -21,6 +21,10 @@ import {
   getLatestVersion,
   getPreferredVersion,
   markVersionSupersededByRepair,
+  acquireVersionLease,
+  releaseVersionLease,
+  renewVersionLease,
+  type VersionJobKind,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
@@ -77,6 +81,42 @@ export function isServerVerifyEligible(versionId: string): boolean {
   return true;
 }
 
+type LeaseOutcome = { proceed: true; runId?: string } | { proceed: false };
+
+/**
+ * Acquire the distributed per-version lease (Plan C / P1). The local `inflight`
+ * Set is the cheap pre-DB short-circuit; this is the cross-instance truth.
+ *
+ *  - lease granted        -> { proceed: true, runId }
+ *  - another live lease   -> { proceed: false } (another instance owns it; bail)
+ *  - DB error / no table  -> { proceed: true, runId: undefined } — degrade to the
+ *    legacy Set-only behaviour rather than disabling verify/repair or crashing a
+ *    fire-and-forget job (the additive migration ships before this code per the
+ *    plan's deploy order, so this window is normally zero).
+ */
+async function acquireVerifyLease(
+  versionId: string,
+  kind: VersionJobKind,
+): Promise<LeaseOutcome> {
+  try {
+    const lease = await acquireVersionLease(versionId, kind);
+    if (!lease) return { proceed: false };
+    return { proceed: true, runId: lease.runId };
+  } catch (err) {
+    warnLog(
+      "engine",
+      "[server-verify] version lease acquire failed; falling back to process-local Set only",
+      { versionId, kind, error: err instanceof Error ? err.message : String(err) },
+    );
+    return { proceed: true, runId: undefined };
+  }
+}
+
+async function releaseVerifyLease(versionId: string, runId: string | undefined): Promise<void> {
+  if (!runId) return;
+  await releaseVersionLease(versionId, runId).catch(() => {});
+}
+
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
   const preferred = (await getPreferredVersion(chatId).catch(() => null))
     ?? (await getLatestVersion(chatId).catch(() => null));
@@ -106,10 +146,18 @@ export async function triggerServerVerification(params: {
   const { chatId, versionId, onRepairAvailable, diagnosticOnly = false } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
+  const lease = await acquireVerifyLease(versionId, "server_verify");
+  if (!lease.proceed) {
+    // Another live lease already owns this version (another instance/run) —
+    // bail exactly like the old process-local Set short-circuit.
+    inflight.delete(versionId);
+    return;
+  }
+  const runId = lease.runId;
 
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
-      await markVersionSupersededByRepair(versionId).catch(() => null);
+      await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
       await createEngineVersionErrorLogs([{
         chatId,
         versionId,
@@ -123,7 +171,7 @@ export async function triggerServerVerification(params: {
     const codeFiles = await getVersionFiles(versionId);
     if (!codeFiles || codeFiles.length === 0) return;
 
-    await markVersionVerifying(versionId).catch(() => null);
+    await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
     const exportable = await buildExportableProject(codeFiles);
     const gateResult = await runQualityGateOnExportable({
@@ -133,7 +181,7 @@ export async function triggerServerVerification(params: {
       checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
-      await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
+      await failVersionVerification(versionId, "Quality gate unavailable during verification.", runId).catch(() => null);
       return;
     }
 
@@ -206,10 +254,11 @@ export async function triggerServerVerification(params: {
         await failVersionVerification(
           versionId,
           "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
+          runId,
         ).catch(() => null);
         return;
       }
-      await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
+      await promoteVersion(versionId, "Automatic server verification passed.", runId).catch(() => null);
       return;
     }
 
@@ -255,6 +304,7 @@ export async function triggerServerVerification(params: {
         `Verifier-LLM blockers + server-verify gate failed (${failedOutputs
           .map((f) => f.check)
           .join(", ")}).`,
+        runId,
       ).catch(() => null);
       return;
     }
@@ -269,14 +319,17 @@ export async function triggerServerVerification(params: {
       jobStartedAt: gateResult.jobStartedAt,
       jobFinishedAt: gateResult.jobFinishedAt,
       onRepairAvailable,
+      runId,
     });
   } catch (err) {
     console.error("[server-verify] Error:", err);
     await failVersionVerification(
       versionId,
       "Server verification could not complete.",
+      runId,
     ).catch(() => null);
   } finally {
+    await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
   }
 }
@@ -341,6 +394,14 @@ export async function triggerBuildErrorRepair(params: {
   const { chatId, versionId, buildError, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
+  const lease = await acquireVerifyLease(versionId, "build_error_repair");
+  if (!lease.proceed) {
+    // Another live lease already owns this version — it will emit its own
+    // build-error/repair events. Bail without double-emitting.
+    inflight.delete(versionId);
+    return;
+  }
+  const runId = lease.runId;
   // OMTAG-06: surface the preview-VM build error as a first-class bus
   // event. The projection will flip `phase` to "failed" until a clean
   // repair pass lands and emits `version.saved` without blockers.
@@ -377,10 +438,12 @@ export async function triggerBuildErrorRepair(params: {
       jobStartedAt: null,
       jobFinishedAt: null,
       onRepairAvailable,
+      runId,
     });
   } catch (err) {
     console.error("[server-verify] build-error repair failed:", err);
   } finally {
+    await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
   }
 }
@@ -399,6 +462,8 @@ async function tryServerRepairLoop(params: {
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
+  /** Distributed-lease owner id (Plan C). Undefined = legacy Set-only path. */
+  runId?: string;
 }): Promise<void> {
   const {
     chatId,
@@ -410,6 +475,7 @@ async function tryServerRepairLoop(params: {
     jobStartedAt,
     jobFinishedAt,
     onRepairAvailable,
+    runId,
   } = params;
   const verifyContext = {
     verifyLaneDurationMs,
@@ -419,7 +485,7 @@ async function tryServerRepairLoop(params: {
   };
   const hadQualityGateFailures = failedOutputs.length > 0;
 
-  await markVersionRepairing(versionId).catch(() => null);
+  await markVersionRepairing(versionId, undefined, runId).catch(() => null);
 
   const exportable = await buildExportableProject(codeFiles);
   const initialContent = serializeCodeProject(exportable);
@@ -488,7 +554,7 @@ async function tryServerRepairLoop(params: {
     let promoted = false;
     if (decision.promote) {
       if (!(await isLatestVersionForChat(chatId, versionId))) {
-        await markVersionSupersededByRepair(versionId).catch(() => null);
+        await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
         await createEngineVersionErrorLogs([{
           chatId,
           versionId,
@@ -507,7 +573,12 @@ async function tryServerRepairLoop(params: {
         method === "deterministic"
           ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
           : "Server repair passed quality gate (LLM). Awaiting acceptance.";
-      const saved = await saveRepairedFiles(versionId, filesJson, msg).catch((err) => {
+      // Renew the lease right before persisting: a long repair loop may have run
+      // past the TTL. Renew re-extends it while we still own it (run_id +
+      // status='running'); if another run took over, saveRepairedFiles's
+      // lease-conditioned write no-ops, so we never clobber a newer repair.
+      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+      const saved = await saveRepairedFiles(versionId, filesJson, msg, runId).catch((err) => {
         console.warn("[server-verify] Failed to save repaired version files:", err);
         return null;
       });
@@ -610,6 +681,7 @@ async function tryServerRepairLoop(params: {
     await failVersionVerification(
       versionId,
       "Server repair: syntax clean (esbuild) but quality gate (typecheck/build) still failing.",
+      runId,
     ).catch(() => null);
     logRepairOutcome(
       chatId,
@@ -630,6 +702,7 @@ async function tryServerRepairLoop(params: {
   await failVersionVerification(
     versionId,
     `Server repair incomplete (${loopResult.remainingErrors} esbuild syntax errors remain).`,
+    runId,
   ).catch(() => null);
   logRepairOutcome(
     chatId,

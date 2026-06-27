@@ -5,6 +5,7 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
+  hasActiveVersionLease,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -245,14 +246,23 @@ async function buildEngineReadiness(
     // failure already persisted in the error logs (e.g. a deterministic
     // typecheck error) over the generic "took too long" copy — a deterministic
     // gate failure never gets better by "trying again".
-    const concreteFailureSummary = resolveGateFailureSummaryFromLogs(errorLogs);
-    const timedOutVersion = await failVersionVerification(
-      version.id,
-      concreteFailureSummary ??
-        "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",
-    ).catch(() => null);
-    if (timedOutVersion) {
-      version = timedOutVersion;
+    //
+    // Distributed lease (Plan C / P1): only let the watchdog fail the version
+    // when NO job currently holds an active lease. If a verify/repair run still
+    // owns the version (unexpired lease), it is legitimately working — don't
+    // pull the row out from under it. Fail-safe: a DB error degrades to the
+    // legacy always-fail-on-timeout behaviour.
+    const hasActiveJob = await hasActiveVersionLease(version.id).catch(() => false);
+    if (!hasActiveJob) {
+      const concreteFailureSummary = resolveGateFailureSummaryFromLogs(errorLogs);
+      const timedOutVersion = await failVersionVerification(
+        version.id,
+        concreteFailureSummary ??
+          "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",
+      ).catch(() => null);
+      if (timedOutVersion) {
+        version = timedOutVersion;
+      }
     }
   }
 

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -615,6 +616,44 @@ export const engineVersions = pgTable(
       table.chatId,
       table.createdAt,
     ),
+  }),
+);
+
+/**
+ * Distributed lease for server-verify / build-error-repair / manual-repair
+ * background jobs (Plan C, P1 — see
+ * docs/plans/active/2026-06-27-server-verify-distributed-lock.md).
+ *
+ * A single active (`status='running'`) row per `version_id` is the
+ * cross-instance lock: any verify/repair run that mutates an `engine_versions`
+ * row must hold the active lease for that version. `kind` is metadata (which
+ * caller took the lease) and does NOT participate in uniqueness, so verify and
+ * repair can never both own the same version concurrently. The process-local
+ * `inflight` Set in server-verify.ts stays as a cheap pre-DB short-circuit;
+ * this table is the distributed source of truth.
+ */
+export const engineVersionJobs = pgTable(
+  "engine_version_jobs",
+  {
+    id: text("id").primaryKey(),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => engineVersions.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    runId: text("run_id").notNull(),
+    status: text("status").notNull().default("running"),
+    leaseExpiresAt: timestamp("lease_expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Only ONE active (running) lease per version, regardless of kind. This
+    // partial unique index IS the lock; expiry-takeover is handled by the
+    // acquire ON CONFLICT path (see acquireVersionLease).
+    activeLeaseUnique: uniqueIndex("engine_version_jobs_active_uq")
+      .on(table.versionId)
+      .where(sql`${table.status} = 'running'`),
+    versionIdx: index("idx_engine_version_jobs_version").on(table.versionId),
   }),
 );
 

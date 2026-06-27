@@ -397,6 +397,19 @@ const setupQueries = [
     meta JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  // Distributed lease for server-verify / build-error-repair / manual-repair
+  // (Plan C / P1). One active (status='running') lease per version_id is the
+  // cross-instance lock. See add-engine-version-jobs.sql + schema.ts.
+  `CREATE TABLE IF NOT EXISTS engine_version_jobs (
+    id TEXT PRIMARY KEY,
+    version_id TEXT NOT NULL REFERENCES engine_versions(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    lease_expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
 ];
 
 const schemaQueries = [
@@ -409,6 +422,9 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_chat_id ON version_error_logs(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_version_id ON engine_version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_chat_id ON engine_version_error_logs(chat_id)`,
+  // engine_version_jobs lease lock: only ONE active (running) lease per version.
+  `CREATE UNIQUE INDEX IF NOT EXISTS engine_version_jobs_active_uq ON engine_version_jobs(version_id) WHERE status = 'running'`,
+  `CREATE INDEX IF NOT EXISTS idx_engine_version_jobs_version ON engine_version_jobs(version_id)`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS ui_parts JSONB`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS thinking TEXT`,
   `DO $$
@@ -628,6 +644,7 @@ const ALL_TABLES = [
   "engine_versions",
   "engine_generation_logs",
   "engine_version_error_logs",
+  "engine_version_jobs",
   "generation_telemetry",
   "version_comments",
   "version_approvals",
