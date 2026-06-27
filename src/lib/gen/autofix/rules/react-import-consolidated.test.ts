@@ -327,6 +327,23 @@ describe("fixReactAndNavigationImports — duplicate react import consolidation"
     expect(reactImportLines(result.code).split("\n").length).toBe(1);
   });
 
+  it("drops a named specifier duplicating the default binding (avoids invalid `import React, { React }`)", () => {
+    const code = [
+      'import React from "react";',
+      'import { React, useState } from "react";',
+      "const el = React.createElement('div');",
+      "const [v] = useState(0);",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toContain("React");
+    // React stays the default binding only — never re-listed as a named import.
+    expect(countIn(reactImportLines(result.code), "React")).toBe(1);
+    expect(result.code).toContain('import React, { useState } from "react";');
+  });
+
   it("is idempotent — second consolidation run makes no further change", () => {
     const code = [
       'import type { ReactNode } from "react";',

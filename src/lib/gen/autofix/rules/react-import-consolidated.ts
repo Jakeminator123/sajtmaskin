@@ -362,8 +362,15 @@ function consolidateReactImports(code: string): { code: string; deduped: string[
     }
   }
 
-  const valueParts = valueOrder.map((n) => formatReactSpecifier(valueByLocal.get(n)!));
-  const typeParts = typeOrder.map((n) => formatReactSpecifier(typeByLocal.get(n)!));
+  // A name carried by the `default` binding must not also appear in the named
+  // list — `import React, { React } from "react"` re-declares React (TS2300).
+  // Drop any named/type specifier whose local equals the default name.
+  const valueParts = valueOrder
+    .filter((n) => n !== defaultName)
+    .map((n) => formatReactSpecifier(valueByLocal.get(n)!));
+  const typeParts = typeOrder
+    .filter((n) => n !== defaultName)
+    .map((n) => formatReactSpecifier(typeByLocal.get(n)!));
 
   const block: string[] = [];
   if (defaultName && valueParts.length > 0) {

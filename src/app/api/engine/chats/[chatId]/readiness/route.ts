@@ -149,7 +149,7 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
       title: "Versionen underkändes av quality gate (typecheck/build).",
       detail:
         summary ||
-        "Publicering är blockerad tills typecheck/build passerar. Previewen är fortfarande tillgänglig — kör autofix eller en ny förfining och publicera sedan.",
+        "Publicering är blockerad tills typecheck/build passerar. Kör autofix eller en ny förfining och försök publicera igen.",
       severity: "blocker",
       action: "versions",
     };
