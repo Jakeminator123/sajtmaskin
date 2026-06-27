@@ -366,3 +366,81 @@ describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify refere
     expect(result.referencesExistingCapability).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// #242 section capabilities — wire-up regression matrix
+// ─────────────────────────────────────────────────────────────────────────
+//
+// #242 added six soft section dossiers + capability-map entries, but the
+// follow-up detector never learned the phrases, so a follow-up like
+// "lägg till kundloggor" injected no dossier. These assert each new section
+// capability is detected from a realistic short add-prompt, plus the
+// carousel/gallery-lightbox disambiguation (image/product-gallery moved off
+// carousel) and the control case that genuine slider/carousel asks still map
+// to `carousel`.
+describe("detectFollowUpCapabilities — #242 section capabilities", () => {
+  it("detects 'kundloggor' as `logo-cloud`", () => {
+    const result = detectFollowUpCapabilities("lägg till kundloggor under hero");
+    expect(result.capabilityIds).toContain("logo-cloud");
+    expect(result.capabilityIds).not.toContain("marquee");
+  });
+
+  it("detects 'trusted by' logo row as `logo-cloud`", () => {
+    const result = detectFollowUpCapabilities("add a trusted by logo strip");
+    expect(result.capabilityIds).toContain("logo-cloud");
+  });
+
+  it("detects 'nyckeltal/statistik' as `stats-counter`", () => {
+    const result = detectFollowUpCapabilities("lägg till nyckeltal/statistik");
+    expect(result.capabilityIds).toContain("stats-counter");
+    expect(result.capabilityIds).not.toContain("analytics");
+  });
+
+  it("detects 'feature cards' / 'tjänstekort' as `feature-grid`", () => {
+    const result = detectFollowUpCapabilities("lägg till feature cards/tjänstekort");
+    expect(result.capabilityIds).toContain("feature-grid");
+  });
+
+  it("detects a bottom 'CTA' as `cta-section`", () => {
+    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
+    expect(result.capabilityIds).toContain("cta-section");
+  });
+
+  it("does NOT detect cta-section for a layout move of an existing CTA button", () => {
+    // Refine/move verb + short prompt → allowDetection gate suppresses it.
+    const result = detectFollowUpCapabilities("Flytta CTA-knappen under rubriken");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+
+  it("detects an enlargeable image gallery as `gallery-lightbox`", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bildgalleri där man kan förstora bilder",
+    );
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  it("detects English 'image gallery' as `gallery-lightbox`, not `carousel`", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with a lightbox");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  it("detects a multi-step wizard as `stepper`", () => {
+    const result = detectFollowUpCapabilities("gör formuläret till en multi-step wizard");
+    expect(result.capabilityIds).toContain("stepper");
+    expect(result.capabilityIds).not.toContain("contact-form");
+  });
+
+  it("control: an explicit 'bildkarusell' still maps to `carousel`", () => {
+    const result = detectFollowUpCapabilities("lägg till en bildkarusell i hero");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+
+  it("control: an explicit 'slider' still maps to `carousel`", () => {
+    const result = detectFollowUpCapabilities("lägg till en slider med tre bilder");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+});
