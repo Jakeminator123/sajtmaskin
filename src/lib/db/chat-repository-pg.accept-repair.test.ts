@@ -21,7 +21,7 @@ const transaction = vi.hoisted(() => vi.fn());
 const execute = vi.hoisted(() => vi.fn());
 const acceptSetCapture = vi.hoisted(() => ({ value: undefined as unknown }));
 const acceptWhereCapture = vi.hoisted(() => ({ value: undefined as unknown }));
-const renewWhereCapture = vi.hoisted(() => ({ value: undefined as unknown }));
+const updateWhereCapture = vi.hoisted(() => ({ value: undefined as unknown }));
 
 const tx = {
   select: () => ({
@@ -53,11 +53,12 @@ vi.mock("@/lib/db/client", () => ({
       transaction();
       return cb(tx);
     },
-    // renewVersionLease uses db.update(...).set(...).where(...)
+    // renewVersionLease + failVersionVerificationIfUnleased both use
+    // db.update(...).set(...).where(...); capture the last WHERE either built.
     update: () => ({
       set: () => ({
         where: (w: unknown) => {
-          renewWhereCapture.value = w;
+          updateWhereCapture.value = w;
           return Promise.resolve({ rowCount: 0 });
         },
       }),
@@ -70,7 +71,11 @@ vi.mock("./promote-guard", () => ({
   assertPromoteAllowed: vi.fn(async () => ({ allowed: true, reason: null })),
 }));
 
-import { acceptRepair, renewVersionLease } from "./chat-repository-pg";
+import {
+  acceptRepair,
+  renewVersionLease,
+  failVersionVerificationIfUnleased,
+} from "./chat-repository-pg";
 
 function renderSql(value: unknown): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,15 +133,46 @@ describe("acceptRepair — round 3+4 atomic promote, payload binding, missing-ta
 describe("renewVersionLease — refuses expired leases (Codex P2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    renewWhereCapture.value = undefined;
+    updateWhereCapture.value = undefined;
   });
 
   it("returns false and only matches an unexpired lease (lease_expires_at > now())", async () => {
     const ok = await renewVersionLease("ver-1", "run-1");
     expect(ok).toBe(false); // rowCount 0 -> ownership lost
-    const where = renderSql(renewWhereCapture.value);
+    const where = renderSql(updateWhereCapture.value);
     expect(where).toContain("lease_expires_at");
     expect(where).toContain("now()");
     expect(where).toContain(">"); // strict greater-than = not-yet-expired
+  });
+});
+
+describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery (Bugbot)", () => {
+  // Bugbot: a manual/server-verify repair that loses its lease leaves the row in
+  // `repairing` because the lease-conditioned failVersionVerification no-ops.
+  // The readiness watchdog now also targets `repairing` and recovers via this
+  // primitive — which must NOT fail a version while an active lease still owns it
+  // (a legit running repair), and must degrade safely before the jobs migration.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateWhereCapture.value = undefined;
+  });
+
+  it("only fails the version when NO active lease owns it (table exists)", async () => {
+    mockLeaseTableExists(true);
+    const res = await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered");
+    expect(res).toBeNull(); // rowCount 0 -> an active lease still owns it; left intact
+    const where = renderSql(updateWhereCapture.value);
+    expect(where).toContain("not exists");
+    expect(where).toContain("engine_version_jobs");
+    expect(where).toContain("lease_expires_at");
+    expect(where).toContain("now()");
+  });
+
+  it("degrades to an unconditional watchdog (no lease table reference) pre-migration", async () => {
+    mockLeaseTableExists(false);
+    await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered");
+    const where = renderSql(updateWhereCapture.value);
+    expect(where).not.toContain("engine_version_jobs");
+    expect(where).not.toContain("to_regclass");
   });
 });

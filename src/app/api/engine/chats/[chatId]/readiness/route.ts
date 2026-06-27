@@ -38,7 +38,18 @@ function isTimedOutVerificationState(
   verificationState: string | null | undefined,
   createdAt: string | Date | null | undefined,
 ): boolean {
-  if (verificationState !== "pending" && verificationState !== "verifying") {
+  // `repairing` is included so a repair whose distributed lease was lost
+  // (expired / takeover) — making its lease-conditioned failVersionVerification
+  // a no-op — doesn't stay stuck in `repairing` forever (manual repair route
+  // AND server-verify auto-repair). The recovery write below
+  // (failVersionVerificationIfUnleased) is lease-safe: it no-ops while an active
+  // lease still owns the version, so a legitimately running repair that keeps
+  // renewing its lease is never failed out from under it.
+  if (
+    verificationState !== "pending" &&
+    verificationState !== "verifying" &&
+    verificationState !== "repairing"
+  ) {
     return false;
   }
   if (!createdAt) {

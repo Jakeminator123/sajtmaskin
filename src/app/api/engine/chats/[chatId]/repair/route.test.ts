@@ -14,6 +14,7 @@ const releaseVersionLease = vi.hoisted(() => vi.fn());
 const renewVersionLease = vi.hoisted(() => vi.fn());
 const markVersionRepairing = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
+const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
@@ -31,6 +32,7 @@ vi.mock("@/lib/db/services/version-errors", () => ({ createEngineVersionErrorLog
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionRepairing,
   failVersionVerification,
+  failVersionVerificationIfUnleased,
   saveRepairedFiles,
   getChat,
   acquireVersionLease,
