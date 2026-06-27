@@ -26,7 +26,7 @@ import {
   renewVersionLease,
   type VersionJobKind,
 } from "@/lib/db/chat-repository-pg";
-import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
@@ -168,8 +168,12 @@ export async function triggerServerVerification(params: {
       }]).catch(() => null);
       return;
     }
-    const codeFiles = await getVersionFiles(versionId);
-    if (!codeFiles || codeFiles.length === 0) return;
+    const snapshot = await getVersionFilesSnapshot(versionId);
+    if (!snapshot || snapshot.files.length === 0) return;
+    const codeFiles = snapshot.files;
+    // #260 / P2 #5: carry the exact files_json the repair will be based on so a
+    // concurrent user edit can't be silently overwritten by saveRepairedFiles.
+    const baseFilesJson = snapshot.filesJson;
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -313,6 +317,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       codeFiles,
+      baseFilesJson,
       failedOutputs,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
       firstFailureCheck: gateResult.firstFailureCheck,
@@ -422,8 +427,10 @@ export async function triggerBuildErrorRepair(params: {
   const runId = lease.runId;
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
-    const codeFiles = await getVersionFiles(versionId);
-    if (!codeFiles || codeFiles.length === 0) return;
+    const snapshot = await getVersionFilesSnapshot(versionId);
+    if (!snapshot || snapshot.files.length === 0) return;
+    const codeFiles = snapshot.files;
+    const baseFilesJson = snapshot.filesJson;
     const failureCodeSuffix = buildError.failureCode ? ` [${buildError.failureCode}]` : "";
     const failedOutput: ServerVerifyFailedOutput = {
       check: "build",
@@ -435,6 +442,7 @@ export async function triggerBuildErrorRepair(params: {
       chatId,
       versionId,
       codeFiles,
+      baseFilesJson,
       failedOutputs: [failedOutput],
       verifyLaneDurationMs: 0,
       firstFailureCheck: "build",
@@ -455,6 +463,8 @@ async function tryServerRepairLoop(params: {
   chatId: string;
   versionId: string;
   codeFiles: CodeFile[];
+  /** Exact files_json the repair is based on (#260 / P2 #5 revision-binding). */
+  baseFilesJson: string;
   failedOutputs: ServerVerifyFailedOutput[];
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
@@ -472,6 +482,7 @@ async function tryServerRepairLoop(params: {
     chatId,
     versionId,
     codeFiles,
+    baseFilesJson,
     failedOutputs,
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -588,7 +599,7 @@ async function tryServerRepairLoop(params: {
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
-      const saved = await saveRepairedFiles(versionId, filesJson, msg, runId).catch((err) => {
+      const saved = await saveRepairedFiles(versionId, filesJson, msg, runId, baseFilesJson).catch((err) => {
         console.warn("[server-verify] Failed to save repaired version files:", err);
         return null;
       });

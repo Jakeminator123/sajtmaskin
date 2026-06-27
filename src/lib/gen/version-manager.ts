@@ -58,6 +58,27 @@ export async function getVersionFiles(versionId: string): Promise<CodeFile[] | n
 }
 
 /**
+ * Like {@link getVersionFiles} but also returns the EXACT `files_json` string
+ * the parsed files were read from, in a single DB read. The repair flows
+ * (#260 / Codex P2 #5) carry this raw string as the snapshot base so
+ * `saveRepairedFiles` can bind its write to it (revision-binding without a
+ * schema migration) and never publish a repair over a concurrent user edit.
+ * Reading both from one row keeps `files` and `filesJson` mutually consistent.
+ */
+export async function getVersionFilesSnapshot(
+  versionId: string,
+): Promise<{ files: CodeFile[]; filesJson: string } | null> {
+  const version = await getVersionById(versionId);
+  if (!version) return null;
+  const files = parseStoredVersionFiles(version.files_json, {
+    versionId: version.id,
+    chatId: version.chat_id,
+  });
+  if (!files) return null;
+  return { files, filesJson: version.files_json };
+}
+
+/**
  * Retrieves parsed files for the latest version of a chat.
  * Returns null if no versions exist.
  */
