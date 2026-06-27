@@ -44,16 +44,6 @@ const policy = envPolicy as {
   rules: { key: string; classification: string }[];
 };
 
-// A key is "acknowledged" by the governance layer if it is explicitly listed
-// anywhere in the policy (a rule or one of the known-key lists). getEnvRule only
-// reads `rules` + heuristics, so the lists are checked separately here.
-const acknowledged = new Set<string>([
-  ...policy.rules.map((r) => r.key),
-  ...policy.extraKnownKeys,
-  ...policy.runtimeOnlyKeys,
-  ...policy.knownEmptyOk,
-]);
-
 const serverSchemaKeys = Object.keys(serverSchema.shape).sort();
 
 describe("env-policy strict schema", () => {
@@ -65,20 +55,35 @@ describe("env-policy strict schema", () => {
   });
 });
 
+describe("env-policy rules integrity", () => {
+  it("has no duplicate rule keys", () => {
+    // Both runtime consumers collapse rules by key (new Map(...) in env-audit.ts,
+    // a Python dict in manage_env.py), so a duplicate would silently let the
+    // later entry override the intended classification/targets while the editor
+    // still shows both rows. JSON Schema can't express field-uniqueness across
+    // array items, so it is asserted here (and guarded on save in env_policy.py).
+    const keys = policy.rules.map((r) => r.key);
+    const dupes = [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))].sort();
+    expect(dupes, `duplicate env-policy rules[].key: ${dupes.join(", ")}`).toEqual([]);
+  });
+});
+
 describe("env-policy ↔ serverSchema parity", () => {
-  it("every env var the app reads (serverSchema) is intentionally governed", () => {
-    // Governed = explicitly listed in the policy, OR getEnvRule gives it an
-    // intentional classification (explicit rule or a documented heuristic in
-    // env-audit.ts) rather than the generic catch-all. A brand-new serverSchema
-    // key that is listed nowhere and matches no heuristic fails here, forcing a
-    // governance decision instead of silently shipping ungoverned.
+  it("every env var the app reads (serverSchema) has an intentional classification", () => {
+    // Codex P2: list-only membership (extraKnownKeys / runtimeOnlyKeys /
+    // knownEmptyOk) is NOT governance — getEnvRule ignores those lists and would
+    // fall through to the generic catch-all, so audit/reconcile would use the
+    // default optional-runtime targets instead of an intentional policy. Require
+    // an explicit rule OR a documented env-audit heuristic, i.e. getEnvRule must
+    // not return the catch-all. A new serverSchema key with no rule and no
+    // heuristic fails here, forcing a real governance decision.
     const ungoverned = serverSchemaKeys.filter(
-      (key) => !acknowledged.has(key) && getEnvRule(key).notes === CATCHALL_NOTE,
+      (key) => getEnvRule(key).notes === CATCHALL_NOTE,
     );
     expect(
       ungoverned,
-      `serverSchema keys neither listed in config/env-policy.json nor classified ` +
-        `by an env-audit heuristic (add a rule or an extraKnownKeys entry):\n` +
+      `serverSchema keys with no explicit rule and no env-audit heuristic — add a ` +
+        `rule in config/env-policy.json (list membership alone is not governance):\n` +
         ungoverned.join("\n"),
     ).toEqual([]);
   });

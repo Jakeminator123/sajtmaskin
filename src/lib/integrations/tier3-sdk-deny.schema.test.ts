@@ -41,21 +41,34 @@ describe("tier3-sdk-deny.schema.json", () => {
     expect(ok, fmt(validate.errors)).toBe(true);
   });
 
-  it("every module specifier is unique across all categories", () => {
+  it("every module specifier is unique across all categories (trimmed, mirrors runtime)", () => {
     // Mirrors parseDenyJson()'s duplicate guard in tier3-sdk-deny.ts, which
-    // JSON Schema cannot express across array items.
+    // JSON Schema cannot express across array items. The runtime trims before
+    // the duplicate check, so we compare trimmed values here too.
     const seen = new Map<string, string>();
     const dupes: string[] = [];
     for (const category of denyList.categories) {
       for (const mod of category.modules) {
-        if (seen.has(mod)) {
-          dupes.push(`${mod} (in "${seen.get(mod)}" and "${category.label}")`);
+        const key = mod.trim();
+        if (seen.has(key)) {
+          dupes.push(`${key} (in "${seen.get(key)}" and "${category.label}")`);
         } else {
-          seen.set(mod, category.label);
+          seen.set(key, category.label);
         }
       }
     }
     expect(dupes, `duplicate modules across categories:\n${dupes.join("\n")}`).toEqual([]);
+  });
+
+  it("rejects a whitespace-padded module specifier", () => {
+    // The runtime loader trims before its empty/duplicate checks, so a padded
+    // value must be rejected at schema-validation time too (Codex P2).
+    expect(validate({ categories: [{ label: "Payments", modules: ["  stripe  "] }] })).toBe(false);
+    expect(validate({ categories: [{ label: "Payments", modules: ["   "] }] })).toBe(false);
+  });
+
+  it("rejects a whitespace-padded category label", () => {
+    expect(validate({ categories: [{ label: " Payments ", modules: ["stripe"] }] })).toBe(false);
   });
 
   it("rejects an empty categories array", () => {

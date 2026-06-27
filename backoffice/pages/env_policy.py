@@ -72,6 +72,22 @@ def render(ctx: BackofficeContext) -> None:
                     + "\n".join(f"- {message}" for message in errs)
                 )
                 st.stop()
+            # Dubblett-koll på rules[].key. JSON Schema kan inte uttrycka
+            # fält-unikhet över array-element, men runtime kollapsar regler på key
+            # (Map i env-audit.ts, dict i manage_env.py) — en dubblett låter tyst
+            # den sista posten vinna. Blockera innan write.
+            rule_keys = [
+                r.get("key")
+                for r in (parsed.get("rules") or [])
+                if isinstance(r, dict)
+            ]
+            dupes = sorted({k for k in rule_keys if k and rule_keys.count(k) > 1})
+            if dupes:
+                st.error(
+                    "Sparar inte — dubblerade rules[].key (runtime kollapsar på key): "
+                    + ", ".join(dupes)
+                )
+                st.stop()
             write_json(ep, parsed)
             st.success("Sparat (validerad mot env-policy.schema.json).")
             st.rerun()

@@ -27,7 +27,7 @@
     },
     "rules": {
       "type": "array",
-      "description": "Per-key classification + recommended Vercel targets.",
+      "description": "Per-key classification + recommended Vercel targets. NOTE: rules[].key must be unique — JSON Schema cannot express field-uniqueness across array items, so it is enforced by the backoffice save guard (env_policy.py) and src/lib/env-policy-parity.test.ts. Runtime collapses rules by key (Map in env-audit.ts, dict in manage_env.py).",
       "items": {
         "type": "object",
         "required": ["key", "classification", "recommendedVercelTargets"],
