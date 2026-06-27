@@ -6,7 +6,9 @@
  * cross-dossier invariants:
  *
  *   1. defaultForCapability: true must be unique per capability
- *   2. instructions.md must have all 5 canonical H1 headings
+ *   2. instructions.md headings: the REQUIRED canonical H1 headings block (fail),
+ *      the RECOMMENDED ones warn only — see REQUIRED_INSTRUCTIONS_HEADINGS /
+ *      RECOMMENDED_INSTRUCTIONS_HEADINGS in validate-manifest.ts
  *   3. every file declared with injectionMode: "verbatim" must exist on disk
  *
  * Exits 1 on any failure. Keep output human-readable — backoffice tails this.
@@ -27,7 +29,14 @@ import { landingPageManifest } from "../../src/lib/gen/scaffolds/landing-page/ma
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const CLASSES: readonly DossierClass[] = ["hard", "soft"] as const;
-const SCAFFOLD_FILE_SET = new Set(landingPageManifest.files.map((f) => f.path));
+// Import closure is validated against the landing-page scaffold as the
+// BASELINE file set: a dossier may import a file that exists in the landing-page
+// baseline (the common scaffold surface) or inside the dossier itself. Dossiers
+// are scaffold-agnostic, so we deliberately validate against this single
+// baseline rather than the union of all scaffolds — the union would let a
+// dossier depend on a file that only exists in e.g. the dashboard scaffold and
+// still pass.
+const BASELINE_SCAFFOLD_FILE_SET = new Set(landingPageManifest.files.map((f) => f.path));
 
 interface ValidRow {
   id: string;
@@ -78,7 +87,7 @@ function main(): void {
         schemaFailures++;
         continue;
       }
-      const closureIssues = validateDossierImportClosure(result.data, dir, SCAFFOLD_FILE_SET);
+      const closureIssues = validateDossierImportClosure(result.data, dir, BASELINE_SCAFFOLD_FILE_SET);
       if (closureIssues.length > 0) {
         console.error(`✗ ${klass}/${id}: import closure`);
         for (const issue of closureIssues) {

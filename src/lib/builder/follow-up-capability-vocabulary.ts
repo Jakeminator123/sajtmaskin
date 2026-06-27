@@ -1,9 +1,15 @@
 /**
  * Capability vocabulary for follow-up detection.
  *
- * Source-of-truth for the set of capability ids: `data/dossiers/_index/capability-map.json`
- * (16 capabilities). The keys here MUST match those ids verbatim — they are
- * forwarded to `selectDossiersForRequest` which looks dossiers up by capability.
+ * Source-of-truth for the set of capability ids: `data/dossiers/_index/capability-map.json`.
+ * The keys here MUST match those ids verbatim — they are forwarded to
+ * `selectDossiersForRequest` which looks dossiers up by capability. Not every
+ * capability in the map needs an entry here: `physics-3d` arrives via the
+ * inferred-capability bridge, and the #242 section capabilities (logo-cloud,
+ * stats-counter, feature-grid, cta-section, gallery-lightbox, stepper) are not
+ * wired into follow-up detection yet. The capability count is intentionally NOT
+ * stated here — it drifts; `follow-up-capability-vocabulary.test.ts` guards
+ * every entry's id against the map instead.
  *
  * Every pattern uses Unicode-aware look-arounds rather than ASCII `\b`, so
  * Swedish words with `å/ä/ö` boundary correctly. Mirrors the convention in

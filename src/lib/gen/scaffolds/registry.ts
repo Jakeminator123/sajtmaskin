@@ -97,7 +97,10 @@ export function getScaffoldById(id: string): ScaffoldManifest | null {
 }
 
 export function getAllScaffolds(): ScaffoldManifest[] {
-  return ALL_SCAFFOLDS;
+  // Return a shallow copy so callers can't mutate the shared module-level
+  // registry (push/splice/sort). The manifest objects themselves are still
+  // shared refs and are treated as read-only by consumers.
+  return [...ALL_SCAFFOLDS];
 }
 
 export function getScaffoldIds(): ScaffoldId[] {
