@@ -30,3 +30,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS "engine_version_jobs_active_uq"
 
 CREATE INDEX IF NOT EXISTS idx_engine_version_jobs_version
   ON engine_version_jobs (version_id);
+
+-- RLS: the production migration path (`npm run db:migrate`) only executes these
+-- SQL files and never runs db-init.mjs's buildRlsQueries(), so enable RLS + the
+-- backend policy here too (mirrors add-error-log-events.sql). Keeps the repo's
+-- RLS-on-all-tables invariant for envs updated via migrations.
+ALTER TABLE engine_version_jobs ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = 'engine_version_jobs'
+        AND policyname = 'engine_version_jobs_backend_full_access'
+    ) THEN
+      CREATE POLICY engine_version_jobs_backend_full_access ON engine_version_jobs
+        FOR ALL TO postgres, service_role USING (true) WITH CHECK (true);
+    END IF;
+  END IF;
+END $$;

@@ -614,7 +614,16 @@ export async function acceptRepair(
         verificationSummary,
         promotedAt: new Date(),
       })
-      .where(eq(engineVersions.id, versionId));
+      // Codex P2: enforce the no-active-lease condition ATOMICALLY here (the
+      // route + maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail).
+      // If a verify/repair job acquired the lease between that pre-check and
+      // now, this UPDATE no-ops instead of promoting the row out from under it.
+      .where(
+        and(
+          eq(engineVersions.id, versionId),
+          sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+        ),
+      );
     if ((result.rowCount ?? 0) === 0) {
       return null;
     }
@@ -885,6 +894,39 @@ export async function failVersionVerification(
       promotedAt: null,
     })
     .where(versionWriteWhere(versionId, runId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
+/**
+ * Watchdog-only fail (Codex P2): marks a stale version failed ONLY if no active
+ * lease owns it, atomically (single UPDATE with a NOT EXISTS guard). Stops a
+ * readiness poll from failing a version that a verify/repair run legitimately
+ * acquired in the gap between a separate `hasActiveVersionLease` check and the
+ * write. Returns null (no-op) when a job holds the lease or the row is gone.
+ */
+export async function failVersionVerificationIfUnleased(
+  versionId: string,
+  verificationSummary: string,
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "failed",
+      verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
+      promotedAt: null,
+    })
+    .where(
+      and(
+        eq(engineVersions.id, versionId),
+        sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+      ),
+    );
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }

@@ -177,19 +177,24 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
       }
 
-      // Re-read under the lease so verification runs on the lease-protected
-      // snapshot, not the pre-acquire read above (Codex P2 stale-snapshot fix).
-      const leasedCodeFiles = qgRunId
-        ? (await getVersionFiles(internalVersionId)) ?? codeFiles
-        : codeFiles;
-      const completeProjectFiles = await buildExportableProject(leasedCodeFiles);
-      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
-
-      await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
-        console.warn("[quality-gate] Failed to mark version verifying:", err);
-      });
-
+      // Codex P2 (lease leak): everything after a successful acquire runs inside
+      // this try/finally, so the lease is ALWAYS released — even if the leased
+      // re-read / buildExportableProject / exportableToQualityGateFiles throws
+      // (otherwise the row stayed `running` until the TTL and every accept/
+      // verify/repair returned version_busy for ~15 min).
       try {
+        // Re-read under the lease so verification runs on the lease-protected
+        // snapshot, not the pre-acquire read above (Codex P2 stale-snapshot fix).
+        const leasedCodeFiles = qgRunId
+          ? (await getVersionFiles(internalVersionId)) ?? codeFiles
+          : codeFiles;
+        const completeProjectFiles = await buildExportableProject(leasedCodeFiles);
+        const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
+
+        await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
+          console.warn("[quality-gate] Failed to mark version verifying:", err);
+        });
+
         const { results, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } =
           await runQualityGateChecks({
           chatId,

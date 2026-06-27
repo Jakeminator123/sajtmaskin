@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
-  failVersionVerification,
+  failVersionVerificationIfUnleased,
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
-  hasActiveVersionLease,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -247,22 +246,19 @@ async function buildEngineReadiness(
     // typecheck error) over the generic "took too long" copy — a deterministic
     // gate failure never gets better by "trying again".
     //
-    // Distributed lease (Plan C / P1): only let the watchdog fail the version
-    // when NO job currently holds an active lease. If a verify/repair run still
-    // owns the version (unexpired lease), it is legitimately working — don't
-    // pull the row out from under it. Fail-safe: a DB error degrades to the
-    // legacy always-fail-on-timeout behaviour.
-    const hasActiveJob = await hasActiveVersionLease(version.id).catch(() => false);
-    if (!hasActiveJob) {
-      const concreteFailureSummary = resolveGateFailureSummaryFromLogs(errorLogs);
-      const timedOutVersion = await failVersionVerification(
-        version.id,
-        concreteFailureSummary ??
-          "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",
-      ).catch(() => null);
-      if (timedOutVersion) {
-        version = timedOutVersion;
-      }
+    // Distributed lease (Plan C / P1 + Codex P2): fail the stale version ONLY if
+    // no job holds an active lease — and do it ATOMICALLY (the NOT EXISTS guard
+    // lives inside the UPDATE), so a verify/repair run that acquires the lease in
+    // the gap can't have its row failed out from under it. Fail-safe: a DB error
+    // returns null and leaves the version state unchanged.
+    const concreteFailureSummary = resolveGateFailureSummaryFromLogs(errorLogs);
+    const timedOutVersion = await failVersionVerificationIfUnleased(
+      version.id,
+      concreteFailureSummary ??
+        "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",
+    ).catch(() => null);
+    if (timedOutVersion) {
+      version = timedOutVersion;
     }
   }
 

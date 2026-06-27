@@ -378,6 +378,9 @@ async function handlePOST(
         currentVersionErrors.length > 0 ||
         previousVersionErrors.length > 0 ||
         visualQaLines.length > 0,
+      onBeforePass: async () => {
+        if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
+      },
       onNoContext: async () => {
         if (!dbConfigured) return;
         await failVersionVerification(

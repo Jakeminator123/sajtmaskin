@@ -659,6 +659,9 @@ async function tryServerRepairLoop(params: {
     fixerReasoningEffort: fixerThinking?.reasoningEffort,
     recurringPatterns: readRecurringPatternsForChat(chatId),
     hasActionableErrorContext: hadQualityGateFailures,
+    onBeforePass: async () => {
+      if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+    },
     onAttemptPromotion: async (projectContent, method) => ({
       promoted: await tryPromoteAfterGate(projectContent, method),
     }),
