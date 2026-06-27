@@ -9,7 +9,10 @@ import {
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
-import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  resolvePostRepairGateChecks,
+} from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -129,6 +132,21 @@ describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
     // F3 (`integrationsBuild`) still runs the full `typecheck + build + lint`
     // — that's asserted separately in `manifest-parity.test.ts`.
     expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(["typecheck"]);
+  });
+});
+
+describe("resolvePostRepairGateChecks (#260 P2 — build-origin false-green)", () => {
+  it("keeps the typecheck-only design-preview lane for non-build repairs", () => {
+    expect(resolvePostRepairGateChecks(false)).toEqual(DESIGN_PREVIEW_QUALITY_GATE_CHECKS);
+  });
+
+  it("escalates to include `build` when the repair originated from a build failure", () => {
+    // A build/preview-start repair must not re-gate with typecheck only: `tsc`
+    // can pass while `next build` is still broken, which would false-green a
+    // non-building version into `repair_available`/`passed`.
+    const checks = resolvePostRepairGateChecks(true);
+    expect(checks).toContain("build");
+    expect(checks).toContain("typecheck");
   });
 });
 

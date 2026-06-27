@@ -20,7 +20,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
-import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import { resolvePostRepairGateChecks } from "@/lib/gen/verify/quality-gate-checks";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
@@ -294,12 +294,19 @@ async function handlePOST(
       // slow gate cannot expire the lease before the renew-before-save below.
       if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       const exportable = await buildExportableProject(repairedFiles);
+      // #260 Codex P2 (build-origin false-green): if the failure that triggered
+      // this manual repair was a build/preview-start error, the post-repair gate
+      // must keep `build` — degrading to typecheck-only would false-green a
+      // still-broken build into repair_available.
+      const buildOriginatedRepair =
+        repairContext.qualityGateMeta?.firstFailureCheck === "build" ||
+        (repairContext.qualityGate?.some((failure) => failure.check === "build") ?? false);
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+        checks: resolvePostRepairGateChecks(buildOriginatedRepair),
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,

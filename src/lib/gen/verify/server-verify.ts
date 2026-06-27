@@ -43,7 +43,10 @@ import {
 // below reaches both the legacy surfaces and the UI projection.
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
-import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  resolvePostRepairGateChecks,
+} from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -566,7 +569,10 @@ async function tryServerRepairLoop(params: {
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
-      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+      // #260 Codex P2 (build-origin false-green): a build/preview-start repair
+      // must not re-gate with the typecheck-only design-preview lane — tsc can
+      // pass while `next build` is still broken. Keep `build` in the gate then.
+      checks: resolvePostRepairGateChecks(firstFailureCheck === "build"),
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
