@@ -2,6 +2,7 @@ import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
 import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
+import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
 /**
  * Download/export scaffold.
@@ -590,6 +591,41 @@ function buildBaselineOwnedStems(): Map<string, string> {
   return stems;
 }
 
+/**
+ * Canonical shadcn component stems (kebab-case import subpaths such as
+ * `carousel`, `alert-dialog`, `sonner`). Derived from the registry *values*
+ * because keys are the PascalCase exported names while the file stem under
+ * `components/ui/` is the import subpath. Lower-cased so matching is
+ * case-insensitive against generated paths.
+ */
+const CANONICAL_SHADCN_UI_STEMS = new Set<string>(
+  Object.values(SHADCN_COMPONENTS).map((subpath) => subpath.toLowerCase()),
+);
+
+/** `components/ui/<stem>.tsx` or `src/components/ui/<stem>.tsx` (no nested dirs). */
+const CANONICAL_UI_PATH_RE = /^(?:src\/)?components\/ui\/([^/]+)\.tsx$/i;
+
+/**
+ * Return the canonical shadcn stem for a generated path if it is a host-owned
+ * shadcn UI file (`@/components/ui/<stem>`), otherwise `null`. Custom files
+ * under `components/ui/` whose stem is not in the registry return `null` and
+ * are therefore preserved untouched.
+ */
+function canonicalShadcnUiStem(path: string): string | null {
+  const match = CANONICAL_UI_PATH_RE.exec(path.replace(/\\/g, "/"));
+  if (!match) return null;
+  const stem = match[1].toLowerCase();
+  return CANONICAL_SHADCN_UI_STEMS.has(stem) ? stem : null;
+}
+
+/** `<stem>` for a `uiComponents` entry filename (`carousel.tsx` → `carousel`). */
+function uiComponentStem(filename: string): string {
+  return filename
+    .replace(/\\/g, "/")
+    .replace(/\.tsx$/i, "")
+    .toLowerCase();
+}
+
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
@@ -597,6 +633,15 @@ export function buildCompleteProject(
   const result: CodeFile[] = [];
 
   const baselineOwnedStems = buildBaselineOwnedStems();
+
+  // Stems for which a canonical replacement is actually available to inject.
+  // We only drop an LLM-emitted canonical shadcn file when its host-provided
+  // replacement exists here, so we never delete a UI file without re-injecting
+  // a working one (avoids breaking `@/components/ui/*` imports).
+  const availableCanonicalUiStems = new Set<string>(
+    (uiComponents ?? []).map((comp) => uiComponentStem(comp.filename)),
+  );
+
   const filteredGeneratedFiles: CodeFile[] = [];
   for (const file of generatedFiles) {
     const stem = moduleStemForCollision(file.path);
@@ -608,6 +653,20 @@ export function buildCompleteProject(
         continue;
       }
     }
+
+    // The LLM (or a repair round) sometimes emits its own copy of a canonical
+    // shadcn component under `components/ui/`. That file would otherwise win
+    // over the host-provided canonical one and ship — a real incident was a
+    // generated `components/ui/carousel.tsx` with a self-import
+    // (`import { Carousel } from "@/components/ui/carousel"`) next to
+    // `function Carousel(){}` → TS2440 → broken build. Drop it so the
+    // canonical version (injected below from `uiComponents`) wins. Only drop
+    // when that replacement is available; otherwise keep the generated file.
+    const canonicalUiStem = canonicalShadcnUiStem(file.path);
+    if (canonicalUiStem !== null && availableCanonicalUiStems.has(canonicalUiStem)) {
+      continue;
+    }
+
     filteredGeneratedFiles.push(file);
   }
 

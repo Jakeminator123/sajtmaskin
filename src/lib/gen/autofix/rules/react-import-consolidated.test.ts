@@ -264,3 +264,113 @@ export default function Thing() {
     expect(second.code).toBe(first.code);
   });
 });
+
+describe("fixReactAndNavigationImports — duplicate react import consolidation", () => {
+  const reactImportLines = (code: string): string =>
+    code
+      .split("\n")
+      .filter((line) => /from\s+["']react["']/.test(line))
+      .join("\n");
+
+  const countIn = (haystack: string, name: string): number =>
+    (haystack.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length;
+
+  it("merges a type-only + two value react imports without duplicate identifiers (three-canvas-shell TS2300)", () => {
+    const code = [
+      '"use client";',
+      'import type { ReactNode } from "react";',
+      'import { useEffect, useState } from "react";',
+      'import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useState } from "react";',
+      "",
+      "export function Shell({ children }: { children: ReactNode }) {",
+      "  useEffect(() => {}, []);",
+      "  const [v] = useState(0);",
+      "  return <Suspense>{children}{v}</Suspense>;",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toEqual(["ReactNode", "useEffect", "useState"]);
+
+    // No duplicate identifiers: each binding appears exactly once across the
+    // react imports.
+    const imports = reactImportLines(result.code);
+    expect(countIn(imports, "useEffect")).toBe(1);
+    expect(countIn(imports, "useState")).toBe(1);
+    expect(countIn(imports, "ReactNode")).toBe(1);
+    expect(countIn(imports, "ErrorInfo")).toBe(1);
+    expect(countIn(imports, "Component")).toBe(1);
+    expect(countIn(imports, "Suspense")).toBe(1);
+
+    // ReactNode/ErrorInfo stay type-only; the value import carries the runtime
+    // bindings.
+    expect(result.code).toContain('import type { ReactNode, ErrorInfo } from "react";');
+    expect(result.code).toContain('import { useEffect, useState, Component, Suspense } from "react";');
+    // The "use client" directive is preserved at the top.
+    expect(result.code.startsWith('"use client";')).toBe(true);
+  });
+
+  it("merges duplicate default + named react imports into one statement", () => {
+    const code = [
+      'import React from "react";',
+      'import React, { useMemo, useMemo as useMemoAlias } from "react";',
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toContain("React");
+    // Only one react import statement survives, with a single React default.
+    expect(countIn(reactImportLines(result.code), "React")).toBe(1);
+    expect(reactImportLines(result.code).split("\n").length).toBe(1);
+  });
+
+  it("drops a named specifier duplicating the default binding (avoids invalid `import React, { React }`)", () => {
+    const code = [
+      'import React from "react";',
+      'import { React, useState } from "react";',
+      "const el = React.createElement('div');",
+      "const [v] = useState(0);",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toContain("React");
+    // React stays the default binding only — never re-listed as a named import.
+    expect(countIn(reactImportLines(result.code), "React")).toBe(1);
+    expect(result.code).toContain('import React, { useState } from "react";');
+  });
+
+  it("is idempotent — second consolidation run makes no further change", () => {
+    const code = [
+      'import type { ReactNode } from "react";',
+      'import { useEffect, useState } from "react";',
+      'import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useState } from "react";',
+    ].join("\n");
+
+    const first = fixReactAndNavigationImports(code);
+    expect(first.fixed).toBe(true);
+    const second = fixReactAndNavigationImports(first.code);
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+    expect(second.consolidatedReactBindings).toEqual([]);
+  });
+
+  it("leaves two react imports with disjoint specifiers untouched", () => {
+    const code = [
+      'import React from "react";',
+      'import { useState } from "react";',
+      "const el = React.createElement('div');",
+      "const [v] = useState(0);",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.consolidatedReactBindings).toEqual([]);
+    expect(result.code).toContain('import React from "react";');
+    expect(result.code).toContain('import { useState } from "react";');
+  });
+});

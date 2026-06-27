@@ -554,6 +554,14 @@ async function runAutoFixSinglePass(
         const consolidated = fixReactAndNavigationImports(currentCode);
         if (consolidated.fixed) {
           currentCode = consolidated.code;
+          if (consolidated.consolidatedReactBindings.length > 0) {
+            allFixes.push({
+              fixer: "react-hook-import-fixer",
+              category: "mechanical",
+              description: `Consolidated duplicate react imports (deduped: ${consolidated.consolidatedReactBindings.join(", ")})`,
+              file: file.path,
+            });
+          }
           if (consolidated.addedReactDefault) {
             allFixes.push({
               fixer: "react-import-fixer",
@@ -755,7 +763,7 @@ async function runAutoFixSinglePass(
 
       // 3h. import-declaration-conflict-fixer — drop imports that shadow local declarations
       try {
-        const conflictResult = fixImportedDeclarationConflicts(currentCode);
+        const conflictResult = fixImportedDeclarationConflicts(currentCode, file.path);
         if (conflictResult.fixed) {
           currentCode = conflictResult.code;
           allFixes.push({
