@@ -810,7 +810,7 @@ export async function releaseVersionLease(
  * cannot short-circuit a missing relation). `to_regclass(text)` itself never
  * references the table as a relation, so this probe is safe pre-migration.
  */
-async function leaseTableExists(): Promise<boolean> {
+export async function leaseTableExists(): Promise<boolean> {
   try {
     const res = await db.execute(sql`SELECT to_regclass('public.engine_version_jobs') AS oid`);
     const rows = (res as unknown as { rows?: Array<{ oid: string | null }> }).rows ?? [];

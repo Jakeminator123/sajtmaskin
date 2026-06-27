@@ -5,6 +5,7 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
+  leaseTableExists,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -251,7 +252,21 @@ async function buildEngineReadiness(
     getEngineVersionErrorLogs(version.id),
   ]);
 
-  if (isTimedOutVerificationState(version.verification_state, version.created_at)) {
+  let staleCandidate = isTimedOutVerificationState(
+    version.verification_state,
+    version.created_at,
+  );
+  if (staleCandidate && version.verification_state === "repairing") {
+    // Codex P2: the `repairing` watchdog uses version.created_at as its clock, so
+    // ANY repair on a version older than the timeout looks "stale". That is only
+    // SAFE once the lease table exists: failVersionVerificationIfUnleased then
+    // no-ops while an active lease still owns a running repair, so only a truly
+    // lost/expired lease is failed. Pre-migration it would degrade to an
+    // unconditional fail and kill a still-running unlocked repair — so skip the
+    // repairing watchdog entirely and keep the legacy unlocked fallback intact.
+    staleCandidate = await leaseTableExists().catch(() => false);
+  }
+  if (staleCandidate) {
     // 5-minute stale-verification watchdog. Prefer the concrete quality-gate
     // failure already persisted in the error logs (e.g. a deterministic
     // typecheck error) over the generic "took too long" copy — a deterministic
