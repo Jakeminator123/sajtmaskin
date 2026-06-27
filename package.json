@@ -9,7 +9,9 @@
     "node": "22.22.2"
   },
   "scripts": {
-    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-autofix-load.mjs && node scripts/dev/check-bug-backlog.mjs",
+    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-autofix-load.mjs && node scripts/dev/check-bug-backlog.mjs && npm run route-timeouts:check",
+    "route-timeouts:sync": "node scripts/ai-models/sync-route-timeouts.mjs --write",
+    "route-timeouts:check": "node scripts/ai-models/sync-route-timeouts.mjs --check",
     "check:terms": "node scripts/dev/check-term-coverage.mjs",
     "db:schema-drift": "vitest run src/lib/db/schema-drift.test.ts",
     "db:schema-drift:soft": "npm run db:schema-drift || echo [db:schema-drift] WARN: schema-drift mellan src/lib/db/schema.ts och scripts/db/db-init.mjs / add-performance-indexes.mjs - se output ovan. Dev startar anda.",
@@ -30,7 +32,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
-    "devtest": "npm run typecheck && npm run scaffolds:validate && npm run dossiers:validate-all && npm run test:ci && npm run lint",
+    "devtest": "npm run typecheck && npm run scaffolds:validate && npm run dossiers:validate-all && npm run test:ci && npm run lint && npm run route-timeouts:check",
     "db:init": "node scripts/db/db-init.mjs",
     "db:init:soft": "node scripts/db/db-init.mjs || echo [db:init] WARN: skipped (DB unreachable) - dev continues",
     "db:check": "node scripts/db/check-dev-db.mjs",

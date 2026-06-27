@@ -3,39 +3,36 @@
  *
  * `config/ai_models/manifest.json` `routeTimeouts` is the source of truth for
  * the per-route server stream ceilings. Next.js requires `maxDuration` to be a
- * statically-analyzable literal in each route segment, so the backoffice writes
- * those literals via `sync_route_timeout_literals` (backoffice/shared.py). That
- * regex write can silently miss a file if its format ever changes — this test
- * is the CI gate that makes such drift impossible: every synced route's literal
- * must equal the manifest value.
+ * statically-analyzable literal in each route segment, so the literals are
+ * generated deterministically by `scripts/ai-models/sync-route-timeouts.mjs`
+ * (canonical owner — the backoffice no longer patches route files). This test
+ * is the CI gate that makes drift impossible: every target route's literal must
+ * equal the manifest value.
  *
- * Keep this map in sync with `route_targets` in `sync_route_timeout_literals`.
+ * The route→manifest-field map is NOT duplicated here — it is imported from the
+ * single source `scripts/ai-models/route-timeout-targets.mjs`, shared with the
+ * codegen, so the test and the generator can never drift apart.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+import { ROUTE_TIMEOUT_TARGETS } from "../../../scripts/ai-models/route-timeout-targets.mjs";
 
 const REPO_ROOT = join(__dirname, "..", "..", "..");
 
 const manifest = JSON.parse(
   readFileSync(join(REPO_ROOT, "config/ai_models/manifest.json"), "utf8"),
 ) as {
-  routeTimeouts: {
-    engineRouteMaxDurationSeconds: { default: number };
-    assistRouteMaxDurationSeconds: { default: number };
-  };
+  routeTimeouts: Record<string, { default: number }>;
 };
 
-const engineSeconds = manifest.routeTimeouts.engineRouteMaxDurationSeconds.default;
-const assistSeconds = manifest.routeTimeouts.assistRouteMaxDurationSeconds.default;
-
-// Mirrors `route_targets` in backoffice/shared.py `sync_route_timeout_literals`.
-const ROUTE_TARGETS: Array<{ rel: string; expected: number }> = [
-  { rel: "src/app/api/engine/chats/stream/route.ts", expected: engineSeconds },
-  { rel: "src/app/api/engine/chats/[chatId]/stream/route.ts", expected: engineSeconds },
-  { rel: "src/app/api/ai/chat/route.ts", expected: assistSeconds },
-  { rel: "src/app/api/ai/brief/route.ts", expected: assistSeconds },
-];
+const ROUTE_TARGETS: Array<{ rel: string; expected: number }> = ROUTE_TIMEOUT_TARGETS.map(
+  ({ rel, manifestField }) => ({
+    rel,
+    expected: manifest.routeTimeouts[manifestField].default,
+  }),
+);
 
 function readMaxDuration(rel: string): number | null {
   const src = readFileSync(join(REPO_ROOT, rel), "utf8");

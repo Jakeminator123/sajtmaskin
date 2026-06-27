@@ -40,7 +40,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` +
 - `promptOrchestration` styr **inte** modellen direkt utan när prompten skickas som-is, komprimeras eller går över till tydligare phase-plan-build-polish-läge.
 - `postGenerationPasses` styr **inte** generatorn, utan read-only verifier efter syntaxvalidering.
 - `preGenerationContracts.providerRules` beskriver vilka providers och env-nycklar systemet letar efter när det försöker förstå auth/databas/betalning/integrationer från prompten eller briefen.
-- `routeTimeouts` ligger i manifestet, men Next.js route-filer kräver fortfarande literalvärden för `maxDuration`. Dashboard-vyn ska därför hålla manifest och route-filer i synk när du sparar timeout-värden därifrån.
+- `routeTimeouts` ligger i manifestet, men Next.js route-filer kräver fortfarande literalvärden för `maxDuration` (statiskt analyserbara per route-segment). Dessa literaler skrivs **deterministiskt av codegen** — `npm run route-timeouts:sync` (kanonisk ägare: `scripts/ai-models/sync-route-timeouts.mjs`, route→fält-map i `scripts/ai-models/route-timeout-targets.mjs`). Drift gatas i CI/preflight/devtest av `npm run route-timeouts:check` och av `src/app/api/route-timeout-manifest-parity.test.ts`. Backoffice **sparar bara manifestet** och patchar inte längre route-filer (den visar en read-only drift-status); efter en timeout-ändring i manifestet, kör `route-timeouts:sync` och committa route-filerna.
 - Efter ändring: kör `npm run test` eller `npm run test:ci` (minst manifest-parity + befintliga modelltester).
 
 ## Anthropic-modell-ID:n (punkt vs bindestreck)
