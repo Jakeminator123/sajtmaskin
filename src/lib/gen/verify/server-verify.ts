@@ -158,6 +158,9 @@ export async function triggerServerVerification(params: {
     return;
   }
   const runId = lease.runId;
+  // #260 Codex P2 (stale-base re-verify): set when the repair no-op'd because a
+  // concurrent user edit advanced files_json past the repaired-from snapshot.
+  let supersededByUserEdit = false;
 
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
@@ -317,7 +320,7 @@ export async function triggerServerVerification(params: {
       return;
     }
 
-    await tryServerRepairLoop({
+    const repairOutcome = await tryServerRepairLoop({
       chatId,
       versionId,
       codeFiles,
@@ -330,6 +333,7 @@ export async function triggerServerVerification(params: {
       onRepairAvailable,
       runId,
     });
+    supersededByUserEdit = repairOutcome.supersededByUserEdit;
   } catch (err) {
     console.error("[server-verify] Error:", err);
     await failVersionVerification(
@@ -340,6 +344,16 @@ export async function triggerServerVerification(params: {
   } finally {
     await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
+  }
+
+  // #260 Codex P2 (stale-base re-verify): the repair was superseded by a
+  // concurrent user edit. Re-verify the CURRENT files (B) on a fresh lease — run
+  // AFTER the release above so the re-entry can acquire its own lease. B then
+  // reaches a terminal state on its OWN merits (passed / repair_available /
+  // failed-because-B-fails), never failed from the abandoned stale repair(A).
+  // Recursion is naturally bounded by user edits (one re-verify per edit).
+  if (supersededByUserEdit) {
+    await triggerServerVerification({ chatId, versionId, onRepairAvailable, diagnosticOnly });
   }
 }
 
@@ -429,6 +443,7 @@ export async function triggerBuildErrorRepair(params: {
     return;
   }
   const runId = lease.runId;
+  let supersededByUserEdit = false;
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const snapshot = await getVersionFilesSnapshot(versionId);
@@ -442,7 +457,7 @@ export async function triggerBuildErrorRepair(params: {
       output: `[preview-vm:${buildError.stage}]${failureCodeSuffix} ${buildError.message}`,
       durationMs: null,
     };
-    await tryServerRepairLoop({
+    const repairOutcome = await tryServerRepairLoop({
       chatId,
       versionId,
       codeFiles,
@@ -455,12 +470,35 @@ export async function triggerBuildErrorRepair(params: {
       onRepairAvailable,
       runId,
     });
+    supersededByUserEdit = repairOutcome.supersededByUserEdit;
   } catch (err) {
     console.error("[server-verify] build-error repair failed:", err);
   } finally {
     await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
   }
+
+  // #260 Codex P2 (stale-base re-verify): a concurrent user edit advanced
+  // files_json past the repaired-from snapshot, so the repair no-op'd and did
+  // NOT fail the version. Re-verify the CURRENT files (B) on a fresh lease (run
+  // AFTER releasing this run's lease) so B reaches an honest terminal state
+  // instead of lingering in `repairing`. See triggerServerVerification.
+  if (supersededByUserEdit) {
+    await triggerServerVerification({ chatId, versionId, onRepairAvailable });
+  }
+}
+
+/**
+ * Outcome of a server-repair loop run. `supersededByUserEdit` is set when the
+ * repair no-op'd because a concurrent user edit advanced `files_json` past the
+ * snapshot the repair was based on (#260 Codex P2 `stale_base`). The caller MUST
+ * then re-verify the CURRENT files on a fresh lease so the user's newer edit B
+ * reaches an honest terminal state instead of lingering in `repairing` (where
+ * the readiness watchdog could fail it). Every other outcome already left the
+ * row terminal (`repair_available` / `failed`).
+ */
+interface ServerRepairLoopOutcome {
+  supersededByUserEdit: boolean;
 }
 
 async function tryServerRepairLoop(params: {
@@ -481,7 +519,7 @@ async function tryServerRepairLoop(params: {
   }) => void;
   /** Distributed-lease owner id (Plan C). Undefined = legacy Set-only path. */
   runId?: string;
-}): Promise<void> {
+}): Promise<ServerRepairLoopOutcome> {
   const {
     chatId,
     versionId,
@@ -571,8 +609,13 @@ async function tryServerRepairLoop(params: {
       hadQualityGateFailures,
       // #260 Codex P2 (build-origin false-green): a build/preview-start repair
       // must not re-gate with the typecheck-only design-preview lane — tsc can
-      // pass while `next build` is still broken. Keep `build` in the gate then.
-      checks: resolvePostRepairGateChecks(firstFailureCheck === "build"),
+      // pass while `next build` is still broken. Check ALL original failures, not
+      // just `firstFailureCheck`: when typecheck AND build both failed,
+      // `firstFailureCheck` is "typecheck", yet the build must still be re-run.
+      checks: resolvePostRepairGateChecks(
+        failedOutputs.some((output) => output.check === "build") ||
+          firstFailureCheck === "build",
+      ),
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -714,7 +757,7 @@ async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return;
+    return { supersededByUserEdit: false };
   }
 
   const finalizeAction = resolvePostRepairFinalize({
@@ -726,15 +769,16 @@ async function tryServerRepairLoop(params: {
     // #260 Codex P2: a concurrent user edit advanced files_json past snapshot A
     // while this repair ran, so saveRepairedFiles no-op'd by design. Do NOT
     // failVersionVerification — that would finalize the user's newer edit B as
-    // failed from a stale repair(A). Leave B to the edit→verify flow; record
-    // that the finalize was intentionally skipped.
+    // failed from a stale repair(A). Signal the caller to re-verify the current
+    // files (B) on a fresh lease so B reaches an honest terminal state instead
+    // of lingering in `repairing` (where the readiness watchdog could fail it).
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
       level: "warning",
       category: "server-verify:stale-base-skip",
       message:
-        "Post-repair finalize skipped: files_json advanced (concurrent edit); version not failed from stale repair.",
+        "Post-repair finalize skipped: files_json advanced (concurrent edit); re-verifying the current files instead of failing from stale repair.",
       meta: { serverOwned: true, staleBaseNoOp: true },
     }]).catch(() => null);
     logRepairOutcome(
@@ -749,7 +793,7 @@ async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return;
+    return { supersededByUserEdit: true };
   }
 
   if (finalizeAction === "fail_syntax_clean") {
@@ -771,7 +815,7 @@ async function tryServerRepairLoop(params: {
       loopResult.errorManifest,
       { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: true },
     );
-    return;
+    return { supersededByUserEdit: false };
   }
 
   await failVersionVerification(
@@ -792,6 +836,7 @@ async function tryServerRepairLoop(params: {
     loopResult.errorManifest,
     { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: false },
   );
+  return { supersededByUserEdit: false };
 }
 
 function logRepairOutcome(

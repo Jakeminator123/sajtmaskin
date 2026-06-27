@@ -20,6 +20,8 @@ const getChat = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
+const triggerServerVerification = vi.hoisted(() => vi.fn());
+const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: unknown, _key: string, fn: () => unknown) => {
@@ -80,6 +82,18 @@ vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
   readRecurringPatternsForChat: () => [],
 }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+// Capture after() callbacks (stale-base re-verify is scheduled via after()) so
+// we can assert + run them instead of executing post-response in the test.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (cb: () => unknown) => {
+      afterCallbacks.value.push(cb);
+    },
+  };
+});
+vi.mock("@/lib/gen/verify/server-verify", () => ({ triggerServerVerification }));
 
 import { POST } from "./route";
 
@@ -152,6 +166,7 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     markVersionRepairing.mockResolvedValue(undefined);
     createEngineVersionErrorLogs.mockResolvedValue([]);
     getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
     getVersionFilesSnapshot.mockResolvedValue({
       files: [{ path: "app/page.tsx", content: "A" }],
       filesJson: '[{"path":"app/page.tsx","content":"A"}]',
@@ -211,5 +226,14 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     expect(body.status).toBe("superseded");
     // Lease still released in finally.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+    // #260 P2: the current files (B) are re-verified on a fresh lease, scheduled
+    // via after() (NOT a detached fire-and-forget). Run the scheduled callback
+    // and assert it re-verifies this version.
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
   });
 });

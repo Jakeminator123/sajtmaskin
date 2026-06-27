@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
@@ -47,6 +47,7 @@ import {
   buildServerVerifyRepairContextLines,
   compactVisualQAForQualityGateLog,
 } from "@/lib/gen/verify/server-verify-log-meta";
+import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -126,6 +127,7 @@ async function handlePOST(
   ctx: { params: Promise<{ chatId: string }> },
 ) {
   let internalVersionId: string | null = null;
+  let resolvedChatId: string | null = null;
   let leaseRunId: string | undefined;
   let ownershipLost = false;
   // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
@@ -152,6 +154,7 @@ async function handlePOST(
   };
   try {
     const { chatId } = await ctx.params;
+    resolvedChatId = chatId;
     const body = await req.json().catch(() => ({}));
     const validation = requestSchema.safeParse(body);
     if (!validation.success) {
@@ -566,6 +569,23 @@ async function handlePOST(
   } finally {
     if (leaseRunId && internalVersionId) {
       await releaseVersionLease(internalVersionId, leaseRunId).catch(() => {});
+    }
+    // #260 Codex P2 (stale-base re-verify): a concurrent user edit advanced
+    // files_json past the repaired-from snapshot, so the repair no-op'd
+    // (stale_base) and we did NOT fail the version. Re-verify the current files
+    // (B) on a fresh lease — scheduled via after() so it runs AFTER the response
+    // (and after this run's lease is released above), never as a detached
+    // fire-and-forget promise. B then reaches an honest terminal state instead
+    // of lingering in `repairing` (where the readiness watchdog could fail it).
+    if (staleBaseNoOp && internalVersionId && resolvedChatId) {
+      const reverifyChatId = resolvedChatId;
+      const reverifyVersionId = internalVersionId;
+      after(async () => {
+        await triggerServerVerification({
+          chatId: reverifyChatId,
+          versionId: reverifyVersionId,
+        }).catch(() => {});
+      });
     }
   }
 }

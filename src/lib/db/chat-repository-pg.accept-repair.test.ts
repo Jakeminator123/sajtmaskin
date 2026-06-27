@@ -192,12 +192,21 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(txUpdateSet.value).toBeUndefined();
   });
 
-  it("refuses a LEGACY plain-array payload (no base hash -> fail closed, no silent overwrite)", async () => {
+  it("clears a LEGACY plain-array payload (no base hash -> fail closed, no silent overwrite)", async () => {
     mockLeaseTableExists(true);
     selectRows.value = [{ repairedFilesJson: REPAIRED_JSON, filesJson: BASE_A }];
     const res = await acceptRepair("ver-1");
     expect(res).toBeNull();
-    expect(txUpdateSet.value).toBeUndefined();
+    // Fail closed by CLEARING the pending repair + marking failed, so the
+    // versions/readiness routes stop advertising an un-acceptable repair forever
+    // (manual accept + timed auto-accept would otherwise loop on the refusal).
+    const set = txUpdateSet.value as Record<string, unknown>;
+    expect(set).toBeDefined();
+    expect(set.repairedFilesJson).toBeNull();
+    expect(set.repairAvailableAt).toBeNull();
+    expect(set.verificationState).toBe("failed");
+    // files_json is never overwritten — no silent clobber of the user's edit.
+    expect(set.filesJson).toBeUndefined();
   });
 });
 

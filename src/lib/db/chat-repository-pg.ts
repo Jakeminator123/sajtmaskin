@@ -672,12 +672,28 @@ export async function acceptRepair(
     }
     if (payload.kind === "legacy") {
       // A plain pre-envelope array carries no base hash, so we cannot prove the
-      // current files are the ones it repaired. Fail closed (no silent
-      // overwrite) — these rows only exist transiently across the deploy that
-      // shipped the envelope; re-running repair produces a guarded envelope.
+      // current files are the ones it repaired. Fail closed AND clear the
+      // pending repair so the versions/readiness routes stop advertising an
+      // un-acceptable repair forever (manual accept + timed auto-accept would
+      // otherwise loop on this same refusal, blocking publish). files_json is
+      // left untouched — the user's current files are never overwritten; they
+      // just re-run repair. These rows only exist transiently across the deploy
+      // that shipped the envelope.
       console.warn(
-        `[accept-repair] Refusing legacy (no base-hash) pending repair for version ${versionId}; re-run repair.`,
+        `[accept-repair] Clearing legacy (no base-hash) pending repair for version ${versionId}; re-run repair.`,
       );
+      await tx
+        .update(engineVersions)
+        .set({
+          repairedFilesJson: null,
+          repairAvailableAt: null,
+          releaseState: "draft" as EngineVersionReleaseState,
+          verificationState: "failed" as EngineVersionVerificationState,
+          verificationSummary:
+            "Pending repair could not be verified against the current files; please re-run repair.",
+          promotedAt: null,
+        })
+        .where(eq(engineVersions.id, versionId));
       return null;
     }
     const currentFilesJson = rows[0]?.filesJson;
