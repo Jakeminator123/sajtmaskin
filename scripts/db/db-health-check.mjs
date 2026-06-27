@@ -127,6 +127,14 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_engine_version_error_logs_chat_id", columns: ["chat_id"] },
     { name: "idx_engine_version_error_logs_version_id", columns: ["version_id"] },
   ],
+  // Codex P3: declare the lease indexes so migrated DBs don't report them as
+  // `extra_indexes`. Both are required by the acquire path: the partial unique
+  // index enforces one active lease per version_id; the plain index speeds the
+  // per-version lease/precheck lookups.
+  engine_version_jobs: [
+    { name: "engine_version_jobs_active_uq", columns: ["version_id"] },
+    { name: "idx_engine_version_jobs_version", columns: ["version_id"] },
+  ],
   deployments: [
     { name: "idx_deployments_chat_id", columns: ["chat_id"] },
     { name: "idx_deployments_project", columns: ["project_id"] },

@@ -577,6 +577,13 @@ export async function acceptRepair(
   versionId: string,
   verificationSummary: string | null = "Server repair accepted.",
 ): Promise<Version | null> {
+  // Codex P2 (missing-table fail-safe): resolve whether the lease table exists
+  // ONCE, out of band. We must NOT name engine_version_jobs inside the UPDATE
+  // when it is absent — Postgres resolves relations at parse/plan time, so a
+  // `to_regclass(...) IS NULL OR ...` guard *inside* the statement still errors
+  // "relation does not exist". to_regclass() in a standalone SELECT takes text
+  // and never references the table as a relation, so it is safe pre-migration.
+  const jobsExist = await leaseTableExists();
   return db.transaction(async (tx) => {
     const rows = await tx
       .select({
@@ -605,12 +612,9 @@ export async function acceptRepair(
     const result = await tx
       .update(engineVersions)
       .set({
-        // Codex P2 (stale payload): promote the CURRENT pending repair via a
-        // column reference evaluated inside the UPDATE, not the value SELECTed
-        // above. If a concurrent repair replaced repaired_files_json between the
-        // SELECT and here, this writes the fresh payload (and the IS NOT NULL
-        // predicate below no-ops if it was cleared) instead of resurrecting a
-        // stale snapshot.
+        // Codex P2 (stale payload): the WHERE binds repaired_files_json to the
+        // exact value SELECTed above, so promoting the column reference writes
+        // that same payload atomically — never a different concurrent repair.
         filesJson: sql`${engineVersions.repairedFilesJson}`,
         previewUrl: null,
         repairedFilesJson: null,
@@ -620,20 +624,21 @@ export async function acceptRepair(
         verificationSummary,
         promotedAt: new Date(),
       })
-      // Codex P2: enforce the no-active-lease condition ATOMICALLY here (the
-      // route + maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail).
-      // If a verify/repair job acquired the lease between that pre-check and
-      // now, this UPDATE no-ops instead of promoting the row out from under it.
       .where(
         and(
           eq(engineVersions.id, versionId),
-          // Codex P2 (stale payload): bind the promote to a still-pending
-          // repair; if it was cleared/accepted concurrently this no-ops.
-          sql`${engineVersions.repairedFilesJson} IS NOT NULL`,
-          // Codex P2 (missing-table fail-safe): if engine_version_jobs has not
-          // been migrated yet, to_regclass(...) IS NULL keeps the legacy accept
-          // path working instead of throwing "relation does not exist".
-          sql`(to_regclass('public.engine_version_jobs') IS NULL OR NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now()))`,
+          // Codex P2 (replacement-repair guard): only promote when the pending
+          // repair is STILL the exact one read above. If a newer repair was
+          // saved between the SELECT and here (and may not have reached its own
+          // accept timeout), this no-ops instead of promoting it early. This
+          // also subsumes the "not cleared" check (a non-empty string != NULL).
+          sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+          // Codex P2 (no active lease): atomic guard — the route +
+          // maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail. Only
+          // reference engine_version_jobs when it exists (see leaseTableExists).
+          jobsExist
+            ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+            : undefined,
         ),
       );
     if ((result.rowCount ?? 0) === 0) {
@@ -779,6 +784,25 @@ export async function releaseVersionLease(
 }
 
 /** True when an UNEXPIRED active lease exists for the version (any owner). */
+/**
+ * True when the engine_version_jobs lease table exists. Used to keep the shared
+ * accept/watchdog paths working before add-engine-version-jobs.sql is applied
+ * (rollout / local DB drift): we must decide whether to reference the table
+ * BEFORE building a statement, because Postgres resolves relation names at
+ * parse/plan time (an in-statement `to_regclass(...) IS NULL OR ...` guard
+ * cannot short-circuit a missing relation). `to_regclass(text)` itself never
+ * references the table as a relation, so this probe is safe pre-migration.
+ */
+async function leaseTableExists(): Promise<boolean> {
+  try {
+    const res = await db.execute(sql`SELECT to_regclass('public.engine_version_jobs') AS oid`);
+    const rows = (res as unknown as { rows?: Array<{ oid: string | null }> }).rows ?? [];
+    return rows.length > 0 && rows[0]?.oid != null;
+  } catch {
+    return false;
+  }
+}
+
 export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
   try {
     const rows = await db
@@ -798,7 +822,7 @@ export async function hasActiveVersionLease(versionId: string): Promise<boolean>
     // applied (rollout / local DB drift) this query throws "relation does not
     // exist". Fail open here so the legacy accept/readiness paths keep working;
     // the authoritative no-active-lease guard is the atomic UPDATE predicate in
-    // acceptRepair / failVersionVerificationIfUnleased (both to_regclass-safe).
+    // acceptRepair / failVersionVerificationIfUnleased (gated by leaseTableExists).
     console.warn(`[lease] hasActiveVersionLease degraded for ${versionId}:`, err);
     return false;
   }
@@ -933,6 +957,10 @@ export async function failVersionVerificationIfUnleased(
   versionId: string,
   verificationSummary: string,
 ): Promise<Version | null> {
+  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
+  // table BEFORE building the statement (Postgres resolves relations at plan
+  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
+  const jobsExist = await leaseTableExists();
   const result = await db
     .update(engineVersions)
     .set({
@@ -946,9 +974,11 @@ export async function failVersionVerificationIfUnleased(
     .where(
       and(
         eq(engineVersions.id, versionId),
-        // Codex P2 (missing-table fail-safe): degrade to the legacy watchdog
-        // when engine_version_jobs has not been migrated yet.
-        sql`(to_regclass('public.engine_version_jobs') IS NULL OR NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now()))`,
+        // Only enforce the no-active-lease guard once the table exists; before
+        // migration this degrades to the legacy unconditional watchdog.
+        jobsExist
+          ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+          : undefined,
       ),
     );
   if ((result.rowCount ?? 0) === 0) {

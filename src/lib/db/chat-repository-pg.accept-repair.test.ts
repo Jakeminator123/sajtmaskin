@@ -1,27 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 
-// Codex P2 (round 3) regression evidence for acceptRepair + renewVersionLease.
+// Codex P2 (round 3 + 4) regression evidence for acceptRepair + renewVersionLease.
 //
 // We mock the drizzle `db` so we can CAPTURE the exact SET object and WHERE SQL
 // the production code builds, then render them with PgDialect and assert the
-// predicates that close the three findings:
+// predicates that close the findings:
 //
-//   1. accept promotes the CURRENT pending repair (column ref), not the value
-//      SELECTed earlier — no stale repaired_files_json resurrection.
-//   2. accept stays backward-compatible before add-engine-version-jobs.sql is
-//      applied (to_regclass(...) IS NULL fail-safe) instead of throwing.
-//   3. renewVersionLease refuses an already-expired lease (lease_expires_at >
-//      now() predicate) so a frozen run can't re-extend lost ownership.
+//   - accept promotes the CURRENT pending repair (column ref) bound to the exact
+//     payload SELECTed (`repaired_files_json = $`) — no stale resurrection AND no
+//     promoting a *replacement* repair that hasn't reached its own timeout.
+//   - accept never NAMES engine_version_jobs in the statement when the table is
+//     absent (resolved out of band via leaseTableExists/to_regclass), because
+//     Postgres resolves relations at parse time; only when present is the
+//     NOT EXISTS lease guard added.
+//   - renewVersionLease refuses an already-expired lease (lease_expires_at >
+//     now()).
 
 const transaction = vi.hoisted(() => vi.fn());
+const execute = vi.hoisted(() => vi.fn());
 const acceptSetCapture = vi.hoisted(() => ({ value: undefined as unknown }));
 const acceptWhereCapture = vi.hoisted(() => ({ value: undefined as unknown }));
 const renewWhereCapture = vi.hoisted(() => ({ value: undefined as unknown }));
 
-// Fake transaction handle: SELECT returns a non-empty pending repair so we reach
-// the UPDATE; the UPDATE captures set+where and reports rowCount 0 so acceptRepair
-// returns before the final row re-SELECT (keeps the fake minimal).
 const tx = {
   select: () => ({
     from: () => ({
@@ -46,6 +47,8 @@ const tx = {
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
+    // leaseTableExists() probe: SELECT to_regclass('public.engine_version_jobs')
+    execute,
     transaction: (cb: (t: typeof tx) => unknown) => {
       transaction();
       return cb(tx);
@@ -74,7 +77,11 @@ function renderSql(value: unknown): string {
   return new PgDialect().sqlToQuery(value as any).sql.toLowerCase();
 }
 
-describe("acceptRepair — round-3 atomic promote + missing-table fail-safe (Codex P2)", () => {
+function mockLeaseTableExists(exists: boolean) {
+  execute.mockResolvedValue({ rows: [{ oid: exists ? "16384" : null }] });
+}
+
+describe("acceptRepair — round 3+4 atomic promote, payload binding, missing-table fail-safe (Codex P2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     acceptSetCapture.value = undefined;
@@ -82,28 +89,39 @@ describe("acceptRepair — round-3 atomic promote + missing-table fail-safe (Cod
   });
   afterEach(() => vi.clearAllMocks());
 
-  it("promotes the CURRENT pending repair via a column reference, not the SELECTed snapshot", async () => {
+  it("promotes the pending repair via a column reference (not a JS snapshot)", async () => {
+    mockLeaseTableExists(true);
     await acceptRepair("ver-1");
     expect(transaction).toHaveBeenCalledTimes(1);
 
     const set = acceptSetCapture.value as Record<string, unknown>;
-    // Stale-payload fix: filesJson is a SQL column reference, NOT the JS string
-    // read by the earlier SELECT.
     expect(typeof set.filesJson).not.toBe("string");
     expect(renderSql(set.filesJson)).toContain("repaired_files_json");
   });
 
-  it("binds the UPDATE to a still-pending repair AND degrades safely when the jobs table is absent", async () => {
+  it("binds the UPDATE to the exact selected payload AND enforces no-active-lease when the table exists", async () => {
+    mockLeaseTableExists(true);
     await acceptRepair("ver-1");
     const where = renderSql(acceptWhereCapture.value);
-    // Stale-payload guard: only promote while a pending repair still exists.
+    // Replacement-repair guard: equality to the selected payload, not IS NOT NULL.
     expect(where).toContain("repaired_files_json");
-    expect(where).toContain("is not null");
-    // Missing-table fail-safe: to_regclass(...) IS NULL keeps legacy accept working.
-    expect(where).toContain("to_regclass");
-    // No-active-lease guard remains.
+    expect(where).not.toContain("is not null");
+    // No-active-lease guard present (table exists).
     expect(where).toContain("not exists");
+    expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
+  });
+
+  it("does NOT name engine_version_jobs in the statement when the table is absent (pre-migration fail-safe)", async () => {
+    mockLeaseTableExists(false);
+    await acceptRepair("ver-1");
+    const where = renderSql(acceptWhereCapture.value);
+    // The payload binding still applies...
+    expect(where).toContain("repaired_files_json");
+    // ...but the lease table is never referenced, so Postgres can't throw
+    // "relation does not exist" on a pre-migration database.
+    expect(where).not.toContain("engine_version_jobs");
+    expect(where).not.toContain("to_regclass");
   });
 });
 
