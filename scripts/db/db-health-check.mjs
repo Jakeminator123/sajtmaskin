@@ -131,8 +131,19 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   // `extra_indexes`. Both are required by the acquire path: the partial unique
   // index enforces one active lease per version_id; the plain index speeds the
   // per-version lease/precheck lookups.
+  //
+  // Codex P2 (distinguish the unique partial lock): both indexes cover
+  // version_id, so a column-only match would let the plain index "alias" the
+  // partial UNIQUE one — hiding a broken migration where `acquireVersionLease`'s
+  // `ON CONFLICT (version_id) WHERE status='running'` upsert would silently fail.
+  // `unique`/`partial` force the cover candidate to share those properties.
   engine_version_jobs: [
-    { name: "engine_version_jobs_active_uq", columns: ["version_id"] },
+    {
+      name: "engine_version_jobs_active_uq",
+      columns: ["version_id"],
+      unique: true,
+      partial: true,
+    },
     { name: "idx_engine_version_jobs_version", columns: ["version_id"] },
   ],
   deployments: [
@@ -279,12 +290,14 @@ async function getTableInfo(name) {
      WHERE tablename = $1 AND schemaname = 'public'`,
     [name],
   );
-  const indexColumns = new Map();
+  const indexMeta = new Map();
   for (const r of idxDefRows.rows) {
     // indexdef är t.ex.:
     //   CREATE INDEX foo ON public.bar USING btree (col1, col2 DESC)
     //   CREATE UNIQUE INDEX foo ON public.bar USING btree (col1)
-    const m = String(r.indexdef).match(/\(([^)]+)\)/);
+    //   CREATE UNIQUE INDEX foo ON public.bar USING btree (col1) WHERE (status = 'running')
+    const def = String(r.indexdef);
+    const m = def.match(/\(([^)]+)\)/);
     if (!m) continue;
     const cols = m[1]
       .split(",")
@@ -296,7 +309,10 @@ async function getTableInfo(name) {
           .replace(/^"(.+)"$/, "$1"),
       )
       .filter(Boolean);
-    indexColumns.set(r.indexname, cols);
+    const unique = /CREATE\s+UNIQUE\s+INDEX/i.test(def);
+    // A partial index has a trailing WHERE predicate (after the column list).
+    const partial = /\)\s+WHERE\s+/i.test(def);
+    indexMeta.set(r.indexname, { cols, unique, partial });
   }
 
   const pkRows = await pool.query(
@@ -337,10 +353,16 @@ async function getTableInfo(name) {
     if (present.has(e.name)) continue;
     let coveredBy = null;
     if (e.columns) {
-      for (const [iname, icols] of indexColumns.entries()) {
+      for (const [iname, meta] of indexMeta.entries()) {
+        const icols = meta.cols;
         if (
           icols.length === e.columns.length &&
-          icols.every((c, idx) => c === e.columns[idx])
+          icols.every((c, idx) => c === e.columns[idx]) &&
+          // A cover for a UNIQUE/partial expected index must share those
+          // properties — otherwise a plain index would mask a missing partial
+          // unique lock index (Codex P2).
+          (!e.unique || meta.unique) &&
+          (!e.partial || meta.partial)
         ) {
           coveredBy = iname;
           break;

@@ -585,13 +585,19 @@ export async function acceptRepair(
   // and never references the table as a relation, so it is safe pre-migration.
   const jobsExist = await leaseTableExists();
   return db.transaction(async (tx) => {
+    // Codex P2 (serialize with acquireVersionLease): take the version-row lock
+    // FIRST (FOR UPDATE). acquireVersionLease locks the same row before inserting
+    // its lease, so the two contend; the no-active-lease UPDATE below then runs
+    // as a later statement with a fresh READ COMMITTED snapshot and sees any
+    // lease that committed in the gap — closing the promote-then-lease race.
     const rows = await tx
       .select({
         repairedFilesJson: engineVersions.repairedFilesJson,
       })
       .from(engineVersions)
       .where(eq(engineVersions.id, versionId))
-      .limit(1);
+      .limit(1)
+      .for("update");
     const repairedFilesJson = rows[0]?.repairedFilesJson;
     if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
       return null;
@@ -738,17 +744,28 @@ export async function acquireVersionLease(
   kind: VersionJobKind,
 ): Promise<{ runId: string } | null> {
   const runId = uuid();
-  const result = await db.execute(sql`
-    INSERT INTO engine_version_jobs (id, version_id, kind, run_id, status, lease_expires_at)
-    VALUES (${uuid()}, ${versionId}, ${kind}, ${runId}, 'running', ${leaseTtlInterval})
-    ON CONFLICT (version_id) WHERE status = 'running'
-    DO UPDATE SET run_id = EXCLUDED.run_id, kind = EXCLUDED.kind,
-                  lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
-      WHERE engine_version_jobs.lease_expires_at < now()
-    RETURNING run_id
-  `);
-  const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
-  return rows.length > 0 ? { runId } : null;
+  const won = await db.transaction(async (tx) => {
+    // Codex P2 (serialize lease acquisition with version-row updates): lock the
+    // engine_versions row FIRST, in the same transaction as the lease insert.
+    // The accept/readiness no-active-lease UPDATEs lock the same row before
+    // re-checking the lease, so they can no longer take a NOT EXISTS snapshot
+    // that predates this (uncommitted) lease and then promote/fail the version
+    // out from under the new run. Without this, the lease insert touches only
+    // engine_version_jobs, so the two paths never contend on a common lock.
+    await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+    const result = await tx.execute(sql`
+      INSERT INTO engine_version_jobs (id, version_id, kind, run_id, status, lease_expires_at)
+      VALUES (${uuid()}, ${versionId}, ${kind}, ${runId}, 'running', ${leaseTtlInterval})
+      ON CONFLICT (version_id) WHERE status = 'running'
+      DO UPDATE SET run_id = EXCLUDED.run_id, kind = EXCLUDED.kind,
+                    lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
+        WHERE engine_version_jobs.lease_expires_at < now()
+      RETURNING run_id
+    `);
+    const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
+    return rows.length > 0;
+  });
+  return won ? { runId } : null;
 }
 
 /** Extend the lease (call between long passes). False when the lease is no longer ours/active. */
@@ -961,27 +978,36 @@ export async function failVersionVerificationIfUnleased(
   // table BEFORE building the statement (Postgres resolves relations at plan
   // time; an in-statement to_regclass guard cannot short-circuit a missing one).
   const jobsExist = await leaseTableExists();
-  const result = await db
-    .update(engineVersions)
-    .set({
-      releaseState: "draft",
-      verificationState: "failed",
-      verificationSummary,
-      repairedFilesJson: null,
-      repairAvailableAt: null,
-      promotedAt: null,
-    })
-    .where(
-      and(
-        eq(engineVersions.id, versionId),
-        // Only enforce the no-active-lease guard once the table exists; before
-        // migration this degrades to the legacy unconditional watchdog.
-        jobsExist
-          ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
-          : undefined,
-      ),
-    );
-  if ((result.rowCount ?? 0) === 0) {
+  const updated = await db.transaction(async (tx) => {
+    // Codex P2 (serialize with acquireVersionLease): lock the version row FIRST.
+    // acquireVersionLease locks the same row before committing its lease, so a
+    // verify/repair that starts in the gap can't slip its lease in after our
+    // no-active-lease snapshot — the conditional UPDATE below is a separate
+    // statement and re-snapshots after the lock, seeing the committed lease.
+    await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+    const result = await tx
+      .update(engineVersions)
+      .set({
+        releaseState: "draft",
+        verificationState: "failed",
+        verificationSummary,
+        repairedFilesJson: null,
+        repairAvailableAt: null,
+        promotedAt: null,
+      })
+      .where(
+        and(
+          eq(engineVersions.id, versionId),
+          // Only enforce the no-active-lease guard once the table exists; before
+          // migration this degrades to the legacy unconditional watchdog.
+          jobsExist
+            ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+            : undefined,
+        ),
+      );
+    return (result.rowCount ?? 0) > 0;
+  });
+  if (!updated) {
     return null;
   }
   return getStoredVersion(versionId);
