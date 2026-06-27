@@ -30,6 +30,7 @@ Every entry has exactly these fields:
 | `sourceOfTruth` | string (repo-relative path) | The authoritative file. May be a glob (`src/lib/gen/scaffolds/*/manifest.ts`) or a `file#fragment` (`config/ai_models/manifest.json#repairPolicies`). |
 | `type` | `schema` \| `policy` \| `rule` \| `runtime-authority` | What kind of authority this is. |
 | `validator` | string \| null | npm script that validates it (e.g. `db:schema-drift`), or `null` if none. |
+| `validatorWaiver` | string (optional) | Explicit justification allowing `runtimeEnforced: true` with a `null` `validator` (e.g. "validated structurally by a strict schema + test", or "hand-parsed, no standalone validator yet — tracked follow-up"). Required by the validator when `runtimeEnforced` is `true` and `validator` is `null`. |
 | `ciStatus` | `hard` \| `warn` \| `manual` \| `none` | How CI treats it. `hard` = blocks, `warn` = non-blocking, `manual` = run by hand, `none` = no CI. |
 | `runtimeEnforced` | boolean | **Is this actually read/enforced by the app at runtime?** |
 | `runtimeStatus` | `wired` \| `declared-only` \| `n/a` | `wired` = a runtime read-path consumes it. `declared-only` = present + maybe validated but **NOT wired to runtime** (nothing in the app consumes it yet). `n/a` = not a runtime concern (editor/CI/tooling). |
@@ -73,13 +74,23 @@ into runtime later, flip both fields and update the notes.
    path exists on disk — globs must match ≥1 file, `#fragment` is stripped first).
 4. If `runtimeEnforced` is `false`, write a `notes` string saying why.
 5. If `ciStatus` is `hard`, `validator` must be non-null.
-6. Run `npm run control-plane:check` until green.
+6. If `runtimeEnforced` is `true`, `validator` must be non-null **or** carry an
+   explicit `validatorWaiver` explaining the structural guarantee (and ideally a
+   tracked follow-up to add a real validator).
+7. Run `npm run control-plane:check` until green.
 
 ## Validation
 
 `npm run control-plane:check` (also run in CI) validates both registries against
 the JSON Schema and enforces the cross-cutting rules above (existence of
-`sourceOfTruth`, unique ids, hard-gate-needs-validator, declared-only-needs-notes,
+`sourceOfTruth`, unique ids, hard-gate-needs-validator,
+runtime-wired-needs-validator-or-waiver, declared-only-needs-notes,
 known-authority allowlist). A lightweight vitest
 (`src/lib/control-plane/registry.test.ts`) covers the same invariants so
 `npm run test:ci` catches drift too.
+
+The matching-config policies `domain-rules` and `prompt-heuristic-tokens` name
+`backoffice:test` as their validator: `npm run backoffice:test` runs the
+backoffice Python suite (incl. `backoffice/test_validate_matching_config.py`,
+which asserts the committed config stays valid against its strict schema), and a
+dedicated **blocking** `backoffice-tests` CI job runs it on every push/PR.

@@ -34,6 +34,7 @@ type Entry = {
   sourceOfTruth: string;
   type: string;
   validator: string | null;
+  validatorWaiver?: string;
   ciStatus: string;
   runtimeEnforced: boolean;
   runtimeStatus: string;
@@ -99,6 +100,14 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
       if (entry.ciStatus === "hard") expect(entry.validator).not.toBeNull();
       // declared/unenforced entries must explain themselves
       if (entry.runtimeEnforced === false) expect(entry.notes.trim().length).toBeGreaterThan(0);
+      // runtime-wired entries must carry a validator OR an explicit waiver, so a
+      // runtime-enforced editable policy can never ship with no structural guarantee
+      if (entry.runtimeEnforced === true && entry.validator === null) {
+        expect(
+          (entry.validatorWaiver ?? "").trim().length,
+          `entry ${entry.id} is runtimeEnforced with no validator and no validatorWaiver`,
+        ).toBeGreaterThan(0);
+      }
     }
   });
 

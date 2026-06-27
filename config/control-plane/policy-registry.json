@@ -124,8 +124,8 @@
       "id": "domain-rules",
       "sourceOfTruth": "config/domain-rules.json",
       "type": "policy",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "backoffice:test",
+      "ciStatus": "hard",
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
@@ -135,14 +135,14 @@
         "danger": "low"
       },
       "mobility": "risky",
-      "notes": "read by src/lib/builder/domain-inference.ts."
+      "notes": "read by src/lib/builder/domain-inference.ts. Structurally validated by docs/schemas/strict/domain-rules.schema.json via backoffice/test_validate_matching_config.py (npm run backoffice:test, blocking in CI). See schema-registry id domain-rules-schema."
     },
     {
       "id": "prompt-heuristic-tokens",
       "sourceOfTruth": "config/prompt-heuristic-tokens.json",
       "type": "policy",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "backoffice:test",
+      "ciStatus": "hard",
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
@@ -152,7 +152,7 @@
         "danger": "low"
       },
       "mobility": "risky",
-      "notes": "read by prompt-heuristics.ts."
+      "notes": "read by prompt-heuristics.ts. Structurally validated by docs/schemas/strict/prompt-heuristic-tokens.schema.json via backoffice/test_validate_matching_config.py (npm run backoffice:test, blocking in CI). See schema-registry id prompt-heuristic-tokens-schema."
     },
     {
       "id": "tier3-sdk-deny",

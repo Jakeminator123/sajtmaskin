@@ -1,42 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
 import streamlit as st
 
 from backoffice.shared import BackofficeContext, read_json, render_where_panel
 
-CONFIG_NAV_PAGES = (
-    "Översikt",
-    "LLM-faser & runtime-sanning",
-    "Codegen core",
-    "prompt-core",
-    "ai_models",
-    "Runtime scaffolds",
-    "Preview och versioner",
-    "env-policy",
-    "shadcn-audit",
-    "user_degraded_env",
-    "Cursor-agenter",
-    "Scaffolds",
-    "Scaffold Lifecycle",
-    "Dossiers (legoklossar)",
-    "Eval",
-    "Orchestration Map",
-    "Autofix & Kvalitet",
-    "Fixer Registry",
-    "Repair Loop (hardening)",
-    "Error-log RAG",
-    "Pipeline Health",
-    "Observability",
-    "Databashälsa",
-    "Redis-hälsa",
-    "Projekt-admin (radera)",
-    "Mental modell",
-)
-
 
 def render(ctx: BackofficeContext) -> None:
+    # Lazy import: backoffice.pages.__init__ importerar denna modul innan
+    # PAGE_SPECS hunnit definieras, så en top-level-import skulle bli cirkulär.
+    from backoffice.pages import PAGE_SPECS
+
     domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}, "repoSiblings": {}}
 
     with st.expander("Repo-roten: config (inkl. dashboard/) · docs · .cursor", expanded=False):
@@ -47,20 +20,30 @@ def render(ctx: BackofficeContext) -> None:
 
     overview_rows: list[dict[str, str]] = []
     pages_meta = domain_map.get("pages") or {}
-    for nav in CONFIG_NAV_PAGES:
-        if nav == "Översikt":
+    # Genereras direkt från PAGE_SPECS (enda sidregistret) så kartan aldrig
+    # driftar från den faktiska navigationen. Tidigare fanns en hårdkodad
+    # CONFIG_NAV_PAGES-lista som tyst tappade Control Plane/Env Readiness m.fl.
+    for spec in PAGE_SPECS:
+        if spec.name == "Översikt":
             continue
-        m = pages_meta.get(nav) or {}
+        m = pages_meta.get(spec.name) or {}
         cps = m.get("canonicalPaths") or []
         overview_rows.append(
             {
-                "Vy": nav,
+                "Vy": spec.name,
+                "Grupp": spec.group,
                 "Primär källa": cps[0] if cps else "—",
                 "Kort": (m.get("summary") or "")[:140],
             }
         )
     if overview_rows:
         st.subheader("Karta: vy → var du redigerar / läser")
+        st.caption(
+            "Genererad direkt från `PAGE_SPECS` (`backoffice/pages/__init__.py`) — "
+            "alltid i synk med navigationen. `Primär källa` läses ur "
+            "`config/dashboard/domain-map.json`; `—` = ingen kanonisk config-källa "
+            "(vyn är en lins/diagnos, inte en ägaryta)."
+        )
         st.dataframe(overview_rows, width="stretch", hide_index=True)
 
     paths = {
