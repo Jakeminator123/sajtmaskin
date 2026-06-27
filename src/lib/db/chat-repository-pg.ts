@@ -17,7 +17,7 @@ import {
   engineGenerationLogs,
   engineVersionJobs,
 } from "./schema";
-import { and, eq, desc, gt, sql, type SQL } from "drizzle-orm";
+import { and, eq, desc, gt, lt, sql, type SQL } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 import { assertPromoteAllowed } from "./promote-guard";
 import { recordRepairPassedQualityGate } from "./services/generation-telemetry";
@@ -929,6 +929,43 @@ export async function hasActiveVersionLease(versionId: string): Promise<boolean>
     // the authoritative no-active-lease guard is the atomic UPDATE predicate in
     // acceptRepair / failVersionVerificationIfUnleased (gated by leaseTableExists).
     console.warn(`[lease] hasActiveVersionLease degraded for ${versionId}:`, err);
+    return false;
+  }
+}
+
+/**
+ * True when a GENUINELY-LOST repair lease exists for the version: a job row
+ * still marked `running` whose `lease_expires_at` is already in the past — a
+ * frozen / timed-out holder that never cleanly released (vs. a takeover, which
+ * leaves an *active*, unexpired running lease instead).
+ *
+ * #260 round-2 (Codex P2 "clear stale repair state"): the readiness watchdog
+ * includes `repairing` rows (added by #256 to recover a repair whose lease was
+ * lost), but it clocks staleness on `version.created_at`. On an in-place user
+ * edit during repair that leaves the row in `repairing`, `created_at` is old, so
+ * EVERY such row looked stale — and the watchdog would fail the user's newer
+ * edit B from the abandoned stale repair(A). This probe lets the watchdog fail a
+ * `repairing` row ONLY when the lease was actually lost (frozen holder), not when
+ * the repair cleanly released after a `stale_base` skip (status='done', so no
+ * expired running lease). Fail-safe: a DB error / missing table returns false
+ * (don't fail), matching the pre-migration legacy behaviour.
+ */
+export async function hasExpiredRunningVersionLease(versionId: string): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({ id: engineVersionJobs.id })
+      .from(engineVersionJobs)
+      .where(
+        and(
+          eq(engineVersionJobs.versionId, versionId),
+          eq(engineVersionJobs.status, "running"),
+          lt(engineVersionJobs.leaseExpiresAt, sql`now()`),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch (err) {
+    console.warn(`[lease] hasExpiredRunningVersionLease degraded for ${versionId}:`, err);
     return false;
   }
 }

@@ -5,8 +5,12 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
-  leaseTableExists,
+  hasExpiredRunningVersionLease,
 } from "@/lib/db/chat-repository-pg";
+import {
+  isTimedOutVerificationState,
+  resolveStaleWatchdogFail,
+} from "@/lib/gen/verify/verification-watchdog";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
@@ -32,38 +36,6 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-
-const STALE_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
-
-function isTimedOutVerificationState(
-  verificationState: string | null | undefined,
-  createdAt: string | Date | null | undefined,
-): boolean {
-  // `repairing` is included so a repair whose distributed lease was lost
-  // (expired / takeover) — making its lease-conditioned failVersionVerification
-  // a no-op — doesn't stay stuck in `repairing` forever (manual repair route
-  // AND server-verify auto-repair). The recovery write below
-  // (failVersionVerificationIfUnleased) is lease-safe: it no-ops while an active
-  // lease still owns the version, so a legitimately running repair that keeps
-  // renewing its lease is never failed out from under it.
-  if (
-    verificationState !== "pending" &&
-    verificationState !== "verifying" &&
-    verificationState !== "repairing"
-  ) {
-    return false;
-  }
-  if (!createdAt) {
-    return false;
-  }
-
-  const createdAtMs = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
-  if (!Number.isFinite(createdAtMs)) {
-    return false;
-  }
-
-  return Date.now() - createdAtMs > STALE_VERIFICATION_TIMEOUT_MS;
-}
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
@@ -252,20 +224,28 @@ async function buildEngineReadiness(
     getEngineVersionErrorLogs(version.id),
   ]);
 
-  let staleCandidate = isTimedOutVerificationState(
+  const timedOutVerification = isTimedOutVerificationState(
     version.verification_state,
     version.created_at,
   );
-  if (staleCandidate && version.verification_state === "repairing") {
-    // Codex P2: the `repairing` watchdog uses version.created_at as its clock, so
-    // ANY repair on a version older than the timeout looks "stale". That is only
-    // SAFE once the lease table exists: failVersionVerificationIfUnleased then
-    // no-ops while an active lease still owns a running repair, so only a truly
-    // lost/expired lease is failed. Pre-migration it would degrade to an
-    // unconditional fail and kill a still-running unlocked repair — so skip the
-    // repairing watchdog entirely and keep the legacy unlocked fallback intact.
-    staleCandidate = await leaseTableExists().catch(() => false);
-  }
+  // #260 round-2 (Codex P2): the `repairing` watchdog clocks on version.created_at
+  // (no `updated_at` column), so an in-place user edit during repair — which
+  // leaves the row in `repairing` with the OLD created_at — looked stale, and the
+  // watchdog would fail the user's newer edit B from the abandoned stale repair(A).
+  // Make the `repairing` branch liveness-aware: only probe + fail when the lease
+  // was GENUINELY lost (a frozen holder = an expired-but-still-running lease).
+  // A repair that cleanly released after a `stale_base` skip leaves NO expired
+  // running lease, so B is not failed; the repair callers re-verify B on a fresh
+  // lease instead. This preserves #256's recovery of truly-stuck repairs.
+  const hasExpiredRunningLease =
+    timedOutVerification && version.verification_state === "repairing"
+      ? await hasExpiredRunningVersionLease(version.id).catch(() => false)
+      : null;
+  const staleCandidate = resolveStaleWatchdogFail({
+    timedOut: timedOutVerification,
+    verificationState: version.verification_state,
+    hasExpiredRunningLease,
+  });
   if (staleCandidate) {
     // 5-minute stale-verification watchdog. Prefer the concrete quality-gate
     // failure already persisted in the error logs (e.g. a deterministic
