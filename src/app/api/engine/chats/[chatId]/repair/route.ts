@@ -261,6 +261,10 @@ async function handlePOST(
           stillMissing: reinjection.stillMissing,
         });
       }
+      // Codex P2 (renew before the post-repair gate): shouldPromoteAfterRepair
+      // runs a preview-host verify that can take up to 300s. Renew here so a
+      // slow gate cannot expire the lease before the renew-before-save below.
+      if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,

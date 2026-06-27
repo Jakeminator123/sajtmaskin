@@ -494,6 +494,13 @@ async function tryServerRepairLoop(params: {
   const initialContent = serializeCodeProject(exportable);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
+    // Codex P2 (renew before the post-repair gate): the per-pass onBeforePass
+    // renewal only covers the LLM passes. shouldPromoteAfterRepair below runs a
+    // preview-host verify that can take up to 300s, after which the
+    // renew-before-save fires. Since renewVersionLease refuses expired leases,
+    // a slow gate could otherwise expire the lease and no-op a valid
+    // saveRepairedFiles. Renew here so the gate window is covered too.
+    if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     const rawRepairedFiles = parseCodeProject(projectContent).files;
     // Block the server-repair bypass of SCAFFOLD_PROTECTED_PATHS: even if
     // the LLM regenerates `app/api/placeholder/route.ts` (the JSX-in-`.ts`

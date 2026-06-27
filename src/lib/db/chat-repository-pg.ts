@@ -605,7 +605,13 @@ export async function acceptRepair(
     const result = await tx
       .update(engineVersions)
       .set({
-        filesJson: repairedFilesJson,
+        // Codex P2 (stale payload): promote the CURRENT pending repair via a
+        // column reference evaluated inside the UPDATE, not the value SELECTed
+        // above. If a concurrent repair replaced repaired_files_json between the
+        // SELECT and here, this writes the fresh payload (and the IS NOT NULL
+        // predicate below no-ops if it was cleared) instead of resurrecting a
+        // stale snapshot.
+        filesJson: sql`${engineVersions.repairedFilesJson}`,
         previewUrl: null,
         repairedFilesJson: null,
         repairAvailableAt: null,
@@ -621,7 +627,13 @@ export async function acceptRepair(
       .where(
         and(
           eq(engineVersions.id, versionId),
-          sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+          // Codex P2 (stale payload): bind the promote to a still-pending
+          // repair; if it was cleared/accepted concurrently this no-ops.
+          sql`${engineVersions.repairedFilesJson} IS NOT NULL`,
+          // Codex P2 (missing-table fail-safe): if engine_version_jobs has not
+          // been migrated yet, to_regclass(...) IS NULL keeps the legacy accept
+          // path working instead of throwing "relation does not exist".
+          sql`(to_regclass('public.engine_version_jobs') IS NULL OR NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now()))`,
         ),
       );
     if ((result.rowCount ?? 0) === 0) {
@@ -768,18 +780,28 @@ export async function releaseVersionLease(
 
 /** True when an UNEXPIRED active lease exists for the version (any owner). */
 export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: engineVersionJobs.id })
-    .from(engineVersionJobs)
-    .where(
-      and(
-        eq(engineVersionJobs.versionId, versionId),
-        eq(engineVersionJobs.status, "running"),
-        gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  try {
+    const rows = await db
+      .select({ id: engineVersionJobs.id })
+      .from(engineVersionJobs)
+      .where(
+        and(
+          eq(engineVersionJobs.versionId, versionId),
+          eq(engineVersionJobs.status, "running"),
+          gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch (err) {
+    // Codex P2 (missing-table fail-safe): before add-engine-version-jobs.sql is
+    // applied (rollout / local DB drift) this query throws "relation does not
+    // exist". Fail open here so the legacy accept/readiness paths keep working;
+    // the authoritative no-active-lease guard is the atomic UPDATE predicate in
+    // acceptRepair / failVersionVerificationIfUnleased (both to_regclass-safe).
+    console.warn(`[lease] hasActiveVersionLease degraded for ${versionId}:`, err);
+    return false;
+  }
 }
 
 /**
@@ -924,7 +946,9 @@ export async function failVersionVerificationIfUnleased(
     .where(
       and(
         eq(engineVersions.id, versionId),
-        sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+        // Codex P2 (missing-table fail-safe): degrade to the legacy watchdog
+        // when engine_version_jobs has not been migrated yet.
+        sql`(to_regclass('public.engine_version_jobs') IS NULL OR NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now()))`,
       ),
     );
   if ((result.rowCount ?? 0) === 0) {
