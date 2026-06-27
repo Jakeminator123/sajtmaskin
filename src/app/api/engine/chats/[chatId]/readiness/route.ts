@@ -146,11 +146,11 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   if (status === "failed") {
     return {
       id: "version-failed",
-      title: "Versionen är markerad som misslyckad (quality gate).",
+      title: "Versionen underkändes av quality gate (typecheck/build).",
       detail:
         summary ||
-        "Deploy är inte blockerad — kontrollera loggar och kör autofix om du vill. För produktion bör build/typecheck passera.",
-      severity: "warning",
+        "Publicering är blockerad tills typecheck/build passerar. Previewen är fortfarande tillgänglig — kör autofix eller en ny förfining och publicera sedan.",
+      severity: "blocker",
       action: "versions",
     };
   }

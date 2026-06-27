@@ -168,7 +168,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       });
     }
 
-    const conflictImportResult = fixImportedDeclarationConflicts(content);
+    const conflictImportResult = fixImportedDeclarationConflicts(content, file.path);
     if (conflictImportResult.fixed) {
       content = conflictImportResult.code;
       fixes.push({
@@ -277,6 +277,14 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     const consolidated = fixReactAndNavigationImports(content);
     if (consolidated.fixed) {
       content = consolidated.code;
+      if (consolidated.consolidatedReactBindings.length > 0) {
+        fixes.push({
+          fixer: "react-hook-import-fixer",
+          category: "mechanical",
+          description: `Consolidated duplicate react imports (deduped: ${consolidated.consolidatedReactBindings.join(", ")})`,
+          file: file.path,
+        });
+      }
       if (consolidated.addedReactDefault) {
         fixes.push({
           fixer: "react-import-fixer",

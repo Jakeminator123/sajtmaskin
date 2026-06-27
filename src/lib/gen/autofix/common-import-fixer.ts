@@ -520,11 +520,35 @@ export function fixLocalNamedImportDefaultMismatches(
   };
 }
 
+/**
+ * Module specifiers that resolve to the file itself. A module importing from
+ * its own path (e.g. `components/ui/carousel.tsx` doing
+ * `import { Carousel } from "@/components/ui/carousel"`) is always wrong and
+ * causes TS2440 "Import declaration conflicts with local declaration" because
+ * the imported name re-declares the symbol the file already exports. Covers the
+ * `@/` alias form and the direct `./<basename>` relative form.
+ */
+function computeSelfImportSpecifiers(filePath: string): Set<string> {
+  const specs = new Set<string>();
+  specs.add(toAliasImportPath(filePath));
+  const normalized = filePath.replace(/\\/g, "/").replace(/\.(tsx?|jsx?)$/i, "");
+  const base = normalized.split("/").pop();
+  if (base) specs.add(`./${base}`);
+  return specs;
+}
+
 export function fixImportedDeclarationConflicts(
   code: string,
+  filePath?: string,
 ): { code: string; fixed: boolean; removedBindings: string[] } {
   const declarations = extractLocalDeclarations(code);
-  if (declarations.size === 0) {
+  // When the file path is known, treat self-module-path imports as conflicts
+  // unconditionally (a module cannot meaningfully import from itself), in
+  // addition to the general local-redeclaration rule below.
+  const selfSpecifiers = filePath
+    ? computeSelfImportSpecifiers(filePath)
+    : new Set<string>();
+  if (declarations.size === 0 && selfSpecifiers.size === 0) {
     return { code, fixed: false, removedBindings: [] };
   }
 
@@ -543,6 +567,15 @@ export function fixImportedDeclarationConflicts(
     const source = match[5];
 
     const namedSpecsParsed = parseNamedImportSpecifiersDetailed(namedSpecs);
+
+    if (selfSpecifiers.has(source)) {
+      // Self-module-path import: drop the whole statement (default + named).
+      removedBindings.push(defaultLocal);
+      for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
+      patches.push({ start: offset, end: importEnd, replacement: "" });
+      continue;
+    }
+
     const keptNamed = namedSpecsParsed.filter((spec) => {
       if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
         return true;
@@ -581,6 +614,14 @@ export function fixImportedDeclarationConflicts(
     const source = match[3];
 
     const namedSpecsParsed = parseNamedImportSpecifiersDetailed(specifiers);
+
+    if (selfSpecifiers.has(source)) {
+      // Self-module-path import: drop every named binding (remove the line).
+      for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
+      patches.push({ start: offset, end: importEnd, replacement: "" });
+      continue;
+    }
+
     const keptNamed = namedSpecsParsed.filter((spec) => {
       if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
         return true;
