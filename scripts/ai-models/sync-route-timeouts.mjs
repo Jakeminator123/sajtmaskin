@@ -9,9 +9,9 @@
  * this script writes/verifies the literal `export const maxDuration = N;` in
  * every target listed by `route-timeout-targets.mjs`.
  *
- * This replaces the previous Python regex patcher in the backoffice
- * (`sync_route_timeout_literals`): the backoffice now only saves the manifest,
- * and the literals are regenerated here in dev/build/CI and committed to the repo.
+ * This replaces the previous Python regex patcher in the backoffice: the
+ * backoffice now only saves the manifest, and the literals are regenerated here
+ * in dev/build/CI and committed to the repo.
  *
  * Modes (exactly one flag required):
  *   --write   Rewrite drifted literals from the manifest (idempotent). Prints a summary.
