@@ -112,6 +112,7 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     lastVerified: data.lastVerified,
     sourceRepoUrl: data.sourceRepoUrl,
     notes: data.notes,
+    promptInstructionMode: data.promptInstructionMode,
   };
   _entryCache.set(cacheKey, { mtimeMs: mtime, value: entry });
   return entry;

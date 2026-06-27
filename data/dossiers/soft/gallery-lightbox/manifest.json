@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "gallery-lightbox",
   "label": "Gallery Lightbox",
+  "promptInstructionMode": "selected-sections",
   "capability": "gallery-lightbox",
   "codeFidelity": "rewritable",
   "complexity": "medium",

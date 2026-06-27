@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "feature-grid",
   "label": "Feature Grid",
+  "promptInstructionMode": "selected-sections",
   "capability": "feature-grid",
   "codeFidelity": "rewritable",
   "complexity": "simple",

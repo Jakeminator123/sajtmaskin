@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stats-counter",
   "label": "Stats Counter",
+  "promptInstructionMode": "selected-sections",
   "capability": "stats-counter",
   "codeFidelity": "rewritable",
   "complexity": "simple",

@@ -21,6 +21,16 @@ export type CodeFidelity = "verbatim" | "rewritable";
 export type DossierComplexity = "simple" | "medium" | "advanced";
 
 /**
+ * Controls how much of `instructions.md` reaches the codegen prompt.
+ * - `"compact"` (default): manifest-derived summary lines only.
+ * - `"selected-sections"`: the "When to use" / "How to integrate" / "Avoid"
+ *   H1 sections of instructions.md, capped — so do/don't rules reach runtime
+ *   without bloating the prompt.
+ * - `"full"`: the entire instructions.md verbatim.
+ */
+export type PromptInstructionMode = "compact" | "selected-sections" | "full";
+
+/**
  * A capability is an abstract intent the brief declares the site needs.
  * Examples: "payments", "auth", "ai-chat", "image-gen", "pricing-section".
  * Free-form by design — keep `data/dossiers/_index/capability-map.json` clean.
@@ -92,6 +102,8 @@ export interface DossierEntry {
   lastVerified: string;
   sourceRepoUrl?: string;
   notes?: string;
+  /** How much of instructions.md reaches the prompt. Default "compact". */
+  promptInstructionMode?: PromptInstructionMode;
   /** Lazy-loaded from `instructions.md` by the registry on selection. */
   instructions?: string;
 }
