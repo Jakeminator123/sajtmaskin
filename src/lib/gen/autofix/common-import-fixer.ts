@@ -268,12 +268,15 @@ function symbolLooksUsed(code: string, name: string): boolean {
     new RegExp(`\\b${escaped}\\s*\\(`, "m"),
     new RegExp(`\\b${escaped}\\s*(?:,|;|\\)|\\]|\\}|\\?|:)`, "m"),
     new RegExp(`(?:=|return|:|\\(|\\[|\\{)\\s*${escaped}\\b`, "m"),
-    // JSX usage: `<Reveal ...>`, `<Reveal/>`, `<Reveal>` and `</Reveal>`.
+    // JSX usage: `<Reveal ...>`, `<Reveal/>`, `<Reveal>`, `</Reveal>` and the
+    // generic-tag form `<DataTable<Row> ...>` where the char right after the
+    // name is `<` (TS type arguments on a JSX component).
     // Without this a local PascalCase component rendered ONLY as a JSX tag is
     // never recognised as "used", so a uniquely-exported local component
     // (e.g. `components/reveal.tsx` → `<Reveal>`) is left unimported and the
-    // page crashes with `ReferenceError: <Name> is not defined`.
-    new RegExp(`<${escaped}[\\s/>]`, "m"),
+    // page crashes with `ReferenceError: <Name> is not defined`. The `<` in the
+    // class is what covers generic components like `<DataTable<Row> rows={…} />`.
+    new RegExp(`<${escaped}[\\s/><]`, "m"),
     new RegExp(`</${escaped}>`, "m"),
   ];
   return patterns.some((pattern) => pattern.test(code));

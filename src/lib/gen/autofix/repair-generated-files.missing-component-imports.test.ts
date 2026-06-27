@@ -79,6 +79,43 @@ export default function HomePage() {
     expect(tjanster?.content).not.toContain('import Reveal from');
   });
 
+  it("imports a local component used only as a generic JSX tag (<DataTable<Row> />)", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/data-table.tsx",
+        language: "tsx",
+        content: `"use client";
+export function DataTable<T>({ rows }: { rows: T[] }) {
+  return <table><tbody><tr><td>{rows.length}</td></tr></tbody></table>;
+}
+`,
+      },
+      {
+        path: "app/reports/page.tsx",
+        language: "tsx",
+        content: `type Row = { id: number };
+
+export default function ReportsPage() {
+  const rows: Row[] = [{ id: 1 }];
+  return (
+    <main>
+      <DataTable<Row> rows={rows} />
+    </main>
+  );
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const reports = repaired.files.find((f) => f.path === "app/reports/page.tsx");
+
+    // The generic-tag form `<DataTable<Row>` has `<` right after the name, which
+    // the original opening-tag detection ([\s/>]) did not cover.
+    expect(reports?.content).toContain('import { DataTable } from "@/components/data-table"');
+    expect(reports?.content).not.toContain("import DataTable from");
+  });
+
   it("is idempotent: a second repair pass adds nothing and reports no fixes", () => {
     const files: CodeFile[] = [
       {
