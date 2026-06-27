@@ -8,8 +8,12 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   markVersionRepairing,
   failVersionVerification,
+  failVersionVerificationIfUnleased,
   saveRepairedFiles,
   getChat,
+  acquireVersionLease,
+  releaseVersionLease,
+  renewVersionLease,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
@@ -122,6 +126,26 @@ async function handlePOST(
   ctx: { params: Promise<{ chatId: string }> },
 ) {
   let internalVersionId: string | null = null;
+  let leaseRunId: string | undefined;
+  let ownershipLost = false;
+  // Fail a version after an unsuccessful repair, recovering from lease loss.
+  // The lease-conditioned write no-ops if this run lost ownership (expired lease
+  // or a takeover), which would otherwise strand the row in `repairing` — the
+  // readiness watchdog covers that too, but recover inline so the HTTP response
+  // is accurate. Returns true when THIS run still owned the write; false when
+  // ownership was lost (then only the unleased watchdog may finalize it, and a
+  // genuine takeover keeps its own state).
+  const failAfterRepair = async (versionId: string, summary: string): Promise<boolean> => {
+    const owned = await failVersionVerification(versionId, summary, leaseRunId).catch((err) => {
+      console.warn("[repair] Failed to mark version failed after repair:", err);
+      return null;
+    });
+    if (owned) return true;
+    await failVersionVerificationIfUnleased(versionId, summary).catch((err) => {
+      console.warn("[repair] Unleased fail fallback errored:", err);
+    });
+    return false;
+  };
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
@@ -148,6 +172,31 @@ async function handlePOST(
     }
 
     internalVersionId = scopedVersion.version.id;
+
+    if (dbConfigured) {
+      // Distributed lease (Plan C / P1 + Codex P2): acquire the per-version
+      // lease BEFORE reading the version files, so the repair always operates on
+      // the snapshot the lease protects — never a stale pre-lease read that a
+      // concurrent job could overwrite. 409 if another job owns it. Fail-safe: a
+      // DB error/missing table degrades to the legacy unlocked path.
+      try {
+        const lease = await acquireVersionLease(internalVersionId, "manual_repair");
+        if (!lease) {
+          return NextResponse.json(
+            {
+              error: "Version is busy (another verify/repair job holds the lock). Try again shortly.",
+              code: "version_busy",
+            },
+            { status: 409 },
+          );
+        }
+        leaseRunId = lease.runId;
+      } catch (err) {
+        console.warn("[repair] Lease acquire failed; proceeding without distributed lock:", err);
+        leaseRunId = undefined;
+      }
+    }
+
     const codeFiles = await getVersionFiles(internalVersionId);
     if (!codeFiles || codeFiles.length === 0) {
       return NextResponse.json(
@@ -157,7 +206,7 @@ async function handlePOST(
     }
 
     if (dbConfigured) {
-      await markVersionRepairing(internalVersionId).catch((err) => {
+      await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {
         console.warn("[repair] Failed to mark version repairing:", err);
       });
     }
@@ -232,6 +281,10 @@ async function handlePOST(
           stillMissing: reinjection.stillMissing,
         });
       }
+      // Codex P2 (renew before the post-repair gate): shouldPromoteAfterRepair
+      // runs a preview-host verify that can take up to 300s. Renew here so a
+      // slow gate cannot expire the lease before the renew-before-save below.
+      if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,
@@ -254,7 +307,11 @@ async function handlePOST(
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
         const filesJson = JSON.stringify(repairedFiles);
-        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason).catch((err) => {
+        // Renew right before the write: a long repair loop may have run past
+        // the TTL. Renew re-extends while we still own it; if another run took
+        // over, the lease-conditioned write in saveRepairedFiles no-ops.
+        if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
+        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId).catch((err) => {
           console.warn("[repair] Failed to save repaired version files:", err);
           return null;
         });
@@ -345,11 +402,15 @@ async function handlePOST(
         currentVersionErrors.length > 0 ||
         previousVersionErrors.length > 0 ||
         visualQaLines.length > 0,
+      onBeforePass: async () => {
+        if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
+      },
       onNoContext: async () => {
         if (!dbConfigured) return;
         await failVersionVerification(
           currentVersionId,
           "Repair attempted but no actionable error context available.",
+          leaseRunId,
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed (no context):", err);
         });
@@ -413,21 +474,11 @@ async function handlePOST(
     }
 
     if (!loopResult.promoted && dbConfigured) {
-      if (loopResult.remainingErrors === 0) {
-        await failVersionVerification(
-          currentVersionId,
-          "Server repair: syntax clean but quality gate still failing.",
-        ).catch((err) => {
-          console.warn("[repair] Failed to mark version failed after repair:", err);
-        });
-      } else {
-        await failVersionVerification(
-          currentVersionId,
-          `Server repair incomplete (${loopResult.remainingErrors} errors remain).`,
-        ).catch((err) => {
-          console.warn("[repair] Failed to mark version failed after repair:", err);
-        });
-      }
+      const failSummary =
+        loopResult.remainingErrors === 0
+          ? "Server repair: syntax clean but quality gate still failing."
+          : `Server repair incomplete (${loopResult.remainingErrors} errors remain).`;
+      ownershipLost = !(await failAfterRepair(currentVersionId, failSummary));
     }
 
     logRepair(
@@ -449,23 +500,33 @@ async function handlePOST(
       remainingErrors: loopResult.remainingErrors,
       improvedSyntax: loopResult.improvedSyntax,
       earlyStopReason: loopResult.earlyStopReason,
-      status: loopResult.promoted ? "repair_available" : "completed",
+      status: loopResult.promoted
+        ? "repair_available"
+        : ownershipLost
+          ? "superseded"
+          : "completed",
       reason: loopResult.promoted
         ? "Serverreparation finns sparad och väntar på att accepteras."
-        : null,
+        : ownershipLost
+          ? "En annan körning tog över versionen — den här reparationen sparades inte."
+          : null,
     });
   } catch (err) {
     console.error("[repair] Error:", err);
     if (dbConfigured && internalVersionId) {
-      await failVersionVerification(
+      await failAfterRepair(
         internalVersionId,
         `Repair crashed: ${err instanceof Error ? err.message : "unknown"}`,
-      ).catch(() => null);
+      );
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Repair failed" },
       { status: 500 },
     );
+  } finally {
+    if (leaseRunId && internalVersionId) {
+      await releaseVersionLease(internalVersionId, leaseRunId).catch(() => {});
+    }
   }
 }
 

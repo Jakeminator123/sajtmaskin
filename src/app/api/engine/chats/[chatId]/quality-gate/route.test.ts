@@ -7,6 +7,8 @@ const markVersionVerifying = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
 const promoteVersion = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
+const acquireVersionLease = vi.hoisted(() => vi.fn());
+const releaseVersionLease = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const isQualityGateConfigured = vi.hoisted(() => vi.fn());
@@ -45,6 +47,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionVerifying,
   markVersionSupersededByRepair,
   promoteVersion,
+  acquireVersionLease,
+  releaseVersionLease,
 }));
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -83,6 +87,8 @@ describe("POST quality-gate", () => {
     createEngineVersionErrorLogs.mockResolvedValue([]);
     failVersionVerification.mockResolvedValue({ id: "ver-1" });
     promoteVersion.mockResolvedValue({ id: "ver-1" });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
@@ -140,7 +146,7 @@ describe("POST quality-gate", () => {
 
     expect(res.status).toBe(200);
     expect(body.superseded).toBe(true);
-    expect(markVersionSupersededByRepair).toHaveBeenCalledWith("ver-1");
+    expect(markVersionSupersededByRepair).toHaveBeenCalledWith("ver-1", null, "run-1");
     expect(promoteVersion).not.toHaveBeenCalled();
   });
 
@@ -192,6 +198,7 @@ describe("POST quality-gate", () => {
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver-1",
       expect.stringContaining("promotion was blocked"),
+      "run-1",
     );
     expect(body.passed).toBe(false);
     expect(body.vmGatePassed).toBe(true);
@@ -239,7 +246,7 @@ describe("POST quality-gate", () => {
 
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String));
+    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String), "run-1");
     // Transient failure must NOT be mislabeled as a verifier block.
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(body.passed).toBe(false);
@@ -286,10 +293,50 @@ describe("POST quality-gate", () => {
 
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String));
+    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String), "run-1");
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(body.passed).toBe(true);
     expect(body.promotionBlocked).toBeUndefined();
     expect(body.promoteError).toBeUndefined();
+    // Codex P2 (stale snapshot): once the lease is held, the route re-reads the
+    // version files under the lease before materializing gate inputs — so
+    // getVersionFiles is called twice (initial 404-check read + leased re-read).
+    expect(getVersionFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns 409 version_busy when another job holds the version lease (Plan C)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Another verify/repair run already owns the active lease.
+    acquireVersionLease.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("version_busy");
+    // No state mutation or gate run when the lock is held elsewhere.
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
   });
 });
