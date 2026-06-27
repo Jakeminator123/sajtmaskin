@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const withRateLimit = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getVersionFiles = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const acquireVersionLease = vi.hoisted(() => vi.fn());
 const releaseVersionLease = vi.hoisted(() => vi.fn());
 const renewVersionLease = vi.hoisted(() => vi.fn());
@@ -27,7 +27,7 @@ vi.mock("@/lib/rateLimit", () => ({
 }));
 vi.mock("@/lib/tenant", () => ({ getEngineVersionForChatByIdForRequest }));
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true }));
-vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/db/services/version-errors", () => ({ createEngineVersionErrorLogs }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionRepairing,
@@ -70,7 +70,7 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
   });
 
   it("acquires the lease BEFORE reading version files", async () => {
-    getVersionFiles.mockResolvedValue([]); // empty -> early 404 after acquire+read
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" }); // empty -> early 404 after acquire+read
 
     const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
       params: Promise.resolve({ chatId: "chat-1" }),
@@ -78,9 +78,9 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
 
     expect(res.status).toBe(404);
     expect(acquireVersionLease).toHaveBeenCalledWith("ver-1", "manual_repair");
-    // Ordering proof: acquire was invoked before the file read.
+    // Ordering proof: acquire was invoked before the snapshot read.
     expect(acquireVersionLease.mock.invocationCallOrder[0]).toBeLessThan(
-      getVersionFiles.mock.invocationCallOrder[0],
+      getVersionFilesSnapshot.mock.invocationCallOrder[0],
     );
     // Lease released in finally even on the early 404.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
@@ -88,7 +88,10 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
 
   it("returns 409 version_busy without reading files when another job owns the lease", async () => {
     acquireVersionLease.mockResolvedValue(null);
-    getVersionFiles.mockResolvedValue([{ path: "app/page.tsx", content: "x" }]);
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "x" }],
+      filesJson: '[{"path":"app/page.tsx","content":"x"}]',
+    });
 
     const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
       params: Promise.resolve({ chatId: "chat-1" }),
@@ -97,7 +100,7 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
 
     expect(res.status).toBe(409);
     expect(body.code).toBe("version_busy");
-    expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
     expect(markVersionRepairing).not.toHaveBeenCalled();
   });
 });

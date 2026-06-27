@@ -4,7 +4,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
-import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import {
   markVersionRepairing,
   failVersionVerification,
@@ -197,13 +197,17 @@ async function handlePOST(
       }
     }
 
-    const codeFiles = await getVersionFiles(internalVersionId);
-    if (!codeFiles || codeFiles.length === 0) {
+    const snapshot = await getVersionFilesSnapshot(internalVersionId);
+    if (!snapshot || snapshot.files.length === 0) {
       return NextResponse.json(
         { error: "No files found for version" },
         { status: 404 },
       );
     }
+    const codeFiles = snapshot.files;
+    // #260 / P2 #5: the exact files_json this repair is based on. saveRepairedFiles
+    // binds its write to it so a concurrent user edit is never clobbered.
+    const baseFilesJson = snapshot.filesJson;
 
     if (dbConfigured) {
       await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {
@@ -311,7 +315,7 @@ async function handlePOST(
         // the TTL. Renew re-extends while we still own it; if another run took
         // over, the lease-conditioned write in saveRepairedFiles no-ops.
         if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
-        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId).catch((err) => {
+        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId, baseFilesJson).catch((err) => {
           console.warn("[repair] Failed to save repaired version files:", err);
           return null;
         });

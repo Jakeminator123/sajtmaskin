@@ -21,6 +21,11 @@ import { and, eq, desc, gt, sql, type SQL } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 import { assertPromoteAllowed } from "./promote-guard";
 import { recordRepairPassedQualityGate } from "./services/generation-telemetry";
+import {
+  decodeRepairedFilesPayload,
+  encodeRepairedFilesEnvelope,
+  hashFilesJson,
+} from "./repair-files-payload";
 
 export interface Chat {
   id: string;
@@ -524,19 +529,43 @@ export async function saveRepairedFiles(
   repairedFilesJson: string,
   verificationSummary: string | null = "Server repair completed. Waiting for acceptance.",
   runId?: string,
+  /**
+   * The EXACT `files_json` string the repair was computed from (#260 / Codex P2
+   * #5). When provided, the repaired files are stored as a base-hashed envelope
+   * and the write is bound — atomically, in the same UPDATE — to `files_json`
+   * still equalling this base. If a concurrent user edit advanced `files_json`
+   * in the meantime the UPDATE matches no row and this no-ops (returns null),
+   * so a stale repair can never overwrite the newer edit on accept. Omitting it
+   * preserves the legacy unguarded write (no base known).
+   */
+  baseFilesJson?: string,
 ): Promise<Version | null> {
   if (!repairedFilesJson.trim()) return null;
+  const storedPayload =
+    baseFilesJson != null
+      ? encodeRepairedFilesEnvelope({ repairedFilesJson, baseFilesJson })
+      : repairedFilesJson;
+  const where =
+    baseFilesJson != null
+      ? and(
+          versionWriteWhere(versionId, runId),
+          // Revision-binding: only persist the repair if the version still holds
+          // the exact snapshot it was based on. Comparing the literal DB string
+          // is atomic and needs no migration / hash column.
+          sql`${engineVersions.filesJson} = ${baseFilesJson}`,
+        )
+      : versionWriteWhere(versionId, runId);
   const result = await db
     .update(engineVersions)
     .set({
-      repairedFilesJson,
+      repairedFilesJson: storedPayload,
       repairAvailableAt: new Date(),
       releaseState: "draft",
       verificationState: "repair_available",
       verificationSummary,
       promotedAt: null,
     })
-    .where(versionWriteWhere(versionId, runId));
+    .where(where);
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -593,6 +622,7 @@ export async function acceptRepair(
     const rows = await tx
       .select({
         repairedFilesJson: engineVersions.repairedFilesJson,
+        filesJson: engineVersions.filesJson,
       })
       .from(engineVersions)
       .where(eq(engineVersions.id, versionId))
@@ -600,6 +630,33 @@ export async function acceptRepair(
       .for("update");
     const repairedFilesJson = rows[0]?.repairedFilesJson;
     if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
+      return null;
+    }
+    // #260 / Codex P2 #5 (repair-vs-user-edit clobber): the pending repair is
+    // stored as a base-hashed envelope. Decode it, then refuse to promote unless
+    // the version still holds the exact `files_json` the repair was based on.
+    const payload = decodeRepairedFilesPayload(repairedFilesJson);
+    if (!payload) {
+      console.warn(`[accept-repair] Unparseable pending repair payload for version ${versionId}.`);
+      return null;
+    }
+    if (payload.kind === "legacy") {
+      // A plain pre-envelope array carries no base hash, so we cannot prove the
+      // current files are the ones it repaired. Fail closed (no silent
+      // overwrite) — these rows only exist transiently across the deploy that
+      // shipped the envelope; re-running repair produces a guarded envelope.
+      console.warn(
+        `[accept-repair] Refusing legacy (no base-hash) pending repair for version ${versionId}; re-run repair.`,
+      );
+      return null;
+    }
+    const currentFilesJson = rows[0]?.filesJson;
+    if (typeof currentFilesJson !== "string" || hashFilesJson(currentFilesJson) !== payload.baseFilesHash) {
+      // files_json changed since the repair snapshot (a concurrent user edit):
+      // promoting repair(A) over B would lose the edit. Leave B intact.
+      console.warn(
+        `[accept-repair] Refusing stale repair for version ${versionId}: files_json changed since the repair base.`,
+      );
       return null;
     }
     // False-green invariant: accepting a repair also promotes, so it must pass
@@ -618,10 +675,11 @@ export async function acceptRepair(
     const result = await tx
       .update(engineVersions)
       .set({
-        // Codex P2 (stale payload): the WHERE binds repaired_files_json to the
-        // exact value SELECTed above, so promoting the column reference writes
-        // that same payload atomically — never a different concurrent repair.
-        filesJson: sql`${engineVersions.repairedFilesJson}`,
+        // Promote the files extracted from the verified envelope (base-hash
+        // confirmed to match the current files_json above). The WHERE binds to
+        // the exact envelope string SELECTed, so a replacement repair saved in
+        // the gap no-ops instead of being promoted early.
+        filesJson: payload.filesJson,
         previewUrl: null,
         repairedFilesJson: null,
         repairAvailableAt: null,
