@@ -53,6 +53,23 @@
       "notes": "serverSchema (Zod) is the canonical list of env the app reads."
     },
     {
+      "id": "env-policy-schema",
+      "sourceOfTruth": "docs/schemas/strict/env-policy.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Env Policy",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Strict schema for config/env-policy.json (policy-registry id env-policy). Backoffice validate-on-save (backoffice/pages/env_policy.py) blocks schema-breaking edits. Committed config + serverSchema parity asserted by src/lib/env-policy-parity.test.ts; backoffice path asserted by backoffice/test_validate_env_policy.py."
+    },
+    {
       "id": "chat-request-schemas",
       "sourceOfTruth": "src/lib/validations/chatSchemas.ts",
       "type": "runtime-authority",
@@ -153,6 +170,23 @@
       },
       "mobility": "safe",
       "notes": "editor validate-on-save schema for config/prompt-heuristic-tokens.json (backoffice Codegen Core); runtime authority is src/lib/builder/prompt-heuristics.ts, which reads the token lists. Committed config asserted by backoffice/test_validate_matching_config.py."
+    },
+    {
+      "id": "tier3-sdk-deny-schema",
+      "sourceOfTruth": "docs/schemas/strict/tier3-sdk-deny.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Strict schema for config/integrations/tier3-sdk-deny.json (policy-registry id tier3-sdk-deny). Runtime authority is src/lib/integrations/tier3-sdk-deny.ts (hand-parses). Committed config asserted by src/lib/integrations/tier3-sdk-deny.schema.test.ts."
     },
     {
       "id": "scaffold-manifests",

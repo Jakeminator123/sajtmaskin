@@ -4,7 +4,7 @@
   "title": "Sajtmaskin AI models manifest",
   "type": "object",
   "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "qualityGateTiers", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "schemaVersion": { "type": "integer", "minimum": 1 },
     "title": { "type": "string" },
@@ -131,6 +131,17 @@
             "max": { "$ref": "#/$defs/phaseRoutingTier" },
             "codex": { "$ref": "#/$defs/phaseRoutingTier" },
             "anthropic": { "$ref": "#/$defs/phaseRoutingTier" }
+          }
+        },
+        "thinkingByTier": {
+          "type": "object",
+          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "properties": {
+            "fast": { "$ref": "#/$defs/phaseThinkingTier" },
+            "pro": { "$ref": "#/$defs/phaseThinkingTier" },
+            "max": { "$ref": "#/$defs/phaseThinkingTier" },
+            "codex": { "$ref": "#/$defs/phaseThinkingTier" },
+            "anthropic": { "$ref": "#/$defs/phaseThinkingTier" }
           }
         },
         "notes": { "type": "string" }
@@ -338,6 +349,19 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/embeddingEntry" }
     },
+    "matching": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Backoffice 2.0 fas 6 — optional per matching-point strategy switch. Omitting a point keeps its current-default method (see MATCH_STRATEGY_DEFAULTS in src/lib/ai-models/load-manifest.ts).",
+      "properties": {
+        "followUpIntent": { "$ref": "#/$defs/matchStrategy" },
+        "capabilityDetection": { "$ref": "#/$defs/matchStrategy" },
+        "scaffoldSelection": { "$ref": "#/$defs/matchStrategy" },
+        "variantSelection": { "$ref": "#/$defs/matchStrategy" },
+        "domainInference": { "$ref": "#/$defs/matchStrategy" },
+        "notes": { "type": "string" }
+      }
+    },
     "generatedSiteIntegrationPlaceholders": {
       "type": "object",
       "description": "Plain-text env fragments for generated user-site preview builds (not Sajtmaskin app env). Split into a harmless layer (safe in F3) and a tier-3 stub layer (F2-only, dropped in F3).",
@@ -425,6 +449,29 @@
         "verifier": { "type": "string" },
         "deploy-assistant": { "type": "string" }
       }
+    },
+    "phaseThinking": {
+      "type": "object",
+      "required": ["thinking", "reasoningEffort"],
+      "properties": {
+        "thinking": { "type": "boolean" },
+        "reasoningEffort": { "type": "string", "enum": ["none", "low", "medium", "high"] }
+      }
+    },
+    "phaseThinkingTier": {
+      "type": "object",
+      "required": ["planner", "generator", "fixer", "verifier", "deploy-assistant"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/phaseThinking" },
+        "generator": { "$ref": "#/$defs/phaseThinking" },
+        "fixer": { "$ref": "#/$defs/phaseThinking" },
+        "verifier": { "$ref": "#/$defs/phaseThinking" },
+        "deploy-assistant": { "$ref": "#/$defs/phaseThinking" }
+      }
+    },
+    "matchStrategy": {
+      "type": "string",
+      "enum": ["keyword", "embedding", "small-llm"]
     },
     "qualityGateCheckArray": {
       "type": "array",

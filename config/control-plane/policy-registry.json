@@ -16,7 +16,7 @@
         "danger": "medium"
       },
       "mobility": "risky",
-      "notes": "classification/governance read by env-audit.ts + manage_env.py + backoffice; not a runtime read-path (serverSchema in env.ts is)."
+      "notes": "classification/governance read by env-audit.ts + manage_env.py + backoffice; not a runtime read-path (serverSchema in env.ts is). Strict-schema-validated on save (docs/schemas/strict/env-policy.schema.json, see schema-registry id env-policy-schema); serverSchema parity asserted by src/lib/env-policy-parity.test.ts."
     },
     {
       "id": "manifest-repair-policies",
@@ -158,8 +158,8 @@
       "id": "tier3-sdk-deny",
       "sourceOfTruth": "config/integrations/tier3-sdk-deny.json",
       "type": "policy",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "test:ci",
+      "ciStatus": "hard",
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
@@ -169,7 +169,7 @@
         "danger": "low"
       },
       "mobility": "risky",
-      "notes": "F2 deny-list read by tier3-sdk-deny.ts."
+      "notes": "F2 deny-list read by tier3-sdk-deny.ts. Structurally validated by docs/schemas/strict/tier3-sdk-deny.schema.json via src/lib/integrations/tier3-sdk-deny.schema.test.ts (test:ci). See schema-registry id tier3-sdk-deny-schema."
     },
     {
       "id": "naming-dictionary",

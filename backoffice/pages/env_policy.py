@@ -4,7 +4,13 @@ import json
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel, write_json
+from backoffice.shared import (
+    BackofficeContext,
+    read_json,
+    render_where_panel,
+    validate_json_against_schema,
+    write_json,
+)
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -50,9 +56,23 @@ def render(ctx: BackofficeContext) -> None:
         if st.button("Spara env-policy.json"):
             try:
                 parsed = json.loads(raw_e)
-                write_json(ep, parsed)
-                st.success("Sparat.")
-                st.rerun()
             except json.JSONDecodeError as e:
                 st.error(f"Ogiltig JSON: {e}")
+                st.stop()
+            # Validate-on-save mot strict-schemat (samma fail-closed-kärna som
+            # ai_models manifest-editorn). Blockerar en schemabrytande edit innan
+            # write_json, så en trasig env-policy aldrig hamnar på disk.
+            schema_path = (
+                ctx.repo_root / "docs" / "schemas" / "strict" / "env-policy.schema.json"
+            )
+            errs = validate_json_against_schema(parsed, schema_path)
+            if errs:
+                st.error(
+                    "Sparar inte — env-policy bryter mot schemat:\n"
+                    + "\n".join(f"- {message}" for message in errs)
+                )
+                st.stop()
+            write_json(ep, parsed)
+            st.success("Sparat (validerad mot env-policy.schema.json).")
+            st.rerun()
 

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/env-policy.schema.json",
+  "title": "Sajtmaskin env-policy",
+  "description": "Strict schema for config/env-policy.json — the env governance/classification layer read by src/lib/env-audit.ts, scripts/env/manage_env.py and the backoffice Env Policy editor. NOTE: this file is governance only; the runtime source of truth for which env vars the app actually reads is the Zod serverSchema in src/lib/env.ts. The serverSchema↔policy parity is asserted by src/lib/env-policy-parity.test.ts.",
+  "type": "object",
+  "required": ["knownEmptyOk", "runtimeOnlyKeys", "extraKnownKeys", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "knownEmptyOk": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Keys that are allowed to be present-but-empty without being flagged by the audit.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "runtimeOnlyKeys": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Keys set/managed at runtime (platform or process defaults) that the audit must not flag as missing locally/remotely.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "extraKnownKeys": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Additional known keys (often external tooling / generated-site / Vercel-managed) that are not necessarily in the app's serverSchema but should be recognised by the audit.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "rules": {
+      "type": "array",
+      "description": "Per-key classification + recommended Vercel targets.",
+      "items": {
+        "type": "object",
+        "required": ["key", "classification", "recommendedVercelTargets"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "shared_runtime",
+              "optional_runtime",
+              "environment_specific",
+              "local_only",
+              "vercel_managed"
+            ]
+          },
+          "recommendedVercelTargets": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["development", "preview", "production"]
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
