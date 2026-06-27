@@ -80,6 +80,7 @@
     "shadcn:sync": "npx tsx scripts/shadcn/sync-shadcn-registry.ts",
     "shadcn:sync:soft": "npm run shadcn:sync || echo [shadcn-sync] Registry check skipped",
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
+    "shadcn:health": "npx tsx scripts/shadcn/registry-health.ts",
     "plans:archive": "node scripts/plans/auto-archive.mjs",
     "plans:archive:apply": "node scripts/plans/auto-archive.mjs --apply",
     "typography:validate-pairings": "npx tsx scripts/typography/validate-font-pairings.ts",
