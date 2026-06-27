@@ -19,7 +19,8 @@ export type SimpleWebsitePathReason =
   | "unsupported_scaffold"
   | "multi_route_signal"
   | "heavy_capability"
-  | "integration_or_contract_signal";
+  | "integration_or_contract_signal"
+  | "section_capability_signal";
 
 export interface SimpleWebsitePathDecision {
   enabled: boolean;
@@ -47,6 +48,80 @@ const ROUTE_PATH_RE =
 
 function hasMultiRouteSignal(prompt: string): boolean {
   return MULTI_ROUTE_WORD_RE.test(prompt) || ROUTE_PATH_RE.test(prompt);
+}
+
+// #242 section dossiers (logo-cloud, stats-counter, feature-grid, cta-section,
+// gallery-lightbox, stepper) are deliberately NOT part of hasHeavyCapability,
+// so a short init prompt that names one would otherwise take the simple fast
+// lane and skip dossier selection — missing the very dossier the user asked
+// for (e.g. "gör en enkel hemsida med kundloggor och nyckeltal"). These
+// high-precision cues mirror the follow-up vocabulary
+// (src/lib/builder/follow-up-capability-vocabulary.ts) and block the fast lane
+// so the full dossier pipeline runs. Kept narrow so the simple lane is not
+// closed for ordinary marketing copy (bare "feature"/"logo"/"steg" do NOT
+// match — only the qualified section forms do).
+const SECTION_CAPABILITY_RE = uWordRegex(
+  [
+    // logo-cloud
+    "logo[-\\s]?cloud",
+    "logo[-\\s]?wall",
+    "logo[-\\s]?rad",
+    "logorad",
+    "kund[-\\s]?loggor",
+    "kundloggor",
+    "partner[-\\s]?loggor",
+    "partnerloggor",
+    "customer[-\\s]?logos",
+    "client[-\\s]?logos",
+    "brand[-\\s]?logos",
+    "trusted[-\\s]?by",
+    "as[-\\s]?seen[-\\s]?in",
+    // stats-counter
+    "nyckeltal",
+    "stats?[-\\s]?counter",
+    "stats?[-\\s]?row",
+    "statistikband",
+    "statistik[-\\s]?band",
+    "metrics?[-\\s]?band",
+    "by[-\\s]?the[-\\s]?numbers",
+    "animated[-\\s]?numbers",
+    // feature-grid
+    "feature[-\\s]?grid",
+    "features?[-\\s]?section",
+    "feature[-\\s]?cards?",
+    "funktionskort",
+    "funktions?[-\\s]?kort",
+    "tjänstekort",
+    "tjänste[-\\s]?kort",
+    "kortgrid",
+    "services?[-\\s]?grid",
+    // cta-section
+    "cta",
+    "call[-\\s]?to[-\\s]?action",
+    "avslutande\\s+cta",
+    "bokningsknapp",
+    // gallery-lightbox
+    "lightbox",
+    "bild[-\\s]?galleri",
+    "bildgalleri",
+    "foto[-\\s]?galleri",
+    "fotogalleri",
+    "photo[-\\s]?wall",
+    "förstora\\s+bilder",
+    "klickbara\\s+bilder",
+    // stepper
+    "stepper",
+    "wizard",
+    "multi[-\\s]?step",
+    "flerstegs(?:formulär)?",
+    "flerstegsformulär",
+    "steg[-\\s]?för[-\\s]?steg",
+    "progress[-\\s]?indicator",
+  ].join("|"),
+);
+
+function hasSectionCapabilitySignal(prompt: string): boolean {
+  return SECTION_CAPABILITY_RE.test(prompt);
 }
 
 function hasHeavyCapability(capabilities: InferredCapabilities): boolean {
@@ -118,6 +193,11 @@ export function classifySimpleWebsitePath(params: {
   }
   if (INTEGRATION_OR_CONTRACT_RE.test(params.prompt)) {
     return { enabled: false, reason: "integration_or_contract_signal", scaffoldId };
+  }
+  // Last gate before enabling: a named #242 section capability must reach the
+  // full dossier pipeline rather than the simple fast lane.
+  if (hasSectionCapabilitySignal(params.prompt)) {
+    return { enabled: false, reason: "section_capability_signal", scaffoldId };
   }
   return { enabled: true, reason: "enabled", scaffoldId };
 }
