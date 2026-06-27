@@ -116,6 +116,42 @@ export default function ReportsPage() {
     expect(reports?.content).not.toContain("import DataTable from");
   });
 
+  it("does NOT import a lowercase export that collides with an intrinsic JSX tag (<path/>)", () => {
+    // Codex P2 repro: a unique lowercase export whose name is also an intrinsic
+    // HTML/SVG tag. `<path/>` is the SVG element, not a reference to the local
+    // `path` export — the JSX-only detection is gated to PascalCase so this must
+    // be left unimported (importing it injects a bogus unused import that can
+    // push the lint quality gate over its warning budget).
+    const files: CodeFile[] = [
+      {
+        path: "data/svg.ts",
+        language: "ts",
+        content: `export const path = "M0 0h24v24H0z";
+`,
+      },
+      {
+        path: "app/icon/page.tsx",
+        language: "tsx",
+        content: `export default function IconPage() {
+  return (
+    <main>
+      <svg viewBox="0 0 24 24">
+        <path d="M0 0h24v24H0z" />
+      </svg>
+    </main>
+  );
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const page = repaired.files.find((f) => f.path === "app/icon/page.tsx");
+
+    expect(page?.content).not.toContain('from "@/data/svg"');
+    expect(page?.content).not.toContain("import { path }");
+  });
+
   it("is idempotent: a second repair pass adds nothing and reports no fixes", () => {
     const files: CodeFile[] = [
       {
