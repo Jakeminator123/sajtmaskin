@@ -71,6 +71,7 @@ import {
   compactVisualQAForQualityGateLog,
   type ServerVerifyFailedOutput,
 } from "./server-verify-log-meta";
+import { resolvePostRepairFinalize } from "./server-repair-policy";
 
 const inflight = new Set<string>();
 
@@ -498,6 +499,11 @@ async function tryServerRepairLoop(params: {
     jobFinishedAt,
   };
   const hadQualityGateFailures = failedOutputs.length > 0;
+  // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
+  // because a concurrent user edit advanced files_json past the repaired-from
+  // snapshot. Used after the loop to skip failVersionVerification so the user's
+  // newer edit is never finalized as failed from a stale repair(A).
+  let staleBaseNoOp = false;
 
   await markVersionRepairing(versionId, undefined, runId).catch(() => null);
 
@@ -599,10 +605,14 @@ async function tryServerRepairLoop(params: {
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
-      const saved = await saveRepairedFiles(versionId, filesJson, msg, runId, baseFilesJson).catch((err) => {
+      const saveResult = await saveRepairedFiles(versionId, filesJson, msg, runId, baseFilesJson).catch((err) => {
         console.warn("[server-verify] Failed to save repaired version files:", err);
-        return null;
+        return { status: "failed" as const };
       });
+      if (saveResult.status === "stale_base") {
+        staleBaseNoOp = true;
+      }
+      const saved = saveResult.status === "saved" ? saveResult.version : null;
       promoted = Boolean(saved);
       if (saved && onRepairAvailable) {
         onRepairAvailable({
@@ -701,7 +711,42 @@ async function tryServerRepairLoop(params: {
     return;
   }
 
-  if (loopResult.remainingErrors === 0) {
+  const finalizeAction = resolvePostRepairFinalize({
+    staleBaseNoOp,
+    remainingErrors: loopResult.remainingErrors,
+  });
+
+  if (finalizeAction === "skip_stale_base") {
+    // #260 Codex P2: a concurrent user edit advanced files_json past snapshot A
+    // while this repair ran, so saveRepairedFiles no-op'd by design. Do NOT
+    // failVersionVerification — that would finalize the user's newer edit B as
+    // failed from a stale repair(A). Leave B to the edit→verify flow; record
+    // that the finalize was intentionally skipped.
+    await createEngineVersionErrorLogs([{
+      chatId,
+      versionId,
+      level: "warning",
+      category: "server-verify:stale-base-skip",
+      message:
+        "Post-repair finalize skipped: files_json advanced (concurrent edit); version not failed from stale repair.",
+      meta: { serverOwned: true, staleBaseNoOp: true },
+    }]).catch(() => null);
+    logRepairOutcome(
+      chatId,
+      versionId,
+      "llm",
+      false,
+      loopResult.llmPasses,
+      loopResult.remainingErrors,
+      loopResult.earlyStopReason,
+      verifyContext,
+      fixerModel,
+      loopResult.errorManifest,
+    );
+    return;
+  }
+
+  if (finalizeAction === "fail_syntax_clean") {
     await failVersionVerification(
       versionId,
       "Server repair: syntax clean (esbuild) but quality gate (typecheck/build) still failing.",

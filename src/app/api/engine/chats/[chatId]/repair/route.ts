@@ -128,6 +128,10 @@ async function handlePOST(
   let internalVersionId: string | null = null;
   let leaseRunId: string | undefined;
   let ownershipLost = false;
+  // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
+  // because a concurrent user edit advanced files_json past the repaired-from
+  // snapshot. Used to skip failing the (newer) version below.
+  let staleBaseNoOp = false;
   // Fail a version after an unsuccessful repair, recovering from lease loss.
   // The lease-conditioned write no-ops if this run lost ownership (expired lease
   // or a takeover), which would otherwise strand the row in `repairing` — the
@@ -315,13 +319,18 @@ async function handlePOST(
         // the TTL. Renew re-extends while we still own it; if another run took
         // over, the lease-conditioned write in saveRepairedFiles no-ops.
         if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
-        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId, baseFilesJson).catch((err) => {
+        const saveResult = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId, baseFilesJson).catch((err) => {
           console.warn("[repair] Failed to save repaired version files:", err);
-          return null;
+          return { status: "failed" as const };
         });
-        if (savedVersion) {
+        if (saveResult.status === "saved") {
           promoted = true;
-          newVersionId = savedVersion.id;
+          newVersionId = saveResult.version.id;
+        } else if (saveResult.status === "stale_base") {
+          // #260 Codex P2: a concurrent user edit advanced files_json past the
+          // snapshot this repair was based on. The write no-op'd by design — do
+          // not fail the (newer) version below.
+          staleBaseNoOp = true;
         }
       }
       if (dbConfigured) {
@@ -477,12 +486,30 @@ async function handlePOST(
       });
     }
 
-    if (!loopResult.promoted && dbConfigured) {
+    if (!loopResult.promoted && dbConfigured && !staleBaseNoOp) {
       const failSummary =
         loopResult.remainingErrors === 0
           ? "Server repair: syntax clean but quality gate still failing."
           : `Server repair incomplete (${loopResult.remainingErrors} errors remain).`;
       ownershipLost = !(await failAfterRepair(currentVersionId, failSummary));
+    } else if (staleBaseNoOp) {
+      // #260 Codex P2: skip failing the version — a concurrent user edit
+      // advanced files_json past the repaired-from snapshot, so finalizing it
+      // as failed would discard the user's newer edit's status from a stale
+      // repair. Surface it as superseded instead.
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId: currentVersionId,
+          level: "warning" as const,
+          category: "server-repair",
+          message:
+            "Repair not finalized: files_json advanced (concurrent edit); version not failed from stale repair.",
+          meta: { serverOwned: false, staleBaseNoOp: true },
+        },
+      ]).catch((err) => {
+        console.warn("[repair] Failed to log stale-base skip:", err);
+      });
     }
 
     logRepair(
@@ -506,14 +533,16 @@ async function handlePOST(
       earlyStopReason: loopResult.earlyStopReason,
       status: loopResult.promoted
         ? "repair_available"
-        : ownershipLost
+        : staleBaseNoOp || ownershipLost
           ? "superseded"
           : "completed",
       reason: loopResult.promoted
         ? "Serverreparation finns sparad och väntar på att accepteras."
-        : ownershipLost
-          ? "En annan körning tog över versionen — den här reparationen sparades inte."
-          : null,
+        : staleBaseNoOp
+          ? "Versionen ändrades under reparationen — den här reparationen sparades inte."
+          : ownershipLost
+            ? "En annan körning tog över versionen — den här reparationen sparades inte."
+            : null,
     });
   } catch (err) {
     console.error("[repair] Error:", err);

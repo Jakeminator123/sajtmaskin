@@ -18,6 +18,8 @@ const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const runRepairLoop = vi.hoisted(() => vi.fn());
+const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: unknown, _key: string, fn: () => unknown) => {
@@ -44,8 +46,40 @@ vi.mock("@/lib/gen/export/build-exportable-project", () => ({
 }));
 vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   maybeAnalyzeVisualQAForPassedExportable: vi.fn(() => undefined),
-  shouldPromoteAfterRepair: vi.fn(async () => ({ promote: false, results: [] })),
+  shouldPromoteAfterRepair,
 }));
+// Mock the repair loop so we can drive a single promotion attempt without the
+// real LLM-fixer machinery. The route's other repair-loop helpers are stubbed.
+vi.mock("@/lib/gen/verify/repair-loop", () => ({
+  runRepairLoop,
+  buildGroupedRepairErrorContext: () => ({ errorManifest: [], contextLines: [] }),
+  buildRepairErrorContextLines: () => [],
+}));
+vi.mock("@/lib/gen/parser", () => ({
+  parseCodeProject: () => ({
+    files: [{ path: "app/page.tsx", content: "x", language: "tsx" }],
+  }),
+}));
+vi.mock("@/lib/gen/scaffolds/protected-paths", () => ({
+  partitionGeneratedFilesForProtectedPaths: (files: unknown[]) => ({
+    kept: files,
+    dropped: [],
+  }),
+  reinjectProtectedPathsFromFallback: ({ kept }: { kept: unknown[] }) => ({
+    files: kept,
+    reinjected: [],
+    stillMissing: [],
+  }),
+}));
+vi.mock("@/lib/models/catalog", () => ({ ownModelIdToCanonicalModelId: () => null }));
+vi.mock("@/lib/models/phase-routing", () => ({
+  resolvePhaseModel: () => ({ modelId: "fixer-model" }),
+  resolvePhaseThinking: () => null,
+}));
+vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
+  readRecurringPatternsForChat: () => [],
+}));
+vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
 
 import { POST } from "./route";
 
@@ -102,5 +136,80 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(body.code).toBe("version_busy");
     expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
     expect(markVersionRepairing).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST repair — stale-base no-op must not fail the user's newer edit (#260 P2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    // The repaired files pass the post-repair gate, so the route attempts a save.
+    shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [] });
+    // The save no-ops because a concurrent user edit advanced files_json.
+    saveRepairedFiles.mockResolvedValue({ status: "stale_base" });
+    // Drive exactly one promotion attempt through the (mocked) repair loop.
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const attempt = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: attempt.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: attempt.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("does NOT call failVersionVerification and reports superseded when the save is stale_base", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    // The repair was attempted and the base was threaded through to the save.
+    expect(saveRepairedFiles).toHaveBeenCalledTimes(1);
+    expect(saveRepairedFiles.mock.calls[0]?.[4]).toBe(
+      '[{"path":"app/page.tsx","content":"A"}]',
+    );
+    // The newer edit B must NOT be finalized as failed by either path.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // The response surfaces the concurrent edit instead of a fake failure.
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.status).toBe("superseded");
+    // Lease still released in finally.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 });

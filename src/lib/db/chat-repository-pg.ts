@@ -524,6 +524,18 @@ export async function updateVersionFiles(versionId: string, filesJson: string): 
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Outcome of {@link saveRepairedFiles}. Callers MUST distinguish a stale-base
+ * no-op from a genuine failure: `stale_base` means a concurrent user edit
+ * advanced `files_json` past the snapshot the repair was based on, so the
+ * version must NOT be finalized as `failed` from this (stale) repair — doing so
+ * would mark the user's newer edit B failed based on repair(A) (#260 Codex P2).
+ */
+export type SaveRepairedFilesResult =
+  | { status: "saved"; version: Version }
+  | { status: "stale_base" }
+  | { status: "failed" };
+
 export async function saveRepairedFiles(
   versionId: string,
   repairedFilesJson: string,
@@ -534,13 +546,13 @@ export async function saveRepairedFiles(
    * #5). When provided, the repaired files are stored as a base-hashed envelope
    * and the write is bound — atomically, in the same UPDATE — to `files_json`
    * still equalling this base. If a concurrent user edit advanced `files_json`
-   * in the meantime the UPDATE matches no row and this no-ops (returns null),
-   * so a stale repair can never overwrite the newer edit on accept. Omitting it
-   * preserves the legacy unguarded write (no base known).
+   * in the meantime the UPDATE matches no row and this no-ops (returns
+   * `stale_base`), so a stale repair can never overwrite the newer edit on
+   * accept. Omitting it preserves the legacy unguarded write (no base known).
    */
   baseFilesJson?: string,
-): Promise<Version | null> {
-  if (!repairedFilesJson.trim()) return null;
+): Promise<SaveRepairedFilesResult> {
+  if (!repairedFilesJson.trim()) return { status: "failed" };
   const storedPayload =
     baseFilesJson != null
       ? encodeRepairedFilesEnvelope({ repairedFilesJson, baseFilesJson })
@@ -567,7 +579,24 @@ export async function saveRepairedFiles(
     })
     .where(where);
   if ((result.rowCount ?? 0) === 0) {
-    return null;
+    // Distinguish a stale-base no-op from a genuine failure. With a base
+    // provided, a 0-row UPDATE is either (a) the revision-binding predicate
+    // missing because a concurrent user edit advanced `files_json` past the
+    // base, or (b) a real failure (lost lease / superseded / missing row).
+    // Only (a) must stop the caller from finalizing the (newer) version as
+    // failed, so probe the current `files_json` once to tell them apart.
+    if (baseFilesJson != null) {
+      const rows = await db
+        .select({ filesJson: engineVersions.filesJson })
+        .from(engineVersions)
+        .where(eq(engineVersions.id, versionId))
+        .limit(1);
+      const current = rows[0]?.filesJson;
+      if (typeof current === "string" && current !== baseFilesJson) {
+        return { status: "stale_base" };
+      }
+    }
+    return { status: "failed" };
   }
   // A repair only reaches `repair_available` after it passed its own quality
   // gate (`shouldPromoteAfterRepair`). Stamp that pass so the promotion guard
@@ -575,7 +604,8 @@ export async function saveRepairedFiles(
   // `verifier_failed`/`preflight_failed` that flagged the pre-repair content —
   // otherwise `acceptRepair`'s guard would wedge a legitimately-fixed row.
   await recordRepairPassedQualityGate(versionId);
-  return getStoredVersion(versionId);
+  const version = await getStoredVersion(versionId);
+  return { status: "saved", version };
 }
 
 export async function getRepairStatus(versionId: string): Promise<VersionRepairStatus | null> {
