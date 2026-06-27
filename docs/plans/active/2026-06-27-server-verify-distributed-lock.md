@@ -26,9 +26,10 @@ räcker inte det: två instanser kan köra verify/repair på *samma* `versionId`
 och ingen av DB-mutationerna (`markVersionVerifying`, `markVersionRepairing`,
 `saveRepairedFiles`, `promoteVersion`) kontrollerar att den anropande körningen
 fortfarande äger raden. Förslag: en **Postgres lease-tabell** (`engine_version_jobs`)
-som ger ett distribuerat lås per `(version_id, kind)`, plus att repair/verify-mutationerna
-börjar bära ett `run_id` och blir no-op om låset bytt ägare. `Set` behålls som lokal
-snabbspärr.
+som ger ett distribuerat lås **per `version_id`** (en delad row-muterande lease för
+all verify/repair som muterar samma `engine_versions`-rad; `kind` är metadata),
+plus att repair/verify-mutationerna börjar bära ett `run_id` och blir no-op om låset
+bytt ägare eller gått ut. `Set` behålls som lokal snabbspärr.
 
 Rekommendation: **egen P1-PR**, byggd **efter** att #251 mergats, **dev-migration först**,
 **prod-migration manuellt av ägaren** enligt explicit ordning nedan. Säkerhet på analysen:
@@ -101,27 +102,40 @@ instanser men garanterar inte en enda). Alltså: `Set` är per-instans, inte glo
 
 ---
 
-## 2. Föreslagen modell — `engine_version_jobs` (DB-lease)
+## 2. Föreslagen modell — `engine_version_jobs` (DB-lease per version)
+
+> **Codex-fix (P1):** låset är **per `version_id`**, inte per `(version_id, kind)`.
+> server-verify, build-error-repair, manuell repair och quality-gate-route muterar
+> **samma `engine_versions`-rad**. En per-kind-lease skulle låta verify och repair
+> äga varsin lease och mutera raden parallellt — exakt det race vi vill stänga.
+> Därför: **en delad row-muterande lease per version**, med jobbtypen som metadata
+> (`kind` ingår inte i unikheten). Cross-kind-ägarskap blir därmed implicit: vem som
+> än håller den aktiva leasen äger raden.
 
 Ny tabell (Drizzle i `src/lib/db/schema.ts`):
 
 | Kolumn | Typ | Not |
 |---|---|---|
 | `id` | uuid PK | |
-| `version_id` | text/uuid, FK→`engine_versions.id` | jobbets version |
-| `kind` | text enum | `server_verify` \| `build_error_repair` \| `manual_repair` |
+| `version_id` | **`text`** (matchar `engine_versions.id`), FK → `engine_versions(id)` **ON DELETE CASCADE** | jobbets version |
+| `kind` | text enum (**metadata**) | `server_verify` \| `build_error_repair` \| `manual_repair` — beskriver vem som tog leasen, styr **inte** unikhet |
 | `run_id` | text | ägar-id för denna körning (uuid genererat vid acquire) |
 | `status` | text enum | `running` \| `done` \| `failed` \| `expired` |
-| `lease_expires_at` | timestamptz | nu + TTL; förnyas av ägaren |
+| `lease_expires_at` | timestamptz | nu + TTL; förnyas av ägaren (`renew`) |
 | `created_at` | timestamptz default now() | |
 | `updated_at` | timestamptz default now() | |
 
-**Index (kärnan i låset):**
+`version_id` är **`text`** eftersom `engine_versions.id` är `text` i Drizzle-schemat —
+en `uuid`-kolumn skulle få FK:n att falla. **`ON DELETE CASCADE`** så att radering/wipe
+av en version automatiskt städar dess job-rad (alternativet vore att uppdatera alla
+cleanup/wipe-paths manuellt; cascade är enklare och säkrare — se §4).
+
+**Index (kärnan i låset) — per version, inte per kind:**
 
 ```sql
--- Bara EN aktiv (running, ej utgången) körning per (version_id, kind).
+-- Bara EN aktiv (running) lease per version, oavsett kind.
 CREATE UNIQUE INDEX engine_version_jobs_active_uq
-  ON engine_version_jobs (version_id, kind)
+  ON engine_version_jobs (version_id)
   WHERE status = 'running';
 ```
 
@@ -130,48 +144,103 @@ CREATE UNIQUE INDEX engine_version_jobs_active_uq
 ```sql
 INSERT INTO engine_version_jobs (id, version_id, kind, run_id, status, lease_expires_at)
 VALUES (:id, :versionId, :kind, :runId, 'running', now() + interval '<TTL>')
-ON CONFLICT (version_id, kind) WHERE status = 'running'
-DO UPDATE SET run_id = EXCLUDED.run_id, lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
+ON CONFLICT (version_id) WHERE status = 'running'
+DO UPDATE SET run_id = EXCLUDED.run_id, kind = EXCLUDED.kind,
+              lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
   WHERE engine_version_jobs.lease_expires_at < now()   -- bara om gammalt lås gått ut
 RETURNING run_id;
 ```
 
-Returneras `run_id` == vårt → vi äger låset. Inget rad-returnerat → någon annan
-äger ett färskt lås → **avstå** (no-op). En utgången lease kan tas över (expiry-takeover).
+Returneras `run_id` == vårt → vi äger den enda aktiva leasen för versionen (oavsett
+kind). Inget rad-returnerat → någon annan äger en färsk lease → **avstå** (no-op).
+En utgången lease kan tas över (expiry-takeover) och `kind` uppdateras till ny ägare.
 
-**Release:** vid klar/fel: `UPDATE … SET status='done'|'failed', updated_at=now() WHERE version_id=:v AND kind=:k AND run_id=:runId`.
+**Renew:** `UPDATE … SET lease_expires_at = now() + interval '<TTL>', updated_at = now()
+WHERE version_id=:v AND run_id=:runId AND status='running'` — anropas mellan långa pass.
+
+**Release:** `UPDATE … SET status='done'|'failed', updated_at=now()
+WHERE version_id=:v AND run_id=:runId`.
 
 `Set` behålls som **lokal snabbspärr före DB-rundturen** (billig optimering, inte
 korrekthetsgaranti).
 
 ---
 
-## 3. Kodvägar som måste bära `run_id`
+## 3. Kodvägar, `run_id` och guard-semantik
 
-Mål: ingen verify/repair-mutation får ändra raden om låset bytt ägare.
+Mål: ingen mutation av en `engine_versions`-rad får ske om den anropande körningen
+inte äger den **aktiva** leasen för versionen.
 
-| Funktion (`src/lib/db/chat-repository-pg.ts`) | Ändring |
+### 3.1 Acquire ligger i dispatch/trigger-path — inte i `isServerVerifyEligible`
+
+**Codex-fix (P2):** `isServerVerifyEligible` ska förbli **side-effect-free** (ren
+predikatfunktion som bara läser `dbConfigured` / `isQualityGateConfigured` / `Set`).
+DB-`acquire` (som **skriver** en rad) sker i **trigger/dispatch-path**
+(`triggerServerVerification` / `triggerBuildErrorRepair` / repair-route), som
+genererar `runId` och trådar det vidare till varje mutation. `Set` förblir den lokala
+snabbkollen inuti `isServerVerifyEligible`; acquiret är den distribuerade sanningen.
+
+### 3.2 Nya lease-funktioner (`src/lib/db/chat-repository-pg.ts`)
+
+| Funktion | Beteende |
 |---|---|
-| *(ny)* `acquireVersionJobLease(versionId, kind)` | atomisk acquire enligt §2; returnerar `{ runId } \| null` |
-| *(ny)* `renewVersionJobLease(versionId, kind, runId)` | förnya `lease_expires_at`; periodiskt anrop i långa loopar |
-| *(ny)* `releaseVersionJobLease(versionId, kind, runId, status)` | markera `done`/`failed` |
-| `markVersionVerifying(versionId, …)` | + `runId`; `WHERE id=:v` **och** ägarkoll |
-| `markVersionRepairing(versionId, …)` | + `runId`; ägarkoll |
-| `saveRepairedFiles(versionId, files, …)` | + `runId`; **vägra** om ej ägare (returnera `null`) — stänger lost-update |
-| `failVersionVerification` / `markVersionSupersededByRepair` | + `runId`-medveten (får ej skriva över annan ägares terminaltillstånd) |
-| `promoteVersion` / `acceptRepair` | behåll `assertPromoteAllowed`-grinden; lägg ägarkoll där server-verify är promotor |
+| `acquireVersionLease(versionId, kind)` | atomisk acquire enligt §2; returnerar `{ runId } \| null` |
+| `renewVersionLease(versionId, runId)` | förnyar `lease_expires_at`; anropas i långa loopar |
+| `releaseVersionLease(versionId, runId, status)` | markerar `done`/`failed` |
 
-| Anropare (`src/lib/gen/verify/server-verify.ts`) | Ändring |
-|---|---|
-| `isServerVerifyEligible` | behåll `Set`-snabbkoll; **lägg** DB-acquire som sanning |
-| `triggerServerVerification` | acquire-lease → kör → release i `finally`; trådra `runId` till alla mutationer |
-| `triggerBuildErrorRepair` | samma; `kind="build_error_repair"` |
-| `tryServerRepairLoop` | ta emot `runId`; ev. `renew` mellan pass; skicka `runId` till `saveRepairedFiles` |
-| Manuell repair-route (`/api/engine/chats/[chatId]/repair`) | `kind="manual_repair"`; samma lease |
+### 3.3 Guard-semantik på muterande funktioner
 
-**Cleanup/expiry:** lease-takeover via `lease_expires_at < now()` (§2). Ev. en
-lättviktig städning (cron eller lazy vid acquire) som sätter utgångna `running` → `expired`.
-Ingen separat worker krävs för korrekthet — expiry-villkoret i acquire räcker.
+**Codex-fix (P2):** guarden får inte bara matcha `run_id` — den måste kräva att leasen
+fortfarande är **aktiv** vid skrivtillfället. Varje server-ägd mutation körs som ETT
+atomiskt `UPDATE` som joinar mot en levande lease:
+
+```sql
+UPDATE engine_versions v SET …
+FROM engine_version_jobs j
+WHERE v.id = :versionId
+  AND j.version_id = :versionId
+  AND j.run_id = :runId
+  AND j.status = 'running'
+  AND j.lease_expires_at > now();
+```
+
+`rowCount = 0` → leasen är förlorad/utgången → mutationen blir **no-op** (returnerar
+`null`). Alternativ implementering: en lyckad `renewVersionLease` **omedelbart före**
+skrivningen i samma transaktion. Detta stänger lost-update även om TTL råkat löpa ut
+mitt i ett pass. Funktioner som får `runId`: `markVersionVerifying`,
+`markVersionRepairing`, `saveRepairedFiles` (vägrar om ej ägare → stänger lost-update),
+`failVersionVerification`, `markVersionSupersededByRepair`, `promoteVersion`
+(behåller dessutom `assertPromoteAllowed`-grinden).
+
+### 3.4 Alla muterande callers — policy per caller
+
+**Codex-fix (P2):** mutationerna anropas från fler ställen än server-verify
+(enumererat via grep). Plan: inför **server-ägda lease-varianter** för
+bakgrunds-/konkurrerande vägar och **lämna finalize-vägen utanför** (den äger
+versionen vid skapande, innan något bakgrundsjobb finns).
+
+| Caller | Funktioner | Lease-policy |
+|---|---|---|
+| `server-verify.ts` (auto verify) | markVersionVerifying, promoteVersion, failVersionVerification, markVersionSupersededByRepair | **acquire lease**; trådra `runId` |
+| `server-verify.ts` (build-error / server-repair) | markVersionRepairing, saveRepairedFiles, fail… | **samma per-version-lease** |
+| `repair/route.ts` (manuell repair, HTTP) | markVersionRepairing, saveRepairedFiles, failVersionVerification | **acquire lease** (`kind=manual_repair`) |
+| `quality-gate/route.ts` (HTTP verify) | markVersionVerifying, promoteVersion, failVersionVerification, markVersionSupersededByRepair | **acquire lease** (`kind=server_verify`) — annars konkurrerar den med auto-flödet om samma rad |
+| `accept-repair/route.ts` + `maybeAutoAcceptTimedOutRepair` | acceptRepair | behåll `assertPromoteAllowed`; **kräv att ingen annan aktiv lease finns** (eller ta kort egen lease) innan promote |
+| `readiness/route.ts` (timeout-fail) | failVersionVerification | tillåt timeout-fail **endast om ingen aktiv lease** (annars äger ett jobb raden) |
+| finalize-path (`generation-stream.ts`, `finalize-version/persist-side-effects.ts`) | failVersionVerification (init verifier/preflight-state) | **ingen lease** — körs inline i genereringen *före* bakgrundsjobb; sätter initialt terminaltillstånd. Behåll som idag. |
+| `createAndPromoteDraftVersion` (`chat-repository-pg.ts`) | promoteVersion | internt skapande-flöde, ingen samtidig verify → **ingen lease** |
+
+> **Öppen fråga 2 (beslut innan bygg):** ska varje HTTP-väg ha en **egen server-ägd
+> variant** (t.ex. `markVersionVerifyingOwned(versionId, runId)`) medan de inline
+> finalize-anropen behåller dagens signatur, eller ska de muterande funktionerna
+> splittras i "owned" vs "unowned"? Default-rekommendation: **alla row-muterande
+> verify/repair-vägar tar samma per-version-lease**; finalize + createAndPromote är
+> de enda undantagen (inline-ägande vid skapande).
+
+**Cleanup/expiry:** lease-takeover via `lease_expires_at < now()` (§2). FK
+`ON DELETE CASCADE` städar job-rader när versionen raderas (ingen wipe-path behöver
+röras). Ev. lazy `expired`-städning vid acquire; ingen separat worker krävs för
+korrekthet — expiry-villkoret i acquire + guard räcker.
 
 ---
 
@@ -224,12 +293,15 @@ och ny kod ska aldrig deployas mot en DB som saknar tabellen.
 Vitest (CI-gatat), helst utan live-DB via mockad repository-yta + en riktad
 integrationsnivå där möjligt:
 
-1. **Concurrent jobs, samma version:** två `acquire(versionId, 'server_verify')` →
-   exakt en får lås, den andra får `null` (no-op).
-2. **Expired lease takeover:** acquire med utgången `lease_expires_at` → ny ägare får låset.
+1. **Concurrent leases, samma version (olika kind):** `acquire(versionId, 'server_verify')`
+   och `acquire(versionId, 'manual_repair')` samtidigt → exakt en får lås, den andra
+   får `null` (per-version — `kind` påverkar inte unikheten, det stänger verify-vs-repair-racet).
+2. **Expired lease takeover:** acquire med utgången `lease_expires_at` → ny ägare får
+   låset (och `kind` uppdateras till den nya ägaren).
 3. **Fel `run_id` får inte spara:** `saveRepairedFiles(versionId, files, wrongRunId)` →
    returnerar `null`, ingen skrivning. (Det specifika lost-update-skyddet.)
-4. **Ägar-mutationer:** `markVersionVerifying/Repairing` med fel `run_id` → no-op.
+4. **Guard kräver aktiv lease (ej bara run_id):** mutation med rätt `run_id` men
+   `status != 'running'` eller `lease_expires_at < now()` → no-op. Med fel `run_id` → no-op.
 5. **Single-worker-regression:** hela befintliga server-verify-flödet (ett `versionId`,
    en körning) fungerar oförändrat — promote/fail/repair_available som idag.
 6. **Release i `finally`:** efter klar/kastat fel frigörs låset (status≠`running`).
@@ -244,11 +316,13 @@ integrationsnivå där möjligt:
 | **A. `engine_version_jobs` lease-tabell** (förslaget) | Robust under pooled Postgres; explicit `run_id`-ägarskap; expiry; lätt att observera/debugga; idempotent | Ny tabell + migration + `run_id`-trådning genom flera funktioner |
 | B. Postgres **advisory locks** (`pg_try_advisory_lock`) | Ingen tabell; auto-release vid connection-close | **Olämpligt här:** Supabase **pooled/pgbouncer (transaction mode)** delar inte session-scope mellan queries → session-advisory-lås beter sig oförutsägbart. Svårt att resonera om ägarskap/expiry |
 | C. **Redis/Upstash lease** (`SET key NX PX`) | Mycket enkel TTL-lease; snabb | Ny dependency i hot path; Redis redan "optional_runtime" (kan saknas) → låset blir best-effort; två sanningskällor (DB-tillstånd + Redis-lås) |
-| D. **Lease-kolumner på `engine_versions`** (`verify_lock_run_id`, `verify_lock_expires_at`) | Ingen ny tabell; allt på en rad | Blandar låsstate med domändata; svårare att ha flera `kind` per version; mer rad-contention |
+| D. **Lease-kolumner på `engine_versions`** (`verify_lock_run_id`, `verify_lock_expires_at`) | Ingen ny tabell; naturligt per-version | Blandar låsstate med domändata; varje acquire/renew skriver den heta `engine_versions`-raden (mer contention + write-amplification); ingen historik/observability över jobb |
 
 **Varför A:** matchar pooled-Postgres-verkligheten (B faller bort), undviker ny
-hot-path-dependency (C), och håller låsstate separerat från domändata (bättre än D).
-Dks svaghet är migrationskostnaden — men den är additiv och engångs.
+hot-path-dependency (C), och håller låsstate separerat från domändata + ger jobb-historik
+(bättre än D). Lås-**granulariteten är per `version_id`** (inte per `kind`, se §2) så
+verify och repair inte kan äga raden samtidigt. Dess svaghet är migrationskostnaden —
+men den är additiv och engångs.
 
 ---
 
@@ -267,5 +341,7 @@ Dks svaghet är migrationskostnaden — men den är additiv och engångs.
 ### Öppna frågor till ägaren (innan bygg)
 
 1. Lease-TTL-värde (förslag: 2–3× typisk verify/repair-tid; med `renew` i loopen).
-2. Ska `manual_repair` (HTTP-route) dela samma lease som auto-flödena? (Förslag: ja, samma `(version_id, kind)`-modell.)
+2. Vilka HTTP-vägar får **egna server-ägda lease-varianter** vs. delar auto-flödets
+   per-version-lease (se §3.4)? Förslag: alla row-muterande verify/repair-vägar delar
+   per-version-leasen; finalize + `createAndPromoteDraftVersion` undantas (inline-ägande).
 3. Bygga nu efter #251-merge, eller parka tills "härda → bygga"-pivoten tar event-bus (B3/E2) samtidigt (samma multi-instans-rot)?
