@@ -298,6 +298,10 @@ describe("POST quality-gate", () => {
     expect(body.passed).toBe(true);
     expect(body.promotionBlocked).toBeUndefined();
     expect(body.promoteError).toBeUndefined();
+    // Codex P2 (stale snapshot): once the lease is held, the route re-reads the
+    // version files under the lease before materializing gate inputs — so
+    // getVersionFiles is called twice (initial 404-check read + leased re-read).
+    expect(getVersionFiles).toHaveBeenCalledTimes(2);
   });
 
   it("returns 409 version_busy when another job holds the version lease (Plan C)", async () => {

@@ -652,6 +652,14 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
   if (!shouldAutoAcceptRepair(version.verification_state, version.repair_available_at)) {
     return { version, wasAutoAccepted: false };
   }
+  // Codex P2: the explicit POST /accept-repair route guards on an active lease,
+  // but auto-accept reaches `acceptRepair` from polling paths (readiness /
+  // versions / chat GET). Guard it here too so a still-running verify/repair job
+  // (which holds the lease) can never have its row promoted out from under it.
+  // Fail-safe: a DB error degrades to the legacy always-try-accept behaviour.
+  if (await hasActiveVersionLease(version.id).catch(() => false)) {
+    return { version, wasAutoAccepted: false };
+  }
   const accepted = await acceptRepair(
     version.id,
     "Server repair auto-accepted after timeout.",
@@ -727,6 +735,11 @@ export async function renewVersionLease(versionId: string, runId: string): Promi
         eq(engineVersionJobs.versionId, versionId),
         eq(engineVersionJobs.runId, runId),
         eq(engineVersionJobs.status, "running"),
+        // Codex P2: never resurrect an already-expired lease. A job that froze
+        // or ran past the TTL has lost ownership (the row may have been taken
+        // over via acquire's expiry path); renew must FAIL so the caller treats
+        // it as lost and stops writing, instead of silently re-extending.
+        gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
       ),
     );
   return (result.rowCount ?? 0) > 0;

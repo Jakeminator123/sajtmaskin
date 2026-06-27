@@ -153,13 +153,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         );
       }
 
-      const completeProjectFiles = await buildExportableProject(codeFiles);
-      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
-
-      // Distributed lease (Plan C / P1): this HTTP verify mutates the same
-      // engine_versions row as the auto server-verify flow. Take the
-      // per-version lease so the two can't race; 409 if another job owns it.
-      // Fail-safe: a DB error/missing table degrades to the legacy unlocked path.
+      // Distributed lease (Plan C / P1 + Codex P2): take the per-version lease
+      // BEFORE materializing inputs, so the gate can't verify/promote a stale
+      // pre-lease snapshot that a concurrent repair already replaced. 409 if
+      // another job owns it. Fail-safe: a DB error degrades to the unlocked path.
       let qgRunId: string | undefined;
       if (dbConfigured) {
         try {
@@ -179,6 +176,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           qgRunId = undefined;
         }
       }
+
+      // Re-read under the lease so verification runs on the lease-protected
+      // snapshot, not the pre-acquire read above (Codex P2 stale-snapshot fix).
+      const leasedCodeFiles = qgRunId
+        ? (await getVersionFiles(internalVersionId)) ?? codeFiles
+        : codeFiles;
+      const completeProjectFiles = await buildExportableProject(leasedCodeFiles);
+      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
       await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
         console.warn("[quality-gate] Failed to mark version verifying:", err);

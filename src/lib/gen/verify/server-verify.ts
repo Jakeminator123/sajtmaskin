@@ -393,18 +393,12 @@ export async function triggerBuildErrorRepair(params: {
   if (!isAutoRepairBuildErrorEnabled()) return;
   const { chatId, versionId, buildError, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
-  inflight.add(versionId);
-  const lease = await acquireVerifyLease(versionId, "build_error_repair");
-  if (!lease.proceed) {
-    // Another live lease already owns this version — it will emit its own
-    // build-error/repair events. Bail without double-emitting.
-    inflight.delete(versionId);
-    return;
-  }
-  const runId = lease.runId;
-  // OMTAG-06: surface the preview-VM build error as a first-class bus
-  // event. The projection will flip `phase` to "failed" until a clean
-  // repair pass lands and emits `version.saved` without blockers.
+  // OMTAG-06 / Codex P2: surface the preview-VM build error as a first-class bus
+  // event BEFORE acquiring the lease, so the signal (and its error-log
+  // projection) is never dropped when another job already owns the version —
+  // only the mutating repair below is skipped in that case. The projection will
+  // flip `phase` to "failed" until a clean repair pass lands and emits
+  // `version.saved` without blockers.
   emitBusEvent({
     t: "version.build.error",
     versionId,
@@ -417,6 +411,15 @@ export async function triggerBuildErrorRepair(params: {
     level: "error",
     category: "preview-vm",
   });
+  inflight.add(versionId);
+  const lease = await acquireVerifyLease(versionId, "build_error_repair");
+  if (!lease.proceed) {
+    // Another live lease already owns this version — the build-error event is
+    // already emitted above; skip only the mutating repair to avoid racing it.
+    inflight.delete(versionId);
+    return;
+  }
+  const runId = lease.runId;
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const codeFiles = await getVersionFiles(versionId);

@@ -152,19 +152,13 @@ async function handlePOST(
     }
 
     internalVersionId = scopedVersion.version.id;
-    const codeFiles = await getVersionFiles(internalVersionId);
-    if (!codeFiles || codeFiles.length === 0) {
-      return NextResponse.json(
-        { error: "No files found for version" },
-        { status: 404 },
-      );
-    }
 
     if (dbConfigured) {
-      // Distributed lease (Plan C / P1): a manual repair mutates the same
-      // engine_versions row as the auto verify/repair flow. Take the
-      // per-version lease so they can't race; 409 if another job owns it.
-      // Fail-safe: a DB error/missing table degrades to the legacy unlocked path.
+      // Distributed lease (Plan C / P1 + Codex P2): acquire the per-version
+      // lease BEFORE reading the version files, so the repair always operates on
+      // the snapshot the lease protects — never a stale pre-lease read that a
+      // concurrent job could overwrite. 409 if another job owns it. Fail-safe: a
+      // DB error/missing table degrades to the legacy unlocked path.
       try {
         const lease = await acquireVersionLease(internalVersionId, "manual_repair");
         if (!lease) {
@@ -181,7 +175,17 @@ async function handlePOST(
         console.warn("[repair] Lease acquire failed; proceeding without distributed lock:", err);
         leaseRunId = undefined;
       }
+    }
 
+    const codeFiles = await getVersionFiles(internalVersionId);
+    if (!codeFiles || codeFiles.length === 0) {
+      return NextResponse.json(
+        { error: "No files found for version" },
+        { status: 404 },
+      );
+    }
+
+    if (dbConfigured) {
       await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {
         console.warn("[repair] Failed to mark version repairing:", err);
       });
