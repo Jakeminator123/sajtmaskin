@@ -118,7 +118,21 @@ function renderCompactDossierInstructions(
 // `shouldUseFullInstructions`) without shipping the whole file. We pull the
 // canonical guidance headings and cap the total so the prompt stays lean.
 const SELECTED_INSTRUCTION_HEADINGS = ["When to use", "How to integrate", "Avoid"] as const;
-const SELECTED_INSTRUCTIONS_CHAR_CAP = 1100;
+// Per-section cap (NOT a shared running budget) so the later "Avoid" section is
+// never starved by a long "When to use" / "How to integrate" (Codex #254 P2).
+const SELECTED_SECTION_CHAR_CAP = 480;
+
+/**
+ * Remove fenced code blocks from a section body before the char cap is applied.
+ * `selected-sections` surfaces the do/don't RULES, not runnable examples — and a
+ * cap that sliced through a ```tsx fence would leave an unterminated code block
+ * that makes the rest of the system prompt parse as code (Codex #254 P2).
+ */
+function stripCodeFences(body: string): string {
+  return body
+    .replace(/```[\s\S]*?```/g, "_(code example omitted — see the dossier's instructions.md)_")
+    .trim();
+}
 
 /** Split instructions.md into its `# H1` sections (heading + trimmed body). */
 function extractInstructionSections(markdown: string): Array<{ heading: string; body: string }> {
@@ -146,19 +160,18 @@ function renderSelectedSectionsInstructions(
   if (sections.length === 0) return [];
 
   const picked: string[] = [];
-  let used = 0;
   for (const wanted of SELECTED_INSTRUCTION_HEADINGS) {
     const needle = wanted.toLowerCase();
     const match = sections.find((s) => s.heading.toLowerCase().includes(needle));
-    if (!match || !match.body) continue;
-    const remaining = SELECTED_INSTRUCTIONS_CHAR_CAP - used;
-    if (remaining <= 0) break;
-    let body = match.body;
-    if (body.length > remaining) {
-      body = `${body.slice(0, remaining).trimEnd()} …`;
+    if (!match) continue;
+    // Strip code fences BEFORE the cap so a truncation can never split a fence;
+    // each section has its own cap so "Avoid" is always reached.
+    let body = stripCodeFences(match.body);
+    if (!body) continue;
+    if (body.length > SELECTED_SECTION_CHAR_CAP) {
+      body = `${body.slice(0, SELECTED_SECTION_CHAR_CAP).trimEnd()} …`;
     }
     picked.push(`#### ${match.heading}`, "", body, "");
-    used += body.length;
   }
   if (picked.length === 0) return [];
   return [`### ${sel.entry.label} (\`${sel.entry.id}\`) — key instructions`, "", ...picked];

@@ -356,6 +356,43 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).not.toContain("key instructions");
   });
 
+  it("never truncates inside a code fence and still reaches Avoid (Codex #254 P2)", () => {
+    const fenceHeavy = [
+      "# When to use",
+      "",
+      // Long enough that, under a shared running budget, it would have starved
+      // the later sections and forced a mid-fence truncation of How to integrate.
+      "X".repeat(700),
+      "",
+      "# How to integrate",
+      "",
+      "Import the component:",
+      "",
+      "```tsx",
+      'import { LogoCloud } from "@/components/logo-cloud";',
+      "export default function S() {",
+      '  return <LogoCloud items={[{ name: "Acme" }]} />;',
+      "}",
+      "```",
+      "",
+      "# Avoid",
+      "",
+      "Do not fabricate brand logos you have no rights to use.",
+      "",
+    ].join("\n");
+    const text = renderDossierBlocks(selectedSectionsSelection(fenceHeavy), {
+      generationMode: "init",
+    }).join("\n");
+    // 1. Balanced fences — the code fence is stripped, so none can be left open.
+    expect((text.match(/```/g) ?? []).length % 2).toBe(0);
+    expect(text).not.toContain("import { LogoCloud }");
+    expect(text).toContain("code example omitted");
+    // 2. The Avoid rules survive (not starved by the long earlier sections).
+    expect(text).toContain("Do not fabricate brand logos you have no rights to use.");
+    // 3. The per-section cap still applies to the long When-to-use body.
+    expect(text).toContain("…");
+  });
+
   it("fails fast when a selected verbatim dossier file is missing on disk", () => {
     const selection: DossierSelectionResult = {
       poolSize: 1,
