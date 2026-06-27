@@ -2,7 +2,7 @@
 
 **Enda aktiva bugglistan i repot.** Lokal markdown är källan till sanning — ingen Linear, ingen extern tracker. Preflight (`scripts/dev/check-bug-backlog.mjs`) och canvas-generatorn (`scripts/canvas/build-llm-flow-canvas.mjs`) läser **`## Aktiv kö`** nedan.
 
-Avslutad, avfärdad och historisk triage är utflyttad till [`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md). Grandmaster-svärmens B01–B15 = löst historik i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
+Avslutade rader flyttas till [`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md) (senaste) och [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md) (fryst historik). Grandmaster-svärmens B01–B15 = löst historik i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
 
 ## Hur den hålls sann
 
@@ -23,17 +23,12 @@ Verkliga öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar
 | Klar | Status | Prio | Fynd | Källa | Beslut / nästa steg |
 | --- | --- | --- | --- | --- | --- |
 | [ ] | Öppen bug | P2 | F3 build-plan härleds från `preGenerationContracts`, inte parent-versionens filer → tomt build-plan-block fast koden har integrationer | G#20 | Tråda fil-härledda integrationer in i F3-prompten (`system-prompt/sections/session-contracts.ts` vs `finalize-design/route.ts`). Signal-ägar-fix i orchestrate/contract-derivering. |
-| [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum (drift) | G#26 | Konsolidera capability-källan över init + follow-up + dossier-bridge + `orchestrate.ts` (signal-ägarmatris). Ihop med G#25. |
+| [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum (drift). #242 sektions-capabilities nu trådade i follow-up (#250) + init fast-lane-gate (#253), men `capability-dossier-bridge` saknar fortfarande sektions-id:n | G#26 | Konsolidera capability-källan över init + follow-up + dossier-bridge + `orchestrate.ts` (signal-ägarmatris). Ihop med G#25. |
 | [ ] | Öppen kvalitet-risk | P2 | Dossier/capability-threading svagt vissa paths (`capability-dossier-bridge.ts` → `orchestrate.ts`) | G#25 | Canonical-källa-konsolidering (samma spår som G#26). |
 | [ ] | Öppen bug | P2 | `/finalize-design` detektionsfullständighet: `detect-integrations.ts`-regex kan missa en integration på filer som finns | G#21 | Konkret false-green (tomma filer → `409`) redan fixad; kvar = regex-täckning. `detect-integrations.ts`. |
-| [ ] | Öppen schema-risk | P3 | `variantNomination` typas + konsumeras i drift-detektion men produceras inte av brief-schema → drift-koden alltid null (död) | G#56 | Lägg till i brief-strict-schema + prompt, ELLER ta bort drift-detektionen. `orchestrate.ts:879` · `system-prompt/types.ts`. |
-| [ ] | Öppen bug | P3 | Plan-mode token-budget skalas mot tier-build-modellen, inte planner-fasen → planner-kontext skalas mot fel kontextfönster på anthropic-tier | MB-4 | Sätt `engineModelId: planModel` på plan-`orchestrationInput` i `create-chat-stream-post.ts` + `chat-message-stream-post.ts`. Låg prio (plan-artefakt, ej kod). |
-| [ ] | Öppen inspektor-risk | P2 | Inspect-bridge: ingen fallback när flagga PÅ men bridge ej kan injiceras (`ready` saknas) → inspektor inert | #164 | Fall tillbaka till `map`/`ai`-läge. `PreviewPanel.tsx:170`. Flag-gated (`NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE`). |
-| [ ] | Öppen env-städ | P2 | `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` saknar regel i `config/env-policy.json` (env-sync defaultar okända `NEXT_PUBLIC_*` till preview+prod) | #164 | Lägg env-policy-regel. `src/lib/env.ts:209` · `scripts/env/manage_env.py:get_rule`. |
-| [ ] | Öppen inspektor-edge | P2 | Bridge-captures skickar element-center, inte faktisk klick-koordinat | #164 | Bevara klick-punkten. `usePreviewInspectBridge.ts:164`. |
-| [ ] | Öppen läck-risk | P3 | `?inspect=1` kan nå genererad apps `searchParams`/`window.location.search` | #164, #197 | Strippa innan iframe-navigering. `PreviewPanel.tsx:withInspectParam`. |
-| [ ] | Öppen validator-risk | P2 | Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen finns) → false-green i self-validating-kartan | #202 | Resolva JSON-fragment och faila när top-level-nyckeln saknas. `scripts/control-plane/check-registry.mjs:114`. |
-| [ ] | Öppen kvalitet-risk | P2 | Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, `stepper`) exponeras bara via Deep Brief-prompten → korta init-prompts + follow-ups missar dem | #242 | Tråda in i capability-inference + follow-up-detektion (`capability-dossier-bridge.ts`, `follow-up-capability-detection.ts`). Samma spår som G#25/G#26. |
+| [ ] | Öppen inspektor-kluster | P2 | Inspect-bridge (flag-gated `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE`): (A) ingen fallback när `ready` saknas → inspektor inert; (B) bridge-capture skickar element-center, inte klickpunkt; (C) `?inspect=1` kan nå genererad apps `searchParams`; (D) flaggan saknar regel i `config/env-policy.json` | #164, #197 | A: ready-timeout → `map`/`ai` (`usePreviewInspectBridge.ts`). B: skicka `clientX/clientY` i pick-payload (`inspect-bridge-script.ts`). C: strippa param före iframe-nav (`PreviewPanel.tsx:withInspectParam`). D: env-policy-regel (`scripts/env/manage_env.py:get_rule`). |
+| [ ] | Öppen schema-risk | P3 | Brief-drift-detektion läser `scaffoldNomination`/`variantNomination` från brief, men brief-schemat producerar dem aldrig → `scaffold_drift`/`variant_drift`-loggning är död kod (fyrar aldrig) | G#56 | Lägg till i brief-strict-schema + prompt, ELLER ta bort drift-loggningen. Bekräftat dött 2026-06-27: läsare i `orchestrate.ts` (~L1038 `scaffoldNomination`, ~L1482 `variantNomination`); typer i `system-prompt/types.ts:79,85`. Het kärnfil → egen smal PR. |
+| [ ] | Öppen bug | P3 | Plan-mode token-budget skalas mot tier-build-modellen, inte planner-fasen → planner-kontext skalas mot fel kontextfönster på anthropic-tier | MB-4 | OBS: nuvarande `engineModelId: resolveEngineModelId(resolvedModelTier)` är ett medvetet Bug 04#3-val (spegla codegens BuildSpec). Att blint sätta `engineModelId: planModel` regressar det. Riktig fix = frikoppla token-budget-modell från BuildSpec-modell. `create-chat-stream-post.ts:486-491` · `chat-message-stream-post.ts:754`. |
 
 ## Behöver repro
 
@@ -72,8 +67,9 @@ Systemet gör som tänkt; "fixen" är ett produkt-/arkitektur-**val** som medvet
 | Logg-/observability-/storage-städ | G#59, G#60, G#63, U#53, U#63, U#66 | Bred städ med sampling-/namespace-policy = sammanhållet pass, inte punktfix. |
 | Arkitektur (deploy-topologi/lane) | B3/E2, B1, B4, F4/F5, B7/#140 | Durable event-bus (multi-instans), S3-lane blockerande, canvas-PR-token, bus-emits/manifest-Zod, DB/Blob-gate-PR. |
 | A7-2 kod-default | B05 | Kod-fix (scope till valda dossiers) mergad #211; kod-default OFF kvarstår som ditt val (env satt i Vercel). |
+| CTA-knapp i init-fast-lane | M#1 (EGEN-05) | `simpleWebsitePath` blockar `CTA-knapp` från fast lane via bredare `cta`-match än follow-up-vocabulary. By-design: namngiven sektions-capability i init ska gå full dossier-pipeline (#242 Alt A, testat `simple-website-path.test.ts:134`). Skillnaden mot follow-up (styling-tweak) är medveten. |
 
-Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).
+Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-06-27.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).
 
 ## Naming-debt: `v0ChatId`
 

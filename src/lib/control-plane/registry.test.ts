@@ -119,6 +119,29 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
     }
   });
 
+  // #202: a `file.json#fragment` reference must resolve to a defined key, not
+  // just an existing base file — otherwise a renamed/typo'd fragment is a
+  // silent false-green. Mirrors resolveSource() in check-registry.mjs.
+  it("JSON #fragment sourceOfTruth references resolve to a defined key", () => {
+    for (const entry of registry.entries) {
+      const hashIdx = entry.sourceOfTruth.indexOf("#");
+      if (hashIdx === -1) continue;
+      const base = entry.sourceOfTruth.slice(0, hashIdx);
+      const fragment = entry.sourceOfTruth.slice(hashIdx + 1);
+      if (base.includes("*") || !/\.jsonc?$/i.test(base)) continue;
+      const json = JSON.parse(readFileSync(join(REPO_ROOT, base), "utf8")) as unknown;
+      let node: unknown = json;
+      for (const key of fragment.split(".")) {
+        const present =
+          node != null &&
+          typeof node === "object" &&
+          Object.prototype.hasOwnProperty.call(node, key);
+        expect(present, `fragment #${fragment} missing in ${base} for ${entry.id}`).toBe(true);
+        node = (node as Record<string, unknown>)[key];
+      }
+    }
+  });
+
   it("includes the known-authority ids", () => {
     const ids = new Set(registry.entries.map((e) => e.id));
     for (const requiredId of requiredIds) {
