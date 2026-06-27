@@ -66,6 +66,36 @@ jobs:
       - name: Validate control-plane registries
         run: npm run control-plane:check
 
+  # Backoffice Python tests: control-plane/domain-map parity, matching-config
+  # strict-schema validate-on-save, manifest parity and page-import smoke.
+  # Deterministic + keyless (no DB creds, no network — all 49 tests run offline).
+  # Blocking by design: domain-rules and prompt-heuristic-tokens declare
+  # `backoffice:test` as their control-plane validator, so this job IS their
+  # structural guarantee. Mirrors the Python setup in db-blob-sync-check.yml.
+  backoffice-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install backoffice dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.backoffice.txt
+
+      - name: Backoffice tests (blocking)
+        run: npm run backoffice:test
+
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. Medvetet UTAN

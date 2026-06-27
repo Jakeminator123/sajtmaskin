@@ -53,6 +53,11 @@
           "type": ["string", "null"],
           "description": "npm script name that validates this entry (e.g. 'db:schema-drift'), or null when none."
         },
+        "validatorWaiver": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Explicit justification permitting runtimeEnforced=true with a null validator (e.g. 'validated structurally by a strict schema + test', or 'hand-parsed, no standalone validator yet — tracked follow-up'). Required by control-plane:check when runtimeEnforced is true and validator is null."
+        },
         "ciStatus": {
           "type": "string",
           "enum": ["hard", "warn", "manual", "none"],

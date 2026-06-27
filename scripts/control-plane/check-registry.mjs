@@ -13,6 +13,9 @@
  *   - no duplicate `id` within a registry;
  *   - `ciStatus: hard` requires a non-null `validator`;
  *   - `runtimeEnforced: false` requires non-empty `notes`;
+ *   - `runtimeEnforced: true` requires a non-null `validator` OR an explicit
+ *     non-empty `validatorWaiver` (so a runtime-wired, editable policy can never
+ *     ship with no structural guarantee and no documented reason why);
  *   - a known-authority allowlist is present (the map can't silently forget a
  *     key file).
  *
@@ -192,6 +195,17 @@ for (const registry of REGISTRIES) {
 
     if (entry.runtimeEnforced === false && (!entry.notes || !String(entry.notes).trim())) {
       fail(registry.name, `${id}: runtimeEnforced=false requires non-empty notes`);
+    }
+
+    if (
+      entry.runtimeEnforced === true &&
+      entry.validator == null &&
+      !(entry.validatorWaiver && String(entry.validatorWaiver).trim())
+    ) {
+      fail(
+        registry.name,
+        `${id}: runtimeEnforced=true requires a validator or an explicit validatorWaiver`,
+      );
     }
   }
 
