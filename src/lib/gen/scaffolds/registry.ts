@@ -20,6 +20,7 @@ import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 import { applyScaffoldSeoDefaults } from "./seo-defaults";
+import { deepFreeze } from "@/lib/utils/deep-freeze";
 
 const DEFAULT_ICON_FILE = {
   path: "app/icon.svg",
@@ -89,7 +90,10 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => {
       research: mergeScaffoldResearch(scaffold.research, overrides.research),
     };
   })();
-  return withDefaultIcon(applyScaffoldSeoDefaults(withResearchOverrides));
+  // deep-freeze each manifest so the shared ref from getScaffoldById (and the
+  // array copy from getAllScaffolds) can't be mutated in place — removes a
+  // class of hard-to-trace global-state drift bugs.
+  return deepFreeze(withDefaultIcon(applyScaffoldSeoDefaults(withResearchOverrides)));
 });
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {
@@ -97,9 +101,9 @@ export function getScaffoldById(id: string): ScaffoldManifest | null {
 }
 
 export function getAllScaffolds(): ScaffoldManifest[] {
-  // Return a shallow copy so callers can't mutate the shared module-level
-  // registry (push/splice/sort). The manifest objects themselves are still
-  // shared refs and are treated as read-only by consumers.
+  // Return a shallow copy so callers can't push/splice/sort the shared
+  // module-level registry. The manifest objects are deep-frozen at load, so
+  // their contents can't be mutated in place either.
   return [...ALL_SCAFFOLDS];
 }
 
