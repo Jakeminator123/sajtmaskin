@@ -259,7 +259,20 @@ def sync_route_timeout_literals(
     repo_root: Path,
     engine_seconds: int,
     assist_seconds: int,
-) -> int:
+) -> dict[str, Any]:
+    """Rewrite the static ``export const maxDuration = N;`` literals in the
+    timeout-bearing route files from the manifest values.
+
+    Fail-loud: returns ``{"changed": int, "warnings": list[str]}``. A target that
+    exists but has no ``maxDuration`` literal (format drift) or is missing on
+    disk is reported in ``warnings`` instead of being silently skipped, so the
+    caller can surface it. Parity is also CI-gated by
+    ``src/app/api/route-timeout-manifest-parity.test.ts``.
+
+    Next.js requires ``maxDuration`` to be a statically-analyzable literal in the
+    route segment, so these literals (not an imported constant) stay the on-disk
+    form; the manifest is the source of truth and this keeps them in sync.
+    """
     # /api/v0/chats/** removed in P29 Fas 1B (2026-04-20). Only the engine
     # chat routes carry timeouts now; assist routes remain unchanged.
     route_targets = {
@@ -269,21 +282,26 @@ def sync_route_timeout_literals(
         "src/app/api/ai/brief/route.ts": assist_seconds,
     }
     changed = 0
+    warnings: list[str] = []
     for rel, seconds in route_targets.items():
         fp = repo_root / rel
         if not fp.is_file():
+            warnings.append(f"{rel} (filen saknas)")
             continue
         before = read_text(fp)
-        after = re.sub(
+        after, n = re.subn(
             r"export const maxDuration = \d+;",
             f"export const maxDuration = {int(seconds)};",
             before,
             count=1,
         )
+        if n == 0:
+            warnings.append(f"{rel} (hittade ingen `export const maxDuration = N;`)")
+            continue
         if after != before:
             write_text(fp, after)
             changed += 1
-    return changed
+    return {"changed": changed, "warnings": warnings}
 
 
 def render_where_panel(page: str, dm: dict[str, Any]) -> None:

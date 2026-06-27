@@ -4,7 +4,13 @@ import json
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel, write_json
+from backoffice.shared import (
+    BackofficeContext,
+    read_json,
+    render_where_panel,
+    validate_json_against_schema,
+    write_json,
+)
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -50,9 +56,54 @@ def render(ctx: BackofficeContext) -> None:
         if st.button("Spara env-policy.json"):
             try:
                 parsed = json.loads(raw_e)
-                write_json(ep, parsed)
-                st.success("Sparat.")
-                st.rerun()
             except json.JSONDecodeError as e:
                 st.error(f"Ogiltig JSON: {e}")
+                st.stop()
+            # Validate-on-save mot strict-schemat (samma fail-closed-kärna som
+            # ai_models manifest-editorn). Blockerar en schemabrytande edit innan
+            # write_json, så en trasig env-policy aldrig hamnar på disk.
+            schema_path = (
+                ctx.repo_root / "docs" / "schemas" / "strict" / "env-policy.schema.json"
+            )
+            errs = validate_json_against_schema(parsed, schema_path)
+            if errs:
+                st.error(
+                    "Sparar inte — env-policy bryter mot schemat:\n"
+                    + "\n".join(f"- {message}" for message in errs)
+                )
+                st.stop()
+            rules_list = [r for r in (parsed.get("rules") or []) if isinstance(r, dict)]
+            # Dubblett-koll på rules[].key. JSON Schema kan inte uttrycka
+            # fält-unikhet över array-element, men runtime kollapsar regler på key
+            # (Map i env-audit.ts, dict i manage_env.py) — en dubblett låter tyst
+            # den sista posten vinna. Trimma före jämförelse: " X " och "X"
+            # kollapsar på samma key i runtime.
+            rule_keys = [str(r.get("key") or "").strip() for r in rules_list]
+            dupes = sorted({k for k in rule_keys if k and rule_keys.count(k) > 1})
+            if dupes:
+                st.error(
+                    "Sparar inte — dubblerade rules[].key (runtime kollapsar på key): "
+                    + ", ".join(dupes)
+                )
+                st.stop()
+            # shared_runtime kräver komplett målmiljö-set (appen behövs i alla tre
+            # miljöer). En tom/partiell lista skulle tyst släppa MISSING/TARGET-
+            # varningar i env-audit för en app-kritisk nyckel.
+            required_targets = {"development", "preview", "production"}
+            incomplete = sorted(
+                str(r.get("key"))
+                for r in rules_list
+                if r.get("classification") == "shared_runtime"
+                and not required_targets.issubset(set(r.get("recommendedVercelTargets") or []))
+            )
+            if incomplete:
+                st.error(
+                    "Sparar inte — shared_runtime kräver alla tre "
+                    "recommendedVercelTargets (development, preview, production): "
+                    + ", ".join(incomplete)
+                )
+                st.stop()
+            write_json(ep, parsed)
+            st.success("Sparat (validerad mot env-policy.schema.json).")
+            st.rerun()
 

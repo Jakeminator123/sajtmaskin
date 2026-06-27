@@ -303,7 +303,7 @@ const perTierTimeoutsSchema = tierKeyedSchema(perTierTimeoutSchema);
 const perTierRepairPoliciesSchema = tierKeyedSchema(perTierRepairPolicySchema);
 const perTierBriefingSchema = tierKeyedSchema(perTierBriefingEntrySchema);
 
-const aiModelsManifestSchema = z.object({
+export const aiModelsManifestSchema = z.object({
   schemaVersion: z.number().int().positive(),
   title: z.string().optional(),
   description: z.string().optional(),

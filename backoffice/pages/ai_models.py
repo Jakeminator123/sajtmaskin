@@ -640,8 +640,16 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         rp["repairAcceptTimeoutMinutes"] = int(repair_accept_timeout)
         _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
-        changed = sync_route_timeout_literals(ctx.repo_root, int(engine_timeout), int(assist_timeout))
-        st.success(f"Sparat repair / budget / timeout. Synkade {changed} statiska route-filer.")
+        sync_result = sync_route_timeout_literals(ctx.repo_root, int(engine_timeout), int(assist_timeout))
+        st.success(
+            f"Sparat repair / budget / timeout. Synkade {sync_result['changed']} statiska route-filer."
+        )
+        if sync_result["warnings"]:
+            st.warning(
+                "Kunde inte synka maxDuration i: "
+                + "; ".join(sync_result["warnings"])
+                + ". Kontrollera route-filerna (paritet CI-gatas av route-timeout-manifest-parity.test.ts)."
+            )
         st.rerun()
 
 
@@ -833,8 +841,16 @@ def _render_manifest_json(ctx: BackofficeContext, man_path, manifest: dict[str, 
             assist_timeout = int(
                 (route_timeouts.get("assistRouteMaxDurationSeconds") or {}).get("default", 600)
             )
-            changed = sync_route_timeout_literals(ctx.repo_root, engine_timeout, assist_timeout)
-            st.success(f"Sparat (validerad JSON). Synkade {changed} statiska route-filer.")
+            sync_result = sync_route_timeout_literals(ctx.repo_root, engine_timeout, assist_timeout)
+            st.success(
+                f"Sparat (validerad JSON). Synkade {sync_result['changed']} statiska route-filer."
+            )
+            if sync_result["warnings"]:
+                st.warning(
+                    "Kunde inte synka maxDuration i: "
+                    + "; ".join(sync_result["warnings"])
+                    + ". Kontrollera route-filerna (paritet CI-gatas av route-timeout-manifest-parity.test.ts)."
+                )
             st.rerun()
         except json.JSONDecodeError as e:
             st.error(f"Ogiltig JSON: {e}")

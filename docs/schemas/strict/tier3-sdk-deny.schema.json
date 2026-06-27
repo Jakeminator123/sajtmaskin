@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/tier3-sdk-deny.schema.json",
+  "title": "Sajtmaskin tier-3 SDK deny-list",
+  "description": "Strict schema for config/integrations/tier3-sdk-deny.json — the F2 (design-stage) deny-list of tier-3 backend SDKs. Runtime authority is src/lib/integrations/tier3-sdk-deny.ts (hand-parses + enforces non-empty categories/modules and cross-category module uniqueness). This schema mirrors that contract structurally; the cross-category uniqueness invariant is asserted by tier3-sdk-deny.schema.test.ts (JSON Schema cannot express it).",
+  "type": "object",
+  "required": ["categories"],
+  "additionalProperties": false,
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "description": "Free-form documentation block (purpose + consumers). Not read by runtime.",
+      "additionalProperties": true
+    },
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per deny-list category. Drives both the autofix matcher (flat module list) and the F2 design-stage contract prompt block (one bullet per category).",
+      "items": {
+        "type": "object",
+        "required": ["label", "modules"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(.*\\S)?$",
+            "description": "Human-readable category label (e.g. \"Payments\"). Rendered as one prompt bullet. No leading/trailing whitespace."
+          },
+          "modules": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "npm module specifiers denied in F2 for this category. Must be non-empty, whitespace-free at the edges, and unique within the category (cross-category uniqueness is asserted by the test). The runtime loader (tier3-sdk-deny.ts) trims before its empty/duplicate checks, so a padded value would otherwise pass schema but throw at runtime.",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^\\S(.*\\S)?$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

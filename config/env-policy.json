@@ -1232,6 +1232,228 @@
         "production"
       ],
       "notes": "Timeout for the reduced-budget LLM-fixer retry attempt in milliseconds. Default 120000 so retries get enough wall time after an abort."
+    },
+    {
+      "key": "ADMIN_CREDENTIALS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Admin login credentials; needed where the admin surface is enabled."
+    },
+    {
+      "key": "ADMIN_EMAILS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Comma-separated admin emails for access gating."
+    },
+    {
+      "key": "SUPERADMIN_EMAIL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Superadmin account email."
+    },
+    {
+      "key": "SUPERADMIN_DIAMONDS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Superadmin credit/diamond grant."
+    },
+    {
+      "key": "GITHUB_CLIENT_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "GitHub OAuth client id; pairs with GITHUB_CLIENT_SECRET."
+    },
+    {
+      "key": "GITHUB_CLIENT_ID_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only GitHub OAuth client id."
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Google OAuth client id; pairs with GOOGLE_CLIENT_SECRET."
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only Google OAuth client id."
+    },
+    {
+      "key": "STRIPE_PRICE_10_CREDITS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Stripe price id for the 10-credit pack."
+    },
+    {
+      "key": "STRIPE_PRICE_25_CREDITS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Stripe price id for the 25-credit pack."
+    },
+    {
+      "key": "STRIPE_PRICE_50_CREDITS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Stripe price id for the 50-credit pack."
+    },
+    {
+      "key": "EMAIL_FROM",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Outbound email From-address. Has a code default in serverSchema."
+    },
+    {
+      "key": "ENABLE_PEXELS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Feature flag: Pexels image sourcing in placeholder materialization."
+    },
+    {
+      "key": "USE_RESPONSES_API",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Feature flag: OpenAI Responses API path."
+    },
+    {
+      "key": "DESIGN_SYSTEM_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "v0 design system id."
+    },
+    {
+      "key": "LEGACY_EMAIL_AUTO_VERIFY_BEFORE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Cutoff timestamp for legacy email auto-verify behavior."
+    },
+    {
+      "key": "TEMPLATE_SYNC_REPO_OWNER",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Template-sync target repo owner (GitHub workflow dispatch)."
+    },
+    {
+      "key": "TEMPLATE_SYNC_REPO_NAME",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Template-sync target repo name."
+    },
+    {
+      "key": "TEMPLATE_SYNC_WORKFLOW_FILE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Template-sync workflow file to dispatch."
+    },
+    {
+      "key": "TEMPLATE_SYNC_REF",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Template-sync git ref to dispatch against."
+    },
+    {
+      "key": "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Template-sync flag: include embeddings in the dispatched job."
+    },
+    {
+      "key": "GITHUB_CLIENT_SECRET_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only GitHub OAuth client secret. Explicit dev-only rule so it does not inherit the generic SECRET heuristic (which would recommend preview/production). Pairs with GITHUB_CLIENT_ID_DEV."
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only Google OAuth client secret. Explicit dev-only rule so it does not inherit the generic SECRET heuristic (which would recommend preview/production). Pairs with GOOGLE_CLIENT_ID_DEV."
     }
   ]
 }
