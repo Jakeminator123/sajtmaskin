@@ -33,7 +33,7 @@
         "required": ["key", "classification", "recommendedVercelTargets"],
         "additionalProperties": false,
         "properties": {
-          "key": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1, "pattern": "^\\S(.*\\S)?$" },
           "classification": {
             "type": "string",
             "enum": [

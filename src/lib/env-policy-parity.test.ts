@@ -41,8 +41,10 @@ const policy = envPolicy as {
   knownEmptyOk: string[];
   runtimeOnlyKeys: string[];
   extraKnownKeys: string[];
-  rules: { key: string; classification: string }[];
+  rules: { key: string; classification: string; recommendedVercelTargets: string[] }[];
 };
+
+const ALL_VERCEL_TARGETS = ["development", "preview", "production"] as const;
 
 const serverSchemaKeys = Object.keys(serverSchema.shape).sort();
 
@@ -62,9 +64,32 @@ describe("env-policy rules integrity", () => {
     // later entry override the intended classification/targets while the editor
     // still shows both rows. JSON Schema can't express field-uniqueness across
     // array items, so it is asserted here (and guarded on save in env_policy.py).
-    const keys = policy.rules.map((r) => r.key);
+    // Trim before comparing: " X " and "X" collapse to the same key at runtime.
+    const keys = policy.rules.map((r) => r.key.trim());
     const dupes = [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))].sort();
-    expect(dupes, `duplicate env-policy rules[].key: ${dupes.join(", ")}`).toEqual([]);
+    expect(dupes, `duplicate env-policy rules[].key (trimmed): ${dupes.join(", ")}`).toEqual([]);
+  });
+
+  it("no rule key has leading/trailing whitespace", () => {
+    // Mirrors the schema `pattern` on key; a padded key would collapse onto the
+    // trimmed key at runtime and silently override another rule.
+    const padded = policy.rules.map((r) => r.key).filter((k) => k !== k.trim()).sort();
+    expect(padded, `rule keys with surrounding whitespace: ${padded.join(", ")}`).toEqual([]);
+  });
+
+  it("shared_runtime rules declare the complete Vercel target set", () => {
+    // shared_runtime = app needs it in every environment, so a partial/empty
+    // recommendedVercelTargets would suppress legitimate MISSING/TARGET audit
+    // findings for an app-critical key.
+    const incomplete = policy.rules
+      .filter((r) => r.classification === "shared_runtime")
+      .filter((r) => !ALL_VERCEL_TARGETS.every((t) => (r.recommendedVercelTargets ?? []).includes(t)))
+      .map((r) => r.key)
+      .sort();
+    expect(
+      incomplete,
+      `shared_runtime rules missing the full target set (development/preview/production): ${incomplete.join(", ")}`,
+    ).toEqual([]);
   });
 });
 

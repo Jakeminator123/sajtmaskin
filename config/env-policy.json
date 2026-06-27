@@ -1438,6 +1438,22 @@
         "production"
       ],
       "notes": "Template-sync flag: include embeddings in the dispatched job."
+    },
+    {
+      "key": "GITHUB_CLIENT_SECRET_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only GitHub OAuth client secret. Explicit dev-only rule so it does not inherit the generic SECRET heuristic (which would recommend preview/production). Pairs with GITHUB_CLIENT_ID_DEV."
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET_DEV",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development"
+      ],
+      "notes": "Dev-only Google OAuth client secret. Explicit dev-only rule so it does not inherit the generic SECRET heuristic (which would recommend preview/production). Pairs with GOOGLE_CLIENT_ID_DEV."
     }
   ]
 }
