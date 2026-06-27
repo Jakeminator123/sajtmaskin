@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import {
+  resolvePostRepairFinalize,
+  resolveServerRepairEarlyStopReason,
+} from "./server-repair-policy";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -88,6 +91,32 @@ describe("resolveServerRepairEarlyStopReason", () => {
         gateFailureSignals: 5,
       }),
     ).toBe("no_improvement");
+  });
+});
+
+describe("resolvePostRepairFinalize (#260 P2 — repair-vs-edit finalize)", () => {
+  it("skips finalize on a stale-base no-op so a concurrent edit B is never failed", () => {
+    // A stale-base no-op means a user edit advanced files_json past snapshot A.
+    // The version must NOT be failed regardless of the esbuild error count —
+    // failing it would finalize the user's newer edit B from a stale repair(A).
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: true, remainingErrors: 0 }),
+    ).toBe("skip_stale_base");
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: true, remainingErrors: 3 }),
+    ).toBe("skip_stale_base");
+  });
+
+  it("fails syntax-clean when not stale and no esbuild errors remain", () => {
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: false, remainingErrors: 0 }),
+    ).toBe("fail_syntax_clean");
+  });
+
+  it("fails incomplete when esbuild syntax errors remain and not stale", () => {
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: false, remainingErrors: 2 }),
+    ).toBe("fail_incomplete");
   });
 });
 
