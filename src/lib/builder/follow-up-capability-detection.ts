@@ -11,7 +11,7 @@
  * because no dossier was ever injected.
  *
  * This module is the canonical detector. It maps Swedish + English follow-up
- * phrases onto the 16 dossier capabilities defined in
+ * phrases onto the dossier capabilities defined in
  * `data/dossiers/_index/capability-map.json`, and assigns a *specificity tier*
  * per match so the downstream pipeline (and Plan 07) knows whether to:
  *

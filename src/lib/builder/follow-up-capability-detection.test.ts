@@ -366,3 +366,210 @@ describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify refere
     expect(result.referencesExistingCapability).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// #242 section capabilities — wire-up regression matrix
+// ─────────────────────────────────────────────────────────────────────────
+//
+// #242 added six soft section dossiers + capability-map entries, but the
+// follow-up detector never learned the phrases, so a follow-up like
+// "lägg till kundloggor" injected no dossier. These assert each new section
+// capability is detected from a realistic short add-prompt, plus the
+// carousel/gallery-lightbox disambiguation (image/product-gallery moved off
+// carousel) and the control case that genuine slider/carousel asks still map
+// to `carousel`.
+describe("detectFollowUpCapabilities — #242 section capabilities", () => {
+  it("detects 'kundloggor' as `logo-cloud`", () => {
+    const result = detectFollowUpCapabilities("lägg till kundloggor under hero");
+    expect(result.capabilityIds).toContain("logo-cloud");
+    expect(result.capabilityIds).not.toContain("marquee");
+  });
+
+  it("detects 'trusted by' logo row as `logo-cloud`", () => {
+    const result = detectFollowUpCapabilities("add a trusted by logo strip");
+    expect(result.capabilityIds).toContain("logo-cloud");
+  });
+
+  it("detects 'nyckeltal/statistik' as `stats-counter`", () => {
+    const result = detectFollowUpCapabilities("lägg till nyckeltal/statistik");
+    expect(result.capabilityIds).toContain("stats-counter");
+    expect(result.capabilityIds).not.toContain("analytics");
+  });
+
+  it("detects 'feature cards' / 'tjänstekort' as `feature-grid`", () => {
+    const result = detectFollowUpCapabilities("lägg till feature cards/tjänstekort");
+    expect(result.capabilityIds).toContain("feature-grid");
+  });
+
+  it("detects a bottom 'CTA' as `cta-section`", () => {
+    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
+    expect(result.capabilityIds).toContain("cta-section");
+  });
+
+  it("does NOT detect cta-section for a layout move of an existing CTA button", () => {
+    // Refine/move verb + short prompt → allowDetection gate suppresses it.
+    const result = detectFollowUpCapabilities("Flytta CTA-knappen under rubriken");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+
+  it("detects an enlargeable image gallery as `gallery-lightbox`", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bildgalleri där man kan förstora bilder",
+    );
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  it("detects English 'image gallery' as `gallery-lightbox`, not `carousel`", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with a lightbox");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  it("detects a multi-step wizard as `stepper`", () => {
+    const result = detectFollowUpCapabilities("gör formuläret till en multi-step wizard");
+    expect(result.capabilityIds).toContain("stepper");
+    expect(result.capabilityIds).not.toContain("contact-form");
+  });
+
+  it("control: an explicit 'bildkarusell' still maps to `carousel`", () => {
+    const result = detectFollowUpCapabilities("lägg till en bildkarusell i hero");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+
+  it("control: an explicit 'slider' still maps to `carousel`", () => {
+    const result = detectFollowUpCapabilities("lägg till en slider med tre bilder");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// #250 Codex P2 — false-positive guards
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Codex flagged four precision regressions in the #242 wiring. Each pair below
+// pins the exact false-positive example from the review plus a gated positive
+// that proves the capability still detects genuine requests.
+describe("detectFollowUpCapabilities — #250 Codex P2 false-positive guards", () => {
+  // 1. logo-cloud: bare Swedish "som syns i" / "används av" must need a logo cue.
+  it("does NOT detect logo-cloud for 'en knapp som syns i menyn'", () => {
+    const result = detectFollowUpCapabilities("lägg till en knapp som syns i menyn");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  it("does NOT detect logo-cloud for 'en regel som används av admins'", () => {
+    const result = detectFollowUpCapabilities("lägg till en regel som används av admins");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  it("still detects logo-cloud when a media cue follows ('som syns i medier')", () => {
+    const result = detectFollowUpCapabilities("lägg till en sektion som syns i medier");
+    expect(result.capabilityIds).toContain("logo-cloud");
+  });
+
+  // 2. stepper: bare "flera steg" must be tied to a form/wizard/process flow.
+  it("does NOT detect stepper for 'gör knappen flera steg större'", () => {
+    const result = detectFollowUpCapabilities("gör knappen flera steg större");
+    expect(result.capabilityIds).not.toContain("stepper");
+  });
+
+  it("still detects stepper for a genuine multi-step form ('formuläret till flera steg')", () => {
+    const result = detectFollowUpCapabilities("gör om formuläret till flera steg");
+    expect(result.capabilityIds).toContain("stepper");
+  });
+
+  // 3. cta-section: bare "cta" must not fire on a CTA *button* tweak.
+  it("does NOT detect cta-section for 'gör CTA-knappen större'", () => {
+    const result = detectFollowUpCapabilities("gör CTA-knappen större");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+
+  it("still detects cta-section for a bottom CTA add ('lägg till en CTA längst ner')", () => {
+    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
+    expect(result.capabilityIds).toContain("cta-section");
+  });
+
+  // 4. stats-counter: the StatCounter analytics provider is not a KPI band.
+  it("does NOT detect stats-counter for 'koppla på StatCounter'", () => {
+    const result = detectFollowUpCapabilities("koppla på StatCounter");
+    expect(result.capabilityIds).not.toContain("stats-counter");
+  });
+
+  it("still detects stats-counter for a genuine KPI band ('lägg till nyckeltal')", () => {
+    const result = detectFollowUpCapabilities("lägg till nyckeltal som räknar upp");
+    expect(result.capabilityIds).toContain("stats-counter");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// #250 Codex P2 — round 2 (re-review of the fix commit)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The re-review surfaced two more false-positives (slider-gallery, scrolling
+// logos) and four English/plural coverage gaps. Each is pinned here.
+describe("detectFollowUpCapabilities — #250 Codex P2 round 2", () => {
+  // FP: a gallery with a swipe/slider cue must route to carousel, not lightbox.
+  it("routes 'image gallery with swipe navigation' to carousel, not gallery-lightbox", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with swipe navigation");
+    expect(result.capabilityIds).toContain("carousel");
+    expect(result.capabilityIds).not.toContain("gallery-lightbox");
+  });
+
+  it("still detects gallery-lightbox for a plain enlargeable gallery (no slider cue)", () => {
+    const result = detectFollowUpCapabilities("add an image gallery with a lightbox");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+    expect(result.capabilityIds).not.toContain("carousel");
+  });
+
+  // FP: a scrolling logo strip is marquee, not the static logo-cloud.
+  it("routes 'scrolling brand logos' to marquee, not logo-cloud", () => {
+    const result = detectFollowUpCapabilities("add scrolling brand logos");
+    expect(result.capabilityIds).toContain("marquee");
+    expect(result.capabilityIds).not.toContain("logo-cloud");
+  });
+
+  // Coverage: English customer/client/partner logo phrasings.
+  it("detects English 'customer logos' / 'client logos' / 'partner logos' as logo-cloud", () => {
+    for (const prompt of [
+      "add customer logos under the hero",
+      "add client logos",
+      "add partner logos",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("logo-cloud");
+    }
+  });
+
+  // Coverage: canonical "stats row" / "by the numbers" phrasing.
+  it("detects 'stats row' and 'by the numbers strip' as stats-counter", () => {
+    expect(detectFollowUpCapabilities("add a stats row").capabilityIds).toContain(
+      "stats-counter",
+    );
+    expect(
+      detectFollowUpCapabilities("add a by the numbers strip").capabilityIds,
+    ).toContain("stats-counter");
+  });
+
+  // Coverage: plural "features section/grid" + "services grid".
+  it("detects plural 'features section' and 'services grid' as feature-grid", () => {
+    expect(detectFollowUpCapabilities("add a features section").capabilityIds).toContain(
+      "feature-grid",
+    );
+    expect(detectFollowUpCapabilities("add a services grid").capabilityIds).toContain(
+      "feature-grid",
+    );
+  });
+
+  // Coverage: spaced "multi step" spelling.
+  it("detects spaced 'multi step form' as stepper", () => {
+    const result = detectFollowUpCapabilities("add a multi step form");
+    expect(result.capabilityIds).toContain("stepper");
+  });
+
+  // FP residual: bare CTA + size adjective ("gör CTA större") is a refine.
+  it("does NOT detect cta-section for 'gör CTA större'", () => {
+    const result = detectFollowUpCapabilities("gör CTA större");
+    expect(result.capabilityIds).not.toContain("cta-section");
+  });
+});
