@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { getScaffoldIds } from "../scaffolds";
 import type { ScaffoldId } from "../scaffolds/types";
+import { deepFreeze } from "@/lib/utils/deep-freeze";
 import type {
   FontPairing,
   ScaffoldVariant,
@@ -162,7 +163,10 @@ function loadVariants(): ScaffoldVariant[] {
     }
   }
 
-  cachedVariants = variants;
+  // Deep-freeze the cached variants (array + each variant object) so the
+  // shared refs returned by getVariantById / getDefaultVariantForScaffold and
+  // the filtered arrays from getVariantsForScaffold can't be mutated in place.
+  cachedVariants = deepFreeze(variants);
   return cachedVariants;
 }
 
