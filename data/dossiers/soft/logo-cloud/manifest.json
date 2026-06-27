@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "logo-cloud",
   "label": "Logo Cloud",
+  "promptInstructionMode": "selected-sections",
   "capability": "logo-cloud",
   "codeFidelity": "rewritable",
   "complexity": "simple",

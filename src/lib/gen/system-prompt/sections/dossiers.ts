@@ -113,6 +113,73 @@ function renderCompactDossierInstructions(
   return lines;
 }
 
+// "selected-sections" mode: surface the high-signal do/don't rules from
+// instructions.md (which otherwise never reach the prompt — see
+// `shouldUseFullInstructions`) without shipping the whole file. We pull the
+// canonical guidance headings and cap the total so the prompt stays lean.
+const SELECTED_INSTRUCTION_HEADINGS = ["When to use", "How to integrate", "Avoid"] as const;
+const SELECTED_INSTRUCTIONS_CHAR_CAP = 1100;
+
+/** Split instructions.md into its `# H1` sections (heading + trimmed body). */
+function extractInstructionSections(markdown: string): Array<{ heading: string; body: string }> {
+  const sections: Array<{ heading: string; body: string[] }> = [];
+  let current: { heading: string; body: string[] } | null = null;
+  for (const line of markdown.split(/\r?\n/)) {
+    const m = /^#\s+(.+?)\s*$/.exec(line);
+    if (m) {
+      if (current) sections.push(current);
+      current = { heading: m[1].trim(), body: [] };
+    } else if (current) {
+      current.body.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  return sections.map((s) => ({ heading: s.heading, body: s.body.join("\n").trim() }));
+}
+
+function renderSelectedSectionsInstructions(
+  sel: DossierSelectionResult["selected"][number],
+): string[] {
+  const markdown = sel.entry.instructions?.trim();
+  if (!markdown) return [];
+  const sections = extractInstructionSections(markdown);
+  if (sections.length === 0) return [];
+
+  const picked: string[] = [];
+  let used = 0;
+  for (const wanted of SELECTED_INSTRUCTION_HEADINGS) {
+    const needle = wanted.toLowerCase();
+    const match = sections.find((s) => s.heading.toLowerCase().includes(needle));
+    if (!match || !match.body) continue;
+    const remaining = SELECTED_INSTRUCTIONS_CHAR_CAP - used;
+    if (remaining <= 0) break;
+    let body = match.body;
+    if (body.length > remaining) {
+      body = `${body.slice(0, remaining).trimEnd()} …`;
+    }
+    picked.push(`#### ${match.heading}`, "", body, "");
+    used += body.length;
+  }
+  if (picked.length === 0) return [];
+  return [`### ${sel.entry.label} (\`${sel.entry.id}\`) — key instructions`, "", ...picked];
+}
+
+/**
+ * Resolve which instruction-rendering mode applies to a selected dossier.
+ * The legacy beyond-dossier 3D follow-up special case still wins (full author
+ * instructions); otherwise the manifest's `promptInstructionMode` drives it,
+ * defaulting to compact.
+ */
+function resolveInstructionMode(
+  sel: DossierSelectionResult["selected"][number],
+  opts: DossierRenderOptions,
+): "compact" | "selected-sections" | "full" {
+  if (shouldUseFullInstructions(sel, opts)) return "full";
+  const mode = sel.entry.promptInstructionMode;
+  if (mode === "full" || mode === "selected-sections") return mode;
+  return "compact";
+}
+
 export function renderDossierBlocks(
   dossierSel: DossierSelectionResult | null | undefined,
   opts: DossierRenderOptions = {},
@@ -160,12 +227,21 @@ export function renderDossierBlocks(
       "",
     );
     for (const sel of withInstructions) {
-      if (shouldUseFullInstructions(sel, opts)) {
+      const mode = resolveInstructionMode(sel, opts);
+      if (mode === "full") {
         parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
         parts.push(sel.entry.instructions!.trim(), "");
-      } else {
-        parts.push(...renderCompactDossierInstructions(sel));
+        continue;
       }
+      if (mode === "selected-sections") {
+        const selectedSections = renderSelectedSectionsInstructions(sel);
+        if (selectedSections.length > 0) {
+          parts.push(...selectedSections);
+          continue;
+        }
+        // No extractable sections → fall back to compact (never emit nothing).
+      }
+      parts.push(...renderCompactDossierInstructions(sel));
     }
   }
 

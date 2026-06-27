@@ -128,6 +128,11 @@
       "type": "string",
       "maxLength": 600,
       "description": "Free-form note for curators. Not surfaced to the LLM."
+    },
+    "promptInstructionMode": {
+      "type": "string",
+      "enum": ["compact", "selected-sections", "full"],
+      "description": "How much of instructions.md reaches the codegen prompt. 'compact' (default when omitted): manifest-derived summary only. 'selected-sections': the 'When to use' / 'How to integrate' / 'Avoid' H1 sections of instructions.md, capped at ~1100 chars. 'full': the entire instructions.md verbatim. Use 'selected-sections' for soft section dossiers whose instructions.md carries do/don't rules the model must actually follow at runtime."
     }
   }
 }

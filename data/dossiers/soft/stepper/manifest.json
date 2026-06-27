@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stepper",
   "label": "Stepper",
+  "promptInstructionMode": "selected-sections",
   "capability": "stepper",
   "codeFidelity": "rewritable",
   "complexity": "simple",

@@ -2,6 +2,7 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "cta-section",
   "label": "CTA Section",
+  "promptInstructionMode": "selected-sections",
   "capability": "cta-section",
   "codeFidelity": "rewritable",
   "complexity": "simple",
