@@ -115,3 +115,39 @@ describe("classifySimpleWebsitePath", () => {
     ).toBe("unsupported_prompt_strategy");
   });
 });
+
+// #242 Alt A: a short init prompt that names a section dossier capability must
+// leave the simple fast lane so the full dossier pipeline runs.
+describe("classifySimpleWebsitePath — section_capability_signal (#242 Alt A)", () => {
+  it("blocks the canonical example (kundloggor + nyckeltal)", () => {
+    expect(
+      base({ prompt: "gör en enkel hemsida med kundloggor och nyckeltal" }).reason,
+    ).toBe("section_capability_signal");
+  });
+
+  it("blocks each section capability cue", () => {
+    const cases: Array<[string, string]> = [
+      ["logo-cloud", "Bygg en enkel landningssida med kundloggor i sidfoten."],
+      ["logo-cloud-en", "Build a simple landing page with a trusted by logo strip."],
+      ["stats-counter", "Bygg en enkel sida med nyckeltal som visar resultat."],
+      ["feature-grid", "Bygg en enkel sida med en feature grid."],
+      ["cta-section", "Bygg en enkel landningssida med en tydlig CTA."],
+      ["gallery-lightbox", "Bygg en enkel sida med ett bildgalleri och lightbox."],
+      ["stepper", "Bygg en enkel sida med ett formulär som wizard."],
+    ];
+    for (const [, prompt] of cases) {
+      expect(base({ prompt }).reason).toBe("section_capability_signal");
+    }
+  });
+
+  it("does NOT block ordinary marketing copy without a section cue", () => {
+    // Control: bare "features"/"tjänster" (no grid/section/cards qualifier) and
+    // a plain local-business prompt stay on the fast lane.
+    expect(base({ prompt: "Bygg en enkel hemsida för ett bageri med meny och öppettider." }).reason).toBe(
+      "enabled",
+    );
+    expect(
+      base({ prompt: "Bygg en enkel sida som visar våra features och tjänster." }).reason,
+    ).toBe("enabled");
+  });
+});
