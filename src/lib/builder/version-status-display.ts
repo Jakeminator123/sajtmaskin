@@ -44,6 +44,9 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
 export type VersionDisplayStatus =
   | "idle"
   | "generating"
+  | "autofixing"
+  | "validating"
+  | "preflighting"
   | "verifying"
   | "repairing"
   | "retrying"
@@ -133,10 +136,13 @@ export function mapVersionStatusToDisplay(
     case "failed":
       return makeDisplay("failed", degraded, degradations);
     case "streaming":
-    case "autofixing":
-    case "validating":
-    case "preflighting":
       return makeDisplay("generating", degraded, degradations);
+    case "autofixing":
+      return makeDisplay("autofixing", degraded, degradations);
+    case "validating":
+      return makeDisplay("validating", degraded, degradations);
+    case "preflighting":
+      return makeDisplay("preflighting", degraded, degradations);
     case "done":
       // False-green guard: a completed run with silent skips / stubs is
       // never a clean success token, even when promoted.

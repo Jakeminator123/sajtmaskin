@@ -43,9 +43,18 @@ describe("mapVersionStatusToDisplay — phase branches", () => {
     expect(mapVersionStatusToDisplay(status({ phase: "failed" }), LATEST).status).toBe("failed");
   });
 
-  it("collapses in-flight generation phases to generating", () => {
-    for (const phase of ["streaming", "autofixing", "validating", "preflighting"] as const) {
-      expect(mapVersionStatusToDisplay(status({ phase }), LATEST).status).toBe("generating");
+  it("maps streaming to generating", () => {
+    expect(mapVersionStatusToDisplay(status({ phase: "streaming" }), LATEST).status).toBe(
+      "generating",
+    );
+  });
+
+  it("surfaces granular finalize phases as their own display tokens (P2 bus events)", () => {
+    // P2 (#300): the finalize timeline is now visible — autofixing / validating /
+    // preflighting are surfaced as distinct tokens (with their own Swedish badge
+    // labels + empty-state copy) instead of collapsing into a single generating.
+    for (const phase of ["autofixing", "validating", "preflighting"] as const) {
+      expect(mapVersionStatusToDisplay(status({ phase }), LATEST).status).toBe(phase);
     }
   });
 

@@ -15,6 +15,7 @@ type StreamPart = {
   input?: unknown;
   inputText?: string;
   inputTextDelta?: string;
+  finishReason?: string | null;
 };
 
 function createResult(parts: StreamPart[]) {
@@ -380,5 +381,104 @@ describe("createCodeGenSSEStream", () => {
 
     expect(contentText).toContain("<Thinking>");
     expect(contentText).toContain("Visible output");
+  });
+
+  it("surfaces a length-truncated stream as output_truncated and skips normal finalization", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "finish", finishReason: "length" },
+    ]);
+
+    const truncationError = events.find(
+      (event) =>
+        event.event === "error" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).code === "output_truncated",
+    );
+    expect(truncationError).toBeTruthy();
+    expect((truncationError?.data as Record<string, unknown>).finishReason).toBe("length");
+
+    const truncatedProgress = events.find(
+      (event) =>
+        event.event === "progress" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).phase === "truncated-output",
+    );
+    expect(truncatedProgress).toBeTruthy();
+    expect((truncatedProgress?.data as Record<string, unknown>).finishReason).toBe("length");
+
+    // The truncation path returns early: no normal success/done finalization.
+    expect(events.some((event) => event.event === "done")).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).phase === "done",
+      ),
+    ).toBe(false);
+  });
+
+  it("runs the normal success path for a non-truncated stream (no false-positive output_truncated)", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-start" },
+      { type: "text-delta", textDelta: "<main>Hello</main>" },
+      { type: "finish", finishReason: "stop" },
+    ]);
+
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).step === "generation" &&
+          (event.data as Record<string, unknown>).phase === "done",
+      ),
+    ).toBe(true);
+    expect(events.at(-1)?.event).toBe("done");
+
+    expect(
+      events.some(
+        (event) =>
+          event.event === "error" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).code === "output_truncated",
+      ),
+    ).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).phase === "truncated-output",
+      ),
+    ).toBe(false);
+  });
+
+  it("prefers the truncation path when a stream has content but finishReason=length", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "text-start" },
+      { type: "text-delta", textDelta: "<main>partial output" },
+      { type: "finish", finishReason: "length" },
+    ]);
+
+    const truncationError = events.find(
+      (event) =>
+        event.event === "error" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).code === "output_truncated",
+    );
+    expect(truncationError).toBeTruthy();
+    expect((truncationError?.data as Record<string, unknown>).finishReason).toBe("length");
+    expect(events.some((event) => event.event === "done")).toBe(false);
   });
 });
