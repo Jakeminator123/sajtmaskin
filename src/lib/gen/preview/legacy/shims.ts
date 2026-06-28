@@ -603,6 +603,20 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
     "var QueryClientProvider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
     "var useQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, refetch: function(){} }; };",
     "var useMutation = function() { return { mutate: function(){}, mutateAsync: function(){return Promise.resolve()}, isLoading: false, isError: false, error: null }; };",
+
+    "var confetti = function() { return Promise.resolve(); };",
+    "confetti.reset = function() {}; confetti.create = function() { var fn = function() { return Promise.resolve(); }; fn.reset = function() {}; return fn; };",
+
+    "var ErrorBoundary = function(props) { return React.createElement(React.Fragment, null, props && props.children); };",
+    "var useErrorBoundary = function() { return { showBoundary: function(){}, resetBoundary: function(){} }; };",
+    "var withErrorBoundary = function(Component) { return Component; };",
+
+    "var __rioUseInView = function() { return { ref: function(){}, inView: true, entry: undefined }; };",
+    "var __rioInView = function(props) { var children = props && props.children; if (typeof children === 'function') return children({ inView: true, ref: function(){}, entry: undefined }); return React.createElement(React.Fragment, null, children); };",
+
+    "var __makeVirtualizer = function(options) { var opts = options || {}; var count = typeof opts.count === 'number' ? opts.count : 0; var estimate = typeof opts.estimateSize === 'function' ? opts.estimateSize : function() { return 48; }; var cap = Math.min(Math.max(0, count), 30); var items = []; var offset = 0; for (var i = 0; i < cap; i++) { var size = estimate(i) || 48; items.push({ index: i, key: i, start: offset, size: size, end: offset + size, lane: 0 }); offset += size; } var total = offset; return { getVirtualItems: function() { return items; }, getTotalSize: function() { return total; }, scrollToIndex: function() {}, scrollToOffset: function() {}, measure: function() {}, measureElement: function() {}, getOffsetForIndex: function() { return [0, 'auto']; }, options: opts }; };",
+    "var useVirtualizer = function(options) { return __makeVirtualizer(options); };",
+    "var useWindowVirtualizer = function(options) { return __makeVirtualizer(options); };",
   ];
 
   const emitted = new Set<string>();
@@ -905,6 +919,48 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
         };
         for (const binding of imp.namedImports) {
           emitBinding(binding.local, knownRQ[binding.imported] || "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "canvas-confetti") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "confetti");
+        if (imp.namespaceImport) emitBinding(imp.namespaceImport, "confetti");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "create" ? "confetti.create" : "confetti");
+        }
+        continue;
+      }
+
+      if (imp.source === "react-error-boundary") {
+        const knownEB: Record<string, string> = {
+          ErrorBoundary: "ErrorBoundary",
+          useErrorBoundary: "useErrorBoundary",
+          withErrorBoundary: "withErrorBoundary",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownEB[binding.imported] || "function() { return null; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "react-intersection-observer") {
+        for (const binding of imp.namedImports) {
+          if (binding.imported === "useInView") emitBinding(binding.local, "__rioUseInView");
+          else if (binding.imported === "InView") emitBinding(binding.local, "__rioInView");
+          else emitBinding(binding.local, "function() { return null; }");
+        }
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "__rioInView");
+        continue;
+      }
+
+      if (imp.source === "@tanstack/react-virtual") {
+        const knownVirtual: Record<string, string> = {
+          useVirtualizer: "useVirtualizer",
+          useWindowVirtualizer: "useWindowVirtualizer",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownVirtual[binding.imported] || "function() {}");
         }
         continue;
       }
