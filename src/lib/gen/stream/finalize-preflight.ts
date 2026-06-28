@@ -771,9 +771,9 @@ function ensureDeferredRouteShells(params: {
   files: CodeFile[];
   routePlan: RoutePlan | null | undefined;
   buildSpec: BuildSpec | null | undefined;
-}): { files: CodeFile[]; addedPaths: string[] } {
+}): { files: CodeFile[]; addedPaths: string[]; preservedRealPaths: string[] } {
   const { files, routePlan, buildSpec } = params;
-  if (!routePlan || !buildSpec) return { files, addedPaths: [] };
+  if (!routePlan || !buildSpec) return { files, addedPaths: [], preservedRealPaths: [] };
   const realization = buildSpec.routeRealization ?? {
     mode: "full" as const,
     primaryRoutePath: routePlan.routes.find((route) => route.required)?.path ?? routePlan.routes[0]?.path ?? "/",
@@ -794,11 +794,12 @@ function ensureDeferredRouteShells(params: {
     realization.mode !== "primary-full-with-shells" ||
     realization.shellRoutePaths.length === 0
   ) {
-    return { files, addedPaths: [] };
+    return { files, addedPaths: [], preservedRealPaths: [] };
   }
 
   const nextFiles = [...files];
   const addedPaths: string[] = [];
+  const preservedRealPaths: string[] = [];
 
   for (const shellPath of realization.shellRoutePaths) {
     const route = routePlan.routes.find((candidate) => normalizeRoutePath(candidate.path) === shellPath);
@@ -806,31 +807,50 @@ function ensureDeferredRouteShells(params: {
     const pagePath = routePathToPageFilePath(shellPath);
     const candidatePagePaths = [pagePath, `src/${pagePath}`].map((candidate) => normPath(candidate));
     const shellContent = buildShellPageContent(route);
-    let replacedExisting = false;
+    let materializedExisting = false;
+    let preservedRealExisting = false;
 
     for (let index = 0; index < nextFiles.length; index += 1) {
       const normalizedExistingPath = normPath(nextFiles[index]!.path);
       if (!candidatePagePaths.includes(normalizedExistingPath)) continue;
+      // Add-only guard (P7 fix/autofix-fidelity-guards): a deferred-route
+      // shell must never silently overwrite a real, content-rich page the
+      // model already emitted for this route. Only materialize the shell over
+      // an empty/trivial placeholder (`return null`, empty fragment, `<div/>`,
+      // or no visible copy). Real pages are preserved verbatim.
+      if (!looksLikeEmptyPage(nextFiles[index]!.content)) {
+        preservedRealExisting = true;
+        continue;
+      }
       nextFiles[index] = {
         ...nextFiles[index]!,
         content: shellContent,
         language: "tsx",
       };
-      replacedExisting = true;
+      materializedExisting = true;
     }
 
-    if (!replacedExisting) {
-      nextFiles.push({
-        path: pagePath,
-        content: shellContent,
-        language: "tsx",
-      });
+    if (materializedExisting) {
+      addedPaths.push(shellPath);
+      continue;
     }
+    if (preservedRealExisting) {
+      // A real page already covers this route — leave it untouched.
+      preservedRealPaths.push(shellPath);
+      continue;
+    }
+    nextFiles.push({
+      path: pagePath,
+      content: shellContent,
+      language: "tsx",
+    });
     addedPaths.push(shellPath);
   }
 
-  if (addedPaths.length === 0) return { files, addedPaths: [] };
-  return { files: nextFiles, addedPaths };
+  if (addedPaths.length === 0) {
+    return { files, addedPaths: [], preservedRealPaths };
+  }
+  return { files: nextFiles, addedPaths, preservedRealPaths };
 }
 
 function collectOrchestrationContractIssues(
@@ -937,6 +957,16 @@ export async function runFinalizePreflight({
         type: "route-shells.added",
         chatId,
         paths: shellFill.addedPaths,
+      });
+    }
+    if (shellFill.preservedRealPaths.length > 0) {
+      // Add-only guard fired: the model's real page for a deferred route was
+      // kept instead of being overwritten by a generic shell. Loud so the
+      // "shell silently replaced my real page" fidelity loss is observable.
+      devLogAppend("in-progress", {
+        type: "route-shells.preserved-real-page",
+        chatId,
+        paths: shellFill.preservedRealPaths,
       });
     }
 

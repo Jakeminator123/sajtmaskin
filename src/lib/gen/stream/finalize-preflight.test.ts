@@ -538,6 +538,82 @@ describe("runFinalizePreflight", () => {
     expect(result.preflightIssues.some((issue) => issue.message.includes("/about"))).toBe(false);
   });
 
+  it("does not overwrite an existing real page with a deferred-route shell (add-only guard)", async () => {
+    // P7 (fix/autofix-fidelity-guards): when the model already emitted a real,
+    // content-rich page for a deferred route, the shell pass must preserve it
+    // verbatim instead of silently replacing it with a generic placeholder.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+
+    const realAbout = [
+      'import { TeamGrid } from "@/components/team-grid";',
+      "export default function AboutPage() {",
+      "  return (",
+      "    <main>",
+      "      <h1>Om oss på Acme</h1>",
+      "      <p>Vi är ett litet team som bygger verktyg för svenska företag sedan 2018, med fokus på kvalitet och nära support.</p>",
+      "      <TeamGrid />",
+      "    </main>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "page-addition",
+        scaffoldId: "ecommerce",
+        routePlanSummary: "prompt:brochure:/,/about",
+        stylePack: "commerce",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["ecommerce"],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 28_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+        routeRealization: {
+          mode: "primary-full-with-shells",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: ["/about"],
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "test",
+        routes: [
+          { path: "/", name: "Home", intent: "Primary landing page", required: true },
+          { path: "/about", name: "About", intent: "Tell the company story", required: false },
+        ],
+      },
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+        {
+          path: "app/about/page.tsx",
+          content: realAbout,
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const finalFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const about = finalFiles.find((file) => file.path === "app/about/page.tsx");
+    expect(about?.content).toContain("Om oss på Acme");
+    expect(about?.content).not.toContain("Skapa sida");
+  });
+
   // Plan 11 / open-question #5 regression suite ──────────────────────────
   // Three regression tests that pin the new home-route hard gate +
   // count-parity invariant in `finalize-preflight.ts`.
