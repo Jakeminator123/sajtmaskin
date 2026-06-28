@@ -20,6 +20,17 @@ const qualityGateAllPassed = vi.hoisted(() => vi.fn());
 const buildServerVerifyQualityGateMeta = vi.hoisted(() => vi.fn());
 const compactVisualQAForQualityGateLog = vi.hoisted(() => vi.fn());
 const assertPromoteAllowed = vi.hoisted(() => vi.fn());
+const QualityGateUnavailableError = vi.hoisted(
+  () =>
+    class QualityGateUnavailableError extends Error {
+      retryable: boolean;
+      constructor(message: string, retryable: boolean) {
+        super(message);
+        this.name = "QualityGateUnavailableError";
+        this.retryable = retryable;
+      }
+    },
+);
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
@@ -63,6 +74,7 @@ vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   },
   QUALITY_GATE_SETUP_HINT: "hint",
   QualityGateNotConfiguredError: class QualityGateNotConfiguredError extends Error {},
+  QualityGateUnavailableError,
   describeQualityGateVerification,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
@@ -338,5 +350,45 @@ describe("POST quality-gate", () => {
     expect(markVersionVerifying).not.toHaveBeenCalled();
     expect(runQualityGateChecks).not.toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable 503 (NOT failed) when the verify lane is unreachable", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Preview-host unreachable (network/timeout/HTTP) → typed, retryable error.
+    runQualityGateChecks.mockRejectedValue(
+      new QualityGateUnavailableError("fetch failed", true),
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("quality_gate_unavailable");
+    expect(body.retryable).toBe(true);
+    // An unreachable gate verified nothing — it must NOT false-RED the version.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    // The distributed lease is still released in the `finally`.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 });

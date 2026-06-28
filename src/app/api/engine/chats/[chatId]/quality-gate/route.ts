@@ -26,6 +26,7 @@ import {
   QUALITY_GATE_COMMANDS,
   QUALITY_GATE_SETUP_HINT,
   QualityGateNotConfiguredError,
+  QualityGateUnavailableError,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -360,6 +361,23 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
         return NextResponse.json(gateResult);
       } catch (err) {
+        // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
+        // the gate never evaluated the code, so do NOT mark the version `failed`
+        // (a false-RED verdict) and do NOT hard-500. Surface a retryable 503 the
+        // client can retry; the version stays unpromoted (never false-green) and
+        // the `finally` below still releases the lease. A real check failure does
+        // not reach here — it returns `passed:false` above.
+        if (err instanceof QualityGateUnavailableError) {
+          return NextResponse.json(
+            {
+              error: err.message,
+              code: "quality_gate_unavailable",
+              retryable: err.retryable,
+              hint: QUALITY_GATE_SETUP_HINT,
+            },
+            { status: 503 },
+          );
+        }
         await failVersionVerification(
           internalVersionId,
           "Automatic verification could not complete.",

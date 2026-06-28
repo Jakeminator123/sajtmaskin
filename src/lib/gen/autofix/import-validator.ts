@@ -738,6 +738,21 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
  */
 const ICON_PROPERTY_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*:\s*([A-Z][A-Za-z0-9]*)\b/g;
 
+/**
+ * JSX-prop form of the same idiom: an icon component passed as a prop value,
+ *
+ *   <FeatureCard icon={PawPrint} />
+ *
+ * Like the `icon:` object form, `detectMissingImports` (a JSX *tag* scan) never
+ * sees `PawPrint` here, so on the deterministic export/preview path (no tsc to
+ * drive `ts2304-known-import-fixer`) a missing import ships as a runtime
+ * `ReferenceError` / white screen. Only a BARE PascalCase identifier between the
+ * braces is matched — `icon={<PawPrint/>}` (already covered by the JSX-tag scan)
+ * and `icon={Icons.PawPrint}` (member access) are intentionally NOT matched, so
+ * this never double-imports. Captured group 1 is the candidate icon name.
+ */
+const ICON_PROPERTY_JSX_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*=\s*\{\s*([A-Z][A-Za-z0-9]*)\s*\}/g;
+
 /** Names bound by any import statement (default, named/aliased, namespace). */
 function collectImportedBindings(code: string): Set<string> {
   const names = new Set<string>();
@@ -783,7 +798,8 @@ function fileDeclaresSymbolLocally(code: string, name: string): boolean {
 
 /**
  * Add a missing `lucide-react` value import for icons used only as a bare value
- * in an `icon:` property (no JSX usage). Narrowly scoped to avoid false
+ * in an `icon:` property or an `icon={...}` JSX prop (no JSX-tag usage).
+ * Narrowly scoped to avoid false
  * positives on common-word icon names (`Box`, `Text`, `Image`, …): the name
  * must be a real lucide icon, NOT already imported, NOT declared locally, NOT a
  * Next default-import name (`Image`/`Link`/`Metadata`), and NOT a shadcn
@@ -793,8 +809,12 @@ function fileDeclaresSymbolLocally(code: string, name: string): boolean {
 function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFixEntry[] } {
   const fixes: AutoFixEntry[] = [];
   ICON_PROPERTY_VALUE_RE.lastIndex = 0;
+  ICON_PROPERTY_JSX_VALUE_RE.lastIndex = 0;
   const candidates = new Set<string>();
   for (const m of code.matchAll(ICON_PROPERTY_VALUE_RE)) {
+    candidates.add(m[1]);
+  }
+  for (const m of code.matchAll(ICON_PROPERTY_JSX_VALUE_RE)) {
     candidates.add(m[1]);
   }
   if (candidates.size === 0) return { code, fixes };

@@ -39,6 +39,24 @@ export class QualityGateNotConfiguredError extends Error {
   }
 }
 
+/**
+ * Thrown when the preview-host verify lane could not be reached or did not run
+ * (network error / timeout / HTTP 4xx/5xx / disk-full) — i.e. the gate never
+ * actually evaluated the generated code. This is deliberately distinct from a
+ * real check failure (which comes back as `verify.ok === true` with
+ * `passed:false` results): an unreachable gate must NOT mark the version
+ * `failed` (a false-RED — reporting a verification verdict when nothing was
+ * verified) and should surface as a retryable infra error, not a hard 500.
+ */
+export class QualityGateUnavailableError extends Error {
+  readonly retryable: boolean;
+  constructor(message: string, retryable: boolean) {
+    super(message && message.trim() ? message : "Quality gate verify lane is unavailable.");
+    this.name = "QualityGateUnavailableError";
+    this.retryable = retryable;
+  }
+}
+
 export const QUALITY_GATE_SETUP_HINT =
   "Sätt SAJTMASKIN_PREVIEW_HOST_BASE_URL till preview-hostens root-URL så att appen kan nå verify-lanen (inte /preview). Använd SAJTMASKIN_PREVIEW_HOST_API_KEY om preview-host kräver auth.";
 
@@ -114,7 +132,12 @@ export async function runQualityGateChecks(params: {
   });
 
   if (!verify.ok) {
-    throw new Error(verify.message);
+    // `verify.ok === false` always means the gate could NOT run (unreachable
+    // host / network / timeout / HTTP error / disk-full) — never "the code
+    // failed a check" (those return `ok:true` with `passed:false` rows). Throw a
+    // typed, retryable error so the route can avoid a false-RED `failed` verdict
+    // + hard 500 and instead surface a retryable infra signal.
+    throw new QualityGateUnavailableError(verify.message, verify.retryable);
   }
 
   return {
