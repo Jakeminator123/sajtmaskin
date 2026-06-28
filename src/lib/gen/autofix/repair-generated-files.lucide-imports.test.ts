@@ -276,4 +276,98 @@ export default function MotifSelector() {
     expect(twiceContent).toBe(onceContent);
     expect(twice.fixes.length).toBe(0);
   });
+
+  // Regression for the #290 follow-up: when the existing lucide import is a
+  // MULTI-LINE block, there is no single-line value import for the merge to
+  // find, and the old fresh-insert spliced the new import line between the
+  // `import {` opener and its `} from "lucide-react"` closer — corrupting the
+  // file. The guarded validator then reverted, silently dropping the icon
+  // import and re-shipping the `PawPrint is not defined` white screen.
+  it("adds the icon value beside a MULTI-LINE lucide import without corrupting the block", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/motifs.tsx",
+        language: "tsx",
+        content: `import {
+  Menu,
+  Search,
+} from "lucide-react";
+
+const MOTIFS = [{ label: "Pets", icon: PawPrint }];
+
+export default function Motifs() {
+  return (
+    <nav>
+      <Menu />
+      <Search />
+      {MOTIFS.length}
+    </nav>
+  );
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/motifs.tsx");
+
+    // PawPrint is now actually imported (the white screen is fixed)…
+    expect(file?.content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    // …the original multi-line block's closer survives intact…
+    expect(file?.content).toContain('} from "lucide-react";');
+    // …and the opener was never spliced into (the corruption signature).
+    expect(file?.content).not.toMatch(/import\s*\{\s*\nimport\s/);
+  });
+
+  it("merges into a single-line lucide import that has a trailing comma (no `,,`)", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/trailing.tsx",
+        language: "tsx",
+        content: `import { Menu, } from "lucide-react";
+
+const MOTIFS = [{ icon: PawPrint }];
+
+export default function Trailing() {
+  return <div>{MOTIFS.length}</div>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/trailing.tsx");
+
+    expect(file?.content).toContain('import { Menu, PawPrint } from "lucide-react"');
+    expect(file?.content).not.toContain(",,");
+  });
+
+  it("does NOT import an icon whose name collides with a local `enum` (runtime value)", () => {
+    // An `enum` (unlike `type`/`interface`) creates a runtime value binding, so
+    // adding `import { Menu }` beside `enum Menu` is a duplicate identifier
+    // (TS2440 / esbuild "already declared"). `countParseErrors` does not see
+    // this semantic clash, so the guarded wrapper would NOT revert it — the
+    // local-declaration guard must catch the enum up front.
+    const files: CodeFile[] = [
+      {
+        path: "components/enum-collision.tsx",
+        language: "tsx",
+        content: `enum Menu { Open, Closed }
+
+const ITEMS = [{ label: "Local", icon: Menu }];
+
+export default function EnumCollision() {
+  return <div>{ITEMS.length}{Menu.Open}</div>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/enum-collision.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+  });
 });
