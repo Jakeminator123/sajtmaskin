@@ -19,6 +19,7 @@ import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
   QUALITY_GATE_CHECK_VALUES,
 } from "@/lib/gen/verify/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
@@ -142,6 +143,20 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
     }
     const internalVersionId = scopedVersion.version.id;
+
+    // M#p4qg — server-authoritative verify lane for F3.
+    // The client (`post-checks.ts` `runTier2VerifyLane`) unconditionally posts
+    // the typecheck-only `DESIGN_PREVIEW` lane after *every* stream, including
+    // after an F3/integrations generation. Trusting that body verbatim lets an
+    // `integrations` version get promoted on typecheck alone (build + lint
+    // skipped) = false-green. `lifecycle_stage` is the server-owned source of
+    // truth, so an F3 row always pays for the full `INTEGRATIONS_BUILD` lane and
+    // the client can never downgrade it. F2/design keeps the request checks.
+    const effectiveChecks =
+      scopedVersion.version.lifecycle_stage === "integrations"
+        ? [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]
+        : checks;
+
     const codeFiles = await getVersionFiles(internalVersionId);
     if (codeFiles && codeFiles.length > 0) {
       if (!isQualityGateConfigured()) {
@@ -202,7 +217,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           versionId: internalVersionId,
           files: qualityGateFiles,
-          checks,
+          checks: effectiveChecks,
           });
 
         const visualQA: VisualQAResult | undefined = maybeAnalyzeVisualQAForPassedExportable({
