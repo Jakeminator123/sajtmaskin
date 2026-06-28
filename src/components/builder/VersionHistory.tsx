@@ -238,6 +238,20 @@ export function VersionHistory({
     Number.NEGATIVE_INFINITY,
   );
   const versionLabelById = buildVersionLabelMap(versionList);
+  // Repair-handoff (P10): a server repair that reached `repair_available` does
+  // NOT swap the active preview until the user accepts it — easy to miss when
+  // the only signal is a transient toast. Surface a prominent banner at the top
+  // of the list and route its CTA to the newest pending-repair version.
+  const pendingRepairVersions = versionList.filter(
+    (version) =>
+      version.hasPendingRepair === true ||
+      version.verificationState === "repair_available",
+  );
+  const primaryRepairVersion = pendingRepairVersions.reduce<VersionSummary | null>(
+    (best, version) =>
+      !best || versionRowSortKey(version) > versionRowSortKey(best) ? version : best,
+    null,
+  );
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
@@ -654,6 +668,31 @@ export function VersionHistory({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
+        {primaryRepairVersion && (
+          <div className="mb-2 rounded-lg border border-indigo-500/50 bg-indigo-500/10 p-3 text-xs text-indigo-700 dark:text-indigo-200">
+            <div className="flex items-center gap-2 font-semibold">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              Serverreparation klar att granska
+            </div>
+            <p className="mt-1 text-indigo-700/80 dark:text-indigo-200/80">
+              Vi lagade verifieringsfel i en ny version. Den nuvarande previewn ligger kvar tills
+              du accepterar fixen. Accepteras automatiskt efter en stund om du inte svarar.
+            </p>
+            <Button
+              size="sm"
+              onClick={(e) => handleAcceptRepair(e, primaryRepairVersion)}
+              disabled={acceptingRepairVersionId !== null || restoringVersionId !== null}
+              className="mt-2 h-7 px-2 text-xs"
+            >
+              {acceptingRepairVersionId !== null ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCircle className="mr-1 h-3 w-3" />
+              )}
+              Acceptera fix
+            </Button>
+          </div>
+        )}
         <div className="space-y-2">
           {versionList.map((version, index) => {
             const selectableVersionId = version.versionId || version.id || "";
@@ -1032,7 +1071,7 @@ export function VersionHistory({
                     )}
                     {hasPendingRepair && (
                       <Button
-                        variant="ghost"
+                        variant="default"
                         size="sm"
                         onClick={(e) => handleAcceptRepair(e, version)}
                         disabled={isAcceptingRepair || isRestoring}

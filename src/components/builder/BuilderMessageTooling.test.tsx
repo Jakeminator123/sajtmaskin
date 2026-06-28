@@ -199,11 +199,11 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("First failure: install")).toBeTruthy();
+    expect(screen.getByText("Första fel: install")).toBeTruthy();
     expect(screen.getByText("1.9s")).toBeTruthy();
     expect(screen.getByText("Total: 3.2s")).toBeTruthy();
     expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
-    expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
+    expect(screen.getByText("Visuell QA: 74/100 Under tröskel")).toBeTruthy();
   });
 
   it("shows compact verify-lane summary without structured tool cards", () => {
@@ -253,12 +253,12 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: FAIL")).toBeTruthy();
+    expect(screen.getByText("Verifiering: Underkänd")).toBeTruthy();
     expect(screen.getByText("build (1.8s)")).toBeTruthy();
     expect(screen.getByText("Detalj: Build failed: missing export")).toBeTruthy();
-    expect(screen.getByText("Total: 3.2s • First failure: build")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s • Första fel: build")).toBeTruthy();
     expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
-    expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
+    expect(screen.getByText("Visuell QA: 74/100 Under tröskel")).toBeTruthy();
   });
 
   it("shows compact skipped quality gate reason", () => {
@@ -284,7 +284,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: hoppades över")).toBeTruthy();
+    expect(screen.getByText("Verifiering: hoppades över")).toBeTruthy();
     expect(screen.getByText("Quality gate not configured")).toBeTruthy();
   });
 
@@ -308,7 +308,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: fel")).toBeTruthy();
+    expect(screen.getByText("Verifiering: fel")).toBeTruthy();
     expect(screen.getByText("Quality gate request failed (network error)")).toBeTruthy();
   });
 
@@ -377,7 +377,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Repair: ej fullständig")).toBeTruthy();
+    expect(screen.getByText("Reparation: ej fullständig")).toBeTruthy();
     expect(screen.getAllByText("Status: completed").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Metod: llm")).toBeTruthy();
     expect(
@@ -410,7 +410,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Repair: ej fullständig")).toBeTruthy();
+    expect(screen.getByText("Reparation: ej fullständig")).toBeTruthy();
     expect(screen.getAllByText("Status: request_failed").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Orsak: Repair request failed (HTTP 500)")).toBeTruthy();
   });

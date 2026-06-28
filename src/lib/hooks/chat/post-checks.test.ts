@@ -637,11 +637,11 @@ describe("runPostGenerationChecks", () => {
 
     expect(steps).toEqual(
       expect.arrayContaining([
-        "build: FAIL (exit 1, 1.8s)",
-        "Duration: 3.2s",
-        "Started: 12:00:00Z",
-        "Finished: 12:00:03Z",
-        "First failure: build",
+        "build: Underkänd (exit 1, 1.8s)",
+        "Tid: 3.2s",
+        "Start: 12:00:00Z",
+        "Slut: 12:00:03Z",
+        "Första fel: build",
       ]),
     );
   });

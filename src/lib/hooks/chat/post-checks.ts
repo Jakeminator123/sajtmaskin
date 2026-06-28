@@ -513,7 +513,7 @@ async function runTier2VerifyLane(params: {
     const steps: string[] = [];
     const failedChecks: string[] = [];
     for (const check of data.checks ?? []) {
-      const icon = check.passed ? "PASS" : "FAIL";
+      const icon = check.passed ? "Godkänd" : "Underkänd";
       const durationLabel = formatDurationMs(check.durationMs);
       steps.push(
         `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
@@ -522,18 +522,18 @@ async function runTier2VerifyLane(params: {
     }
     const totalDurationLabel = formatDurationMs(data.verifyLaneDurationMs);
     if (totalDurationLabel) {
-      steps.push(`Duration: ${totalDurationLabel}`);
+      steps.push(`Tid: ${totalDurationLabel}`);
     }
     const startedAtLabel = formatUtcClock(data.jobStartedAt);
     if (startedAtLabel) {
-      steps.push(`Started: ${startedAtLabel}`);
+      steps.push(`Start: ${startedAtLabel}`);
     }
     const finishedAtLabel = formatUtcClock(data.jobFinishedAt);
     if (finishedAtLabel) {
-      steps.push(`Finished: ${finishedAtLabel}`);
+      steps.push(`Slut: ${finishedAtLabel}`);
     }
     if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
-      steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
+      steps.push(`Första fel: ${data.firstFailureCheck.trim()}`);
     }
     // The VM checks can all pass while promotion is still blocked because the
     // finalize verifier flagged the version. Surface that explicitly so the
@@ -555,10 +555,10 @@ async function runTier2VerifyLane(params: {
 
     if (visualQa) {
       const vqaSteps = visualQa.checks.map(
-        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
+        (c) => `visuell:${c.check}: ${c.passed ? "Godkänd" : "Underkänd"} (${c.score}/100) — ${c.detail}`,
       );
       steps.push(
-        `Visual QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "PASS" : "BELOW THRESHOLD"}`,
+        `Visuell QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "Godkänd" : "Under tröskel"}`,
       );
       steps.push(...vqaSteps);
     }

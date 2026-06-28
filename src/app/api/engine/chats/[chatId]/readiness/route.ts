@@ -32,7 +32,10 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
+import {
+  REPAIR_ACCEPT_TIMEOUT_MINUTES,
+  STALE_VERIFICATION_TIMEOUT_MS,
+} from "@/lib/gen/defaults";
 
 function isTimedOutVerificationState(
   verificationState: string | null | undefined,
@@ -131,12 +134,17 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   }
 
   if (status === "repair_available") {
+    const baseDetail =
+      summary ||
+      "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.";
     return {
       id: "version-repair-available",
       title: "En serverreparation väntar på godkännande.",
-      detail:
-        summary ||
-        "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.",
+      // Make the auto-accept behaviour explicit instead of silent: a pending
+      // repair is auto-accepted after REPAIR_ACCEPT_TIMEOUT_MINUTES without a
+      // manual answer (see maybeAutoAcceptTimedOutRepair). Disclosing it here
+      // turns a surprising "sudden fix" into an expected, opted-into outcome.
+      detail: `${baseDetail} Om du inte svarar inom ${REPAIR_ACCEPT_TIMEOUT_MINUTES} minuter accepteras den automatiskt.`,
       severity: "blocker",
       action: "versions",
     };
@@ -289,6 +297,18 @@ async function buildEngineReadiness(
 
   const blockers: ChatReadinessItem[] = [];
   const warnings: ChatReadinessItem[] = [];
+  if (wasAutoAccepted) {
+    // Surface the (previously silent) auto-accept so the user can tell that the
+    // active version changed without an explicit "Acceptera fix" click.
+    warnings.push({
+      id: "repair-auto-accepted",
+      title: "En serverreparation accepterades automatiskt efter timeout.",
+      detail:
+        "Reparationen applicerades utan manuell bekräftelse. Granska resultatet i versionspanelen.",
+      severity: "warning",
+      action: "versions",
+    });
+  }
   const lifecycleStatus = resolveEngineVersionLifecycleStatus({
     releaseState: version.release_state,
     verificationState: version.verification_state,
