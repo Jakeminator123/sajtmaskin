@@ -45,6 +45,7 @@ import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
 import { mapVersionStatusToDisplay } from "@/lib/builder/version-status-display";
+import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelLabel,
@@ -974,7 +975,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activePreviewSessionId={vm.activePreviewSessionId}
               previewLifecycle={vm.previewLifecycle}
               activeVersionStatus={activeVersionStatus}
-              activeVersionSummary={activeVersionSummary?.verificationSummary ?? null}
+              activeVersionSummary={localizeVerificationSummary(
+                activeVersionSummary?.verificationSummary ?? null,
+              )}
               activeVersionIsLatest={activeVersionIsLatest}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
               versionMismatchPayload={vm.versionMismatchPayload}

@@ -183,7 +183,6 @@ export function localizeVerificationSummary(
     "Pending repair could not be verified against the current files; please re-run repair.":
       "Väntande reparation kunde inte verifieras mot de aktuella filerna. Kör reparationen igen.",
     "Superseded by repaired version.": "Ersatt av reparerad version.",
-    "Verifier skipped under heavy load.": "Verifier hoppades över på grund av hög belastning.",
   };
   if (exact[summary]) return exact[summary];
 
@@ -230,7 +229,7 @@ export function resolveVersionHistorySummary(
   if (display.status === "degraded") {
     return (
       summary ||
-      localizeVerificationSummary(display.degradations[0]?.message) ||
+      display.degradations[0]?.message ||
       "Klar men verifier/produkt-postcheck hoppades över eller hittade blockerande fel."
     );
   }
