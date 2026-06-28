@@ -37,11 +37,48 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
     expect(decision.allowed).toBe(true);
   });
 
-  it("fails open (allows) when the signal read throws (e.g. DB not configured)", async () => {
+  it("fails open by default (allows) when the signal read throws (back-compat)", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => {
       throw new Error("db not configured");
     });
     expect(decision.allowed).toBe(true);
+  });
+
+  it("fails closed (indeterminate) on a read error when opted in (B08)", async () => {
+    const decision = await assertPromoteAllowed(
+      "ver-1",
+      async () => {
+        throw new Error("db timeout");
+      },
+      { onReadError: "indeterminate" },
+    );
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect("indeterminate" in decision && decision.indeterminate).toBe(true);
+      expect(decision.reason).toContain("promote guard signal unavailable");
+      expect(decision.reason).toContain("db timeout");
+    }
+  });
+
+  it("still ALLOWS a null (no-telemetry) signal even when opted into fail-closed", async () => {
+    // A `null` is not a read ERROR — the no-telemetry back-compat path must stay
+    // fail-open regardless of `onReadError`, so template-import/rollback rows are
+    // never blocked.
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+    });
+    expect(decision.allowed).toBe(true);
+  });
+
+  it("still BLOCKS an explicit blocking signal even when opted into fail-closed", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => "verifier_failed", {
+      onReadError: "indeterminate",
+    });
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect("indeterminate" in decision).toBe(false);
+      expect("signal" in decision && decision.signal).toBe("verifier_failed");
+    }
   });
 
   it("does not block on unknown/legacy signal values", async () => {
