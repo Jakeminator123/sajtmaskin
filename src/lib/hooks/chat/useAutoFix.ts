@@ -435,11 +435,39 @@ async function isVersionUnderServerRepair(chatId: string, versionId: string): Pr
       { method: "GET" },
     );
     if (!response.ok) return false;
+    // The /readiness route answers `{ success, readiness: { ..., info: {
+    // lifecycleStatus, lifecycleStage, ... } } }` — NOT a top-level
+    // `verificationState`. The old parse read `data.verificationState`, which is
+    // always `undefined`, so this guard silently never triggered and client
+    // autofix could stream into a version while a server-side repair was
+    // mutating it. Parse the real nested shape instead.
     const data = (await response.json().catch(() => null)) as
-      | { verificationState?: string | null }
+      | {
+          readiness?: {
+            info?: {
+              lifecycleStatus?: string | null;
+              lifecycleStage?: string | null;
+            } | null;
+          } | null;
+        }
       | null;
-    const state = typeof data?.verificationState === "string" ? data.verificationState : "";
-    return state === "verifying" || state === "repairing" || state === "repair_available";
+    const info = data?.readiness?.info;
+    const status = typeof info?.lifecycleStatus === "string" ? info.lifecycleStatus : "";
+    const stage = typeof info?.lifecycleStage === "string" ? info.lifecycleStage : "";
+    // `repairing` / `repair_available` are unambiguous server-repair states: a
+    // server-side repair is actively mutating the version, or a repaired version
+    // is awaiting acceptance — never run client autofix on top of either.
+    if (status === "repairing" || status === "repair_available") return true;
+    // `verifying` means an ACTIVE server-verify only for F3 (`integrations`)
+    // rows. F2 (`design`) rows sit in the same `verifying` lifecycle status while
+    // merely pending — design preview skips server-verify
+    // (`design_preview_skip_verify`), so the row never leaves `verifying` even
+    // though nothing is running. Treating that as "under server repair" would
+    // permanently block client autofix on every F2 version, which is exactly
+    // when post-check autofix is supposed to run. So only block on `verifying`
+    // when the stage is `integrations`.
+    if (status === "verifying" && stage === "integrations") return true;
+    return false;
   } catch {
     return false;
   }
