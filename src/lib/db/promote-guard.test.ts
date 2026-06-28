@@ -13,7 +13,7 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
   it("blocks promotion when the finalize verifier failed", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => "verifier_failed");
     expect(decision.allowed).toBe(false);
-    if (!decision.allowed) {
+    if (!decision.allowed && "signal" in decision) {
       expect(decision.signal).toBe("verifier_failed");
       expect(decision.reason).toContain("verifier_failed");
     }
@@ -22,7 +22,7 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
   it("blocks promotion when preflight verification failed", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => "preflight_failed");
     expect(decision.allowed).toBe(false);
-    if (!decision.allowed) {
+    if (!decision.allowed && "signal" in decision) {
       expect(decision.signal).toBe("preflight_failed");
     }
   });
