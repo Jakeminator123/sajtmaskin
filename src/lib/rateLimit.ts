@@ -40,6 +40,10 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
+  // OC_DEBUG Mode B bug-hunt: each call drives real generation/repair for up to
+  // maxDuration, so a tight bucket caps runaway cost/load even if the operator
+  // token leaks. Without an explicit entry it would inherit the 90/min default.
+  "openclaw:debug-run": { maxRequests: 6, windowMs: 60 * 1000 },
   "did:chat": { maxRequests: 20, windowMs: 60 * 1000 },
   "template:init": { maxRequests: 10, windowMs: 60 * 1000 },
   "domains:suggest": { maxRequests: 15, windowMs: 60 * 1000 },

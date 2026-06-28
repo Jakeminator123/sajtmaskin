@@ -48,12 +48,20 @@ export interface HttpEngineClientOptions {
   projectId?: string;
   /** Injectable fetch (tests). Defaults to global fetch. */
   fetchImpl?: typeof fetch;
-  /** Per-request timeout (ms). */
+  /** Per-request timeout (ms) for generation/build calls. */
   requestTimeoutMs?: number;
-  /** Max polls while waiting for a version to settle. */
+  /**
+   * Max polls while waiting for a version to settle. The default keeps the
+   * worst-case settle wait (settleMaxPolls * settlePollIntervalMs) safely under
+   * the run route's maxDuration so a stuck version doesn't run the invocation
+   * past its serverless ceiling (Bugbot).
+   */
   settleMaxPolls?: number;
   /** Delay between settle polls (ms). */
   settlePollIntervalMs?: number;
+  /** Short per-poll timeout (ms) for the version-status read — a hung status
+   * read must not consume the full generation `requestTimeoutMs`. */
+  settleRequestTimeoutMs?: number;
 }
 
 /**
@@ -130,8 +138,13 @@ export function createHttpEngineClient(
   const appProjectId = options.appProjectId?.trim() || undefined;
   const projectId = options.projectId?.trim() || undefined;
   const timeoutMs = options.requestTimeoutMs ?? 290_000;
-  const settleMaxPolls = options.settleMaxPolls ?? 120;
+  // 80 * 3s = 240s worst-case settle wait, under the run route's 300s
+  // maxDuration (Bugbot). createChat already drains the generation stream, so a
+  // settled version normally resolves in 1-2 polls; the cap only bounds a stuck
+  // version.
+  const settleMaxPolls = options.settleMaxPolls ?? 80;
   const settlePollIntervalMs = options.settlePollIntervalMs ?? 3_000;
+  const settleRequestTimeoutMs = options.settleRequestTimeoutMs ?? 20_000;
 
   const headers = (extra?: Record<string, string>): Record<string, string> => ({
     "Content-Type": "application/json",
@@ -239,7 +252,7 @@ export function createHttpEngineClient(
         try {
           const res = await doFetch(
             `${baseUrl}/api/engine/chats/${ref.chatId}/version-status?versionId=${encodeURIComponent(ref.versionId)}`,
-            { method: "GET", headers: headers(), signal: AbortSignal.timeout(timeoutMs) },
+            { method: "GET", headers: headers(), signal: AbortSignal.timeout(settleRequestTimeoutMs) },
           );
           if (res.ok) {
             const data = await res.json().catch(() => null);
