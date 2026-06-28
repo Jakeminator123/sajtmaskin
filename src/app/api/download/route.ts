@@ -8,6 +8,7 @@ import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -31,7 +32,9 @@ async function buildZipBufferFromEngineVersion(
   if (!files || files.length === 0) {
     return null;
   }
-  const completeProject = await buildExportableProject(files);
+  // Strip the verify-lane placeholder `.env.local` at the download boundary
+  // (the shared builder keeps it for the verify/quality-gate lane).
+  const completeProject = stripGeneratedEnvLocalForZip(await buildExportableProject(files));
   const zip = new JSZip();
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";

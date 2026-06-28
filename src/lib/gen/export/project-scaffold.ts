@@ -365,6 +365,28 @@ const NEXT_ENV_D_TS = `/// <reference types="next" />
 // This file is maintained by Next.js — do not edit manually.
 `;
 
+/**
+ * Standard Next.js project ignore list. Inert for typecheck/build/verify (git
+ * never reads it during those), but it keeps `node_modules`, build output and
+ * env files out of a user's repo after they `git init` an exported project.
+ *
+ * `.env*` matches every dotted env file (`.env`, `.env.local`, …) but NOT the
+ * canonical `env.example` (no leading dot, `PROJECT_ENV_FILE_PATH`), so the env
+ * template stays tracked. `!.env.example` re-includes the dotted variant if a
+ * project ships one.
+ */
+const GITIGNORE = `node_modules
+.next
+out
+build
+dist
+.env*
+!.env.example
+.vercel
+*.log
+.DS_Store
+`;
+
 const SCAFFOLD_FILES: Record<string, string> = {
   "package.json": PACKAGE_JSON,
   "next-env.d.ts": NEXT_ENV_D_TS,
@@ -379,6 +401,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "app/sitemap.ts": SITEMAP_TS,
   "lib/utils.ts": LIB_UTILS,
   "hooks/use-reduced-motion.ts": LIB_USE_REDUCED_MOTION,
+  ".gitignore": GITIGNORE,
 };
 
 const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
