@@ -607,6 +607,13 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         step=10,
         key="rt_assist",
     )
+    verify_repair_timeout = st.number_input(
+        "Verify/repair-route maxDuration (sekunder)",
+        value=int((rt.get("verifyRepairRouteMaxDurationSeconds") or {}).get("default", 420)),
+        step=10,
+        key="rt_verify_repair",
+        help="Quality-gate och manuell repair. Styr även stale-verification-watchdog.",
+    )
     stream_timeout = st.number_input(
         "Klientens stream-safety-timeout (millisekunder)",
         value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 840000)),
@@ -698,6 +705,9 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         tb.setdefault("assistMaxOutputTokens", {})["default"] = int(assist_tokens)
         rt.setdefault("engineRouteMaxDurationSeconds", {})["default"] = int(engine_timeout)
         rt.setdefault("assistRouteMaxDurationSeconds", {})["default"] = int(assist_timeout)
+        rt.setdefault("verifyRepairRouteMaxDurationSeconds", {})["default"] = int(
+            verify_repair_timeout
+        )
         rt.setdefault("streamSafetyTimeoutMs", {})["default"] = int(stream_timeout)
         p_ver_tok["default"] = int(ver_out)
         p_ver_ms["default"] = int(ver_ms)

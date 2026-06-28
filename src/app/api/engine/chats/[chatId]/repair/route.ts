@@ -50,7 +50,7 @@ import {
 import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 420;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -312,8 +312,9 @@ async function handlePOST(
         });
       }
       // Codex P2 (renew before the post-repair gate): shouldPromoteAfterRepair
-      // runs a preview-host verify that can take up to 300s. Renew here so a
-      // slow gate cannot expire the lease before the renew-before-save below.
+      // runs a preview-host verify that can take up to ~390s (verify timeout,
+      // kept 30s under the route budget). Renew here so a slow gate cannot
+      // expire the lease before the renew-before-save below.
       if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       const exportable = await buildExportableProject(repairedFiles);
       // #260 Codex P2 (build-origin false-green): if the failure that triggered

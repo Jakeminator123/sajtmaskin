@@ -35,4 +35,12 @@ export const ROUTE_TIMEOUT_TARGETS = [
     rel: "src/app/api/ai/brief/route.ts",
     manifestField: "assistRouteMaxDurationSeconds",
   },
+  {
+    rel: "src/app/api/engine/chats/[chatId]/repair/route.ts",
+    manifestField: "verifyRepairRouteMaxDurationSeconds",
+  },
+  {
+    rel: "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
+    manifestField: "verifyRepairRouteMaxDurationSeconds",
+  },
 ];
