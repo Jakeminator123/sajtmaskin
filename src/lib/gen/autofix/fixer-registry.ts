@@ -341,7 +341,9 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "so it also catches non-JSX value usages. Invoked from the repair-loop " +
       "deterministic import-repair pre-pass (repair-loop/deterministic-import-repair.ts) " +
       "BEFORE the LLM fixer. shadcn∩lucide ambiguous names (Calendar, Toggle, …) " +
-      "are left for the LLM. Stripe resolves only in API route / route-handler files.",
+      "are left for the LLM. Stripe resolves only in API route / route-handler files. " +
+      "Tier-3 backend SDKs (Clerk-server, Stripe) are only (re)introduced in F3 " +
+      "(fidelity3); in F2 they stay residual so the F2 SDK guard is never undone.",
   },
   {
     id: "metadata-import-fixer",

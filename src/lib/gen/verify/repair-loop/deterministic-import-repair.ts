@@ -40,6 +40,7 @@ import { fixImportedDeclarationConflicts } from "@/lib/gen/autofix/common-import
 import { fixDuplicateImportBindings } from "@/lib/gen/autofix/rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "@/lib/gen/autofix/rules/duplicate-import-local-type-collision-fixer";
 import type { FixEntry } from "@/lib/gen/autofix/types";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { type ParsedRepairDiagnostic, toPosixPath } from "./diagnostics-parser";
 
 const CANNOT_FIND_NAME_RE = /Cannot find name '[^']+'/;
@@ -55,6 +56,16 @@ export interface DeterministicImportRepairResult {
   fixes: FixEntry[];
   /** Distinct TS codes a fixer actually resolved (for telemetry). */
   handledCodes: string[];
+}
+
+export interface DeterministicImportRepairOptions {
+  /**
+   * The version's preview policy. Tier-3 backend SDK imports (stripe, Clerk
+   * server, …) are only re-introduced when `"fidelity3"` (F3). In F2 / unknown
+   * they stay residual so the F2/F3 contract is never violated by a silent
+   * deterministic promotion. Defaults to F2-safe behaviour.
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
 }
 
 function ensureSet<K>(map: Map<K, Set<string>>, key: K): Set<string> {
@@ -73,7 +84,11 @@ function ensureSet<K>(map: Map<K, Set<string>>, key: K): Set<string> {
 export function runDeterministicImportRepair(
   content: string,
   diagnostics: ReadonlyArray<ParsedRepairDiagnostic>,
+  options: DeterministicImportRepairOptions = {},
 ): DeterministicImportRepairResult {
+  // F3 (integrations build) is the only stage allowed to (re)introduce tier-3
+  // backend SDK imports. F2 / unknown → keep them residual (P1 contract guard).
+  const allowTier3 = options.previewPolicy === "fidelity3";
   // Bucket diagnostics by the fixer they drive.
   const ts2304Diagnostics: ParsedRepairDiagnostic[] = [];
   const ts1361SymbolsByFile = new Map<string, Set<string>>();
@@ -108,7 +123,7 @@ export function runDeterministicImportRepair(
 
   // 1) TS2304 / TS2552 — whole-project, diagnostic-driven known-import fixer.
   if (ts2304Diagnostics.length > 0) {
-    const result = fixKnownTs2304Imports(working, ts2304Diagnostics);
+    const result = fixKnownTs2304Imports(working, ts2304Diagnostics, { allowTier3 });
     if (result.addedImports.length > 0) {
       working = result.code;
       for (const fix of result.fixes) {

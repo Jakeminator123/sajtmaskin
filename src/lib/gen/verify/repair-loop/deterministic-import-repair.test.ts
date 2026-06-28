@@ -31,40 +31,85 @@ describe("runDeterministicImportRepair", () => {
     expect(result.content).toContain('import { Button } from "@/components/ui/button"');
   });
 
-  it("resolves Stripe as a default import in an API route (TS2552)", () => {
-    const routeFile = "app/api/checkout-session/route.ts";
-    const content = file(
-      routeFile,
-      `export async function POST() {
+  const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
+  const stripeContent = file(
+    STRIPE_ROUTE,
+    `export async function POST() {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   return Response.json({ id: stripe ? 1 : 0 });
 }`,
+  );
+  const CLERK_MW = "middleware.ts";
+  const clerkContent = file(
+    CLERK_MW,
+    `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
+export default clerkMiddleware((auth, req) => {
+  if (isProtected(req)) auth().protect();
+});`,
+  );
+
+  it("resolves Stripe as a default import in an API route in F3 (TS2552)", () => {
+    const result = runDeterministicImportRepair(
+      stripeContent,
+      [diag(STRIPE_ROUTE, "Cannot find name 'Stripe'. Did you mean 'stripe'?")],
+      { previewPolicy: "fidelity3" },
     );
-    const result = runDeterministicImportRepair(content, [
-      diag(routeFile, "Cannot find name 'Stripe'. Did you mean 'stripe'?"),
-    ]);
 
     expect(result.fixed).toBe(true);
     expect(result.handledCodes).toContain("TS2304");
     expect(result.content).toContain('import Stripe from "stripe"');
   });
 
-  it("resolves Clerk server helpers in middleware (TS2304)", () => {
-    const mw = "middleware.ts";
-    const content = file(
-      mw,
-      `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
-export default clerkMiddleware((auth, req) => {
-  if (isProtected(req)) auth().protect();
-});`,
+  it("resolves Clerk server helpers in middleware in F3 (TS2304)", () => {
+    const result = runDeterministicImportRepair(
+      clerkContent,
+      [
+        diag(CLERK_MW, "Cannot find name 'clerkMiddleware'."),
+        diag(CLERK_MW, "Cannot find name 'createRouteMatcher'."),
+      ],
+      { previewPolicy: "fidelity3" },
     );
-    const result = runDeterministicImportRepair(content, [
-      diag(mw, "Cannot find name 'clerkMiddleware'."),
-      diag(mw, "Cannot find name 'createRouteMatcher'."),
-    ]);
 
     expect(result.fixed).toBe(true);
     expect(result.content).toContain('from "@clerk/nextjs/server"');
+  });
+
+  it("P1: leaves tier-3 SDK imports residual in F2 (never re-adds Stripe/Clerk)", () => {
+    // The F2 SDK guard stripped these; re-adding them after the guard would let
+    // an F2 design-preview promote silently with a forbidden backend import.
+    const stripeF2 = runDeterministicImportRepair(stripeContent, [
+      diag(STRIPE_ROUTE, "Cannot find name 'Stripe'. Did you mean 'stripe'?"),
+    ]); // no previewPolicy → F2-safe default
+    expect(stripeF2.fixed).toBe(false);
+    expect(stripeF2.handledCodes).toEqual([]);
+    expect(stripeF2.content).not.toContain('import Stripe from "stripe"');
+
+    const clerkF2 = runDeterministicImportRepair(
+      clerkContent,
+      [
+        diag(CLERK_MW, "Cannot find name 'clerkMiddleware'."),
+        diag(CLERK_MW, "Cannot find name 'createRouteMatcher'."),
+      ],
+      { previewPolicy: "fidelity2" },
+    );
+    expect(clerkF2.fixed).toBe(false);
+    expect(clerkF2.content).not.toContain('from "@clerk/nextjs/server"');
+  });
+
+  it("resolves non-tier-3 shadcn imports in BOTH F2 and F3 (unchanged by the gate)", () => {
+    const content = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Card>x</Card>;
+}`,
+    );
+    const diagnostics = [diag("app/page.tsx", "Cannot find name 'Card'.")];
+
+    for (const previewPolicy of ["fidelity2", "fidelity3"] as const) {
+      const result = runDeterministicImportRepair(content, diagnostics, { previewPolicy });
+      expect(result.fixed).toBe(true);
+      expect(result.content).toContain('import { Card } from "@/components/ui/card"');
+    }
   });
 
   it("flips an `import type` used as an object value (TS1361)", () => {

@@ -4,6 +4,7 @@ import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { countByFixer } from "@/lib/gen/autofix/types";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { runDeterministicImportRepair } from "./repair-loop/deterministic-import-repair";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
@@ -68,6 +69,12 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * import-repair pre-pass. Optional so non-chat callers (eval) can omit it.
    */
   chatId?: string;
+  /**
+   * Version preview policy (F2 `"fidelity2"` / F3 `"fidelity3"`). Gates the
+   * deterministic import-repair: tier-3 backend SDK imports are only
+   * (re)introduced in F3. Omitted → treated as F2-safe (never adds tier-3).
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
   failedOutputs: RepairFailedOutput[];
   contextLines: string[];
   maxLlmPasses: number;
@@ -437,6 +444,7 @@ export async function runRepairLoop<TPayload = unknown>(
   const importRepair = runDeterministicImportRepair(
     content,
     params.failedOutputs.flatMap(parseDiagnosticsFromFailure),
+    { previewPolicy: params.previewPolicy },
   );
   if (importRepair.fixed) {
     content = importRepair.content;

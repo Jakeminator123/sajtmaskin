@@ -29,6 +29,7 @@ import {
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
@@ -341,6 +342,8 @@ export async function triggerServerVerification(params: {
       versionId,
       codeFiles,
       baseFilesJson,
+      previewPolicy:
+        snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
       failedOutputs,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
       firstFailureCheck: gateResult.firstFailureCheck,
@@ -514,6 +517,8 @@ export async function triggerBuildErrorRepair(params: {
       versionId,
       codeFiles,
       baseFilesJson,
+      previewPolicy:
+        snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
       failedOutputs: [failedOutput],
       verifyLaneDurationMs: 0,
       firstFailureCheck: "build",
@@ -599,6 +604,12 @@ async function tryServerRepairLoop(params: {
   /** Distributed-lease owner id (Plan C). Undefined = legacy Set-only path. */
   runId?: string;
   /**
+   * Version preview policy (F2 `"fidelity2"` / F3 `"fidelity3"`). Threaded into
+   * `runRepairLoop` so the deterministic import-repair only (re)introduces
+   * tier-3 backend SDK imports in F3. Omitted → F2-safe.
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
+  /**
    * #260 Codex P2 (forced build gate): the re-verify that spawned this loop was
    * intentionally build-originated (`forceBuildCheck`). OR this into the local
    * `buildOriginated` so a round where `build` passes but `typecheck` fails does
@@ -619,6 +630,7 @@ async function tryServerRepairLoop(params: {
     jobFinishedAt,
     onRepairAvailable,
     runId,
+    previewPolicy,
     forceBuildGate = false,
   } = params;
   const verifyContext = {
@@ -821,6 +833,7 @@ async function tryServerRepairLoop(params: {
   const loopResult = await runRepairLoop({
     initialContent,
     chatId,
+    previewPolicy,
     failedOutputs,
     contextLines: repairLogContext.contextLines,
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,

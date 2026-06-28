@@ -180,6 +180,15 @@ TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-tvetydiga namn
 (t.ex. `Calendar`, `Toggle`) lämnas också till LLM. Stripe löses bara i
 API-route-/route-handler-filer. Alla fixers är idempotenta.
 
+**F2/F3-kontrakt (tier-3 SDK):** F2-guarden (`tier3-sdk-guard-fixer`) strippar
+tier-3 backend-SDK-importer (`stripe`, `@clerk/nextjs/server`, …) i F2. Pre-passen
+får därför INTE lägga tillbaka dem i F2 — det skulle kunna tyst-promota en F2-
+version med förbjuden backend-import (promotion-gaten kör bara tsc/lint/build och
+re-enforce:ar inte F2/F3). Pre-passen tar `previewPolicy` (trådad från
+versionens `lifecycle_stage`: `integrations` ⇒ `fidelity3`) och löser tier-3-
+moduler (enligt `isTier3SdkModule`) **endast** i F3. I F2/okänt lämnas de
+residual så gaten blockerar. Icke-tier-3 (shadcn/lucide/next) är opåverkat.
+
 Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers) och
 `validate.tsc.import-repair.resolved` (`llmSkippedBecauseResolved: true`) i
 dev-loggen, så prod-analys kan se om autofix saknades, lagade eller orsakade

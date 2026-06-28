@@ -260,24 +260,27 @@ export function cn(...inputs: ClassValue[]) {
     expect(result.code.match(/from "@\/components\/ui\/card"/g)).toHaveLength(1);
   });
 
-  it("resolves Clerk server helpers to @clerk/nextjs/server (prod TS2304/2552)", () => {
-    const middleware = "middleware.ts";
-    const content = project(
-      middleware,
-      `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
+  const CLERK_MIDDLEWARE = "middleware.ts";
+  const clerkMiddlewareContent = project(
+    CLERK_MIDDLEWARE,
+    `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
 
 export default clerkMiddleware((auth, req) => {
   if (isProtected(req)) auth().protect();
 });`,
-    );
+  );
+  const clerkDiagnostics = [
+    { file: CLERK_MIDDLEWARE, message: "Cannot find name 'clerkMiddleware'." },
+    {
+      file: CLERK_MIDDLEWARE,
+      message: "Cannot find name 'createRouteMatcher'. Did you mean 'createRouteMatcher'?",
+    },
+  ];
 
-    const result = fixKnownTs2304Imports(content, [
-      { file: middleware, message: "Cannot find name 'clerkMiddleware'." },
-      {
-        file: middleware,
-        message: "Cannot find name 'createRouteMatcher'. Did you mean 'createRouteMatcher'?",
-      },
-    ]);
+  it("resolves Clerk server helpers to @clerk/nextjs/server in F3 (allowTier3)", () => {
+    const result = fixKnownTs2304Imports(clerkMiddlewareContent, clerkDiagnostics, {
+      allowTier3: true,
+    });
 
     expect(result.code).toContain('from "@clerk/nextjs/server"');
     expect(result.code).toContain("clerkMiddleware");
@@ -285,30 +288,47 @@ export default clerkMiddleware((auth, req) => {
     expect(result.code.match(/from "@clerk\/nextjs\/server"/g)).toHaveLength(1);
   });
 
-  it("resolves Stripe as a default import in an API route (prod TS2552)", () => {
-    const routeFile = "app/api/checkout-session/route.ts";
-    const content = project(
-      routeFile,
-      `export async function POST() {
+  it("leaves Clerk server helpers residual in F2 (default — never undo the F2 SDK guard)", () => {
+    const result = fixKnownTs2304Imports(clerkMiddlewareContent, clerkDiagnostics);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(clerkMiddlewareContent);
+  });
+
+  const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
+  const stripeRouteContent = project(
+    STRIPE_ROUTE,
+    `export async function POST() {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   return Response.json({ ok: true });
 }`,
-    );
+  );
+  const stripeDiagnostics = [
+    { file: STRIPE_ROUTE, message: "Cannot find name 'Stripe'. Did you mean 'stripe'?" },
+  ];
 
-    const result = fixKnownTs2304Imports(content, [
-      { file: routeFile, message: "Cannot find name 'Stripe'. Did you mean 'stripe'?" },
-    ]);
+  it("resolves Stripe as a default import in an API route in F3 (allowTier3)", () => {
+    const result = fixKnownTs2304Imports(stripeRouteContent, stripeDiagnostics, {
+      allowTier3: true,
+    });
 
     expect(result.addedImports).toEqual([
-      { file: routeFile, name: "Stripe", module: "stripe" },
+      { file: STRIPE_ROUTE, name: "Stripe", module: "stripe" },
     ]);
     expect(result.code).toContain('import Stripe from "stripe"');
   });
 
-  it("does NOT import Stripe into a non-server file (left for the LLM)", () => {
+  it("leaves Stripe residual in F2 (default — never undo the F2 SDK guard)", () => {
+    const result = fixKnownTs2304Imports(stripeRouteContent, stripeDiagnostics);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(stripeRouteContent);
+  });
+
+  it("does NOT import Stripe into a non-server file even in F3 (path-gate)", () => {
     // `Stripe` only resolves in API route / route handler files. A client page
     // referencing `Stripe` is almost certainly wrong in another way — don't pull
-    // the Node SDK into the browser bundle.
+    // the Node SDK into the browser bundle. allowTier3 isolates the path-gate.
     const content = project(
       FILE,
       `export default function Page() {
@@ -317,9 +337,11 @@ export default clerkMiddleware((auth, req) => {
 }`,
     );
 
-    const result = fixKnownTs2304Imports(content, [
-      { file: FILE, message: "Cannot find name 'Stripe'." },
-    ]);
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: FILE, message: "Cannot find name 'Stripe'." }],
+      { allowTier3: true },
+    );
 
     expect(result.addedImports).toEqual([]);
     expect(result.code).toBe(content);
