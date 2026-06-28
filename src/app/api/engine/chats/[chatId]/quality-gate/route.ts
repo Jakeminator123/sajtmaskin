@@ -13,6 +13,7 @@ import {
   promoteVersion,
   acquireVersionLease,
   releaseVersionLease,
+  resetVersionVerificationToPending,
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -26,6 +27,7 @@ import {
   QUALITY_GATE_COMMANDS,
   QUALITY_GATE_SETUP_HINT,
   QualityGateNotConfiguredError,
+  QualityGateUnavailableError,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -292,30 +294,29 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
         let promotionBlocked = false;
         let promoteError = false;
+        let promoteGuardUnavailable = false;
         if (gateResult.passed) {
           // Check the false-green guard *explicitly* before promoting so we can
-          // tell a real guard block apart from a transient promote failure. A
-          // block means the finalize verifier flagged this row (telemetry
-          // `qualityGateResult`); a DB error after the guard allowed must NOT be
-          // mislabeled as a verifier block (would show a misleading red and lose
-          // the version to "failed" on an infra hiccup).
-          const guard = await assertPromoteAllowed(internalVersionId).catch((err) => {
-            console.warn("[quality-gate] Promote guard check failed (fail-open):", err);
-            return { allowed: true as const };
+          // tell three cases apart: (1) an explicit verifier block, (2) a guard
+          // that could not READ the finalize signal (DB error), and (3) a clean
+          // allow. `onReadError: "indeterminate"` fails CLOSED on a read error
+          // (B08): the historic fail-open here could promote a `verifier_failed`
+          // row whenever the telemetry read threw. The `.catch` is defensive for
+          // any unexpected throw and also fails closed (retryable).
+          const guard = await assertPromoteAllowed(internalVersionId, undefined, {
+            onReadError: "indeterminate",
+          }).catch((err) => {
+            console.warn(
+              "[quality-gate] Promote guard threw unexpectedly; failing closed (retryable):",
+              err,
+            );
+            return {
+              allowed: false as const,
+              indeterminate: true as const,
+              reason: "promote_guard_threw",
+            };
           });
-          if (!guard.allowed) {
-            promotionBlocked = true;
-            await failVersionVerification(
-              internalVersionId,
-              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
-              qgRunId,
-            ).catch((err) => {
-              console.warn(
-                "[quality-gate] Failed to mark version failed after promote guard block:",
-                err,
-              );
-            });
-          } else {
+          if (guard.allowed) {
             const promoted = await promoteVersion(internalVersionId, verificationSummary, qgRunId).catch(
               (err) => {
                 console.warn("[quality-gate] Failed to promote version:", err);
@@ -329,6 +330,53 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             if (!promoted) {
               promoteError = true;
             }
+          } else if ("indeterminate" in guard && guard.indeterminate === true) {
+            // Guard could not read the finalize signal, so we cannot prove this
+            // row is clean. Fail CLOSED but RETRYABLE: do NOT promote, and do NOT
+            // mark the version `failed` (a transient DB blip must not false-red a
+            // clean version). Leave it at "verifying" and surface a soft error so
+            // the client retries — mirrors the transient `promoteError` path.
+            promoteGuardUnavailable = true;
+            // Do NOT persist the raw guard reason into the error log: on a DB/
+            // telemetry read error `assertPromoteAllowed` embeds the underlying
+            // exception message in `guard.reason`, and this `meta` is rendered
+            // verbatim to the chat owner in VersionDiagnosticsDialog. Persist a
+            // stable code instead and keep the raw detail in server logs only.
+            console.warn(
+              "[quality-gate] Promote guard unavailable (raw reason, server-only):",
+              guard.reason,
+            );
+            await createEngineVersionErrorLogs([
+              {
+                chatId,
+                versionId: internalVersionId,
+                level: "warning",
+                category: "quality-gate:promote-guard-unavailable",
+                message:
+                  "Build checks passed but the promotion guard could not verify the finalize signal; promotion deferred (retryable).",
+                meta: {
+                  reason: "promote_guard_signal_unavailable",
+                  serverOwned: false,
+                },
+              },
+            ]).catch((err) => {
+              console.warn(
+                "[quality-gate] Failed to persist promote-guard-unavailable log:",
+                err,
+              );
+            });
+          } else {
+            promotionBlocked = true;
+            await failVersionVerification(
+              internalVersionId,
+              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+              qgRunId,
+            ).catch((err) => {
+              console.warn(
+                "[quality-gate] Failed to mark version failed after promote guard block:",
+                err,
+              );
+            });
           }
         } else {
           await failVersionVerification(internalVersionId, verificationSummary, qgRunId).catch((err) => {
@@ -349,6 +397,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             promotionBlockedReason: "finalize_quality_gate_failed",
           });
         }
+        // Promote guard could not verify the finalize signal (DB/guard error):
+        // not green, not a verifier block, retryable. Reuse `promoteError:true`
+        // so the existing client retry UX applies with no client change, and add
+        // `promoteGuardUnavailable:true` for observability.
+        if (promoteGuardUnavailable) {
+          return NextResponse.json({
+            ...gateResult,
+            passed: false,
+            vmGatePassed: true,
+            promoteError: true,
+            promoteGuardUnavailable: true,
+          });
+        }
         // Transient promote failure: not green, but not a verifier block either.
         if (promoteError) {
           return NextResponse.json({
@@ -360,6 +421,36 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
         return NextResponse.json(gateResult);
       } catch (err) {
+        // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
+        // the gate never evaluated the code, so do NOT mark the version `failed`
+        // (a false-RED verdict) and do NOT hard-500. Surface a retryable 503 the
+        // client can retry; the version stays unpromoted (never false-green) and
+        // the `finally` below still releases the lease. A real check failure does
+        // not reach here — it returns `passed:false` above.
+        if (err instanceof QualityGateUnavailableError) {
+          // Revert the optimistic `markVersionVerifying` above (Codex P2 on #296):
+          // leaving the row `verifying` with no running job would let the
+          // readiness stale-verification watchdog later mark it `failed` (a
+          // delayed false-RED). Reset to `pending` so the version honestly reads
+          // "awaiting verification, retryable" instead.
+          await resetVersionVerificationToPending(internalVersionId, undefined, qgRunId).catch(
+            (resetErr) => {
+              console.warn(
+                "[quality-gate] Failed to reset version to pending after unavailable verify lane:",
+                resetErr,
+              );
+            },
+          );
+          return NextResponse.json(
+            {
+              error: err.message,
+              code: "quality_gate_unavailable",
+              retryable: err.retryable,
+              hint: QUALITY_GATE_SETUP_HINT,
+            },
+            { status: 503 },
+          );
+        }
         await failVersionVerification(
           internalVersionId,
           "Automatic verification could not complete.",

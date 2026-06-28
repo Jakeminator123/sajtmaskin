@@ -445,3 +445,87 @@ export default function Page() {
     expect(content.slice(0, useClientIdx)).not.toMatch(/^\s*import\s/m);
   });
 });
+
+/**
+ * Companion to the `icon:` idiom above: an icon component passed as a JSX prop
+ * value (`<FeatureCard icon={PawPrint} />`). The JSX-tag scan in
+ * `detectMissingImports` only sees `<FeatureCard>` / `<Icon>` tags, never the
+ * `PawPrint` identifier inside the `icon={...}` braces, so on the deterministic
+ * export/preview path (no tsc → no `ts2304-known-import-fixer`) the missing
+ * import shipped a runtime `ReferenceError` / white screen. Mirrors the
+ * `icon:`-property fixer, with the same local/string/shadcn guards.
+ */
+describe("repairGeneratedFiles — non-JSX lucide icon value imports (icon={X} JSX prop)", () => {
+  it("adds a lucide import for an icon passed as a JSX prop value", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/feature-card-list.tsx",
+        language: "tsx",
+        content: `export default function Features() {
+  return <FeatureCard icon={PawPrint} />;
+}
+
+function FeatureCard({ icon: Icon }) {
+  return <Icon className="h-5 w-5" />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/feature-card-list.tsx");
+
+    expect(file?.content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    expect(
+      repaired.fixes.some(
+        (fix) => fix.fixer === "import-validator" && /PawPrint/.test(fix.description),
+      ),
+    ).toBe(true);
+  });
+
+  it("does NOT double-import for icon={<PawPrint />} (already covered by the JSX-tag scan)", () => {
+    // `<PawPrint />` between the braces is a JSX element handled by the JSX-tag
+    // scan; the `icon={...}` value rule must not also fire and add a second line.
+    const files: CodeFile[] = [
+      {
+        path: "components/jsx-element-prop.tsx",
+        language: "tsx",
+        content: `export default function Page() {
+  return <FeatureCard icon={<PawPrint />} />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/jsx-element-prop.tsx");
+
+    expect(file?.content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    const lucideImportLines = (file?.content.match(/from "lucide-react"/g) ?? []).length;
+    expect(lucideImportLines).toBe(1);
+  });
+
+  it("does NOT import a member-access icon prop (icon={Icons.PawPrint})", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/member-prop.tsx",
+        language: "tsx",
+        content: `const Icons = { PawPrint: () => null };
+
+export default function Page() {
+  return <FeatureCard icon={Icons.PawPrint} />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/member-prop.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+  });
+});

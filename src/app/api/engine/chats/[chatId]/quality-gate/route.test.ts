@@ -9,6 +9,7 @@ const promoteVersion = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const acquireVersionLease = vi.hoisted(() => vi.fn());
 const releaseVersionLease = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const isQualityGateConfigured = vi.hoisted(() => vi.fn());
@@ -20,6 +21,17 @@ const qualityGateAllPassed = vi.hoisted(() => vi.fn());
 const buildServerVerifyQualityGateMeta = vi.hoisted(() => vi.fn());
 const compactVisualQAForQualityGateLog = vi.hoisted(() => vi.fn());
 const assertPromoteAllowed = vi.hoisted(() => vi.fn());
+const QualityGateUnavailableError = vi.hoisted(
+  () =>
+    class QualityGateUnavailableError extends Error {
+      retryable: boolean;
+      constructor(message: string, retryable: boolean) {
+        super(message);
+        this.name = "QualityGateUnavailableError";
+        this.retryable = retryable;
+      }
+    },
+);
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
@@ -49,6 +61,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   promoteVersion,
   acquireVersionLease,
   releaseVersionLease,
+  resetVersionVerificationToPending,
 }));
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -63,6 +76,7 @@ vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   },
   QUALITY_GATE_SETUP_HINT: "hint",
   QualityGateNotConfiguredError: class QualityGateNotConfiguredError extends Error {},
+  QualityGateUnavailableError,
   describeQualityGateVerification,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
@@ -89,6 +103,7 @@ describe("POST quality-gate", () => {
     promoteVersion.mockResolvedValue({ id: "ver-1" });
     acquireVersionLease.mockResolvedValue({ runId: "run-1" });
     releaseVersionLease.mockResolvedValue(undefined);
+    resetVersionVerificationToPending.mockResolvedValue({ id: "ver-1" });
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
@@ -304,6 +319,111 @@ describe("POST quality-gate", () => {
     expect(getVersionFiles).toHaveBeenCalledTimes(2);
   });
 
+  it("fails closed (retryable) without promoting or failing when the guard is indeterminate (B08)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    // Guard could not read the finalize signal (DB error) → indeterminate.
+    assertPromoteAllowed.mockResolvedValue({
+      allowed: false,
+      indeterminate: true,
+      reason: "promote guard signal unavailable: db timeout",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // Fail closed: no promotion. Fail safe: not terminally failed either.
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.vmGatePassed).toBe(true);
+    expect(body.promoteError).toBe(true);
+    expect(body.promoteGuardUnavailable).toBe(true);
+    expect(body.promotionBlocked).toBeUndefined();
+    // Opted into fail-closed reads.
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      { onReadError: "indeterminate" },
+    );
+  });
+
+  it("fails closed (retryable) when the guard itself throws", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    // Guard throws unexpectedly → route .catch must fail closed, not open.
+    assertPromoteAllowed.mockRejectedValue(new Error("boom"));
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.promoteError).toBe(true);
+    expect(body.promoteGuardUnavailable).toBe(true);
+  });
+
   it("returns 409 version_busy when another job holds the version lease (Plan C)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
@@ -338,5 +458,52 @@ describe("POST quality-gate", () => {
     expect(markVersionVerifying).not.toHaveBeenCalled();
     expect(runQualityGateChecks).not.toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable 503 (NOT failed) when the verify lane is unreachable", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Preview-host unreachable (network/timeout/HTTP) → typed, retryable error.
+    runQualityGateChecks.mockRejectedValue(
+      new QualityGateUnavailableError("fetch failed", true),
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("quality_gate_unavailable");
+    expect(body.retryable).toBe(true);
+    // An unreachable gate verified nothing — it must NOT false-RED the version.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    // The optimistic `verifying` transition is reverted to `pending` so the
+    // readiness watchdog can't later false-RED a row with no running job.
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      "run-1",
+    );
+    // The distributed lease is still released in the `finally`.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 });

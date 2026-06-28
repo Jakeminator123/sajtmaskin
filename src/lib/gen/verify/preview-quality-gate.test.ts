@@ -7,6 +7,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   qualityGateAllPassed,
   resolveRepairQualityGateChecks,
+  shouldPromoteAfterRepair,
 } from "./preview-quality-gate";
 
 const sampleExportable: CodeFile[] = [
@@ -231,5 +232,44 @@ describe("resolveRepairQualityGateChecks", () => {
     // + warm-eslint now run pre-VM in the Sajtmaskin backend. See
     // `quality-gate-checks.ts` for the full rationale.
     expect(resolveRepairQualityGateChecks()).toEqual(["typecheck"]);
+  });
+});
+
+describe("shouldPromoteAfterRepair (verify lane unavailable = fail closed, B08)", () => {
+  beforeEach(() => {
+    resetServerEnvCacheForTests();
+    // Unset the preview-host base URL so `isQualityGateConfigured()` is false and
+    // `runQualityGateOnExportable` returns null (gate unavailable) without any
+    // network call.
+    vi.stubEnv("SAJTMASKIN_PREVIEW_HOST_BASE_URL", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetServerEnvCacheForTests();
+  });
+
+  it("does NOT promote (no empty-results false-green) when there were no prior gate failures", async () => {
+    const decision = await shouldPromoteAfterRepair({
+      chatId: "chat-1",
+      versionId: "ver-1",
+      exportable: sampleExportable,
+      hadQualityGateFailures: false,
+    });
+
+    // Previously this returned `promote:true` with EMPTY results (read as green).
+    expect(decision.promote).toBe(false);
+    expect(decision.results).toBeNull();
+  });
+
+  it("does NOT promote when there were prior gate failures", async () => {
+    const decision = await shouldPromoteAfterRepair({
+      chatId: "chat-1",
+      versionId: "ver-1",
+      exportable: sampleExportable,
+      hadQualityGateFailures: true,
+    });
+
+    expect(decision.promote).toBe(false);
+    expect(decision.results).toBeNull();
   });
 });
