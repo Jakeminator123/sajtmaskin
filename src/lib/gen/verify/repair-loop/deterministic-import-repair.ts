@@ -43,7 +43,15 @@ import type { FixEntry } from "@/lib/gen/autofix/types";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { type ParsedRepairDiagnostic, toPosixPath } from "./diagnostics-parser";
 
-const CANNOT_FIND_NAME_RE = /Cannot find name '[^']+'/;
+// TS2304 ("Cannot find name 'X'.") and TS2552 (the "...Did you mean 'Y'?"
+// spelling-suggestion variant) are distinct tsc codes that the known-import
+// fixer resolves the same way. The parsed diagnostic only carries the message
+// (the leading `TSxxxx` code is stripped upstream), so the code is recovered
+// from the message text; the capture group yields the missing name used to
+// label telemetry per resolved import.
+const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
+const CANNOT_FIND_NAME_DID_YOU_MEAN_RE =
+  /Cannot find name '[^']+'\.\s*Did you mean /;
 const TS1361_RE =
   /'([^']+)' cannot be used as a value because it was imported using 'import type'/;
 const DUPLICATE_IDENTIFIER_RE = /Duplicate identifier '[^']+'/;
@@ -94,12 +102,22 @@ export function runDeterministicImportRepair(
   const ts1361SymbolsByFile = new Map<string, Set<string>>();
   const conflictFiles = new Set<string>();
   const duplicateIdentifierFiles = new Set<string>();
+  // Missing name → the distinct cannot-find-name code(s) the gate reported for
+  // it (TS2304 and/or its TS2552 "did you mean" variant). Both drive the same
+  // known-import fixer, but telemetry must record the *actual* code, so a
+  // resolved import is labelled from here instead of always as TS2304.
+  const cannotFindNameCodes = new Map<string, Set<string>>();
 
   for (const diagnostic of diagnostics) {
     const file = toPosixPath(diagnostic.file);
     if (!file) continue;
-    if (CANNOT_FIND_NAME_RE.test(diagnostic.message)) {
+    const cannotFindName = diagnostic.message.match(CANNOT_FIND_NAME_RE);
+    if (cannotFindName) {
       ts2304Diagnostics.push(diagnostic);
+      const code = CANNOT_FIND_NAME_DID_YOU_MEAN_RE.test(diagnostic.message)
+        ? "TS2552"
+        : "TS2304";
+      ensureSet(cannotFindNameCodes, cannotFindName[1]).add(code);
       continue;
     }
     const ts1361 = diagnostic.message.match(TS1361_RE);
@@ -129,7 +147,18 @@ export function runDeterministicImportRepair(
       for (const fix of result.fixes) {
         fixes.push({ ...fix, category: "mechanical" });
       }
-      handledCodes.add("TS2304");
+      // Record the actual code each resolved name was reported under, so a
+      // TS2552 "did you mean" fix is counted as TS2552 rather than folded into
+      // TS2304. Falls back to TS2304 if a resolved name was somehow never
+      // classified, preserving the invariant that a fix always records a code.
+      for (const addition of result.addedImports) {
+        const codes = cannotFindNameCodes.get(addition.name);
+        if (codes && codes.size > 0) {
+          for (const code of codes) handledCodes.add(code);
+        } else {
+          handledCodes.add("TS2304");
+        }
+      }
     }
   }
 

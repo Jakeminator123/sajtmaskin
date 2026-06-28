@@ -31,6 +31,34 @@ describe("runDeterministicImportRepair", () => {
     expect(result.content).toContain('import { Button } from "@/components/ui/button"');
   });
 
+  it("records the TS2552 'did you mean' variant distinctly from TS2304", () => {
+    // Same resolvable shadcn symbol (`Button`) and same fix in both cases — only
+    // the diagnostic shape differs. The recorded code must follow the message:
+    // the "Did you mean" form is TS2552, the plain form is TS2304. They must not
+    // be bucketed together (the gap that motivated #291's prod analysis).
+    const content = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Button>Go</Button>;
+}`,
+    );
+
+    const ts2552 = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Button'. Did you mean 'button'?"),
+    ]);
+    expect(ts2552.fixed).toBe(true);
+    expect(ts2552.handledCodes).toContain("TS2552");
+    expect(ts2552.handledCodes).not.toContain("TS2304");
+    expect(ts2552.content).toContain('import { Button } from "@/components/ui/button"');
+
+    const ts2304 = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Button'."),
+    ]);
+    expect(ts2304.fixed).toBe(true);
+    expect(ts2304.handledCodes).toContain("TS2304");
+    expect(ts2304.handledCodes).not.toContain("TS2552");
+  });
+
   const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
   const stripeContent = file(
     STRIPE_ROUTE,
@@ -56,7 +84,10 @@ export default clerkMiddleware((auth, req) => {
     );
 
     expect(result.fixed).toBe(true);
-    expect(result.handledCodes).toContain("TS2304");
+    // `Stripe` arrived as the TS2552 "Did you mean 'stripe'?" variant, so it
+    // must be recorded as TS2552 — not folded into TS2304.
+    expect(result.handledCodes).toContain("TS2552");
+    expect(result.handledCodes).not.toContain("TS2304");
     expect(result.content).toContain('import Stripe from "stripe"');
   });
 
