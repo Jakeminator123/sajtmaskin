@@ -125,16 +125,19 @@ export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
   rt.assistRouteMaxDurationSeconds.max,
 );
 
-export const VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  rt.verifyRepairRouteMaxDurationSeconds.envKey,
-  rt.verifyRepairRouteMaxDurationSeconds.default,
-  rt.verifyRepairRouteMaxDurationSeconds.min,
-  rt.verifyRepairRouteMaxDurationSeconds.max,
-);
+// Static committed budget for the lease-holding repair + quality-gate routes.
+// This MUST mirror the generated `export const maxDuration` literal, which
+// sync-route-timeouts.mjs writes from `routeTimeouts.*.default` (NOT the envKey:
+// Next.js bakes `maxDuration` in at build time, so an env override can never
+// move the real ceiling). All lease/verify/watchdog timing derives from this
+// static value so a raised env can never push a client timeout above the actual
+// route budget and skip `finally { releaseVersionLease }` (Codex P1 #284).
+export const VERIFY_REPAIR_ROUTE_BUDGET_SECONDS =
+  rt.verifyRepairRouteMaxDurationSeconds.default;
 
-/** Watchdog for versions stuck in `verifying` — aligned with repair/quality-gate route budget. */
+/** Watchdog for versions stuck in `verifying` — aligned with the static repair/quality-gate route budget. */
 export const STALE_VERIFICATION_TIMEOUT_MS =
-  VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS * 1000;
+  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000;
 
 export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
   "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",

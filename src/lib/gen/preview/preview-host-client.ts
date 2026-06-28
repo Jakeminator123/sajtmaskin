@@ -1,5 +1,5 @@
 import { getPreviewHostBaseUrl } from "./tier2-config";
-import { VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
+import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
 
 function previewHostAuthHeaders(): Record<string, string> {
   const key = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
@@ -57,7 +57,7 @@ export function describePreviewHostHttpFailure(params: {
 export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
   start: 300_000,
   status: 15_000,
-  verify: VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS * 1000 - 30_000,
+  verify: VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000 - 30_000,
   cleanup: 30_000,
 } as const;
 
@@ -68,7 +68,7 @@ export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
  * köra före Vercels hård-kill. Verifieras av `preview-host-client.test.ts`.
  */
 export const LEASE_HOLDING_ROUTE_MAX_DURATION_S =
-  VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS;
+  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS;
 
 const START_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.start;
 const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
