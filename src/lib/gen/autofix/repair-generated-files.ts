@@ -22,6 +22,7 @@ import {
   fixLucideLinkMisuse,
 } from "@/lib/gen/autofix/rules/lucide-misuse-fixer";
 import { fixLayoutProviders } from "@/lib/gen/autofix/rules/layout-provider-fixer";
+import { fixLucideValueImports } from "@/lib/gen/autofix/rules/lucide-value-import-fixer";
 import { toFixEntries, type FixEntry, type FixEntryDraft } from "./types";
 import {
   fixMetadataClientConflict,
@@ -229,6 +230,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (iconComponentResult.fixed) {
       content = iconComponentResult.code;
       fixes.push(...iconComponentResult.fixes);
+    }
+
+    // Adds a VALUE import for lucide icons used only as data values
+    // (`icon: PawPrint`) and rendered dynamically — the JSX scan above only
+    // covers `<PawPrint />` tags, so this closes the white-screen gap where a
+    // value-only icon ships without its import (ReferenceError at runtime).
+    const lucideValueResult = fixLucideValueImports(content, file.path);
+    if (lucideValueResult.fixed) {
+      content = lucideValueResult.code;
+      fixes.push(...lucideValueResult.fixes);
     }
 
     const metadataConflictResult = fixMetadataClientConflict(content, file.path);

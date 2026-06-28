@@ -97,6 +97,37 @@ export default function Page() {
     expect(lucideImportLines).toBe(1);
   });
 
+  it("adds the import for a value-only icon rendered dynamically (PawPrint white-screen)", () => {
+    // The exact incident: the icon is stored as a data value and rendered via
+    // `<Icon />`, so `<PawPrint />` never appears. The JSX scan can't see it —
+    // the value-import fixer must add it or the page ships with PawPrint
+    // undefined (ReferenceError → white screen).
+    const files: CodeFile[] = [
+      {
+        path: "components/motif-selector.tsx",
+        language: "tsx",
+        content: `const MOTIFS = [
+  { id: "wild", icon: PawPrint },
+  { id: "calm", icon: MoonStar },
+];
+
+export function MotifSelector() {
+  const Icon = MOTIFS[0].icon;
+  return <Icon className="h-5 w-5" />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const page = repaired.files.find((f) => f.path === "components/motif-selector.tsx");
+
+    expect(page?.content).toContain("PawPrint");
+    expect(page?.content).toContain("MoonStar");
+    expect(page?.content).toContain('from "lucide-react"');
+    expect((page?.content.match(/from "lucide-react"/g) ?? [])).toHaveLength(1);
+  });
+
   it("is idempotent: a second repair pass adds nothing and reports no fixes", () => {
     const files: CodeFile[] = [
       {
