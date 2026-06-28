@@ -24,12 +24,14 @@ Två filbaserade källor (komplement, inte duplikat, av `LLM-flöde telemetri`):
      samt skannas för ``scaffoldId``/``resolvedTier`` och fil-tillgängliga
      drift-liknande events (``scaffold-retry.suggested``).
 
-VIKTIG SIGNAL-NOT (annars luras operatören): drift-/dossier-signalerna
-``scaffold_drift`` / ``variant_drift`` / ``dossiers_selected`` /
-``dossier_capability_unresolved`` (``src/lib/gen/orchestrate.ts``) och dossierns
+VIKTIG SIGNAL-NOT (annars luras operatören): dossier-signalerna
+``dossiers_selected`` / ``dossier_capability_unresolved``
+(``src/lib/gen/orchestrate.ts``) och dossierns
 ``SelectedDossier.reason`` (``src/lib/gen/dossiers/select.ts``) emitteras som
 ``console.info`` / DB-telemetri — de hamnar **inte** i fil-loggarna. Vyn visar
 kolumnstrukturen ändå och säger tydligt att de bara finns i console/DB.
+(De gamla ``scaffold_drift`` / ``variant_drift``-signalerna togs bort som död
+kod — brief-schemat producerade aldrig de nominerings-fält de byggde på.)
 
 READ-ONLY by design: inga knappar som muterar, inga env-VÄRDEN läses/visas.
 För full tidslinje per körning: se sidan ``LLM-flöde telemetri``.
@@ -302,8 +304,8 @@ def _render_run_picker(ctx: BackofficeContext, run_dirs: list[Path]) -> None:
     st.caption(
         "Läser `logs/generationslogg/<run>/meta.json` + `timeline.ndjson`. "
         "`modelId`/`buildIntent`/`buildMethod`/`qualityTarget` kommer från `meta.json`; "
-        "`scaffoldId`/`resolvedTier` skannas ur timeline-events. Drift-events "
-        "(`scaffold_drift`/`variant_drift`) finns INTE i fil-loggarna — se noten nedan."
+        "`scaffoldId`/`resolvedTier` skannas ur timeline-events. (De gamla "
+        "`scaffold_drift`/`variant_drift`-driftsignalerna är borttagna som död kod.)"
     )
     if not run_dirs:
         st.info(
@@ -420,8 +422,8 @@ def render(ctx: BackofficeContext) -> None:
         "den — den kompletterar)."
     )
     st.warning(
-        "**Signal-not:** drift-signalerna `scaffold_drift` / `variant_drift` / "
-        "`dossiers_selected` / `dossier_capability_unresolved` emitteras som "
+        "**Signal-not:** dossier-signalerna `dossiers_selected` / "
+        "`dossier_capability_unresolved` emitteras som "
         "`console.info` (ej i fil-loggar). Den rikaste fil-källan är "
         "prompt-dumpens `scaffoldSelection`-meta; per körning kompletterar "
         "generationsloggen med modell/tier/scaffold. Det som inte finns i fil "

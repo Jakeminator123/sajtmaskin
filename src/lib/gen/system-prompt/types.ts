@@ -75,18 +75,6 @@ export interface Brief {
     keywords?: string[];
   };
   siteName?: string;
-  /** Brief-LLM nominated scaffold (Fas 1.0). Hint — runtime embedding-pick may override. */
-  scaffoldNomination?: {
-    id: string;
-    reason: string;
-    confidence: number;
-  } | null;
-  /** Brief-LLM nominated variant (Fas 1.0). Hint — only meaningful if scaffoldNomination set. */
-  variantNomination?: {
-    id: string;
-    reason: string;
-    confidence: number;
-  } | null;
   /**
    * Capabilities the brief-LLM declared the site needs (v2 dossier system).
    * Each capability resolves to one dossier (or none) at runtime via

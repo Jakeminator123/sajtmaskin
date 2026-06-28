@@ -16,7 +16,6 @@ import { lockedVariantForFollowUp } from "./scaffold-variants/matcher";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
-  getScaffoldIds,
   matchScaffoldAuto,
   type ScaffoldSelectionMeta,
 } from "./scaffolds";
@@ -814,9 +813,12 @@ export function enforceFollowUpCapabilityFloor(
 }
 
 /**
- * Best-effort drift telemetry for 5-3 freeze-enforcement. Mirrors the existing
- * `[orchestrate] scaffold_drift` / `variant_drift` console signals and is
- * wrapped so telemetry can NEVER throw and break generation.
+ * Best-effort drift telemetry for 5-3 freeze-enforcement: emits the
+ * `[orchestrate] followup_freeze_drift` console signal when a follow-up's
+ * frozen scaffold/variant differs from the fresh pick. Wrapped so telemetry can
+ * NEVER throw and break generation. (This is the only remaining orchestrate
+ * drift signal — the brief-nomination `scaffold_drift` / `variant_drift` logs
+ * were removed as dead code; the brief schema never produced their inputs.)
  */
 function emitFollowUpFreezeDrift(
   surface: FollowUpFreezeSurface,
@@ -1025,59 +1027,6 @@ export async function resolveOrchestrationBase(
         from: driftedFromScaffoldId,
         to: frozenScaffold.id,
         requestedScaffoldMode: scaffoldMode,
-      });
-    }
-  }
-
-  // ── Drift detection: Brief-LLM scaffold nomination vs final pick (Fas 1.0) ──
-  // Brief returns a hint; the embedding/keyword pick above is the final answer.
-  // Logging drift makes mismatches visible in dev and lets us tune confidence
-  // thresholds. Brief stays the source of truth for design direction either way.
-  // On followUp runs, the brief may carry stale nominations from init — we
-  // include `mode` in the log so noise from followUp can be filtered out.
-  const briefScaffoldNom = (brief as { scaffoldNomination?: { id?: string; confidence?: number } } | null | undefined)
-    ?.scaffoldNomination ?? null;
-  // Compare case-insensitively — Brief-LLM occasionally returns "SaaS-landing"
-  // when the canonical id is "saas-landing"; that is not real drift.
-  const briefNomNorm = briefScaffoldNom?.id?.trim().toLowerCase() ?? null;
-  const finalNorm = resolvedScaffold?.id.toLowerCase() ?? null;
-  if (briefNomNorm && finalNorm && briefNomNorm !== finalNorm) {
-    // Guard: brief-LLM occasionally hallucinates ids that aren't in the
-    // registry (e.g. "saas", "blog-page", "shop"). Logging those as
-    // scaffold_drift drowns out genuine drift signals where both sides
-    // pick a real scaffold. Surface unknown nominations under their own
-    // key so we can quantify schema-fidelity separately.
-    const knownIds = new Set(getScaffoldIds().map((id) => id.toLowerCase()));
-    if (!knownIds.has(briefNomNorm)) {
-      console.info("[orchestrate] scaffold_unknown_brief_nomination", {
-        mode: resolvedMode,
-        briefNominated: briefScaffoldNom!.id,
-        briefConfidence: briefScaffoldNom!.confidence ?? null,
-        finalPick: resolvedScaffold!.id,
-      });
-    } else {
-      // The picker's `selectionMethod` reports HOW the picker arrived at
-      // its choice (e.g. "agreement", "embeddings", "default") — not how
-      // the picker's choice relates to the brief's nomination. When brief
-      // and final pick differ, "agreement" is misleading. Compute a
-      // brief-vs-picker outcome label from the brief's confidence so this
-      // log clearly shows the relationship between the two stages.
-      const briefConfidenceValue =
-        typeof briefScaffoldNom!.confidence === "number"
-          ? briefScaffoldNom!.confidence
-          : null;
-      const briefVsPickerOutcome =
-        briefConfidenceValue !== null && briefConfidenceValue < 0.6
-          ? "picker_default_low_brief_confidence"
-          : "picker_override";
-      console.info("[orchestrate] scaffold_drift", {
-        mode: resolvedMode,
-        briefNominated: briefScaffoldNom!.id,
-        briefConfidence: briefConfidenceValue,
-        finalPick: resolvedScaffold!.id,
-        pickMethod: briefVsPickerOutcome,
-        pickerInternalMethod: scaffoldSelection.selectionMethod ?? "unknown",
-        pickConfidence: scaffoldSelection.selectionConfidence ?? null,
       });
     }
   }
@@ -1476,21 +1425,6 @@ export async function finalizeOrchestrationPrompts(
         scaffoldId: scaffoldIdForVariant,
       });
     }
-  }
-
-  // ── Drift detection: Brief variant nomination vs embedding pick (Fas 1.0) ──
-  const briefVariantNom = (brief as { variantNomination?: { id?: string; confidence?: number } } | null | undefined)
-    ?.variantNomination ?? null;
-  const briefVarNomNorm = briefVariantNom?.id?.trim().toLowerCase() ?? null;
-  const finalVarNorm = resolvedVariant?.id.toLowerCase() ?? null;
-  if (briefVarNomNorm && finalVarNorm && briefVarNomNorm !== finalVarNorm) {
-    console.info("[orchestrate] variant_drift", {
-      mode: resolvedMode,
-      scaffoldId: scaffoldIdForVariant,
-      briefNominated: briefVariantNom!.id,
-      briefConfidence: briefVariantNom!.confidence ?? null,
-      finalPick: resolvedVariant!.id,
-    });
   }
 
   // ── Dossier capability vs final selection diff (v2 — capability-driven) ──

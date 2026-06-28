@@ -54,8 +54,8 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 |---|---|---|---|---|---|---|---|
 | alla | **Huvud-codegen** | `engine.ts:132` via `own-engine-pipeline-generation.ts:77-97` | båda stream-routes | `resolvePhaseModel(tier,"generator")` (MB-3: anthropic→Opus 4.8; `chat.model`=`resolveEngineModelId(tier)` för tier-round-trip) | `streamText` | **ja** (`suggestIntegration`/`requestEnvVar`; F2 mutad bort `generation-stream-tools.ts:44-57`) | `meta/progress/thinking/content/tool-call/done/error` |
 | alla (plan-läge) | Planner | `engine.ts:132` via `own-engine-plan-mode.ts:94` | plan-gren | `resolvePhaseModel(tier,"planner")` | `streamText` | **ja** (`emitPlanArtifact`, `askClarifyingQuestion`) | plan-mode SSE |
-| init / unlock | Scaffold embedding-query | `scaffold-search.ts:188` via `matcher.ts:643` | när ingen `persistedScaffoldId` / clear-redesign | `text-embedding-3-small` (env `OPENAI_API_KEY`); keyword-fallback | embeddings SDK | nej | `scaffold_drift` log |
-| init / unlock | Variant embedding-query | `scaffold-variants/matcher.ts:319` | när `persistedVariantId` saknas/stale | variant-embeddings `_meta.model`; keyword-fallback | embeddings SDK | nej | `variant_drift` log |
+| init / unlock | Scaffold embedding-query | `scaffold-search.ts:188` via `matcher.ts:643` | när ingen `persistedScaffoldId` / clear-redesign | `text-embedding-3-small` (env `OPENAI_API_KEY`); keyword-fallback | embeddings SDK | nej | – (brief-nominerings-`scaffold_drift`-loggen borttagen) |
+| init / unlock | Variant embedding-query | `scaffold-variants/matcher.ts:319` | när `persistedVariantId` saknas/stale | variant-embeddings `_meta.model`; keyword-fallback | embeddings SDK | nej | – (brief-nominerings-`variant_drift`-loggen borttagen) |
 | follow-up | QA short-circuit (ingen codegen) | `chat-message-stream-post.ts:117` | `classifyRequestKind`=qa-or-score | `DEFAULT_MODEL_ID` (pro) | `generateText` | nej | `content/done` |
 
 ### Verify / repair / autofix (kluster C)

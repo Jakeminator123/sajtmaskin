@@ -8,6 +8,7 @@
 | --- | --- | --- | --- | --- | --- |
 | [x] | Fixad | P2 | Control-plane registry: `#fragment`-källreferenser valideras inte (strippade efter `#`, kollade bara att basfilen finns) → false-green i self-validating-kartan | #202 | `scripts/control-plane/check-registry.mjs` `resolveSource()` resolvar nu JSON-fragment och failar på saknad nyckel; positivt regressionstest i `src/lib/control-plane/registry.test.ts`. Branch `fix/bug-quickwins`. |
 | [x] | Fixad | P2 | Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, `stepper`) exponeras bara via Deep Brief → korta init + follow-ups missar dem | #242 | Follow-up-vokabulär + detektion (#250). Init lämnar fast lane vid sektionsord (#253). `promptInstructionMode` i dossiers (#254). Residual (capability-inference-brygga saknar sektions-id:n) följs nu via G#25/G#26 i Aktiv kö. |
+| [x] | Fixad | P3 | Brief-drift-detektion läste `scaffoldNomination`/`variantNomination` från briefen, men brief-strict-schemat producerar dem aldrig → `scaffold_drift`/`variant_drift`-loggningen var död kod (fyrade aldrig) | G#56 | Tog bort de döda läsarna i `orchestrate.ts` (scaffold- + variant-drift-blocken), den nu oanvända `getScaffoldIds`-importen, och `scaffoldNomination`/`variantNomination`-fälten i `system-prompt/types.ts`. `emitFollowUpFreezeDrift` (live freeze-drift-signal) orörd; inga tester refererade loggnycklarna. Stale-verifierad av scout-svärm 2026-06-28. Branch `chore/remove-dead-scaffold-variant-drift`. |
 
 ## Avfärdat / by-design (verifierat 2026-06-27)
 
