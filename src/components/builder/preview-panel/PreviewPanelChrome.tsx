@@ -201,10 +201,14 @@ export function PreviewPanelChrome({
   // F3 server-verify/quality-gate lane, so a finished design version never
   // reaches `promoted` and rests outside the verify states. Treat a clean
   // design preview as "klar" instead of nagging "ej verifierad" forever.
-  // Mirrors `showF3Trigger` + `env-flow-f2-mute.mdc`. Degraded/blocked/failed
-  // still fall through to their own (red/amber) branches above, so this never
-  // turns a genuinely broken version green.
-  const isDesignStage = lifecycleStage !== "integrations";
+  // Degraded/blocked/failed still fall through to their own (red/amber)
+  // branches above, so this never turns a genuinely broken version green.
+  // IMPORTANT (false-green guard): require an EXPLICIT `design` stage. The prop
+  // is `null` while deployReadiness is still loading, and an F3/integrations
+  // version with that null stage must NOT read as klar — so we do not use
+  // `!== "integrations"` here (that would treat unknown as design). Unknown →
+  // falls through to the honest "ej verifierad".
+  const isDesignStage = lifecycleStage === "design";
   const designPreviewReadyTruth = {
     tone: "success" as const,
     title: "Designpreview klar",

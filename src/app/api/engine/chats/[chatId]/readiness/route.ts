@@ -105,7 +105,10 @@ function buildLifecycleBlocker(
   summary?: string | null,
   stage?: string | null,
 ): ChatReadinessItem | null {
-  const isDesignStage = stage !== "integrations";
+  // False-green guard: suppress the verifying warning ONLY for an explicit
+  // `design` stage. An unknown/null stage keeps the warning (never hide a
+  // possibly-real F3 verify).
+  const isDesignStage = stage === "design";
   if (status === "draft") {
     return {
       id: "version-draft",
@@ -330,7 +333,10 @@ async function buildEngineReadiness(
   const lifecycleItem = buildLifecycleBlocker(
     lifecycleStatus,
     version.verification_summary ?? null,
-    lifecycleStage,
+    // Pass the RAW stage (null when unknown) so the verifying-warning
+    // suppression only fires on an explicit `design` row, not on an
+    // unknown-stage row defaulted to design for env-gating.
+    typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : null,
   );
   if (lifecycleItem) {
     if (lifecycleItem.severity === "blocker") {
