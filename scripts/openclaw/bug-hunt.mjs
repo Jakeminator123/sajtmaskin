@@ -13,14 +13,17 @@
  *     owner / a dedicated debug tenant (never run against real user tenants).
  *
  * Usage (PowerShell):
- *   node scripts/openclaw/bug-hunt.mjs --base-url http://localhost:3000 --cookie "<session-cookie>" --run-token "<OC_DEBUG_RUN_TOKEN>"
- *   node scripts/openclaw/bug-hunt.mjs --scenario jakobs-biljard-forum
- *   node scripts/openclaw/bug-hunt.mjs --all          # send every scenario in one call
+ *   node scripts/openclaw/bug-hunt.mjs --base-url http://localhost:3000 --cookie "<session-cookie>" --run-token "<OC_DEBUG_RUN_TOKEN>" --app-project-id "<owned-app-project-id>"
+ *   node scripts/openclaw/bug-hunt.mjs --scenario jakobs-biljard-forum --app-project-id "<id>"
+ *   node scripts/openclaw/bug-hunt.mjs --all --app-project-id "<id>"   # send every scenario in one call
  *
  * The run-token (matching the server's OC_DEBUG_RUN_TOKEN) is the OWNER gate and
- * is sent as `x-oc-debug-token`; the cookie/bearer is the tenant auth.
+ * is sent as `x-oc-debug-token`; the cookie/bearer is the tenant auth. The
+ * app-project-id is the owned debug project that minted chats are created under
+ * (the create-chat route 400s without a projectId/meta.appProjectId).
  *
- * Env fallbacks: OC_DEBUG_BASE_URL, OC_DEBUG_COOKIE, OC_DEBUG_AUTH (bearer), OC_DEBUG_RUN_TOKEN.
+ * Env fallbacks: OC_DEBUG_BASE_URL, OC_DEBUG_COOKIE, OC_DEBUG_AUTH (bearer),
+ * OC_DEBUG_RUN_TOKEN, OC_DEBUG_APP_PROJECT_ID, OC_DEBUG_PROJECT_ID.
  */
 
 import { readFile } from "node:fs/promises";
@@ -61,11 +64,16 @@ process.on("SIGINT", () => {
   console.log("\n[bug-hunt] Stop requested — finishing current scenario then exiting…");
 });
 
-async function postRun({ baseUrl, headers, runId, scenario, scenarios }) {
+async function postRun({ baseUrl, headers, runId, scenario, scenarios, appProjectId, projectId }) {
+  const ids = {};
+  if (appProjectId) ids.appProjectId = appProjectId;
+  if (projectId) ids.projectId = projectId;
   const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/openclaw/debug/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(scenarios ? { runId, scenarios } : { runId, scenario }),
+    body: JSON.stringify(
+      scenarios ? { runId, scenarios, ...ids } : { runId, scenario, ...ids },
+    ),
   });
   const text = await res.text();
   let json;
@@ -83,6 +91,9 @@ async function main() {
   const cookie = args.cookie || process.env.OC_DEBUG_COOKIE || "";
   const bearer = args.auth || process.env.OC_DEBUG_AUTH || "";
   const runToken = args["run-token"] || process.env.OC_DEBUG_RUN_TOKEN || "";
+  const appProjectId =
+    args["app-project-id"] || process.env.OC_DEBUG_APP_PROJECT_ID || "";
+  const projectId = args["project-id"] || process.env.OC_DEBUG_PROJECT_ID || "";
 
   const headers = {};
   if (cookie) headers.cookie = cookie;
@@ -105,6 +116,14 @@ async function main() {
     process.exit(1);
   }
 
+  if (!appProjectId && !projectId) {
+    console.error(
+      "[bug-hunt] No project id provided. Pass --app-project-id \"<owned-app-project-id>\" " +
+        "(or set OC_DEBUG_APP_PROJECT_ID / OC_DEBUG_PROJECT_ID). Minted debug chats need an owned project.",
+    );
+    process.exit(1);
+  }
+
   const allScenarios = await loadScenarios();
   const selected = args.scenario
     ? allScenarios.filter((s) => s.id === args.scenario)
@@ -123,7 +142,7 @@ async function main() {
   if (args.all) {
     // Single call with every scenario — simplest, but bounded by one serverless
     // invocation's budget. Prefer the per-scenario loop for long runs.
-    const { status, json } = await postRun({ baseUrl, headers, runId, scenarios: selected });
+    const { status, json } = await postRun({ baseUrl, headers, runId, scenarios: selected, appProjectId, projectId });
     console.log(`[bug-hunt] all → HTTP ${status}`, json);
     summaries.push(json);
   } else {
@@ -133,7 +152,7 @@ async function main() {
         break;
       }
       console.log(`[bug-hunt] → scenario ${scenario.id} (${scenario.label ?? ""})`);
-      const { status, json } = await postRun({ baseUrl, headers, runId, scenario });
+      const { status, json } = await postRun({ baseUrl, headers, runId, scenario, appProjectId, projectId });
       console.log(
         `[bug-hunt]   ${scenario.id} → HTTP ${status}` +
           (json && typeof json === "object"

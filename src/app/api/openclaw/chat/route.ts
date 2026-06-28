@@ -16,8 +16,12 @@ import {
   buildOpenClawRepoContextBlock,
   isRepoContextConfigured,
 } from "@/lib/openclaw/debug/repo-context";
+import { matchesOpenClawDebugToken } from "@/lib/openclaw/debug/owner-token";
 import { queryDebugFindings } from "@/lib/db/services/debug-findings";
-import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import {
+  getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
+} from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -234,12 +238,33 @@ export async function POST(req: NextRequest) {
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
 
+      // Cross-tenant guard (Codex P1): the file/code context builder may only
+      // read generated files for ids the REQUESTER owns. Reuse the already
+      // resolved scoped version when ids match; otherwise verify per id. Covers
+      // the chatId-only (manifest) case via chat-level ownership.
+      const verifyOwnership = async (cid: string, vid: string | null) => {
+        if (vid) {
+          if (scopedVersion && cid === reviewChatId && vid === reviewVersionId) {
+            return { chatId: cid, versionId: scopedVersion.version.id };
+          }
+          const scoped = await getEngineVersionForChatByIdForRequest(
+            req,
+            cid,
+            vid,
+          ).catch(() => null);
+          return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
+        }
+        const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
+        return chat ? { chatId: cid, versionId: null } : null;
+      };
+
       const contextMessage = await buildOpenClawContextSystemMessage({
         messages: body.messages,
         context: body.context,
         currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
         debug: debugOwned,
+        verifyOwnership,
       });
       messages.push({
         role: "system",
@@ -282,7 +307,15 @@ export async function POST(req: NextRequest) {
         // Debug-mode: attach read-only Sajtmaskin source so OpenClaw can reason
         // about WHERE THE PLATFORM ITSELF is buggy. Bounded + only when the user
         // is actually probing internals (keeps token/network cost in check).
-        if (debug && isRepoContextConfigured()) {
+        //
+        // SECURITY (Codex P1): `[SAJTMASKIN-KÄLLKOD]` exposes the PLATFORM's own
+        // private source, so it is gated behind the OWNER token (same secret as
+        // the Mode B bug-hunt route), NOT just OC_DEBUG. Chat ownership alone is
+        // insufficient — any authenticated user can own a chat on a debug
+        // preview — so the public chat route must require the operator secret
+        // before injecting platform source. Fails closed when the token is
+        // absent/unset (interactive chat simply omits the block).
+        if (debug && matchesOpenClawDebugToken(req) && isRepoContextConfigured()) {
           const latestUserText = getLatestOpenClawUserText(body.messages);
           if (
             routingIntent === "review" ||

@@ -20,6 +20,7 @@
  */
 
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
+import type { VersionStatusPhase } from "@/lib/logging/event-bus-types";
 import type {
   BugHuntEngineClient,
   EngineBuildResult,
@@ -37,6 +38,14 @@ export interface HttpEngineClientOptions {
   authHeaders?: Record<string, string>;
   /** Model tier for created chats. Defaults to "fast" (Max Fast). */
   modelId?: string;
+  /**
+   * App project id minted debug chats are created under, sent as
+   * `meta.appProjectId`. The real create-chat route requires this (or
+   * `projectId`) and 400s otherwise. Must be owned by the forwarded session.
+   */
+  appProjectId?: string;
+  /** Legacy/v0 project id fallback, sent as top-level `projectId`. */
+  projectId?: string;
   /** Injectable fetch (tests). Defaults to global fetch. */
   fetchImpl?: typeof fetch;
   /** Per-request timeout (ms). */
@@ -47,21 +56,39 @@ export interface HttpEngineClientOptions {
   settlePollIntervalMs?: number;
 }
 
-const TRANSIENT_STATUS_HINTS = [
-  "verifying",
-  "repairing",
-  "generating",
-  "streaming",
-  "pending",
-  "queued",
-  "in_progress",
-  "working",
-];
+/**
+ * Terminal `VersionStatus.phase` values: generation is no longer in flight.
+ * `blocked` is terminal-with-blockers (preview/verify blockers) — the harness
+ * still force-builds it; `idle`/`done`/`failed` are likewise settled. Everything
+ * else (`streaming`/`autofixing`/`validating`/`preflighting`/`verifying`/
+ * `repairing`) is still in flight, so the harness must keep polling instead of
+ * forcing a gate against a streaming version (Codex P1).
+ */
+const SETTLED_PHASES = new Set<VersionStatusPhase>([
+  "idle",
+  "blocked",
+  "done",
+  "failed",
+]);
 
-function isTransientStatus(status: unknown): boolean {
-  if (typeof status !== "string") return false;
-  const s = status.toLowerCase();
-  return TRANSIENT_STATUS_HINTS.some((hint) => s.includes(hint));
+/**
+ * `/version-status` returns `{ status: VersionStatus }` whose `phase` field is
+ * the authoritative lifecycle state (NOT `kind`). Tolerant of a bare-string
+ * `status` for forward-compat. Returns the phase string + whether it is settled.
+ */
+function readVersionPhase(data: unknown): { phase: string; settled: boolean } {
+  const status = (data as { status?: unknown } | null)?.status;
+  if (typeof status === "string") {
+    return { phase: status, settled: (SETTLED_PHASES as Set<string>).has(status) };
+  }
+  if (status && typeof status === "object") {
+    const obj = status as { phase?: unknown; done?: unknown };
+    const phase = typeof obj.phase === "string" ? obj.phase : "unknown";
+    const settled =
+      obj.done === true || (SETTLED_PHASES as Set<string>).has(phase);
+    return { phase, settled };
+  }
+  return { phase: "unknown", settled: false };
 }
 
 function collectIdFields(value: unknown, out: { chatId?: string; versionId?: string }): void {
@@ -100,6 +127,8 @@ export function createHttpEngineClient(
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const doFetch = options.fetchImpl ?? fetch;
   const modelId = options.modelId ?? "fast";
+  const appProjectId = options.appProjectId?.trim() || undefined;
+  const projectId = options.projectId?.trim() || undefined;
   const timeoutMs = options.requestTimeoutMs ?? 290_000;
   const settleMaxPolls = options.settleMaxPolls ?? 120;
   const settlePollIntervalMs = options.settlePollIntervalMs ?? 3_000;
@@ -159,7 +188,15 @@ export function createHttpEngineClient(
           thinking: false,
           imageGenerations: false,
           chatPrivacy: "private",
-          meta: { promptSourceKind: "oc-debug" },
+          // The create-chat route resolves the chat's project from
+          // projectId/meta.appProjectId and 400s when neither is present
+          // (Codex P1). Carry the owned debug project id so Mode B's first
+          // createChat succeeds.
+          ...(projectId ? { projectId } : {}),
+          meta: {
+            promptSourceKind: "oc-debug",
+            ...(appProjectId ? { appProjectId } : {}),
+          },
         }),
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -197,17 +234,14 @@ export function createHttpEngineClient(
             { method: "GET", headers: headers(), signal: AbortSignal.timeout(timeoutMs) },
           );
           if (res.ok) {
-            const data = (await res.json().catch(() => null)) as
-              | { status?: unknown }
-              | null;
-            const status =
-              typeof data?.status === "string"
-                ? data.status
-                : typeof (data?.status as { kind?: string })?.kind === "string"
-                  ? (data!.status as { kind: string }).kind
-                  : "unknown";
-            lastState = status;
-            if (!isTransientStatus(status)) return { state: status };
+            const data = await res.json().catch(() => null);
+            // `/version-status` returns `{ status: VersionStatus }` keyed by
+            // `phase` (NOT `kind`); reading `kind` made every poll resolve to
+            // "unknown" and exit on the first poll, forcing gates against a
+            // still-streaming version (Codex P1).
+            const { phase, settled } = readVersionPhase(data);
+            lastState = phase;
+            if (settled) return { state: phase };
           }
         } catch {
           // transient network error — keep polling

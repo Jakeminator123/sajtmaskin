@@ -192,7 +192,11 @@ export function useOpenClawChat() {
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
-  }, []);
+    // Stop also disarms (Codex P2): clicking stop must cancel armed autonomy so
+    // the next assistant action can't keep auto-sending under the old mandate —
+    // mirroring the typed "stopp" path above.
+    setArmedMandate(null);
+  }, [setArmedMandate]);
 
   const clearConversation = useCallback(() => {
     abortRef.current?.abort();

@@ -34,12 +34,20 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
   // user has armed a still-active mandate AND the action explicitly asked to
   // submit. Otherwise a `submit:true` action degrades to the normal manual fill
   // suggestion (fill but never send) — defense in depth.
+  //
+  // Bind to the CURRENT mandate (Codex P2): an older assistant action authored
+  // BEFORE the active mandate was armed must never auto-send when the user later
+  // arms a new mandate. Without this, re-arming remounts the armed card for every
+  // prior `submit:true` message and replays stale follow-ups, consuming the new
+  // mandate. Gate on the message being newer than the mandate's arming time.
   const canArmedSend =
     !isUser &&
     action?.type === "fill_text_field" &&
     action.submit === true &&
     debugEnabled &&
-    isMandateActive(armedMandate);
+    isMandateActive(armedMandate) &&
+    !!armedMandate &&
+    msg.timestamp >= armedMandate.createdAt;
 
   return (
     <div className={cn("flex w-full min-w-0", isUser ? "justify-end" : "justify-start")}>

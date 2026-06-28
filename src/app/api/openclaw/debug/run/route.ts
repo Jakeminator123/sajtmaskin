@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { nanoid } from "nanoid";
 import { OPENCLAW } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -11,8 +10,10 @@ import {
   type EngineErrorLogRow,
 } from "@/lib/openclaw/debug/bug-hunt";
 import { createHttpEngineClient } from "@/lib/openclaw/debug/engine-client";
+import { matchesOpenClawDebugToken } from "@/lib/openclaw/debug/owner-token";
 import { createDebugFindings } from "@/lib/db/services/debug-findings";
 import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { getRequestUserId } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -23,10 +24,15 @@ export const maxDuration = 300;
  * Hard gates (defense in depth):
  *  - `OPENCLAW.debugEnabled` (OC_DEBUG, production-safeguarded) must be on.
  *  - the OWNER gate: `OC_DEBUG_RUN_TOKEN` must be set AND the request must send a
- *    matching `x-oc-debug-token` header (constant-time compared). This stops a
- *    mere logged-in guest on a debug-enabled preview from driving the expensive
- *    loop. The owner's session cookie is forwarded separately for tenant scoping;
- *    the debug token is NEVER forwarded to the engine endpoints.
+ *    matching `x-oc-debug-token` header (constant-time compared). This is the
+ *    operator secret — not mere header presence.
+ *  - OWNER identity: the forwarded session must resolve to a real authenticated
+ *    user (a guest `session` is rejected). The bug-hunt creates and operates ONLY
+ *    on chats it mints under THIS forwarded session (createChat/sendFollowUp), and
+ *    the DB-backed `getErrorLogs` reads error logs only for version ids minted by
+ *    the run — it never touches another tenant's pre-existing resources. The token
+ *    is NEVER forwarded to the engine endpoints; the session cookie/bearer is the
+ *    tenant scope.
  *  - budget overrides are clamped to server-owned ceilings.
  *
  * Intended to be driven by scripts/openclaw/bug-hunt.mjs one scenario at a time
@@ -39,6 +45,14 @@ interface RunRequestBody {
   scenarios?: BugHuntScenario[];
   scenario?: BugHuntScenario;
   budget?: Partial<BugHuntBudget>;
+  /**
+   * App project id that minted debug chats are created under. Required because
+   * the real create-chat route resolves the chat's project from
+   * `meta.appProjectId`/`projectId` and 400s otherwise. Must be owned by the
+   * forwarded session.
+   */
+  appProjectId?: string;
+  projectId?: string;
 }
 
 /** Tenant-scoping headers forwarded to the engine endpoints (NOT the debug token). */
@@ -51,18 +65,6 @@ function forwardAuthHeaders(req: Request): Record<string, string> {
   return headers;
 }
 
-/** Constant-time owner-token check. */
-function ownerTokenMatches(req: Request): boolean {
-  const expected = OPENCLAW.debugRunToken;
-  if (!expected) return false; // route hard-disabled unless the secret is set
-  const provided = req.headers.get("x-oc-debug-token") ?? "";
-  if (!provided) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 export async function POST(req: Request) {
   return withRateLimit(req, "openclaw:debug-run", async () => {
     if (!OPENCLAW.debugEnabled) {
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     // Owner gate: a real shared secret, not mere header presence.
-    if (!ownerTokenMatches(req)) {
+    if (!matchesOpenClawDebugToken(req)) {
       return NextResponse.json(
         { error: "Forbidden: set OC_DEBUG_RUN_TOKEN and send a matching x-oc-debug-token header." },
         { status: 403 },
@@ -85,6 +87,18 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Authenticated owner session required (forward cookie or authorization for tenant scoping)." },
         { status: 401 },
+      );
+    }
+
+    // Owner identity (Codex P1): require a real authenticated user, not a mere
+    // guest session. Combined with the operator token this binds the expensive
+    // run to a logged-in owner; the run only ever touches chats it mints under
+    // this same session.
+    const ownerUserId = await getRequestUserId(req);
+    if (!ownerUserId || ownerUserId.startsWith("guest:")) {
+      return NextResponse.json(
+        { error: "Authenticated owner account required (a guest session cannot trigger a bug-hunt)." },
+        { status: 403 },
       );
     }
 
@@ -100,12 +114,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No scenarios provided" }, { status: 400 });
     }
 
+    const appProjectId =
+      typeof body.appProjectId === "string" && body.appProjectId.trim()
+        ? body.appProjectId.trim()
+        : undefined;
+    const projectId =
+      typeof body.projectId === "string" && body.projectId.trim()
+        ? body.projectId.trim()
+        : undefined;
+    if (!appProjectId && !projectId) {
+      return NextResponse.json(
+        {
+          error:
+            "appProjectId (or projectId) is required: minted debug chats need an owned project. Pass --app-project-id to scripts/openclaw/bug-hunt.mjs.",
+        },
+        { status: 400 },
+      );
+    }
+
     const runId = typeof body.runId === "string" && body.runId.trim() ? body.runId.trim() : nanoid();
     // Clamp any client-supplied budget to server-owned ceilings (anti-runaway).
     const budget: BugHuntBudget = clampBugHuntBudget(body.budget);
 
     const baseUrl = new URL(req.url).origin;
-    const httpClient = createHttpEngineClient({ baseUrl, authHeaders });
+    const httpClient = createHttpEngineClient({ baseUrl, authHeaders, appProjectId, projectId });
 
     // The HTTP client's getErrorLogs is chat-scoped and can't read by versionId
     // alone, so back it with the DB service server-side (we run with DB access).
