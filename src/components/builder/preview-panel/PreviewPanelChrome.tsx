@@ -197,6 +197,25 @@ export function PreviewPanelChrome({
     chatId.length > 0 &&
     lifecycleStage !== "integrations";
   const localizedVersionSummary = localizeVerificationSummary(activeVersionSummary);
+  // F2 (`design`) is a pure visual-fidelity stage that intentionally skips the
+  // F3 server-verify/quality-gate lane, so a finished design version never
+  // reaches `promoted` and rests outside the verify states. Treat a clean
+  // design preview as "klar" instead of nagging "ej verifierad" forever.
+  // Degraded/blocked/failed still fall through to their own (red/amber)
+  // branches above, so this never turns a genuinely broken version green.
+  // IMPORTANT (false-green guard): require an EXPLICIT `design` stage. The prop
+  // is `null` while deployReadiness is still loading, and an F3/integrations
+  // version with that null stage must NOT read as klar — so we do not use
+  // `!== "integrations"` here (that would treat unknown as design). Unknown →
+  // falls through to the honest "ej verifierad".
+  const isDesignStage = lifecycleStage === "design";
+  const designPreviewReadyTruth = {
+    tone: "success" as const,
+    title: "Designpreview klar",
+    detail:
+      localizedVersionSummary ||
+      "Designläge (F2) kör ingen separat F3-verifiering — previewn är klar att granska. Integrationer och verifiering aktiveras först i F3.",
+  };
   const versionWorkInProgress =
     activeVersionStatus === "generating" ||
     activeVersionStatus === "autofixing" ||
@@ -327,6 +346,20 @@ export function PreviewPanelChrome({
         detail: localizedVersionSummary || "Versionens verifierade lifecycle är klar.",
       };
     }
+    if (activeVersionStatus === "ready") {
+      // F2 design preview is done — not "unverified", just not F3-verified.
+      if (isDesignStage) return designPreviewReadyTruth;
+      return {
+        tone: "info" as const,
+        title: "Preview startad, ej verifierad",
+        detail:
+          localizedVersionSummary ||
+          "Iframen har en preview-URL, men F3-verify/QG har inte gett en helhetsklar signal ännu.",
+      };
+    }
+    // Catch-all for any other resting state. F2/design is launchable as a
+    // design preview; only F3/integrations should read as "ej verifierad".
+    if (isDesignStage) return designPreviewReadyTruth;
     return {
       tone: "info" as const,
       title: "Preview startad, ej verifierad",
