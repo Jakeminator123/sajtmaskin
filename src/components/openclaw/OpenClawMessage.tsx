@@ -57,6 +57,10 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
     debugEnabled &&
     isMandateActive(armedMandate) &&
     !!armedMandate &&
+    // Only a `followups` mandate authorizes auto-send (Bugbot). A `review_next`
+    // mandate means "review my next MANUAL message" — it must never drive
+    // builder generations via submit:true.
+    armedMandate.mode === "followups" &&
     msg.timestamp >= armedMandate.createdAt;
 
   return (
