@@ -429,9 +429,22 @@ async function processVersion(
       chatId: ref.chatId,
       versionId: repair.versionId || ref.versionId,
     };
-    await deps.client.waitForVersionSettled(repairedRef);
-    build = await deps.client.forceBuild(repairedRef);
     ref = repairedRef;
+    const repairedSettle = await deps.client.waitForVersionSettled(repairedRef);
+    if (repairedSettle.settled) {
+      build = await deps.client.forceBuild(repairedRef);
+    } else {
+      // Don't force a gate on a repaired version that never settled — it would
+      // record a misleading pass/fail (Bugbot). Carry an unverified result.
+      build = {
+        result: "unknown",
+        detail: `repaired version did not settle (${repairedSettle.state})`,
+      };
+      deps.log?.("bug_hunt_repaired_unsettled", {
+        versionId: repairedRef.versionId,
+        state: repairedSettle.state,
+      });
+    }
   }
 
   const rows = await deps.client.getErrorLogs(ref.versionId);
@@ -483,6 +496,18 @@ export async function runBugHuntScenario(
       chatId: initRef.chatId,
       versionId: initRef.versionId,
     });
+    // Record an explicit warning finding so an unresolved scenario can't read as
+    // a silent success in the runner/CLI (Bugbot) — it produced no real version.
+    await persistFindings(deps, tracker, [
+      buildOutcomeFinding({
+        runId,
+        scenario: scenario.id,
+        chatId: initRef.chatId,
+        versionId: initRef.versionId,
+        buildResult: "unknown",
+        repairOutcome: null,
+      }),
+    ]);
     return null;
   }
   await processVersion(deps, tracker, runId, scenario, initRef);

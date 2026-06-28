@@ -208,10 +208,15 @@ describe("runBugHunt", () => {
       { client, writeFindings, now: () => 0 },
       { runId: "run1", scenarios: [{ id: "scn1", prompt: "x", followUps: ["f1"] }] },
     );
-    // Unresolved init ref must not poll/build/write findings, and must not chain.
+    // Unresolved init ref must not poll/build or chain, but records a warning
+    // finding so it isn't a silent success.
     expect(client.forceBuild).not.toHaveBeenCalled();
     expect(client.sendFollowUp).not.toHaveBeenCalled();
-    expect(writeFindings).not.toHaveBeenCalled();
+    const calls = writeFindings.mock.calls as unknown as Array<
+      [Array<{ severity: string; buildResult: string }>]
+    >;
+    const written = calls.flatMap((c) => c[0]);
+    expect(written.some((f) => f.severity === "warning" && f.buildResult === "unknown")).toBe(true);
   });
 
   it("stops the follow-up chain when a follow-up ref is unresolved (Bugbot)", async () => {

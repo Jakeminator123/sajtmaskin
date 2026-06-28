@@ -76,8 +76,14 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
     return { mode: "followups", count, reason };
   }
 
-  // "granska nästa meddelande jag skapar och ta notis om allt"
-  if (REVIEW_NEXT_RE.test(trimmed)) {
+  // "granska nästa meddelande jag skapar och ta notis om allt" — require an
+  // explicit review/arming verb so a bare "nästa meddelande" mention (e.g. an
+  // innocent question) can't false-arm autonomy (Bugbot), mirroring the
+  // follow-up path's imperative requirement.
+  if (
+    REVIEW_NEXT_RE.test(trimmed) &&
+    (REVIEW_VERB_RE.test(trimmed) || ARM_VERB_RE.test(trimmed))
+  ) {
     return { mode: "review_next", count: 1, reason };
   }
 

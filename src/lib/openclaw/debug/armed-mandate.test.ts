@@ -48,6 +48,11 @@ describe("parseArmingDirective", () => {
     expect(parseArmingDirective("vad är en follow-up egentligen")).toBeNull();
   });
 
+  it("does NOT arm review-next on a bare 'nästa meddelande' mention (no verb)", () => {
+    expect(parseArmingDirective("vad händer med nästa meddelande?")).toBeNull();
+    expect(parseArmingDirective("nästa meddelande är nog viktigt")).toBeNull();
+  });
+
   it("does NOT arm on negation/abstention", () => {
     expect(parseArmingDirective("gör inga follow-ups")).toBeNull();
     expect(parseArmingDirective("nej, inte follow-ups nu")).toBeNull();
