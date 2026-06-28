@@ -194,9 +194,10 @@ function renderHtml(data) {
       <p class="muted">${esc(data.meta.repo)} · commit ${esc(data.meta.commit)}${metaDate} · genererad ${esc(
         new Date().toISOString().slice(0, 19).replace("T", " "),
       )} UTC</p>
-      <p class="muted small">Fryst ögonblicksbild av committat läge vid commit ${esc(
+      <p class="muted small">Ögonblicksbild vid körningstillfället: fil-källor (domain-map.json,
+      BUG-SWARM-BACKLOG.md, eval-rapport) läses från working tree, medan commit ${esc(
         data.meta.commit,
-      )} (inte din working tree). Uppdateras inte automatiskt — kör <code>npm run canvas:open</code> igen för färsk status (öppnar en ny flik).</p>
+      )} och churn speglar committat läge (git log). Uppdateras inte automatiskt — kör <code>npm run canvas:open</code> igen för färsk status (öppnar en ny flik).</p>
       <div class="legend">${legend}</div>
     </header>
 

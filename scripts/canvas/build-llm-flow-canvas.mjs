@@ -606,9 +606,9 @@ export default function LLMFlowCanvas() {
         <CardBody>
           <Stack gap={6}>
             <Text size="small" tone="secondary">
-              Genereras deterministiskt fran config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md,
-              eval-rapporten och git-churn. Fryst ogonblicksbild av committat lage (commit {d.meta.commit}),
-              inte din working tree.
+              Ogonblicksbild vid korningstillfallet. Fil-kallorna (config/dashboard/domain-map.json,
+              BUG-SWARM-BACKLOG.md, eval-rapporten) lases fran working tree, medan commit {d.meta.commit}
+              och churn speglar committat lage (git log).
             </Text>
             <Text size="small" tone="secondary">
               Uppdateras MANUELLT - auto-PR-workflowen togs bort i #191. Kor om for farsk status:

@@ -3,7 +3,7 @@
 Versionerad kopia av arbetsplanen. En oversikts-canvas for sajtmaskins
 LLM-flode som visar per process om den ar **Klart / Pagar / Skakigt /
 Blockerat**. Genereras MANUELLT (se "Uppdatering") - varje artefakt ar en
-fryst ogonblicksbild av committat lage vid korningstillfallet, inte en live-vy.
+ogonblicksbild vid korningstillfallet (se "Farskhet"), inte en live-vy.
 
 ## Krav som styrde designen
 
@@ -100,15 +100,18 @@ oppna canvasen bredvid chatten.
 
 ## Farskhet (viktigt)
 
-Varje artefakt ar en **fryst ogonblicksbild** av repo-laget vid
-genereringstillfallet:
+Varje artefakt ar en **ogonblicksbild** av repo-laget vid genereringstillfallet.
+Kallorna blandar working tree och committat lage:
 
-- Den speglar **committat lage** (HEAD-commit + `git log`-churn) - ocommittade
-  andringar i din working tree syns inte.
+- **Fil-kallor lases fran working tree:** `BUG-SWARM-BACKLOG.md`,
+  `config/dashboard/domain-map.json` och eval-rapporten lases direkt fran disk
+  (`readFileSync`) - ocommittade andringar i DEM syns vid nasta omkorning.
+- **Git-harledda falt speglar committat lage:** commit-hash (HEAD) och churn per
+  process kommer fran `git log` - ocommittade kod-andringar raknas inte i churn
+  forran de ar committade.
 - `npm run canvas:open` skapar en **ny webblasarflik** varje korning; gamla
-  flikar ligger kvar pa sin gamla commit (ingen live-reload).
-- Stammer inte siffrorna: kontrollera att andringarna ar committade och kor om
-  kommandot.
+  flikar ligger kvar pa sin gamla data (ingen live-reload).
+- Stammer inte siffrorna: kor om kommandot (och committa det som ska synas i churn).
 
 ## Utbyggnad
 
