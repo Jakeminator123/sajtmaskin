@@ -192,7 +192,9 @@ residual så gaten blockerar. Icke-tier-3 (shadcn/lucide/next) är opåverkat.
 Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers) och
 `validate.tsc.import-repair.resolved` (`llmSkippedBecauseResolved: true`) i
 dev-loggen, så prod-analys kan se om autofix saknades, lagade eller orsakade
-felet.
+felet. `handledCodes` registrerar varje faktisk tsc-kod för sig — TS2552
+("Cannot find name … Did you mean …") särskiljs från TS2304 även om båda löses
+av samma known-import-fixer, så statistiken inte buntar ihop dem.
 
 Det betyder att quality gate i nuläget är både:
 

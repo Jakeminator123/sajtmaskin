@@ -31,6 +31,58 @@ describe("runDeterministicImportRepair", () => {
     expect(result.content).toContain('import { Button } from "@/components/ui/button"');
   });
 
+  it("records the TS2552 'did you mean' variant distinctly from TS2304", () => {
+    // Same resolvable shadcn symbol (`Button`) and same fix in both cases — only
+    // the diagnostic shape differs. The recorded code must follow the message:
+    // the "Did you mean" form is TS2552, the plain form is TS2304. They must not
+    // be bucketed together (the gap that motivated #291's prod analysis).
+    const content = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Button>Go</Button>;
+}`,
+    );
+
+    const ts2552 = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Button'. Did you mean 'button'?"),
+    ]);
+    expect(ts2552.fixed).toBe(true);
+    expect(ts2552.handledCodes).toContain("TS2552");
+    expect(ts2552.handledCodes).not.toContain("TS2304");
+    expect(ts2552.content).toContain('import { Button } from "@/components/ui/button"');
+
+    const ts2304 = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Button'."),
+    ]);
+    expect(ts2304.fixed).toBe(true);
+    expect(ts2304.handledCodes).toContain("TS2304");
+    expect(ts2304.handledCodes).not.toContain("TS2552");
+  });
+
+  it("does not label non-TS2552 'did you mean' variants as TS2552", () => {
+    // TS2662/TS2663 ("...the instance/static member 'this.X'") and TS2311
+    // ("...to write this in an async function") also begin with "Cannot find
+    // name 'X'." + a "Did you mean" clause, but they are NOT TS2552. Only the
+    // quoted-name suggestion form is TS2552; anything else stays TS2304.
+    const content = file(
+      "components/hero.tsx",
+      `export function Hero() {
+  return <Image src="/a.png" alt="a" width={1} height={1} />;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(
+        "components/hero.tsx",
+        "Cannot find name 'Image'. Did you mean the instance member 'this.Image'?",
+      ),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2304");
+    expect(result.handledCodes).not.toContain("TS2552");
+    expect(result.content).toContain('import Image from "next/image"');
+  });
+
   const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
   const stripeContent = file(
     STRIPE_ROUTE,
@@ -56,8 +108,42 @@ export default clerkMiddleware((auth, req) => {
     );
 
     expect(result.fixed).toBe(true);
-    expect(result.handledCodes).toContain("TS2304");
+    // `Stripe` arrived as the TS2552 "Did you mean 'stripe'?" variant, so it
+    // must be recorded as TS2552 — not folded into TS2304.
+    expect(result.handledCodes).toContain("TS2552");
+    expect(result.handledCodes).not.toContain("TS2304");
     expect(result.content).toContain('import Stripe from "stripe"');
+  });
+
+  it("attributes cannot-find-name codes per file (residual code not counted)", () => {
+    // The same symbol (`Stripe`) appears in two files with different codes. In
+    // F3 it resolves in the API route (TS2552 "did you mean") but stays residual
+    // in a plain component (TS2304) — the Node SDK only resolves in server-route
+    // files. handledCodes must report ONLY the resolved TS2552; the unresolved
+    // component's TS2304 must NOT be mis-counted (per-file, not per-name).
+    const component = file(
+      "components/pricing.tsx",
+      `export function Pricing() {
+  const client = new Stripe("pk");
+  return <div>{client ? "ok" : "no"}</div>;
+}`,
+    );
+    const result = runDeterministicImportRepair(
+      project(stripeContent, component),
+      [
+        diag(STRIPE_ROUTE, "Cannot find name 'Stripe'. Did you mean 'stripe'?"),
+        diag("components/pricing.tsx", "Cannot find name 'Stripe'."),
+      ],
+      { previewPolicy: "fidelity3" },
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2552");
+    expect(result.handledCodes).not.toContain("TS2304");
+    // Only the route file received the import; the component stayed residual.
+    const stripeImports =
+      result.content.split('import Stripe from "stripe"').length - 1;
+    expect(stripeImports).toBe(1);
   });
 
   it("resolves Clerk server helpers in middleware in F3 (TS2304)", () => {
