@@ -315,7 +315,12 @@ function importSpecifiersFromDeclaration(decl: ts.ImportDeclaration): ImportSpec
   const namedImports: string[] = [];
   if (ic.namedBindings && ts.isNamedImports(ic.namedBindings)) {
     for (const el of ic.namedBindings.elements) {
-      namedImports.push(el.name.text);
+      // Record the module export name, not the local binding. For an aliased
+      // import (`import { PricingTable as PT }`) the sibling must export
+      // `PricingTable`, so the rewire-satisfies check and stub generation both
+      // need `propertyName`; using `el.name` (= `PT`) wrongly rejects a valid
+      // sibling and falls back to auto-stubbing.
+      namedImports.push((el.propertyName ?? el.name).text);
     }
   }
   return {
