@@ -451,9 +451,14 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
   };
 }
 
-export function formatPriorDesignContext(summary: BriefSummarySnapshot): string {
+export function formatPriorDesignContext(
+  summary: BriefSummarySnapshot,
+  options: { intent?: "clear-redesign" } = {},
+): string {
   const lines = [
-    "Prior design context (preserve aspects not contradicted by the change request):",
+    options.intent === "clear-redesign"
+      ? "Prior site context for orientation only (clear-redesign may replace the visual style unless the user explicitly keeps parts):"
+      : "Prior design context (preserve aspects not contradicted by the change request):",
   ];
   if (summary.projectTitle) lines.push(`- Project: ${summary.projectTitle}`);
   if (summary.brandName) lines.push(`- Brand: ${summary.brandName}`);

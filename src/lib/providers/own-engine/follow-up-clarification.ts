@@ -26,6 +26,16 @@ const FOLLOW_UP_REDESIGN_PATTERNS = [
   /(?<![\p{L}\p{N}_])(?:redesign|rebrand|restyle|start\s+over|from\s+scratch)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:gör\s+om\s+från\s+grunden|helt\s+ny\s+riktning|helt\s+annan\s+stil|byt\s+stil\s+helt)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:tydlig\s+redesign|starta\s+om\s+från\s+en\s+ny\s+grund)(?![\p{L}\p{N}_])/iu,
+  // Codex P1 (#297): the site/design target is REQUIRED — a bare "modernisera"
+  // must not match, or targeted edits ("modernisera rubriken", "modernize the
+  // hero copy") would be misclassified as `clear-redesign` (unlocking scaffold
+  // rematch + delta-brief) instead of staying in the refine path.
+  /(?<![\p{L}\p{N}_])(?:modernisera\s+(?:hela\s+)?(?:sajten|webbplatsen|sidan|designen|utseendet|layouten)|modernize\s+(?:the\s+)?(?:whole\s+)?(?:site|website|design|look|layout))(?![\p{L}\p{N}_])/iu,
+  // Bugbot (#297): require a whole-site qualifier for "layout" — bare "ny layout"
+  // matched targeted edits ("ny layout för footern", "ny layout-sektion"). Mirror
+  // the English precision ("change the whole layout") by requiring "helt ny layout".
+  /(?<![\p{L}\p{N}_])(?:(?:helt\s+)?nytt\s+utseende|helt\s+ny\s+layout|ändra\s+hela\s+layouten|gör\s+om\s+(?:hela\s+)?layouten)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:(?:brand\s+)?new\s+look|new\s+visual\s+identity|change\s+the\s+(?:whole\s+|entire\s+)?layout|redo\s+the\s+(?:whole\s+|entire\s+)?layout)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_NEW_SITE_PATTERNS = [
   /(?<![\p{L}\p{N}_])(?:hemsida|sajt|landningssida|startsida)(?![\p{L}\p{N}_])/iu,

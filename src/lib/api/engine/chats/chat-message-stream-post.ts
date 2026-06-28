@@ -414,16 +414,24 @@ export async function handleMessageStreamRequest(
             : [];
 
         const skipIntentClassification =
-          metaPromptSourcePreservePayload ||
-          metaPromptSourceTechnical ||
-          contractAnswerContext.currentReplyWasConsumed;
+          metaPromptSourcePreservePayload || metaPromptSourceTechnical;
+        // Contract-gate retries send a short answer as the current message.
+        // Classify intent against the original gated request so clear-redesign
+        // keeps its delta-brief/scaffold-unlock semantics on turn 2.
+        const followUpIntentMessage =
+          contractAnswerContext.currentReplyWasConsumed &&
+          contractAnswerContext.consumedReplyContext?.sourceUserMessage
+            ? contractAnswerContext.consumedReplyContext.sourceUserMessage
+            : message;
+        const skipFollowUpClarification =
+          skipIntentClassification || contractAnswerContext.currentReplyWasConsumed;
         // Backoffice 2.0 fas 6: strategy-aware classification. Default
         // manifest config is "keyword", so this resolves to the exact same
         // deterministic result as before; only an explicit `small-llm` opt-in
         // takes the LLM path (with fail-safe fallback to the same keyword
         // classifier). See follow-up-intent-router.ts.
         const followUpIntent = hasFollowUpBase && !skipIntentClassification
-          ? await classifyFollowUpIntentWithStrategy(message)
+          ? await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
           : "neutral";
         // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
         // follow-up text so `selectDossiersForRequest` actually sees the
@@ -434,7 +442,7 @@ export async function handleMessageStreamRequest(
         // otherwise re-trigger capability injection on every repair pass.
         const followUpCapabilityDetection: FollowUpCapabilityDetection =
           hasFollowUpBase && !skipIntentClassification
-            ? detectFollowUpCapabilities(message)
+            ? detectFollowUpCapabilities(followUpIntentMessage)
             : {
                 capabilities: [],
                 capabilityIds: [],
@@ -456,7 +464,7 @@ export async function handleMessageStreamRequest(
               followUpCapabilityDetection.modifyReferenceMatches,
           });
         }
-        const followUpClarification = hasFollowUpBase && !skipIntentClassification
+        const followUpClarification = hasFollowUpBase && !skipFollowUpClarification
           ? resolveFollowUpClarification(message)
           : null;
         if (followUpClarification) {
@@ -499,19 +507,25 @@ export async function handleMessageStreamRequest(
           const deltaIgnoreScaffold = shouldIgnorePersistedScaffoldForMatch({
             hasPreviousFiles: true,
             followUpIntent,
-            message,
+            message: followUpIntentMessage,
             scaffoldMode: metaScaffoldMode,
             scaffoldId: metaScaffoldId,
           });
           const deltaPreMatchScaffold = persistedScaffoldIdForDelta && !deltaIgnoreScaffold
             ? getScaffoldById(persistedScaffoldIdForDelta)
-            : matchScaffold(message, (metaBuildIntent as BuildIntent | null));
+            : matchScaffold(followUpIntentMessage, (metaBuildIntent as BuildIntent | null));
           // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
           // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
           const deltaPreMatchVariant = deltaPreMatchScaffold
-            ? pickScaffoldVariant({ prompt: message, scaffoldId: deltaPreMatchScaffold.id })
+            ? pickScaffoldVariant({
+                prompt: followUpIntentMessage,
+                scaffoldId: deltaPreMatchScaffold.id,
+              })
             : null;
-          const deltaVariantHints = buildVariantHintsForBrief(deltaPreMatchScaffold, deltaPreMatchVariant);
+          const deltaVariantHints = buildVariantHintsForBrief(
+            deltaPreMatchScaffold,
+            deltaPreMatchVariant,
+          );
           const deltaVariantHintsText = deltaVariantHints
             ? formatVariantHintsForPrompt(deltaVariantHints)
             : undefined;
@@ -520,12 +534,12 @@ export async function handleMessageStreamRequest(
             engineChat.orchestration_snapshot as Record<string, unknown> | null,
           );
           const priorContext = snapshotBriefSummary
-            ? formatPriorDesignContext(snapshotBriefSummary)
+            ? formatPriorDesignContext(snapshotBriefSummary, { intent: "clear-redesign" })
             : undefined;
 
           const deltaBriefStartedAt = Date.now();
           const deltaBriefResult = await tryGenerateServerAutoBrief({
-            prompt: message,
+            prompt: followUpIntentMessage,
             assistModelHint: metaPromptAssistModel,
             imageGenerations: resolvedImageGenerations,
             signal: req.signal,
@@ -535,11 +549,11 @@ export async function handleMessageStreamRequest(
           if (deltaBriefResult) {
             metaBrief = deltaBriefResult.brief;
             // 5-4 (F1): route the freshly generated delta-brief into orchestration.
-            // buildFollowUpOrchestrationInput reads `parsedMeta.brief ??
-            // buildFollowUpBriefFromSnapshot(...)`, so without this write-back the
-            // fresh delta was computed and logged, then silently dropped in favour
-            // of the snapshot brief. Neutral follow-ups never reach this branch, so
-            // `metaBrief` stays null and they keep using the snapshot fallback.
+            // Without this write-back the fresh delta was computed and logged,
+            // then ignored by orchestration. Neutral follow-ups never reach this
+            // branch, so `metaBrief` stays null and they keep using the
+            // snapshot fallback; clear-redesign failures now use a non-style
+            // fallback in buildFollowUpOrchestrationInput.
             parsedMeta.brief = metaBrief;
             debugLog("orchestration", "Delta-brief generated for clear-redesign follow-up", {
               chatId,
@@ -557,7 +571,7 @@ export async function handleMessageStreamRequest(
 
         if (hasFollowUpBase) {
           const followUpFileContext = buildFollowUpFileContextDecision({
-            message,
+            message: followUpIntentMessage,
             previousFiles,
             followUpIntent,
             skipIntentClassification,
@@ -710,7 +724,7 @@ export async function handleMessageStreamRequest(
         const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
           hasPreviousFiles: hasFollowUpBase,
           followUpIntent,
-          message,
+          message: followUpIntentMessage,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
         });
@@ -732,7 +746,7 @@ export async function handleMessageStreamRequest(
             buildFollowUpOrchestrationInput({
               mode: "plan",
               optimizedMessage,
-              message,
+              message: followUpIntentMessage,
               buildIntent: planEngineIntent,
               parsedMeta,
               resolvedImageGenerations,
@@ -892,7 +906,7 @@ export async function handleMessageStreamRequest(
             ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
         const requestKindResult =
-          hasFollowUpBase ? classifyRequestKind(message) : null;
+          hasFollowUpBase ? classifyRequestKind(followUpIntentMessage) : null;
         if (requestKindResult?.kind === "qa-or-score") {
           devLogAppend("in-progress", {
             type: "request.kind.shortcircuit",
@@ -941,7 +955,7 @@ export async function handleMessageStreamRequest(
         const orchestrationInput = buildFollowUpOrchestrationInput({
           mode: "codegen",
           optimizedMessage,
-          message,
+          message: followUpIntentMessage,
           buildIntent: engineIntent,
           parsedMeta,
           resolvedImageGenerations,
@@ -1189,7 +1203,7 @@ export async function handleMessageStreamRequest(
             abortSignal: req.signal,
             maxSteps: resolveOwnEngineMaxSteps({
               buildSpec: orchestrationBase.buildSpec,
-              userMessage: message,
+              userMessage: followUpIntentMessage,
               isFollowUp: hasFollowUpBase,
             }),
             referenceAttachments: requestAttachments,
@@ -1213,7 +1227,7 @@ export async function handleMessageStreamRequest(
           }),
           engineModel: generatorModel,
           optimizedMessage,
-          rawPrompt: message,
+          rawPrompt: followUpIntentMessage,
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,

@@ -319,6 +319,111 @@ describe("POST quality-gate", () => {
     expect(getVersionFiles).toHaveBeenCalledTimes(2);
   });
 
+  it("fails closed (retryable) without promoting or failing when the guard is indeterminate (B08)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    // Guard could not read the finalize signal (DB error) → indeterminate.
+    assertPromoteAllowed.mockResolvedValue({
+      allowed: false,
+      indeterminate: true,
+      reason: "promote guard signal unavailable: db timeout",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // Fail closed: no promotion. Fail safe: not terminally failed either.
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.vmGatePassed).toBe(true);
+    expect(body.promoteError).toBe(true);
+    expect(body.promoteGuardUnavailable).toBe(true);
+    expect(body.promotionBlocked).toBeUndefined();
+    // Opted into fail-closed reads.
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      { onReadError: "indeterminate" },
+    );
+  });
+
+  it("fails closed (retryable) when the guard itself throws", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    // Guard throws unexpectedly → route .catch must fail closed, not open.
+    assertPromoteAllowed.mockRejectedValue(new Error("boom"));
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.promoteError).toBe(true);
+    expect(body.promoteGuardUnavailable).toBe(true);
+  });
+
   it("returns 409 version_busy when another job holds the version lease (Plan C)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },

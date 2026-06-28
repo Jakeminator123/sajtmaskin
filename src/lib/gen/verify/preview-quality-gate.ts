@@ -291,19 +291,15 @@ export async function shouldPromoteAfterRepair(params: {
     verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
   });
   if (!gate) {
-    if (params.hadQualityGateFailures) {
-      return {
-        promote: false,
-        results: null,
-        verifyLaneDurationMs: 0,
-        firstFailureCheck: null,
-        jobStartedAt: null,
-        jobFinishedAt: null,
-      };
-    }
+    // Verify lane unavailable (quality gate not configured): we cannot prove the
+    // repaired files are clean, so NEVER treat an unverified repair as green.
+    // Previously the no-prior-failures branch returned `promote:true` with EMPTY
+    // `results`, which read as a pass even though nothing was verified — a
+    // false-green (B08). Fail closed in both cases (`results:null`, not `[]`, so
+    // `qualityGateAllPassed` can never see it as a passing run).
     return {
-      promote: true,
-      results: [],
+      promote: false,
+      results: null,
       verifyLaneDurationMs: 0,
       firstFailureCheck: null,
       jobStartedAt: null,
