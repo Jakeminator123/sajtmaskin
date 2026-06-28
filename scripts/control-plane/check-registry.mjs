@@ -7,8 +7,9 @@
  * and enforces the cross-cutting invariants documented in
  * config/control-plane/README.md:
  *
- *   - every `sourceOfTruth` base path exists on disk (globs match >=1 file,
- *     `#fragment` stripped first);
+ *   - every `sourceOfTruth` resolves: base path exists on disk (globs match
+ *     >=1 file); a `#fragment` on a JSON base resolves to a defined key (so a
+ *     renamed/removed/typo'd fragment can't pass just because the file exists);
  *   - non-null `validator` names an existing package.json script;
  *   - no duplicate `id` within a registry;
  *   - `ciStatus: hard` requires a non-null `validator`;
@@ -110,11 +111,47 @@ function globHasMatch(pattern) {
   return current.length > 0;
 }
 
-/** True if the source-of-truth (path / path#fragment / glob) resolves on disk. */
-function sourceExists(sourceOfTruth) {
-  const base = sourceOfTruth.split("#")[0];
-  if (base.includes("*")) return globHasMatch(base);
-  return fs.existsSync(path.join(REPO_ROOT, base));
+/**
+ * Resolve a source-of-truth reference (`path`, `path#fragment`, or glob).
+ *
+ * Returns `{ ok: true }` or `{ ok: false, reason }`. For a `file.json#fragment`
+ * reference the base file must exist AND the dot-separated fragment must resolve
+ * to a defined node. Previously the `#fragment` was stripped and only the base
+ * file was checked, so a renamed/removed/typo'd key (e.g.
+ * `manifest.json#repairPolices`) passed as long as the file existed — a
+ * false-green in the self-validating map (#202). Non-JSON bases keep
+ * base-existence-only checking (no YAML parser is pulled in here).
+ */
+function resolveSource(sourceOfTruth) {
+  const hashIdx = sourceOfTruth.indexOf("#");
+  const base = hashIdx === -1 ? sourceOfTruth : sourceOfTruth.slice(0, hashIdx);
+  const fragment = hashIdx === -1 ? "" : sourceOfTruth.slice(hashIdx + 1);
+
+  if (base.includes("*")) {
+    return globHasMatch(base) ? { ok: true } : { ok: false, reason: `glob matched no files: ${base}` };
+  }
+
+  const abs = path.join(REPO_ROOT, base);
+  if (!fs.existsSync(abs)) return { ok: false, reason: `not found on disk: ${base}` };
+
+  if (!fragment) return { ok: true };
+  if (!/\.jsonc?$/i.test(base)) return { ok: true };
+
+  let json;
+  try {
+    json = JSON.parse(fs.readFileSync(abs, "utf8"));
+  } catch (err) {
+    return { ok: false, reason: `could not parse ${base} for "#${fragment}": ${err.message}` };
+  }
+
+  let node = json;
+  for (const key of fragment.split(".")) {
+    if (node == null || typeof node !== "object" || !Object.prototype.hasOwnProperty.call(node, key)) {
+      return { ok: false, reason: `fragment "#${fragment}" missing in ${base} (no "${key}")` };
+    }
+    node = node[key];
+  }
+  return { ok: true };
 }
 
 function normalizeScriptName(validator) {
@@ -178,8 +215,9 @@ for (const registry of REGISTRIES) {
   for (const entry of entries) {
     const id = entry.id ?? "<no-id>";
 
-    if (!sourceExists(entry.sourceOfTruth)) {
-      fail(registry.name, `${id}: sourceOfTruth not found on disk: ${entry.sourceOfTruth}`);
+    const sourceCheck = resolveSource(entry.sourceOfTruth);
+    if (!sourceCheck.ok) {
+      fail(registry.name, `${id}: sourceOfTruth ${sourceCheck.reason}`);
     }
 
     if (entry.validator != null) {
