@@ -131,12 +131,12 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   }
 
   if (status === "repair_available") {
+    const actionable =
+      "Previewn visar fortfarande den tidigare versionen. Klicka \u201dAcceptera fix\u201d i versionspanelen för att applicera reparationen innan publicering.";
     return {
       id: "version-repair-available",
-      title: "En serverreparation väntar på godkännande.",
-      detail:
-        summary ||
-        "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.",
+      title: "En serverreparation är redo att aktiveras.",
+      detail: summary ? `${summary} ${actionable}` : actionable,
       severity: "blocker",
       action: "versions",
     };
@@ -304,6 +304,24 @@ async function buildEngineReadiness(
     } else {
       warnings.push(lifecycleItem);
     }
+  }
+
+  // Decision (P8): keep the timeout auto-accept safety net (so a staged repair
+  // that the user never explicitly accepts still eventually applies instead of
+  // blocking publish forever), but make it VISIBLE instead of silent. When this
+  // poll performed the auto-accept the preview/version just changed under the
+  // user, so surface a one-time warning telling them what happened and how to
+  // undo it. The persistent record stays in the `server-repair:auto-accepted`
+  // error log written above.
+  if (wasAutoAccepted) {
+    warnings.push({
+      id: "repair-auto-accepted",
+      title: "Serverreparationen aktiverades automatiskt.",
+      detail:
+        "Den väntande fixen accepterades automatiskt efter timeout, så previewn och versionen uppdaterades. Granska resultatet och rulla tillbaka i versionspanelen om något ser fel ut.",
+      severity: "warning",
+      action: "versions",
+    });
   }
 
   const files = versionFiles ?? [];

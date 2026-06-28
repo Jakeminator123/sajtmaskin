@@ -27,6 +27,7 @@ import {
   Pin,
   RotateCcw,
   UploadCloud,
+  Wrench,
 } from "lucide-react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
@@ -984,6 +985,37 @@ export function VersionHistory({
                       )}
                     </div>
                   </div>
+                  {hasPendingRepair && (
+                    <div className="mt-2 flex flex-col gap-2 rounded-md border border-indigo-500/50 bg-indigo-500/10 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex gap-2">
+                        <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-indigo-400" aria-hidden />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-200">
+                            Fix redo att aktiveras
+                          </p>
+                          <p className="text-[11px] leading-relaxed text-muted-foreground">
+                            Previewn visar fortfarande den tidigare versionen tills du accepterar
+                            reparationen.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => handleAcceptRepair(e, version)}
+                        disabled={isAcceptingRepair || isRestoring}
+                        title="Acceptera serverreparation"
+                        aria-label="Acceptera serverreparation"
+                        className="h-8 shrink-0 bg-indigo-600 px-3 text-xs text-white hover:bg-indigo-500"
+                      >
+                        {isAcceptingRepair ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                        )}
+                        Acceptera fix
+                      </Button>
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-1">
                     {listPreviewUrl && (
                       <Button
@@ -1028,24 +1060,6 @@ export function VersionHistory({
                           <RotateCcw className="mr-1 h-3 w-3" />
                         )}
                         {canRollback ? "Rollback" : "Restore"}
-                      </Button>
-                    )}
-                    {hasPendingRepair && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleAcceptRepair(e, version)}
-                        disabled={isAcceptingRepair || isRestoring}
-                        title="Acceptera serverreparation"
-                        aria-label="Acceptera serverreparation"
-                        className="h-7 px-2 text-xs"
-                      >
-                        {isAcceptingRepair ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <CheckCircle className="mr-1 h-3 w-3" />
-                        )}
-                        Acceptera fix
                       </Button>
                     )}
                     <Button

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wrench } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Formatting helpers (moved here since only used in review rendering)
@@ -322,7 +322,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
       <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
       <div className="space-y-1">
         <div className={props.passed ? "text-emerald-400" : "text-rose-400"}>
-          {props.passed ? "PASS" : "FAIL"}
+          {props.passed ? "Godkänt" : "Underkänt"}
         </div>
         {props.checks.map((check) => {
           const checkDuration = formatDurationMsShort(check.durationMs);
@@ -354,13 +354,13 @@ function QualityGateFull(props: QualityGatePanelProps) {
         )}
         {props.firstFailureCheck && (
           <div className="text-amber-300/80 text-[10px]">
-            First failure: {props.firstFailureCheck}
+            Första felet: {props.firstFailureCheck}
           </div>
         )}
         {props.visualQA && (
           <div className="text-muted-foreground/80 text-[10px]">
-            Visual QA: {props.visualQA.overallScore}/100{" "}
-            {props.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
+            Visuell QA: {props.visualQA.overallScore}/100{" "}
+            {props.visualQA.passed ? "Godkänt" : "Under tröskel"}
           </div>
         )}
       </div>
@@ -372,7 +372,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
   if (props.skipped) {
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className="text-amber-300">Verify: hoppades över</p>
+        <p className="text-amber-300">Verifiering: hoppades över</p>
         {props.reason && <p className="text-muted-foreground mt-1">{props.reason}</p>}
       </div>
     );
@@ -381,7 +381,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
   if (props.errorText) {
     return (
       <div className="mt-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs">
-        <p className="text-rose-300">Verify: fel</p>
+        <p className="text-rose-300">Verifiering: fel</p>
         <p className="text-muted-foreground mt-1">{props.errorText}</p>
       </div>
     );
@@ -398,7 +398,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
   return (
     <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
       <p className={props.passed ? "text-emerald-300" : "text-rose-300"}>
-        Verify: {props.passed ? "PASS" : "FAIL"}
+        Verifiering: {props.passed ? "Godkänt" : "Underkänt"}
       </p>
       {props.checks.length > 0 && (
         <p className="text-muted-foreground mt-1 wrap-break-word">
@@ -417,7 +417,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
         <p className="text-muted-foreground mt-1">
           {[
             totalDuration ? `Total: ${totalDuration}` : null,
-            props.firstFailureCheck ? `First failure: ${props.firstFailureCheck}` : null,
+            props.firstFailureCheck ? `Första felet: ${props.firstFailureCheck}` : null,
           ]
             .filter((v): v is string => Boolean(v))
             .join(" • ")}
@@ -435,8 +435,8 @@ function QualityGateCompact(props: QualityGatePanelProps) {
       )}
       {props.visualQA && (
         <p className="text-muted-foreground mt-1">
-          Visual QA: {props.visualQA.overallScore}/100{" "}
-          {props.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
+          Visuell QA: {props.visualQA.overallScore}/100{" "}
+          {props.visualQA.passed ? "Godkänt" : "Under tröskel"}
         </p>
       )}
     </div>
@@ -459,7 +459,34 @@ export type ServerRepairPanelProps = {
   earlyStopReason: string | null;
 };
 
+/**
+ * Repair-handoff banner shown when a server repair is staged but NOT yet
+ * applied (`status === "repair_available"`). The complaint this addresses:
+ * the staged fix was only signalled by a transient toast, so users missed it
+ * and kept looking at the still-broken preview. This persistent, prominent
+ * call-to-action makes the handoff unmissable and tells the user that the
+ * preview still shows the previous version until they accept the fix in the
+ * version panel ("Acceptera fix").
+ */
+function RepairAvailableHandoff() {
+  return (
+    <div className="mb-2 flex gap-2 rounded-md border border-indigo-500/50 bg-indigo-500/10 p-2.5 text-indigo-100">
+      <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-indigo-300" aria-hidden />
+      <div className="space-y-0.5">
+        <p className="text-xs font-semibold text-indigo-200">Fix redo att aktiveras</p>
+        <p className="text-[11px] leading-relaxed text-indigo-100/90">
+          Reparationen är klar men inte aktiverad ännu — previewn visar fortfarande den
+          tidigare versionen. Klicka <span className="font-semibold">&quot;Acceptera fix&quot;</span>{" "}
+          i versionspanelen för att applicera den.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function ServerRepairPanel(props: ServerRepairPanelProps) {
+  const repairAvailable = props.status === "repair_available";
+
   if (props.variant === "compact") {
     const secondaryParts = [
       props.remainingErrors !== null ? `Kvarvarande fel: ${props.remainingErrors}` : null,
@@ -469,8 +496,9 @@ export function ServerRepairPanel(props: ServerRepairPanelProps) {
 
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+        {repairAvailable && <RepairAvailableHandoff />}
         <p className={props.repaired ? "text-emerald-300" : "text-amber-300"}>
-          Repair: {props.repaired ? "lyckades" : "ej fullständig"}
+          Reparation: {props.repaired ? "lyckades" : "ej fullständig"}
         </p>
         {props.status && <p className="text-muted-foreground mt-1">Status: {props.status}</p>}
         {props.method && <p className="text-muted-foreground mt-1">Metod: {props.method}</p>}
@@ -488,6 +516,7 @@ export function ServerRepairPanel(props: ServerRepairPanelProps) {
   return (
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
       <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Server repair</div>
+      {repairAvailable && <RepairAvailableHandoff />}
       <div className="space-y-1 text-muted-foreground">
         <div className={props.repaired ? "text-emerald-300" : "text-amber-300"}>
           {props.repaired ? "Reparation lyckades" : "Reparationsförsök slutfört utan full fix"}
