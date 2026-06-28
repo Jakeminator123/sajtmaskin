@@ -13,13 +13,13 @@ implementation_started: true
 ---
 
 <!-- Arkiverad till avklarat/ 2026-06-28: kärnan mergad via #256 (+ #265 base-bound repair).
-     Kvarvarande är INTE planarbete: prod-migration av engine_version_jobs är ägar-ops (runbook nedan)
-     och #260 P2 #4 spåras i BUG-SWARM-BACKLOG.md. -->
+     #260 är helt stängd i koden (P2 #5 via #265; P2 #4 via #276, härdat via #284).
+     Enda kvarvarande är INTE planarbete: prod-migration av engine_version_jobs är ägar-ops (runbook nedan). -->
 
 
 # Plan C / P1 — Distribuerat lås för server-verify & repair
 
-> **Status: KOD MERGAD till master via #256 (2026-06-27); prod-migration (prod-DB) EJ körd.** Base-bound repair-save/accept landade i #265 (2026-06-28) och stänger #260 P2 #5; #260 hålls öppen för P2 #4 (quality-gate håller leasen över verify-budgeten).
+> **Status: KOD MERGAD till master via #256 (2026-06-27); prod-migration (prod-DB) EJ körd.** Base-bound repair-save/accept landade i #265 (2026-06-28) och stänger #260 P2 #5; #260 P2 #4 (quality-gate höll leasen över verify-budgeten) är löst via #276 och härdat via #284 (verify-timeout härleds från route-budgeten med marginal). #260 är därmed helt stängd i koden — enda kvarvarande punkten är ägarens manuella prod-migration.
 > Ägaren godkände bygget (2026-06-27) efter att #251 mergats. Den distribuerade
 > kärnan (lease-tabell + lease-API + auto-flödets `run_id`-kedja) är byggd och
 > verifierad lokalt: `npm run typecheck` (0 fel), `db:schema-drift`-testet grönt,
