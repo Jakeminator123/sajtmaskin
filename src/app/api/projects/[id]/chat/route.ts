@@ -108,7 +108,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         success: true,
         chatId: null,
-        v0ChatId: null,
         internalChatId: null,
         message: "Project not found or not accessible",
       });
@@ -120,7 +119,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         success: true,
         chatId: chatFromProjectData.v0ChatId,
-        v0ChatId: chatFromProjectData.v0ChatId,
         internalChatId: chatFromProjectData.id,
       });
     }
@@ -130,7 +128,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         success: true,
         chatId: null,
-        v0ChatId: null,
         internalChatId: null,
         message: "No chat found for this project",
       });
@@ -139,7 +136,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       chatId: latestChat.id,
-      v0ChatId: latestChat.id,
       internalChatId: latestChat.id,
     });
   } catch (error) {

@@ -271,7 +271,7 @@ export function useCreateChat(
           });
         }
         const newChatId =
-          data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
+          data.id || data.chatId || (data.chat as Record<string, unknown>)?.id;
         const newLinkedProjectId =
           data.projectId || data.v0ProjectId || data.v0_project_id || null;
         const preflight = readPreviewPreflight(data);

@@ -40,7 +40,6 @@ Fynd som inte kan avgöras statiskt. Flytta till Aktiv kö när repro finns, ell
 
 | Fynd | Källa | Repro-krav |
 | --- | --- | --- |
-| B01-klient: vit/blank iframe — `fetchPreviewHostStatus` versionId-blind polling (re-pin saknas) | B01 | Live preview-host (separat repo). `preview-host-client.ts:134` kollar bara `running`, aldrig `versionId`. Branch `fix/preview-version-mismatch-polling`. |
 | F3 auto-kick `onF3Ready` kringgår stale-base-409-gaten | B12 | Parallell F2-follow-up + F3-send mot samma chatId → förvänta 409. `chat-message-stream-post.ts` + `PreviewPanelF3Trigger.tsx` + `useSendMessage.ts`. |
 | clear-redesign delta-brief tappas vid contract-gate-retry (tur 2) | B13 | clear-redesign + contract-gate returnerar → tur 2 ska ha delta-brief. `chat-message-stream-post.ts` + `follow-up-orchestration-input.ts`. |
 | `arcade-with-klarna` failar med merge-syntax | E#1, R#10 | `npm run eval:weird-smoke:dump` mot LLM-providers (nycklar + nät + kostnad). |
@@ -79,4 +78,4 @@ Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-06-27.md`](docs/
 
 ## Naming-debt: `v0ChatId`
 
-Inte ett dött fält. Live DB-kolumn (`chats.v0_chat_id`, notNull/unique) + load-bearing konsument (`useBuilderVmPreview.ts` gatar VM-preview-bootstrap för legacy-mappade chattar). Full borttagning = tyst regression + bruten DB/payload-nyckel → kräver **migrationsplan** (byt internt symbolnamn, behåll DB/payload-kompat) per `docs/architecture/repository-and-platform.md`. Säker delmängd finns (död `|| data.v0ChatId`-läsning i `useCreateChat.ts`, okonsumerat duplikatfält i `/api/projects/[id]/chat`).
+Inte ett dött fält. Live DB-kolumn (`chats.v0_chat_id`, notNull/unique) + load-bearing konsument (`useBuilderVmPreview.ts` gatar VM-preview-bootstrap för legacy-mappade chattar). Full borttagning = tyst regression + bruten DB/payload-nyckel → kräver **migrationsplan** (byt internt symbolnamn, behåll DB/payload-kompat) per `docs/architecture/repository-and-platform.md`. Den säkra delmängden är **borttagen** 2026-06-28 (död `|| data.v0ChatId`-läsning i `useCreateChat.ts` + okonsumerade `v0ChatId`-svarsnycklar i `/api/projects/[id]/chat`); DB-kolumnen, `useBuilderVmPreview.ts`-gaten och interna DB-lookups behålls tills en migrationsplan finns.

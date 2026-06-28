@@ -14,3 +14,9 @@
 | Fynd | Källa | Varför inte aktiv bugg |
 | --- | --- | --- |
 | `simpleWebsitePath` blockar `CTA-knapp` från fast lane (bredare `cta`-match än follow-up-vocabulary) | M#1 (EGEN-05) | By-design för init: en namngiven sektions-capability ska gå full dossier-pipeline (#242 Alt A). Testet `simple-website-path.test.ts:134` asserterar blockeringen avsiktligt. Skillnaden mot follow-up (som exkluderar `CTA-knapp` som styling-tweak) är medveten. → flyttad till Beslut & policy. |
+
+## Stale "Behöver repro"-rader (kodfixade, verifierade 2026-06-28)
+
+| Fynd | Källa | Varför arkiverad |
+| --- | --- | --- |
+| B01-klient: `fetchPreviewHostStatus` versionId-blind polling (re-pin saknades) | B01 | Klient-sidan re-pinnar redan på `versionId`: `fetchPreviewHostStatus` (`preview-host-client.ts`) har en `expectedVersionId`-guard som vägrar resume vid mismatch, callers trådar sessionens `versionId` (`tier2-resume.ts` → `preview-status`/`preview-session`), och host `/status` returnerar `versionId` (`preview-host/src/server.js`). Täckt av version-pinning-tester i `preview-host-client.test.ts`. Stale-verifierad av scout-svärm 2026-06-28 (radens påstående `preview-host-client.ts:134 kollar bara running` matchar inte längre koden). |
