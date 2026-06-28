@@ -50,8 +50,14 @@ import { type ParsedRepairDiagnostic, toPosixPath } from "./diagnostics-parser";
 // from the message text; the capture group yields the missing name used to
 // label telemetry per resolved import.
 const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
-const CANNOT_FIND_NAME_DID_YOU_MEAN_RE =
-  /Cannot find name '[^']+'\.\s*Did you mean /;
+// Match ONLY the TS2552 name-suggestion form: a quoted identifier immediately
+// after "Did you mean". Other diagnostics that also begin with "Cannot find
+// name 'X'." carry a "Did you mean" clause but are different codes — TS2662 /
+// TS2663 ("...the static/instance member 'C.x'") and TS2311 ("...to write this
+// in an async function") — so they must NOT be counted as TS2552; they fall
+// through to the TS2304 default.
+const TS2552_NAME_SUGGESTION_RE =
+  /Cannot find name '[^']+'\.\s*Did you mean '[^']+'\?/;
 const TS1361_RE =
   /'([^']+)' cannot be used as a value because it was imported using 'import type'/;
 const DUPLICATE_IDENTIFIER_RE = /Duplicate identifier '[^']+'/;
@@ -128,7 +134,7 @@ export function runDeterministicImportRepair(
     const cannotFindName = diagnostic.message.match(CANNOT_FIND_NAME_RE);
     if (cannotFindName) {
       ts2304Diagnostics.push(diagnostic);
-      const code = CANNOT_FIND_NAME_DID_YOU_MEAN_RE.test(diagnostic.message)
+      const code = TS2552_NAME_SUGGESTION_RE.test(diagnostic.message)
         ? "TS2552"
         : "TS2304";
       ensureSet(

@@ -59,6 +59,30 @@ describe("runDeterministicImportRepair", () => {
     expect(ts2304.handledCodes).not.toContain("TS2552");
   });
 
+  it("does not label non-TS2552 'did you mean' variants as TS2552", () => {
+    // TS2662/TS2663 ("...the instance/static member 'this.X'") and TS2311
+    // ("...to write this in an async function") also begin with "Cannot find
+    // name 'X'." + a "Did you mean" clause, but they are NOT TS2552. Only the
+    // quoted-name suggestion form is TS2552; anything else stays TS2304.
+    const content = file(
+      "components/hero.tsx",
+      `export function Hero() {
+  return <Image src="/a.png" alt="a" width={1} height={1} />;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(
+        "components/hero.tsx",
+        "Cannot find name 'Image'. Did you mean the instance member 'this.Image'?",
+      ),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2304");
+    expect(result.handledCodes).not.toContain("TS2552");
+    expect(result.content).toContain('import Image from "next/image"');
+  });
+
   const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
   const stripeContent = file(
     STRIPE_ROUTE,
