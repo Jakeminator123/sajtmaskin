@@ -1,15 +1,21 @@
 ---
-status: active
+status: levererad
 owner: unassigned
 created: 2026-06-27
+delivered: 2026-06-28
 topic: "#4 distribuerat lås för server-verify/repair (process-local Set → DB-lease)"
 related:
   - docs/architecture/open-questions.md (#4-klassen, multi-instans)
   - "PR #251 (Plan B schemahärdning — separat, redan i review)"
   - "docs/plans/active/README.md backlog B3/E2 (durable event-bus, samma multi-instans-korrekthetsrisk)"
-decision_required: true
+decision_required: false
 implementation_started: true
 ---
+
+<!-- Arkiverad till avklarat/ 2026-06-28: kärnan mergad via #256 (+ #265 base-bound repair).
+     Kvarvarande är INTE planarbete: prod-migration av engine_version_jobs är ägar-ops (runbook nedan)
+     och #260 P2 #4 spåras i BUG-SWARM-BACKLOG.md. -->
+
 
 # Plan C / P1 — Distribuerat lås för server-verify & repair
 
