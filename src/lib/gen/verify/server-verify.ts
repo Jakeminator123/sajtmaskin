@@ -195,6 +195,14 @@ export async function triggerServerVerification(params: {
     // concurrent user edit can't be silently overwritten by saveRepairedFiles.
     const baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
+    // F2/F3 policy derived from the version lifecycle. Threaded into BOTH the
+    // initial verify gate (below) AND the repair loop so an F3/integrations
+    // version is always gated on the full integrations lane (typecheck + build
+    // + lint) and is never green-lit on the F2/design (typecheck-only) lane
+    // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
+    // branch is ever reached).
+    const previewPolicy =
+      snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -206,7 +214,9 @@ export async function triggerServerVerification(params: {
       // #260 Codex P2: normally the typecheck-only design-preview lane, but a
       // post-supersede re-verify of a build-originated repair keeps `build` so a
       // still-broken Next build cannot pass on typecheck alone.
-      checks: resolvePostRepairGateChecks(forceBuildCheck),
+      // #291 Codex P1: an F3/integrations version is always gated on the full
+      // integrations lane so it cannot green-light on the F2/design lane.
+      checks: resolvePostRepairGateChecks(forceBuildCheck, previewPolicy),
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.", runId).catch(() => null);
@@ -342,8 +352,7 @@ export async function triggerServerVerification(params: {
       versionId,
       codeFiles,
       baseFilesJson,
-      previewPolicy:
-        snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
+      previewPolicy,
       failedOutputs,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
       firstFailureCheck: gateResult.firstFailureCheck,
