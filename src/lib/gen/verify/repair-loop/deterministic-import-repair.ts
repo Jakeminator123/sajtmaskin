@@ -86,6 +86,18 @@ function ensureSet<K>(map: Map<K, Set<string>>, key: K): Set<string> {
 }
 
 /**
+ * Telemetry key for a cannot-find-name diagnostic. Keyed by *file + name* (not
+ * name alone) because the known-import fixer resolves per file: the same symbol
+ * can be a resolvable TS2552 in one file and a residual TS2304 in another, so a
+ * name-only key would attribute the unresolved file's code to the resolved one.
+ * `toPosixPath` matches the normalisation the fixer uses to map diagnostics to
+ * files, so the diagnostic and the resulting addition land on the same key.
+ */
+function cannotFindNameKey(file: string, name: string): string {
+  return `${toPosixPath(file)}::${name}`;
+}
+
+/**
  * Apply deterministic import-only fixes for the diagnostics the gate produced.
  * Returns the original content unchanged when nothing resolvable is found.
  */
@@ -102,10 +114,12 @@ export function runDeterministicImportRepair(
   const ts1361SymbolsByFile = new Map<string, Set<string>>();
   const conflictFiles = new Set<string>();
   const duplicateIdentifierFiles = new Set<string>();
-  // Missing name → the distinct cannot-find-name code(s) the gate reported for
-  // it (TS2304 and/or its TS2552 "did you mean" variant). Both drive the same
-  // known-import fixer, but telemetry must record the *actual* code, so a
-  // resolved import is labelled from here instead of always as TS2304.
+  // `file::name` → the distinct cannot-find-name code(s) the gate reported for
+  // that symbol in that file (TS2304 and/or its TS2552 "did you mean" variant).
+  // Both drive the same known-import fixer, but telemetry must record the
+  // *actual* code, so each resolved import is labelled from here — per file, so
+  // a residual same-named diagnostic in another file is not mis-counted —
+  // instead of always as TS2304.
   const cannotFindNameCodes = new Map<string, Set<string>>();
 
   for (const diagnostic of diagnostics) {
@@ -117,7 +131,10 @@ export function runDeterministicImportRepair(
       const code = CANNOT_FIND_NAME_DID_YOU_MEAN_RE.test(diagnostic.message)
         ? "TS2552"
         : "TS2304";
-      ensureSet(cannotFindNameCodes, cannotFindName[1]).add(code);
+      ensureSet(
+        cannotFindNameCodes,
+        cannotFindNameKey(diagnostic.file, cannotFindName[1]),
+      ).add(code);
       continue;
     }
     const ts1361 = diagnostic.message.match(TS1361_RE);
@@ -147,12 +164,15 @@ export function runDeterministicImportRepair(
       for (const fix of result.fixes) {
         fixes.push({ ...fix, category: "mechanical" });
       }
-      // Record the actual code each resolved name was reported under, so a
-      // TS2552 "did you mean" fix is counted as TS2552 rather than folded into
-      // TS2304. Falls back to TS2304 if a resolved name was somehow never
-      // classified, preserving the invariant that a fix always records a code.
+      // Record the actual code each resolved import was reported under (keyed
+      // per file + symbol), so a TS2552 "did you mean" fix is counted as TS2552
+      // rather than folded into TS2304. Falls back to TS2304 if a resolved name
+      // was somehow never classified, preserving the invariant that a fix always
+      // records a code.
       for (const addition of result.addedImports) {
-        const codes = cannotFindNameCodes.get(addition.name);
+        const codes = cannotFindNameCodes.get(
+          cannotFindNameKey(addition.file, addition.name),
+        );
         if (codes && codes.size > 0) {
           for (const code of codes) handledCodes.add(code);
         } else {

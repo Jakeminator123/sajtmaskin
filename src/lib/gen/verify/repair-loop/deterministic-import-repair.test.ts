@@ -91,6 +91,37 @@ export default clerkMiddleware((auth, req) => {
     expect(result.content).toContain('import Stripe from "stripe"');
   });
 
+  it("attributes cannot-find-name codes per file (residual code not counted)", () => {
+    // The same symbol (`Stripe`) appears in two files with different codes. In
+    // F3 it resolves in the API route (TS2552 "did you mean") but stays residual
+    // in a plain component (TS2304) — the Node SDK only resolves in server-route
+    // files. handledCodes must report ONLY the resolved TS2552; the unresolved
+    // component's TS2304 must NOT be mis-counted (per-file, not per-name).
+    const component = file(
+      "components/pricing.tsx",
+      `export function Pricing() {
+  const client = new Stripe("pk");
+  return <div>{client ? "ok" : "no"}</div>;
+}`,
+    );
+    const result = runDeterministicImportRepair(
+      project(stripeContent, component),
+      [
+        diag(STRIPE_ROUTE, "Cannot find name 'Stripe'. Did you mean 'stripe'?"),
+        diag("components/pricing.tsx", "Cannot find name 'Stripe'."),
+      ],
+      { previewPolicy: "fidelity3" },
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2552");
+    expect(result.handledCodes).not.toContain("TS2304");
+    // Only the route file received the import; the component stayed residual.
+    const stripeImports =
+      result.content.split('import Stripe from "stripe"').length - 1;
+    expect(stripeImports).toBe(1);
+  });
+
   it("resolves Clerk server helpers in middleware in F3 (TS2304)", () => {
     const result = runDeterministicImportRepair(
       clerkContent,
