@@ -128,6 +128,10 @@ async function handlePOST(
 ) {
   let internalVersionId: string | null = null;
   let resolvedChatId: string | null = null;
+  // #260 Codex P2 / Bugbot (no fail of B from a stale repair on crash): the exact
+  // files_json this run is based on, hoisted so the catch can re-check staleness
+  // even when the throw preceded the promotion/no-context/post-loop recheck.
+  let baseFilesJsonForRecovery: string | null = null;
   let leaseRunId: string | undefined;
   let ownershipLost = false;
   // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
@@ -229,6 +233,7 @@ async function handlePOST(
     // #260 / P2 #5: the exact files_json this repair is based on. saveRepairedFiles
     // binds its write to it so a concurrent user edit is never clobbered.
     const baseFilesJson = snapshot.filesJson;
+    baseFilesJsonForRecovery = baseFilesJson;
 
     if (dbConfigured) {
       await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {
@@ -625,12 +630,19 @@ async function handlePOST(
     });
   } catch (err) {
     console.error("[repair] Error:", err);
-    // #260 Codex P2 (no fail of B from a stale repair): if a concurrent user
-    // edit already advanced files_json past the repaired-from snapshot
-    // (staleBaseNoOp set during the promotion attempt or the post-loop recheck),
-    // a crash here must NOT finalize the user's newer edit B as failed from the
-    // abandoned stale repair(A). The finally after() re-verify (plus the
-    // lease-safe readiness watchdog) settle B instead.
+    // #260 Codex P2 (no fail of B from a stale repair): a crash must NOT finalize
+    // the user's newer edit B as failed from the abandoned stale repair(A).
+    // staleBaseNoOp may not be set yet if the throw preceded the promotion
+    // attempt / no-context / post-loop recheck, so re-read the base here too: if
+    // files_json advanced past this run's snapshot, mark it superseded so the
+    // finally after() re-verify (plus the lease-safe readiness watchdog) settle B
+    // instead of failing it.
+    if (dbConfigured && internalVersionId && !staleBaseNoOp && baseFilesJsonForRecovery) {
+      const current = await getVersionFilesSnapshot(internalVersionId).catch(() => null);
+      if (current && current.filesJson !== baseFilesJsonForRecovery) {
+        staleBaseNoOp = true;
+      }
+    }
     if (dbConfigured && internalVersionId && !staleBaseNoOp) {
       await failAfterRepair(
         internalVersionId,

@@ -559,3 +559,81 @@ describe("POST repair — catch must not fail B after a stale-base no-op (#260 P
     );
   });
 });
+
+describe("POST repair — catch re-reads base when the crash precedes staleBaseNoOp (#260 P2 / Bugbot HIGH)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    // Initial snapshot = base A; the catch re-read returns the advanced files B
+    // (a concurrent user edit landed during the repair).
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValueOnce({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "B" }],
+      filesJson: '[{"path":"app/page.tsx","content":"B"}]',
+    });
+    // The loop throws BEFORE any promotion attempt -> staleBaseNoOp is still false
+    // when the catch runs; the catch must re-read the base to detect the edit.
+    runRepairLoop.mockImplementation(async () => {
+      throw new Error("boom before any flag was set");
+    });
+  });
+
+  it("does NOT fail B on a crash when files_json advanced before the flag was set", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    // B was advanced concurrently -> must NOT be finalized as failed.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // The catch flips staleBaseNoOp, so the finally schedules the re-verify of B.
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
+  });
+
+  it("DOES fail B on a crash when files_json is unchanged (genuine crash, no concurrent edit)", async () => {
+    // Both the initial snapshot and the catch re-read return base A.
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    failVersionVerification.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    // No concurrent edit -> the crash legitimately fails the version.
+    expect(failVersionVerification).toHaveBeenCalledTimes(1);
+    expect(afterCallbacks.value).toHaveLength(0);
+  });
+});

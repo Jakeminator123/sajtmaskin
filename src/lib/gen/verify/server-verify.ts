@@ -491,12 +491,17 @@ export async function triggerBuildErrorRepair(params: {
   // #260 Codex P2: this loop is always build-originated; carry that into the
   // post-supersede re-verify so the current files' gate keeps `build`.
   let reverifyForceBuildCheck = false;
+  // #260 Codex P2 / Bugbot (no stuck `repairing` / no fail of B on crash): the
+  // exact files_json this run is based on, hoisted so the catch can re-check
+  // staleness and schedule a re-verify instead of leaving B stuck in `repairing`.
+  let baseFilesJsonForRecovery: string | null = null;
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const snapshot = await getVersionFilesSnapshot(versionId);
     if (!snapshot || snapshot.files.length === 0) return;
     const codeFiles = snapshot.files;
     const baseFilesJson = snapshot.filesJson;
+    baseFilesJsonForRecovery = baseFilesJson;
     const failureCodeSuffix = buildError.failureCode ? ` [${buildError.failureCode}]` : "";
     const failedOutput: ServerVerifyFailedOutput = {
       check: "build",
@@ -523,6 +528,17 @@ export async function triggerBuildErrorRepair(params: {
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
   } catch (err) {
     console.error("[server-verify] build-error repair failed:", err);
+    // #260 Codex P2 / Bugbot: if a concurrent user edit advanced files_json past
+    // this run's snapshot, don't leave B stuck in `repairing` with no recovery —
+    // schedule the post-finally re-verify of B (build kept in the gate) instead
+    // of swallowing the error and stranding the row.
+    if (baseFilesJsonForRecovery !== null) {
+      const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+      if (current && current.filesJson !== baseFilesJsonForRecovery) {
+        supersededByUserEdit = true;
+        reverifyForceBuildCheck = true;
+      }
+    }
   } finally {
     await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
