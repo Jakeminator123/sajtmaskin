@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "da5b81020",
-    "commitDate": "2026-06-24",
+    "commit": "90b17abe0",
+    "commitDate": "2026-06-28",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 0,
-    "openP2": 8,
+    "openP2": 10,
     "openP3": 3,
     "blocked": 0,
     "shaky": 4,
@@ -91,26 +91,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 15,
+      "churn": 18,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 15 commits / 14d"
+      "note": "Aktiv: 18 commits / 14d"
     },
     {
       "name": "Codegen core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 1,
+        "P2": 2,
         "P3": 1,
         "other": 0
       },
       "churn": 4,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
     },
     {
       "name": "prompt-core",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 11,
+      "churn": 18,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -151,23 +151,23 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 3,
+      "openBugs": 4,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 2,
+        "P2": 3,
         "P3": 1,
         "other": 0
       },
-      "churn": 13,
+      "churn": 15,
       "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
-      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
+      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
     {
       "name": "Scaffold Lifecycle",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 7,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
-      "note": "1 commits / 14d"
+      "note": "Aktiv: 7 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 8,
+      "churn": 12,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "6 oppna backlog-rader (P0:0 P1:0 P2:5 P3:1)"
     },
@@ -226,13 +226,13 @@ const DATA: CanvasData = {
       "name": "Runtime scaffolds",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
+      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
     },
     {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
     },
     {
       "name": "ai_models",
@@ -281,6 +281,16 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "react-import-konsolidering bailar (no-op) när `import * as React` finns i filen → duplicerade named/type reac…"
     }
   ],
   "topOpenRisksOmitted": 0,
@@ -427,11 +437,15 @@ export default function LLMFlowCanvas() {
           <Stack gap={6}>
             <Text size="small" tone="secondary">
               Genereras deterministiskt fran config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md,
-              evals/results/baseline-master/ och git-churn. Auto-uppdateras vid push till master (oppnar
-              en draft-PR som bara ror canvas-artefakten).
+              eval-rapporten och git-churn. Fryst ogonblicksbild av committat lage (commit {d.meta.commit}),
+              inte din working tree.
+            </Text>
+            <Text size="small" tone="secondary">
+              Uppdateras MANUELLT - auto-PR-workflowen togs bort i #191. Kor om for farsk status:
+              npm run canvas:build (sparad .txt + .json) eller npm run canvas:open (HTML).
             </Text>
             <Text size="small" tone="tertiary">
-              Lokalt: git pull {"→"} node scripts/canvas/sync-to-cursor.mjs {"→"} oppna canvasen bredvid chatten.
+              Lokalt i Cursor: git pull {"→"} node scripts/canvas/sync-to-cursor.mjs {"→"} oppna canvasen bredvid chatten.
             </Text>
           </Stack>
         </CardBody>

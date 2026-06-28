@@ -607,11 +607,15 @@ export default function LLMFlowCanvas() {
           <Stack gap={6}>
             <Text size="small" tone="secondary">
               Genereras deterministiskt fran config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md,
-              evals/results/baseline-master/ och git-churn. Auto-uppdateras vid push till master (oppnar
-              en draft-PR som bara ror canvas-artefakten).
+              eval-rapporten och git-churn. Fryst ogonblicksbild av committat lage (commit {d.meta.commit}),
+              inte din working tree.
+            </Text>
+            <Text size="small" tone="secondary">
+              Uppdateras MANUELLT - auto-PR-workflowen togs bort i #191. Kor om for farsk status:
+              npm run canvas:build (sparad .txt + .json) eller npm run canvas:open (HTML).
             </Text>
             <Text size="small" tone="tertiary">
-              Lokalt: git pull {"\u2192"} node scripts/canvas/sync-to-cursor.mjs {"\u2192"} oppna canvasen bredvid chatten.
+              Lokalt i Cursor: git pull {"\u2192"} node scripts/canvas/sync-to-cursor.mjs {"\u2192"} oppna canvasen bredvid chatten.
             </Text>
           </Stack>
         </CardBody>
