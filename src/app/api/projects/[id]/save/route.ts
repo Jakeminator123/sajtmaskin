@@ -4,6 +4,7 @@ import { deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { resolveEngineChatOwnershipForRequest } from "@/lib/tenant";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -62,7 +63,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       project_id: id,
     };
     if (Object.prototype.hasOwnProperty.call(body, "chatId")) {
-      payload.chat_id = chatId ?? null;
+      if (chatId == null) {
+        // Clearing the reference is always allowed.
+        payload.chat_id = null;
+      } else {
+        // Cross-tenant guard (P11): never persist a reference to a chat that
+        // belongs to another tenant. An unresolved id ("not_found") can't leak
+        // anything, so it's allowed through (e.g. a not-yet-persisted chat).
+        const ownership = await resolveEngineChatOwnershipForRequest(
+          request,
+          String(chatId),
+          sessionId ? { sessionId } : undefined,
+        );
+        if (ownership === "forbidden") {
+          return NextResponse.json({ success: false, error: "forbidden" }, { status: 403 });
+        }
+        payload.chat_id = chatId;
+      }
     }
     const hasPreviewUrlKey = Object.prototype.hasOwnProperty.call(body, "previewUrl");
     const hasDemoUrlKey = Object.prototype.hasOwnProperty.call(body, "demoUrl");
