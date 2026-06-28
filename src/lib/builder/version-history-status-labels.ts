@@ -154,6 +154,52 @@ const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
 };
 
 /**
+ * Presentation-only localization for legacy DB verification summaries. The DB
+ * intentionally stores terse English machine strings, but builder surfaces are
+ * Swedish. Unknown diagnostic details are preserved verbatim so operators do
+ * not lose error context.
+ */
+export function localizeVerificationSummary(
+  verificationSummary: string | null | undefined,
+): string | null {
+  const summary =
+    typeof verificationSummary === "string" && verificationSummary.trim()
+      ? verificationSummary.trim()
+      : null;
+  if (!summary) return null;
+
+  const exact: Record<string, string> = {
+    "Automatic verification in progress.": "Automatisk verifiering pågår.",
+    "Automatic verification passed.": "Automatisk verifiering godkänd.",
+    "Automatic verification failed.": "Automatisk verifiering misslyckades.",
+    "Automatic verification could not run because no checks executed.":
+      "Automatisk verifiering kunde inte köras eftersom inga kontroller kördes.",
+    "Automatic verification could not run (verify lane unavailable). Retry shortly.":
+      "Automatisk verifiering kunde inte köras eftersom verify-lane inte var tillgänglig. Försök igen strax.",
+    "Server-side repair in progress.": "Serverreparation pågår.",
+    "Server repair completed. Waiting for acceptance.":
+      "Serverreparation klar. Väntar på godkännande.",
+    "Server repair accepted.": "Serverreparation accepterad.",
+    "Pending repair could not be verified against the current files; please re-run repair.":
+      "Väntande reparation kunde inte verifieras mot de aktuella filerna. Kör reparationen igen.",
+    "Superseded by repaired version.": "Ersatt av reparerad version.",
+  };
+  if (exact[summary]) return exact[summary];
+
+  const automaticFailedPrefix = "Automatic verification failed:";
+  if (summary.startsWith(automaticFailedPrefix)) {
+    return `Automatisk verifiering misslyckades:${summary.slice(automaticFailedPrefix.length)}`;
+  }
+
+  const supersededPrefix = "Superseded by repaired version ";
+  if (summary.startsWith(supersededPrefix)) {
+    return `Ersatt av reparerad version ${summary.slice(supersededPrefix.length)}`;
+  }
+
+  return summary;
+}
+
+/**
  * Map a `VersionStatusDisplay` (from `mapVersionStatusToDisplay`) to the
  * version-history lifecycle badge. The mapping keys off `display.status`
  * only; the separate `display.degraded` flag is surfaced via the summary
@@ -175,10 +221,7 @@ export function resolveVersionHistorySummary(
   display: VersionStatusDisplay,
   verificationSummary: string | null | undefined,
 ): string | null {
-  const summary =
-    typeof verificationSummary === "string" && verificationSummary.trim()
-      ? verificationSummary.trim()
-      : null;
+  const summary = localizeVerificationSummary(verificationSummary);
 
   if (display.status === "retrying") {
     return summary || "Ersatt av en nyare version innan denna hann bli klar.";

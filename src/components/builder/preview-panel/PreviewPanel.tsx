@@ -1129,6 +1129,13 @@ export function PreviewPanel({
         handleOpenInNewTab={handleOpenInNewTab}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
+        previewPending={previewPending}
+        previewLifecycle={previewLifecycle}
+        activeVersionStatus={activeVersionStatus}
+        activeVersionSummary={activeVersionSummary}
+        activeVersionIsLatest={activeVersionIsLatest}
+        iframeError={iframeError}
+        iframeErrorMessage={iframeErrorMessage}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
