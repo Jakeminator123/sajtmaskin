@@ -63,9 +63,15 @@ Optional environment variables (have safe defaults):
 - OPENCLAW_GATEWAY_PORT=10000
 - OPENCLAW_GATEWAY_BIND=lan
 - OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
-- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.3-codex
-- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.1-codex
+- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.5    (current frontier; best for debug-mode bug-hunt)
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.4   (or openai/gpt-5.4-mini for cheaper quick chat)
 - JUICEFACTORY_API_KEY=<secret, only for the Qwen provider>
+
+  NOTE: gpt-5.3-codex / gpt-5.1-codex are DEPRECATED. The entrypoint now
+  defaults to gpt-5.5 (fallback gpt-5.4). Set OPENCLAW_MODEL_PRIMARY=openai/gpt-5.5
+  on the Render service to upgrade an existing instance. gpt-5.5 supports
+  reasoning effort up to `xhigh`, which debug-mode bug-hunt uses for hard cases
+  (see OPENCLAW_REVIEW_REASONING_EFFORT and src/lib/openclaw/review-tuning.ts).
 
 Notes:
 - Do not manually set PORT unless you have a specific reason.

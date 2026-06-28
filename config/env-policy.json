@@ -151,6 +151,11 @@
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "NEXT_PUBLIC_TYPESENSE_HOST",
     "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY",
+    "OC_DEBUG",
+    "OC_DEBUGG",
+    "OC_DEBUG_ALLOW_PROD",
+    "OC_REPO_READ_TOKEN",
+    "OC_REPO_SLUG",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_REVIEW_REASONING_EFFORT",
@@ -823,6 +828,48 @@
         "production"
       ],
       "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
+    },
+    {
+      "key": "OC_DEBUG",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "OpenClaw debug-mode gate (alias OC_DEBUGG). Affirmative (1/true/yes/y/on) unlocks privileged debug context (full generated code + findings + read-only Sajtmaskin repo-context) and armed bug-hunt autonomy. Default off. Hard safeguard: never activates in production unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled (src/lib/config.ts)."
+    },
+    {
+      "key": "OC_DEBUGG",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Alias for OC_DEBUG. Either key unlocks OpenClaw debug-mode."
+    },
+    {
+      "key": "OC_DEBUG_ALLOW_PROD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Escape hatch required to let OC_DEBUG activate in production. Default unset = debug-mode is force-disabled in production regardless of OC_DEBUG. Keep unset unless you explicitly intend privileged OpenClaw debug autonomy on the prod tenant."
+    },
+    {
+      "key": "OC_REPO_READ_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Read-only GitHub token (contents:read scope only) used by the debug repo-context reader (src/lib/openclaw/debug/repo-context.ts) so OpenClaw can read Sajtmaskin's own source to reason about platform bugs. MUST NOT carry write/PR scope — OpenClaw has no path to modify the Sajtmaskin repo. Only consulted when OPENCLAW.debugEnabled is true."
+    },
+    {
+      "key": "OC_REPO_SLUG",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "owner/repo slug (e.g. pretty-good-ab/sajtmaskin) the debug repo-context reader fetches Sajtmaskin source from. Pairs with OC_REPO_READ_TOKEN."
     },
     {
       "key": "REDIS_URL",

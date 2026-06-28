@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
+import {
+  createArmedMandate,
+  parseArmingDirective,
+  parseStopDirective,
+} from "@/lib/openclaw/debug/armed-mandate";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -51,6 +56,8 @@ export function useOpenClawChat() {
     clearMessages,
     setStreaming,
     scopeKey,
+    debugEnabled,
+    setArmedMandate,
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
@@ -65,6 +72,19 @@ export function useOpenClawChat() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || isStreaming) return;
+
+      // Debug-mode armed autonomy (Mode A): the user's own message is the
+      // consent. A stop directive disarms immediately; an arming directive
+      // ("granska nästa" / "gör 5 follow-ups och buggranska") creates a bounded
+      // mandate. Outside OC_DEBUG this never arms anything.
+      if (debugEnabled) {
+        if (parseStopDirective(trimmed)) {
+          setArmedMandate(null);
+        } else {
+          const directive = parseArmingDirective(trimmed);
+          if (directive) setArmedMandate(createArmedMandate(directive));
+        }
+      }
 
       const userMsg: OpenClawMessage = {
         id: makeId(),
@@ -164,7 +184,7 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [isStreaming, addMessage, updateAssistantMessage, setStreaming],
+    [isStreaming, addMessage, updateAssistantMessage, setStreaming, debugEnabled, setArmedMandate],
   );
 
   const stop = useCallback(() => {

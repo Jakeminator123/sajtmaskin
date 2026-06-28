@@ -76,6 +76,8 @@ const EXPECTED_TABLES = [
   "generation_telemetry",
   "version_comments",
   "version_approvals",
+  // OpenClaw debug-mode bug-hunt findings (OC_DEBUG)
+  "oc_debug_findings",
   // Domains
   "domain_orders",
 ];

@@ -333,6 +333,30 @@ export const OPENCLAW = {
   get surfaceEnabled(): boolean {
     return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
+  /**
+   * Debug-mode gate. When affirmative (OC_DEBUG or OC_DEBUGG), OpenClaw gets
+   * privileged debug context (full code + findings + repo-context) and may run
+   * the armed bug-hunt autonomy. Hard production safeguard: never active in
+   * production unless OC_DEBUG_ALLOW_PROD is also affirmative, so a stray prod
+   * env value can't silently arm an autonomous loop.
+   */
+  get debugEnabled(): boolean {
+    const requested =
+      isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
+    if (!requested) return false;
+    if (RUNTIME_ENVIRONMENT === "production" && !isAffirmativeEnvValue(env.OC_DEBUG_ALLOW_PROD)) {
+      return false;
+    }
+    return true;
+  },
+  /** Read-only GitHub token for the debug repo-context reader (contents:read). */
+  get repoReadToken(): string {
+    return env.OC_REPO_READ_TOKEN ?? "";
+  },
+  /** owner/repo slug the debug repo-context reader fetches Sajtmaskin source from. */
+  get repoSlug(): string {
+    return env.OC_REPO_SLUG ?? "";
+  },
 } as const;
 
 /**

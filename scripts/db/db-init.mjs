@@ -653,6 +653,7 @@ const ALL_TABLES = [
   "version_comments",
   "version_approvals",
   "error_log_events",
+  "oc_debug_findings",
 ];
 
 async function applySqlMigrations() {

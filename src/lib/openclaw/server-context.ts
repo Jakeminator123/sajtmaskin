@@ -20,6 +20,8 @@ type BuildOpenClawContextSystemMessageParams = {
   fullCodeContextMaxChars?: number;
   manifestFileLimit?: number;
   fullFileLimit?: number;
+  /** Debug-mode (OC_DEBUG): force full code context for the open chat. */
+  debug?: boolean;
 };
 
 function normalizeContextText(value: unknown, maxLength: number): string {
@@ -117,6 +119,7 @@ export async function buildOpenClawContextSystemMessage(
     fullCodeContextMaxChars = 180_000,
     manifestFileLimit = 16,
     fullFileLimit = 24,
+    debug = false,
   } = params;
 
   const codeContextMode = decideOpenClawCodeContextMode({
@@ -124,6 +127,7 @@ export async function buildOpenClawContextSystemMessage(
     page: context.page,
     chatId: context.chatId,
     currentCode: context.currentCode,
+    debug,
   });
 
   let fileBlock: string | null = null;
