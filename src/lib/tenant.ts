@@ -262,6 +262,31 @@ export async function getEngineChatByIdForRequest(
   return chat;
 }
 
+/**
+ * Tenant guard for a chat reference (e.g. `project_data.chat_id`). Resolves the
+ * engine chat and confirms its owning app-project belongs to the caller.
+ *
+ * - `"owned"`:     the engine chat exists and the caller owns its app-project.
+ * - `"forbidden"`: the engine chat exists but belongs to another tenant
+ *                  (cross-tenant attempt — caller must reject, not persist/remap).
+ * - `"not_found"`: no engine chat resolves for this id (nothing to leak; the
+ *                  caller decides whether to allow the bare reference through).
+ */
+export async function resolveEngineChatOwnershipForRequest(
+  req: Request,
+  chatId: string,
+  options?: { sessionId?: string },
+): Promise<"owned" | "forbidden" | "not_found"> {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) return "not_found";
+  const chat = await getEngineChat(normalizedChatId);
+  if (!chat) return "not_found";
+  const projectId = typeof chat.project_id === "string" ? chat.project_id.trim() : "";
+  if (!projectId) return "not_found";
+  const project = await getAppProjectByIdForRequest(req, projectId, options);
+  return project ? "owned" : "forbidden";
+}
+
 async function getEngineVersionByIdForRequest(
   req: Request,
   versionId: string,

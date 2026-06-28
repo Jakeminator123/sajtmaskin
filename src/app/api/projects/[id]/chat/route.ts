@@ -5,6 +5,7 @@ import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
+import { getAppProjectByIdForRequest } from "@/lib/tenant";
 import {
   getChat as getEngineChat,
   listChatsByProject as listEngineChatsByProject,
@@ -21,7 +22,11 @@ type ChatRow = {
   createdAt: Date;
 };
 
-async function findChatFromProjectData(projectId: string): Promise<ChatRow | null> {
+async function findChatFromProjectData(
+  request: NextRequest,
+  projectId: string,
+  sessionId: string | null,
+): Promise<ChatRow | null> {
   const data = await getProjectData(projectId);
   const persistedChatId =
     typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
@@ -54,6 +59,23 @@ async function findChatFromProjectData(projectId: string): Promise<ChatRow | nul
   const engineChat = await getEngineChat(persistedChatId);
   if (engineChat) {
     if (engineChat.project_id !== projectId) {
+      // Cross-tenant guard (P11): the persisted chat_id could have been set to
+      // another tenant's engine chat (the /save reference is attacker-supplied).
+      // Only self-heal drift WITHIN the same owner — never remap a chat the
+      // caller does not own, which would steal it into the caller's project.
+      const currentProjectId =
+        typeof engineChat.project_id === "string" ? engineChat.project_id.trim() : "";
+      const ownsCurrent = currentProjectId
+        ? Boolean(await getAppProjectByIdForRequest(request, currentProjectId, sessionId ? { sessionId } : undefined))
+        : false; // unverifiable (no current project) → refuse to remap
+      if (!ownsCurrent) {
+        console.warn("[API/projects/:id/chat] Refusing cross-tenant chat remap", {
+          projectId,
+          persistedChatId,
+          engineProjectId: engineChat.project_id,
+        });
+        return null;
+      }
       console.warn("[API/projects/:id/chat] Restoring engine chat mapping", {
         projectId,
         persistedChatId,
@@ -114,7 +136,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Preferred restore source for app projects.
-    const chatFromProjectData = await findChatFromProjectData(projectId);
+    const chatFromProjectData = await findChatFromProjectData(request, projectId, sessionId);
     if (chatFromProjectData) {
       return NextResponse.json({
         success: true,

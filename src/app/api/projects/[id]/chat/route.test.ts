@@ -11,12 +11,15 @@ const getCurrentUser = vi.hoisted(() => vi.fn());
 const getEngineChat = vi.hoisted(() => vi.fn());
 const listEngineChatsByProject = vi.hoisted(() => vi.fn());
 const updateEngineChatProjectId = vi.hoisted(() => vi.fn());
+const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const dbSelect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   getProjectByIdForOwner,
   getProjectData,
 }));
+
+vi.mock("@/lib/tenant", () => ({ getAppProjectByIdForRequest }));
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 
@@ -68,6 +71,7 @@ beforeEach(() => {
   getEngineChat.mockReset();
   listEngineChatsByProject.mockReset();
   updateEngineChatProjectId.mockReset();
+  getAppProjectByIdForRequest.mockReset();
   dbSelect.mockReset();
 
   getCurrentUser.mockResolvedValue({ id: "user_1" });
@@ -75,6 +79,7 @@ beforeEach(() => {
   getProjectData.mockResolvedValue(null);
   getEngineChat.mockResolvedValue(null);
   listEngineChatsByProject.mockResolvedValue([]);
+  getAppProjectByIdForRequest.mockResolvedValue(null);
   dbSelect.mockReturnValue(dbRows([]));
 });
 
@@ -124,5 +129,45 @@ describe("GET /api/projects/[id]/chat — response contract (no v0ChatId)", () =
     expect(body.chatId).toBeNull();
     expect(body.internalChatId).toBeNull();
     expect(body).not.toHaveProperty("v0ChatId");
+  });
+});
+
+describe("GET /api/projects/[id]/chat — cross-tenant remap guard (P11)", () => {
+  it("refuses to remap an engine chat the caller does not own (no steal, returns null)", async () => {
+    // project_data.chat_id points at an engine chat whose project belongs to
+    // ANOTHER tenant (attacker-supplied reference via /save).
+    getProjectData.mockResolvedValue({ chat_id: "engine_x" });
+    getEngineChat.mockResolvedValue({
+      id: "engine_x",
+      project_id: "victim_proj",
+      created_at: new Date().toISOString(),
+    });
+    // Caller does NOT own the chat's current project.
+    getAppProjectByIdForRequest.mockResolvedValue(null);
+
+    const res = await GET(makeRequest() as never, makeParams());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as ChatResponse;
+    expect(body.chatId).toBeNull();
+    expect(body.internalChatId).toBeNull();
+    expect(updateEngineChatProjectId).not.toHaveBeenCalled();
+  });
+
+  it("self-heals drift WITHIN the same owner (remaps and restores the chat)", async () => {
+    getProjectData.mockResolvedValue({ chat_id: "engine_x" });
+    getEngineChat.mockResolvedValue({
+      id: "engine_x",
+      project_id: "other_owned_proj",
+      created_at: new Date().toISOString(),
+    });
+    // Caller owns the chat's current project → drift is safe to heal.
+    getAppProjectByIdForRequest.mockResolvedValue({ id: "other_owned_proj" });
+
+    const res = await GET(makeRequest() as never, makeParams());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as ChatResponse;
+    expect(body.chatId).toBe("engine_x");
+    expect(body.internalChatId).toBe("engine_x");
+    expect(updateEngineChatProjectId).toHaveBeenCalledWith("engine_x", PROJECT_ID);
   });
 });
