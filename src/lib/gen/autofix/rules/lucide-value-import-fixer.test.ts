@@ -36,7 +36,19 @@ export function MotifSelector() {
     }
   });
 
-  it("merges into an existing value lucide-react import without a duplicate line", () => {
+  it("supports the `const Icon = PawPrint` assignment form", () => {
+    const code = `const Icon = PawPrint;
+
+export function C() {
+  return <Icon className="h-5 w-5" />;
+}
+`;
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { PawPrint } from "lucide-react"');
+  });
+
+  it("merges into a single-line value lucide-react import without a duplicate line", () => {
     const code = `import { Menu } from "lucide-react";
 
 const MOTIFS = [{ icon: PawPrint }];
@@ -45,6 +57,37 @@ const MOTIFS = [{ icon: PawPrint }];
     expect(result.fixed).toBe(true);
     expect(result.code).toContain('import { Menu, PawPrint } from "lucide-react"');
     expect((result.code.match(/from "lucide-react"/g) ?? [])).toHaveLength(1);
+  });
+
+  // Bugbot #289 HIGH: multi-line imports must be parsed or the icon is treated
+  // as missing and a SECOND `import { PawPrint }` is inserted → duplicate id.
+  it("does not duplicate an icon already imported via a MULTI-LINE block", () => {
+    const code = `import {
+  Menu,
+  PawPrint,
+} from "lucide-react";
+
+const MOTIFS = [{ icon: PawPrint }];
+`;
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect((result.code.match(/\bPawPrint\b/g) ?? []).length).toBe(2); // import + usage
+  });
+
+  it("merges a new icon into an existing MULTI-LINE lucide import (no second line)", () => {
+    const code = `import {
+  Menu,
+  Home,
+} from "lucide-react";
+
+const MOTIFS = [{ icon: PawPrint }];
+`;
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect((result.code.match(/from "lucide-react"/g) ?? [])).toHaveLength(1);
+    for (const icon of ["Menu", "Home", "PawPrint"]) {
+      expect(result.code).toContain(icon);
+    }
   });
 
   it("is idempotent: a second pass changes nothing", () => {
@@ -62,11 +105,45 @@ const MOTIFS = [{ icon: PawPrint }];
     expect(result.code).not.toContain("lucide-react");
   });
 
-  it("does not import a name the file declares locally", () => {
+  it("does not import a name the file declares locally (const/component)", () => {
     const code = `const Sparkles = () => null;
 
 const MOTIFS = [{ icon: Sparkles }];
 `;
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
+
+  // Bugbot #289 MEDIUM: type positions must NOT trigger a value import even when
+  // the type name collides with a lucide icon (User/Home/Check are all icons).
+  it("does not import for type annotations that share an icon name", () => {
+    const code = `interface Props {
+  user: User;
+  home: Home;
+}
+
+function greet(u: User): User {
+  const current: User = u;
+  return current;
+}
+`;
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).not.toContain('from "lucide-react"');
+  });
+
+  it("does not import a locally declared interface/type used as a value key type", () => {
+    const code = `type User = { id: string };
+
+const config = { icon: User };
+`;
+    // `User` is a locally declared type → must be skipped (not a lucide value).
+    const result = fixLucideValueImports(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
+
+  it("does not treat member/call access as an icon value", () => {
+    const code = `const date = Calendar.from(2026);\n`;
     const result = fixLucideValueImports(code, "app/page.tsx");
     expect(result.fixed).toBe(false);
   });
@@ -87,14 +164,13 @@ const MOTIFS = [{ icon: PawPrint }];
     expect(result.code).not.toContain('from "lucide-react"');
   });
 
-  it("does not add a type-only import (value usage must stay a value import)", () => {
+  it("does not merge a value icon into a type-only lucide import line", () => {
     const code = `import type { LucideIcon } from "lucide-react";
 
 const MOTIFS: { icon: LucideIcon }[] = [{ icon: PawPrint }];
 `;
     const result = fixLucideValueImports(code, "app/page.tsx");
     expect(result.fixed).toBe(true);
-    // Must NOT merge PawPrint into the `import type { ... }` line.
     expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
     expect(result.code).toContain('import { PawPrint } from "lucide-react"');
   });
