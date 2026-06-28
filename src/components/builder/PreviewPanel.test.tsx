@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanel } from "./preview-panel/PreviewPanel";
 import { PreviewPanelFrame } from "./preview-panel/PreviewPanelFrame";
 
@@ -38,6 +38,16 @@ function renderPreviewPanel(overrides?: Partial<React.ComponentProps<typeof Prev
 describe("PreviewPanel", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Force the deterministic in-place PATCH save path these tests mock. Without
+    // this, an ambient NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT=true (from .env.local or
+    // a CI-injected env) routes the save through the Fast Edit Lane /quick-edit
+    // call, which is NOT mocked here → the save rejects, onFilesSaved never
+    // fires, and the save-flow waitFor times out (BUG-SWARM #261).
+    vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("shows the actual awaiting-input question in the empty preview state", async () => {
