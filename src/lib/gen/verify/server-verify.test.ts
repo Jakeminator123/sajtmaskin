@@ -11,6 +11,7 @@ import {
 } from "./server-verify-log-meta";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
   resolvePostRepairGateChecks,
 } from "./quality-gate-checks";
 import {
@@ -147,6 +148,29 @@ describe("resolvePostRepairGateChecks (#260 P2 — build-origin false-green)", (
     const checks = resolvePostRepairGateChecks(true);
     expect(checks).toContain("build");
     expect(checks).toContain("typecheck");
+  });
+
+  it("keeps F2 behaviour when previewPolicy is fidelity2 (typecheck-only for non-build repairs)", () => {
+    expect(resolvePostRepairGateChecks(false, "fidelity2")).toEqual(
+      DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+    );
+  });
+
+  it("#291 P1: re-gates an F3 repair on the full integrations lane even for a non-build (typecheck) failure", () => {
+    // An F3/integrations repair that preserves/re-adds a tier-3 backend SDK
+    // import must not be promoted after tsc-only — it has to pass the documented
+    // integrations lane (typecheck + build + lint).
+    const checks = resolvePostRepairGateChecks(false, "fidelity3");
+    expect(checks).toEqual(INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS);
+    expect(checks).toContain("build");
+    expect(checks).toContain("lint");
+    expect(checks).toContain("typecheck");
+  });
+
+  it("#291 P1: F3 integrations lane is independent of the build-origin flag", () => {
+    expect(resolvePostRepairGateChecks(true, "fidelity3")).toEqual(
+      INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+    );
   });
 });
 

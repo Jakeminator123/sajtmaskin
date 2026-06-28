@@ -721,7 +721,10 @@ async function tryServerRepairLoop(params: {
       // #260 Codex P2 (build-origin false-green): a build/preview-start repair
       // must not re-gate with the typecheck-only design-preview lane — tsc can
       // pass while `next build` is still broken.
-      checks: resolvePostRepairGateChecks(buildOriginated),
+      // #291 Codex P1 (keep F3 repairs on the integrations gate): an F3 repair
+      // is always re-gated on the full integrations lane so a preserved/re-added
+      // backend SDK import is not promoted after tsc-only.
+      checks: resolvePostRepairGateChecks(buildOriginated, previewPolicy),
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,

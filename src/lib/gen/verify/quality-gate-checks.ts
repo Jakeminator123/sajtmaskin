@@ -19,6 +19,7 @@
  * the two canonical lanes with only stylistic differences.
  */
 import { getQualityGateTiersFromManifest } from "@/lib/ai-models/load-manifest";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 
 export const QUALITY_GATE_CHECK_VALUES = ["typecheck", "build", "lint"] as const;
 
@@ -76,10 +77,21 @@ export const INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS = sanitizeTierChecks(
  * non-building version into `repair_available`/`passed`. For build-origin
  * repairs we keep `build` in the post-repair gate; every other repair keeps the
  * cheap design-preview lane unchanged.
+ *
+ * F3 / integrations (#291 Codex P1 — keep F3 repairs on the integrations gate):
+ * an `"fidelity3"` version must ALWAYS re-gate on the full integrations lane
+ * (`typecheck + build + lint`), regardless of which check first failed. A
+ * deterministic/LLM repair that preserves or re-adds tier-3 backend SDK imports
+ * (stripe / Clerk-server / supabase) could otherwise be promoted to
+ * `repair_available` after `tsc` only, skipping the build/lint validation the
+ * F3 contract requires — a real false-green for integrations. This only ever
+ * ADDS checks for F3; it never drops one.
  */
 export function resolvePostRepairGateChecks(
   buildOriginated: boolean,
+  previewPolicy?: BuildSpecPreviewPolicy,
 ): readonly QualityGateCheck[] {
+  if (previewPolicy === "fidelity3") return INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS;
   if (!buildOriginated) return DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
   return [...new Set<QualityGateCheck>([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS, "build"])];
 }
