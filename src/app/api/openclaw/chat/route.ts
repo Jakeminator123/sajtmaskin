@@ -9,8 +9,7 @@ import {
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
-import { buildOpenClawFindingsBlock } from "@/lib/openclaw/findings-context";
-import { buildOpenClawTimelineBlock } from "@/lib/openclaw/timeline-context";
+import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { resolveReviewReasoningEffort } from "@/lib/openclaw/review-tuning";
 
 export const runtime = "nodejs";
@@ -172,12 +171,12 @@ export async function POST(req: NextRequest) {
           typeof body.context.activeVersionId === "string"
             ? body.context.activeVersionId
             : null;
-        // Fas 1 (findings) + Fas 4 (timeline): both read the same persisted
-        // rows; fetch in parallel and inject only when non-null.
-        const [findingsBlock, timelineBlock] = await Promise.all([
-          buildOpenClawFindingsBlock({ chatId: reviewChatId, versionId: reviewVersionId }),
-          buildOpenClawTimelineBlock({ chatId: reviewChatId, versionId: reviewVersionId }),
-        ]);
+        // Fas 1 (findings) + Fas 4 (timeline) share a single DB read.
+        const { findings: findingsBlock, timeline: timelineBlock } =
+          await buildOpenClawReviewContext({
+            chatId: reviewChatId,
+            versionId: reviewVersionId,
+          });
         if (findingsBlock) {
           messages.push({ role: "system", content: findingsBlock });
         }

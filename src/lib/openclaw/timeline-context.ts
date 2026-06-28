@@ -1,5 +1,3 @@
-import { dbConfigured } from "@/lib/db/client";
-
 /**
  * OpenClaw timeline context (Fas 4).
  *
@@ -34,7 +32,6 @@ const RELEVANT_CATEGORY_HINTS = [
 const MAX_EVENTS = 12;
 const MAX_BLOCK_CHARS = 4_000;
 const MESSAGE_MAX = 160;
-const ROW_READ_LIMIT = 80;
 
 function toMs(value: Date | string | null): number | null {
   if (value instanceof Date) {
@@ -144,40 +141,4 @@ export function formatOpenClawTimelineBlock(
     return `${block.slice(0, MAX_BLOCK_CHARS)}\n… (avkortat)\n[/TIDSLINJE]`;
   }
   return block;
-}
-
-/**
- * Read the latest persisted lifecycle rows for a version and format them as a
- * timeline. Returns null when the DB is not configured, no versionId is given,
- * or nothing lifecycle-related exists. Never throws.
- */
-export async function buildOpenClawTimelineBlock(params: {
-  versionId: string | null | undefined;
-  chatId?: string | null;
-}): Promise<string | null> {
-  const versionId = (params.versionId ?? "").trim();
-  if (!versionId) return null;
-  if (!dbConfigured) return null;
-
-  try {
-    const { getLatestEngineVersionErrorLogs } = await import(
-      "@/lib/db/services/version-errors"
-    );
-    const rows = await getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT);
-    return formatOpenClawTimelineBlock(
-      rows.map((row) => ({
-        createdAt: row.created_at,
-        level: row.level,
-        category: row.category,
-        message: row.message,
-        meta: row.meta,
-      })),
-    );
-  } catch (error) {
-    console.warn(
-      "[openclaw/timeline] read failed:",
-      error instanceof Error ? error.message : error,
-    );
-    return null;
-  }
 }

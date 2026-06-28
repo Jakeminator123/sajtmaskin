@@ -1,5 +1,3 @@
-import { dbConfigured } from "@/lib/db/client";
-
 /**
  * OpenClaw findings context (Fas 1).
  *
@@ -10,7 +8,7 @@ import { dbConfigured } from "@/lib/db/client";
  * persisted `errorManifest` (file -> diagnostics) and never ships full source.
  *
  * The pure `formatOpenClawFindingsBlock` is split out so it is unit-testable
- * without a database. `buildOpenClawFindingsBlock` does the guarded DB read.
+ * without a database. The single DB read lives in `review-context.ts`.
  */
 
 export interface OpenClawFindingRow {
@@ -26,7 +24,6 @@ const MAX_DIAGS_PER_FILE = 3;
 const MAX_BLOCK_CHARS = 6_000;
 const MESSAGE_MAX = 200;
 const DIAG_MSG_MAX = 140;
-const ROW_READ_LIMIT = 60;
 
 function clip(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
@@ -120,39 +117,4 @@ export function formatOpenClawFindingsBlock(
     return `${block.slice(0, MAX_BLOCK_CHARS)}\n… (avkortat)\n[/BUGGFYND]`;
   }
   return block;
-}
-
-/**
- * Read the latest persisted findings for a version and format them. Returns
- * null when the DB is not configured, no versionId is given, or nothing
- * actionable exists. Never throws — OC chat must keep working without findings.
- */
-export async function buildOpenClawFindingsBlock(params: {
-  versionId: string | null | undefined;
-  chatId?: string | null;
-}): Promise<string | null> {
-  const versionId = (params.versionId ?? "").trim();
-  if (!versionId) return null;
-  if (!dbConfigured) return null;
-
-  try {
-    const { getLatestEngineVersionErrorLogs } = await import(
-      "@/lib/db/services/version-errors"
-    );
-    const rows = await getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT);
-    return formatOpenClawFindingsBlock(
-      rows.map((row) => ({
-        level: row.level,
-        category: row.category,
-        message: row.message,
-        meta: row.meta,
-      })),
-    );
-  } catch (error) {
-    console.warn(
-      "[openclaw/findings] read failed:",
-      error instanceof Error ? error.message : error,
-    );
-    return null;
-  }
 }
