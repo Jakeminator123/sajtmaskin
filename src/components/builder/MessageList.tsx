@@ -532,7 +532,7 @@ function RepairProgressIndicator() {
       aria-live="polite"
     >
       <Loader2 className="h-3 w-3 animate-spin" />
-      <span>Automatisk reparation körs</span>
+      <span>Automatisk kodreparation pågår</span>
       <span className="text-muted-foreground/70">·</span>
       <span className="text-foreground/80">{phase}</span>
       <span className="text-muted-foreground/70">·</span>
@@ -567,7 +567,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
             >
               <ChevronUp className="h-3 w-3" />
-              Dölj reparations-prompt
+              Dölj teknisk reparations-instruktion
             </button>
           </div>
         ) : (
@@ -576,7 +576,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
             className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
           >
             <ChevronDown className="h-3 w-3" />
-            Visa intern reparations-prompt ({lineCount} rader)
+            Visa teknisk reparations-instruktion ({lineCount} rader)
           </button>
         )}
       </div>
