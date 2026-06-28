@@ -301,6 +301,26 @@ flowchart TD
     acceptRepair --> promoted
 ```
 
+### Promote-guard fail-closed-policy (false-green-härdning, B08)
+
+`PromoteVersion`/`AcceptRepair` konsulterar `assertPromoteAllowed`
+(`src/lib/db/promote-guard.ts`): en version får inte nå `promoted` medan
+finalize-telemetrin (`generation_telemetry.quality_gate_result`) säger
+`verifier_failed`/`preflight_failed`.
+
+- **`/quality-gate`-routen failar closed men retrybar** vid läsfel: routen anropar
+  guarden med `{ onReadError: "indeterminate" }`. Kan signalen inte läsas (DB-/guard-fel)
+  → ingen promotion, men raden markeras **inte** terminalt `failed` (svar `passed:false` +
+  `promoteError:true` + `promoteGuardUnavailable:true`, klienten kan retry:a). Detta stänger
+  fail-open-hålet där ett telemetri-läsfel kunde promota en `verifier_failed`-version.
+- **`shouldPromoteAfterRepair` promotar aldrig på tomma results:** när verify-lanen saknas
+  (`!isQualityGateConfigured()`) returneras `promote:false`/`results:null` — en overifierad
+  repair tolkas aldrig som grön.
+- **Medvetet kvar (back-compat):** ett `null`-signal (ingen telemetri-rad: template-import,
+  rollback-drafts, äldre rader) tillåter fortfarande promotion. Kanoniska
+  `promoteVersion`/`acceptRepair` behåller default-fail-open på läsfel; routen opt:ar in i
+  fail-closed via `onReadError`.
+
 ## Server-repair outcome metadata (Wave 5 hot-fix #3)
 
 `buildServerRepairOutcomeMeta` i `src/lib/gen/verify/server-verify-log-meta.ts`
