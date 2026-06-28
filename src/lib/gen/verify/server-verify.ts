@@ -168,6 +168,11 @@ export async function triggerServerVerification(params: {
   // #260 Codex P2 (build-origin false-green): carry the abandoned repair's
   // build-origin into the post-supersede re-verify so B's gate keeps `build`.
   let reverifyForceBuildCheck = false;
+  // #260 Codex P2 / Bugbot (no fail of B from a stale repair on crash): the
+  // exact files_json this run is based on, hoisted so the catch can re-check
+  // staleness before failing (staleBaseNoOp lives inside tryServerRepairLoop and
+  // is lost when it throws).
+  let baseFilesJsonForRecovery: string | null = null;
 
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
@@ -188,6 +193,7 @@ export async function triggerServerVerification(params: {
     // #260 / P2 #5: carry the exact files_json the repair will be based on so a
     // concurrent user edit can't be silently overwritten by saveRepairedFiles.
     const baseFilesJson = snapshot.filesJson;
+    baseFilesJsonForRecovery = baseFilesJson;
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -350,11 +356,29 @@ export async function triggerServerVerification(params: {
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
   } catch (err) {
     console.error("[server-verify] Error:", err);
-    await failVersionVerification(
-      versionId,
-      "Server verification could not complete.",
-      runId,
-    ).catch(() => null);
+    // #260 Codex P2 / Bugbot (no fail of B from a stale repair): staleBaseNoOp
+    // lives inside tryServerRepairLoop and is lost when it throws, so the outer
+    // catch must re-check here. If a concurrent user edit advanced files_json
+    // past the snapshot this run was based on, do NOT finalize the newer edit B
+    // as failed from the abandoned repair(A) — re-verify B instead (build kept in
+    // the gate, conservatively, since the crash hid which checks were failing).
+    let staleAfterError = false;
+    if (baseFilesJsonForRecovery !== null) {
+      const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+      if (current && current.filesJson !== baseFilesJsonForRecovery) {
+        staleAfterError = true;
+      }
+    }
+    if (staleAfterError) {
+      supersededByUserEdit = true;
+      reverifyForceBuildCheck = true;
+    } else {
+      await failVersionVerification(
+        versionId,
+        "Server verification could not complete.",
+        runId,
+      ).catch(() => null);
+    }
   } finally {
     await releaseVerifyLease(versionId, runId);
     inflight.delete(versionId);
