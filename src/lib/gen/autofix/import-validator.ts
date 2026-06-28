@@ -765,9 +765,17 @@ function collectImportedBindings(code: string): Set<string> {
  */
 function fileDeclaresSymbolLocally(code: string, name: string): boolean {
   const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Runtime-value local declarations win over a lucide import: importing the
+  // icon would duplicate the binding (TS2440 / esbuild "already declared"). This
+  // includes `enum` / `const enum`, which (unlike `type`/`interface`) emit a
+  // runtime value object. `type`/`interface` are intentionally NOT matched —
+  // they are erased at build, so a bare `icon: X` value reference genuinely
+  // needs the lucide value import; skipping it would ship a runtime
+  // `ReferenceError` (the white-screen this fixer exists to prevent).
+  const kw = "(?:function|const\\s+enum|enum|const|let|var|class)";
   const declaration = new RegExp(
-    `(?:^|\\n)\\s*export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b` +
-      `|(?:^|\\n)\\s*(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b`,
+    `(?:^|\\n)\\s*export\\s+(?:default\\s+)?(?:async\\s+)?${kw}\\s+${n}\\b` +
+      `|(?:^|\\n)\\s*(?:async\\s+)?${kw}\\s+${n}\\b`,
   );
   if (declaration.test(code)) return true;
   return new RegExp(`export\\s*\\{[^}]*\\b${n}\\b[^}]*\\}`).test(code);
@@ -822,7 +830,11 @@ function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFi
         .filter(Boolean);
       const newOnes = toAdd.filter((name) => !existingSpecs.includes(name));
       if (newOnes.length > 0) {
-        lines[existingIdx] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, ${newOnes.join(", ")} ${braceMatch[3]}`;
+        // Strip a trailing comma off the existing specifiers before re-joining
+        // so an `import { Menu, }` line does not become `import { Menu,, … }`
+        // (an empty specifier → TS1109 parse error).
+        const head = braceMatch[2].replace(/\s+$/, "").replace(/,$/, "");
+        lines[existingIdx] = `${braceMatch[1]}${head}, ${newOnes.join(", ")} ${braceMatch[3]}`;
         fixes.push({
           fixer: "import-validator",
           description: `Added missing lucide value import(s) for icon property: ${newOnes.join(", ")}`,
@@ -833,13 +845,51 @@ function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFi
     }
   }
 
+  // Fresh import: insert at a safe top-of-file position — after any leading
+  // directive prologue (`"use client"` / `"use server"`) and the comment/blank
+  // lines that may surround it, but BEFORE the first import/code line. The
+  // directive MUST stay the first *statement* (Next.js only honours it when no
+  // statement precedes it), so we skip leading `//` and `/* … */` comments too:
+  // a `"use client"` preceded by a header comment, or carrying a trailing
+  // comment, must NOT get the lucide import hoisted above it (that would demote
+  // the file to a Server Component — a silent, parse-clean regression the
+  // guarded wrapper cannot catch). We deliberately do NOT advance past an
+  // `import {` opener: a multi-line lucide block (`import {\n Menu,\n} from
+  // "lucide-react"`) has no single-line value import for the merge above to find,
+  // and the previous logic spliced the new line between the opener and its
+  // `} from "…"` closer — corrupting the file (then reverted by the guarded
+  // wrapper, silently dropping the import and re-shipping the white screen).
   let insertIdx = 0;
+  let inBlockComment = false;
   for (let i = 0; i < lines.length; i++) {
-    if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+    const trimmed = lines[i].trim();
+    if (inBlockComment) {
       insertIdx = i + 1;
-    } else if (insertIdx > 0) {
-      break;
+      if (trimmed.includes("*/")) inBlockComment = false;
+      continue;
     }
+    if (trimmed === "") {
+      insertIdx = i + 1;
+      continue;
+    }
+    if (trimmed.startsWith("//")) {
+      insertIdx = i + 1;
+      continue;
+    }
+    if (trimmed.startsWith("/*")) {
+      insertIdx = i + 1;
+      // A single-line `/* … */` closes on the same line; otherwise keep
+      // skipping until the line that contains the `*/` terminator.
+      if (!trimmed.includes("*/")) inBlockComment = true;
+      continue;
+    }
+    // Leading directive prologue, tolerating a trailing `//` or `/* … */`
+    // comment after the (optional) semicolon.
+    if (/^["'`]use [^"'`]+["'`]\s*;?\s*(?:\/\/.*|\/\*.*?\*\/\s*)?$/.test(trimmed)) {
+      insertIdx = i + 1;
+      continue;
+    }
+    break;
   }
   lines.splice(insertIdx, 0, `import { ${toAdd.join(", ")} } from "lucide-react"`);
   fixes.push({
