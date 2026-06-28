@@ -50,6 +50,7 @@ Fynd som inte kan avgöras statiskt. Flytta till Aktiv kö när repro finns, ell
 | Media local fallback `/api/uploads/media` kanske ej nås av preview-VM | U#29 | Verifiering mot preview-VM-kontext. |
 | Analytics före cookie-consent (integritet) | U#56 | App-bred audit av var analytics initieras + gate på consent-flagga. |
 | `previewUrlHint` base path + chatId | U#77 | Jämförelse mot live preview-host (täcks delvis av tester). |
+| `promoteGuardUnavailable`-rad kan false-red:as av stale-verification-watchdog (B08 follow-up): indeterminate-grenen lämnar versionen `verifying` + en passerande `preflight:quality-gate`-logg, och readiness-watchdogen (`created_at` + ~`STALE_VERIFICATION_TIMEOUT_MS`) kan köra `failVersionVerificationIfUnleased` → terminal-fail av en VM-ren version efter transient telemetri-läsfel om klienten inte retri:ar i tid. Det undergräver "retrybar fail-closed"-designen. | BB#299 (Bugbot) | Repro: tvinga telemetri-läsfel i `/quality-gate` med VM-pass, vänta > timeout utan klient-retry → watchdog ska INTE terminal-faila en `promoteGuardUnavailable`-rad. `quality-gate/route.ts` (indeterminate-gren) + `readiness/route.ts` (watchdog) + `chat-repository-pg.ts` (`failVersionVerificationIfUnleased`). |
 
 ## Beslut & policy (uppskjutet — ej aktiva buggar)
 
