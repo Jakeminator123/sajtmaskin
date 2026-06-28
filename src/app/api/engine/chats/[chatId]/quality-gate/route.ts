@@ -13,6 +13,7 @@ import {
   promoteVersion,
   acquireVersionLease,
   releaseVersionLease,
+  resetVersionVerificationToPending,
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -368,6 +369,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // the `finally` below still releases the lease. A real check failure does
         // not reach here — it returns `passed:false` above.
         if (err instanceof QualityGateUnavailableError) {
+          // Revert the optimistic `markVersionVerifying` above (Codex P2 on #296):
+          // leaving the row `verifying` with no running job would let the
+          // readiness stale-verification watchdog later mark it `failed` (a
+          // delayed false-RED). Reset to `pending` so the version honestly reads
+          // "awaiting verification, retryable" instead.
+          await resetVersionVerificationToPending(internalVersionId, undefined, qgRunId).catch(
+            (resetErr) => {
+              console.warn(
+                "[quality-gate] Failed to reset version to pending after unavailable verify lane:",
+                resetErr,
+              );
+            },
+          );
           return NextResponse.json(
             {
               error: err.message,

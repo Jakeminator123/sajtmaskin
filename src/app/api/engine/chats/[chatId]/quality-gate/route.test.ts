@@ -9,6 +9,7 @@ const promoteVersion = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const acquireVersionLease = vi.hoisted(() => vi.fn());
 const releaseVersionLease = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const isQualityGateConfigured = vi.hoisted(() => vi.fn());
@@ -60,6 +61,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   promoteVersion,
   acquireVersionLease,
   releaseVersionLease,
+  resetVersionVerificationToPending,
 }));
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -101,6 +103,7 @@ describe("POST quality-gate", () => {
     promoteVersion.mockResolvedValue({ id: "ver-1" });
     acquireVersionLease.mockResolvedValue({ runId: "run-1" });
     releaseVersionLease.mockResolvedValue(undefined);
+    resetVersionVerificationToPending.mockResolvedValue({ id: "ver-1" });
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
@@ -388,6 +391,13 @@ describe("POST quality-gate", () => {
     // An unreachable gate verified nothing — it must NOT false-RED the version.
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
+    // The optimistic `verifying` transition is reverted to `pending` so the
+    // readiness watchdog can't later false-RED a row with no running job.
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      "run-1",
+    );
     // The distributed lease is still released in the `finally`.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });

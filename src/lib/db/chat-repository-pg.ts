@@ -1005,6 +1005,43 @@ export async function markVersionVerifying(
   return getStoredVersion(versionId);
 }
 
+/**
+ * Revert the optimistic `markVersionVerifying` transition back to the canonical
+ * `pending` (awaiting-verification) resting state.
+ *
+ * Used when the verify lane could NOT run (preview-host unreachable / network /
+ * timeout) and the quality-gate route already moved the row to `verifying`
+ * up-front. Leaving it `verifying` would advertise an in-flight verify that is
+ * not running and let the readiness stale-verification watchdog eventually mark
+ * it `failed` despite the gate never evaluating the code (Codex P2 on #296).
+ * `pending` is the honest state — the version still needs verification and the
+ * client can retry — and is strictly better than the previous behaviour, which
+ * marked the row `failed` (a false-RED verdict). The readiness watchdog still
+ * provides the existing lease-safe long-timeout backstop for a chronically
+ * unverifiable version, so this introduces no new stuck state.
+ */
+export async function resetVersionVerificationToPending(
+  versionId: string,
+  verificationSummary: string | null = "Automatic verification could not run (verify lane unavailable). Retry shortly.",
+  runId?: string,
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "pending",
+      verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
+      promotedAt: null,
+    })
+    .where(versionWriteWhere(versionId, runId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
 export async function markVersionRepairing(
   versionId: string,
   verificationSummary: string | null = "Server-side repair in progress.",
