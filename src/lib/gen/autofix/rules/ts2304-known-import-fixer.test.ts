@@ -213,4 +213,155 @@ export function cn(...inputs: ClassValue[]) {
       { file: FILE, name: "cn", module: "@/lib/utils" },
     ]);
   });
+
+  it("resolves a shadcn component to its @/components/ui subpath (prod TS2304)", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Button>Click</Button>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Button'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Button", module: "@/components/ui/button" },
+    ]);
+    expect(result.code).toContain('import { Button } from "@/components/ui/button"');
+  });
+
+  it("merges multiple shadcn symbols from the same module into one import", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Hi</CardTitle>
+      </CardHeader>
+      <CardContent>Body</CardContent>
+    </Card>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Card'." },
+      { file: FILE, message: "Cannot find name 'CardHeader'." },
+      { file: FILE, message: "Cannot find name 'CardTitle'." },
+      { file: FILE, message: "Cannot find name 'CardContent'." },
+    ]);
+
+    expect(result.code).toContain(
+      'import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"',
+    );
+    expect(result.code.match(/from "@\/components\/ui\/card"/g)).toHaveLength(1);
+  });
+
+  const CLERK_MIDDLEWARE = "middleware.ts";
+  const clerkMiddlewareContent = project(
+    CLERK_MIDDLEWARE,
+    `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
+
+export default clerkMiddleware((auth, req) => {
+  if (isProtected(req)) auth().protect();
+});`,
+  );
+  const clerkDiagnostics = [
+    { file: CLERK_MIDDLEWARE, message: "Cannot find name 'clerkMiddleware'." },
+    {
+      file: CLERK_MIDDLEWARE,
+      message: "Cannot find name 'createRouteMatcher'. Did you mean 'createRouteMatcher'?",
+    },
+  ];
+
+  it("resolves Clerk server helpers to @clerk/nextjs/server in F3 (allowTier3)", () => {
+    const result = fixKnownTs2304Imports(clerkMiddlewareContent, clerkDiagnostics, {
+      allowTier3: true,
+    });
+
+    expect(result.code).toContain('from "@clerk/nextjs/server"');
+    expect(result.code).toContain("clerkMiddleware");
+    expect(result.code).toContain("createRouteMatcher");
+    expect(result.code.match(/from "@clerk\/nextjs\/server"/g)).toHaveLength(1);
+  });
+
+  it("leaves Clerk server helpers residual in F2 (default — never undo the F2 SDK guard)", () => {
+    const result = fixKnownTs2304Imports(clerkMiddlewareContent, clerkDiagnostics);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(clerkMiddlewareContent);
+  });
+
+  const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
+  const stripeRouteContent = project(
+    STRIPE_ROUTE,
+    `export async function POST() {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return Response.json({ ok: true });
+}`,
+  );
+  const stripeDiagnostics = [
+    { file: STRIPE_ROUTE, message: "Cannot find name 'Stripe'. Did you mean 'stripe'?" },
+  ];
+
+  it("resolves Stripe as a default import in an API route in F3 (allowTier3)", () => {
+    const result = fixKnownTs2304Imports(stripeRouteContent, stripeDiagnostics, {
+      allowTier3: true,
+    });
+
+    expect(result.addedImports).toEqual([
+      { file: STRIPE_ROUTE, name: "Stripe", module: "stripe" },
+    ]);
+    expect(result.code).toContain('import Stripe from "stripe"');
+  });
+
+  it("leaves Stripe residual in F2 (default — never undo the F2 SDK guard)", () => {
+    const result = fixKnownTs2304Imports(stripeRouteContent, stripeDiagnostics);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(stripeRouteContent);
+  });
+
+  it("does NOT import Stripe into a non-server file even in F3 (path-gate)", () => {
+    // `Stripe` only resolves in API route / route handler files. A client page
+    // referencing `Stripe` is almost certainly wrong in another way — don't pull
+    // the Node SDK into the browser bundle. allowTier3 isolates the path-gate.
+    const content = project(
+      FILE,
+      `export default function Page() {
+  const s = new Stripe("");
+  return <div>{String(s)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: FILE, message: "Cannot find name 'Stripe'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("leaves a shadcn∩lucide ambiguous name (Calendar) for the LLM", () => {
+    // `Calendar` is both a shadcn component AND a lucide icon — the correct
+    // module is genuinely ambiguous, so the deterministic fixer must do nothing.
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Calendar />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Calendar'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
 });

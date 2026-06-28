@@ -142,4 +142,78 @@ describe("fixValueUsedFromTypeImport", () => {
     expect(second.fixed).toBe(false);
     expect(second.code).toBe(first.code);
   });
+
+  // The prod gap: bindings used ONLY as object-literal values (`{ icon: X }`).
+  // The leading `:` makes `classifyOccurrence` read them as a type annotation,
+  // so the heuristic alone never flips them — yet tsc reports TS1361. The
+  // diagnostic-driven caller passes the confirmed symbols to force the flip.
+  const OBJECT_VALUE_ONLY_CASE = `import type { PawPrint, MoonStar } from "lucide-react";
+
+const motifs = [
+  { id: "paw", icon: PawPrint },
+  { id: "moon", icon: MoonStar },
+];
+`;
+
+  it("heuristic alone does NOT flip an object-literal-only value usage", () => {
+    const result = fixValueUsedFromTypeImport(
+      OBJECT_VALUE_ONLY_CASE,
+      "components/motif-selector.tsx",
+    );
+    expect(result.fixed).toBe(false);
+  });
+
+  it("flips object-literal-only usage when the TS1361 symbol is confirmed", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      OBJECT_VALUE_ONLY_CASE,
+      "components/motif-selector.tsx",
+      new Set(["PawPrint", "MoonStar"]),
+    );
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { PawPrint, MoonStar } from "lucide-react";');
+    expect(code).not.toContain("import type {");
+  });
+
+  const MULTILINE_TYPE_IMPORT_CASE = `import type {
+  Clapperboard,
+  Theater,
+} from "lucide-react";
+
+export default function Page() {
+  return (
+    <>
+      <Clapperboard />
+      <Theater />
+    </>
+  );
+}
+`;
+
+  it("flips a multi-line `import type { … }` block (prod app/page.tsx shape)", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      MULTILINE_TYPE_IMPORT_CASE,
+      "app/page.tsx",
+    );
+    expect(fixed).toBe(true);
+    expect(code).not.toContain("import type {");
+    expect(code).toContain('from "lucide-react"');
+    expect(code).toContain("Clapperboard");
+    expect(code).toContain("Theater");
+  });
+
+  it("is idempotent with a forced symbol set", () => {
+    const first = fixValueUsedFromTypeImport(
+      OBJECT_VALUE_ONLY_CASE,
+      "components/motif-selector.tsx",
+      new Set(["PawPrint", "MoonStar"]),
+    );
+    expect(first.fixed).toBe(true);
+    const second = fixValueUsedFromTypeImport(
+      first.code,
+      "components/motif-selector.tsx",
+      new Set(["PawPrint", "MoonStar"]),
+    );
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+  });
 });

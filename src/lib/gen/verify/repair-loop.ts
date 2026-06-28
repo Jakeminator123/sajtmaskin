@@ -1,7 +1,10 @@
 import path from "node:path";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { fixKnownTs2304Imports } from "@/lib/gen/autofix/rules/ts2304-known-import-fixer";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import { countByFixer } from "@/lib/gen/autofix/types";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { runDeterministicImportRepair } from "./repair-loop/deterministic-import-repair";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import {
@@ -69,6 +72,17 @@ export type RunRepairLoopResult<TPayload = unknown> = {
 
 export type RunRepairLoopParams<TPayload = unknown> = {
   initialContent: string;
+  /**
+   * Owning chat id — used only for dev-log telemetry of the deterministic
+   * import-repair pre-pass. Optional so non-chat callers (eval) can omit it.
+   */
+  chatId?: string;
+  /**
+   * Version preview policy (F2 `"fidelity2"` / F3 `"fidelity3"`). Gates the
+   * deterministic import-repair: tier-3 backend SDK imports are only
+   * (re)introduced in F3. Omitted → treated as F2-safe (never adds tier-3).
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
   failedOutputs: RepairFailedOutput[];
   contextLines: string[];
   maxLlmPasses: number;
@@ -441,25 +455,39 @@ export async function runRepairLoop<TPayload = unknown>(
   // Initial mechanical pass: repair-loop is invoked from contexts that may not
   // have already autofixed (verifier rerun, eval). Idempotent if input is
   // already clean.
-  let content = (await runAutoFix(params.initialContent)).fixedContent;
+  //
+  // Thread the version's `previewPolicy` so the F2 SDK guard
+  // (`tier3-sdk-guard-fixer`) only strips tier-3 backend SDK imports in F2.
+  // Without it, an F3/integrations version entering the loop with a gate
+  // failure unrelated to those imports would have its valid backend SDK
+  // imports (stripe / @clerk/nextjs/server / supabase) stripped here — the
+  // same policy the deterministic pre-pass already honours (Codex P1).
+  let content = (await runAutoFix(params.initialContent, {
+    previewPolicy: params.previewPolicy,
+  })).fixedContent;
 
-  // Deterministic TS2304 pre-pass (runs BEFORE the LLM fixer). The quality gate
-  // that produced `failedOutputs` already ran tsc; its `Cannot find name 'X'`
-  // diagnostics catch missing imports in NON-JSX positions (e.g.
-  // `const Icon = Clapperboard;`) that the JSX-scan import-validator inside
-  // runAutoFix never sees. Resolve the ones we know with certainty
-  // (lucide icons / known module specifiers) mechanically and instantly so the
-  // deterministic promotion below can pass the gate, instead of paying a slow
-  // (~90s) LLM round-trip for a missing import. Unknown names are left for the
-  // LLM fixer.
-  const ts2304Diagnostics = params.failedOutputs
-    .flatMap(parseDiagnosticsFromFailure)
-    .filter((diagnostic) => /Cannot find name '/.test(diagnostic.message));
-  if (ts2304Diagnostics.length > 0) {
-    const knownImportResult = fixKnownTs2304Imports(content, ts2304Diagnostics);
-    if (knownImportResult.addedImports.length > 0) {
-      content = knownImportResult.code;
-    }
+  // Deterministic, diagnostic-driven import repair (runs BEFORE the LLM fixer).
+  // The quality gate that produced `failedOutputs` already ran tsc; its
+  // diagnostics name the exact symbol + file for import-only failures
+  // (TS2304/TS2552 missing import, TS1361 import-type-used-as-value, TS2440
+  // import/local conflict, TS2300 duplicate identifier). Resolve those
+  // mechanically and instantly so the deterministic promotion below can pass the
+  // gate without a slow (~90s) LLM round-trip. Ambiguous / logic errors are left
+  // for the LLM fixer. See ./repair-loop/deterministic-import-repair.ts.
+  const importRepair = runDeterministicImportRepair(
+    content,
+    params.failedOutputs.flatMap(parseDiagnosticsFromFailure),
+    { previewPolicy: params.previewPolicy },
+  );
+  if (importRepair.fixed) {
+    content = importRepair.content;
+    devLogAppend("in-progress", {
+      type: "validate.tsc.import-repair",
+      chatId: params.chatId,
+      handledCodes: importRepair.handledCodes,
+      fixCount: importRepair.fixes.length,
+      fixers: countByFixer(importRepair.fixes),
+    });
   }
 
   let syntaxResult = await validateGeneratedCode(content);
@@ -473,6 +501,16 @@ export async function runRepairLoop<TPayload = unknown>(
   if (syntaxResult.valid) {
     const deterministic = await params.onAttemptPromotion(content, "deterministic");
     if (deterministic.promoted) {
+      if (importRepair.fixed) {
+        // Proof signal for prod analysis: the gate passed after deterministic
+        // import-repair, so the LLM fixer was skipped entirely for this version.
+        devLogAppend("in-progress", {
+          type: "validate.tsc.import-repair.resolved",
+          chatId: params.chatId,
+          handledCodes: importRepair.handledCodes,
+          llmSkippedBecauseResolved: true,
+        });
+      }
       return {
         promoted: true,
         method: "deterministic",
@@ -633,8 +671,12 @@ export async function runRepairLoop<TPayload = unknown>(
       ? targetedBundle.mergeBack(fixerResult.fixedContent)
       : fixerResult.fixedContent;
     // post-LLM mechanical pass: normalizes the fixer output before the next
-    // validate iteration. Required after every LLM pass.
-    const reFixed = await runAutoFix(fixerOutput);
+    // validate iteration. Required after every LLM pass. Carries the same
+    // `previewPolicy` as the initial pass so an F3 LLM-fix that re-emits a
+    // valid backend SDK import is not stripped by the F2 guard.
+    const reFixed = await runAutoFix(fixerOutput, {
+      previewPolicy: params.previewPolicy,
+    });
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);
     const groupedAfterFix = buildGroupedRepairErrorContext(params.failedOutputs, {

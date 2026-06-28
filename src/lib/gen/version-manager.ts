@@ -67,7 +67,11 @@ export async function getVersionFiles(versionId: string): Promise<CodeFile[] | n
  */
 export async function getVersionFilesSnapshot(
   versionId: string,
-): Promise<{ files: CodeFile[]; filesJson: string } | null> {
+): Promise<{
+  files: CodeFile[];
+  filesJson: string;
+  lifecycleStage: "design" | "integrations";
+} | null> {
   const version = await getVersionById(versionId);
   if (!version) return null;
   const files = parseStoredVersionFiles(version.files_json, {
@@ -75,7 +79,11 @@ export async function getVersionFilesSnapshot(
     chatId: version.chat_id,
   });
   if (!files) return null;
-  return { files, filesJson: version.files_json };
+  return {
+    files,
+    filesJson: version.files_json,
+    lifecycleStage: version.lifecycle_stage,
+  };
 }
 
 /**

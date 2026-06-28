@@ -265,6 +265,15 @@ async function handlePOST(
       : [];
     const hadQualityGateFailures = gateFailures.length > 0;
     const currentVersionId = internalVersionId ?? scopedVersion.version.id;
+    // F2/F3 policy for this version. Drives BOTH the deterministic
+    // import-repair pre-pass (tier-3 backend SDK imports only (re)introduced in
+    // F3) AND the post-repair gate lane (#291 Codex P1): an F3 repair is always
+    // re-gated on the full integrations lane so a preserved/re-added backend SDK
+    // import cannot be promoted after tsc-only.
+    const previewPolicy =
+      scopedVersion.version.lifecycle_stage === "integrations"
+        ? "fidelity3"
+        : "fidelity2";
 
     async function promoteIfPostRepairGatePasses(params: {
       projectContent: string;
@@ -342,7 +351,7 @@ async function handlePOST(
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: resolvePostRepairGateChecks(reverifyForceBuildCheck),
+        checks: resolvePostRepairGateChecks(reverifyForceBuildCheck, previewPolicy),
         verifyDeadlineEpochMs,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
@@ -445,6 +454,10 @@ async function handlePOST(
 
     const loopResult = await runRepairLoop<{ newVersionId: string | null }>({
       initialContent,
+      chatId,
+      // F2/F3 gate for the deterministic import-repair pre-pass: tier-3 backend
+      // SDK imports (stripe/Clerk-server) are only (re)introduced in F3.
+      previewPolicy,
       failedOutputs: normalizedFailures,
       contextLines: gateErrorLines,
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,

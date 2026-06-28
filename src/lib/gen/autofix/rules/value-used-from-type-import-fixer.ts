@@ -111,10 +111,17 @@ function bindingNameOf(specifier: string): string {
 /**
  * Convert `import type { … }` → `import { … }` when at least one of the
  * bindings is used in a value position elsewhere in the file.
+ *
+ * `forceValueSymbols` lets a diagnostic-driven caller (the repair-loop's
+ * deterministic import-repair) override the local heuristic for symbols the
+ * TypeScript compiler has *already confirmed* are used as values (TS1361). This
+ * closes the gap where `classifyOccurrence` misreads an object-literal value
+ * (`{ icon: PawPrint }`) as a type annotation because of the leading `:`.
  */
 export function fixValueUsedFromTypeImport(
   code: string,
   filePath: string,
+  forceValueSymbols?: ReadonlySet<string>,
 ): FixResult {
   if (!code.includes("import type")) {
     return { code, fixed: false, fixes: [] };
@@ -143,8 +150,10 @@ export function fixValueUsedFromTypeImport(
     const bindings = specifierTokens.map(bindingNameOf);
     const restOfCode = code.slice(0, start) + code.slice(end);
 
-    const anyValueUse = bindings.some((binding) =>
-      isUsedAsValue(restOfCode, binding),
+    const anyValueUse = bindings.some(
+      (binding) =>
+        (forceValueSymbols?.has(binding) ?? false) ||
+        isUsedAsValue(restOfCode, binding),
     );
     if (!anyValueUse) continue;
 
