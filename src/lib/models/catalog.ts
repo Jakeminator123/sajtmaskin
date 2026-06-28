@@ -188,6 +188,7 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
       process.env[getBuildProfileEnvKey("anthropic")]?.trim() ||
       getBuildProfileDefaultOwnEngineModel("anthropic"),
   };
-  return (tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro")) as OwnModelId;
+  const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
+  return aliasRetiredModelId(raw) as OwnModelId;
 }
 
