@@ -134,6 +134,7 @@ export async function handleSseStream(
     if (step === "generation") return "Generering";
     if (step === "preview") return "Live-preview";
     if (step === "build-error") return "Byggfel";
+    if (step === "element_guard") return "Ändringsskydd";
     return step;
   };
 
@@ -332,6 +333,51 @@ export async function handleSseStream(
         return details;
       }
     }
+    if (step === "element_guard") {
+      // M#p7a: the server's Element Preservation Guard / shrink-guard can
+      // silently revert a follow-up file to the previous version (it protects
+      // against token-truncation dropping <video>/<canvas>/<form> etc.). The
+      // server emits `rejectedStructural`/`rejectedShrinks` on SSE `done`, but
+      // no client surface consumed them — so the user's edit could vanish with
+      // no explanation. Surface it explicitly here.
+      const structural = Array.isArray(payload.rejectedStructural)
+        ? (payload.rejectedStructural as Array<{
+            file?: unknown;
+            droppedElements?: Array<{ label?: unknown; kind?: unknown }>;
+          }>)
+        : [];
+      const shrinks = Array.isArray(payload.rejectedShrinks)
+        ? (payload.rejectedShrinks as Array<{ file?: unknown }>)
+        : [];
+      const lines: string[] = [];
+      for (const entry of structural) {
+        // Defensive: the SSE `done` callback must never throw on a malformed
+        // payload (e.g. a null array entry), so skip non-object items.
+        if (!entry || typeof entry !== "object") continue;
+        const file = typeof entry.file === "string" ? entry.file : "okänd fil";
+        const labels = Array.isArray(entry.droppedElements)
+          ? entry.droppedElements
+              .map((el) => (el && typeof el.label === "string" ? el.label : null))
+              .filter((l): l is string => Boolean(l))
+          : [];
+        lines.push(
+          `Ändringen i ${file} återställdes till föregående version för att bevara viktiga element${
+            labels.length > 0 ? ` (${labels.join(", ")})` : ""
+          }. Beskriv ändringen tydligare och försök igen om den var avsiktlig.`,
+        );
+      }
+      for (const entry of shrinks) {
+        if (!entry || typeof entry !== "object") continue;
+        const file = typeof entry.file === "string" ? entry.file : "okänd fil";
+        lines.push(
+          `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Försök igen.`,
+        );
+      }
+      if (lines.length === 0) {
+        lines.push("En eller flera follow-up-ändringar återställdes av ändringsskyddet.");
+      }
+      return lines;
+    }
     if (step === "preview") {
       if (phase === "starting") {
         return ["Startar tier-2-preview (VM) ..."];
@@ -356,7 +402,7 @@ export async function handleSseStream(
       state:
         phase === "passed" || phase === "done"
           ? "output-available"
-          : phase === "error" || phase === "gave-up"
+          : phase === "error" || phase === "gave-up" || phase === "reverted"
             ? "output-error"
             : "input-streaming",
       output: {
@@ -1010,6 +1056,26 @@ export async function handleSseStream(
               toast(planBlockers ? "Planen kräver dina svar." : "AI väntar på ditt svar för att fortsätta.", {
                 id: "builder-awaiting-input",
               });
+            }
+
+            // M#p7a: surface server-side Element Preservation Guard / shrink-guard
+            // reverts. These arrive on the `done` payload but previously had no
+            // client consumer, so a follow-up edit could be silently dropped.
+            const rejectedStructural = Array.isArray(doneData.rejectedStructural)
+              ? (doneData.rejectedStructural as Array<Record<string, unknown>>)
+              : [];
+            const rejectedShrinks = Array.isArray(doneData.rejectedShrinks)
+              ? (doneData.rejectedShrinks as Array<Record<string, unknown>>)
+              : [];
+            if (rejectedStructural.length > 0 || rejectedShrinks.length > 0) {
+              appendProgressPart("element_guard", "reverted", {
+                rejectedStructural,
+                rejectedShrinks,
+              });
+              const revertedCount = rejectedStructural.length + rejectedShrinks.length;
+              toast.warning(
+                `Ändringsskyddet återställde ${revertedCount} fil(er) — din senaste ändring behölls inte. Se Agentloggen för detaljer.`,
+              );
             }
 
             const planArtifact = doneData.planArtifact as Record<string, unknown> | undefined;
