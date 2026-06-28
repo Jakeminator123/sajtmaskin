@@ -96,3 +96,36 @@ export function resolvePostRepairFinalize(input: {
   if (input.remainingErrors === 0) return "fail_syntax_clean";
   return "fail_incomplete";
 }
+
+/**
+ * Wall-clock budget guard for the repair loop (#284 follow-up: "stop the repair
+ * loop itself after repeated timeouts").
+ *
+ * Returns `true` when there is NOT enough wall-clock budget left to START the
+ * next expensive step — a new LLM fixer pass, or the final preview-host verify —
+ * before the lease-holding route's static `maxDuration` hard-kill. The caller
+ * must then stop gracefully: set `earlyStopReason = "time_budget_exceeded"` and
+ * let the route fail the version + release its distributed lease, instead of
+ * starting work the platform kills mid-flight. A mid-flight kill strands the
+ * version in `repairing` and aborts the finalize DB write — the
+ * `Task timed out after 300 seconds` / `statement timeout` errors observed in
+ * production.
+ *
+ * `deadlineEpochMs === undefined` means no wall-clock bound (back-compat: the
+ * loop behaves exactly as before, capped only by `maxLlmPasses`).
+ */
+export function isRepairBudgetExhausted(params: {
+  /** Absolute `Date.now()`-based deadline, or undefined for no bound. */
+  deadlineEpochMs: number | undefined;
+  /** Current wall-clock time (`Date.now()`). */
+  nowMs: number;
+  /**
+   * Worst-case duration (ms) of the step the caller is about to start. For an
+   * LLM pass this is the fixer timeout plus its retry timeout; for the final
+   * verify the caller passes `0` to mean "only stop once past the deadline".
+   */
+  nextStepMaxMs: number;
+}): boolean {
+  if (params.deadlineEpochMs === undefined) return false;
+  return params.nowMs + params.nextStepMaxMs > params.deadlineEpochMs;
+}

@@ -6,7 +6,10 @@ import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
-import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import {
+  isRepairBudgetExhausted,
+  resolveServerRepairEarlyStopReason,
+} from "./server-repair-policy";
 import type { ReasoningEffort } from "@/lib/gen/engine";
 
 export type RepairMethod = "deterministic" | "llm";
@@ -90,6 +93,15 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   hasActionableErrorContext?: boolean;
   enableTargetedRepair?: boolean;
   targetedRepairMaxFiles?: number;
+  /**
+   * Absolute `Date.now()`-based deadline after which the loop must not START a
+   * new LLM fixer pass or the final preview-host verify. Lets a caller bound the
+   * loop to its route's static `maxDuration` so a multi-pass repair winds down
+   * gracefully (`earlyStopReason = "time_budget_exceeded"`) and releases its
+   * lease, instead of being hard-killed by the platform mid-pass / mid-DB-write
+   * (#284 follow-up). Undefined = no wall-clock bound (back-compat).
+   */
+  repairDeadlineEpochMs?: number;
 };
 
 type TargetedRepairBundle = {
@@ -498,6 +510,23 @@ export async function runRepairLoop<TPayload = unknown>(
 
   const filesFromGateOutput = parseFilesFromErrorLines(repairContextLines);
   for (let pass = 0; pass < params.maxLlmPasses; pass++) {
+    // Wall-clock graceful stop (#284 follow-up): never START a new LLM fixer
+    // pass that can't finish (including its retry attempt) before the route's
+    // static maxDuration. `pass > 0` so a repair always makes at least one
+    // attempt; later passes stop gracefully so the route can fail + release its
+    // lease instead of being hard-killed mid-pass — which would strand the
+    // version in `repairing` and abort the finalize DB write.
+    if (
+      pass > 0 &&
+      isRepairBudgetExhausted({
+        deadlineEpochMs: params.repairDeadlineEpochMs,
+        nowMs: Date.now(),
+        nextStepMaxMs: params.llmTimeoutMs + (params.llmRetryTimeoutMs ?? 0),
+      })
+    ) {
+      earlyStopReason = "time_budget_exceeded";
+      break;
+    }
     // Renew the distributed lease before the slow fixer call (Codex P2: a
     // multi-pass repair can exceed the lease TTL; renewing per pass keeps
     // ownership so the final lease-conditioned save isn't silently dropped).
@@ -637,7 +666,19 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: bestContent,
   });
   const syntaxClean = finalSyntaxResult.errors.length === 0;
-  if (syntaxClean) {
+  // Wall-clock graceful stop (#284 follow-up): if the budget is already spent,
+  // do NOT start the final preview-host verify — it would run past the route's
+  // maxDuration and be hard-killed mid-verify / mid-save. Stop gracefully so the
+  // caller fails + releases the lease; the unverified (but syntax-clean) content
+  // is intentionally NOT promoted.
+  const budgetSpentBeforeFinalGate = isRepairBudgetExhausted({
+    deadlineEpochMs: params.repairDeadlineEpochMs,
+    nowMs: Date.now(),
+    nextStepMaxMs: 0,
+  });
+  if (syntaxClean && budgetSpentBeforeFinalGate) {
+    earlyStopReason = "time_budget_exceeded";
+  } else if (syntaxClean) {
     const promoted = await params.onAttemptPromotion(bestContent, "llm");
     return {
       promoted: promoted.promoted,

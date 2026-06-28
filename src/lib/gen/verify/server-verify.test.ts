@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isRepairBudgetExhausted,
   resolvePostRepairFinalize,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
@@ -94,6 +95,69 @@ describe("resolveServerRepairEarlyStopReason", () => {
         gateFailureSignals: 5,
       }),
     ).toBe("no_improvement");
+  });
+});
+
+describe("isRepairBudgetExhausted (#284 follow-up — wall-clock graceful stop)", () => {
+  const deadlineEpochMs = 1_000_000;
+
+  it("never bounds the loop when no deadline is set (back-compat)", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs: undefined,
+        nowMs: Number.MAX_SAFE_INTEGER,
+        nextStepMaxMs: 999_999,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows a step that still fits before the deadline", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 200_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("stops a step whose worst-case duration would overrun the deadline", () => {
+    // A second LLM pass (fixer + retry) that cannot finish before the route's
+    // maxDuration must NOT be started — that is the multi-pass hard-kill case.
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 50_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(true);
+  });
+
+  it("treats an exact fit as allowed (boundary is non-strict)", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 100_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("with nextStepMaxMs=0 (final verify) stops only once past the deadline", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs,
+        nextStepMaxMs: 0,
+      }),
+    ).toBe(false);
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs + 1,
+        nextStepMaxMs: 0,
+      }),
+    ).toBe(true);
   });
 });
 

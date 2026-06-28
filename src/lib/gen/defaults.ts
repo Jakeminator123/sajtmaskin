@@ -139,6 +139,27 @@ export const VERIFY_REPAIR_ROUTE_BUDGET_SECONDS =
 export const STALE_VERIFICATION_TIMEOUT_MS =
   VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000;
 
+/**
+ * Wall-clock reserve (ms) kept below the static repair-route budget so the loop
+ * can wind down — fail the version + release the distributed lease — after it
+ * stops starting new work. Mirrors the 30s verify/lease-release headroom that
+ * keeps `finally { releaseVersionLease }` ahead of the platform hard-kill
+ * (#260 / #284).
+ */
+export const REPAIR_LOOP_RELEASE_HEADROOM_MS = 30_000;
+
+/**
+ * Wall-clock budget (ms) for the lease-holding repair route's repair loop,
+ * derived from the static route `maxDuration`
+ * (#284 `VERIFY_REPAIR_ROUTE_BUDGET_SECONDS`) minus the lease-release headroom.
+ * The loop stops starting new LLM passes / the final verify once the elapsed
+ * wall-clock from route entry reaches this, returning `time_budget_exceeded`
+ * instead of being hard-killed mid-pass (#284 follow-up: "stop the repair loop
+ * itself after repeated timeouts").
+ */
+export const REPAIR_LOOP_BUDGET_MS =
+  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000 - REPAIR_LOOP_RELEASE_HEADROOM_MS;
+
 export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
   "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
   90_000,

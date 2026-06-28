@@ -31,6 +31,7 @@ import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
   LLM_FIXER_TIMEOUT_MS,
   MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
+  REPAIR_LOOP_BUDGET_MS,
 } from "@/lib/gen/defaults";
 import {
   partitionGeneratedFilesForProtectedPaths,
@@ -126,6 +127,11 @@ async function handlePOST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
+  // #284 follow-up (wall-clock graceful stop): bound the repair loop to this
+  // route's static maxDuration, measured from request entry, so a slow multi-
+  // pass repair stops and releases its lease before the platform hard-kills the
+  // route mid-pass / mid-DB-write.
+  const repairDeadlineEpochMs = Date.now() + REPAIR_LOOP_BUDGET_MS;
   let internalVersionId: string | null = null;
   let resolvedChatId: string | null = null;
   // #260 Codex P2 / Bugbot (no fail of B from a stale repair on crash): the exact
@@ -435,6 +441,7 @@ async function handlePOST(
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
       llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
       llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+      repairDeadlineEpochMs,
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,
