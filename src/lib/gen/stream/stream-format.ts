@@ -32,6 +32,7 @@ interface StreamTextLike {
     input?: unknown;
     inputText?: string;
     inputTextDelta?: string;
+    finishReason?: string | null;
   }>;
   usage: PromiseLike<{ inputTokens: number | undefined; outputTokens: number | undefined }>;
 }
@@ -193,6 +194,7 @@ export function createCodeGenSSEStream(
       let emittedFirstTokenSlow = false;
       let sawContentEvent = false;
       let abortedByProvider = false;
+      let truncatedByLength = false;
       let accumulatedThinking = "";
       let reasoningHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const reportAccumulatedThinking = () => {
@@ -371,6 +373,9 @@ export function createCodeGenSSEStream(
             case "finish-step":
             case "finish": {
               ensureGenerationStarted();
+              if (part.finishReason === "length") {
+                truncatedByLength = true;
+              }
               break;
             }
 
@@ -540,6 +545,37 @@ export function createCodeGenSSEStream(
 
         for (const pending of pendingToolInputs.values()) {
           emitToolCall(pending);
+        }
+
+        if (truncatedByLength) {
+          eventCounts.set("finish_reason_length", 1);
+          summarizeStream("error");
+          devLogAppend("in-progress", {
+            type: "site.aborted",
+            chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+            versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+            reason: "stream_error",
+            providerFinishReason: "length",
+            message:
+              "Model stream ended with finishReason=length before a complete response was available.",
+          });
+          enqueue(
+            createBuilderStreamEvent("progress", {
+              step: "generation",
+              phase: "truncated-output",
+              finishReason: "length",
+            }),
+          );
+          enqueue(
+            createBuilderStreamEvent("error", {
+              code: "output_truncated",
+              finishReason: "length",
+              message:
+                "Modellen nådde maxlängden och svaret kan vara trunkerat. Försök igen med mindre scope eller välj en starkare modell.",
+            }),
+          );
+          reportAccumulatedThinking();
+          return;
         }
 
         if (abortedByProvider) {
