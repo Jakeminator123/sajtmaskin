@@ -751,6 +751,16 @@ export interface FollowUpCapabilityFloorInput {
    * snapshot `requestedCapabilities`). Empty/absent on init.
    */
   contractCapabilities: string[];
+  /**
+   * Active preview policy for this generation. When it is NOT `"fidelity3"`
+   * (i.e. F2 / design) the floor must not silently re-introduce F3-only
+   * integrations ({@link F3_ONLY_DOSSIER_CAPABILITIES}) that
+   * `filterDossierCapabilitiesForPrompt` just dropped — F2 is integration-mute.
+   * Those caps stay parked in the contract and are restored once the project
+   * is lifted to F3. Optional/back-compat: when absent the floor restores every
+   * missing capability (legacy behaviour). See `.cursor/rules/env-flow-f2-mute.mdc`.
+   */
+  previewPolicy?: BuildSpec["previewPolicy"];
 }
 
 export interface FollowUpCapabilityFloorDecision {
@@ -790,6 +800,14 @@ function normalizeCapabilityList(capabilities: readonly unknown[]): string[] {
  * clear-redesign: a genuine redesign still must not silently drop a paid
  * integration the user already has (can-only-grow holds across a redesign).
  * No-op on init (no contract floor) and whenever the floor is already covered.
+ *
+ * F2-mute exception: when `previewPolicy` is supplied and is NOT `"fidelity3"`
+ * the floor will not restore F3-only integrations
+ * ({@link F3_ONLY_DOSSIER_CAPABILITIES}). They are integration wiring that the
+ * F2 design pass must not emit; they remain frozen in the contract and the
+ * floor restores them once the project is lifted to F3 (previewPolicy
+ * `"fidelity3"`), so can-only-grow still holds across the lifecycle.
+ * See `.cursor/rules/env-flow-f2-mute.mdc`.
  */
 export function enforceFollowUpCapabilityFloor(
   input: FollowUpCapabilityFloorInput,
@@ -801,7 +819,15 @@ export function enforceFollowUpCapabilityFloor(
   }
   const floor = normalizeCapabilityList(input.contractCapabilities);
   const resolvedSet = new Set(resolved);
-  const restoredCapabilities = floor.filter((capability) => !resolvedSet.has(capability));
+  let restoredCapabilities = floor.filter((capability) => !resolvedSet.has(capability));
+  // F2 (design) is integration-mute: do not re-introduce F3-only integrations
+  // the prompt filter dropped for this preview policy. Parked in the contract;
+  // restored in F3 (when previewPolicy is "fidelity3" or absent/back-compat).
+  if (input.previewPolicy && input.previewPolicy !== "fidelity3") {
+    restoredCapabilities = restoredCapabilities.filter(
+      (capability) => !F3_ONLY_DOSSIER_CAPABILITIES.has(capability),
+    );
+  }
   if (restoredCapabilities.length === 0) {
     return { capabilities: resolved, restoredCapabilities: [], floorApplied: false };
   }
@@ -1076,7 +1102,14 @@ export async function resolveOrchestrationBase(
     });
   }
 
-  const capabilityHints = buildCapabilityHints(capabilities);
+  // Gate integration-heavy capability hints (payments/database) on the
+  // lifecycle stage so F2 (design) stays mock-first and never instructs real
+  // env keys / API routes — those belong to F3. `lifecycleStage` is the same
+  // signal that drives `previewPolicy: "fidelity3"` below (F3 is opt-in via
+  // the "Bygg integrationer" override only). See `.cursor/rules/env-flow-f2-mute.mdc`.
+  const capabilityHints = buildCapabilityHints(capabilities, {
+    lifecycleStage: input.lifecycleStage === "integrations" ? "integrations" : "design",
+  });
 
   // Locale resolution priority:
   //   1. Explicit `input.locale` (caller-overridable, e.g. CLI traces)
@@ -1298,6 +1331,9 @@ export async function resolveOrchestrationBase(
         resolvedMode,
         resolvedCapabilities: mergedCaps,
         contractCapabilities: input.followUpContract?.capabilities ?? [],
+        // F2-mute: keep F3-only integrations parked (don't restore them into
+        // the F2 dossier selection); they return when the project is in F3.
+        previewPolicy: buildSpec.previewPolicy,
       });
       if (capabilityFloor.floorApplied) {
         emitFollowUpFreezeDrift("capabilities", {

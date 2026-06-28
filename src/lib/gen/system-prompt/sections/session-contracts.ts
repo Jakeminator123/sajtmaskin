@@ -175,10 +175,22 @@ export function renderTier3IntegrationBlock(params: {
   return [];
 }
 
+// ── Pre-Generation Contracts (F3 only) ─────────────────────────────────
+// This block lists Auth/Stripe/integration providers, env vars, and a
+// placeholder policy that references `process.env` + Credentials. That is
+// integration/env wiring guidance — it directly contradicts the F2 design
+// contract (`renderF2ContractBlock`), which forbids exactly these things.
+// Rendering both in the same prompt gives the LLM conflicting orders, so the
+// contracts block is gated to F3 (`previewPolicy === "fidelity3"`), mirroring
+// `renderTier3IntegrationBlock`. In F2 env keys stay parked in `env.example`
+// and are wired in F3 ("Bygg integrationer"). See
+// `.cursor/rules/env-flow-f2-mute.mdc`.
 export function renderPreGenerationContractsBlock(
   preGenerationContracts: PreGenerationContractContext | null | undefined,
+  buildSpec?: BuildSpec | null | undefined,
 ): string[] {
   if (!preGenerationContracts) return [];
+  if (buildSpec?.previewPolicy !== "fidelity3") return [];
   const { contracts, unresolvedDecisions } = preGenerationContracts;
   const hasContractSignal =
     contracts.dataMode !== "none" ||
