@@ -112,6 +112,7 @@ EMPTY_TABLES: Tuple[str, ...] = (
     "engine_versions",
     "engine_generation_logs",
     "engine_version_error_logs",
+    "engine_version_jobs",
     "generation_telemetry",
     "version_comments",
     "version_approvals",

@@ -3,6 +3,10 @@ import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
 import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
+import {
+  resolveMigrationRunOrder,
+  isAlreadyExistsError,
+} from "./migration-order.mjs";
 
 config({ path: ".env.local" });
 
@@ -652,24 +656,26 @@ const ALL_TABLES = [
 ];
 
 async function applySqlMigrations() {
-  const files = (await readdir(MIGRATIONS_DIR))
-    .filter((file) => file.endsWith(".sql"))
-    .sort();
-
-  // Dependency-aware ordering: some migrations must run before others that
-  // reference their tables via ALTER TABLE / FK.
-  const dependencyOrder = [
-    "add-generation-telemetry.sql",
-    "add-collaboration-tables.sql",
-  ];
-  const ordered = [
-    ...dependencyOrder.filter((f) => files.includes(f)),
-    ...files.filter((f) => !dependencyOrder.includes(f)),
-  ];
+  // Shared, drift-checked apply order (scripts/db/migration-order.mjs) — the
+  // SAME source `npm run db:migrate` uses, so db:init and db:migrate can never
+  // apply migrations in different orders. Throws if a `.sql` file on disk is not
+  // registered in MIGRATION_ORDER (forces deliberate slotting), which is exactly
+  // the drift the blocking `db:schema-drift` gate also guards.
+  const ordered = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
 
   for (const file of ordered) {
     const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
-    await pool.query(sql);
+    try {
+      await pool.query(sql);
+    } catch (err) {
+      // Idempotent re-run: the object already exists, so this statement is a
+      // no-op. Tolerate ONLY that (matched by stable SQLSTATE, not message text)
+      // and re-throw everything else so a real failure still aborts loudly.
+      if (isAlreadyExistsError(err)) {
+        continue;
+      }
+      throw err;
+    }
   }
 }
 
