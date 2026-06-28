@@ -445,6 +445,12 @@ function visibleStubComponentBody(name: string): string {
 
 function stubForName(name: string, allowJsx: boolean): string {
   if (/Provider$/.test(name)) {
+    // A passthrough provider renders its children. On a non-`.tsx` stub target
+    // (e.g. an explicit `.ts` import) JSX would be a syntax error, so emit the
+    // non-JSX `React.createElement(React.Fragment, …)` equivalent instead.
+    if (!allowJsx) {
+      return `export function ${name}({ children, ...props }: { children: React.ReactNode; [k: string]: unknown }) {\n  return React.createElement(React.Fragment, null, children);\n}`;
+    }
     return `export function ${name}({ children, ...props }: { children: React.ReactNode; [k: string]: unknown }) {\n  return <>{children}</>;\n}`;
   }
   if (/Context$/.test(name)) {

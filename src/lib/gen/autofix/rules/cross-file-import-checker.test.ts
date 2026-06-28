@@ -410,6 +410,31 @@ describe("checkCrossFileImports", () => {
     expect(stub?.content).not.toContain("<span");
   });
 
+  it("emits a non-JSX passthrough Provider stub for an explicit .ts import target", () => {
+    // A `XxxProvider` stubbed into a `.ts` file must not emit JSX (`<>…</>`),
+    // which is a syntax error in a non-tsx module → white screen on the
+    // deterministic export/preview path. Use React.createElement instead.
+    const page: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: [
+        'import { ThemeProvider } from "@/lib/theme-provider.ts";',
+        "export default function Layout({ children }: { children: React.ReactNode }) {",
+        "  return <ThemeProvider>{children}</ThemeProvider>;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+    const stub = result.files.find((f) => f.path === "lib/theme-provider.ts");
+
+    expect(stub).toBeDefined();
+    expect(stub?.content).toContain("export function ThemeProvider");
+    // No JSX in a `.ts` module.
+    expect(stub?.content).not.toContain("<>");
+    expect(stub?.content).toContain("React.createElement(React.Fragment, null, children)");
+  });
+
   it("does not create null-render stubs for missing 3D scene parts", () => {
     const scene: CodeFile = {
       path: "components/flying-duck-3d.tsx",
