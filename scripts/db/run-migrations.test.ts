@@ -1,4 +1,5 @@
-import { readdirSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
 import {
   MIGRATION_ORDER,
@@ -6,6 +7,7 @@ import {
   resolveConnectionString,
   resolveMigrationRunOrder,
 } from "./run-migrations";
+import { isAlreadyExistsError } from "./migration-order.mjs";
 
 // Anchor against env-convention drift for the manual-run migration script.
 // The actual resolver lives in `src/lib/db/env.ts` and is unit-tested there;
@@ -99,5 +101,62 @@ describe("scripts/db/run-migrations resolveMigrationRunOrder", () => {
     expect(() =>
       resolveMigrationRunOrder([...MIGRATION_ORDER, "README.md", ".gitkeep"]),
     ).not.toThrow();
+  });
+});
+
+// Single-source guard (BUG-SWARM B10 follow-up): db-init.mjs and
+// run-migrations.ts must share ONE migration order. db-init.mjs used to keep its
+// own 2-entry `dependencyOrder` + alphabetical `.sort()`, so `db:init` could
+// apply migrations in a different order than `db:migrate`. We can't import
+// db-init.mjs here (its module body opens a pg Pool and may process.exit), so we
+// assert the wiring statically against its source.
+describe("scripts/db/db-init.mjs migration ordering is single-sourced", () => {
+  const dbInitSrc = readFileSync(
+    join(process.cwd(), "scripts", "db", "db-init.mjs"),
+    "utf8",
+  );
+
+  it("imports the shared migration-order module", () => {
+    expect(dbInitSrc).toMatch(/from\s+["']\.\/migration-order\.mjs["']/);
+  });
+
+  it("applies migrations via the shared resolveMigrationRunOrder", () => {
+    expect(dbInitSrc).toMatch(/resolveMigrationRunOrder\s*\(/);
+  });
+
+  it("does not re-introduce a divergent local migration order", () => {
+    expect(dbInitSrc).not.toMatch(/const\s+dependencyOrder\s*=/);
+  });
+});
+
+// Hardened "already applied" detection: classify by stable Postgres SQLSTATE
+// rather than substring-matching the (locale-dependent) English error text.
+describe("isAlreadyExistsError", () => {
+  it("treats Postgres duplicate_* SQLSTATE codes as already-applied", () => {
+    expect(isAlreadyExistsError({ code: "42P07" })).toBe(true); // duplicate_table
+    expect(isAlreadyExistsError({ code: "42701" })).toBe(true); // duplicate_column
+    expect(isAlreadyExistsError({ code: "42710" })).toBe(true); // duplicate_object
+  });
+
+  it("is locale-proof: matches on SQLSTATE even when the message is not English", () => {
+    expect(
+      isAlreadyExistsError({
+        code: "42P07",
+        message: "la relation « x » existe déjà",
+      }),
+    ).toBe(true);
+  });
+
+  it("falls back to the English 'already exists' message substring", () => {
+    expect(isAlreadyExistsError(new Error('relation "x" already exists'))).toBe(
+      true,
+    );
+  });
+
+  it("does not swallow unrelated failures", () => {
+    expect(isAlreadyExistsError(new Error("connection refused"))).toBe(false);
+    // unique_violation (a row conflict) is NOT an "object already exists" case.
+    expect(isAlreadyExistsError({ code: "23505" })).toBe(false);
+    expect(isAlreadyExistsError(undefined)).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { getScaffoldById } from "@/lib/gen/scaffolds";
 import { engineChats, engineVersionErrorLogs } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
+import { appendBugRegisterEntries } from "@/lib/logging/bug-register";
 
 type VersionErrorLogPayload = {
   chatId: string;
@@ -106,6 +107,8 @@ export async function createEngineVersionErrorLog(
     .insert(engineVersionErrorLogs)
     .values(mapLogPayload(enrichedPayload, now))
     .returning();
+  // Fas 2: mirror bug-level findings to the flat JSONL bug register (best-effort).
+  appendBugRegisterEntries([enrichedPayload]);
   return rows[0] as VersionErrorLog;
 }
 
@@ -120,6 +123,8 @@ export async function createEngineVersionErrorLogs(
     .insert(engineVersionErrorLogs)
     .values(enrichedPayloads.map((payload) => mapLogPayload(payload, now)))
     .returning();
+  // Fas 2: mirror bug-level findings to the flat JSONL bug register (best-effort).
+  appendBugRegisterEntries(enrichedPayloads);
   return rows as VersionErrorLog[];
 }
 

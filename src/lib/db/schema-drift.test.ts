@@ -263,4 +263,84 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
       );
     }
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // pydatabastest.py är en FJÄRDE expected-table-källa: prod/dev-sync-gaten i
+  // .github/workflows/db-blob-sync-check.yml, som körs MOT PROD (med prod-creds)
+  // på varje push till master. Den klassar varje tabell som EMPTY/PRESERVED/
+  // CACHE och FAILar på (a) en förväntad tabell som saknas i prod ELLER (b) en
+  // oklassad "extra" tabell. Utan paritetsskydd kan en ny pgTable (som
+  // engine_version_jobs i #256) läggas i schema.ts/db-init/db-health men glömmas
+  // här → prod-gaten verifierar då ALDRIG att den nya tabellen finns i prod
+  // ("vi glömde migrera prod" blir tyst), och failar den sen som "extra" när den
+  // väl skapas. Det här testet binder pydatabastest.py till schema.ts så gapet
+  // inte kan återuppstå tyst.
+  // ───────────────────────────────────────────────────────────────────────
+  const pydbtestSrc = readFile(join(REPO_ROOT, "pydatabastest.py"));
+
+  function parsePyStringTuple(source: string, varName: string): Set<string> {
+    // Matchar `VARNAME[: Tuple[str, ...]] = ( "a", "b", ... )` och plockar ut de
+    // citerade tabellnamnen. Hoppar avsiktligt över `EXPECTED_TABLES = A + B + C`
+    // (den raden har inga strängliteraler, så regexen matchar den inte).
+    //
+    // Stripa Python-radkommentarer FÖRST: en kommentar med ")" inuti en tuple
+    // (t.ex. "(#256)") skulle annars trunkera den non-greedy paren-matchningen
+    // nedan och tyst tappa tabeller som står efter kommentaren.
+    const noComments = source.replace(/#.*$/gm, "");
+    const re = new RegExp(`${varName}\\s*(?::[^=]*)?=\\s*\\(([\\s\\S]*?)\\)`);
+    const m = noComments.match(re);
+    if (!m) return new Set();
+    const out = new Set<string>();
+    const sRe = /["']([a-z_][a-z0-9_]*)["']/g;
+    let mm: RegExpExecArray | null;
+    while ((mm = sRe.exec(m[1]))) out.add(mm[1]);
+    return out;
+  }
+
+  const pyEmpty = parsePyStringTuple(pydbtestSrc, "EMPTY_TABLES");
+  const pyPreserved = parsePyStringTuple(pydbtestSrc, "PRESERVED_TABLES");
+  const pyCache = parsePyStringTuple(pydbtestSrc, "CACHE_TABLES");
+  const pyKnownExtra = parsePyStringTuple(pydbtestSrc, "KNOWN_EXTRA_TABLES");
+  const pyExpected = new Set([...pyEmpty, ...pyPreserved, ...pyCache]);
+
+  it("pydatabastest.py klassar varje pgTable() (annars osynlig/extra i prod-gaten)", () => {
+    expect(
+      pyExpected.size,
+      "EMPTY/PRESERVED/CACHE verkar tomma — har tuple-namnen ändrats?",
+    ).toBeGreaterThan(20);
+
+    const pyClassified = new Set([...pyExpected, ...pyKnownExtra]);
+    const unclassified = [...drizzleTables].filter((t) => !pyClassified.has(t));
+    if (unclassified.length > 0) {
+      throw new Error(
+        `Tabeller i schema.ts saknar klassning i pydatabastest.py:\n  - ${unclassified.join("\n  - ")}\n\n` +
+          `Lägg till dem i EMPTY_TABLES (genererad/transient → 0 rader förväntas), ` +
+          `PRESERVED_TABLES (affärs-/credentialdata) eller CACHE_TABLES. Annars ` +
+          `verifierar prod-sync-gaten (db-blob-sync-check) inte att tabellen finns ` +
+          `i prod, och failar den sen som "extra table" när den väl skapas.`,
+      );
+    }
+  });
+
+  it("pydatabastest.py EXPECTED-grupperna listar inga icke-schema-tabeller", () => {
+    // En tabell i EMPTY/PRESERVED/CACHE som INTE är en pgTable skulle failas för
+    // evigt som "schema present"-miss. Migration-only-tabeller (utan Drizzle-
+    // deklaration, t.ex. error_log_events) hör hemma i KNOWN_EXTRA_TABLES.
+    const phantom = [...pyExpected].filter((t) => !drizzleTables.has(t));
+    if (phantom.length > 0) {
+      throw new Error(
+        `pydatabastest.py klassar tabell(er) som inte finns som pgTable() i schema.ts:\n  - ${phantom.join("\n  - ")}\n\n` +
+          `Flytta migration-only-tabeller till KNOWN_EXTRA_TABLES, eller ta bort raden.`,
+      );
+    }
+  });
+
+  it("klassar engine_version_jobs som rad-behållande (ej EMPTY) — Codex P1 #267", () => {
+    // Lease/jobs-tabellen behåller rader (releaseVersionLease sätter done/failed,
+    // den raderar inte). I EMPTY-gruppen (0 rader krävs) skulle prod-sync-gaten
+    // falsk-faila efter varje verify/repair-körning. Den ska existens-verifieras
+    // men tolerera rader (CACHE/PRESERVED), inte ligga i EMPTY.
+    expect(pyEmpty.has("engine_version_jobs")).toBe(false);
+    expect(pyExpected.has("engine_version_jobs")).toBe(true);
+  });
 });

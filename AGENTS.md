@@ -33,6 +33,30 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
 
+## Review guidelines (Codex/GitHub-review + fallback)
+
+External Codex review (`chatgpt-codex-connector`) is **recommended, not a hard merge blocker**. If it can't run (out of credits/quota/outage) the PR/merge flow must **not** stall — fall back to an independent local review. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
+
+**A review prioritizes P0/P1:** runtime regressions; false-green (a gate that turns green without real verification — verify / quality-gate / server-verify / promote / lifecycle / status); preview/VM failures; DB/schema drift; env/secret leaks; security/cross-tenant risk; broken LLM-pipeline contracts.
+
+- Flag F2/F3 status that goes green **without** real verification as **P1**.
+- Flag **missing tests as P1** when the change touches pipeline, preview, DB, autofix, dependency handling, or any runtime contract.
+- Ignore taste/style unless it is a real UX/runtime/maintainability risk. Keep comments to concrete, merge-blocking problems.
+
+**Fallback when Codex review can't run** (missing / errors / "out of credits") — do **not** wait or spin:
+
+1. Run an independent Cursor Bugbot pass — the `review-bugbot` skill or the `bugbot` subagent (`subagent_type: "bugbot"`, `readonly: true`). There is **no** `bugbot run` CLI in this repo.
+2. If Bugbot is unavailable, do a structured manual review of the diff: read `git diff`, identify changed owners/files, hunt for regressions / missing tests / env-DB-preview risk / false-green / broken contracts, run the repo verifications (`npm run typecheck`, targeted `npx vitest run`, `npm run lint`, `npm run db:schema-drift`, …), and summarize findings with file/line refs.
+
+**Author-is-merger rule:** when the agent merging a PR is the **same** agent that authored it, re-reading your own diff is **not** review. If external Codex review is absent, the author-merger MUST get an *independent* pass — spawn the `bugbot` subagent (a separate agent) or a human — before merging, especially on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't route around the Cursor PR Auto-Merger's `NEEDS_HUMAN` with a self-approval.
+
+**Merge-ready criteria:**
+
+- Codex ran, no P0/P1, verification passed → merge-ready.
+- Codex couldn't run (credits/quota) **but** an *independent* review passed with no P0/P1 **and** verification passed → merge-ready. "Independent" = the reviewer is **not** the PR author: the `bugbot` subagent or a human. A `manual local bug review` qualifies **only** when done by a non-author merger reviewing someone else's PR; an **author-merger must use the `bugbot` subagent or a human** (per the Author-is-merger rule above) — re-reading your own diff never makes a PR merge-ready.
+- Always state in the final report which review path was used: `codex-review`, `bugbot` (Cursor subagent), or `manual local bug review`.
+- Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
+
 ## Source-of-truth-regel
 
 Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera dem i glossaryn.
@@ -61,7 +85,7 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 - **`predev` `db:init:soft` aborts in `dash`:** The `npm run db:init:soft` script's `|| echo [db:init] WARN: skipped (DB unreachable) - dev continues` fails at shell-parse time in `dash`/`sh` because of the unquoted `(DB unreachable)` parens (`sh: Syntax error: "(" unexpected`). This is independent of whether `db-init` succeeds, and it makes `predev`'s `&&` chain exit non-zero, so `npm run dev` never reaches `next dev`. Run `node scripts/dev/next-runner.mjs dev` directly (preferred) or `SKIP_PREDEV=1 npm run dev`.
 - **Migration ordering:** Fixed -- `db-init.mjs` runs dependency migrations first automatically. No manual steps needed on fresh DB.
 - Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
-- All test files pass as of 2026-05. If a test fails, investigate — it is likely a real regression, not a pre-existing environment issue. **Exception in the Cloud Agent env:** `npm run test:ci` reports 3 failures (`src/lib/kostnadsfri/index.test.ts`, `src/app/api/domains/link/route.test.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.test.ts`) that are caused purely by platform-injected secrets (`VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `KOSTNADSFRI_API_KEY`, `KOSTNADSFRI_PASSWORD_SEED`) — these negative-path tests assume those vars are unset. They are not regressions; they pass when those vars are unset (e.g. `env -u VERCEL_PROJECT_ID -u VERCEL_TEAM_ID -u KOSTNADSFRI_API_KEY -u KOSTNADSFRI_PASSWORD_SEED npx vitest run <files>`).
+- All test files pass as of 2026-05. If a test fails, investigate — it is likely a real regression, not a pre-existing environment issue. **Exception in the Cloud Agent env:** `npm run test:ci` reports 3 failures (`src/lib/kostnadsfri/index.test.ts`, `src/app/api/domains/link/route.test.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.test.ts`) that are caused purely by platform-injected secrets (`VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `KOSTNADSFRI_API_KEY`, `KOSTNADSFRI_PASSWORD_SEED`) — these negative-path tests assume those vars are unset. They are not regressions; they pass when those vars are unset (e.g. `env -u VERCEL_PROJECT_ID -u VERCEL_TEAM_ID -u KOSTNADSFRI_API_KEY -u KOSTNADSFRI_PASSWORD_SEED npx vitest run <files>`). Other known pre-existing test failures are tracked in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) (e.g. 2 `PreviewPanel.test.tsx` save-flow tests) — check there before assuming a regression.
 
 ### Useful commands (see `package.json` for full list)
 
