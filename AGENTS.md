@@ -53,7 +53,7 @@ External Codex review (`chatgpt-codex-connector`) is **recommended, not a hard m
 **Merge-ready criteria:**
 
 - Codex ran, no P0/P1, verification passed → merge-ready.
-- Codex couldn't run (credits/quota) **but** an independent Bugbot or manual local review passed with no P0/P1 **and** verification passed → merge-ready.
+- Codex couldn't run (credits/quota) **but** an *independent* review passed with no P0/P1 **and** verification passed → merge-ready. "Independent" = the reviewer is **not** the PR author: the `bugbot` subagent or a human. A `manual local bug review` qualifies **only** when done by a non-author merger reviewing someone else's PR; an **author-merger must use the `bugbot` subagent or a human** (per the Author-is-merger rule above) — re-reading your own diff never makes a PR merge-ready.
 - Always state in the final report which review path was used: `codex-review`, `bugbot` (Cursor subagent), or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 
