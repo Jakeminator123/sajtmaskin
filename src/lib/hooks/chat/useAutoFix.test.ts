@@ -86,14 +86,37 @@ const capOverridden =
   process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT != null &&
   process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT !== "3";
 
+// Mutable `/readiness` response info read by the shared fetch mock below, so a
+// test can drive `isVersionUnderServerRepair` through the real nested response
+// shape: `{ success, readiness: { info: { lifecycleStatus, lifecycleStage } } }`.
+// Default is a non-repair state so existing tests behave exactly as before
+// (autofix proceeds).
+let readinessInfo: {
+  lifecycleStatus?: string | null;
+  lifecycleStage?: string | null;
+} = { lifecycleStatus: "draft", lifecycleStage: "design" };
+
 describe("useAutoFix", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     window.localStorage.clear();
+    readinessInfo = { lifecycleStatus: "draft", lifecycleStage: "design" };
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
+        // Check `/readiness` before `/versions`: the readiness URL is
+        // `.../readiness?versionId=...` and must not be captured by a looser
+        // substring match.
+        if (url.includes("/readiness")) {
+          return new Response(
+            JSON.stringify({ success: true, readiness: { info: readinessInfo } }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
         if (url.includes("/versions")) {
           return new Response(
             JSON.stringify({
@@ -369,5 +392,67 @@ describe("useAutoFix", () => {
       await vi.runAllTimersAsync();
     });
     expect(sendMessage2).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression coverage for the `/readiness` shape bug: the guard read a
+  // top-level `verificationState` that the route never returns, so it never
+  // fired. These drive it through the real nested
+  // `readiness.info.lifecycleStatus/Stage` shape.
+  describe("server-repair guard (isVersionUnderServerRepair)", () => {
+    async function triggerAutoFixOnce(sendMessage: () => Promise<void>) {
+      const { result } = renderHook(() => useAutoFix(sendMessage));
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: ["build failed"],
+        });
+      });
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+    }
+
+    it.each([
+      ["repairing", "design"],
+      ["repairing", "integrations"],
+      ["repair_available", "design"],
+      ["repair_available", "integrations"],
+      ["verifying", "integrations"],
+    ])(
+      "bails out when a server repair/verify is in progress (status=%s, stage=%s)",
+      async (lifecycleStatus, lifecycleStage) => {
+        readinessInfo = { lifecycleStatus, lifecycleStage };
+        const sendMessage = vi.fn(async () => undefined);
+        await triggerAutoFixOnce(sendMessage);
+        expect(sendMessage).not.toHaveBeenCalled();
+      },
+    );
+
+    it("does NOT bail on a pending F2/design row (status=verifying, stage=design)", async () => {
+      // F2 design rows skip server-verify and sit in `verifying` while merely
+      // pending — blocking here would permanently disable client autofix on F2.
+      readinessInfo = { lifecycleStatus: "verifying", lifecycleStage: "design" };
+      const sendMessage = vi.fn(async () => undefined);
+      await triggerAutoFixOnce(sendMessage);
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([["promoted"], ["draft"], ["failed"]])(
+      "does NOT bail when lifecycleStatus=%s (no active server repair)",
+      async (lifecycleStatus) => {
+        readinessInfo = { lifecycleStatus, lifecycleStage: "integrations" };
+        const sendMessage = vi.fn(async () => undefined);
+        await triggerAutoFixOnce(sendMessage);
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("does NOT bail when the readiness payload is missing info (fail-open)", async () => {
+      readinessInfo = {};
+      const sendMessage = vi.fn(async () => undefined);
+      await triggerAutoFixOnce(sendMessage);
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
   });
 });
