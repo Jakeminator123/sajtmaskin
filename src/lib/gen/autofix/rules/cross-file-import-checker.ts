@@ -110,9 +110,93 @@ function isThreeDImportGap(params: {
  * rewire to a file that is itself a stub fallback or has an unrelated
  * basename root.
  */
+interface ModuleExportSurface {
+  hasDefault: boolean;
+  named: Set<string>;
+  /** `export * from "..."` — unknown surface, can't disprove a binding. */
+  hasStarReexport: boolean;
+}
+
+/**
+ * AST scan of a module's export surface: default-export presence, named export
+ * identifiers, and whether it re-exports a wildcard. Used by the sibling-rewire
+ * guard to verify a rewire target actually provides the binding(s) an importer
+ * expects before we point the import at it.
+ */
+function collectModuleExportSurface(filePath: string, content: string): ModuleExportSurface {
+  const sf = createTsxSourceFile(filePath, content);
+  const named = new Set<string>();
+  let hasDefault = false;
+  let hasStarReexport = false;
+
+  for (const st of sf.statements) {
+    if (ts.isExportAssignment(st)) {
+      // `export default <expr>` (ignore the rare `export = x`).
+      if (!st.isExportEquals) hasDefault = true;
+      continue;
+    }
+    if (ts.isExportDeclaration(st)) {
+      if (!st.exportClause) {
+        hasStarReexport = true;
+      } else if (ts.isNamespaceExport(st.exportClause)) {
+        named.add(st.exportClause.name.text);
+      } else if (ts.isNamedExports(st.exportClause)) {
+        for (const el of st.exportClause.elements) {
+          if (el.name.text === "default") hasDefault = true;
+          else named.add(el.name.text);
+        }
+      }
+      continue;
+    }
+
+    const modifiers = ts.canHaveModifiers(st) ? ts.getModifiers(st) : undefined;
+    if (!modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+    if (modifiers.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)) {
+      hasDefault = true;
+      continue;
+    }
+    if (ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) {
+      if (st.name) named.add(st.name.text);
+    } else if (ts.isVariableStatement(st)) {
+      for (const decl of st.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name)) named.add(decl.name.text);
+      }
+    } else if (
+      ts.isInterfaceDeclaration(st) ||
+      ts.isTypeAliasDeclaration(st) ||
+      ts.isEnumDeclaration(st)
+    ) {
+      named.add(st.name.text);
+    }
+  }
+
+  return { hasDefault, named, hasStarReexport };
+}
+
+/**
+ * A rewire is only safe when the candidate sibling actually exports the
+ * binding(s) the importer expects: a default import needs a default export and
+ * each named import needs a matching named export. A wildcard re-export
+ * (`export * from`) is treated as "may provide it" so a valid barrel rewire is
+ * not blocked. This prevents silently mounting an unrelated sibling (e.g. a
+ * `-context` provider) in place of the intended component.
+ */
+function rewireTargetSatisfiesImport(
+  surface: ModuleExportSurface,
+  specifiers: ImportSpecifiers,
+): boolean {
+  if (surface.hasStarReexport) return true;
+  if (specifiers.defaultImport && !surface.hasDefault) return false;
+  for (const name of specifiers.namedImports) {
+    if (!surface.named.has(name)) return false;
+  }
+  return true;
+}
+
 function findRewireTarget(
   missingProjectPath: string,
   fileMap: Map<string, CodeFile>,
+  requiredSpecifiers: ImportSpecifiers,
 ): string | null {
   const lastSlash = missingProjectPath.lastIndexOf("/");
   const dir = lastSlash >= 0 ? missingProjectPath.slice(0, lastSlash) : "";
@@ -134,12 +218,25 @@ function findRewireTarget(
 
   const tryProbe = (probedDir: string, probedBase: string): string | null => {
     const root = probedDir ? `${probedDir}/${probedBase}` : probedBase;
-    if (fileMap.has(root)) return root.replace(/\.(tsx|ts|jsx|js)$/, "");
+    const candidates: Array<{ key: string; resolved: string }> = [];
+    if (fileMap.has(root)) candidates.push({ key: root, resolved: root.replace(/\.(tsx|ts|jsx|js)$/, "") });
     for (const ext of EXTENSIONS) {
-      if (fileMap.has(root + ext)) return root;
+      if (fileMap.has(root + ext)) candidates.push({ key: root + ext, resolved: root });
     }
     for (const indexExt of INDEX_EXTENSIONS) {
-      if (fileMap.has(root + indexExt)) return root;
+      if (fileMap.has(root + indexExt)) candidates.push({ key: root + indexExt, resolved: root });
+    }
+    for (const candidate of candidates) {
+      const file = fileMap.get(candidate.key);
+      if (!file) continue;
+      // Wrong-sibling-rewire guard (P7): only accept a sibling that actually
+      // exports the imported binding(s); otherwise fall through so the import
+      // is stubbed (a visible placeholder) rather than silently mounting an
+      // unrelated component.
+      const surface = collectModuleExportSurface(candidate.key, file.content);
+      if (rewireTargetSatisfiesImport(surface, requiredSpecifiers)) {
+        return candidate.resolved;
+      }
     }
     return null;
   };
@@ -615,10 +712,14 @@ export function checkCrossFileImports(
           : `${projectPath}.tsx`;
       if (fileMap.has(stubPath)) continue;
 
+      const spec = importSpecifiersFromDeclaration(st);
+
       // Prefer an obvious sibling import over a null-render stub.
       // Example: `@/components/three-canvas` can mean the existing
-      // `@/components/three-canvas-shell`.
-      const rewireResolved = findRewireTarget(projectPath, fileMap);
+      // `@/components/three-canvas-shell`. The rewire only fires when the
+      // sibling actually exports the imported binding(s) (see findRewireTarget
+      // wrong-sibling guard) so we never silently mount an unrelated module.
+      const rewireResolved = findRewireTarget(projectPath, fileMap, spec);
       const rewireSpec =
         rewireResolved !== null
           ? projectPathToImportSpec(rewireResolved, meta.moduleSpecifier, file.path)
@@ -643,7 +744,6 @@ export function checkCrossFileImports(
         }
       }
 
-      const spec = importSpecifiersFromDeclaration(st);
       const source = meta.moduleSpecifier;
       if (
         isThreeDImportGap({

@@ -280,6 +280,63 @@ describe("checkCrossFileImports", () => {
     expect(updatedOverlay?.content).not.toContain('"@/components/foo-context"');
   });
 
+  it("does not rewire to a suffix-sibling that lacks the imported binding", () => {
+    // P7 (fix/autofix-fidelity-guards): rewiring `@/components/pricing-table`
+    // to a `-shell` sibling that does NOT export `PricingTable` would silently
+    // mount the wrong component. The export-surface guard must reject it and
+    // fall back to a (now visible) stub instead.
+    const section: CodeFile = {
+      path: "components/pricing-section.tsx",
+      language: "tsx",
+      content: [
+        'import { PricingTable } from "@/components/pricing-table";',
+        "export function PricingSection() { return <PricingTable />; }",
+      ].join("\n"),
+    };
+    const wrongSibling: CodeFile = {
+      path: "components/pricing-table-shell.tsx",
+      language: "tsx",
+      content: ["export function PricingShellWrapper() { return null; }"].join("\n"),
+    };
+
+    const result = checkCrossFileImports([section, wrongSibling]);
+
+    const updated = result.files.find((f) => f.path === "components/pricing-section.tsx");
+    expect(updated?.content).toContain('"@/components/pricing-table"');
+    expect(updated?.content).not.toContain("pricing-table-shell");
+    const stub = result.files.find((f) => f.path === "components/pricing-table.tsx");
+    expect(stub).toBeDefined();
+    const fix = result.fixes.find((f) => f.missingImport === "@/components/pricing-table");
+    expect(fix?.rewireTarget).toBeUndefined();
+    expect(fix?.stubFile).toBe("components/pricing-table.tsx");
+  });
+
+  it("still rewires to a suffix-sibling that DOES export the imported binding", () => {
+    // Guard must not over-block: when the sibling provides the binding, the
+    // rewire still fires (no regression to the valid sibling-rewire path).
+    const section: CodeFile = {
+      path: "components/pricing-section.tsx",
+      language: "tsx",
+      content: [
+        'import { PricingTable } from "@/components/pricing-table";',
+        "export function PricingSection() { return <PricingTable />; }",
+      ].join("\n"),
+    };
+    const realSibling: CodeFile = {
+      path: "components/pricing-table-shell.tsx",
+      language: "tsx",
+      content: ["export function PricingTable() { return null; }"].join("\n"),
+    };
+
+    const result = checkCrossFileImports([section, realSibling]);
+
+    const updated = result.files.find((f) => f.path === "components/pricing-section.tsx");
+    expect(updated?.content).toContain('"@/components/pricing-table-shell"');
+    expect(result.files.some((f) => f.path === "components/pricing-table.tsx")).toBe(false);
+    const fix = result.fixes.find((f) => f.missingImport === "@/components/pricing-table");
+    expect(fix?.rewireTarget).toBe("components/pricing-table-shell");
+  });
+
   it("falls back to stub when no fuzzy sibling exists", () => {
     const page: CodeFile = {
       path: "app/page.tsx",
