@@ -280,6 +280,63 @@ describe("checkCrossFileImports", () => {
     expect(updatedOverlay?.content).not.toContain('"@/components/foo-context"');
   });
 
+  it("does not rewire to a suffix-sibling that lacks the imported binding", () => {
+    // P7 (fix/autofix-fidelity-guards): rewiring `@/components/pricing-table`
+    // to a `-shell` sibling that does NOT export `PricingTable` would silently
+    // mount the wrong component. The export-surface guard must reject it and
+    // fall back to a (now visible) stub instead.
+    const section: CodeFile = {
+      path: "components/pricing-section.tsx",
+      language: "tsx",
+      content: [
+        'import { PricingTable } from "@/components/pricing-table";',
+        "export function PricingSection() { return <PricingTable />; }",
+      ].join("\n"),
+    };
+    const wrongSibling: CodeFile = {
+      path: "components/pricing-table-shell.tsx",
+      language: "tsx",
+      content: ["export function PricingShellWrapper() { return null; }"].join("\n"),
+    };
+
+    const result = checkCrossFileImports([section, wrongSibling]);
+
+    const updated = result.files.find((f) => f.path === "components/pricing-section.tsx");
+    expect(updated?.content).toContain('"@/components/pricing-table"');
+    expect(updated?.content).not.toContain("pricing-table-shell");
+    const stub = result.files.find((f) => f.path === "components/pricing-table.tsx");
+    expect(stub).toBeDefined();
+    const fix = result.fixes.find((f) => f.missingImport === "@/components/pricing-table");
+    expect(fix?.rewireTarget).toBeUndefined();
+    expect(fix?.stubFile).toBe("components/pricing-table.tsx");
+  });
+
+  it("still rewires to a suffix-sibling that DOES export the imported binding", () => {
+    // Guard must not over-block: when the sibling provides the binding, the
+    // rewire still fires (no regression to the valid sibling-rewire path).
+    const section: CodeFile = {
+      path: "components/pricing-section.tsx",
+      language: "tsx",
+      content: [
+        'import { PricingTable } from "@/components/pricing-table";',
+        "export function PricingSection() { return <PricingTable />; }",
+      ].join("\n"),
+    };
+    const realSibling: CodeFile = {
+      path: "components/pricing-table-shell.tsx",
+      language: "tsx",
+      content: ["export function PricingTable() { return null; }"].join("\n"),
+    };
+
+    const result = checkCrossFileImports([section, realSibling]);
+
+    const updated = result.files.find((f) => f.path === "components/pricing-section.tsx");
+    expect(updated?.content).toContain('"@/components/pricing-table-shell"');
+    expect(result.files.some((f) => f.path === "components/pricing-table.tsx")).toBe(false);
+    const fix = result.fixes.find((f) => f.missingImport === "@/components/pricing-table");
+    expect(fix?.rewireTarget).toBe("components/pricing-table-shell");
+  });
+
   it("falls back to stub when no fuzzy sibling exists", () => {
     const page: CodeFile = {
       path: "app/page.tsx",
@@ -301,6 +358,56 @@ describe("checkCrossFileImports", () => {
       (f) => f.missingImport === "@/components/totally-made-up-thing",
     );
     expect(fix?.rewireTarget).toBeUndefined();
+  });
+
+  it("renders a VISIBLE degraded placeholder (not a silent return null) for stubbed components", () => {
+    // P7 (fix/autofix-fidelity-guards): a missing PascalCase component must
+    // render a clearly-labeled placeholder so the degradation is visible in
+    // the preview, instead of a silent `return null` that looks like a
+    // finished, intentionally-empty design.
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        'import { MissingHeroBlock } from "@/components/missing-hero-block";',
+        "export default function Page() { return <MissingHeroBlock />; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+    const stub = result.files.find(
+      (f) => f.path === "components/missing-hero-block.tsx",
+    );
+
+    expect(stub).toBeDefined();
+    // Keeps the grep marker but no longer renders nothing.
+    expect(stub?.content).toContain("autofix-stub:MissingHeroBlock");
+    expect(stub?.content).toContain('data-autofix-stub="MissingHeroBlock"');
+    expect(stub?.content).toContain("Platshållare för MissingHeroBlock");
+    expect(stub?.content).toMatch(/<span/);
+    // The component body must not be a bare `return null;`.
+    expect(stub?.content).not.toMatch(/\breturn null;/);
+  });
+
+  it("keeps an inert null-render stub when the target is a non-tsx (.ts) file", () => {
+    // JSX is invalid in a `.ts` module, so the visible-placeholder body must
+    // only be emitted for `.tsx` stub targets.
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        'import { LegacyWidget } from "@/lib/legacy-widget.ts";',
+        "export default function Page() { return <LegacyWidget />; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+    const stub = result.files.find((f) => f.path === "lib/legacy-widget.ts");
+
+    expect(stub).toBeDefined();
+    expect(stub?.content).toContain("autofix-stub:LegacyWidget");
+    expect(stub?.content).toContain("return null");
+    expect(stub?.content).not.toContain("<span");
   });
 
   it("does not create null-render stubs for missing 3D scene parts", () => {
