@@ -1,7 +1,6 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter, resolveKnownVersion } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
-import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
 /**
@@ -365,8 +364,38 @@ const NEXT_ENV_D_TS = `/// <reference types="next" />
 // This file is maintained by Next.js — do not edit manually.
 `;
 
+/**
+ * Standard Next.js `.gitignore` shipped with every exported/downloaded project.
+ *
+ * `.env*` keeps real secrets out of version control; the single tracked env
+ * template is `env.example` (no leading dot), which `.env*` does not match.
+ * Exported projects do NOT ship a `.env.local` — the preview VM builds its own
+ * runtime `.env.local` separately, and local users copy `env.example` → `.env.local`.
+ */
+const GITIGNORE = `# dependencies
+node_modules
+
+# next.js / build output
+.next
+out
+build
+dist
+
+# env files (keep env.example as the tracked template)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# logs & os files
+*.log
+.DS_Store
+`;
+
 const SCAFFOLD_FILES: Record<string, string> = {
   "package.json": PACKAGE_JSON,
+  ".gitignore": GITIGNORE,
   "next-env.d.ts": NEXT_ENV_D_TS,
   "tsconfig.json": TSCONFIG,
   "next.config.ts": NEXT_CONFIG,
@@ -380,10 +409,6 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "lib/utils.ts": LIB_UTILS,
   "hooks/use-reduced-motion.ts": LIB_USE_REDUCED_MOTION,
 };
-
-const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
-# Same keys as tier-2 preview runtime; override with real values when deploying.
-`;
 
 /**
  * Dependencies where the scaffold baseline must always win over the model.
@@ -582,16 +607,6 @@ export function mergeTsconfigWithBaseline(
   };
 }
 
-function buildPlaceholderEnvLocalBody(): string | null {
-  try {
-    const record = loadAllPlaceholderRecordForF2();
-    if (Object.keys(record).length === 0) return null;
-    return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Sibling source extensions that resolve to the same module under bundler
  * resolution. When a baseline-shipped helper exists at one extension, any
@@ -764,12 +779,12 @@ export function buildCompleteProject(
     ...filteredGeneratedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))),
   );
 
-  if (!result.some((f) => f.path === ".env.local")) {
-    const envBody = buildPlaceholderEnvLocalBody();
-    if (envBody) {
-      result.push({ path: ".env.local", content: envBody, language: "text" });
-    }
-  }
+  // No placeholder `.env.local` is injected here. Exported/downloaded projects
+  // ship only `env.example` as the env template (+ `.gitignore`'s `.env*`),
+  // and the preview VM builds its own runtime `.env.local` separately
+  // (`buildPreviewEnvLocalContents`, which strips any scaffold `.env.local`
+  // and rebuilds it from the placeholder matta + project env vars). A
+  // model-emitted `.env.local`, if present, is preserved untouched above.
 
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }

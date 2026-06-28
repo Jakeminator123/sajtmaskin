@@ -176,8 +176,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       // finalize preflight phase. We deliberately do NOT inject a second
       // `.env.example` here — that would surface two near-identical env
       // files in the builder file panel and confuse users about which
-      // one to copy. Builder shows env.example; export-only `.env.local`
-      // is added by `buildCompleteProject` in the export scaffold.
+      // one to copy. Builder and exported zips show env.example as the only
+      // env template; no placeholder `.env.local` is shipped (the preview VM
+      // builds its own runtime `.env.local` separately).
       const formattedFiles = files.map((f) => ({
         name: f.path,
         content: f.content,

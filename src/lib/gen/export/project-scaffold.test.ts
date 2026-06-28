@@ -123,7 +123,7 @@ describe("mergeTsconfigWithBaseline", () => {
 });
 
 describe("buildCompleteProject", () => {
-  it("merges minimal package.json and adds .env.local when absent", () => {
+  it("merges minimal package.json, ships .gitignore, and injects no placeholder .env.local", () => {
     const generated: CodeFile[] = [
       {
         path: "package.json",
@@ -145,13 +145,24 @@ describe("buildCompleteProject", () => {
     const parsed = JSON.parse(pkg!.content) as { scripts: Record<string, string> };
     expect(parsed.scripts.dev).toBe("next dev --webpack");
 
-    const env = files.find((f) => f.path === ".env.local");
-    expect(env).toBeDefined();
-    expect(env!.content).toContain("Sajtmaskin");
-    expect(env!.content).toMatch(/^[A-Z0-9_]+=/m);
+    // A standard .gitignore is the single env-hygiene guard in exported zips.
+    const gitignore = files.find((f) => f.path === ".gitignore");
+    expect(gitignore).toBeDefined();
+    expect(gitignore!.content).toContain("node_modules");
+    expect(gitignore!.content).toContain(".next");
+    expect(gitignore!.content).toContain(".env*");
+    expect(gitignore!.content).toContain("!.env.example");
+    expect(gitignore!.content).toContain(".vercel");
+
+    // No placeholder .env.local: it confused users (shipped next to env.example)
+    // and the preview VM builds its own runtime .env.local separately.
+    expect(files.find((f) => f.path === ".env.local")).toBeUndefined();
   });
 
   it("does not replace an existing .env.local from the model", () => {
+    // A model-emitted .env.local is preserved untouched: the preview pipeline
+    // strips it from the scaffold output and feeds it back as the highest-priority
+    // "generated" env layer, so stripping it here would lose the model's overlay.
     const custom = "# my env\nFOO=bar\n";
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
@@ -497,6 +508,32 @@ describe("buildExportableProject", () => {
     const counter = exported.find((f) => f.path === "components/counter.tsx");
     expect(counter).toBeDefined();
     expect(counter!.content).toContain('import { useState } from "react"');
+  });
+
+  it("ships .gitignore + env.example and never a placeholder .env.local", async () => {
+    // env.example is injected upstream at finalize (injectProjectEnvFileIntoFilesJson);
+    // the model emits no .env.local. The export pipeline must keep env.example,
+    // add .gitignore, and must not introduce a placeholder .env.local.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "env.example",
+        content: "# env.example — DOCUMENTATION ONLY\nNEXT_PUBLIC_SITE_URL=https://example.com\n",
+        language: "text",
+      },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div>Hi</div>; }`,
+        language: "tsx",
+      },
+    ];
+
+    const exported = await buildExportableProject(generated);
+    const paths = new Set(exported.map((f) => f.path));
+
+    expect(paths.has(".gitignore")).toBe(true);
+    expect(paths.has("env.example")).toBe(true);
+    expect(paths.has(".env.local")).toBe(false);
   });
 });
 
