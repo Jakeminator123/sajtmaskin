@@ -53,7 +53,7 @@
       "pro": "gpt-5.3-codex",
       "max": "gpt-5.5",
       "codex": "gpt-5.3-codex",
-      "anthropic": "claude-sonnet-4.6"
+      "anthropic": "claude-opus-4.8"
     },
     "envKeys": {
       "fast": "SAJTMASKIN_MODEL_FAST",
@@ -86,12 +86,10 @@
         "openai/gpt-5.3-codex",
         "openai/gpt-5.2",
         "anthropic/claude-opus-4.8",
-        "anthropic/claude-opus-4.6",
-        "anthropic/claude-sonnet-4.6"
+        "anthropic/claude-opus-4.6"
       ],
       "anthropicDirectModels": [
         "anthropic-direct/claude-haiku-4-5-20251001",
-        "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-8",
         "anthropic-direct/claude-opus-4-6"
       ],
@@ -102,20 +100,18 @@
         "openai/gpt-5.2",
         "anthropic/claude-opus-4.8",
         "anthropic/claude-opus-4.6",
-        "anthropic/claude-sonnet-4.6",
         "anthropic-direct/claude-haiku-4-5-20251001",
-        "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-8",
         "anthropic-direct/claude-opus-4-6"
       ]
     },
-    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. Back-compat (MB-1): openai/gpt-5.4, anthropic/claude-opus-4.6 and anthropic-direct/claude-opus-4-6 are retained alongside the GPT-5.5 / Opus-4.8 ids from #221 so persisted/env values selected before the bump keep passing isPromptAssistModelAllowed() instead of 400-ing /api/ai/chat and /api/ai/brief."
+    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. Back-compat (MB-1): openai/gpt-5.4, anthropic/claude-opus-4.6 and anthropic-direct/claude-opus-4-6 are retained alongside the GPT-5.5 / Opus-4.8 ids from #221 so persisted/env values selected before the bump keep passing isPromptAssistModelAllowed() instead of 400-ing /api/ai/chat and /api/ai/brief. Sonnet 4.6 was retired 2026-06-28 and removed from the allow-list; any persisted anthropic/claude-sonnet-4.6 or anthropic-direct/claude-sonnet-4-6 value is silently aliased to the Opus-4.8 equivalent by aliasRetiredModelId() (src/lib/models/catalog.ts) before the allow-check, so it still passes without re-introducing Sonnet."
   },
   "briefing": {
     "defaults": {
       "requestModel": "openai/gpt-5.5",
       "serverAutoOpenAI": "openai/gpt-5.5",
-      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6"
+      "serverAutoAnthropic": "anthropic/claude-opus-4.8"
     },
     "envKeys": {
       "requestModel": "SAJTMASKIN_BRIEF_MODEL",
@@ -159,7 +155,7 @@
         "generator": "claude-opus-4.8",
         "fixer": "selected_build_model",
         "verifier": "selected_build_model",
-        "deploy-assistant": "claude-sonnet-4.6"
+        "deploy-assistant": "claude-opus-4.8"
       }
     },
     "thinkingByTier": {
@@ -261,11 +257,11 @@
           "reasoningEffort": "high"
         },
         "fixer": {
-          "thinking": true,
+          "thinking": false,
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": true,
+          "thinking": false,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -274,7 +270,7 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. MB-3 (fixed 2026-06-23): the own-engine generation stream now routes the `generator` phase through resolvePhaseModel() — the codegen call (pipeline.model) plus the SSE/version telemetry model use resolvePhaseModel(tier, 'generator').modelId in create-chat-stream-post.ts, chat-message-stream-post.ts and generate-site-from-prompt.ts. On the `anthropic` tier codegen therefore runs on the declared generator `claude-opus-4.8`; for every other tier in the default config the generator model equals buildProfiles.defaults[tier] so behavior is unchanged. The persisted `chat.model` deliberately stays the tier build model (resolveEngineModelId(tier)) so the repair route and background server-verify can round-trip the tier from it via ownModelIdToCanonicalModelId(); only the generated version's telemetry model reflects the per-phase generator model. planner (plan mode), verifier, fixer and deploy-assistant continue to consume resolvePhaseModel() as before."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. MB-3 (fixed 2026-06-23): the own-engine generation stream now routes the `generator` phase through resolvePhaseModel() — the codegen call (pipeline.model) plus the SSE/version telemetry model use resolvePhaseModel(tier, 'generator').modelId in create-chat-stream-post.ts, chat-message-stream-post.ts and generate-site-from-prompt.ts. On the `anthropic` tier codegen therefore runs on the declared generator `claude-opus-4.8`; for every other tier in the default config the generator model equals buildProfiles.defaults[tier] so behavior is unchanged. The persisted `chat.model` deliberately stays the tier build model (resolveEngineModelId(tier)) so the repair route and background server-verify can round-trip the tier from it via ownModelIdToCanonicalModelId(); only the generated version's telemetry model reflects the per-phase generator model. planner (plan mode), verifier, fixer and deploy-assistant continue to consume resolvePhaseModel() as before. Sonnet 4.6 retired 2026-06-28: the anthropic tier now runs Opus 4.8 across every phase (deploy-assistant switched from Sonnet to Opus); fixer + verifier thinking is disabled (thinking:false) to contain Opus cost on the low-reasoning phases."
   },
   "perTierRepairPolicies": {
     "fast": {
@@ -339,7 +335,7 @@
       "briefingModel": "openai/gpt-5.5"
     },
     "anthropic": {
-      "briefingModel": "anthropic/claude-sonnet-4.6"
+      "briefingModel": "anthropic/claude-opus-4.8"
     }
   },
   "repairPolicies": {
@@ -834,7 +830,7 @@
         "min": 4096,
         "max": 262144
       },
-      "anthropicModelIdNormalization": "Trailing version segments like 4.6 in claude-sonnet-4.6 are sent to the API as 4-6 (regex in gen/models.ts and builder/direct-model.ts).",
+      "anthropicModelIdNormalization": "Trailing version segments like 4.8 in claude-opus-4.8 are sent to the API as 4-8 (regex in gen/models.ts and builder/direct-model.ts).",
       "docLinks": [
         {
           "vendor": "Vercel",
@@ -1052,8 +1048,7 @@
       ],
       "defaultModel": "openai/gpt-5.2",
       "fallbackModels": [
-        "anthropic/claude-opus-4.8",
-        "anthropic/claude-sonnet-4.6"
+        "anthropic/claude-opus-4.8"
       ],
       "notes": "Responses path uses defaultModel. Fallback path uses fallbackModels in order when Responses API is not active."
     },

@@ -453,7 +453,6 @@ AVAILABLE_PHASE_MODELS = (
     "gpt-5.4",
     "gpt-5.4-mini",
     "gpt-5.3-codex",
-    "claude-sonnet-4.6",
     "claude-opus-4.8",
     "claude-opus-4.6",
 )

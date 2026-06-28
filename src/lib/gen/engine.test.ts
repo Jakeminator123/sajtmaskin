@@ -53,7 +53,7 @@ describe("generateCode providerOptions", () => {
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
-      model: "claude-sonnet-4.6",
+      model: "claude-opus-4.8",
       thinking: true,
       reasoningEffort: "high",
     });
@@ -92,7 +92,7 @@ describe("generateCode providerOptions", () => {
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
-      model: "claude-sonnet-4.6",
+      model: "claude-opus-4.8",
       thinking: false,
     });
 
