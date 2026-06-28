@@ -501,3 +501,61 @@ describe("POST repair — non-promoted repair re-checks base before failing (#26
     expect(afterCallbacks.value).toHaveLength(0);
   });
 });
+
+describe("POST repair — catch must not fail B after a stale-base no-op (#260 P2 / Bugbot HIGH)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [] });
+    // The promotion attempt no-ops on stale_base (concurrent edit) -> sets
+    // staleBaseNoOp, and THEN the loop throws. The catch must NOT fail B.
+    saveRepairedFiles.mockResolvedValue({ status: "stale_base" });
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        await opts.onAttemptPromotion('```tsx file="app/page.tsx"\nx\n```', "llm");
+        throw new Error("boom after stale-base no-op");
+      },
+    );
+  });
+
+  it("does NOT fail the version on a crash once staleBaseNoOp is set, and still re-verifies B", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    // Crash path returns 500, but B is NOT finalized as failed from stale repair(A).
+    expect(res.status).toBe(500);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // The finally still schedules the re-verify of B via after().
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
+  });
+});

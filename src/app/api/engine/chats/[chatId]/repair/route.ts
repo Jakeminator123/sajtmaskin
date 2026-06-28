@@ -625,7 +625,13 @@ async function handlePOST(
     });
   } catch (err) {
     console.error("[repair] Error:", err);
-    if (dbConfigured && internalVersionId) {
+    // #260 Codex P2 (no fail of B from a stale repair): if a concurrent user
+    // edit already advanced files_json past the repaired-from snapshot
+    // (staleBaseNoOp set during the promotion attempt or the post-loop recheck),
+    // a crash here must NOT finalize the user's newer edit B as failed from the
+    // abandoned stale repair(A). The finally after() re-verify (plus the
+    // lease-safe readiness watchdog) settle B instead.
+    if (dbConfigured && internalVersionId && !staleBaseNoOp) {
       await failAfterRepair(
         internalVersionId,
         `Repair crashed: ${err instanceof Error ? err.message : "unknown"}`,
