@@ -373,4 +373,67 @@ describe("fixReactAndNavigationImports — duplicate react import consolidation"
     expect(result.code).toContain('import React from "react";');
     expect(result.code).toContain('import { useState } from "react";');
   });
+
+  // #263 follow-up: previously the consolidation bailed (no-op) as soon as ANY
+  // react line was `import * as React`, so duplicate named/type bindings beside
+  // a namespace import survived to tsc (TS2300). The namespace line is now kept
+  // in place while the value/type imports are consolidated.
+  it("consolidates value/type imports while leaving `import * as React` in place", () => {
+    const code = [
+      'import * as React from "react";',
+      'import type { ReactNode } from "react";',
+      'import { useState, type ReactNode } from "react";',
+      "",
+      "export function Page({ children }: { children: ReactNode }) {",
+      "  const [v] = useState(0);",
+      "  return <React.Fragment>{children}{v}</React.Fragment>;",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toEqual(["ReactNode"]);
+    // Namespace line is untouched.
+    expect(result.code).toContain('import * as React from "react";');
+    // Duplicated ReactNode is consolidated to a single type-only binding.
+    expect(result.code).toContain('import { useState } from "react";');
+    expect(result.code).toContain('import type { ReactNode } from "react";');
+    const imports = reactImportLines(result.code);
+    expect(countIn(imports, "ReactNode")).toBe(1);
+    expect(countIn(imports, "useState")).toBe(1);
+    // `React` only appears once — as the namespace binding (\bReact\b does not
+    // match inside `ReactNode`).
+    expect(countIn(imports, "React")).toBe(1);
+  });
+
+  it("is idempotent for the namespace + value/type combo", () => {
+    const code = [
+      'import * as React from "react";',
+      'import type { ReactNode } from "react";',
+      'import { useState, type ReactNode } from "react";',
+    ].join("\n");
+
+    const first = fixReactAndNavigationImports(code);
+    expect(first.fixed).toBe(true);
+    const second = fixReactAndNavigationImports(first.code);
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+    expect(second.consolidatedReactBindings).toEqual([]);
+  });
+
+  it("leaves a namespace import beside a single disjoint value import untouched", () => {
+    const code = [
+      'import * as React from "react";',
+      'import { useState } from "react";',
+      "const el = React.createElement('div');",
+      "const [v] = useState(0);",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.consolidatedReactBindings).toEqual([]);
+    expect(result.code).toContain('import * as React from "react";');
+    expect(result.code).toContain('import { useState } from "react";');
+  });
 });

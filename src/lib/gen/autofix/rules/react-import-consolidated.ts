@@ -296,35 +296,53 @@ function formatReactSpecifier(spec: ReactSpec): string {
 
 /**
  * Merge duplicate single-line `react` imports. Only fires when an actual
- * duplicate local name exists across the react imports, so legitimate pairs
- * such as `import React from "react"` + `import { useState } from "react"`
- * stay untouched and the transform is idempotent. Bails (no-op) on namespace
- * react imports or any specifier it cannot confidently parse, so it can never
- * emit broken syntax. Returns the de-duplicated local names for telemetry.
+ * duplicate local name exists across the mergeable react imports, so legitimate
+ * pairs such as `import React from "react"` + `import { useState } from "react"`
+ * stay untouched and the transform is idempotent. `import * as React` namespace
+ * lines are left in place (they can't merge into a named list); only the
+ * value/default/type imports are consolidated, and any named/type binding whose
+ * local collides with a namespace binding is dropped so we never re-declare it.
+ * Bails on any specifier it cannot confidently parse, so it can never emit
+ * broken syntax. Returns the de-duplicated local names for telemetry.
  */
 function consolidateReactImports(code: string): { code: string; deduped: string[] } {
   const lines = code.split("\n");
   const reactIdx: number[] = [];
   const parsed: ParsedReactImport[] = [];
-  let indent = "";
+  const indents: string[] = [];
 
   for (let i = 0; i < lines.length; i += 1) {
     const m = REACT_IMPORT_LINE_RE.exec(lines[i]);
     if (!m) continue;
     const p = parseReactImportClause(m[3], Boolean(m[2]));
     if (!p) return { code, deduped: [] };
-    if (reactIdx.length === 0) indent = m[1] ?? "";
     reactIdx.push(i);
     parsed.push(p);
+    indents.push(m[1] ?? "");
   }
 
   if (reactIdx.length < 2) return { code, deduped: [] };
-  // Namespace (`import * as React`) cannot be merged into a named import list
-  // without producing invalid syntax — leave the file untouched.
-  if (parsed.some((p) => p.namespace)) return { code, deduped: [] };
+
+  // `import * as React` namespace lines can't be merged into a named import
+  // list without breaking syntax, so leave those lines untouched and consolidate
+  // only the value/default/type react imports. A named/type binding whose local
+  // collides with a namespace binding is dropped (re-declaring it → TS2300).
+  const namespaceNames = new Set<string>();
+  const valuePositions: number[] = [];
+  for (let k = 0; k < parsed.length; k += 1) {
+    if (parsed[k].namespace) namespaceNames.add(parsed[k].namespace!);
+    else valuePositions.push(k);
+  }
+
+  // Need 2+ mergeable (non-namespace) react imports for a duplicate to exist.
+  if (valuePositions.length < 2) return { code, deduped: [] };
+
+  const valueParsed = valuePositions.map((k) => parsed[k]);
+  const valueLineIdx = valuePositions.map((k) => reactIdx[k]);
+  const indent = indents[valuePositions[0]] ?? "";
 
   const localCount = new Map<string, number>();
-  for (const p of parsed) {
+  for (const p of valueParsed) {
     if (p.default) localCount.set(p.default, (localCount.get(p.default) ?? 0) + 1);
     for (const s of p.specs) localCount.set(s.local, (localCount.get(s.local) ?? 0) + 1);
   }
@@ -340,7 +358,7 @@ function consolidateReactImports(code: string): { code: string; deduped: string[
   const valueByLocal = new Map<string, ReactSpec>();
   const typeByLocal = new Map<string, ReactSpec>();
 
-  for (const p of parsed) {
+  for (const p of valueParsed) {
     if (p.default && !defaultName) defaultName = p.default;
     for (const s of p.specs) {
       if (s.isType) {
@@ -362,14 +380,16 @@ function consolidateReactImports(code: string): { code: string; deduped: string[
     }
   }
 
-  // A name carried by the `default` binding must not also appear in the named
-  // list — `import React, { React } from "react"` re-declares React (TS2300).
-  // Drop any named/type specifier whose local equals the default name.
+  // A name carried by the `default` binding or a namespace binding must not also
+  // appear in the named list — `import React, { React } from "react"` (or
+  // `import * as React` + `{ React }`) re-declares React (TS2300). Drop any
+  // named/type specifier whose local equals the default or a namespace name.
+  const isReserved = (n: string) => n === defaultName || namespaceNames.has(n);
   const valueParts = valueOrder
-    .filter((n) => n !== defaultName)
+    .filter((n) => !isReserved(n))
     .map((n) => formatReactSpecifier(valueByLocal.get(n)!));
   const typeParts = typeOrder
-    .filter((n) => n !== defaultName)
+    .filter((n) => !isReserved(n))
     .map((n) => formatReactSpecifier(typeByLocal.get(n)!));
 
   const block: string[] = [];
@@ -387,10 +407,13 @@ function consolidateReactImports(code: string): { code: string; deduped: string[
   }
   if (block.length === 0) return { code, deduped: [] };
 
-  const removeRest = new Set(reactIdx.slice(1));
+  // Replace the first value/default/type react import with the merged block and
+  // drop the remaining ones; namespace lines are kept exactly where they are.
+  const blockLineIdx = valueLineIdx[0];
+  const removeRest = new Set(valueLineIdx.slice(1));
   const out: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
-    if (i === reactIdx[0]) out.push(block.join("\n"));
+    if (i === blockLineIdx) out.push(block.join("\n"));
     else if (removeRest.has(i)) continue;
     else out.push(lines[i]);
   }
