@@ -4,10 +4,15 @@ import { fixKnownTs2304Imports } from "@/lib/gen/autofix/rules/ts2304-known-impo
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
-import { AUTOFIX_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+import {
+  AUTOFIX_MAX_OUTPUT_TOKENS,
+  FINAL_GATE_MIN_FLOOR_MS,
+  FINAL_GATE_RELEASE_MARGIN_MS,
+} from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
 import {
   isRepairBudgetExhausted,
+  resolveFinalGateVerifyBudget,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
 import type { ReasoningEffort } from "@/lib/gen/engine";
@@ -81,6 +86,13 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   onAttemptPromotion: (
     projectContent: string,
     method: RepairMethod,
+    /**
+     * Per-attempt options. The final LLM gate passes an absolute
+     * `verifyDeadlineEpochMs` so the preview-host verify aborts before the
+     * route's `maxDuration` (Codex P1 #286). Omitted for the early deterministic
+     * promotion and for callers that don't bound the loop (back-compat).
+     */
+    options?: { verifyDeadlineEpochMs?: number },
   ) => Promise<RepairAttemptResult<TPayload>>;
   onNoContext?: () => Promise<void> | void;
   /**
@@ -102,18 +114,6 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * (#284 follow-up). Undefined = no wall-clock bound (back-compat).
    */
   repairDeadlineEpochMs?: number;
-  /**
-   * Worst-case duration (ms) of the final preview-host verify run by
-   * `onAttemptPromotion` after the LLM loop. The final gate is only started when
-   * at least this much budget remains before `repairDeadlineEpochMs`; otherwise
-   * it is skipped gracefully (`time_budget_exceeded`). Reserving the real verify
-   * timeout (not 0) stops a late verify from running past the route's
-   * maxDuration and being hard-killed mid-verify / mid-save — the exact failure
-   * this guard exists to prevent (Codex P1 on #286). Callers pass the canonical
-   * `PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify`. Defaults to 0 (no reserve) for
-   * back-compat.
-   */
-  finalGateReserveMs?: number;
 };
 
 type TargetedRepairBundle = {
@@ -678,34 +678,44 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: bestContent,
   });
   const syntaxClean = finalSyntaxResult.errors.length === 0;
-  // Wall-clock graceful stop (#284 follow-up, hardened per Codex P1 on #286): if
-  // there is not a full preview-host verify-timeout of budget left, do NOT start
-  // the final verify — a late verify would run past the route's maxDuration and
-  // be hard-killed mid-verify / mid-save (the exact failure this guard prevents).
-  // `finalGateReserveMs` is the verify timeout the caller passes; reserving it
-  // (rather than 0) is what makes the check correct. Stop gracefully so the
-  // caller fails + releases the lease; the unverified (but syntax-clean) content
-  // is intentionally NOT promoted.
-  const budgetSpentBeforeFinalGate = isRepairBudgetExhausted({
-    deadlineEpochMs: params.repairDeadlineEpochMs,
-    nowMs: Date.now(),
-    nextStepMaxMs: params.finalGateReserveMs ?? 0,
-  });
-  if (syntaxClean && budgetSpentBeforeFinalGate) {
-    earlyStopReason = "time_budget_exceeded";
-  } else if (syntaxClean) {
-    const promoted = await params.onAttemptPromotion(bestContent, "llm");
-    return {
-      promoted: promoted.promoted,
-      method: "llm",
-      payload: promoted.payload,
-      llmPasses,
-      earlyStopReason,
-      remainingErrors: 0,
-      improvedSyntax: 0 < initialSyntaxErrorCount,
-      noContext: false,
-      errorManifest: finalErrorManifest,
-    };
+  // Wall-clock graceful stop for the FINAL preview-host verify (#284 follow-up;
+  // resolves Codex P1 + Bugbot HIGH on #286). The earlier fix reserved a FULL
+  // static verify timeout before starting the gate, but that reserve ≈ the whole
+  // loop budget, so the gate ALWAYS skipped and a manual LLM repair never promoted
+  // (Bugbot HIGH). Compute the ACTUAL remaining budget instead:
+  //   - too little left (<= floor) → skip gracefully so the caller fails +
+  //     releases the lease (the syntax-clean but UNVERIFIED content is not
+  //     promoted), set `time_budget_exceeded`;
+  //   - otherwise → RUN the verify, passing an absolute deadline so the verify's
+  //     AbortSignal (derived from `deadline - now` at the fetch site) fires before
+  //     the route's maxDuration even after async prep, and
+  //     `finally { releaseVersionLease }` always runs (Codex P1). The fetch-site
+  //     clamp keeps the timeout under the static verify cap (route-budget invariant).
+  if (syntaxClean) {
+    const finalGate = resolveFinalGateVerifyBudget({
+      deadlineEpochMs: params.repairDeadlineEpochMs,
+      nowMs: Date.now(),
+      floorMs: FINAL_GATE_MIN_FLOOR_MS,
+      releaseMarginMs: FINAL_GATE_RELEASE_MARGIN_MS,
+    });
+    if (finalGate.skip) {
+      earlyStopReason = "time_budget_exceeded";
+    } else {
+      const promoted = await params.onAttemptPromotion(bestContent, "llm", {
+        verifyDeadlineEpochMs: finalGate.verifyDeadlineEpochMs,
+      });
+      return {
+        promoted: promoted.promoted,
+        method: "llm",
+        payload: promoted.payload,
+        llmPasses,
+        earlyStopReason,
+        remainingErrors: 0,
+        improvedSyntax: 0 < initialSyntaxErrorCount,
+        noContext: false,
+        errorManifest: finalErrorManifest,
+      };
+    }
   }
 
   return {

@@ -80,6 +80,14 @@ export async function runQualityGateChecks(params: {
   versionId: string;
   files: QualityGateFileLike[];
   checks: readonly QualityGateCheck[];
+  /**
+   * Optional ABSOLUTE deadline (ms) by which the verify must have aborted,
+   * threaded down to `runPreviewHostQualityGate`. Lets the budget-aware
+   * manual-repair final gate bound the verify so it aborts before the route's
+   * `maxDuration` (Codex P1 #286). Undefined = static `VERIFY_TIMEOUT_MS`
+   * (back-compat).
+   */
+  verifyDeadlineEpochMs?: number;
 }): Promise<{
   results: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
@@ -102,6 +110,7 @@ export async function runQualityGateChecks(params: {
     versionId: params.versionId,
     filesJson,
     checks: params.checks,
+    verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
   });
 
   if (!verify.ok) {
@@ -197,6 +206,8 @@ export async function runQualityGateOnExportable(params: {
   versionId: string;
   exportable: CodeFile[];
   checks?: readonly QualityGateCheck[];
+  /** Optional absolute verify abort deadline (ms); see `runQualityGateChecks`. */
+  verifyDeadlineEpochMs?: number;
 }): Promise<{
   results: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
@@ -211,6 +222,7 @@ export async function runQualityGateOnExportable(params: {
     versionId: params.versionId,
     files,
     checks: params.checks ?? DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+    verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
   });
 }
 
@@ -238,6 +250,14 @@ export async function shouldPromoteAfterRepair(params: {
   exportable: CodeFile[];
   hadQualityGateFailures: boolean;
   checks?: readonly QualityGateCheck[];
+  /**
+   * Optional ABSOLUTE deadline (ms) by which the verify must have aborted. The
+   * manual-repair final gate passes a budget-derived value so a late verify
+   * aborts before the route's `maxDuration` and the lease is always released
+   * (Codex P1 #286). Undefined = static verify timeout (back-compat;
+   * server-verify passes nothing).
+   */
+  verifyDeadlineEpochMs?: number;
 }): Promise<PostRepairGateDecision> {
   const repairChecks = resolveRepairQualityGateChecks(params.checks);
   const gate = await runQualityGateOnExportable({
@@ -245,6 +265,7 @@ export async function shouldPromoteAfterRepair(params: {
     versionId: params.versionId,
     exportable: params.exportable,
     checks: repairChecks,
+    verifyDeadlineEpochMs: params.verifyDeadlineEpochMs,
   });
   if (!gate) {
     if (params.hadQualityGateFailures) {

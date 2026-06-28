@@ -160,6 +160,33 @@ export const REPAIR_LOOP_RELEASE_HEADROOM_MS = 30_000;
 export const REPAIR_LOOP_BUDGET_MS =
   VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000 - REPAIR_LOOP_RELEASE_HEADROOM_MS;
 
+/**
+ * Smallest remaining wall-clock budget (ms) in which the manual repair loop will
+ * still START the final preview-host verify (the "final gate"). Below this floor
+ * the gate is skipped gracefully (`earlyStopReason = "time_budget_exceeded"`)
+ * because a verify that cannot return a useful result before the route winds down
+ * is wasted budget. At/above it the gate RUNS, with a per-call verify timeout
+ * bounded by the remaining budget (see `resolveFinalGateVerifyBudget`).
+ *
+ * This dynamic floor is what lets a manual LLM repair actually promote under
+ * budget. The previous fix reserved a FULL static verify timeout
+ * (`PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify` ≈ the whole loop budget), so the
+ * reserve ≈ the deadline and the final gate ALWAYS skipped — LLM repair never
+ * promoted (#286 Bugbot HIGH). Chosen as a realistic minimum-viable verify
+ * window, not ~0, so we never start a verify that cannot finish in time.
+ */
+export const FINAL_GATE_MIN_FLOOR_MS = 60_000;
+
+/**
+ * Safety margin (ms) subtracted from the remaining budget when bounding the
+ * final-gate verify timeout, so the verify's `AbortSignal` fires strictly before
+ * `repairDeadlineEpochMs` and the route's `finally { releaseVersionLease }` runs
+ * ahead of the platform hard-kill (Codex P1 #286). Stacks on top of
+ * `REPAIR_LOOP_RELEASE_HEADROOM_MS` (the deadline is already that far below the
+ * route's static `maxDuration`).
+ */
+export const FINAL_GATE_RELEASE_MARGIN_MS = 5_000;
+
 export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
   "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
   90_000,
