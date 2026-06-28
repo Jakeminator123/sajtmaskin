@@ -50,6 +50,7 @@ Fynd som inte kan avgöras statiskt. Flytta till Aktiv kö när repro finns, ell
 | Media local fallback `/api/uploads/media` kanske ej nås av preview-VM | U#29 | Verifiering mot preview-VM-kontext. |
 | Analytics före cookie-consent (integritet) | U#56 | App-bred audit av var analytics initieras + gate på consent-flagga. |
 | `previewUrlHint` base path + chatId | U#77 | Jämförelse mot live preview-host (täcks delvis av tester). |
+| `promoteGuardUnavailable`-rad kan false-red:as av stale-verification-watchdog (B08 follow-up): indeterminate-grenen lämnar versionen `verifying` + en passerande `preflight:quality-gate`-logg, och readiness-watchdogen (`created_at` + ~`STALE_VERIFICATION_TIMEOUT_MS`) kan köra `failVersionVerificationIfUnleased` → terminal-fail av en VM-ren version efter transient telemetri-läsfel om klienten inte retri:ar i tid. Det undergräver "retrybar fail-closed"-designen. | BB#299 (Bugbot) | Repro: tvinga telemetri-läsfel i `/quality-gate` med VM-pass, vänta > timeout utan klient-retry → watchdog ska INTE terminal-faila en `promoteGuardUnavailable`-rad. `quality-gate/route.ts` (indeterminate-gren) + `readiness/route.ts` (watchdog) + `chat-repository-pg.ts` (`failVersionVerificationIfUnleased`). |
 
 ## Beslut & policy (uppskjutet — ej aktiva buggar)
 
@@ -65,7 +66,7 @@ Systemet gör som tänkt; "fixen" är ett produkt-/arkitektur-**val** som medvet
 | Follow-up kvalitet/budget | G#57, N#3 | Jämka follow-up-gate mot init + hård regression-gate i CI = process-beslut. |
 | Env-precedence / docs / refaktor | G#16, G#18, G#19 | `process.env`-refaktor (~100 filer), env-docs canonical-källa, `.env.local`-precedence = egna pass. |
 | Säkerhet (deprio — eget pass) | G#40 (residual), #196, #197, B07, B-GA | TOCTOU/DNS-rebinding (IP-pinning), inspect spoof (nonce), publik media GET, OAuth-loggning. App-side SSRF redan fixad #196. |
-| Quality-gate fail-open | B08 | Valt **släpp igenom**; felet loggas via `console.warn` (DB-oberoende). |
+| Quality-gate fail-open | B08 | **Härdat (PR #fix/promote-guard-failclosed):** `/quality-gate`-routen failar nu **closed men retrybar** vid guard-/telemetri-läsfel (`assertPromoteAllowed(..., {onReadError:"indeterminate"})` → `passed:false` + `promoteError:true` + `promoteGuardUnavailable:true`, ingen promotion, ingen terminal `failed`). `shouldPromoteAfterRepair` returnerar `promote:false`/`results:null` när verify-lanen saknas (tidigare `promote:true` med tomma results). **Kvarvarande medvetet val:** kanoniska `promoteVersion`/`acceptRepair` behåller fail-open på **no-telemetri-rader** (`signal===null`, back-compat för template-import/rollback) — bredare härdning av dem är separat follow-up. |
 | Scaffold/variant/font-tuning | G#50, G#52, G#54, G#66 | Scaffold-defaulttext, pre-match vs embedding, Geist-workaround, adaptiv `MAX_PAGES` = heuristik-/produkttuning. |
 | Produkt-/UX-gap | U#10, U#23, U#42, U#47, U#49, G#71 | Optimistic conflict, fler transcribe-språk, scraper-prioritet, OpenClaw 180k-context, D-ID session, PDF print-flöde. |
 | Logg-/observability-/storage-städ | G#59, G#60, G#63, U#53, U#63, U#66 | Bred städ med sampling-/namespace-policy = sammanhållet pass, inte punktfix. |
