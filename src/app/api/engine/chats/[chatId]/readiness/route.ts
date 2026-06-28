@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
-  failVersionVerification,
+  failVersionVerificationIfUnleased,
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
+  leaseTableExists,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -38,7 +39,18 @@ function isTimedOutVerificationState(
   verificationState: string | null | undefined,
   createdAt: string | Date | null | undefined,
 ): boolean {
-  if (verificationState !== "pending" && verificationState !== "verifying") {
+  // `repairing` is included so a repair whose distributed lease was lost
+  // (expired / takeover) — making its lease-conditioned failVersionVerification
+  // a no-op — doesn't stay stuck in `repairing` forever (manual repair route
+  // AND server-verify auto-repair). The recovery write below
+  // (failVersionVerificationIfUnleased) is lease-safe: it no-ops while an active
+  // lease still owns the version, so a legitimately running repair that keeps
+  // renewing its lease is never failed out from under it.
+  if (
+    verificationState !== "pending" &&
+    verificationState !== "verifying" &&
+    verificationState !== "repairing"
+  ) {
     return false;
   }
   if (!createdAt) {
@@ -134,11 +146,11 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   if (status === "failed") {
     return {
       id: "version-failed",
-      title: "Versionen är markerad som misslyckad (quality gate).",
+      title: "Versionen underkändes av quality gate (typecheck/build).",
       detail:
         summary ||
-        "Deploy är inte blockerad — kontrollera loggar och kör autofix om du vill. För produktion bör build/typecheck passera.",
-      severity: "warning",
+        "Publicering är blockerad tills typecheck/build passerar. Kör autofix eller en ny förfining och försök publicera igen.",
+      severity: "blocker",
       action: "versions",
     };
   }
@@ -240,13 +252,33 @@ async function buildEngineReadiness(
     getEngineVersionErrorLogs(version.id),
   ]);
 
-  if (isTimedOutVerificationState(version.verification_state, version.created_at)) {
+  let staleCandidate = isTimedOutVerificationState(
+    version.verification_state,
+    version.created_at,
+  );
+  if (staleCandidate && version.verification_state === "repairing") {
+    // Codex P2: the `repairing` watchdog uses version.created_at as its clock, so
+    // ANY repair on a version older than the timeout looks "stale". That is only
+    // SAFE once the lease table exists: failVersionVerificationIfUnleased then
+    // no-ops while an active lease still owns a running repair, so only a truly
+    // lost/expired lease is failed. Pre-migration it would degrade to an
+    // unconditional fail and kill a still-running unlocked repair — so skip the
+    // repairing watchdog entirely and keep the legacy unlocked fallback intact.
+    staleCandidate = await leaseTableExists().catch(() => false);
+  }
+  if (staleCandidate) {
     // 5-minute stale-verification watchdog. Prefer the concrete quality-gate
     // failure already persisted in the error logs (e.g. a deterministic
     // typecheck error) over the generic "took too long" copy — a deterministic
     // gate failure never gets better by "trying again".
+    //
+    // Distributed lease (Plan C / P1 + Codex P2): fail the stale version ONLY if
+    // no job holds an active lease — and do it ATOMICALLY (the NOT EXISTS guard
+    // lives inside the UPDATE), so a verify/repair run that acquires the lease in
+    // the gap can't have its row failed out from under it. Fail-safe: a DB error
+    // returns null and leaves the version state unchanged.
     const concreteFailureSummary = resolveGateFailureSummaryFromLogs(errorLogs);
-    const timedOutVersion = await failVersionVerification(
+    const timedOutVersion = await failVersionVerificationIfUnleased(
       version.id,
       concreteFailureSummary ??
         "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",

@@ -80,6 +80,13 @@ export type RunRepairLoopParams<TPayload = unknown> = {
     method: RepairMethod,
   ) => Promise<RepairAttemptResult<TPayload>>;
   onNoContext?: () => Promise<void> | void;
+  /**
+   * Called at the start of every LLM pass (before the slow fixer call). Lets a
+   * caller renew its distributed lease (Plan C / Codex P2) so a multi-pass
+   * repair that runs past the lease TTL never loses ownership mid-loop — which
+   * would otherwise make the lease-conditioned save silently no-op.
+   */
+  onBeforePass?: (passIndex: number) => Promise<void> | void;
   hasActionableErrorContext?: boolean;
   enableTargetedRepair?: boolean;
   targetedRepairMaxFiles?: number;
@@ -491,6 +498,10 @@ export async function runRepairLoop<TPayload = unknown>(
 
   const filesFromGateOutput = parseFilesFromErrorLines(repairContextLines);
   for (let pass = 0; pass < params.maxLlmPasses; pass++) {
+    // Renew the distributed lease before the slow fixer call (Codex P2: a
+    // multi-pass repair can exceed the lease TTL; renewing per pass keeps
+    // ownership so the final lease-conditioned save isn't silently dropped).
+    await params.onBeforePass?.(pass);
     if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
       content = bestContent;
       syntaxResult = await validateGeneratedCode(content);

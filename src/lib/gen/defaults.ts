@@ -46,7 +46,7 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //
 //   # ── Token-gränser ────────────────────────────────────────────
 //   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
-//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=49152
+//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=82000
 //   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=82768
 //
 // ============================================================================

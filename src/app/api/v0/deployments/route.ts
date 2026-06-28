@@ -431,6 +431,20 @@ export async function POST(req: Request) {
       if (engineVersion.chat_id !== chatId) {
         return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
       }
+      // A version that failed the quality gate (typecheck/build) must not be
+      // publishable. The readiness UI surfaces this as a blocker; enforce it
+      // server-side too so the deploy API can't be called directly with a
+      // failed version (preview is unaffected — this is the publish path).
+      if (engineVersion.verification_state === "failed") {
+        return NextResponse.json(
+          {
+            error:
+              "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
+            code: "DEPLOY_VERSION_FAILED",
+          },
+          { status: 409 },
+        );
+      }
       const [engineChat, codeFiles] = await Promise.all([
         getChat(engineVersion.chat_id),
         getVersionFiles(versionId),

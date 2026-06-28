@@ -181,6 +181,17 @@ I stället:
 Detta gör serverreparation transparent i live-preview: fixen är en synlig,
 explicit acceptpunkt i stället för en osynlig overwrite.
 
+### Base-bound accept (#265)
+
+Sedan #265 lagras `repaired_files_json` som ett kuvert `{ v, baseFilesHash, files }`,
+där `baseFilesHash` är SHA-256 av exakt det `files_json` repairen baserades på.
+`saveRepairedFiles` binder skrivningen atomiskt till basen (`WHERE files_json = base`),
+och `acceptRepair` + timeout-autoaccept vägrar promota om nuvarande `files_json`-hash
+≠ `baseFilesHash` (en samtidig user-edit hann emellan) eller om payloaden är en legacy
+plain-array utan bas-hash (fail-closed → användaren kör om repair). Promoteringen körs
+dessutom under en aktiv-lease-grind (`engine_version_jobs`). Detta stänger
+repair-vs-user-edit-clobbern (#260 P2 #5).
+
 ## Strukturerat repair-underlag (`errorManifest`)
 
 `runRepairLoop()` använder `buildGroupedRepairErrorContext()` för att gruppera

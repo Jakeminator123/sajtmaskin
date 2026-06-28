@@ -41,6 +41,15 @@ Om Codex-review (`chatgpt-codex-connector`) inte producerar en review (usage-/ra
 
 Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät — då finns Bugbot-täckning oavsett Codex-kvot.
 
+## Author-is-merger (blind-spot-regel)
+
+Codex-review är **rekommenderad, inte en hård merge-blocker** — men om den uteblir får flödet inte fastna OCH självgranskning räcker inte när författaren själv mergar.
+
+- Är agenten som mergar **samma** agent som skapade PR:en, räknas inte "jag läste min egen diff igen" som granskning.
+- Saknas Codex-review: kör en **oberoende** pass innan merge — `bugbot`-subagenten (separat agent) eller människa. Gäller särskilt protected paths.
+- Dokumentera vald väg i slutrapporten: `codex-review`, `bugbot` (Cursor-subagent) eller `manual local bug review`.
+- Full guide: [`AGENTS.md`](../../AGENTS.md) → "Review guidelines".
+
 ## Princip
 
 `mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad.

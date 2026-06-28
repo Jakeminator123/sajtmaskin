@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import {
+  resolvePostRepairFinalize,
+  resolveServerRepairEarlyStopReason,
+} from "./server-repair-policy";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
-import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  resolvePostRepairGateChecks,
+} from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -91,6 +97,32 @@ describe("resolveServerRepairEarlyStopReason", () => {
   });
 });
 
+describe("resolvePostRepairFinalize (#260 P2 — repair-vs-edit finalize)", () => {
+  it("skips finalize on a stale-base no-op so a concurrent edit B is never failed", () => {
+    // A stale-base no-op means a user edit advanced files_json past snapshot A.
+    // The version must NOT be failed regardless of the esbuild error count —
+    // failing it would finalize the user's newer edit B from a stale repair(A).
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: true, remainingErrors: 0 }),
+    ).toBe("skip_stale_base");
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: true, remainingErrors: 3 }),
+    ).toBe("skip_stale_base");
+  });
+
+  it("fails syntax-clean when not stale and no esbuild errors remain", () => {
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: false, remainingErrors: 0 }),
+    ).toBe("fail_syntax_clean");
+  });
+
+  it("fails incomplete when esbuild syntax errors remain and not stale", () => {
+    expect(
+      resolvePostRepairFinalize({ staleBaseNoOp: false, remainingErrors: 2 }),
+    ).toBe("fail_incomplete");
+  });
+});
+
 describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
   it("runs typecheck only for F2 design-preview verification (2026-04-23)", () => {
     // F2 relies on pre-VM warm-tsc + warm-eslint in the Sajtmaskin backend
@@ -100,6 +132,21 @@ describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
     // F3 (`integrationsBuild`) still runs the full `typecheck + build + lint`
     // — that's asserted separately in `manifest-parity.test.ts`.
     expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(["typecheck"]);
+  });
+});
+
+describe("resolvePostRepairGateChecks (#260 P2 — build-origin false-green)", () => {
+  it("keeps the typecheck-only design-preview lane for non-build repairs", () => {
+    expect(resolvePostRepairGateChecks(false)).toEqual(DESIGN_PREVIEW_QUALITY_GATE_CHECKS);
+  });
+
+  it("escalates to include `build` when the repair originated from a build failure", () => {
+    // A build/preview-start repair must not re-gate with typecheck only: `tsc`
+    // can pass while `next build` is still broken, which would false-green a
+    // non-building version into `repair_available`/`passed`.
+    const checks = resolvePostRepairGateChecks(true);
+    expect(checks).toContain("build");
+    expect(checks).toContain("typecheck");
   });
 });
 

@@ -66,3 +66,20 @@ export const INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS = sanitizeTierChecks(
   qualityGateTiers.integrationsBuild,
   DEFAULT_INTEGRATIONS_BUILD,
 );
+
+/**
+ * Post-repair gate checks (#260 / Codex P2 — build-origin false-green).
+ *
+ * A repair entered from a build/preview-start failure (`firstFailureCheck ===
+ * "build"`) must NOT re-gate with the typecheck-only design-preview lane: `tsc`
+ * can pass while `next build` is still broken, which would false-green a
+ * non-building version into `repair_available`/`passed`. For build-origin
+ * repairs we keep `build` in the post-repair gate; every other repair keeps the
+ * cheap design-preview lane unchanged.
+ */
+export function resolvePostRepairGateChecks(
+  buildOriginated: boolean,
+): readonly QualityGateCheck[] {
+  if (!buildOriginated) return DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
+  return [...new Set<QualityGateCheck>([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS, "build"])];
+}

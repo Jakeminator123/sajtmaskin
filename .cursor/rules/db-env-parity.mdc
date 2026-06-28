@@ -17,7 +17,7 @@ Lokal framgång bevisar **inte** prod. Prod kan ha en annan Postgres (Supabase p
 
 Lägger du en migration i `src/lib/db/migrations/` (och rör en INSERT/kolumn): kör mot **både** dev och prod innan merge går live. Annars bryts även vanlig drift i prod.
 
-- Registrera i `MIGRATION_ORDER` (`scripts/db/run-migrations.ts`) + `db-init.mjs`.
+- Registrera i `MIGRATION_ORDER` (`scripts/db/migration-order.mjs` — delad single-source som både `run-migrations.ts` och `db-init.mjs` använder).
 - Dev: `npm run db:migrate` (env `DB_SSL_REJECT_UNAUTHORIZED=false` för Supabase).
 - Prod: använd den **pooled** prod-URL:en (`*.pooler.supabase.com`, ej direct/IPv6 som timear ut), `DB_ALLOW_PROD_LIKE_WRITE=1`. Hämta via `vercel env pull .env.vercel.production.pulled --environment=production`.
 - Verifiera kolumnen finns i prod (read mot `information_schema.columns`).

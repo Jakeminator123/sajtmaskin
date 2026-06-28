@@ -1,7 +1,8 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { runDepCompleter } from "../autofix/dep-completer";
+import { runDepCompleter, resolveKnownVersion } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
 import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
+import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
 /**
  * Download/export scaffold.
@@ -58,9 +59,6 @@ const PACKAGE_JSON = `{
     "zod": "4.3.6",
     "framer-motion": "12.38.0",
     "@tanstack/react-table": "8.21.3",
-    "three": "0.182.0",
-    "@react-three/fiber": "9.6.0",
-    "@react-three/drei": "10.7.7",
     "date-fns": "4.1.0"
   },
   "devDependencies": {
@@ -385,20 +383,56 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 /**
  * Dependencies where the scaffold baseline must always win over the model.
  * The LLM sometimes pins older majors that conflict with peer requirements
- * (e.g. fiber 8 + React 19, or React 18 + Next 16). Keep this list short
- * and only add packages whose version is load-bearing for the whole tree.
+ * (e.g. React 18 + Next 16). Keep this list short and only add packages whose
+ * version is load-bearing for the whole tree.
  * Lucide is pinned because generated icon validation is tied to its exact
  * runtime export set.
+ *
+ * The React-Three 3D stack used to live here, but it is no longer part of the
+ * always-installed baseline (it is capability-gated). `applyThreeStackPolicy`
+ * below pins/prunes it on demand instead.
  */
 const BASELINE_PINNED_DEPS = [
   "react",
   "react-dom",
   "next",
   "lucide-react",
+] as const;
+
+/**
+ * Heavy, capability-gated React-Three 3D stack. `three` is the shared peer
+ * dependency of fiber/drei/rapier, so the stack is treated as one group:
+ *  - if any member is imported by the generated code (detected by the dep
+ *    scan), keep the stack and pin every present member to the canonical
+ *    platform version (KNOWN_PACKAGES), ensuring `three` ships even when only
+ *    the React wrappers are imported (it is their peer dependency);
+ *  - if nothing in the stack is imported, strip any members that leaked into
+ *    the model `package.json` (capability false-positive bloat — e.g. a brief
+ *    that tagged `visual-3d` on a prompt that never rendered a Canvas).
+ */
+const THREE_STACK = [
   "three",
   "@react-three/fiber",
   "@react-three/drei",
+  "@react-three/rapier",
 ] as const;
+
+function applyThreeStackPolicy(
+  dependencies: Record<string, string>,
+  detected: Record<string, string>,
+): void {
+  const used = THREE_STACK.some((pkg) => detected[pkg] !== undefined);
+  if (!used) {
+    for (const pkg of THREE_STACK) delete dependencies[pkg];
+    return;
+  }
+  for (const pkg of THREE_STACK) {
+    if (dependencies[pkg] === undefined && detected[pkg] === undefined) continue;
+    dependencies[pkg] = resolveKnownVersion(pkg) ?? dependencies[pkg] ?? detected[pkg];
+  }
+  const threePin = resolveKnownVersion("three");
+  if (threePin) dependencies.three = threePin;
+}
 
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
@@ -432,6 +466,8 @@ export function mergePackageJsonWithBaseline(
       dependencies[key] = bDep[key];
     }
   }
+
+  applyThreeStackPolicy(dependencies, detected.dependencies);
 
   return {
     ...b,
@@ -590,6 +626,41 @@ function buildBaselineOwnedStems(): Map<string, string> {
   return stems;
 }
 
+/**
+ * Canonical shadcn component stems (kebab-case import subpaths such as
+ * `carousel`, `alert-dialog`, `sonner`). Derived from the registry *values*
+ * because keys are the PascalCase exported names while the file stem under
+ * `components/ui/` is the import subpath. Lower-cased so matching is
+ * case-insensitive against generated paths.
+ */
+const CANONICAL_SHADCN_UI_STEMS = new Set<string>(
+  Object.values(SHADCN_COMPONENTS).map((subpath) => subpath.toLowerCase()),
+);
+
+/** `components/ui/<stem>.tsx` or `src/components/ui/<stem>.tsx` (no nested dirs). */
+const CANONICAL_UI_PATH_RE = /^(?:src\/)?components\/ui\/([^/]+)\.tsx$/i;
+
+/**
+ * Return the canonical shadcn stem for a generated path if it is a host-owned
+ * shadcn UI file (`@/components/ui/<stem>`), otherwise `null`. Custom files
+ * under `components/ui/` whose stem is not in the registry return `null` and
+ * are therefore preserved untouched.
+ */
+function canonicalShadcnUiStem(path: string): string | null {
+  const match = CANONICAL_UI_PATH_RE.exec(path.replace(/\\/g, "/"));
+  if (!match) return null;
+  const stem = match[1].toLowerCase();
+  return CANONICAL_SHADCN_UI_STEMS.has(stem) ? stem : null;
+}
+
+/** `<stem>` for a `uiComponents` entry filename (`carousel.tsx` → `carousel`). */
+function uiComponentStem(filename: string): string {
+  return filename
+    .replace(/\\/g, "/")
+    .replace(/\.tsx$/i, "")
+    .toLowerCase();
+}
+
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
@@ -597,6 +668,15 @@ export function buildCompleteProject(
   const result: CodeFile[] = [];
 
   const baselineOwnedStems = buildBaselineOwnedStems();
+
+  // Stems for which a canonical replacement is actually available to inject.
+  // We only drop an LLM-emitted canonical shadcn file when its host-provided
+  // replacement exists here, so we never delete a UI file without re-injecting
+  // a working one (avoids breaking `@/components/ui/*` imports).
+  const availableCanonicalUiStems = new Set<string>(
+    (uiComponents ?? []).map((comp) => uiComponentStem(comp.filename)),
+  );
+
   const filteredGeneratedFiles: CodeFile[] = [];
   for (const file of generatedFiles) {
     const stem = moduleStemForCollision(file.path);
@@ -608,6 +688,20 @@ export function buildCompleteProject(
         continue;
       }
     }
+
+    // The LLM (or a repair round) sometimes emits its own copy of a canonical
+    // shadcn component under `components/ui/`. That file would otherwise win
+    // over the host-provided canonical one and ship — a real incident was a
+    // generated `components/ui/carousel.tsx` with a self-import
+    // (`import { Carousel } from "@/components/ui/carousel"`) next to
+    // `function Carousel(){}` → TS2440 → broken build. Drop it so the
+    // canonical version (injected below from `uiComponents`) wins. Only drop
+    // when that replacement is available; otherwise keep the generated file.
+    const canonicalUiStem = canonicalShadcnUiStem(file.path);
+    if (canonicalUiStem !== null && availableCanonicalUiStems.has(canonicalUiStem)) {
+      continue;
+    }
+
     filteredGeneratedFiles.push(file);
   }
 

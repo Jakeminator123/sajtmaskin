@@ -66,6 +66,13 @@ jobs:
       - name: Validate control-plane registries
         run: npm run control-plane:check
 
+      # Plan B #9: route `maxDuration` literals are generated from
+      # config/ai_models/manifest.json routeTimeouts (canonical owner:
+      # scripts/ai-models/sync-route-timeouts.mjs). Blocking gate so a drifted
+      # literal reddens CI instead of shipping a stale per-route stream ceiling.
+      - name: Verify route maxDuration ↔ manifest sync
+        run: npm run route-timeouts:check
+
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
   # Deterministic + keyless (no DB creds, no network — all 49 tests run offline).

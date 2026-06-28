@@ -70,3 +70,29 @@ export function resolveServerRepairEarlyStopReason(params: {
   if (errorsAfter >= errorsBefore) return "no_improvement";
   return "continue";
 }
+
+/**
+ * What a server-repair loop should do after it could NOT promote a repair.
+ *
+ * `skip_stale_base` means `saveRepairedFiles` no-op'd because a concurrent user
+ * edit advanced `files_json` past the snapshot the repair was based on (#260
+ * Codex P2). In that case the caller MUST NOT finalize the version as failed:
+ * the repair stopped at overwriting the user's newer edit B, but failing the
+ * version would still mark B `failed` based on repair(A). The newer edit is
+ * owned by the edit→verify flow, not by this stale repair outcome.
+ */
+export type PostRepairFinalizeAction =
+  | "skip_stale_base"
+  | "fail_syntax_clean"
+  | "fail_incomplete";
+
+export function resolvePostRepairFinalize(input: {
+  /** `saveRepairedFiles` returned `stale_base` for this run. */
+  staleBaseNoOp: boolean;
+  /** Remaining esbuild syntax errors after the loop (0 = syntax clean). */
+  remainingErrors: number;
+}): PostRepairFinalizeAction {
+  if (input.staleBaseNoOp) return "skip_stale_base";
+  if (input.remainingErrors === 0) return "fail_syntax_clean";
+  return "fail_incomplete";
+}

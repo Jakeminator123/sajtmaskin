@@ -34,6 +34,10 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
 | `needsDataUI` | `@tanstack/react-table` (via shadcn `Table`) | Install when data table/CRUD/sorting/filtering signal is present. |
 
+### 3D stack enforcement (baseline vs gated)
+
+The React-Three stack (`three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/rapier`) is **not** in the always-installed generated baseline. `applyThreeStackPolicy()` in `src/lib/gen/export/project-scaffold.ts` runs during `mergePackageJsonWithBaseline` and treats the stack as one group: if any member is imported by the generated code it pins every present member to the canonical version from `KNOWN_PACKAGES` (and ensures `three`, the shared peer dependency, is present even when only the React wrappers are imported); if nothing in the stack is imported it strips any members that leaked into the model `package.json` (capability false-positive bloat, e.g. a brief that tagged `visual-3d` on a prompt that never rendered a Canvas). The gated pins are kept in lockstep with the platform by `project-scaffold-baseline-parity.test.ts`.
+
 ## Dynamic UI Recipes
 
 When capabilities are detected, the orchestration pipeline resolves curated shadcn registry items through `src/lib/gen/data/shadcn-ui-recipes.ts` and injects them into the dynamic context as `## UI Recipes`. A recipe is a small, request-specific prompt reference: item metadata, dependencies, registry dependencies and compact excerpts from the most relevant files.

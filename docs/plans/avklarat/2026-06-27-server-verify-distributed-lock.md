@@ -1,21 +1,85 @@
 ---
-status: active
+status: levererad
 owner: unassigned
 created: 2026-06-27
+delivered: 2026-06-28
 topic: "#4 distribuerat lås för server-verify/repair (process-local Set → DB-lease)"
 related:
   - docs/architecture/open-questions.md (#4-klassen, multi-instans)
   - "PR #251 (Plan B schemahärdning — separat, redan i review)"
   - "docs/plans/active/README.md backlog B3/E2 (durable event-bus, samma multi-instans-korrekthetsrisk)"
-decision_required: true
-implementation_started: false
+decision_required: false
+implementation_started: true
 ---
+
+<!-- Arkiverad till avklarat/ 2026-06-28: kärnan mergad via #256 (+ #265 base-bound repair).
+     Kvarvarande är INTE planarbete: prod-migration av engine_version_jobs är ägar-ops (runbook nedan)
+     och #260 P2 #4 spåras i BUG-SWARM-BACKLOG.md. -->
+
 
 # Plan C / P1 — Distribuerat lås för server-verify & repair
 
-> **Status: PLAN ONLY.** Ingen kod, ingen migration, ingen `engine_version_jobs`-tabell,
-> ingen `run_id`-kedja är byggd. Detta dokument är beslutsunderlag. Bygg inget förrän
-> ägaren godkänt planen och PR #251 (+ ev. #248/#249/#250) är mergade.
+> **Status: KOD MERGAD till master via #256 (2026-06-27); prod-migration (prod-DB) EJ körd.** Base-bound repair-save/accept landade i #265 (2026-06-28) och stänger #260 P2 #5; #260 hålls öppen för P2 #4 (quality-gate håller leasen över verify-budgeten).
+> Ägaren godkände bygget (2026-06-27) efter att #251 mergats. Den distribuerade
+> kärnan (lease-tabell + lease-API + auto-flödets `run_id`-kedja) är byggd och
+> verifierad lokalt: `npm run typecheck` (0 fel), `db:schema-drift`-testet grönt,
+> 111 verify/route-tester gröna (bakåtkompatibelt — `run_id` är valfritt, så gamla
+> callers/tester är oförändrade).
+>
+> ### Vad som landat
+> - `engine_version_jobs` i `src/lib/db/schema.ts` (+ partiellt unikt index
+>   `engine_version_jobs_active_uq ON (version_id) WHERE status='running'`).
+> - Migration `src/lib/db/migrations/add-engine-version-jobs.sql` + registrerad i
+>   `MIGRATION_ORDER` + inline `CREATE TABLE/INDEX` i `db-init.mjs` + tabellen i
+>   `db-health-check.mjs` `EXPECTED_TABLES` (schema-drift-gate grön).
+> - Lease-API i `chat-repository-pg.ts`: `acquireVersionLease` (atomisk
+>   INSERT … ON CONFLICT (version_id) WHERE status='running' DO UPDATE … WHERE
+>   expired), `renewVersionLease`, `releaseVersionLease`, `hasActiveVersionLease`.
+> - `run_id`-trådning genom `markVersionVerifying/Repairing`, `saveRepairedFiles`,
+>   `promoteVersion`, `failVersionVerification`, `markVersionSupersededByRepair`
+>   via `versionWriteWhere()` (UPDATE villkoras atomiskt på en levande egen-lease →
+>   en run vars lease tagits över blir **no-op** istället för lost-update).
+> - `server-verify.ts`: `triggerServerVerification` + `triggerBuildErrorRepair`
+>   tar lease (`server_verify` / `build_error_repair`), trådar `run_id`, förnyar
+>   före `saveRepairedFiles`, släpper i `finally`. Lokala `inflight`-Set:en kvar
+>   som snabbspärr. **Fail-safe:** om acquire kastar (tabell saknas/DB-fel)
+>   degraderar vi till dagens Set-only-beteende (kör utan lås) istället för att
+>   krascha eller stänga av verify.
+>
+> ### HTTP-vägarnas lease — LANDAT (ägaren valde A, öppen fråga 2: lease alla)
+> - `quality-gate/route.ts` (HTTP-verify): tar `server_verify`-lease, `409
+>   version_busy` om en annan run äger den, trådar `run_id` genom
+>   markVersionVerifying/SupersededByRepair/promoteVersion/failVersionVerification,
+>   släpper i `finally`.
+> - `repair/route.ts` (manuell repair): tar `manual_repair`-lease, `409
+>   version_busy` om upptagen, trådar `run_id` + renew före `saveRepairedFiles`,
+>   släpper i `finally`.
+> - `accept-repair/route.ts`: `hasActiveVersionLease`-grind → `409 version_busy`
+>   om ett jobb äger versionen (accept = promote, får ej race:a en pågående run).
+> - `readiness/route.ts`: stale-verification-watchdogen failar bara om INGEN aktiv
+>   lease finns (annars äger ett jobb raden legitimt). Alla grindar är fail-safe
+>   (DB-fel → dagens beteende). Verifierat: typecheck 0, db:schema-drift grön,
+>   273 tester gröna (verify/DB/migration/route), inkl. nytt 409-routetest.
+>
+> ### Vad som återstår (medvetet ej gjort i denna pass)
+> - **Concurrent-lock-integrationstest mot dev-Postgres** (§5). Partiellt unikt
+>   index + `ON CONFLICT … WHERE` kan inte emuleras rättvist av pg-mem, så
+>   semantiken verifieras mot riktig dev-DB (se runbook nedan), inte via mock.
+> - **Prod-migration** (körs manuellt av ägaren, §4.2/§4.3).
+>
+> ### Runbook — verifiera + migrera (ägaren)
+> ```text
+> # 1. DEV (agent får köra):
+> $env:DB_SSL_REJECT_UNAUTHORIZED="false"; npm run db:migrate
+> #    verifiera: SELECT to_regclass('public.engine_version_jobs');  -> ej null
+> #    concurrent-test: kör acquireVersionLease(v,'server_verify') + (v,'manual_repair')
+> #    parallellt mot dev-DB -> exakt en får run_id, andra null.
+> # 2. PROD (endast ägaren, pooled prod-URL):
+> #    vercel env pull .env.vercel.production.pulled --environment=production
+> #    DB_ALLOW_PROD_LIKE_WRITE=1 + pooled *.pooler.supabase.com  ->  npm run db:migrate
+> #    verifiera i information_schema att tabell+index finns.
+> # 3. FÖRST DÄREFTER: deploya koden som acquire:ar lås. (Schema-före-kod.)
+> ```
 
 ## TL;DR
 

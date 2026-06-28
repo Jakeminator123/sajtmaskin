@@ -11,6 +11,8 @@ import {
   markVersionVerifying,
   markVersionSupersededByRepair,
   promoteVersion,
+  acquireVersionLease,
+  releaseVersionLease,
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -151,14 +153,48 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         );
       }
 
-      const completeProjectFiles = await buildExportableProject(codeFiles);
-      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
+      // Distributed lease (Plan C / P1 + Codex P2): take the per-version lease
+      // BEFORE materializing inputs, so the gate can't verify/promote a stale
+      // pre-lease snapshot that a concurrent repair already replaced. 409 if
+      // another job owns it. Fail-safe: a DB error degrades to the unlocked path.
+      let qgRunId: string | undefined;
+      if (dbConfigured) {
+        try {
+          const lease = await acquireVersionLease(internalVersionId, "server_verify");
+          if (!lease) {
+            return NextResponse.json(
+              {
+                error: "Version is busy (another verify/repair job holds the lock). Try again shortly.",
+                code: "version_busy",
+              },
+              { status: 409 },
+            );
+          }
+          qgRunId = lease.runId;
+        } catch (err) {
+          console.warn("[quality-gate] Lease acquire failed; proceeding without distributed lock:", err);
+          qgRunId = undefined;
+        }
+      }
 
-      await markVersionVerifying(internalVersionId).catch((err) => {
-        console.warn("[quality-gate] Failed to mark version verifying:", err);
-      });
-
+      // Codex P2 (lease leak): everything after a successful acquire runs inside
+      // this try/finally, so the lease is ALWAYS released — even if the leased
+      // re-read / buildExportableProject / exportableToQualityGateFiles throws
+      // (otherwise the row stayed `running` until the TTL and every accept/
+      // verify/repair returned version_busy for ~15 min).
       try {
+        // Re-read under the lease so verification runs on the lease-protected
+        // snapshot, not the pre-acquire read above (Codex P2 stale-snapshot fix).
+        const leasedCodeFiles = qgRunId
+          ? (await getVersionFiles(internalVersionId)) ?? codeFiles
+          : codeFiles;
+        const completeProjectFiles = await buildExportableProject(leasedCodeFiles);
+        const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
+
+        await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
+          console.warn("[quality-gate] Failed to mark version verifying:", err);
+        });
+
         const { results, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } =
           await runQualityGateChecks({
           chatId,
@@ -191,7 +227,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // chat's head; the superseded path persists its own scoped log.
         const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
         if (!stillLatest) {
-          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
+          await markVersionSupersededByRepair(internalVersionId, null, qgRunId).catch((err) => {
             console.warn("[quality-gate] Failed to mark superseded version:", err);
           });
           await createEngineVersionErrorLogs([
@@ -272,6 +308,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             await failVersionVerification(
               internalVersionId,
               "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+              qgRunId,
             ).catch((err) => {
               console.warn(
                 "[quality-gate] Failed to mark version failed after promote guard block:",
@@ -279,7 +316,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               );
             });
           } else {
-            const promoted = await promoteVersion(internalVersionId, verificationSummary).catch(
+            const promoted = await promoteVersion(internalVersionId, verificationSummary, qgRunId).catch(
               (err) => {
                 console.warn("[quality-gate] Failed to promote version:", err);
                 return null;
@@ -294,7 +331,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             }
           }
         } else {
-          await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
+          await failVersionVerification(internalVersionId, verificationSummary, qgRunId).catch((err) => {
             console.warn("[quality-gate] Failed to mark version failed:", err);
           });
         }
@@ -326,6 +363,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         await failVersionVerification(
           internalVersionId,
           "Automatic verification could not complete.",
+          qgRunId,
         ).catch((updateErr) => {
           console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
         });
@@ -340,6 +378,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           );
         }
         throw err;
+      } finally {
+        if (qgRunId) {
+          await releaseVersionLease(internalVersionId, qgRunId).catch(() => {});
+        }
       }
     }
 

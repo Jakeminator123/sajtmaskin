@@ -9,6 +9,9 @@ import {
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
+import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
+import { resolveReviewReasoningEffort } from "@/lib/openclaw/review-tuning";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -53,6 +56,11 @@ Regler:
 {"type":"fill_text_field","target":"EXAKT_TARGET_ID","label":"Kort etikett","value":"Texten du vill fylla i","focus":true}
 </openclaw-action>
 - Använd BARA target-id:n som listas under [SKRIVBARA TEXTFÄLT]. Hitta aldrig på egna target-id:n.
+- När användaren UTTRYCKLIGEN ber dig laga/fixa buggar OCH det finns konkreta fynd under [BUGGFYND] för den aktiva versionen, får du ge en kort förklaring och sedan lägga exakt ett action-block sist i svaret i detta format:
+<openclaw-action>
+{"type":"request_repair","label":"Kort etikett","reason":"Kort motivering grundad i [BUGGFYND]"}
+</openclaw-action>
+- request_repair startar en vanlig reparation som skapar en NY version att godkänna. Du ändrar ALDRIG filer direkt och ska aldrig påstå att buggen redan är fixad — säg att en reparation startas efter att användaren godkänt. Föreslå det bara när det finns [BUGGFYND] och användaren ber om en fix; annars förklara fynden utan action-block.
 - Du får inte klicka på knappar, skicka formulär, publicera live eller ändra inställningar åt användaren.
 - Påstå aldrig att du redan har fyllt ett fält innan användaren har godkänt det.
 - Kodkontext skickas sparsamt för att spara tokens. Om du inte ser kod i kontexten ska du inte hitta på detaljer, utan be om en mer specifik kodfråga eller relevant buildervy/version.
@@ -127,11 +135,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "messages required" }, { status: 400 });
     }
 
+    const routingIntent = decideOpenClawRoutingIntent({ messages: body.messages });
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "system",
-        content: buildRoutingSystemPrompt(decideOpenClawRoutingIntent({ messages: body.messages })),
+        content: buildRoutingSystemPrompt(routingIntent),
       },
     ];
 
@@ -150,6 +159,47 @@ export async function POST(req: NextRequest) {
         role: "system",
         content: contextMessage.content,
       });
+
+      // Fas 1: on review/bug intent, surface the REAL persisted verify/repair
+      // findings for the active version (errorManifest, failed checks) so the
+      // assistant answers with concrete diagnostics instead of guessing.
+      // Compact + DB-guarded; null when nothing actionable, so normal chat
+      // stays cheap.
+      if (routingIntent === "review") {
+        const reviewChatId =
+          typeof body.context.chatId === "string" ? body.context.chatId : null;
+        const reviewVersionId =
+          typeof body.context.activeVersionId === "string"
+            ? body.context.activeVersionId
+            : null;
+        // Cross-tenant guard (Codex P1): `activeVersionId` is client-supplied,
+        // so verify the REQUESTER owns this chat+version (tenant-scoped lookup)
+        // before reading its diagnostics — never surface another tenant's
+        // findings/timeline from a forged version id.
+        const scopedVersion =
+          reviewChatId && reviewVersionId
+            ? await getEngineVersionForChatByIdForRequest(
+                req,
+                reviewChatId,
+                reviewVersionId,
+              ).catch(() => null)
+            : null;
+        if (scopedVersion) {
+          // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
+          // by the OWNERSHIP-VERIFIED version id.
+          const { findings: findingsBlock, timeline: timelineBlock } =
+            await buildOpenClawReviewContext({
+              chatId: reviewChatId,
+              versionId: scopedVersion.version.id,
+            });
+          if (findingsBlock) {
+            messages.push({ role: "system", content: findingsBlock });
+          }
+          if (timelineBlock) {
+            messages.push({ role: "system", content: timelineBlock });
+          }
+        }
+      }
     }
 
     for (const m of body.messages) {
@@ -159,6 +209,14 @@ export async function POST(req: NextRequest) {
         content: typeof m.content === "string" ? m.content.slice(0, 8_000) : String(m.content),
       });
     }
+
+    // Fas 3: make the assistant reason harder on review/bug intent via the
+    // OpenAI-compatible `reasoning_effort` field (codex-class models honor it).
+    // Sent only on review intent; env-reversible (set OPENCLAW_REVIEW_REASONING_EFFORT=off).
+    const reviewReasoningEffort =
+      routingIntent === "review"
+        ? resolveReviewReasoningEffort(process.env.OPENCLAW_REVIEW_REASONING_EFFORT)
+        : null;
 
     try {
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
@@ -171,6 +229,7 @@ export async function POST(req: NextRequest) {
           model: "openclaw:sajtagenten",
           messages,
           stream: true,
+          ...(reviewReasoningEffort ? { reasoning_effort: reviewReasoningEffort } : {}),
         }),
         signal: AbortSignal.timeout(90_000),
       });

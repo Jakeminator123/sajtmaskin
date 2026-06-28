@@ -255,53 +255,44 @@ def parse_ts_default_model_id(catalog_path: Path) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def sync_route_timeout_literals(
-    repo_root: Path,
-    engine_seconds: int,
-    assist_seconds: int,
-) -> dict[str, Any]:
-    """Rewrite the static ``export const maxDuration = N;`` literals in the
-    timeout-bearing route files from the manifest values.
+# Display-only mirror of the canonical route→manifest-field map in
+# `scripts/ai-models/route-timeout-targets.mjs`. The backoffice no longer
+# patches `.ts` route files — the deterministic Node codegen
+# (`npm run route-timeouts:sync`) owns the literals and CI gates drift
+# (`npm run route-timeouts:check` + src/app/api/route-timeout-manifest-parity.test.ts).
+# This list backs a read-only drift-status panel only; a stale entry here just
+# mis-renders that table, it never writes, so it cannot corrupt a route file.
+ROUTE_TIMEOUT_DISPLAY: tuple[tuple[str, str], ...] = (
+    ("src/app/api/engine/chats/stream/route.ts", "engineRouteMaxDurationSeconds"),
+    ("src/app/api/engine/chats/[chatId]/stream/route.ts", "engineRouteMaxDurationSeconds"),
+    ("src/app/api/ai/chat/route.ts", "assistRouteMaxDurationSeconds"),
+    ("src/app/api/ai/brief/route.ts", "assistRouteMaxDurationSeconds"),
+)
 
-    Fail-loud: returns ``{"changed": int, "warnings": list[str]}``. A target that
-    exists but has no ``maxDuration`` literal (format drift) or is missing on
-    disk is reported in ``warnings`` instead of being silently skipped, so the
-    caller can surface it. Parity is also CI-gated by
-    ``src/app/api/route-timeout-manifest-parity.test.ts``.
 
-    Next.js requires ``maxDuration`` to be a statically-analyzable literal in the
-    route segment, so these literals (not an imported constant) stay the on-disk
-    form; the manifest is the source of truth and this keeps them in sync.
+def read_route_maxduration_literals(repo_root: Path) -> list[dict[str, Any]]:
+    """Read-only drift status for the route ``maxDuration`` literals.
+
+    Returns one row per target in :data:`ROUTE_TIMEOUT_DISPLAY` with the route's
+    on-disk literal and the manifest field it maps to. Read-only by design: the
+    backoffice never patches route files anymore — the codegen
+    (``npm run route-timeouts:sync``) owns the literals and CI gates drift.
+
+    ``literal`` is the integer found in the single ``export const maxDuration = N;``
+    statement, or ``None`` when the file is missing or does not contain exactly
+    one such literal (matching the codegen's exactly-one-match contract), so the
+    UI can surface "saknas" / format-drift instead of silently showing a value.
     """
-    # /api/v0/chats/** removed in P29 Fas 1B (2026-04-20). Only the engine
-    # chat routes carry timeouts now; assist routes remain unchanged.
-    route_targets = {
-        "src/app/api/engine/chats/stream/route.ts": engine_seconds,
-        "src/app/api/engine/chats/[chatId]/stream/route.ts": engine_seconds,
-        "src/app/api/ai/chat/route.ts": assist_seconds,
-        "src/app/api/ai/brief/route.ts": assist_seconds,
-    }
-    changed = 0
-    warnings: list[str] = []
-    for rel, seconds in route_targets.items():
+    rows: list[dict[str, Any]] = []
+    for rel, manifest_field in ROUTE_TIMEOUT_DISPLAY:
         fp = repo_root / rel
-        if not fp.is_file():
-            warnings.append(f"{rel} (filen saknas)")
-            continue
-        before = read_text(fp)
-        after, n = re.subn(
-            r"export const maxDuration = \d+;",
-            f"export const maxDuration = {int(seconds)};",
-            before,
-            count=1,
-        )
-        if n == 0:
-            warnings.append(f"{rel} (hittade ingen `export const maxDuration = N;`)")
-            continue
-        if after != before:
-            write_text(fp, after)
-            changed += 1
-    return {"changed": changed, "warnings": warnings}
+        literal: int | None = None
+        if fp.is_file():
+            matches = re.findall(r"export const maxDuration = (\d+);", read_text(fp))
+            if len(matches) == 1:
+                literal = int(matches[0])
+        rows.append({"rel": rel, "manifestField": manifest_field, "literal": literal})
+    return rows
 
 
 def render_where_panel(page: str, dm: dict[str, Any]) -> None:

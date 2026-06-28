@@ -233,6 +233,53 @@ describe("common-import-fixer", () => {
     expect(result.code).toContain('import { baz } from "./lib";');
   });
 
+  it("removes a self-module-path import that re-declares a local component (carousel TS2440)", () => {
+    const code = [
+      '"use client";',
+      'import { Carousel } from "@/components/ui/carousel";',
+      'import * as React from "react";',
+      "export function Carousel(){return null}",
+      "export default Carousel;",
+    ].join("\n");
+
+    const result = fixImportedDeclarationConflicts(code, "components/ui/carousel.tsx");
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toContain("Carousel");
+    expect(result.code).not.toContain('import { Carousel } from "@/components/ui/carousel"');
+    // Exactly one Carousel declaration remains (the local function).
+    expect((result.code.match(/function Carousel\b/g) ?? []).length).toBe(1);
+    expect(result.code).toContain("export function Carousel");
+    // The unrelated react namespace import is untouched.
+    expect(result.code).toContain('import * as React from "react";');
+  });
+
+  it("removes a self default-import and recognizes src/-prefixed paths", () => {
+    const code = [
+      'import Carousel from "@/components/ui/carousel";',
+      "export default function Carousel() { return null; }",
+    ].join("\n");
+
+    const result = fixImportedDeclarationConflicts(code, "src/components/ui/carousel.tsx");
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toContain("Carousel");
+    expect(result.code).not.toContain('from "@/components/ui/carousel"');
+  });
+
+  it("does NOT treat an import of another module as a self-import", () => {
+    const code = [
+      'import { Carousel } from "@/components/ui/carousel";',
+      "export default function Page() { return <Carousel />; }",
+    ].join("\n");
+
+    // Imported into app/page.tsx — a legitimate cross-module import, not self.
+    const result = fixImportedDeclarationConflicts(code, "app/page.tsx");
+
+    expect(result.fixed).toBe(false);
+    expect(result.code).toContain('import { Carousel } from "@/components/ui/carousel"');
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // SAJ-61 P0/c1: bredda export-indexet
   // ─────────────────────────────────────────────────────────────────────────
