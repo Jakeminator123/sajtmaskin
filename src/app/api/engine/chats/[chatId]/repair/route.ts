@@ -31,6 +31,7 @@ import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
   LLM_FIXER_TIMEOUT_MS,
   MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
+  REPAIR_LOOP_BUDGET_MS,
 } from "@/lib/gen/defaults";
 import {
   partitionGeneratedFilesForProtectedPaths,
@@ -126,6 +127,11 @@ async function handlePOST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
+  // #284 follow-up (wall-clock graceful stop): bound the repair loop to this
+  // route's static maxDuration, measured from request entry, so a slow multi-
+  // pass repair stops and releases its lease before the platform hard-kills the
+  // route mid-pass / mid-DB-write.
+  const repairDeadlineEpochMs = Date.now() + REPAIR_LOOP_BUDGET_MS;
   let internalVersionId: string | null = null;
   let resolvedChatId: string | null = null;
   // #260 Codex P2 / Bugbot (no fail of B from a stale repair on crash): the exact
@@ -263,8 +269,16 @@ async function handlePOST(
     async function promoteIfPostRepairGatePasses(params: {
       projectContent: string;
       method: "deterministic" | "llm";
+      /**
+       * Absolute deadline (ms) from the repair loop's budget-aware final gate by
+       * which the post-repair preview-host verify must have aborted. Bounds the
+       * verify so a late one aborts before this route's `maxDuration` and the
+       * lease is always released (Codex P1 #286). Undefined for the early
+       * deterministic gate.
+       */
+      verifyDeadlineEpochMs?: number;
     }): Promise<{ ok: boolean; newVersionId: string | null }> {
-      const { projectContent, method } = params;
+      const { projectContent, method, verifyDeadlineEpochMs } = params;
       const promoteReason =
         method === "deterministic"
           ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
@@ -329,6 +343,7 @@ async function handlePOST(
         exportable,
         hadQualityGateFailures,
         checks: resolvePostRepairGateChecks(reverifyForceBuildCheck),
+        verifyDeadlineEpochMs,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,
@@ -435,6 +450,7 @@ async function handlePOST(
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
       llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
       llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+      repairDeadlineEpochMs,
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,
@@ -494,10 +510,11 @@ async function handlePOST(
           console.warn("[repair] Failed to log no-context repair outcome:", err);
         });
       },
-      onAttemptPromotion: async (projectContent, method) => {
+      onAttemptPromotion: async (projectContent, method, options) => {
         const promote = await promoteIfPostRepairGatePasses({
           projectContent,
           method,
+          verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
         });
         return {
           promoted: promote.ok,

@@ -6,6 +6,7 @@ import {
   LEASE_HOLDING_ROUTE_MAX_DURATION_S,
   patchPreviewHostSession,
   PREVIEW_HOST_CLIENT_TIMEOUTS_MS,
+  resolvePreviewHostVerifyTimeoutMs,
   runPreviewHostQualityGate,
   startPreviewHostSession,
   updatePreviewHostSession,
@@ -468,5 +469,33 @@ describe("verify timeout stays under the lease-holding route budget", () => {
     const routeBudgetMs = LEASE_HOLDING_ROUTE_MAX_DURATION_S * 1000;
     expect(PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify).toBeLessThan(routeBudgetMs);
     expect(routeBudgetMs - PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify).toBeGreaterThanOrEqual(20_000);
+  });
+});
+
+// #286 Option A — the budget-aware manual-repair final gate passes a per-call
+// verify timeout. It can only ever SHORTEN the static cap, never extend it past
+// the lease-holding route budget (Codex P1).
+describe("resolvePreviewHostVerifyTimeoutMs (#286 per-call verify cap)", () => {
+  const staticMs = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
+
+  it("falls back to the static timeout when no override is provided (back-compat)", () => {
+    expect(resolvePreviewHostVerifyTimeoutMs()).toBe(staticMs);
+    expect(resolvePreviewHostVerifyTimeoutMs(undefined)).toBe(staticMs);
+  });
+
+  it("uses a smaller override as-is (the budget-bounded case)", () => {
+    expect(resolvePreviewHostVerifyTimeoutMs(120_000)).toBe(120_000);
+  });
+
+  it("clamps an override above the static cap down to the static timeout", () => {
+    expect(resolvePreviewHostVerifyTimeoutMs(staticMs + 100_000)).toBe(staticMs);
+    expect(resolvePreviewHostVerifyTimeoutMs(staticMs + 100_000)).toBeLessThanOrEqual(staticMs);
+  });
+
+  it("clamps non-positive or non-finite overrides to a safe minimum / the static cap", () => {
+    expect(resolvePreviewHostVerifyTimeoutMs(0)).toBe(1);
+    expect(resolvePreviewHostVerifyTimeoutMs(-5_000)).toBe(1);
+    expect(resolvePreviewHostVerifyTimeoutMs(Number.NaN)).toBe(staticMs);
+    expect(resolvePreviewHostVerifyTimeoutMs(Number.POSITIVE_INFINITY)).toBe(staticMs);
   });
 });

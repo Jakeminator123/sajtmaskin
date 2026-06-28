@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  isRepairBudgetExhausted,
+  resolveFinalGateVerifyBudget,
   resolvePostRepairFinalize,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
@@ -94,6 +96,146 @@ describe("resolveServerRepairEarlyStopReason", () => {
         gateFailureSignals: 5,
       }),
     ).toBe("no_improvement");
+  });
+});
+
+describe("isRepairBudgetExhausted (#284 follow-up — wall-clock graceful stop)", () => {
+  const deadlineEpochMs = 1_000_000;
+
+  it("never bounds the loop when no deadline is set (back-compat)", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs: undefined,
+        nowMs: Number.MAX_SAFE_INTEGER,
+        nextStepMaxMs: 999_999,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows a step that still fits before the deadline", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 200_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("stops a step whose worst-case duration would overrun the deadline", () => {
+    // A second LLM pass (fixer + retry) that cannot finish before the route's
+    // maxDuration must NOT be started — that is the multi-pass hard-kill case.
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 50_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(true);
+  });
+
+  it("treats an exact fit as allowed (boundary is non-strict)", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 100_000,
+        nextStepMaxMs: 100_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("with nextStepMaxMs=0 stops only once past the deadline", () => {
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs,
+        nextStepMaxMs: 0,
+      }),
+    ).toBe(false);
+    expect(
+      isRepairBudgetExhausted({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs + 1,
+        nextStepMaxMs: 0,
+      }),
+    ).toBe(true);
+  });
+
+});
+
+// #286 Option A — dynamic, deadline-based verify gate. Resolves BOTH:
+//   - Codex P1: a late verify must abort before the route's maxDuration so
+//     `finally { releaseVersionLease }` runs. The gate returns an ABSOLUTE
+//     deadline; the abort timeout is derived from it at the fetch site
+//     (`deadline - Date.now()`), so async prep before the fetch is subtracted.
+//   - Bugbot HIGH: the previous full-timeout *reserve* ≈ the loop budget, so the
+//     final gate ALWAYS skipped and a manual LLM repair never promoted. The gate
+//     must RUN whenever enough budget remains, skipping only under a small floor.
+// The "never exceeds the static cap" invariant (c) is enforced at the fetch site
+// by `resolvePreviewHostVerifyTimeoutMs` — see preview-host-client.test.ts.
+describe("resolveFinalGateVerifyBudget (#286 Option A — dynamic verify deadline)", () => {
+  const deadlineEpochMs = 1_000_000;
+  const floorMs = 60_000;
+  const releaseMarginMs = 5_000;
+
+  it("runs with the static timeout (no deadline) when no bound is set (back-compat)", () => {
+    // The server-verify loop passes no deadline — it must keep running the final
+    // gate with the client's own static verify timeout (no deadline returned).
+    const result = resolveFinalGateVerifyBudget({
+      deadlineEpochMs: undefined,
+      nowMs: Number.MAX_SAFE_INTEGER,
+      floorMs,
+      releaseMarginMs,
+    });
+    expect(result.skip).toBe(false);
+    expect(result.verifyDeadlineEpochMs).toBeUndefined();
+  });
+
+  it("(a) RUNS with a margin-reserved deadline when partial budget remains", () => {
+    // 200s left, well above the 60s floor: the gate must RUN (this is the bug the
+    // old always-skip reserve caused). The deadline reserves the release margin
+    // and is independent of how much budget is left, so prep is subtracted later.
+    const result = resolveFinalGateVerifyBudget({
+      deadlineEpochMs,
+      nowMs: deadlineEpochMs - 200_000,
+      floorMs,
+      releaseMarginMs,
+    });
+    expect(result.skip).toBe(false);
+    expect(result.verifyDeadlineEpochMs).toBe(deadlineEpochMs - releaseMarginMs);
+    // The returned deadline must be strictly before the route's repair deadline
+    // so the verify aborts with margin to release the lease.
+    expect(result.verifyDeadlineEpochMs!).toBeLessThan(deadlineEpochMs);
+  });
+
+  it("(b) SKIPS gracefully only once remaining budget drops to/under the floor", () => {
+    // Just above the floor → still runs.
+    expect(
+      resolveFinalGateVerifyBudget({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - (floorMs + 1),
+        floorMs,
+        releaseMarginMs,
+      }).skip,
+    ).toBe(false);
+    // Exactly at the floor → skip (non-strict boundary).
+    expect(
+      resolveFinalGateVerifyBudget({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - floorMs,
+        floorMs,
+        releaseMarginMs,
+      }).skip,
+    ).toBe(true);
+    // Below the floor → skip.
+    expect(
+      resolveFinalGateVerifyBudget({
+        deadlineEpochMs,
+        nowMs: deadlineEpochMs - 10_000,
+        floorMs,
+        releaseMarginMs,
+      }).skip,
+    ).toBe(true);
   });
 });
 
