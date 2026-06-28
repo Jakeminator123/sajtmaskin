@@ -58,6 +58,32 @@ export function PreviewPanelEmptyState({
     .map((option) => option.trim())
     .filter(Boolean)
     .slice(0, 6);
+  const activeStatusTitle =
+    activeVersionStatus === "autofixing"
+      ? "Kör mekanisk autofix"
+      : activeVersionStatus === "validating"
+        ? "Validerar kod"
+        : activeVersionStatus === "preflighting"
+          ? "Sparar version"
+          : activeVersionStatus === "verifying"
+            ? "Verifierar version"
+            : activeVersionStatus === "repairing"
+              ? "Reparerar version"
+              : null;
+  const activeStatusSubtitle =
+    activeVersionStatus === "autofixing"
+      ? activeVersionSummary ||
+        "Mekaniska fixers rättar vanliga import-, struktur- och syntaxproblem innan validering."
+      : activeVersionStatus === "validating"
+        ? activeVersionSummary || "Genererad kod valideras och poleras innan versionen sparas."
+        : activeVersionStatus === "preflighting"
+          ? activeVersionSummary || "Finaliserar filer, kör preflight och sparar versionen."
+          : activeVersionStatus === "verifying"
+            ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
+            : activeVersionStatus === "repairing"
+              ? activeVersionSummary ||
+                "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
+              : null;
   const title = previewBuildError
     ? "Live-preview misslyckades"
     : versionlessAborted
@@ -66,19 +92,16 @@ export function PreviewPanelEmptyState({
       ? "Byter till reparerad version"
       : previewLifecycle === "recovering"
         ? "Återansluter till live-preview"
-        : activeVersionStatus === "verifying"
-          ? "Verifierar version"
-          : activeVersionStatus === "repairing"
-            ? "Reparerar version"
-    : previewPending
-      ? "Startar VM-preview"
-      : awaitingInput
-        ? "AI väntar på ditt svar"
-        : isInitialEmpty
-          ? "Välkommen"
-          : externalLoading
-            ? "Genererar kod"
-          : "Ingen förhandsvisning ännu";
+        : activeStatusTitle ??
+          (previewPending
+            ? "Startar VM-preview"
+            : awaitingInput
+              ? "AI väntar på ditt svar"
+              : isInitialEmpty
+                ? "Välkommen"
+                : externalLoading
+                  ? "Genererar kod"
+                  : "Ingen förhandsvisning ännu");
   const subtitle = previewBuildError
     ? `Steg: ${previewBuildError.stage}. ${previewBuildError.message}`
     : versionlessAborted
@@ -87,19 +110,16 @@ export function PreviewPanelEmptyState({
       ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
       : previewLifecycle === "recovering"
         ? "Vi verifierar sessionen mot servern och återansluter förhandsgranskningen om det behövs."
-        : activeVersionStatus === "verifying"
-          ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
-          : activeVersionStatus === "repairing"
-            ? activeVersionSummary || "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
-    : previewPending
-      ? "Sajten startar och visas så snart den är klar."
-      : awaitingInput
-        ? "AI behöver ditt svar innan nästa preview kan genereras."
-        : externalLoading
-          ? "AI tänker... preview kommer strax."
-          : isInitialEmpty
-            ? "Skriv en prompt till vänster så genererar vi första preview."
-            : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+        : activeStatusSubtitle ??
+          (previewPending
+            ? "Sajten startar och visas så snart den är klar."
+            : awaitingInput
+              ? "AI behöver ditt svar innan nästa preview kan genereras."
+              : externalLoading
+                ? "AI tänker... preview kommer strax."
+                : isInitialEmpty
+                  ? "Skriv en prompt till vänster så genererar vi första preview."
+                  : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.");
   // P0 stream-abort recovery (2026-04-26). When the chat is versionless +
   // aborted, the only valid action is "restart generation" (which the
   // parent maps to a fresh chat). The "repair preview" button is

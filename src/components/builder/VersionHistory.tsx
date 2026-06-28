@@ -691,7 +691,6 @@ export function VersionHistory({
               releaseState: version.releaseState,
             });
             const lifecycleStatus = lifecycleDisplay.status;
-            const lifecycleBadge = versionHistoryStatusBadge(lifecycleDisplay);
             const verificationSurfaceStatus = resolveEngineVersionVerificationSurfaceStatus({
               releaseState: version.releaseState,
               verificationState: version.verificationState,
@@ -715,24 +714,52 @@ export function VersionHistory({
             const listPreviewUrl =
               (tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm) ? tier2PreviewNorm : null) ??
               normalizePreviewUrl(version.demoUrl);
+            const hasPreviewSurface = Boolean(listPreviewUrl);
+            const verifiedForRow = shouldShowVerifiedBadge(
+              verificationSurfaceStatus,
+              lifecycleDisplay.degraded,
+            );
+            const baseLifecycleBadge = versionHistoryStatusBadge(lifecycleDisplay);
+            const lifecycleBadge =
+              lifecycleStatus === "ready" && (!verifiedForRow || !hasPreviewSurface)
+                ? hasPreviewSurface
+                  ? {
+                      ...baseLifecycleBadge,
+                      label: "Preview startad",
+                      variant: "outline" as const,
+                      className:
+                        "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+                      tooltip:
+                        "Preview-URL finns, men versionen är inte verifierad som helhet ännu. Läs verify/VM-chipsen bredvid.",
+                    }
+                  : {
+                      ...baseLifecycleBadge,
+                      label: "Sparad, preview saknas",
+                      variant: "outline" as const,
+                      className:
+                        "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                      tooltip:
+                        "Versionen är sparad, men ingen live-preview/preview-URL finns för raden ännu.",
+                    }
+                : baseLifecycleBadge;
             const qualityTierLabel =
               qualityTier === "production"
-                ? "Produktionsklar"
+                ? "Verify-lane OK"
                 : qualityTier === "tier2"
-                  ? "Live-preview klar"
+                  ? "Live-preview startad"
                   : qualityTier === "preview"
-                    ? "Preview-URL"
+                    ? "Preview-URL finns"
                     : null;
             const qualityTierBadgeClass =
               qualityTier === "production"
-                ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
+                ? "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
                 : qualityTier === "tier2"
                   ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
                   : qualityTier === "preview"
-                    ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
+                    ? "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300"
                     : undefined;
             const verificationBadge =
-              shouldShowVerifiedBadge(verificationSurfaceStatus, lifecycleDisplay.degraded)
+              verifiedForRow
                 ? {
                     label: "Verifierad",
                     title: "Server-verify eller promotion har passerat för denna version.",
@@ -741,9 +768,9 @@ export function VersionHistory({
                   }
                 : verificationSurfaceStatus === "design_ready"
                   ? {
-                      label: "Design redo",
+                      label: "Ej verifierad",
                       title:
-                        "F2-designversion: preview kan vara materialiserad, men server-verify körs först i F3.",
+                        "F2-designversion: preview kan vara startad, men server-verify körs först vid Bygg integrationer.",
                       className:
                         "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                     }
@@ -777,7 +804,9 @@ export function VersionHistory({
                 ? {
                     label: "VM live",
                     className:
-                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                      verifiedForRow
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
                   }
                 : runtimeStatusForRow === "starting"
                   ? {

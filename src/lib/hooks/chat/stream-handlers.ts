@@ -158,12 +158,41 @@ export async function handleSseStream(
     const fixes = typeof payload.fixes === "number" && Number.isFinite(payload.fixes) ? payload.fixes : null;
     const warnings =
       typeof payload.warnings === "number" && Number.isFinite(payload.warnings) ? payload.warnings : null;
+    const dependencies =
+      typeof payload.dependencies === "number" && Number.isFinite(payload.dependencies)
+        ? payload.dependencies
+        : null;
+    const errorsAfter =
+      typeof payload.errorsAfter === "number" && Number.isFinite(payload.errorsAfter)
+        ? payload.errorsAfter
+        : null;
+    const fixerUsed = payload.fixerUsed === true;
     const fileCount =
       typeof payload.fileCount === "number" && Number.isFinite(payload.fileCount) ? payload.fileCount : null;
     const versionId =
       typeof payload.versionId === "string" && payload.versionId.trim().length > 0
         ? payload.versionId.trim()
         : null;
+    const fixers = Array.isArray(payload.fixers)
+      ? payload.fixers
+          .map((item) => (item && typeof item === "object" ? (item as Record<string, unknown>) : null))
+          .filter((item): item is Record<string, unknown> => Boolean(item))
+      : [];
+    const formatFixerLabel = (fixer: Record<string, unknown>) => {
+      const name =
+        typeof fixer.fixer === "string" && fixer.fixer.trim() ? fixer.fixer.trim() : "okänd fixer";
+      const count =
+        typeof fixer.count === "number" && Number.isFinite(fixer.count) ? fixer.count : 0;
+      return `${name} ×${count}`;
+    };
+    const formatFixerExamples = () =>
+      fixers
+        .flatMap((fixer) =>
+          Array.isArray(fixer.examples)
+            ? fixer.examples.map((example) => String(example).trim()).filter(Boolean)
+            : [],
+        )
+        .slice(0, 3);
     const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
     const doneSuffix = durationMs !== null ? ` (${formatSeconds(durationMs)})` : "";
 
@@ -201,17 +230,24 @@ export async function handleSseStream(
       }
     }
     if (step === "autofix") {
-      if (phase === "start") return ["Autofix startad."];
+      if (phase === "start") return ["Mekanisk autofix startad."];
       if (phase === "done") {
-        const summary: string[] = [`Autofix klar${doneSuffix}.`];
+        const summary: string[] = [`Mekanisk autofix klar${doneSuffix}.`];
         if (fixes !== null || warnings !== null) {
           summary.push(
-            `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}.`,
+            `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}${dependencies !== null ? `, dependencies: ${dependencies}` : ""}.`,
           );
+        }
+        if ((fixes ?? 0) === 0 && fixers.length === 0) {
+          summary.push("Inga mekaniska fixar behövdes.");
+        } else if (fixers.length > 0) {
+          summary.push(`Fixers: ${fixers.slice(0, 6).map(formatFixerLabel).join(", ")}.`);
+          const examples = formatFixerExamples();
+          if (examples.length > 0) summary.push(`Exempel: ${examples.join(" • ")}.`);
         }
         return summary;
       }
-      if (phase === "error") return ["Autofix misslyckades. Fortsätter med rått innehåll."];
+      if (phase === "error") return ["Mekanisk autofix misslyckades. Fortsätter med rått innehåll."];
     }
     if (step === "verifier") {
       if (phase === "start") {
@@ -263,14 +299,22 @@ export async function handleSseStream(
         // som körs på varje generation och nästan alltid lyckas inom
         // några sekunder. Neutralare formulering.
         return [
-          `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} smafel` : ""}.`,
+          `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} småfel` : ""}.`,
         ];
       }
       if (phase === "retrying") {
         return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
       }
       if (phase === "passed") return ["Validering klar."];
-      if (phase === "done") return [`Syntaxvalidering klar${doneSuffix}.`];
+      if (phase === "done") {
+        const details = [`Syntaxvalidering klar${doneSuffix}.`];
+        if (pass !== null || errorsAfter !== null) {
+          details.push(
+            `${pass ?? 1} pass, ${errorsAfter ?? errorCount ?? 0} kvarvarande fel${fixerUsed ? " efter fixförsök" : ""}.`,
+          );
+        }
+        return details;
+      }
       if (phase === "gave-up") {
         return [
           `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,
@@ -284,6 +328,7 @@ export async function handleSseStream(
         const details: string[] = [`Finalisering klar${doneSuffix}.`];
         if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
         if (versionId) details.push(`Version: ${versionId}.`);
+        details.push("Versionen sparades.");
         return details;
       }
     }

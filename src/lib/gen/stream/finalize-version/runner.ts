@@ -83,6 +83,18 @@ function normalizeDossierIds(input: unknown): string[] {
   );
 }
 
+function mapSyntaxResultToBusPhase(params: {
+  status: string;
+  fixerUsed: boolean;
+  earlyStopReason?: string | null;
+}): "fixed" | "invalid" | "gave_up" | "ok" {
+  const { status, fixerUsed, earlyStopReason } = params;
+  if (status === "passed") return fixerUsed ? "fixed" : "ok";
+  if (status === "partial") return "fixed";
+  if (earlyStopReason) return "gave_up";
+  return "invalid";
+}
+
 function resolveRequestedCapabilitiesFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): string[] {
@@ -260,10 +272,12 @@ export async function finalizeAndSaveVersion(
   contentForVersion = autofixPhase.contentForVersion;
   const autofixSucceeded = autofixPhase.autofixSucceeded;
   const {
+    autoFixOutcome,
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixHeavyLoad,
+    autoFixFixers,
     previewBlockingWarnings,
   } = autofixPhase;
 
@@ -353,6 +367,7 @@ export async function finalizeAndSaveVersion(
         thinking: thinkingForPersist,
       });
   let version = initialVersion;
+  const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,
@@ -380,7 +395,7 @@ export async function finalizeAndSaveVersion(
       t: "version.repair.started",
       versionId: version.id,
       chatId,
-      runId: `repair-${repairPassIndex}`,
+      runId: finalizeRunId,
       reason: "finalize-repair-pass",
       trigger: "manual",
     });
@@ -388,10 +403,44 @@ export async function finalizeAndSaveVersion(
       t: "version.repair.passIndex",
       versionId: version.id,
       chatId,
-      runId: `repair-${repairPassIndex}`,
+      runId: finalizeRunId,
       passIndex: repairPassIndex,
     });
   }
+
+  emitBusEvent({
+    t: "version.autofix.result",
+    versionId: version.id,
+    chatId,
+    runId: finalizeRunId,
+    fixes: autoFixFixCount,
+    warnings: autoFixWarningCount,
+    dependencies: autoFixDependencyCount,
+    outcome: autoFixOutcome,
+    heavyLoad: autoFixHeavyLoad,
+    previewBlockingWarnings: previewBlockingWarnings.length,
+    fixers: autoFixFixers,
+  });
+  emitBusEvent({
+    t: "version.syntax.pass",
+    versionId: version.id,
+    chatId,
+    runId: finalizeRunId,
+    pass: syntaxResult.passes,
+    errors: syntaxResult.errorsAfter,
+    phase: mapSyntaxResultToBusPhase({
+      status: syntaxResult.status,
+      fixerUsed: syntaxResult.fixerUsed,
+      earlyStopReason: syntaxResult.earlyStopReason,
+    }),
+    result: syntaxResult.status,
+    fixerUsed: syntaxResult.fixerUsed,
+    fixerImproved: syntaxResult.fixerImproved,
+    mechanicalFixes: syntaxResult.mechanicalFixCount,
+    llmFixes: syntaxResult.llmFixCount,
+    tscRan: syntaxResult.tsc?.ran === true,
+    eslintRan: syntaxResult.eslint?.ran === true,
+  });
 
   await persistOrchestrationSnapshot({
     chatId,
@@ -458,7 +507,7 @@ export async function finalizeAndSaveVersion(
     t: "version.preflight",
     versionId: version.id,
     chatId,
-    runId: repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined,
+    runId: finalizeRunId,
     filesChecked: preflightFileCount,
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
@@ -467,6 +516,31 @@ export async function finalizeAndSaveVersion(
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
   });
+  emitBusEvent({
+    t: "version.saved",
+    versionId: version.id,
+    chatId,
+    runId: finalizeRunId,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
+    messageId: assistantMsg.id,
+  });
+  if (finalizeStepTelemetry.verifier?.reason === "autofix_heavy_load") {
+    emitBusEvent({
+      t: "version.degraded",
+      versionId: version.id,
+      chatId,
+      runId: finalizeRunId,
+      kind: "verifier_skipped_heavy_load",
+      message:
+        "Verifiering hoppades över eftersom mekanisk autofix behövde göra ovanligt många ändringar.",
+      meta: {
+        fixCount: autoFixFixCount,
+        threshold: 5,
+        repairPassIndex,
+      },
+    });
+  }
   // Retain the richer `verifierBlocked` / `scaffoldRetry` context in
   // devLog as a separate diagnostic entry — the projection doesn't
   // need it but the backoffice "Autofix & Kvalitet" panel reads it.
