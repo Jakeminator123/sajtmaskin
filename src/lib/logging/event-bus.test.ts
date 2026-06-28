@@ -152,3 +152,31 @@ describe("event-bus", () => {
     expect(received).toEqual(["version.done"]);
   });
 });
+
+describe("event-bus RUNS_ROOT_DIR resolution", () => {
+  const originalVercel = process.env.VERCEL;
+
+  afterEach(() => {
+    if (originalVercel === undefined) {
+      delete process.env.VERCEL;
+    } else {
+      process.env.VERCEL = originalVercel;
+    }
+    vi.resetModules();
+  });
+
+  it("mirrors under os.tmpdir() on Vercel (read-only /var/task)", async () => {
+    process.env.VERCEL = "1";
+    vi.resetModules();
+    const bus = await import("./event-bus");
+    expect(bus.RUNS_ROOT_DIR.startsWith(os.tmpdir())).toBe(true);
+    expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
+  });
+
+  it("uses repo-relative data/runs when not on Vercel", async () => {
+    delete process.env.VERCEL;
+    vi.resetModules();
+    const bus = await import("./event-bus");
+    expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
+  });
+});
