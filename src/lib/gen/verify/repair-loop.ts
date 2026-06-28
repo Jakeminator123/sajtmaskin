@@ -431,7 +431,16 @@ export async function runRepairLoop<TPayload = unknown>(
   // Initial mechanical pass: repair-loop is invoked from contexts that may not
   // have already autofixed (verifier rerun, eval). Idempotent if input is
   // already clean.
-  let content = (await runAutoFix(params.initialContent)).fixedContent;
+  //
+  // Thread the version's `previewPolicy` so the F2 SDK guard
+  // (`tier3-sdk-guard-fixer`) only strips tier-3 backend SDK imports in F2.
+  // Without it, an F3/integrations version entering the loop with a gate
+  // failure unrelated to those imports would have its valid backend SDK
+  // imports (stripe / @clerk/nextjs/server / supabase) stripped here — the
+  // same policy the deterministic pre-pass already honours (Codex P1).
+  let content = (await runAutoFix(params.initialContent, {
+    previewPolicy: params.previewPolicy,
+  })).fixedContent;
 
   // Deterministic, diagnostic-driven import repair (runs BEFORE the LLM fixer).
   // The quality gate that produced `failedOutputs` already ran tsc; its
@@ -621,8 +630,12 @@ export async function runRepairLoop<TPayload = unknown>(
       ? targetedBundle.mergeBack(fixerResult.fixedContent)
       : fixerResult.fixedContent;
     // post-LLM mechanical pass: normalizes the fixer output before the next
-    // validate iteration. Required after every LLM pass.
-    const reFixed = await runAutoFix(fixerOutput);
+    // validate iteration. Required after every LLM pass. Carries the same
+    // `previewPolicy` as the initial pass so an F3 LLM-fix that re-emits a
+    // valid backend SDK import is not stripped by the F2 guard.
+    const reFixed = await runAutoFix(fixerOutput, {
+      previewPolicy: params.previewPolicy,
+    });
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);
     const groupedAfterFix = buildGroupedRepairErrorContext(params.failedOutputs, {
