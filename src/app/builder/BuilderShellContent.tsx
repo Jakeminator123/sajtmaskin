@@ -172,10 +172,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     refreshNonce: vm.versionStatusNonce,
   });
   const activeVersionStatus = useMemo(() => {
-    if (!activeVersionSummary) return null;
     return mapVersionStatusToDisplay(activeVersionBusStatus, {
       isLatest: activeVersionIsLatest,
-      releaseState: activeVersionSummary.releaseState ?? null,
+      releaseState: activeVersionSummary?.releaseState ?? null,
     }).status;
   }, [activeVersionBusStatus, activeVersionIsLatest, activeVersionSummary]);
   // P19 Steg 3 — transparency in follow-up base. When the user is focused

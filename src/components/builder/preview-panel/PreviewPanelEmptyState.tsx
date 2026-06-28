@@ -3,6 +3,7 @@
 import { AlertCircle, Loader2, MessageCircleQuestion, RotateCcw, Wand2 } from "lucide-react";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export function PreviewPanelEmptyState({
     .map((option) => option.trim())
     .filter(Boolean)
     .slice(0, 6);
+  const localizedVersionSummary = localizeVerificationSummary(activeVersionSummary);
   const activeStatusTitle =
     activeVersionStatus === "autofixing"
       ? "Kör mekanisk autofix"
@@ -72,16 +74,16 @@ export function PreviewPanelEmptyState({
               : null;
   const activeStatusSubtitle =
     activeVersionStatus === "autofixing"
-      ? activeVersionSummary ||
+      ? localizedVersionSummary ||
         "Mekaniska fixers rättar vanliga import-, struktur- och syntaxproblem innan validering."
       : activeVersionStatus === "validating"
-        ? activeVersionSummary || "Genererad kod valideras och poleras innan versionen sparas."
+        ? localizedVersionSummary || "Genererad kod valideras och poleras innan versionen sparas."
         : activeVersionStatus === "preflighting"
-          ? activeVersionSummary || "Finaliserar filer, kör preflight och sparar versionen."
+          ? localizedVersionSummary || "Finaliserar filer, kör preflight och sparar versionen."
           : activeVersionStatus === "verifying"
-            ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
+            ? localizedVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
             : activeVersionStatus === "repairing"
-              ? activeVersionSummary ||
+              ? localizedVersionSummary ||
                 "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
               : null;
   const title = previewBuildError
@@ -107,7 +109,7 @@ export function PreviewPanelEmptyState({
     : versionlessAborted
       ? "Strömmen avbröts innan en version sparades. Den här chatten kan inte repareras — starta om genereringen i en ny chat."
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
-      ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
+      ? localizedVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
       : previewLifecycle === "recovering"
         ? "Vi verifierar sessionen mot servern och återansluter förhandsgranskningen om det behövs."
         : activeStatusSubtitle ??
