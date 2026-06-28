@@ -370,4 +370,78 @@ export default function EnumCollision() {
 
     expect(file?.content).not.toContain('from "lucide-react"');
   });
+
+  // Regression for the #292 follow-up review: the fresh-import insert must land
+  // AFTER the leading `"use client"` directive even when a comment precedes it.
+  // The directive only works as the first *statement*; hoisting an import above
+  // it demotes the file to a Server Component (a parse-clean change the guarded
+  // wrapper cannot catch), re-introducing the white screen for an interactive
+  // file.
+  it('keeps "use client" first when it is preceded by a leading comment', () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/commented-directive.tsx",
+        language: "tsx",
+        content: `// Interactive nav island — keep this client-side.
+"use client";
+
+const NAV = [{ label: "Pets", icon: PawPrint }];
+
+export default function Nav() {
+  return <div>{NAV.length}</div>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/commented-directive.tsx");
+    const content = file?.content ?? "";
+
+    const useClientIdx = content.indexOf('"use client"');
+    const importIdx = content.indexOf('from "lucide-react"');
+    // PawPrint is imported…
+    expect(importIdx).toBeGreaterThanOrEqual(0);
+    expect(content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    // …the directive survives and the import sits BELOW it…
+    expect(useClientIdx).toBeGreaterThanOrEqual(0);
+    expect(importIdx).toBeGreaterThan(useClientIdx);
+    // …and no import was hoisted above the directive (the regression signature).
+    expect(content.slice(0, useClientIdx)).not.toMatch(/^\s*import\s/m);
+  });
+
+  it('keeps "use client" first when the directive carries a trailing comment', () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/trailing-comment-directive.tsx",
+        language: "tsx",
+        content: `"use client"; // interactive island
+
+const ITEMS = [{ icon: PawPrint }];
+
+export default function Page() {
+  return <div>{ITEMS.length}</div>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find(
+      (f) => f.path === "components/trailing-comment-directive.tsx",
+    );
+    const content = file?.content ?? "";
+
+    const useClientIdx = content.indexOf('"use client"');
+    const importIdx = content.indexOf('from "lucide-react"');
+    expect(importIdx).toBeGreaterThanOrEqual(0);
+    expect(content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    expect(useClientIdx).toBeGreaterThanOrEqual(0);
+    expect(importIdx).toBeGreaterThan(useClientIdx);
+    expect(content.slice(0, useClientIdx)).not.toMatch(/^\s*import\s/m);
+  });
 });
