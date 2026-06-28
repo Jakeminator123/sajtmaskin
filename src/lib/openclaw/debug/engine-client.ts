@@ -206,7 +206,7 @@ export function createHttpEngineClient(
       return consumeStreamAndResolveRef(res);
     },
 
-    async sendFollowUp({ chatId, prompt }): Promise<EngineVersionRef> {
+    async sendFollowUp({ chatId, prompt, baseVersionId }): Promise<EngineVersionRef> {
       const res = await doFetch(`${baseUrl}/api/engine/chats/${chatId}/stream`, {
         method: "POST",
         headers: headers(),
@@ -215,7 +215,15 @@ export function createHttpEngineClient(
           modelId,
           thinking: false,
           imageGenerations: false,
-          meta: { promptSourceKind: "oc-debug" },
+          meta: {
+            promptSourceKind: "oc-debug",
+            // Build the follow-up FROM the version the harness just settled, not
+            // the server's latest/preferred one (Bugbot HIGH). Sent as an
+            // explicit base WITHOUT engineLatestKnownVersionId so it is exempt
+            // from the stale-base 409 gate — the harness deliberately chains off
+            // its own settled version.
+            ...(baseVersionId ? { engineBaseVersionId: baseVersionId } : {}),
+          },
         }),
         signal: AbortSignal.timeout(timeoutMs),
       });

@@ -204,7 +204,11 @@ export function useOpenClawChat() {
     activeAssistantIdRef.current = null;
     setStreaming(false);
     clearMessages();
-  }, [clearMessages, setStreaming]);
+    // Clearing the conversation must also disarm autonomy (Bugbot): an armed
+    // mandate that survived a reset could let a later assistant action auto-send
+    // when the user believed autonomy was cleared.
+    setArmedMandate(null);
+  }, [clearMessages, setStreaming, setArmedMandate]);
 
   return { messages, isStreaming, send, stop, clearConversation };
 }

@@ -33,6 +33,26 @@ describe("createHttpEngineClient.createChat (Codex P1: project id)", () => {
     expect(createBody.meta?.appProjectId).toBe("app-123");
   });
 
+  it("forwards baseVersionId as meta.engineBaseVersionId on follow-ups (Bugbot HIGH)", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetchImpl = vi.fn(async (url: unknown, init: unknown) => {
+      const u = String(url);
+      if (u.includes("/api/engine/chats/c1/stream")) {
+        bodies.push(JSON.parse((init as { body: string }).body));
+        return sse('data: {"chatId":"c1","versionId":"v2"}\n\ndata: [DONE]\n\n');
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const client = createHttpEngineClient({ baseUrl: "http://x", fetchImpl });
+    const ref = await client.sendFollowUp({ chatId: "c1", prompt: "tweak", baseVersionId: "v1" });
+    expect(ref).toEqual({ chatId: "c1", versionId: "v2" });
+    const meta = (bodies[0] as { meta?: { engineBaseVersionId?: string; engineLatestKnownVersionId?: string } }).meta;
+    expect(meta?.engineBaseVersionId).toBe("v1");
+    // Must NOT send engineLatestKnownVersionId — that would re-arm the stale-base 409 gate.
+    expect(meta?.engineLatestKnownVersionId).toBeUndefined();
+  });
+
   it("sends top-level projectId when only the legacy id is provided", async () => {
     const bodies: Array<Record<string, unknown>> = [];
     const fetchImpl = vi.fn(async (url: unknown, init: unknown) => {
