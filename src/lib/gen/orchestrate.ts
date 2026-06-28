@@ -813,9 +813,12 @@ export function enforceFollowUpCapabilityFloor(
 }
 
 /**
- * Best-effort drift telemetry for 5-3 freeze-enforcement. Mirrors the existing
- * `[orchestrate] scaffold_drift` / `variant_drift` console signals and is
- * wrapped so telemetry can NEVER throw and break generation.
+ * Best-effort drift telemetry for 5-3 freeze-enforcement: emits the
+ * `[orchestrate] followup_freeze_drift` console signal when a follow-up's
+ * frozen scaffold/variant differs from the fresh pick. Wrapped so telemetry can
+ * NEVER throw and break generation. (This is the only remaining orchestrate
+ * drift signal — the brief-nomination `scaffold_drift` / `variant_drift` logs
+ * were removed as dead code; the brief schema never produced their inputs.)
  */
 function emitFollowUpFreezeDrift(
   surface: FollowUpFreezeSurface,
