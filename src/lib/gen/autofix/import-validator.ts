@@ -34,6 +34,13 @@ export const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
     "Montserrat", "Poppins", "Raleway", "Nunito", "Space_Grotesk",
     "DM_Sans", "DM_Mono", "Playfair_Display",
   ],
+  "react-error-boundary": ["ErrorBoundary", "useErrorBoundary", "withErrorBoundary"],
+  "react-intersection-observer": ["InView"],
+  "@tanstack/react-virtual": ["useVirtualizer", "useWindowVirtualizer"],
+  "@tanstack/react-query": [
+    "QueryClient", "QueryClientProvider", "useQuery", "useMutation",
+    "useInfiniteQuery", "useQueryClient", "useSuspenseQuery",
+  ],
   "@/lib/utils": ["cn"],
 };
 
