@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
 
 /**
  * Version-glue guard: the dependency baseline that GENERATED PROJECTS ship
@@ -72,11 +73,11 @@ const MAJOR_MINOR_LOCKED = ["tailwindcss"] as const;
  *   projects ship the exact pin below. Locking the declared patch keeps those
  *   in lockstep so the allowlist can never admit an icon the shipped runtime
  *   lacks.
- * - The React-Three 3D stack (`three`, `@react-three/fiber`,
- *   `@react-three/drei`): pre-1.0 `three` makes a major-only lock meaningless
- *   (major is always 0), and Drei helpers imported by 3D dossiers are tightly
- *   coupled to specific fiber/three minors. Their pins currently match exactly,
- *   so lock the full patch.
+ *
+ * The React-Three 3D stack used to be locked here too, but it is no longer part
+ * of the generated baseline (it is capability-gated). Its version lock now lives
+ * in the `3D stack gated pins` block below, comparing KNOWN_PACKAGES to the
+ * platform instead of the baseline.
  *
  * Residual (accepted): this compares the *declared* versions, not the resolved
  * lockfile. A pure lockfile patch bump on a platform caret range is not caught
@@ -84,12 +85,7 @@ const MAJOR_MINOR_LOCKED = ["tailwindcss"] as const;
  * patches) and `check-lucide-icons.mjs` re-validates every name against the
  * installed package in CI, so a removed/renamed export is still caught.
  */
-const MAJOR_MINOR_PATCH_LOCKED = [
-  "lucide-react",
-  "three",
-  "@react-three/fiber",
-  "@react-three/drei",
-] as const;
+const MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
 
 describe("project-scaffold baseline parity with platform package.json", () => {
   const platform = readPlatformDeps();
@@ -124,6 +120,42 @@ describe("project-scaffold baseline parity with platform package.json", () => {
       expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
       expect(g, `${pkg} missing from generated baseline`).toBeTruthy();
       expect(parseVersion(g)).toEqual(parseVersion(p));
+    });
+  }
+});
+
+/**
+ * The React-Three 3D stack is no longer in the generated baseline (it is
+ * capability-gated and injected on demand). Its pins now live in
+ * KNOWN_PACKAGES (dep-completer) and must still match the platform's installed
+ * 3D stack exactly, because the `three-fiber-canvas` dossier ships vendored
+ * shell code coupled to specific three/fiber/drei versions.
+ */
+const THREE_STACK_PACKAGES = [
+  "three",
+  "@react-three/fiber",
+  "@react-three/drei",
+  "@react-three/rapier",
+] as const;
+
+describe("3D stack gated pins parity with platform package.json", () => {
+  const platform = readPlatformDeps();
+  const generated = readGeneratedBaselineDeps();
+
+  for (const pkg of THREE_STACK_PACKAGES) {
+    it(`${pkg}: KNOWN_PACKAGES pin matches platform major.minor.patch`, () => {
+      const p = platform[pkg];
+      const k = KNOWN_PACKAGES[pkg];
+      expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
+      expect(k, `${pkg} missing from KNOWN_PACKAGES`).toBeTruthy();
+      expect(parseVersion(k)).toEqual(parseVersion(p));
+    });
+
+    it(`${pkg}: NOT shipped in the always-installed generated baseline`, () => {
+      expect(
+        generated[pkg],
+        `${pkg} must be capability-gated, not in the baseline`,
+      ).toBeUndefined();
     });
   }
 });

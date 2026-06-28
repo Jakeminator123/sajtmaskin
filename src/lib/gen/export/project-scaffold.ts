@@ -1,5 +1,5 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { runDepCompleter } from "../autofix/dep-completer";
+import { runDepCompleter, resolveKnownVersion } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
 import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
@@ -59,9 +59,6 @@ const PACKAGE_JSON = `{
     "zod": "4.3.6",
     "framer-motion": "12.38.0",
     "@tanstack/react-table": "8.21.3",
-    "three": "0.182.0",
-    "@react-three/fiber": "9.6.0",
-    "@react-three/drei": "10.7.7",
     "date-fns": "4.1.0"
   },
   "devDependencies": {
@@ -386,20 +383,56 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 /**
  * Dependencies where the scaffold baseline must always win over the model.
  * The LLM sometimes pins older majors that conflict with peer requirements
- * (e.g. fiber 8 + React 19, or React 18 + Next 16). Keep this list short
- * and only add packages whose version is load-bearing for the whole tree.
+ * (e.g. React 18 + Next 16). Keep this list short and only add packages whose
+ * version is load-bearing for the whole tree.
  * Lucide is pinned because generated icon validation is tied to its exact
  * runtime export set.
+ *
+ * The React-Three 3D stack used to live here, but it is no longer part of the
+ * always-installed baseline (it is capability-gated). `applyThreeStackPolicy`
+ * below pins/prunes it on demand instead.
  */
 const BASELINE_PINNED_DEPS = [
   "react",
   "react-dom",
   "next",
   "lucide-react",
+] as const;
+
+/**
+ * Heavy, capability-gated React-Three 3D stack. `three` is the shared peer
+ * dependency of fiber/drei/rapier, so the stack is treated as one group:
+ *  - if any member is imported by the generated code (detected by the dep
+ *    scan), keep the stack and pin every present member to the canonical
+ *    platform version (KNOWN_PACKAGES), ensuring `three` ships even when only
+ *    the React wrappers are imported (it is their peer dependency);
+ *  - if nothing in the stack is imported, strip any members that leaked into
+ *    the model `package.json` (capability false-positive bloat — e.g. a brief
+ *    that tagged `visual-3d` on a prompt that never rendered a Canvas).
+ */
+const THREE_STACK = [
   "three",
   "@react-three/fiber",
   "@react-three/drei",
+  "@react-three/rapier",
 ] as const;
+
+function applyThreeStackPolicy(
+  dependencies: Record<string, string>,
+  detected: Record<string, string>,
+): void {
+  const used = THREE_STACK.some((pkg) => detected[pkg] !== undefined);
+  if (!used) {
+    for (const pkg of THREE_STACK) delete dependencies[pkg];
+    return;
+  }
+  for (const pkg of THREE_STACK) {
+    if (dependencies[pkg] === undefined && detected[pkg] === undefined) continue;
+    dependencies[pkg] = resolveKnownVersion(pkg) ?? dependencies[pkg] ?? detected[pkg];
+  }
+  const threePin = resolveKnownVersion("three");
+  if (threePin) dependencies.three = threePin;
+}
 
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
@@ -433,6 +466,8 @@ export function mergePackageJsonWithBaseline(
       dependencies[key] = bDep[key];
     }
   }
+
+  applyThreeStackPolicy(dependencies, detected.dependencies);
 
   return {
     ...b,
