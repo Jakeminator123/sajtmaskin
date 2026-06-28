@@ -335,6 +335,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             // clean version). Leave it at "verifying" and surface a soft error so
             // the client retries — mirrors the transient `promoteError` path.
             promoteGuardUnavailable = true;
+            // Do NOT persist the raw guard reason into the error log: on a DB/
+            // telemetry read error `assertPromoteAllowed` embeds the underlying
+            // exception message in `guard.reason`, and this `meta` is rendered
+            // verbatim to the chat owner in VersionDiagnosticsDialog. Persist a
+            // stable code instead and keep the raw detail in server logs only.
+            console.warn(
+              "[quality-gate] Promote guard unavailable (raw reason, server-only):",
+              guard.reason,
+            );
             await createEngineVersionErrorLogs([
               {
                 chatId,
@@ -344,7 +353,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
                 message:
                   "Build checks passed but the promotion guard could not verify the finalize signal; promotion deferred (retryable).",
                 meta: {
-                  reason: guard.reason,
+                  reason: "promote_guard_signal_unavailable",
                   serverOwned: false,
                 },
               },
