@@ -100,7 +100,12 @@ function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
   };
 }
 
-function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
+function buildLifecycleBlocker(
+  status: string,
+  summary?: string | null,
+  stage?: string | null,
+): ChatReadinessItem | null {
+  const isDesignStage = stage !== "integrations";
   if (status === "draft") {
     return {
       id: "version-draft",
@@ -112,6 +117,12 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   }
 
   if (status === "verifying") {
+    // F2 (`design`) intentionally skips the F3 server-verify lane, so a design
+    // version rests at `verifying` with nothing actually running. Surfacing it
+    // as a standing "verification in progress" warning is a false signal — a
+    // design preview is launchable as-is. Only F3/integrations genuinely waits
+    // on verification. Mirrors `env-flow-f2-mute.mdc`.
+    if (isDesignStage) return null;
     return {
       id: "version-verifying",
       title: "Verifiering pågår fortfarande.",
@@ -313,10 +324,13 @@ async function buildEngineReadiness(
     releaseState: version.release_state,
     verificationState: version.verification_state,
   });
+  const lifecycleStage =
+    typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
 
   const lifecycleItem = buildLifecycleBlocker(
     lifecycleStatus,
     version.verification_summary ?? null,
+    lifecycleStage,
   );
   if (lifecycleItem) {
     if (lifecycleItem.severity === "blocker") {
@@ -346,9 +360,8 @@ async function buildEngineReadiness(
   // auto-handled in the project's `env.example` file with placeholders so
   // the chat never has to ask the user. Only when the user opts into
   // F3 ("Bygg integrationer") do missing env keys become blockers.
-  // See `.cursor/rules/env-flow-f2-mute.mdc`.
-  const lifecycleStage =
-    typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
+  // See `.cursor/rules/env-flow-f2-mute.mdc`. `lifecycleStage` is computed
+  // above (shared with the lifecycle blocker).
   const envGateActive = lifecycleStage === "integrations";
 
   const allowPlaceholdersInF3 = envGateActive
