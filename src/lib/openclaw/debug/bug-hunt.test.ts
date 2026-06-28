@@ -24,7 +24,7 @@ function fakeClient(overrides: Partial<BugHuntEngineClient> = {}): BugHuntEngine
   return {
     createChat: vi.fn(async () => ({ chatId: "chat1", versionId: "v1" })),
     sendFollowUp: vi.fn(async () => ({ chatId: "chat1", versionId: "v2" })),
-    waitForVersionSettled: vi.fn(async () => ({ state: "failed" })),
+    waitForVersionSettled: vi.fn(async () => ({ state: "failed", settled: true })),
     forceBuild: vi.fn(async () => ({ result: "failed" as const })),
     repair: vi.fn(async () => ({ outcome: "completed", versionId: "v1" })),
     getErrorLogs: vi.fn(async () => [] as EngineErrorLogRow[]),
@@ -177,6 +177,26 @@ describe("runBugHunt", () => {
       { runId: "run1", scenarios: [{ id: "scn1", prompt: "x" }] },
     );
     expect(client.repair).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not force a gate when the version never settles (Bugbot)", async () => {
+    const client = fakeClient({
+      waitForVersionSettled: vi.fn(async () => ({ state: "streaming", settled: false })),
+    });
+    const writeFindings = vi.fn(async () => undefined);
+    await runBugHunt(
+      { client, writeFindings, now: () => 0 },
+      { runId: "run1", scenarios: [{ id: "scn1", prompt: "x" }] },
+    );
+    // A still-streaming version must NOT be force-built/repaired; an unverified
+    // warning finding is recorded instead.
+    expect(client.forceBuild).not.toHaveBeenCalled();
+    expect(client.repair).not.toHaveBeenCalled();
+    const calls = writeFindings.mock.calls as unknown as Array<
+      [Array<{ severity: string; buildResult: string }>]
+    >;
+    const written = calls.flatMap((c) => c[0]);
+    expect(written.some((f) => f.severity === "warning" && f.buildResult === "unknown")).toBe(true);
   });
 
   it("skips processing when createChat returns an unresolved ref (Bugbot)", async () => {

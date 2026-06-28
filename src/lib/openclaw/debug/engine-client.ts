@@ -246,7 +246,7 @@ export function createHttpEngineClient(
       return consumeStreamAndResolveRef(res, chatId);
     },
 
-    async waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string }> {
+    async waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string; settled: boolean }> {
       let lastState = "unknown";
       for (let i = 0; i < settleMaxPolls; i += 1) {
         try {
@@ -262,14 +262,16 @@ export function createHttpEngineClient(
             // still-streaming version (Codex P1).
             const { phase, settled } = readVersionPhase(data);
             lastState = phase;
-            if (settled) return { state: phase };
+            if (settled) return { state: phase, settled: true };
           }
         } catch {
           // transient network error — keep polling
         }
         await sleep(settlePollIntervalMs);
       }
-      return { state: lastState };
+      // Poll budget exhausted while still transient — report NOT settled so the
+      // caller doesn't force a gate against a still-generating version (Bugbot).
+      return { state: lastState, settled: false };
     },
 
     async forceBuild(ref: EngineVersionRef): Promise<EngineBuildResult> {

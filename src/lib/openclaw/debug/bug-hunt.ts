@@ -198,8 +198,12 @@ export interface BugHuntEngineClient {
     prompt: string;
     baseVersionId?: string;
   }): Promise<EngineVersionRef>;
-  /** Block until the version leaves verifying/repairing. Returns the final state. */
-  waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string }>;
+  /**
+   * Block until the version leaves a transient phase. `settled` is false when the
+   * poll budget was exhausted while still transient, so the caller can avoid
+   * gating a still-generating version.
+   */
+  waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string; settled: boolean }>;
   /** Force a real build / preview check and return whether it passed. */
   forceBuild(ref: EngineVersionRef): Promise<EngineBuildResult>;
   repair(ref: EngineVersionRef, context?: EngineRepairContext): Promise<EngineRepairResult>;
@@ -388,7 +392,26 @@ async function processVersion(
   scenario: BugHuntScenario,
   ref: EngineVersionRef,
 ): Promise<void> {
-  await deps.client.waitForVersionSettled(ref);
+  const settle = await deps.client.waitForVersionSettled(ref);
+  if (!settle.settled) {
+    // The version never left a transient phase within the settle budget. Do NOT
+    // force a gate (it would record a misleading pass/fail for a still-
+    // generating version, Bugbot); record an explicit unverified warning.
+    const unsettledCtx: MapFindingsContext = {
+      runId,
+      scenario: scenario.id,
+      chatId: ref.chatId,
+      versionId: ref.versionId,
+      buildResult: "unknown",
+      repairOutcome: null,
+    };
+    await persistFindings(deps, tracker, [buildOutcomeFinding(unsettledCtx)]);
+    deps.log?.("bug_hunt_version_unsettled", {
+      versionId: ref.versionId,
+      state: settle.state,
+    });
+    return;
+  }
   let build = await deps.client.forceBuild(ref);
   let repairOutcome: string | null = null;
 

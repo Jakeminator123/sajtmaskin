@@ -95,6 +95,7 @@ describe("createHttpEngineClient.waitForVersionSettled (Codex P1: read phase)", 
     });
     const result = await client.waitForVersionSettled({ chatId: "c1", versionId: "v1" });
     expect(result.state).toBe("done");
+    expect(result.settled).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
@@ -114,6 +115,7 @@ describe("createHttpEngineClient.waitForVersionSettled (Codex P1: read phase)", 
     const result = await client.waitForVersionSettled({ chatId: "c1", versionId: "v1" });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(result.state).toBe("streaming");
+    expect(result.settled).toBe(false);
   });
 
   it("treats a blocked phase as settled (terminal-with-blockers)", async () => {
@@ -128,6 +130,7 @@ describe("createHttpEngineClient.waitForVersionSettled (Codex P1: read phase)", 
     });
     const result = await client.waitForVersionSettled({ chatId: "c1", versionId: "v1" });
     expect(result.state).toBe("blocked");
+    expect(result.settled).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

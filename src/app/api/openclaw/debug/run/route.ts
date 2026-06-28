@@ -16,7 +16,14 @@ import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-error
 import { getRequestUserId } from "@/lib/tenant";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Aligned with the engine stream routes this run drives (`/api/engine/chats/
+// stream` + `[chatId]/stream` use 800) so a single createChat/follow-up doesn't
+// outlive the orchestrating invocation (Bugbot). NOTE residual limitation: a
+// worst-case scenario that chains a slow createChat + forceBuild + repair can
+// still exceed even 800s; the runner (scripts/openclaw/bug-hunt.mjs) drives ONE
+// scenario per call and retries, and the bug-hunt budget bounds the loop, so a
+// cut-off invocation degrades to partial findings rather than corrupt state.
+export const maxDuration = 800;
 
 /**
  * Gated trigger for the OpenClaw debug-mode bug-hunt (Mode B).
