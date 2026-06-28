@@ -25,6 +25,8 @@ const txUpdateSet = vi.hoisted(() => ({ value: undefined as unknown }));
 const txUpdateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
 const acceptSelectForUpdate = vi.hoisted(() => ({ value: false }));
 const acquireWins = vi.hoisted(() => ({ value: true }));
+// The row acceptRepair SELECTs FOR UPDATE: { repairedFilesJson, filesJson }.
+const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
 
 function renderSql(value: unknown): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,7 +38,7 @@ const tx = {
     from: () => ({
       where: () => ({
         limit: () => {
-          const rows = [{ repairedFilesJson: '{"src/app/page.tsx":"x"}' }];
+          const rows = selectRows.value;
           const p = Promise.resolve(rows) as Promise<typeof rows> & {
             for?: (mode: string) => Promise<typeof rows>;
           };
@@ -103,6 +105,21 @@ import {
   failVersionVerificationIfUnleased,
   acquireVersionLease,
 } from "./chat-repository-pg";
+import { encodeRepairedFilesEnvelope } from "./repair-files-payload";
+
+const BASE_A = '[{"path":"app/page.tsx","content":"A"}]';
+const REPAIRED_JSON = '[{"path":"app/page.tsx","content":"A-fixed"}]';
+
+/** A pending-repair row whose envelope base-hash matches `filesJson`. */
+function envelopeRow(filesJson: string) {
+  return {
+    repairedFilesJson: encodeRepairedFilesEnvelope({
+      repairedFilesJson: REPAIRED_JSON,
+      baseFilesJson: filesJson,
+    }),
+    filesJson,
+  };
+}
 
 function mockLeaseTableExists(exists: boolean) {
   execute.mockResolvedValue({ rows: [{ oid: exists ? "16384" : null }] });
@@ -116,18 +133,22 @@ function resetCaptures() {
   txUpdateWhere.value = undefined;
   acceptSelectForUpdate.value = false;
   acquireWins.value = true;
+  // Default: a base-matching envelope so the promote path runs.
+  selectRows.value = [envelopeRow(BASE_A)];
 }
 
-describe("acceptRepair — atomic promote, payload binding, missing-table + row-lock (Codex P2)", () => {
+describe("acceptRepair — envelope base-hash guard, atomic promote, missing-table + row-lock (Codex P2 + #260 #5)", () => {
   beforeEach(resetCaptures);
 
-  it("promotes the pending repair via a column reference (not a JS snapshot)", async () => {
+  it("promotes the files extracted from a base-matching envelope (bound string, not a column ref)", async () => {
     mockLeaseTableExists(true);
     await acceptRepair("ver-1");
     expect(transaction).toHaveBeenCalledTimes(1);
     const set = txUpdateSet.value as Record<string, unknown>;
-    expect(typeof set.filesJson).not.toBe("string");
-    expect(renderSql(set.filesJson)).toContain("repaired_files_json");
+    // The promote now writes the envelope's files (verified against the base),
+    // not a `repaired_files_json` column reference.
+    expect(typeof set.filesJson).toBe("string");
+    expect(set.filesJson).toBe(REPAIRED_JSON);
   });
 
   it("locks the version row (FOR UPDATE) before the conditional promote", async () => {
@@ -151,6 +172,58 @@ describe("acceptRepair — atomic promote, payload binding, missing-table + row-
     mockLeaseTableExists(false);
     await acceptRepair("ver-1");
     const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("repaired_files_json");
+    expect(where).not.toContain("engine_version_jobs");
+    expect(where).not.toContain("to_regclass");
+  });
+
+  it("refuses to promote a STALE envelope (files_json changed since the repair base)", async () => {
+    mockLeaseTableExists(true);
+    // Same envelope (base A) but the row's current files_json is now B.
+    selectRows.value = [
+      {
+        repairedFilesJson: envelopeRow(BASE_A).repairedFilesJson,
+        filesJson: '[{"path":"app/page.tsx","content":"B"}]',
+      },
+    ];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    // No promote UPDATE was built — the user's edit (B) is left untouched.
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("clears a LEGACY plain-array payload (no base hash -> fail closed, no silent overwrite)", async () => {
+    mockLeaseTableExists(true);
+    selectRows.value = [{ repairedFilesJson: REPAIRED_JSON, filesJson: BASE_A }];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    // Fail closed by CLEARING the pending repair + marking failed, so the
+    // versions/readiness routes stop advertising an un-acceptable repair forever
+    // (manual accept + timed auto-accept would otherwise loop on the refusal).
+    const set = txUpdateSet.value as Record<string, unknown>;
+    expect(set).toBeDefined();
+    expect(set.repairedFilesJson).toBeNull();
+    expect(set.repairAvailableAt).toBeNull();
+    expect(set.verificationState).toBe("failed");
+    // files_json is never overwritten — no silent clobber of the user's edit.
+    expect(set.filesJson).toBeUndefined();
+    // The clear carries the SAME active-lease + exact-payload guard as the
+    // promote path: it must not clear/fail the row from under a verify/repair
+    // job that acquired the lease in the gap before this tx locked the row.
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("repaired_files_json");
+    expect(where).toContain("not exists");
+    expect(where).toContain("engine_version_jobs");
+    expect(where).toContain("lease_expires_at");
+  });
+
+  it("clears a legacy payload WITHOUT naming engine_version_jobs pre-migration", async () => {
+    mockLeaseTableExists(false);
+    selectRows.value = [{ repairedFilesJson: REPAIRED_JSON, filesJson: BASE_A }];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    const where = renderSql(txUpdateWhere.value);
+    // Still binds to the exact payload, but never references the absent table.
     expect(where).toContain("repaired_files_json");
     expect(where).not.toContain("engine_version_jobs");
     expect(where).not.toContain("to_regclass");
