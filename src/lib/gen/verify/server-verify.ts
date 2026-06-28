@@ -43,10 +43,7 @@ import {
 // below reaches both the legacy surfaces and the UI projection.
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
-import {
-  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
-  resolvePostRepairGateChecks,
-} from "./quality-gate-checks";
+import { resolvePostRepairGateChecks } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -141,13 +138,20 @@ export async function triggerServerVerification(params: {
   chatId: string;
   versionId: string;
   diagnosticOnly?: boolean;
+  /**
+   * Force `build` into the initial verify gate (#260 Codex P2). Set by the
+   * post-supersede re-verify when the abandoned repair was build-originated, so
+   * the current files (B) are not false-greened by the typecheck-only lane while
+   * a Next build failure still lingers. Defaults to off for the normal F2 path.
+   */
+  forceBuildCheck?: boolean;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
 }): Promise<void> {
-  const { chatId, versionId, onRepairAvailable, diagnosticOnly = false } = params;
+  const { chatId, versionId, onRepairAvailable, diagnosticOnly = false, forceBuildCheck = false } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
   const lease = await acquireVerifyLease(versionId, "server_verify");
@@ -161,6 +165,9 @@ export async function triggerServerVerification(params: {
   // #260 Codex P2 (stale-base re-verify): set when the repair no-op'd because a
   // concurrent user edit advanced files_json past the repaired-from snapshot.
   let supersededByUserEdit = false;
+  // #260 Codex P2 (build-origin false-green): carry the abandoned repair's
+  // build-origin into the post-supersede re-verify so B's gate keeps `build`.
+  let reverifyForceBuildCheck = false;
 
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
@@ -189,7 +196,10 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+      // #260 Codex P2: normally the typecheck-only design-preview lane, but a
+      // post-supersede re-verify of a build-originated repair keeps `build` so a
+      // still-broken Next build cannot pass on typecheck alone.
+      checks: resolvePostRepairGateChecks(forceBuildCheck),
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.", runId).catch(() => null);
@@ -334,6 +344,7 @@ export async function triggerServerVerification(params: {
       runId,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
+    reverifyForceBuildCheck = repairOutcome.buildOriginated;
   } catch (err) {
     console.error("[server-verify] Error:", err);
     await failVersionVerification(
@@ -353,7 +364,13 @@ export async function triggerServerVerification(params: {
   // failed-because-B-fails), never failed from the abandoned stale repair(A).
   // Recursion is naturally bounded by user edits (one re-verify per edit).
   if (supersededByUserEdit) {
-    await triggerServerVerification({ chatId, versionId, onRepairAvailable, diagnosticOnly });
+    await triggerServerVerification({
+      chatId,
+      versionId,
+      onRepairAvailable,
+      diagnosticOnly,
+      forceBuildCheck: reverifyForceBuildCheck,
+    });
   }
 }
 
@@ -444,6 +461,9 @@ export async function triggerBuildErrorRepair(params: {
   }
   const runId = lease.runId;
   let supersededByUserEdit = false;
+  // #260 Codex P2: this loop is always build-originated; carry that into the
+  // post-supersede re-verify so the current files' gate keeps `build`.
+  let reverifyForceBuildCheck = false;
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const snapshot = await getVersionFilesSnapshot(versionId);
@@ -471,6 +491,7 @@ export async function triggerBuildErrorRepair(params: {
       runId,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
+    reverifyForceBuildCheck = repairOutcome.buildOriginated;
   } catch (err) {
     console.error("[server-verify] build-error repair failed:", err);
   } finally {
@@ -484,7 +505,12 @@ export async function triggerBuildErrorRepair(params: {
   // AFTER releasing this run's lease) so B reaches an honest terminal state
   // instead of lingering in `repairing`. See triggerServerVerification.
   if (supersededByUserEdit) {
-    await triggerServerVerification({ chatId, versionId, onRepairAvailable });
+    await triggerServerVerification({
+      chatId,
+      versionId,
+      onRepairAvailable,
+      forceBuildCheck: reverifyForceBuildCheck,
+    });
   }
 }
 
@@ -499,6 +525,14 @@ export async function triggerBuildErrorRepair(params: {
  */
 interface ServerRepairLoopOutcome {
   supersededByUserEdit: boolean;
+  /**
+   * The repair was entered from a build/preview-start failure. When the repair
+   * is superseded by a concurrent user edit, the caller's re-verify of the
+   * CURRENT files (B) MUST keep `build` in its gate — re-verifying B with the
+   * typecheck-only design-preview lane could false-green a still-broken build,
+   * reintroducing exactly the case this change fixes (#260 Codex P2).
+   */
+  buildOriginated: boolean;
 }
 
 async function tryServerRepairLoop(params: {
@@ -540,6 +574,14 @@ async function tryServerRepairLoop(params: {
     jobFinishedAt,
   };
   const hadQualityGateFailures = failedOutputs.length > 0;
+  // #260 Codex P2 (build-origin false-green): the repair was entered from a
+  // build/preview-start failure. Check ALL original failures, not just
+  // `firstFailureCheck`: when typecheck AND build both failed, `firstFailureCheck`
+  // is "typecheck", yet the build must still be re-run — both in the post-repair
+  // gate below AND in the caller's post-supersede re-verify of the current files.
+  const buildOriginated =
+    failedOutputs.some((output) => output.check === "build") ||
+    firstFailureCheck === "build";
   // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
   // because a concurrent user edit advanced files_json past the repaired-from
   // snapshot. Used after the loop to skip failVersionVerification so the user's
@@ -609,13 +651,8 @@ async function tryServerRepairLoop(params: {
       hadQualityGateFailures,
       // #260 Codex P2 (build-origin false-green): a build/preview-start repair
       // must not re-gate with the typecheck-only design-preview lane — tsc can
-      // pass while `next build` is still broken. Check ALL original failures, not
-      // just `firstFailureCheck`: when typecheck AND build both failed,
-      // `firstFailureCheck` is "typecheck", yet the build must still be re-run.
-      checks: resolvePostRepairGateChecks(
-        failedOutputs.some((output) => output.check === "build") ||
-          firstFailureCheck === "build",
-      ),
+      // pass while `next build` is still broken.
+      checks: resolvePostRepairGateChecks(buildOriginated),
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -757,7 +794,7 @@ async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return { supersededByUserEdit: false };
+    return { supersededByUserEdit: false, buildOriginated };
   }
 
   const finalizeAction = resolvePostRepairFinalize({
@@ -793,7 +830,7 @@ async function tryServerRepairLoop(params: {
       fixerModel,
       loopResult.errorManifest,
     );
-    return { supersededByUserEdit: true };
+    return { supersededByUserEdit: true, buildOriginated };
   }
 
   if (finalizeAction === "fail_syntax_clean") {
@@ -815,7 +852,7 @@ async function tryServerRepairLoop(params: {
       loopResult.errorManifest,
       { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: true },
     );
-    return { supersededByUserEdit: false };
+    return { supersededByUserEdit: false, buildOriginated };
   }
 
   await failVersionVerification(
@@ -836,7 +873,7 @@ async function tryServerRepairLoop(params: {
     loopResult.errorManifest,
     { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: false },
   );
-  return { supersededByUserEdit: false };
+  return { supersededByUserEdit: false, buildOriginated };
 }
 
 function logRepairOutcome(

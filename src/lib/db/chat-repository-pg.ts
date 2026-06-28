@@ -693,7 +693,25 @@ export async function acceptRepair(
             "Pending repair could not be verified against the current files; please re-run repair.",
           promotedAt: null,
         })
-        .where(eq(engineVersions.id, versionId));
+        .where(
+          and(
+            eq(engineVersions.id, versionId),
+            // Bind to the exact legacy payload read above: if a replacement
+            // (envelope) repair was saved in the gap, this no-ops instead of
+            // clearing a now-valid pending repair.
+            sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+            // Same active-lease guard as the promote update below: the route +
+            // maybeAutoAcceptTimedOutRepair "no active lease" pre-checks are only
+            // a fast-fail. If a verify/repair job acquired the lease in the gap
+            // before this transaction locked the row, do NOT clear/fail the row
+            // from under it — the running job will produce a fresh envelope
+            // repair that supersedes this legacy payload. Only name
+            // engine_version_jobs when it exists (see leaseTableExists).
+            jobsExist
+              ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+              : undefined,
+          ),
+        );
       return null;
     }
     const currentFilesJson = rows[0]?.filesJson;

@@ -237,3 +237,77 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     );
   });
 });
+
+describe("POST repair — no-context AND stale-base must not fail the user's newer edit (#260 P2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [] });
+    // The save no-ops because a concurrent user edit advanced files_json.
+    saveRepairedFiles.mockResolvedValue({ status: "stale_base" });
+    // Drive a promotion attempt (which sets staleBaseNoOp) and THEN the
+    // no-context branch. onNoContext must be guarded so it does NOT fail the
+    // version once a stale-base no-op has occurred.
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+        onNoContext?: () => Promise<void> | void;
+      }) => {
+        await opts.onAttemptPromotion('```tsx file="app/page.tsx"\nx\n```', "llm");
+        await opts.onNoContext?.();
+        return {
+          promoted: false,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: { newVersionId: null },
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: true,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("skips the no-context failVersionVerification and reports superseded on stale_base", async () => {
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+    const body = await res.json();
+
+    // The no-context branch must NOT finalize the user's newer edit B as failed
+    // from the stale repair(A).
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // Surfaced as superseded, not a plain no-context result that would imply B
+    // itself is unrepairable.
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.status).toBe("superseded");
+    // B is re-verified on a fresh lease, scheduled via after().
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
+  });
+});

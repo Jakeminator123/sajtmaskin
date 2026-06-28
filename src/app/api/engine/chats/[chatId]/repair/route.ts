@@ -430,6 +430,11 @@ async function handlePOST(
       },
       onNoContext: async () => {
         if (!dbConfigured) return;
+        // #260 Codex P2: the promotion attempt already no-op'd on stale_base (a
+        // concurrent user edit advanced files_json), so do NOT fail the version
+        // here — that would finalize the user's newer edit B as failed from a
+        // stale repair. The finally-block re-verify settles B on a fresh lease.
+        if (staleBaseNoOp) return;
         await failVersionVerification(
           currentVersionId,
           "Repair attempted but no actionable error context available.",
@@ -489,6 +494,35 @@ async function handlePOST(
         repairContext.qualityGateMeta,
         loopResult.errorManifest,
       );
+      // #260 Codex P2: a concurrent user edit advanced files_json during the
+      // promotion attempt (stale_base), so onNoContext deliberately skipped
+      // failing the version. Surface it as superseded — the finally-block
+      // re-verify settles B on a fresh lease — instead of a plain no-context
+      // result that would imply B itself is unrepairable. (The post-loop
+      // stale-base branch below is unreachable here: noContext returns first.)
+      if (staleBaseNoOp) {
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: currentVersionId,
+            level: "warning" as const,
+            category: "server-repair",
+            message:
+              "Repair not finalized: files_json advanced (concurrent edit); version not failed from stale repair.",
+            meta: { serverOwned: false, staleBaseNoOp: true },
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log stale-base skip (no-context):", err);
+        });
+        return NextResponse.json({
+          repaired: false,
+          deterministic: false,
+          remainingErrors: loopResult.remainingErrors,
+          status: "superseded",
+          reason:
+            "Versionen ändrades under reparationen — den här reparationen sparades inte.",
+        });
+      }
       return NextResponse.json({
         repaired: false,
         deterministic: false,

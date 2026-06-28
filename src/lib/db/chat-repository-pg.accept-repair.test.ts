@@ -207,6 +207,26 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(set.verificationState).toBe("failed");
     // files_json is never overwritten — no silent clobber of the user's edit.
     expect(set.filesJson).toBeUndefined();
+    // The clear carries the SAME active-lease + exact-payload guard as the
+    // promote path: it must not clear/fail the row from under a verify/repair
+    // job that acquired the lease in the gap before this tx locked the row.
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("repaired_files_json");
+    expect(where).toContain("not exists");
+    expect(where).toContain("engine_version_jobs");
+    expect(where).toContain("lease_expires_at");
+  });
+
+  it("clears a legacy payload WITHOUT naming engine_version_jobs pre-migration", async () => {
+    mockLeaseTableExists(false);
+    selectRows.value = [{ repairedFilesJson: REPAIRED_JSON, filesJson: BASE_A }];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    const where = renderSql(txUpdateWhere.value);
+    // Still binds to the exact payload, but never references the absent table.
+    expect(where).toContain("repaired_files_json");
+    expect(where).not.toContain("engine_version_jobs");
+    expect(where).not.toContain("to_regclass");
   });
 });
 
