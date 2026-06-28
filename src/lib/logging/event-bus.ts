@@ -33,6 +33,7 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import type {
@@ -43,7 +44,23 @@ import type {
   RunIndexEntry,
 } from "./event-bus-types";
 
-export const RUNS_ROOT_DIR = path.join(process.cwd(), "data", "runs");
+/**
+ * On Vercel the deployment bundle (`/var/task`, i.e. `process.cwd()`) is
+ * read-only; only the per-invocation `/tmp` is writable. Writing run NDJSON
+ * under `process.cwd()/data/runs` therefore always threw
+ * `ENOENT ... mkdir '/var/task/data/runs/...'` in production — spamming logs
+ * and silently disabling on-disk replay. Mirror to `os.tmpdir()` on Vercel so
+ * within-instance replay keeps working without the noise; local/dev keeps the
+ * repo-relative path so `data/runs/` stays inspectable.
+ */
+function resolveRunsRootDir(): string {
+  if (process.env.VERCEL) {
+    return path.join(os.tmpdir(), "sajtmaskin", "data", "runs");
+  }
+  return path.join(process.cwd(), "data", "runs");
+}
+
+export const RUNS_ROOT_DIR = resolveRunsRootDir();
 export const RUNS_INDEX_FILE = ".runs.json";
 export const EVENTS_NDJSON_FILE = "events.ndjson";
 

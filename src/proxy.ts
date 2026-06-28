@@ -34,6 +34,18 @@ function needsUserAuth(pathname: string): boolean {
 
 const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com", "https://studio.d-id.com"];
 
+// Vercel Toolbar / Vercel Live (preview overlays, comments, feedback) load assets
+// from vercel.live, Pusher (realtime channel) and Vercel's CDN. Without these on
+// the allowlist the injected toolbar trips CSP and floods /api/csp-report with
+// script-src-elem / frame-src / font-src violations against https://vercel.live.
+const VERCEL_LIVE_HOSTS = {
+  script: ["https://vercel.live"],
+  style: ["https://vercel.live"],
+  font: ["https://vercel.live", "https://assets.vercel.com"],
+  frame: ["https://vercel.live"],
+  connect: ["https://vercel.live", "https://*.pusher.com", "wss://*.pusher.com"],
+} as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -90,7 +102,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ].join("; ");
   }
 
-  const scriptSrc = [`'self'`, `'nonce-${nonce}'`];
+  const scriptSrc = [`'self'`, `'nonce-${nonce}'`, ...VERCEL_LIVE_HOSTS.script];
   const imgSrc = [
     "'self'",
     "data:",
@@ -101,8 +113,8 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...tier2PreviewHosts];
-  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...tier2PreviewHosts];
+  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...VERCEL_LIVE_HOSTS.frame, ...tier2PreviewHosts];
+  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...VERCEL_LIVE_HOSTS.connect, ...tier2PreviewHosts];
   const mediaSrc = [`'self'`, "blob:"];
   const workerSrc = [`'self'`, "blob:"];
 
@@ -126,9 +138,9 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
-    "style-src 'self' 'unsafe-inline'",
+    `style-src 'self' 'unsafe-inline' ${VERCEL_LIVE_HOSTS.style.join(" ")}`,
     `img-src ${imgSrc.join(" ")}`,
-    "font-src 'self' data:",
+    `font-src 'self' data: ${VERCEL_LIVE_HOSTS.font.join(" ")}`,
     `frame-src ${frameSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `media-src ${mediaSrc.join(" ")}`,
