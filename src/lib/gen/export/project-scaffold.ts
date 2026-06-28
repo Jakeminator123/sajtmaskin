@@ -62,7 +62,11 @@ const PACKAGE_JSON = `{
     "three": "0.182.0",
     "@react-three/fiber": "9.6.0",
     "@react-three/drei": "10.7.7",
-    "date-fns": "4.1.0"
+    "date-fns": "4.1.0",
+    "react-error-boundary": "6.1.2",
+    "react-intersection-observer": "10.0.3",
+    "canvas-confetti": "1.9.4",
+    "@tanstack/react-virtual": "3.14.4"
   },
   "devDependencies": {
     "eslint": "9.39.2",
@@ -71,6 +75,7 @@ const PACKAGE_JSON = `{
     "@types/node": "22.19.17",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
+    "@types/canvas-confetti": "1.9.0",
     "@tailwindcss/postcss": "4.1.18",
     "tailwindcss": "4.1.18"
   },

@@ -21,6 +21,8 @@ Import type-only bindings with `import type`. Icons/components used in JSX or da
 Capability-specific composition details (Form + zod, Chart + Recharts, Calendar + date-fns, DataTable + TanStack, Combobox, InputOTP, Sonner import fall, R3F Canvas placement) are delivered through dossier instructions in the request-specific context when the capability is in scope. When a dossier is attached, follow its compact instructions. When it is not, pick a minimal, self-contained shadcn composition rather than inventing a parallel pattern.
 
 - **next-themes ThemeProvider** wraps `{children}` directly inside `<body>` in `app/layout.tsx` — never only inside `<main>`.
+- **@tanstack/react-query** is available but its provider is NOT auto-wired: if you use `useQuery`/`useMutation`/`useInfiniteQuery`/`useSuspenseQuery`, add a `"use client"` provider that wraps the app in `<QueryClientProvider>` (create the `QueryClient` once via `useState(() => new QueryClient())`, never inside render) and mount it in `app/layout.tsx` around `{children}`.
+- **Always-available utilities** (in the scaffold baseline — import freely, no extra deps): `react-error-boundary` (`ErrorBoundary` for graceful fallbacks instead of a white screen), `react-intersection-observer` (`useInView` for scroll-reveal/lazy sections), `@tanstack/react-virtual` (`useVirtualizer` for long lists/tables), and `canvas-confetti` (success/celebration effects — client-only: call inside an event handler or `useEffect`, never during SSR/render).
 
 ## No Empty Stub Modules
 

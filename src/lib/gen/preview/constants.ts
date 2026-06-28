@@ -50,6 +50,10 @@ export const PREVIEW_BUILTIN_SOURCES = new Set([
   "tailwind-merge",
   "@tanstack/react-table",
   "@tanstack/react-query",
+  "@tanstack/react-virtual",
+  "react-error-boundary",
+  "react-intersection-observer",
+  "canvas-confetti",
 ]);
 
 export function isPreviewBuiltinImportSource(source: string): boolean {
