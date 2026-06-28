@@ -74,10 +74,17 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * nothing 400s and the retired model never actually executes.
  *
  * Sonnet 4.6 was retired 2026-06-28 → Opus 4.8 (see manifest `buildProfiles`).
+ * Both the dot form (`claude-sonnet-4.6`) and the API/version-normalized dash
+ * form (`claude-sonnet-4-6`, produced by `resolveAnthropicBriefModelId` before
+ * `createDirectModel`) are mapped across all provider prefixes so no brief /
+ * direct-model path can slip the retired id through.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
   "claude-sonnet-4.6": "claude-opus-4.8",
+  "claude-sonnet-4-6": "claude-opus-4-8",
   "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
+  "anthropic/claude-sonnet-4-6": "anthropic/claude-opus-4-8",
+  "anthropic-direct/claude-sonnet-4.6": "anthropic-direct/claude-opus-4-8",
   "anthropic-direct/claude-sonnet-4-6": "anthropic-direct/claude-opus-4-8",
 };
 

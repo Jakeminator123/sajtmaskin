@@ -26,7 +26,7 @@
 import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
-import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 // ============================================
@@ -131,7 +131,10 @@ export function getPromptAssistModelLabel(model: string): string {
 }
 
 export function getDefaultPromptAssistModel(): string {
-  const defaultCandidate = DEFAULT_PROMPT_ASSIST.model;
+  // Alias retired ids first so a deployment still setting SAJTMASKIN_ASSIST_MODEL
+  // to a retired Sonnet id resolves to its Opus replacement instead of silently
+  // failing the allow-list check and falling back to "off".
+  const defaultCandidate = aliasRetiredModelId(DEFAULT_PROMPT_ASSIST.model);
   if (PROMPT_ASSIST_MODEL_ALLOWLIST.has(defaultCandidate)) return defaultCandidate;
   return PROMPT_ASSIST_MODEL_OPTIONS[0]?.value || defaultCandidate;
 }
