@@ -282,8 +282,13 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
     // Matchar `VARNAME[: Tuple[str, ...]] = ( "a", "b", ... )` och plockar ut de
     // citerade tabellnamnen. Hoppar avsiktligt över `EXPECTED_TABLES = A + B + C`
     // (den raden har inga strängliteraler, så regexen matchar den inte).
+    //
+    // Stripa Python-radkommentarer FÖRST: en kommentar med ")" inuti en tuple
+    // (t.ex. "(#256)") skulle annars trunkera den non-greedy paren-matchningen
+    // nedan och tyst tappa tabeller som står efter kommentaren.
+    const noComments = source.replace(/#.*$/gm, "");
     const re = new RegExp(`${varName}\\s*(?::[^=]*)?=\\s*\\(([\\s\\S]*?)\\)`);
-    const m = source.match(re);
+    const m = noComments.match(re);
     if (!m) return new Set();
     const out = new Set<string>();
     const sRe = /["']([a-z_][a-z0-9_]*)["']/g;
@@ -328,5 +333,14 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
           `Flytta migration-only-tabeller till KNOWN_EXTRA_TABLES, eller ta bort raden.`,
       );
     }
+  });
+
+  it("klassar engine_version_jobs som rad-behållande (ej EMPTY) — Codex P1 #267", () => {
+    // Lease/jobs-tabellen behåller rader (releaseVersionLease sätter done/failed,
+    // den raderar inte). I EMPTY-gruppen (0 rader krävs) skulle prod-sync-gaten
+    // falsk-faila efter varje verify/repair-körning. Den ska existens-verifieras
+    // men tolerera rader (CACHE/PRESERVED), inte ligga i EMPTY.
+    expect(pyEmpty.has("engine_version_jobs")).toBe(false);
+    expect(pyExpected.has("engine_version_jobs")).toBe(true);
   });
 });

@@ -112,7 +112,6 @@ EMPTY_TABLES: Tuple[str, ...] = (
     "engine_versions",
     "engine_generation_logs",
     "engine_version_error_logs",
-    "engine_version_jobs",
     "generation_telemetry",
     "version_comments",
     "version_approvals",
@@ -140,6 +139,13 @@ CACHE_TABLES: Tuple[str, ...] = (
     "registry_cache",
     "guest_usage",
     "page_views",
+    # Transient distributed-lease/jobs table (#256). Rows are legitimately
+    # RETAINED: releaseVersionLease sets status=done/failed, it does NOT delete
+    # (src/lib/db/chat-repository-pg.ts). So it must NOT be EMPTY (0-row)
+    # classified — that would false-fail the prod-sync gate after any verify/
+    # repair run. Classified here for existence-only verification, row count
+    # informational (Codex P1 on #267).
+    "engine_version_jobs",
 )
 
 EXPECTED_TABLES: Tuple[str, ...] = EMPTY_TABLES + PRESERVED_TABLES + CACHE_TABLES
