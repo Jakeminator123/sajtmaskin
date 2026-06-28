@@ -22,6 +22,16 @@ import {
   isMandateActive,
 } from "@/lib/openclaw/debug/armed-mandate";
 
+/**
+ * Per-message dedup for armed auto-send (Bugbot). The armed card auto-submits on
+ * mount, but the card can remount (debugEnabled flips after the health check, a
+ * parent re-render, or the manual→armed card swap). A mount-scoped ref alone
+ * would let the SAME assistant `submit:true` action fire again and spend extra
+ * mandate steps. This module-scoped set records message ids that have already
+ * auto-sent in this session, so each action auto-sends at most once.
+ */
+const consumedArmedSends = new Set<string>();
+
 export function OpenClawMessage({ msg }: { msg: Msg }) {
   const isUser = msg.role === "user";
   const debugEnabled = useOpenClawStore((s) => s.debugEnabled);
@@ -74,8 +84,9 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
         {!isUser && action?.type === "fill_text_field" ? (
           canArmedSend ? (
             <OpenClawArmedSendCard
-              key={`armed:${action.target}:${action.value}`}
+              key={`armed:${msg.id}`}
               action={action}
+              messageId={msg.id}
             />
           ) : (
             <OpenClawFillTextFieldCard
@@ -246,15 +257,23 @@ function OpenClawStartBugHuntCard({
  */
 function OpenClawArmedSendCard({
   action,
+  messageId,
 }: {
   action: OpenClawFillTextFieldAction;
+  messageId: string;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
-  const [state, setState] = useState<"sending" | "sent" | "failed">("sending");
+  const [state, setState] = useState<"sending" | "sent" | "failed">(
+    consumedArmedSends.has(messageId) ? "sent" : "sending",
+  );
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
+    // Idempotency across remounts (Bugbot): if this message's action already
+    // auto-sent in this session, never fire (or consume a mandate step) again.
+    // Initial state is already "sent" in that case, so just bail without firing.
+    if (consumedArmedSends.has(messageId)) return;
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -282,6 +301,9 @@ function OpenClawArmedSendCard({
       if (isOpenClawSendReady(action.target)) {
         const result = triggerOpenClawSend(action.target);
         if (result.ok) {
+          // Mark consumed BEFORE state/mandate updates so a remount triggered by
+          // the resulting re-render can't replay this same auto-send.
+          consumedArmedSends.add(messageId);
           setState("sent");
           // Consume one authorized step; clears the mandate when exhausted.
           setArmedMandate(
@@ -303,7 +325,7 @@ function OpenClawArmedSendCard({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [action, setArmedMandate]);
+  }, [action, setArmedMandate, messageId]);
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">

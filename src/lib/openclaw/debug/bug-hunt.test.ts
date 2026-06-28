@@ -178,4 +178,38 @@ describe("runBugHunt", () => {
     );
     expect(client.repair).toHaveBeenCalledTimes(1);
   });
+
+  it("skips processing when createChat returns an unresolved ref (Bugbot)", async () => {
+    const client = fakeClient({
+      createChat: vi.fn(async () => ({ chatId: "", versionId: "" })),
+    });
+    const writeFindings = vi.fn(async () => undefined);
+    await runBugHunt(
+      { client, writeFindings, now: () => 0 },
+      { runId: "run1", scenarios: [{ id: "scn1", prompt: "x", followUps: ["f1"] }] },
+    );
+    // Unresolved init ref must not poll/build/write findings, and must not chain.
+    expect(client.forceBuild).not.toHaveBeenCalled();
+    expect(client.sendFollowUp).not.toHaveBeenCalled();
+    expect(writeFindings).not.toHaveBeenCalled();
+  });
+
+  it("stops the follow-up chain when a follow-up ref is unresolved (Bugbot)", async () => {
+    const client = fakeClient({
+      createChat: vi.fn(async () => ({ chatId: "chat1", versionId: "v1" })),
+      // Passing build so the init version doesn't trigger a repair re-build,
+      // keeping forceBuild call-count to exactly one per processed version.
+      forceBuild: vi.fn(async () => ({ result: "passed" as const })),
+      sendFollowUp: vi.fn(async () => ({ chatId: "", versionId: "" })),
+    });
+    const writeFindings = vi.fn(async () => undefined);
+    await runBugHunt(
+      { client, writeFindings, now: () => 0 },
+      { runId: "run1", scenarios: [{ id: "scn1", prompt: "x", followUps: ["f1", "f2"] }] },
+    );
+    // Init version processed once; the first follow-up returns an unresolved
+    // ref which breaks the chain, so it is never processed and f2 never sends.
+    expect(client.forceBuild).toHaveBeenCalledTimes(1);
+    expect(client.sendFollowUp).toHaveBeenCalledTimes(1);
+  });
 });

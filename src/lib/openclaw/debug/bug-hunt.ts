@@ -149,6 +149,11 @@ export interface EngineVersionRef {
   versionId: string;
 }
 
+/** True when both ids resolved — required before polling/building a version. */
+function isResolvedRef(ref: EngineVersionRef): boolean {
+  return Boolean(ref.chatId && ref.versionId);
+}
+
 /** A failed quality-gate check, in the shape the repair endpoint expects. */
 export interface EngineRepairGateFailure {
   check: "typecheck" | "build" | "lint";
@@ -444,6 +449,19 @@ export async function runBugHuntScenario(
   tracker.recordPrompt();
   deps.log?.("bug_hunt_scenario_init", { scenario: scenario.id });
   const initRef = await deps.client.createChat({ prompt: scenario.prompt });
+  // Fail fast on an unresolved ref (Bugbot): if SSE id extraction AND the
+  // versions-list fallback both failed, an empty chatId/versionId would make
+  // processVersion poll/build/write findings against an empty id — misleading
+  // results instead of a clean stop.
+  if (!isResolvedRef(initRef)) {
+    deps.log?.("bug_hunt_unresolved_ref", {
+      scenario: scenario.id,
+      stage: "init",
+      chatId: initRef.chatId,
+      versionId: initRef.versionId,
+    });
+    return null;
+  }
   await processVersion(deps, tracker, runId, scenario, initRef);
 
   let currentRef = initRef;
@@ -460,6 +478,17 @@ export async function runBugHuntScenario(
       prompt: followUp,
       baseVersionId: currentRef.versionId,
     });
+    // A follow-up that can't resolve its version can't be chained — stop the
+    // chain instead of processing an empty ref.
+    if (!isResolvedRef(ref)) {
+      deps.log?.("bug_hunt_unresolved_ref", {
+        scenario: scenario.id,
+        stage: "followup",
+        chatId: ref.chatId,
+        versionId: ref.versionId,
+      });
+      break;
+    }
     await processVersion(deps, tracker, runId, scenario, ref);
     currentRef = ref;
   }
