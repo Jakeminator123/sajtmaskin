@@ -97,7 +97,9 @@
     ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
   ],
 
+  // ── Git: hämta från origin automatiskt, snabbare än default 180 s ──
   "git.autofetch": true,
+  "git.autofetchPeriod": 120,
 
   // ── Python: stoppa auto-aktivering av .venv i NYA terminaler ──
   "python.terminal.activateEnvironment": false,
