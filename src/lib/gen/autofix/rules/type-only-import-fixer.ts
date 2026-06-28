@@ -144,6 +144,18 @@ export function fixTypeOnlyImports(code: string, filePath: string): FixResult {
     // Skip imports already marked type-only.
     if (/^\s*type\b/.test(specifierBlob)) continue;
 
+    // Never demote `lucide-react` icon glyphs to `import type`: they are
+    // runtime React components, frequently referenced ONLY as a bare value in
+    // a data/registry property (`{ icon: PawPrint }`) whose `:` this regex
+    // classifier cannot tell apart from a type annotation (`mesh: Mesh`). A
+    // type-only import is erased at build, so demoting it reintroduces the
+    // `ReferenceError: <Icon> is not defined` white-screen the icon-value
+    // import fixer exists to prevent. Lucide's genuine type exports
+    // (`LucideIcon`, `LucideProps`, …) are already split into a separate
+    // `import type` line upstream by `import-validator`, so this never strands
+    // a real type-only lucide usage.
+    if (/^['"]lucide-react['"]$/.test(source)) continue;
+
     // Tokenize specifiers, drop empty trailing comma noise.
     const specifierTokens = specifierBlob
       .split(",")

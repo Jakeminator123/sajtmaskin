@@ -75,6 +75,24 @@ const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
 const VERIFY_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
 const CLEANUP_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.cleanup;
 
+/**
+ * Resolve the effective abort timeout (ms) for a `/preview/verify` call.
+ *
+ * An optional caller override (the manual repair loop's budget-aware final gate)
+ * can only ever SHORTEN the static `VERIFY_TIMEOUT_MS`: it is clamped to the
+ * range `[1, VERIFY_TIMEOUT_MS]`, so a per-call timeout can never push the verify
+ * past the lease-holding route's `maxDuration` and skip
+ * `finally { releaseVersionLease }` (Codex P1 #286). A missing/invalid override
+ * falls back to the static timeout (back-compat — callers that pass nothing keep
+ * today's behavior).
+ */
+export function resolvePreviewHostVerifyTimeoutMs(overrideMs?: number): number {
+  if (typeof overrideMs !== "number" || !Number.isFinite(overrideMs)) {
+    return VERIFY_TIMEOUT_MS;
+  }
+  return Math.min(VERIFY_TIMEOUT_MS, Math.max(1, Math.floor(overrideMs)));
+}
+
 function nonEmptyString(raw: unknown): string | null {
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
@@ -693,6 +711,17 @@ export async function runPreviewHostQualityGate(params: {
   versionId: string;
   filesJson: Record<string, string>;
   checks: ReadonlyArray<"typecheck" | "build" | "lint">;
+  /**
+   * Optional ABSOLUTE `Date.now()`-based deadline by which the verify must have
+   * aborted. The budget-aware manual-repair final gate passes this so the verify
+   * aborts BEFORE the route's `maxDuration` and `finally { releaseVersionLease }`
+   * always runs (Codex P1 #286). The per-call abort timeout is derived from this
+   * deadline at fetch time (`deadline - Date.now()`), so any async prep before
+   * the fetch — and the cleanup-retry delay — is automatically subtracted, and it
+   * is clamped to `[1, VERIFY_TIMEOUT_MS]` (never exceeds the route budget).
+   * Undefined → the static `VERIFY_TIMEOUT_MS` (back-compat).
+   */
+  verifyDeadlineEpochMs?: number;
 }): Promise<PreviewHostVerifyOk | PreviewHostVerifyErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -703,6 +732,14 @@ export async function runPreviewHostQualityGate(params: {
     };
   }
   return retryPreviewHostRequestAfterCleanup(async () => {
+    // Derive the abort timeout from the absolute deadline at the LAST moment
+    // before the fetch (and again on a cleanup-retry), so elapsed prep never
+    // pushes the abort past the route hard-kill. Clamped to (0, VERIFY_TIMEOUT_MS].
+    const effectiveVerifyTimeoutMs = resolvePreviewHostVerifyTimeoutMs(
+      params.verifyDeadlineEpochMs !== undefined
+        ? params.verifyDeadlineEpochMs - Date.now()
+        : undefined,
+    );
     try {
       const res = await fetch(`${base}/preview/verify`, {
         method: "POST",
@@ -717,7 +754,7 @@ export async function runPreviewHostQualityGate(params: {
           filesJson: params.filesJson,
           checks: params.checks,
         }),
-        signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+        signal: AbortSignal.timeout(effectiveVerifyTimeoutMs),
       });
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok) {

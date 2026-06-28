@@ -141,8 +141,11 @@ export function decideOpenClawCodeContextMode(params: {
   page?: unknown;
   chatId?: unknown;
   currentCode?: unknown;
+  /** Debug-mode (OC_DEBUG): unlock full code context whenever a chat is open,
+   * bypassing the keyword/intent gating so OpenClaw always sees the project. */
+  debug?: boolean;
 }): OpenClawCodeContextMode {
-  const { messages, page, chatId, currentCode } = params;
+  const { messages, page, chatId, currentCode, debug } = params;
   const latestUserText = getLatestOpenClawUserText(messages);
   if (!latestUserText) return "none";
 
@@ -153,6 +156,11 @@ export function decideOpenClawCodeContextMode(params: {
 
   if (!onBuilderPage || (!hasChatId && !hasCurrentCode)) {
     return "none";
+  }
+
+  if (debug) {
+    if (hasChatId) return "full";
+    if (hasCurrentCode) return "light";
   }
 
   if (hasAnyTerm(latestUserText, FULL_CODE_CONTEXT_TERMS)) {

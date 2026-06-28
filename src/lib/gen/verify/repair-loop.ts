@@ -7,9 +7,17 @@ import { runDeterministicImportRepair } from "./repair-loop/deterministic-import
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
-import { AUTOFIX_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+import {
+  AUTOFIX_MAX_OUTPUT_TOKENS,
+  FINAL_GATE_MIN_FLOOR_MS,
+  FINAL_GATE_RELEASE_MARGIN_MS,
+} from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
-import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import {
+  isRepairBudgetExhausted,
+  resolveFinalGateVerifyBudget,
+  resolveServerRepairEarlyStopReason,
+} from "./server-repair-policy";
 import type { ReasoningEffort } from "@/lib/gen/engine";
 
 export type RepairMethod = "deterministic" | "llm";
@@ -92,6 +100,13 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   onAttemptPromotion: (
     projectContent: string,
     method: RepairMethod,
+    /**
+     * Per-attempt options. The final LLM gate passes an absolute
+     * `verifyDeadlineEpochMs` so the preview-host verify aborts before the
+     * route's `maxDuration` (Codex P1 #286). Omitted for the early deterministic
+     * promotion and for callers that don't bound the loop (back-compat).
+     */
+    options?: { verifyDeadlineEpochMs?: number },
   ) => Promise<RepairAttemptResult<TPayload>>;
   onNoContext?: () => Promise<void> | void;
   /**
@@ -104,6 +119,15 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   hasActionableErrorContext?: boolean;
   enableTargetedRepair?: boolean;
   targetedRepairMaxFiles?: number;
+  /**
+   * Absolute `Date.now()`-based deadline after which the loop must not START a
+   * new LLM fixer pass or the final preview-host verify. Lets a caller bound the
+   * loop to its route's static `maxDuration` so a multi-pass repair winds down
+   * gracefully (`earlyStopReason = "time_budget_exceeded"`) and releases its
+   * lease, instead of being hard-killed by the platform mid-pass / mid-DB-write
+   * (#284 follow-up). Undefined = no wall-clock bound (back-compat).
+   */
+  repairDeadlineEpochMs?: number;
 };
 
 type TargetedRepairBundle = {
@@ -536,6 +560,23 @@ export async function runRepairLoop<TPayload = unknown>(
 
   const filesFromGateOutput = parseFilesFromErrorLines(repairContextLines);
   for (let pass = 0; pass < params.maxLlmPasses; pass++) {
+    // Wall-clock graceful stop (#284 follow-up): never START a new LLM fixer
+    // pass that can't finish (including its retry attempt) before the route's
+    // static maxDuration. `pass > 0` so a repair always makes at least one
+    // attempt; later passes stop gracefully so the route can fail + release its
+    // lease instead of being hard-killed mid-pass — which would strand the
+    // version in `repairing` and abort the finalize DB write.
+    if (
+      pass > 0 &&
+      isRepairBudgetExhausted({
+        deadlineEpochMs: params.repairDeadlineEpochMs,
+        nowMs: Date.now(),
+        nextStepMaxMs: params.llmTimeoutMs + (params.llmRetryTimeoutMs ?? 0),
+      })
+    ) {
+      earlyStopReason = "time_budget_exceeded";
+      break;
+    }
     // Renew the distributed lease before the slow fixer call (Codex P2: a
     // multi-pass repair can exceed the lease TTL; renewing per pass keeps
     // ownership so the final lease-conditioned save isn't silently dropped).
@@ -679,19 +720,44 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: bestContent,
   });
   const syntaxClean = finalSyntaxResult.errors.length === 0;
+  // Wall-clock graceful stop for the FINAL preview-host verify (#284 follow-up;
+  // resolves Codex P1 + Bugbot HIGH on #286). The earlier fix reserved a FULL
+  // static verify timeout before starting the gate, but that reserve ≈ the whole
+  // loop budget, so the gate ALWAYS skipped and a manual LLM repair never promoted
+  // (Bugbot HIGH). Compute the ACTUAL remaining budget instead:
+  //   - too little left (<= floor) → skip gracefully so the caller fails +
+  //     releases the lease (the syntax-clean but UNVERIFIED content is not
+  //     promoted), set `time_budget_exceeded`;
+  //   - otherwise → RUN the verify, passing an absolute deadline so the verify's
+  //     AbortSignal (derived from `deadline - now` at the fetch site) fires before
+  //     the route's maxDuration even after async prep, and
+  //     `finally { releaseVersionLease }` always runs (Codex P1). The fetch-site
+  //     clamp keeps the timeout under the static verify cap (route-budget invariant).
   if (syntaxClean) {
-    const promoted = await params.onAttemptPromotion(bestContent, "llm");
-    return {
-      promoted: promoted.promoted,
-      method: "llm",
-      payload: promoted.payload,
-      llmPasses,
-      earlyStopReason,
-      remainingErrors: 0,
-      improvedSyntax: 0 < initialSyntaxErrorCount,
-      noContext: false,
-      errorManifest: finalErrorManifest,
-    };
+    const finalGate = resolveFinalGateVerifyBudget({
+      deadlineEpochMs: params.repairDeadlineEpochMs,
+      nowMs: Date.now(),
+      floorMs: FINAL_GATE_MIN_FLOOR_MS,
+      releaseMarginMs: FINAL_GATE_RELEASE_MARGIN_MS,
+    });
+    if (finalGate.skip) {
+      earlyStopReason = "time_budget_exceeded";
+    } else {
+      const promoted = await params.onAttemptPromotion(bestContent, "llm", {
+        verifyDeadlineEpochMs: finalGate.verifyDeadlineEpochMs,
+      });
+      return {
+        promoted: promoted.promoted,
+        method: "llm",
+        payload: promoted.payload,
+        llmPasses,
+        earlyStopReason,
+        remainingErrors: 0,
+        improvedSyntax: 0 < initialSyntaxErrorCount,
+        noContext: false,
+        errorManifest: finalErrorManifest,
+      };
+    }
   }
 
   return {

@@ -96,3 +96,78 @@ export function resolvePostRepairFinalize(input: {
   if (input.remainingErrors === 0) return "fail_syntax_clean";
   return "fail_incomplete";
 }
+
+/**
+ * Wall-clock budget guard for the repair loop (#284 follow-up: "stop the repair
+ * loop itself after repeated timeouts").
+ *
+ * Returns `true` when there is NOT enough wall-clock budget left to START the
+ * next expensive step — a new LLM fixer pass, or the final preview-host verify —
+ * before the lease-holding route's static `maxDuration` hard-kill. The caller
+ * must then stop gracefully: set `earlyStopReason = "time_budget_exceeded"` and
+ * let the route fail the version + release its distributed lease, instead of
+ * starting work the platform kills mid-flight. A mid-flight kill strands the
+ * version in `repairing` and aborts the finalize DB write — the
+ * `Task timed out after 300 seconds` / `statement timeout` errors observed in
+ * production.
+ *
+ * `deadlineEpochMs === undefined` means no wall-clock bound (back-compat: the
+ * loop behaves exactly as before, capped only by `maxLlmPasses`).
+ */
+export function isRepairBudgetExhausted(params: {
+  /** Absolute `Date.now()`-based deadline, or undefined for no bound. */
+  deadlineEpochMs: number | undefined;
+  /** Current wall-clock time (`Date.now()`). */
+  nowMs: number;
+  /**
+   * Worst-case duration (ms) of the step the caller is about to start. For an
+   * LLM pass this is the fixer timeout plus its retry timeout.
+   */
+  nextStepMaxMs: number;
+}): boolean {
+  if (params.deadlineEpochMs === undefined) return false;
+  return params.nowMs + params.nextStepMaxMs > params.deadlineEpochMs;
+}
+
+/**
+ * Decide whether the manual repair loop should RUN its final preview-host verify
+ * (the "final gate") and, if so, by what ABSOLUTE wall-clock deadline that verify
+ * must have aborted.
+ *
+ * This replaces the over-conservative static full-timeout *reserve* that always
+ * skipped the final verify (#286 Bugbot HIGH: "LLM-repair never promotes under
+ * budget"). That reserve (`PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify`) ≈ the loop
+ * budget, so `now + reserve > deadline` held for any elapsed time and the gate
+ * never ran. We use the ACTUAL remaining budget instead:
+ *
+ *   - No wall-clock bound (`deadlineEpochMs === undefined`) → RUN with the static
+ *     timeout (back-compat; e.g. the server-verify loop passes no deadline).
+ *   - `remainingMs <= floorMs` → SKIP gracefully. Too little time for a viable
+ *     verify; the caller sets `time_budget_exceeded` and releases its lease, and
+ *     the syntax-clean-but-unverified content is intentionally NOT promoted.
+ *   - otherwise → RUN, returning `verifyDeadlineEpochMs = deadlineEpochMs -
+ *     releaseMarginMs`. The verify's per-call abort timeout is derived from THIS
+ *     absolute deadline at the actual fetch site (see
+ *     `runPreviewHostQualityGate`), NOT as a duration here — so any async prep
+ *     between this decision and the fetch (scaffold partition,
+ *     `buildExportableProject`, lease renewal) is automatically subtracted. That
+ *     keeps the verify's `AbortSignal` firing before the route's `maxDuration`,
+ *     so `finally { releaseVersionLease }` always runs (Codex P1 #286), and the
+ *     fetch-site clamp guarantees the timeout never exceeds the static cap.
+ */
+export function resolveFinalGateVerifyBudget(params: {
+  /** Absolute `Date.now()`-based deadline, or undefined for no bound. */
+  deadlineEpochMs: number | undefined;
+  /** Current wall-clock time (`Date.now()`). */
+  nowMs: number;
+  /** Minimum remaining budget (ms) required to still START the final verify. */
+  floorMs: number;
+  /** Margin (ms) reserved before the deadline for abort + lease release. */
+  releaseMarginMs: number;
+}): { skip: boolean; verifyDeadlineEpochMs?: number } {
+  const { deadlineEpochMs, nowMs, floorMs, releaseMarginMs } = params;
+  if (deadlineEpochMs === undefined) return { skip: false };
+  const remainingMs = deadlineEpochMs - nowMs;
+  if (remainingMs <= floorMs) return { skip: true };
+  return { skip: false, verifyDeadlineEpochMs: deadlineEpochMs - releaseMarginMs };
+}

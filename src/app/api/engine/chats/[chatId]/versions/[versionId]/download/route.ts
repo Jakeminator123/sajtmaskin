@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 export async function GET(
   req: Request,
@@ -16,7 +17,11 @@ export async function GET(
     }
     const codeFiles = await getVersionFiles(scopedVersion.version.id);
     if (codeFiles && codeFiles.length > 0) {
-      const completeProject = await buildExportableProject(codeFiles);
+      // Strip the verify-lane placeholder `.env.local` at the download boundary
+      // (the shared builder keeps it for the verify/quality-gate lane).
+      const completeProject = stripGeneratedEnvLocalForZip(
+        await buildExportableProject(codeFiles),
+      );
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       for (const file of completeProject) {

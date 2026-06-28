@@ -1,0 +1,31 @@
+{
+  "$schema": "./debug-scenarios.schema.json",
+  "description": "Seed prompts for the OpenClaw debug-mode bug-hunt (Mode B autopilot). Each scenario drives the real generation/repair pipeline via the engine API. Chosen to stress the failure clusters seen in production: the Jakobs Biljard forum flow, long-URL/{{MEDIA}} token leakage, and Clerk/auth middleware. Consumed by scripts/openclaw/bug-hunt.mjs.",
+  "scenarios": [
+    {
+      "id": "jakobs-biljard-forum",
+      "label": "Jakobs Biljard — 2-sidig sajt med forum/blogg-flöde",
+      "prompt": "Bygg en sajt för 'Jakobs Biljard' med tema biljardspel på nätet. Två sidor: en startsida och en sida med ett forum/blogg-liknande flöde där besökare kan posta inlägg. Ge sajten en snygg logga.",
+      "followUps": [
+        "Lägg till möjligheten att skapa ett nytt foruminlägg med titel och text.",
+        "Lägg till en hero-bild på startsidan och ett galleri med biljardmotiv."
+      ]
+    },
+    {
+      "id": "long-url-media-tokens",
+      "label": "Long-URL prompt → {{MEDIA}}-token-läcka",
+      "prompt": "Bygg en enkel landningssida för ett kafé. Använd dessa hero-bilder: https://images.unsplash.com/photo-1615722440048-da4fd9202bb5?auto=format&fit=crop&w=1200&q=80 och https://images.unsplash.com/photo-1585591424436-a55926755d91?auto=format&fit=crop&w=1100&q=80 samt en galleribild https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=900&q=80. Sätt även Open Graph- och Twitter-bilder i metadata med samma URL:er.",
+      "followUps": [
+        "Lägg till ytterligare tre galleribilder och en om-oss-sektion med en bild."
+      ]
+    },
+    {
+      "id": "clerk-auth-middleware",
+      "label": "Clerk/auth → middleware 'Publishable key not valid'",
+      "prompt": "Bygg en medlemssajt med inloggning och en skyddad dashboard-sida, plus en publik /forum-sida som alla kan se utan att logga in. Använd autentisering.",
+      "followUps": [
+        "Se till att /forum och /forum/* är publika även om auth-nycklar saknas, och att sidan inte kraschar utan giltig nyckel."
+      ]
+    }
+  ]
+}

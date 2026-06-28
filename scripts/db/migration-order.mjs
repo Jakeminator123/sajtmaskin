@@ -41,6 +41,7 @@ export const MIGRATION_ORDER = [
   "rename-engine-version-preview-url.sql",
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",
+  "add-oc-debug-findings.sql",
 ];
 
 /**

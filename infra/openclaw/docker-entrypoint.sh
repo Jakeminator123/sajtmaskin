@@ -7,8 +7,11 @@ AGENT_DIR="$OPENCLAW_DIR/agents/sajtagenten/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-sajtagenten"
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
-MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.3-codex}"
-MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.1-codex}"
+# gpt-5.5 is OpenAI's current frontier model for complex coding / tool-heavy
+# agentic work (best fit for debug-mode bug-hunt). gpt-5.3-codex / gpt-5.1-codex
+# are deprecated. Override per instance with OPENCLAW_MODEL_PRIMARY/FALLBACK.
+MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.5}"
+MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.4}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
 CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
 

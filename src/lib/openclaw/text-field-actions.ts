@@ -1,5 +1,6 @@
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
+const OPENCLAW_SEND_TARGET_SELECTOR = "[data-openclaw-send-target]";
 
 type OpenClawTextFieldElement =
   | HTMLTextAreaElement
@@ -22,6 +23,13 @@ export interface OpenClawFillTextFieldAction {
   value: string;
   label?: string;
   focus?: boolean;
+  /**
+   * Debug-mode only: when true AND an armed mandate is active, the client fills
+   * the field and then clicks the real send button (no manual approval). Outside
+   * debug + armed mandate this flag is ignored and the normal fill-but-never-send
+   * behavior applies. The server only emits `submit:true` in debug mode.
+   */
+  submit?: boolean;
 }
 
 /**
@@ -36,9 +44,22 @@ export interface OpenClawRequestRepairAction {
   reason?: string;
 }
 
+/**
+ * Debug-mode only: OpenClaw confirms an arming handshake and creates a bounded
+ * autonomy mandate (Mode A). The client gates this on OPENCLAW.debugEnabled and
+ * sets the mandate in the store; outside debug it is ignored.
+ */
+export interface OpenClawStartBugHuntAction {
+  type: "start_bug_hunt";
+  mode?: "review_next" | "followups";
+  count?: number;
+  reason?: string;
+}
+
 export type OpenClawAction =
   | OpenClawFillTextFieldAction
-  | OpenClawRequestRepairAction;
+  | OpenClawRequestRepairAction
+  | OpenClawStartBugHuntAction;
 
 export interface ParsedOpenClawMessage {
   visibleContent: string;
@@ -189,7 +210,27 @@ function parseOpenClawAction(value: unknown): OpenClawAction | null {
   const type = (value as Record<string, unknown>).type;
   if (type === "fill_text_field") return parseOpenClawFillTextFieldAction(value);
   if (type === "request_repair") return parseOpenClawRequestRepairAction(value);
+  if (type === "start_bug_hunt") return parseOpenClawStartBugHuntAction(value);
   return null;
+}
+
+function parseOpenClawStartBugHuntAction(
+  value: unknown,
+): OpenClawStartBugHuntAction | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type !== "start_bug_hunt") return null;
+  const mode =
+    candidate.mode === "review_next" || candidate.mode === "followups"
+      ? candidate.mode
+      : undefined;
+  const count =
+    typeof candidate.count === "number" && Number.isFinite(candidate.count)
+      ? Math.trunc(candidate.count)
+      : undefined;
+  const reason =
+    typeof candidate.reason === "string" ? candidate.reason.trim().slice(0, 400) : undefined;
+  return { type: "start_bug_hunt", mode, count, reason: reason || undefined };
 }
 
 function parseOpenClawRequestRepairAction(
@@ -231,6 +272,7 @@ function parseOpenClawFillTextFieldAction(
     value: textValue,
     label: label || undefined,
     focus: candidate.focus !== false,
+    submit: candidate.submit === true,
   };
 }
 
@@ -331,4 +373,68 @@ function setNativeFormValue(
     return;
   }
   element.value = value;
+}
+
+// ===========================================================================
+// Debug-mode armed send (Mode A)
+// ===========================================================================
+
+export interface TriggerOpenClawSendResult {
+  ok: boolean;
+  /** "not_ready" means the button exists but is still disabled (caller retries). */
+  reason?: "not_found" | "not_ready" | "no_document";
+  error?: string;
+}
+
+function findOpenClawSendButton(
+  target: string,
+  root: ParentNode,
+): HTMLButtonElement | null {
+  const trimmed = target.trim();
+  if (!trimmed) return null;
+  const buttons = root.querySelectorAll(OPENCLAW_SEND_TARGET_SELECTOR);
+  for (const button of buttons) {
+    if (!(button instanceof HTMLButtonElement)) continue;
+    const buttonTarget = button.getAttribute("data-openclaw-send-target")?.trim() ?? "";
+    if (buttonTarget === trimmed) return button;
+  }
+  return null;
+}
+
+/**
+ * Whether the builder send button for `target` is present and currently
+ * clickable. Used by the armed auto-send loop to wait for React to enable the
+ * button after the field was filled (the button's `disabled` is derived from
+ * the trimmed input value + busy state).
+ */
+export function isOpenClawSendReady(
+  target: string,
+  root: ParentNode | null | undefined = typeof document === "undefined" ? null : document,
+): boolean {
+  if (!root) return false;
+  const button = findOpenClawSendButton(target, root);
+  return Boolean(button && !button.disabled);
+}
+
+/**
+ * Click the real builder send button for `target`. Only clicks when the button
+ * is enabled — never force-submits a disabled/busy composer. Pure DOM + guarded
+ * so it can be unit-tested against a jsdom button and never throws.
+ */
+export function triggerOpenClawSend(
+  target: string,
+  root: ParentNode | null | undefined = typeof document === "undefined" ? null : document,
+): TriggerOpenClawSendResult {
+  if (!root) {
+    return { ok: false, reason: "no_document", error: "Ingen dokumentyta tillgänglig." };
+  }
+  const button = findOpenClawSendButton(target, root);
+  if (!button) {
+    return { ok: false, reason: "not_found", error: "Hittar inte send-knappen." };
+  }
+  if (button.disabled) {
+    return { ok: false, reason: "not_ready", error: "Send-knappen är inte klar än." };
+  }
+  button.click();
+  return { ok: true };
 }

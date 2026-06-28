@@ -5,6 +5,7 @@ import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { sanitizeEnvSecretsForPublicExport } from "@/lib/gen/export/sanitize-public-export";
+import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 export const runtime = "nodejs";
 
@@ -48,9 +49,10 @@ export async function POST(
       if (codeFiles && codeFiles.length > 0) {
         // B11: this blob is uploaded with `access: "public"`, so strip secret
         // values from any `.env*` file before zipping (owner-scoped /download
-        // routes keep full content).
-        const completeProject = sanitizeEnvSecretsForPublicExport(
-          await buildExportableProject(codeFiles),
+        // routes keep full content). Then drop the verify-lane placeholder
+        // `.env.local` entirely from the artifact (compose AFTER sanitize).
+        const completeProject = stripGeneratedEnvLocalForZip(
+          sanitizeEnvSecretsForPublicExport(await buildExportableProject(codeFiles)),
         );
         const JSZip = (await import("jszip")).default;
         const zip = new JSZip();

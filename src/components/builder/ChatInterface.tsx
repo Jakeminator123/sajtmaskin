@@ -1104,7 +1104,10 @@ export function ChatInterface({
                 }
               />
             </PromptInputTools>
-            <PromptInputSubmit disabled={submitDisabled}>
+            <PromptInputSubmit
+              data-openclaw-send-target="builder.chat.primary"
+              disabled={submitDisabled}
+            >
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>
           </div>

@@ -701,6 +701,40 @@ export const engineVersionErrorLogs = pgTable(
   }),
 );
 
+/**
+ * OpenClaw debug-mode bug-hunt findings (OC_DEBUG). Structured, queryable
+ * results from an armed (Mode A) or autopilot (Mode B) bug-hunt run. Distinct
+ * from `engine_version_error_logs` (which the pipeline writes per version):
+ * this table is the debug harness's own observation log, grouped by `run_id`,
+ * with the build outcome it forced and the scenario it was probing. `chat_id` /
+ * `version_id` are plain text (no FK) so findings survive cleanup of the
+ * underlying debug chat/version and can reference synthetic ids.
+ */
+export const ocDebugFindings = pgTable(
+  "oc_debug_findings",
+  {
+    id: text("id").primaryKey(),
+    run_id: text("run_id").notNull(),
+    chat_id: text("chat_id"),
+    version_id: text("version_id"),
+    scenario: text("scenario"),
+    severity: text("severity").notNull(),
+    category: text("category"),
+    file: text("file"),
+    line: integer("line"),
+    message: text("message").notNull(),
+    build_result: text("build_result"),
+    repair_outcome: text("repair_outcome"),
+    meta: jsonb("meta"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    runIdx: index("idx_oc_debug_findings_run_id").on(table.run_id),
+    versionIdx: index("idx_oc_debug_findings_version_id").on(table.version_id),
+    createdIdx: index("idx_oc_debug_findings_created_at").on(table.created_at),
+  }),
+);
+
 export const generationTelemetry = pgTable(
   "generation_telemetry",
   {
