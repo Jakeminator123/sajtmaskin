@@ -24,9 +24,25 @@ export interface OpenClawFillTextFieldAction {
   focus?: boolean;
 }
 
+/**
+ * Fas 5: the assistant asks to start a repair of the active version. It carries
+ * no files — approval in the UI dispatches the existing client autofix event
+ * (`sajtmaskin:auto-fix`, manual), which runs the vetted repair flow and yields
+ * a new version awaiting acceptance. OC never writes files directly.
+ */
+export interface OpenClawRequestRepairAction {
+  type: "request_repair";
+  label?: string;
+  reason?: string;
+}
+
+export type OpenClawAction =
+  | OpenClawFillTextFieldAction
+  | OpenClawRequestRepairAction;
+
 export interface ParsedOpenClawMessage {
   visibleContent: string;
-  action: OpenClawFillTextFieldAction | null;
+  action: OpenClawAction | null;
   hasIncompleteAction: boolean;
 }
 
@@ -154,9 +170,9 @@ export function parseOpenClawMessage(
     .trim();
   const visibleContent = [beforeAction, afterAction].filter(Boolean).join("\n\n").trim();
 
-  let action: OpenClawFillTextFieldAction | null = null;
+  let action: OpenClawAction | null = null;
   try {
-    action = parseOpenClawFillTextFieldAction(JSON.parse(actionPayload));
+    action = parseOpenClawAction(JSON.parse(actionPayload));
   } catch {
     action = null;
   }
@@ -165,6 +181,31 @@ export function parseOpenClawMessage(
     visibleContent,
     action,
     hasIncompleteAction: false,
+  };
+}
+
+function parseOpenClawAction(value: unknown): OpenClawAction | null {
+  if (!value || typeof value !== "object") return null;
+  const type = (value as Record<string, unknown>).type;
+  if (type === "fill_text_field") return parseOpenClawFillTextFieldAction(value);
+  if (type === "request_repair") return parseOpenClawRequestRepairAction(value);
+  return null;
+}
+
+function parseOpenClawRequestRepairAction(
+  value: unknown,
+): OpenClawRequestRepairAction | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type !== "request_repair") return null;
+  const label =
+    typeof candidate.label === "string" ? candidate.label.trim().slice(0, 160) : "";
+  const reason =
+    typeof candidate.reason === "string" ? candidate.reason.trim().slice(0, 400) : "";
+  return {
+    type: "request_repair",
+    label: label || undefined,
+    reason: reason || undefined,
   };
 }
 
