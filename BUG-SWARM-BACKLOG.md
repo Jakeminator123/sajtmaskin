@@ -72,6 +72,7 @@ Systemet gör som tänkt; "fixen" är ett produkt-/arkitektur-**val** som medvet
 | Logg-/observability-/storage-städ | G#59, G#60, G#63, U#53, U#63, U#66 | Bred städ med sampling-/namespace-policy = sammanhållet pass, inte punktfix. |
 | Arkitektur (deploy-topologi/lane) | B3/E2, B1, B4, F4/F5, B7/#140 | Durable event-bus (multi-instans), S3-lane blockerande, canvas-PR-token, bus-emits/manifest-Zod, DB/Blob-gate-PR. |
 | A7-2 kod-default | B05 | Kod-fix (scope till valda dossiers) mergad #211; kod-default OFF kvarstår som ditt val (env satt i Vercel). |
+| Deferred re-verify hoppas över av inflight | BB-265 (MEDIUM) | Stale-base-recovery i `repair/route.ts` schemalägger `triggerServerVerification` via `after()`; om `inflight` redan håller versionId returnerar den tidigt och callbacken no-op:ar medan raden står i `repairing`. Täcks av readiness-watchdogen (`failVersionVerificationIfUnleased`, lease-safe, targetar `repairing` när lease-tabellen finns) + den samtidiga körningen som äger versionen. Ingen ny race införd. Kommentar finns vid `after()`-siten. |
 
 Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).
 

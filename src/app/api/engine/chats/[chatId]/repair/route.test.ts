@@ -311,3 +311,193 @@ describe("POST repair — no-context AND stale-base must not fail the user's new
     );
   });
 });
+
+describe("POST repair — build-originated stale-base re-verify forces the build gate (#265 F1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [] });
+    // A concurrent user edit advanced files_json, so the save no-ops.
+    saveRepairedFiles.mockResolvedValue({ status: "stale_base" });
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const attempt = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: attempt.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: attempt.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("threads forceBuildCheck:true into the after() re-verify when the repair was build-originated", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        // Build-origin is driven by a `build` quality-gate failure.
+        repairContext: {
+          qualityGate: [{ check: "build", exitCode: 1, output: "next build failed" }],
+        },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(body.status).toBe("superseded");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // The scheduled re-verify of B must keep `build` in its gate so a still-broken
+    // next build cannot be false-greened by the typecheck-only design-preview lane.
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat-1",
+        versionId: "ver-1",
+        forceBuildCheck: true,
+      }),
+    );
+  });
+
+  it("drives the build gate via qualityGateMeta.firstFailureCheck === 'build' too", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGateMeta: { firstFailureCheck: "build" } },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(body.status).toBe("superseded");
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ forceBuildCheck: true }),
+    );
+  });
+});
+
+describe("POST repair — non-promoted repair re-checks base before failing (#265 F3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    // First read = base (A). The post-loop stale-base re-check reads again and
+    // sees the user's newer edit (B) — files_json advanced past base.
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: [{ path: "app/page.tsx", content: "A" }],
+        filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+      })
+      .mockResolvedValue({
+        files: [{ path: "app/page.tsx", content: "B" }],
+        filesJson: '[{"path":"app/page.tsx","content":"B"}]',
+      });
+    // The loop exhausts without promoting and WITHOUT a stale_base save signal
+    // (promotion gate never passed, so saveRepairedFiles is never reached).
+    runRepairLoop.mockResolvedValue({
+      promoted: false,
+      remainingErrors: 0,
+      llmPasses: 1,
+      method: "llm",
+      payload: { newVersionId: null },
+      earlyStopReason: null,
+      improvedSyntax: false,
+      noContext: false,
+      errorManifest: null,
+    });
+  });
+
+  it("skips failVersionVerification and reports superseded when files_json advanced past base", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    // No promotion attempt reached saveRepairedFiles on this path.
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    // The newer edit B must NOT be finalized as failed from the stale repair(A).
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.status).toBe("superseded");
+    // B is re-verified on a fresh lease, scheduled via after().
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
+  });
+
+  it("still fails the version when files_json is unchanged (true unrepairable B)", async () => {
+    // Base stays A on the re-check — no concurrent edit, so the version is
+    // genuinely unrepairable and must be finalized as failed (not superseded).
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    failVersionVerification.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(failVersionVerification).toHaveBeenCalledTimes(1);
+    expect(body.status).toBe("completed");
+    // No stale-base recovery scheduled when nothing advanced.
+    expect(afterCallbacks.value).toHaveLength(0);
+  });
+});

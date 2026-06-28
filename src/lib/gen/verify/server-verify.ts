@@ -342,6 +342,9 @@ export async function triggerServerVerification(params: {
       jobFinishedAt: gateResult.jobFinishedAt,
       onRepairAvailable,
       runId,
+      // #260 Codex P2 (forced build gate): a build-originated re-verify keeps
+      // `build` in the post-repair gate even if this round only re-fails tsc.
+      forceBuildGate: forceBuildCheck,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
@@ -489,6 +492,8 @@ export async function triggerBuildErrorRepair(params: {
       jobFinishedAt: null,
       onRepairAvailable,
       runId,
+      // #260 Codex P2 (forced build gate): this path is always build-originated.
+      forceBuildGate: true,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
@@ -553,6 +558,14 @@ async function tryServerRepairLoop(params: {
   }) => void;
   /** Distributed-lease owner id (Plan C). Undefined = legacy Set-only path. */
   runId?: string;
+  /**
+   * #260 Codex P2 (forced build gate): the re-verify that spawned this loop was
+   * intentionally build-originated (`forceBuildCheck`). OR this into the local
+   * `buildOriginated` so a round where `build` passes but `typecheck` fails does
+   * not drop `build` from the post-repair gate and false-green a still-broken
+   * build. `triggerBuildErrorRepair` always passes `true`.
+   */
+  forceBuildGate?: boolean;
 }): Promise<ServerRepairLoopOutcome> {
   const {
     chatId,
@@ -566,6 +579,7 @@ async function tryServerRepairLoop(params: {
     jobFinishedAt,
     onRepairAvailable,
     runId,
+    forceBuildGate = false,
   } = params;
   const verifyContext = {
     verifyLaneDurationMs,
@@ -579,7 +593,10 @@ async function tryServerRepairLoop(params: {
   // `firstFailureCheck`: when typecheck AND build both failed, `firstFailureCheck`
   // is "typecheck", yet the build must still be re-run — both in the post-repair
   // gate below AND in the caller's post-supersede re-verify of the current files.
+  // `forceBuildGate` carries an intentionally build-originated re-verify so a
+  // round that only re-fails on typecheck cannot drop `build` from the gate.
   const buildOriginated =
+    forceBuildGate ||
     failedOutputs.some((output) => output.check === "build") ||
     firstFailureCheck === "build";
   // #260 Codex P2 (repair-vs-edit finalize): set when saveRepairedFiles no-ops
@@ -795,6 +812,19 @@ async function tryServerRepairLoop(params: {
       loopResult.errorManifest,
     );
     return { supersededByUserEdit: false, buildOriginated };
+  }
+
+  // #260 Codex P2 (stale-base before fail): a non-promoted repair never reached
+  // saveRepairedFiles, so `staleBaseNoOp` can still be false even if a concurrent
+  // user edit advanced files_json past the snapshot this repair was based on.
+  // Re-read the current snapshot and treat a changed files_json as a stale-base
+  // no-op so we re-verify the current files (B) on a fresh lease instead of
+  // finalizing B as failed from this stale repair(A).
+  if (!loopResult.promoted && !staleBaseNoOp) {
+    const currentSnapshot = await getVersionFilesSnapshot(versionId).catch(() => null);
+    if (currentSnapshot && currentSnapshot.filesJson !== baseFilesJson) {
+      staleBaseNoOp = true;
+    }
   }
 
   const finalizeAction = resolvePostRepairFinalize({

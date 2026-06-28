@@ -134,6 +134,11 @@ async function handlePOST(
   // because a concurrent user edit advanced files_json past the repaired-from
   // snapshot. Used to skip failing the (newer) version below.
   let staleBaseNoOp = false;
+  // #260 Codex P2 (route re-verify build-gate): hoisted to the finally scope so
+  // the after() re-verify of the user's current files (B) keeps `build` in its
+  // gate when the abandoned manual repair was build/preview-start originated.
+  // Set once `repairContext` is known below.
+  let reverifyForceBuildCheck = false;
   // Fail a version after an unsuccessful repair, recovering from lease loss.
   // The lease-conditioned write no-ops if this run lost ownership (expired lease
   // or a takeover), which would otherwise strand the row in `repairing` — the
@@ -165,6 +170,15 @@ async function handlePOST(
     }
 
     const { versionId, repairContext } = validation.data;
+
+    // #260 Codex P2 (route re-verify build-gate): compute the build-origin signal
+    // once here, at a scope visible to the finally-block after() re-verify. A
+    // build/preview-start repair must keep `build` both in its own post-repair
+    // gate AND in the re-verify of the user's current files (B) — degrading to
+    // the typecheck-only lane would false-green a still-broken build.
+    reverifyForceBuildCheck =
+      repairContext.qualityGateMeta?.firstFailureCheck === "build" ||
+      (repairContext.qualityGate?.some((failure) => failure.check === "build") ?? false);
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(
       req,
@@ -300,16 +314,15 @@ async function handlePOST(
       // #260 Codex P2 (build-origin false-green): if the failure that triggered
       // this manual repair was a build/preview-start error, the post-repair gate
       // must keep `build` — degrading to typecheck-only would false-green a
-      // still-broken build into repair_available.
-      const buildOriginatedRepair =
-        repairContext.qualityGateMeta?.firstFailureCheck === "build" ||
-        (repairContext.qualityGate?.some((failure) => failure.check === "build") ?? false);
+      // still-broken build into repair_available. Reuses the hoisted
+      // `reverifyForceBuildCheck` (same build-origin signal) so the post-repair
+      // gate and the finally after() re-verify stay in lockstep.
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: resolvePostRepairGateChecks(buildOriginatedRepair),
+        checks: resolvePostRepairGateChecks(reverifyForceBuildCheck),
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,
@@ -435,6 +448,15 @@ async function handlePOST(
         // here — that would finalize the user's newer edit B as failed from a
         // stale repair. The finally-block re-verify settles B on a fresh lease.
         if (staleBaseNoOp) return;
+        // #260 Codex P2 (stale-base before fail): defensive re-read — a no-context
+        // fail must also not finalize a changed B. The promotion attempt may not
+        // have run (hence no stale_base save signal), yet files_json could have
+        // advanced. Re-check and skip the fail when it did.
+        const currentSnapshot = await getVersionFilesSnapshot(currentVersionId).catch(() => null);
+        if (currentSnapshot && currentSnapshot.filesJson !== baseFilesJson) {
+          staleBaseNoOp = true;
+          return;
+        }
         await failVersionVerification(
           currentVersionId,
           "Repair attempted but no actionable error context available.",
@@ -530,6 +552,19 @@ async function handlePOST(
       });
     }
 
+    // #260 Codex P2 (stale-base before fail): a non-promoted repair whose
+    // promotion gate did not pass never reached saveRepairedFiles, so
+    // `staleBaseNoOp` can still be false even if a concurrent user edit advanced
+    // files_json past the repaired-from snapshot. Re-read and compare before
+    // failing so we never finalize the user's newer edit B from this stale
+    // repair(A); the finally after() re-verify settles B instead.
+    if (!loopResult.promoted && dbConfigured && !staleBaseNoOp) {
+      const currentSnapshot = await getVersionFilesSnapshot(currentVersionId).catch(() => null);
+      if (currentSnapshot && currentSnapshot.filesJson !== baseFilesJson) {
+        staleBaseNoOp = true;
+      }
+    }
+
     if (!loopResult.promoted && dbConfigured && !staleBaseNoOp) {
       const failSummary =
         loopResult.remainingErrors === 0
@@ -614,10 +649,20 @@ async function handlePOST(
     if (staleBaseNoOp && internalVersionId && resolvedChatId) {
       const reverifyChatId = resolvedChatId;
       const reverifyVersionId = internalVersionId;
+      // #260 Codex P2 (route re-verify build-gate): thread the build-origin
+      // signal so a build/preview-start repair re-verifies B with `build` in the
+      // gate, not the typecheck-only lane. If a concurrent verify already holds
+      // `inflight` for this version, triggerServerVerification returns early and
+      // this callback no-ops — the readiness watchdog (lease-safe
+      // failVersionVerificationIfUnleased; targets `repairing`) is the backstop
+      // for that residual edge, so the row never stays stuck. See
+      // BUG-SWARM-BACKLOG.md (#265 Bugbot MEDIUM: deferred re-verify inflight).
+      const reverifyForce = reverifyForceBuildCheck;
       after(async () => {
         await triggerServerVerification({
           chatId: reverifyChatId,
           versionId: reverifyVersionId,
+          forceBuildCheck: reverifyForce,
         }).catch(() => {});
       });
     }
