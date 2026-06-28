@@ -336,13 +336,15 @@
       "required": [
         "engineRouteMaxDurationSeconds",
         "assistRouteMaxDurationSeconds",
-        "streamSafetyTimeoutMs"
+        "streamSafetyTimeoutMs",
+        "verifyRepairRouteMaxDurationSeconds"
       ],
       "additionalProperties": false,
       "properties": {
         "engineRouteMaxDurationSeconds": { "$ref": "#/$defs/numericEnvSetting" },
         "assistRouteMaxDurationSeconds": { "$ref": "#/$defs/numericEnvSetting" },
-        "streamSafetyTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" }
+        "streamSafetyTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifyRepairRouteMaxDurationSeconds": { "$ref": "#/$defs/numericEnvSetting" }
       }
     },
     "embeddingModels": {

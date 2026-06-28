@@ -341,6 +341,7 @@ export const aiModelsManifestSchema = z.object({
     engineRouteMaxDurationSeconds: intTimeoutSchema,
     assistRouteMaxDurationSeconds: intTimeoutSchema,
     streamSafetyTimeoutMs: intTimeoutSchema,
+    verifyRepairRouteMaxDurationSeconds: intTimeoutSchema,
   }),
   embeddingModels: z.record(z.string(), embeddingEntrySchema).optional(),
   // Backoffice 2.0 fas 6 — optional per matching-point strategy switch.

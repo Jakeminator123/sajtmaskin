@@ -39,7 +39,7 @@ import {
 } from "@/lib/gen/verify/server-verify-log-meta";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 420;
 
 /** Uses preview-host verify lane for verification only (typecheck/build/lint), not the live preview workspace. */
 

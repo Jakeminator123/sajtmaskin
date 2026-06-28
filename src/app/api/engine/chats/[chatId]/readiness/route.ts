@@ -32,8 +32,7 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-
-const STALE_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
+import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
 
 function isTimedOutVerificationState(
   verificationState: string | null | undefined,

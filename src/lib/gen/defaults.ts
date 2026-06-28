@@ -125,6 +125,17 @@ export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
   rt.assistRouteMaxDurationSeconds.max,
 );
 
+export const VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
+  rt.verifyRepairRouteMaxDurationSeconds.envKey,
+  rt.verifyRepairRouteMaxDurationSeconds.default,
+  rt.verifyRepairRouteMaxDurationSeconds.min,
+  rt.verifyRepairRouteMaxDurationSeconds.max,
+);
+
+/** Watchdog for versions stuck in `verifying` — aligned with repair/quality-gate route budget. */
+export const STALE_VERIFICATION_TIMEOUT_MS =
+  VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS * 1000;
+
 export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
   "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
   90_000,

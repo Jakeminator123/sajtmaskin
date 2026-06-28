@@ -773,6 +773,12 @@
       "default": 840000,
       "min": 60000,
       "max": 900000
+    },
+    "verifyRepairRouteMaxDurationSeconds": {
+      "envKey": "SAJTMASKIN_VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS",
+      "default": 420,
+      "min": 60,
+      "max": 800
     }
   },
   "embeddingModels": {
