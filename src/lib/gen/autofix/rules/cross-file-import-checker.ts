@@ -302,7 +302,46 @@ function stripCollidingMissingImports(
 // Stub generation — context-aware per imported name
 // ---------------------------------------------------------------------------
 
-function stubForName(name: string): string {
+/**
+ * Visible degraded-placeholder body for an auto-stubbed PascalCase component.
+ *
+ * P7 (fix/autofix-fidelity-guards): the previous fallback returned `null`,
+ * which hid a missing/auto-stubbed component as a blank gap the user mistook
+ * for an intentional empty design — a silent fidelity loss. We now render a
+ * small, clearly self-labeled placeholder so the degradation is VISIBLE in the
+ * preview instead of looking finished. It uses inline styles (no Tailwind/CSS
+ * dependency), renders no children or hooks (safe as a server OR client
+ * component), and keeps the `autofix-stub:` grep marker. If the model's own
+ * file arrives in a later merge pass it still wins over this placeholder.
+ */
+function visibleStubComponentBody(name: string): string {
+  return [
+    `  // autofix-stub:${name} — model did not emit a real implementation.`,
+    `  // P7: render a VISIBLE degraded placeholder instead of a silent \`return null\`.`,
+    `  return (`,
+    `    <span`,
+    `      role="status"`,
+    `      data-autofix-stub="${name}"`,
+    `      style={{`,
+    `        display: "inline-flex",`,
+    `        alignItems: "center",`,
+    `        gap: "0.4rem",`,
+    `        padding: "0.4rem 0.7rem",`,
+    `        margin: "0.25rem 0",`,
+    `        borderRadius: "0.5rem",`,
+    `        border: "1px dashed rgba(148,163,184,0.7)",`,
+    `        background: "rgba(148,163,184,0.12)",`,
+    `        color: "rgb(100,116,139)",`,
+    `        font: "500 0.8125rem/1.4 system-ui,-apple-system,sans-serif",`,
+    `      }}`,
+    `    >`,
+    `      Platshållare för ${name} (komponenten kunde inte genereras)`,
+    `    </span>`,
+    `  );`,
+  ].join("\n");
+}
+
+function stubForName(name: string, allowJsx: boolean): string {
   if (/Provider$/.test(name)) {
     return `export function ${name}({ children, ...props }: { children: React.ReactNode; [k: string]: unknown }) {\n  return <>{children}</>;\n}`;
   }
@@ -315,18 +354,21 @@ function stubForName(name: string): string {
   if (/^[a-z]/.test(name)) {
     return `export function ${name}(..._args: unknown[]) {\n  return null;\n}`;
   }
-  // PascalCase fallback — assumed to be a React component. Returns null so the
-  // preview never shows a visible dashed "[Name]" placeholder box that the user
-  // mistakes for a broken design. The stub still satisfies the import resolver
-  // + TypeScript binding; if the model's own file arrives in a later merge
-  // pass it can win over this placeholder. Grep for `autofix-stub:` to locate.
-  return `export function ${name}(_props: Record<string, unknown>) {\n  // autofix-stub:${name} — model did not emit a real implementation; rendering nothing.\n  return null;\n}`;
+  // PascalCase fallback — assumed to be a React component.
+  if (!allowJsx) {
+    // Non-`.tsx` stub target (e.g. an explicit `.ts` import): JSX would be a
+    // syntax error here, so keep the inert null-render shape. Still grep-able
+    // via `autofix-stub:`.
+    return `export function ${name}(_props: Record<string, unknown>) {\n  // autofix-stub:${name} — model did not emit a real implementation; rendering nothing (non-tsx stub target).\n  return null;\n}`;
+  }
+  return `export function ${name}(_props: Record<string, unknown>) {\n${visibleStubComponentBody(name)}\n}`;
 }
 
 function createStubFile(
   importPath: string,
   specifiers: ImportSpecifiers,
   fallbackName: string,
+  allowJsx: boolean,
 ): string {
   const semanticHelper = createSemanticMissingComponentHelper(importPath, specifiers);
   if (semanticHelper) return semanticHelper;
@@ -347,20 +389,20 @@ function createStubFile(
 
   if (specifiers.defaultImport) {
     const name = specifiers.defaultImport;
-    lines.push(stubForName(name));
+    lines.push(stubForName(name, allowJsx));
     lines.push(`export default ${name};`);
     exportedNames.push(name);
   }
 
   for (const name of specifiers.namedImports) {
     if (exportedNames.includes(name)) continue;
-    lines.push(stubForName(name));
+    lines.push(stubForName(name, allowJsx));
     exportedNames.push(name);
   }
 
   if (exportedNames.length === 0) {
     const name = fallbackName;
-    lines.push(stubForName(name));
+    lines.push(stubForName(name, allowJsx));
     lines.push(`export default ${name};`);
     lines.push(`export { ${name} };`);
   }
@@ -702,7 +744,9 @@ export function checkCrossFileImports(
       continue;
     }
 
-    const stubContent = createStubFile(source, merged, fallbackName);
+    // Only the `.tsx` stub target can hold JSX; a `.ts` target keeps the
+    // inert null-render shape (see `stubForName`).
+    const stubContent = createStubFile(source, merged, fallbackName, stubPath.endsWith(".tsx"));
 
     // Check whether this missing import is a dossier-exposed path. If so,
     // log a warning for observability — the LLM should have emitted the real

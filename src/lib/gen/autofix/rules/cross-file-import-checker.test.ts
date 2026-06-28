@@ -303,6 +303,56 @@ describe("checkCrossFileImports", () => {
     expect(fix?.rewireTarget).toBeUndefined();
   });
 
+  it("renders a VISIBLE degraded placeholder (not a silent return null) for stubbed components", () => {
+    // P7 (fix/autofix-fidelity-guards): a missing PascalCase component must
+    // render a clearly-labeled placeholder so the degradation is visible in
+    // the preview, instead of a silent `return null` that looks like a
+    // finished, intentionally-empty design.
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        'import { MissingHeroBlock } from "@/components/missing-hero-block";',
+        "export default function Page() { return <MissingHeroBlock />; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+    const stub = result.files.find(
+      (f) => f.path === "components/missing-hero-block.tsx",
+    );
+
+    expect(stub).toBeDefined();
+    // Keeps the grep marker but no longer renders nothing.
+    expect(stub?.content).toContain("autofix-stub:MissingHeroBlock");
+    expect(stub?.content).toContain('data-autofix-stub="MissingHeroBlock"');
+    expect(stub?.content).toContain("Platshållare för MissingHeroBlock");
+    expect(stub?.content).toMatch(/<span/);
+    // The component body must not be a bare `return null;`.
+    expect(stub?.content).not.toMatch(/\breturn null;/);
+  });
+
+  it("keeps an inert null-render stub when the target is a non-tsx (.ts) file", () => {
+    // JSX is invalid in a `.ts` module, so the visible-placeholder body must
+    // only be emitted for `.tsx` stub targets.
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        'import { LegacyWidget } from "@/lib/legacy-widget.ts";',
+        "export default function Page() { return <LegacyWidget />; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+    const stub = result.files.find((f) => f.path === "lib/legacy-widget.ts");
+
+    expect(stub).toBeDefined();
+    expect(stub?.content).toContain("autofix-stub:LegacyWidget");
+    expect(stub?.content).toContain("return null");
+    expect(stub?.content).not.toContain("<span");
+  });
+
   it("does not create null-render stubs for missing 3D scene parts", () => {
     const scene: CodeFile = {
       path: "components/flying-duck-3d.tsx",
