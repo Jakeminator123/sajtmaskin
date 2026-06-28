@@ -151,6 +151,22 @@ describe("buildCompleteProject", () => {
     expect(env!.content).toMatch(/^[A-Z0-9_]+=/m);
   });
 
+  it("ships a standard .gitignore that ignores .env* but keeps env.example tracked", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const gitignore = files.find((f) => f.path === ".gitignore");
+    expect(gitignore).toBeDefined();
+    expect(gitignore!.content).toContain("node_modules");
+    expect(gitignore!.content).toContain(".env*");
+    // env.example (no leading dot, PROJECT_ENV_FILE_PATH) must stay tracked: a
+    // `.env*` git pattern does NOT match it, so it is never ignored.
+    expect(gitignore!.content).not.toMatch(/^env\.example$/m);
+  });
+
   it("does not replace an existing .env.local from the model", () => {
     const custom = "# my env\nFOO=bar\n";
     const generated: CodeFile[] = [
@@ -497,6 +513,27 @@ describe("buildExportableProject", () => {
     const counter = exported.find((f) => f.path === "components/counter.tsx");
     expect(counter).toBeDefined();
     expect(counter!.content).toContain('import { useState } from "react"');
+  });
+
+  // REGRESSION GUARD (Codex P2 from #282): the SHARED exportable project — which
+  // also feeds the verify / quality-gate lane via `exportableToQualityGateFiles`
+  // — MUST keep the placeholder `.env.local`. The fix for shipping a clean ZIP
+  // strips `.env.local` ONLY at the zip/download boundary (see
+  // `strip-env-local-for-zip.ts`), NEVER in this shared builder. Removing it
+  // here (the superseded #282 approach) would regress the verify lane: an
+  // env-dependent project could pass live preview but fail/repair in verify.
+  // Do NOT change this to assert `.env.local` is absent.
+  it("STILL ships the placeholder .env.local so the verify lane keeps its env", async () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return <div>Hi</div>; }`, language: "tsx" },
+    ];
+
+    const exported = await buildExportableProject(generated);
+    const paths = exported.map((f) => f.path);
+    expect(paths).toContain(".env.local");
+    // And the new standard .gitignore rides along too (inert for verify).
+    expect(paths).toContain(".gitignore");
   });
 });
 
