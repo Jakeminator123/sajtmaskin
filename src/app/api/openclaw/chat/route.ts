@@ -5,13 +5,23 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { OPENCLAW } from "@/lib/config";
 import {
   decideOpenClawRoutingIntent,
+  getLatestOpenClawUserText,
   OPENCLAW_ROUTING_STRATEGY,
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
-import { resolveReviewReasoningEffort } from "@/lib/openclaw/review-tuning";
-import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { resolveReviewReasoningEffort, DEFAULT_DEBUG_EFFORT } from "@/lib/openclaw/review-tuning";
+import {
+  buildOpenClawRepoContextBlock,
+  isRepoContextConfigured,
+} from "@/lib/openclaw/debug/repo-context";
+import { matchesOpenClawDebugToken } from "@/lib/openclaw/debug/owner-token";
+import { queryDebugFindings } from "@/lib/db/services/debug-findings";
+import {
+  getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
+} from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -107,6 +117,58 @@ Prioritera de 1-3 viktigaste observationerna eller ändringsförslagen. Håll sv
 Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när användaren uttryckligen ber om review, felsökning eller förbättringsanalys.`;
 }
 
+/**
+ * Debug-mode (OC_DEBUG) system instructions. Unlocks armed autonomy (Mode A):
+ * OpenClaw still reasons first and never builds unprompted, but after an
+ * explicit arming directive it may fill the builder prompt and click send for a
+ * bounded number of follow-ups. Also tells it how to use the extra debug context
+ * (full code, persisted findings, read-only Sajtmaskin source) to reason about
+ * where the PLATFORM itself is buggy. OpenClaw never edits Sajtmaskin's code.
+ */
+function buildDebugSystemPrompt(): string {
+  return `Internt läge: DEBUG (OC_DEBUG på).
+
+Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.
+
+Armerad autonomi (gör detta först efter att användaren uttryckligen ber om det):
+- Du bygger ALDRIG en sajt oombett. Resonera först.
+- När användaren armerar dig ("granska nästa meddelande jag skapar" eller "gör N follow-ups och buggranska det suspekta"), bekräfta kort och lägg ett action-block sist:
+<openclaw-action>
+{"type":"start_bug_hunt","mode":"followups","count":5,"reason":"Kort motivering"}
+</openclaw-action>
+- När du är armerad och ska skicka en follow-up i buildern: ge en kort förklaring och lägg ett action-block sist som fyller OCH skickar:
+<openclaw-action>
+{"type":"fill_text_field","target":"builder.chat.primary","value":"Din follow-up-prompt","submit":true}
+</openclaw-action>
+- Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
+- "submit":true respekteras bara i debug-läge med ett aktivt mandat; annars fylls fältet men skickas inte.`;
+}
+
+const OPENCLAW_DEBUG_FINDINGS_MAX = 12;
+
+/**
+ * Compact `[OC-DEBUG-FYND]` block from the bug-hunt's own `oc_debug_findings`
+ * for the active version. Debug-mode only; null when there are none so the
+ * prompt stays lean.
+ */
+async function buildOpenClawDebugFindingsBlock(
+  versionId: string,
+): Promise<string | null> {
+  const rows = await queryDebugFindings({ versionId, limit: OPENCLAW_DEBUG_FINDINGS_MAX });
+  const relevant = rows.filter((row) => row.severity !== "info");
+  if (relevant.length === 0) return null;
+  const parts: string[] = [
+    "[OC-DEBUG-FYND] Strukturerade fynd från debug-läges bug-hunt för denna version. Använd dem för konkreta svar; hitta aldrig på fynd.",
+  ];
+  for (const row of relevant.slice(0, OPENCLAW_DEBUG_FINDINGS_MAX)) {
+    const loc = row.file ? ` ${row.file}${row.line ? `:${row.line}` : ""}` : "";
+    const build = row.build_result ? ` (build: ${row.build_result})` : "";
+    parts.push(`- [${row.severity}|${row.category ?? "?"}]${loc} ${row.message}${build}`);
+  }
+  parts.push("[/OC-DEBUG-FYND]");
+  return parts.join("\n");
+}
+
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "openclaw:chat", async () => {
     const surface = getOpenClawSurfaceStatus();
@@ -136,6 +198,7 @@ export async function POST(req: NextRequest) {
     }
 
     const routingIntent = decideOpenClawRoutingIntent({ messages: body.messages });
+    const debug = OPENCLAW.debugEnabled;
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       {
@@ -144,16 +207,64 @@ export async function POST(req: NextRequest) {
       },
     ];
 
+    if (debug) {
+      messages.push({ role: "system", content: buildDebugSystemPrompt() });
+    }
+
     if (BUILDER_PROMPT_TIPS) {
       messages.push({ role: "system", content: BUILDER_PROMPT_TIPS });
     }
 
     if (body.context && typeof body.context === "object") {
+      const reviewChatId =
+        typeof body.context.chatId === "string" ? body.context.chatId : null;
+      const reviewVersionId =
+        typeof body.context.activeVersionId === "string"
+          ? body.context.activeVersionId
+          : null;
+      // Cross-tenant guard (Codex P1): `chatId`/`activeVersionId` are
+      // client-supplied, so verify the REQUESTER owns this chat+version BEFORE
+      // exposing any version-scoped context. This gates BOTH the diagnostics
+      // (findings/timeline) AND — critically — the debug full-code context, so a
+      // forged id can never leak another tenant's generated files/diagnostics.
+      const scopedVersion =
+        reviewChatId && reviewVersionId
+          ? await getEngineVersionForChatByIdForRequest(
+              req,
+              reviewChatId,
+              reviewVersionId,
+            ).catch(() => null)
+          : null;
+      // Debug full-code context is only unlocked for an ownership-verified chat.
+      const debugOwned = debug && Boolean(scopedVersion);
+
+      // Cross-tenant guard (Codex P1): the file/code context builder may only
+      // read generated files for ids the REQUESTER owns. Reuse the already
+      // resolved scoped version when ids match; otherwise verify per id. Covers
+      // the chatId-only (manifest) case via chat-level ownership.
+      const verifyOwnership = async (cid: string, vid: string | null) => {
+        if (vid) {
+          if (scopedVersion && cid === reviewChatId && vid === reviewVersionId) {
+            return { chatId: cid, versionId: scopedVersion.version.id };
+          }
+          const scoped = await getEngineVersionForChatByIdForRequest(
+            req,
+            cid,
+            vid,
+          ).catch(() => null);
+          return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
+        }
+        const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
+        return chat ? { chatId: cid, versionId: null } : null;
+      };
+
       const contextMessage = await buildOpenClawContextSystemMessage({
         messages: body.messages,
         context: body.context,
         currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
+        debug: debugOwned,
+        verifyOwnership,
       });
       messages.push({
         role: "system",
@@ -165,25 +276,7 @@ export async function POST(req: NextRequest) {
       // assistant answers with concrete diagnostics instead of guessing.
       // Compact + DB-guarded; null when nothing actionable, so normal chat
       // stays cheap.
-      if (routingIntent === "review") {
-        const reviewChatId =
-          typeof body.context.chatId === "string" ? body.context.chatId : null;
-        const reviewVersionId =
-          typeof body.context.activeVersionId === "string"
-            ? body.context.activeVersionId
-            : null;
-        // Cross-tenant guard (Codex P1): `activeVersionId` is client-supplied,
-        // so verify the REQUESTER owns this chat+version (tenant-scoped lookup)
-        // before reading its diagnostics — never surface another tenant's
-        // findings/timeline from a forged version id.
-        const scopedVersion =
-          reviewChatId && reviewVersionId
-            ? await getEngineVersionForChatByIdForRequest(
-                req,
-                reviewChatId,
-                reviewVersionId,
-              ).catch(() => null)
-            : null;
+      if (routingIntent === "review" || debug) {
         if (scopedVersion) {
           // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
           // by the OWNERSHIP-VERIFIED version id.
@@ -197,6 +290,43 @@ export async function POST(req: NextRequest) {
           }
           if (timelineBlock) {
             messages.push({ role: "system", content: timelineBlock });
+          }
+
+          // Debug-mode: surface the bug-hunt's own structured findings for this
+          // version (from oc_debug_findings), keyed by the ownership-verified id.
+          if (debug) {
+            const debugBlock = await buildOpenClawDebugFindingsBlock(
+              scopedVersion.version.id,
+            ).catch(() => null);
+            if (debugBlock) {
+              messages.push({ role: "system", content: debugBlock });
+            }
+          }
+        }
+
+        // Debug-mode: attach read-only Sajtmaskin source so OpenClaw can reason
+        // about WHERE THE PLATFORM ITSELF is buggy. Bounded + only when the user
+        // is actually probing internals (keeps token/network cost in check).
+        //
+        // SECURITY (Codex P1): `[SAJTMASKIN-KÄLLKOD]` exposes the PLATFORM's own
+        // private source, so it is gated behind the OWNER token (same secret as
+        // the Mode B bug-hunt route), NOT just OC_DEBUG. Chat ownership alone is
+        // insufficient — any authenticated user can own a chat on a debug
+        // preview — so the public chat route must require the operator secret
+        // before injecting platform source. Fails closed when the token is
+        // absent/unset (interactive chat simply omits the block).
+        if (debug && matchesOpenClawDebugToken(req) && isRepoContextConfigured()) {
+          const latestUserText = getLatestOpenClawUserText(body.messages);
+          if (
+            routingIntent === "review" ||
+            /sajtmaskin|plattform|platform|rotorsak|root\s?cause|pipeline|\.tsx?\b/i.test(
+              latestUserText,
+            )
+          ) {
+            const repoBlock = await buildOpenClawRepoContextBlock().catch(() => null);
+            if (repoBlock) {
+              messages.push({ role: "system", content: repoBlock });
+            }
           }
         }
       }
@@ -212,10 +342,15 @@ export async function POST(req: NextRequest) {
 
     // Fas 3: make the assistant reason harder on review/bug intent via the
     // OpenAI-compatible `reasoning_effort` field (codex-class models honor it).
-    // Sent only on review intent; env-reversible (set OPENCLAW_REVIEW_REASONING_EFFORT=off).
+    // Sent on review intent and in debug-mode (debug defaults to `high`; bump to
+    // `xhigh` only via OPENCLAW_REVIEW_REASONING_EFFORT when a hard case warrants
+    // the extra cost). Env-reversible (set OPENCLAW_REVIEW_REASONING_EFFORT=off).
     const reviewReasoningEffort =
-      routingIntent === "review"
-        ? resolveReviewReasoningEffort(process.env.OPENCLAW_REVIEW_REASONING_EFFORT)
+      routingIntent === "review" || debug
+        ? resolveReviewReasoningEffort(
+            process.env.OPENCLAW_REVIEW_REASONING_EFFORT,
+            debug ? { defaultEffort: DEFAULT_DEBUG_EFFORT } : undefined,
+          )
         : null;
 
     try {

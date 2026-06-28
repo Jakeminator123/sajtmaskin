@@ -62,6 +62,7 @@ describe("text-field-actions", () => {
       value: "En varm och modern salongssajt",
       label: "Frilägesfältet",
       focus: true,
+      submit: false,
     });
     expect(parsed.hasIncompleteAction).toBe(false);
   });

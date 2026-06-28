@@ -114,6 +114,23 @@ export const serverSchema = z.object({
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
+  /** OpenClaw debug-mode gate. Affirmative (1/true/yes/y/on) unlocks privileged
+   * debug context + armed bug-hunt autonomy. Default off; blocked in production
+   * unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled. */
+  OC_DEBUG: z.string().optional(),
+  /** Alias for OC_DEBUG (the user types "OC_DEBUGG=y"). Either key unlocks debug-mode. */
+  OC_DEBUGG: z.string().optional(),
+  /** Escape hatch to allow OC_DEBUG in production. Default unset = debug-mode never
+   * activates in production even if OC_DEBUG is affirmative. */
+  OC_DEBUG_ALLOW_PROD: z.string().optional(),
+  /** Read-only GitHub token (contents:read) used by the debug repo-context reader so
+   * OpenClaw can understand where the Sajtmaskin platform itself is buggy. No write/PR scope. */
+  OC_REPO_READ_TOKEN: z.string().optional(),
+  /** owner/repo slug for the Sajtmaskin repo the debug repo-context reader fetches from. */
+  OC_REPO_SLUG: z.string().optional(),
+  /** Owner gate for the Mode B bug-hunt run route (sent via `x-oc-debug-token`).
+   * The route is hard-disabled unless this is set AND matches. */
+  OC_DEBUG_RUN_TOKEN: z.string().optional(),
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),

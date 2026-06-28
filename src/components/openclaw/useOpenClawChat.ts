@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
+import {
+  createArmedMandate,
+  parseArmingDirective,
+  parseStopDirective,
+} from "@/lib/openclaw/debug/armed-mandate";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -51,6 +56,8 @@ export function useOpenClawChat() {
     clearMessages,
     setStreaming,
     scopeKey,
+    debugEnabled,
+    setArmedMandate,
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
@@ -64,7 +71,23 @@ export function useOpenClawChat() {
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || isStreaming) return;
+      if (!trimmed) return;
+
+      // Debug-mode armed autonomy (Mode A): the user's own message is the
+      // consent. A stop directive disarms IMMEDIATELY — handled before the
+      // streaming guard so the user can cancel an in-flight autonomous run by
+      // typing "stopp" even while OpenClaw is still responding. An arming
+      // directive creates a bounded mandate. Outside OC_DEBUG this never arms.
+      if (debugEnabled) {
+        if (parseStopDirective(trimmed)) {
+          setArmedMandate(null);
+        } else if (!isStreaming) {
+          const directive = parseArmingDirective(trimmed);
+          if (directive) setArmedMandate(createArmedMandate(directive));
+        }
+      }
+
+      if (isStreaming) return;
 
       const userMsg: OpenClawMessage = {
         id: makeId(),
@@ -164,12 +187,16 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [isStreaming, addMessage, updateAssistantMessage, setStreaming],
+    [isStreaming, addMessage, updateAssistantMessage, setStreaming, debugEnabled, setArmedMandate],
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
-  }, []);
+    // Stop also disarms (Codex P2): clicking stop must cancel armed autonomy so
+    // the next assistant action can't keep auto-sending under the old mandate —
+    // mirroring the typed "stopp" path above.
+    setArmedMandate(null);
+  }, [setArmedMandate]);
 
   const clearConversation = useCallback(() => {
     abortRef.current?.abort();
@@ -177,7 +204,11 @@ export function useOpenClawChat() {
     activeAssistantIdRef.current = null;
     setStreaming(false);
     clearMessages();
-  }, [clearMessages, setStreaming]);
+    // Clearing the conversation must also disarm autonomy (Bugbot): an armed
+    // mandate that survived a reset could let a later assistant action auto-send
+    // when the user believed autonomy was cleared.
+    setArmedMandate(null);
+  }, [clearMessages, setStreaming, setArmedMandate]);
 
   return { messages, isStreaming, send, stop, clearConversation };
 }

@@ -76,6 +76,8 @@ const EXPECTED_TABLES = [
   "generation_telemetry",
   "version_comments",
   "version_approvals",
+  // OpenClaw debug-mode bug-hunt findings (OC_DEBUG)
+  "oc_debug_findings",
   // Domains
   "domain_orders",
 ];
@@ -126,6 +128,14 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   engine_version_error_logs: [
     { name: "idx_engine_version_error_logs_chat_id", columns: ["chat_id"] },
     { name: "idx_engine_version_error_logs_version_id", columns: ["version_id"] },
+  ],
+  // OpenClaw debug-mode bug-hunt findings — synkad med
+  // src/lib/db/migrations/add-oc-debug-findings.sql. Utan dessa rapporterar
+  // db-health-check dem som `extra_indexes` på en ren migrerad DB (Codex P2).
+  oc_debug_findings: [
+    { name: "idx_oc_debug_findings_run_id", columns: ["run_id"] },
+    { name: "idx_oc_debug_findings_version_id", columns: ["version_id"] },
+    { name: "idx_oc_debug_findings_created_at", columns: ["created_at"] },
   ],
   // Codex P3: declare the lease indexes so migrated DBs don't report them as
   // `extra_indexes`. Both are required by the acquire path: the partial unique

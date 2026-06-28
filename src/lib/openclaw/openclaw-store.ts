@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ArmedMandate } from "@/lib/openclaw/debug/armed-mandate";
 
 export interface OpenClawMessage {
   id: string;
@@ -13,6 +14,11 @@ interface OpenClawState {
   isStreaming: boolean;
   scopeKey: string;
   avatarMode: boolean;
+  /** Server-reported OC_DEBUG state (from /api/openclaw/health). Gates the
+   * armed-autonomy auto-send path on the client. Default false. */
+  debugEnabled: boolean;
+  /** Active "armed autonomy" mandate (Mode A), or null when OpenClaw is passive. */
+  armedMandate: ArmedMandate | null;
 
   toggle: () => void;
   open: () => void;
@@ -23,6 +29,8 @@ interface OpenClawState {
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
   setAvatarMode: (v: boolean) => void;
+  setDebugEnabled: (v: boolean) => void;
+  setArmedMandate: (mandate: ArmedMandate | null) => void;
 }
 
 export const useOpenClawStore = create<OpenClawState>()((set) => ({
@@ -31,6 +39,8 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   isStreaming: false,
   scopeKey: "global",
   avatarMode: true,
+  debugEnabled: false,
+  armedMandate: null,
 
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   open: () => set({ isOpen: true }),
@@ -44,6 +54,9 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             isOpen: false,
             messages: [],
             isStreaming: false,
+            // A mandate is scoped to one builder context — drop it on scope change
+            // so autonomy never leaks across chats/sites.
+            armedMandate: null,
           },
     ),
 
@@ -59,4 +72,6 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   setStreaming: (v) => set({ isStreaming: v }),
   clearMessages: () => set({ messages: [] }),
   setAvatarMode: (v) => set({ avatarMode: v }),
+  setDebugEnabled: (v) => set({ debugEnabled: v }),
+  setArmedMandate: (mandate) => set({ armedMandate: mandate }),
 }));

@@ -31,6 +31,7 @@ import {
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
 import { OpenClawMessage } from "./OpenClawMessage";
+import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
 const DEFAULT_STARTER_PROMPTS = [
   "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
@@ -109,7 +110,7 @@ export function OpenClawChatPanel({
   isOpen?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
-  const { avatarMode, setAvatarMode } = useOpenClawStore();
+  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate } = useOpenClawStore();
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
   const [avatarExpanded, setAvatarExpanded] = useState(false);
@@ -131,6 +132,27 @@ export function OpenClawChatPanel({
     setDragOffset(readStoredOffset());
     setSpeechSupported(getSpeechRecognitionCtor() !== null);
   }, []);
+
+  // Learn the server OC_DEBUG state once so the armed-autonomy auto-send path is
+  // gated client-side too (defense in depth). Best-effort: failure leaves debug
+  // off, which means OpenClaw stays passive (fill-but-never-send).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/openclaw/health");
+        const data = (await res.json().catch(() => null)) as
+          | { debugEnabled?: boolean }
+          | null;
+        if (!cancelled) setDebugEnabled(data?.debugEnabled === true);
+      } catch {
+        if (!cancelled) setDebugEnabled(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setDebugEnabled]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -330,16 +352,23 @@ export function OpenClawChatPanel({
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-white">{content.assistantLabel}</p>
-            <p className="truncate text-[10px] text-slate-300">
-              {listening
-                ? "Lyssnar..."
-                : avatar.connectionState === "speaking"
-                  ? "Pratar..."
-                  : avatar.connectionState === "connecting"
-                    ? "Ansluter avatar..."
-                    : isStreaming
-                      ? "Skriver..."
-                      : content.idleStatus}
+            <p
+              className={cn(
+                "truncate text-[10px]",
+                isMandateActive(armedMandate) ? "text-fuchsia-300" : "text-slate-300",
+              )}
+            >
+              {isMandateActive(armedMandate)
+                ? describeMandate(armedMandate)
+                : listening
+                  ? "Lyssnar..."
+                  : avatar.connectionState === "speaking"
+                    ? "Pratar..."
+                    : avatar.connectionState === "connecting"
+                      ? "Ansluter avatar..."
+                      : isStreaming
+                        ? "Skriver..."
+                        : content.idleStatus}
             </p>
           </div>
         </div>

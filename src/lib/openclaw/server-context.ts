@@ -13,6 +13,19 @@ type BuildContextBlockOptions = {
   currentCodeMaxChars?: number;
 };
 
+/**
+ * Verifies the REQUESTER owns a client-supplied chat/version before any
+ * generated file/code context is fetched. Returns the ownership-verified ids to
+ * read from (callers resolve these against the request session), or `null` when
+ * the caller does not own them. Cross-tenant guard (Codex P1): `context.chatId`/
+ * `context.activeVersionId` are client-supplied, so they must never drive a
+ * file read without this check.
+ */
+export type OpenClawOwnershipVerifier = (
+  chatId: string,
+  versionId: string | null,
+) => Promise<{ chatId: string; versionId: string | null } | null>;
+
 type BuildOpenClawContextSystemMessageParams = {
   messages: OpenClawChatMessageLike[];
   context: Record<string, unknown>;
@@ -20,6 +33,15 @@ type BuildOpenClawContextSystemMessageParams = {
   fullCodeContextMaxChars?: number;
   manifestFileLimit?: number;
   fullFileLimit?: number;
+  /** Debug-mode (OC_DEBUG): force full code context for the open chat. */
+  debug?: boolean;
+  /**
+   * Ownership gate for generated file/code context. Generated files are fetched
+   * ONLY for ids this verifier confirms the caller owns. Fail-closed: when it is
+   * omitted (or returns `null`), no file/manifest context is injected, so a
+   * forged chat/version id can never leak another tenant's generated files.
+   */
+  verifyOwnership?: OpenClawOwnershipVerifier;
 };
 
 function normalizeContextText(value: unknown, maxLength: number): string {
@@ -117,6 +139,8 @@ export async function buildOpenClawContextSystemMessage(
     fullCodeContextMaxChars = 180_000,
     manifestFileLimit = 16,
     fullFileLimit = 24,
+    debug = false,
+    verifyOwnership,
   } = params;
 
   const codeContextMode = decideOpenClawCodeContextMode({
@@ -124,6 +148,7 @@ export async function buildOpenClawContextSystemMessage(
     page: context.page,
     chatId: context.chatId,
     currentCode: context.currentCode,
+    debug,
   });
 
   let fileBlock: string | null = null;
@@ -131,11 +156,19 @@ export async function buildOpenClawContextSystemMessage(
   const versionId = typeof context.activeVersionId === "string" ? context.activeVersionId : "";
 
   if (chatId && (codeContextMode === "manifest" || codeContextMode === "full")) {
-    const fileContext = await resolveFileContext(chatId, versionId || null, {
-      includeFullText: codeContextMode === "full",
-      maxFullTextChars: fullCodeContextMaxChars,
-      maxManifestFiles: codeContextMode === "full" ? fullFileLimit : manifestFileLimit,
-    });
+    // Cross-tenant guard (Codex P1): never read generated files by a
+    // client-supplied chat/version id without verifying the caller owns it.
+    // Fail-closed — no verifier or an unowned id means no file context.
+    const owned = verifyOwnership
+      ? await verifyOwnership(chatId, versionId || null)
+      : null;
+    const fileContext = owned
+      ? await resolveFileContext(owned.chatId, owned.versionId, {
+          includeFullText: codeContextMode === "full",
+          maxFullTextChars: fullCodeContextMaxChars,
+          maxManifestFiles: codeContextMode === "full" ? fullFileLimit : manifestFileLimit,
+        })
+      : null;
     if (fileContext) {
       fileBlock =
         codeContextMode === "full" && fileContext.fullText

@@ -115,6 +115,7 @@ EMPTY_TABLES: Tuple[str, ...] = (
     "generation_telemetry",
     "version_comments",
     "version_approvals",
+    "oc_debug_findings",
     "projects",
     "chats",
     "versions",

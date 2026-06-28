@@ -6,8 +6,15 @@ import {
   OPENCLAW_ROUTING_STRATEGY,
   type OpenClawChatMessageLike,
 } from "@/lib/openclaw/chat-context-policy";
-import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
+import {
+  buildOpenClawContextSystemMessage,
+  type OpenClawOwnershipVerifier,
+} from "@/lib/openclaw/server-context";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
+import {
+  getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
+} from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -122,6 +129,7 @@ async function buildMessages(params: {
   userMessage: string;
   history: ChatMessage[];
   context?: Record<string, unknown> | null;
+  verifyOwnership?: OpenClawOwnershipVerifier;
 }) {
   const conversationMessages: OpenClawChatMessageLike[] = [
     ...params.history,
@@ -143,6 +151,7 @@ async function buildMessages(params: {
       fullCodeContextMaxChars: 120_000,
       manifestFileLimit: 14,
       fullFileLimit: 20,
+      verifyOwnership: params.verifyOwnership,
     });
     messages.push({
       role: "system",
@@ -190,11 +199,28 @@ export async function POST(req: NextRequest) {
     const sessionId = sanitizeSessionId(body.sessionId) || `avatar-${crypto.randomUUID()}`;
     const history = sanitizeHistory(body.recentMessages);
 
+    // Cross-tenant guard (Codex P1): the avatar bridge may only read generated
+    // files for a chat/version the REQUESTER owns. Without this, a public avatar
+    // visitor (or a forged id) could pull the site owner's generated source.
+    const verifyOwnership: OpenClawOwnershipVerifier = async (cid, vid) => {
+      if (vid) {
+        const scoped = await getEngineVersionForChatByIdForRequest(
+          req,
+          cid,
+          vid,
+        ).catch(() => null);
+        return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
+      }
+      const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
+      return chat ? { chatId: cid, versionId: null } : null;
+    };
+
     try {
       const messages = await buildMessages({
         userMessage,
         history,
         context: body.context,
+        verifyOwnership,
       });
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
         method: "POST",
