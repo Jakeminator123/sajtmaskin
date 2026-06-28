@@ -34,6 +34,7 @@ Verkliga öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar
 | [ ] | Öppen läck-risk | P3 | `?inspect=1` kan nå genererad apps `searchParams`/`window.location.search` | #164, #197 | Strippa innan iframe-navigering. `PreviewPanel.tsx:withInspectParam`. |
 | [ ] | Öppen validator-risk | P2 | Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen finns) → false-green i self-validating-kartan | #202 | Resolva JSON-fragment och faila när top-level-nyckeln saknas. `scripts/control-plane/check-registry.mjs:114`. |
 | [ ] | Öppen kvalitet-risk | P2 | Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, `stepper`) exponeras bara via Deep Brief-prompten → korta init-prompts + follow-ups missar dem | #242 | Tråda in i capability-inference + follow-up-detektion (`capability-dossier-bridge.ts`, `follow-up-capability-detection.ts`). Samma spår som G#25/G#26. |
+| [ ] | Öppen kvalitet-risk | P2 | react-import-konsolidering bailar (no-op) när `import * as React` finns i filen → duplicerade named/type react-imports konsolideras inte, TS2300 kan kvarstå i den kombon. Säker no-op, ingen regression | #263 | Hantera namespace-fallet i `consolidateReactImports` (`src/lib/gen/autofix/rules/react-import-consolidated.ts`): merga named/type och lämna namespace-raden orörd. Codex P2 på PR #263. |
 
 ## Behöver repro
 
@@ -72,6 +73,7 @@ Systemet gör som tänkt; "fixen" är ett produkt-/arkitektur-**val** som medvet
 | Logg-/observability-/storage-städ | G#59, G#60, G#63, U#53, U#63, U#66 | Bred städ med sampling-/namespace-policy = sammanhållet pass, inte punktfix. |
 | Arkitektur (deploy-topologi/lane) | B3/E2, B1, B4, F4/F5, B7/#140 | Durable event-bus (multi-instans), S3-lane blockerande, canvas-PR-token, bus-emits/manifest-Zod, DB/Blob-gate-PR. |
 | A7-2 kod-default | B05 | Kod-fix (scope till valda dossiers) mergad #211; kod-default OFF kvarstår som ditt val (env satt i Vercel). |
+| components/ui canonical-skydd (drop av LLM-emitterade shadcn-stem-filer) | #263 | Avsiktligt: `components/ui/<shadcn-stem>` behandlas som host-ägda canonical runtime-filer; drop sker bara när canonical ersättning finns. App-specifika exports i en canonical shadcn-path stöds ej → revisitas om det dyker upp i riktiga generationer. Codex P2 på PR #263. |
 | Deferred re-verify hoppas över av inflight | BB-265 (MEDIUM) | Stale-base-recovery i `repair/route.ts` schemalägger `triggerServerVerification` via `after()`; om `inflight` redan håller versionId returnerar den tidigt och callbacken no-op:ar medan raden står i `repairing`. Täcks av readiness-watchdogen (`failVersionVerificationIfUnleased`, lease-safe, targetar `repairing` när lease-tabellen finns) + den samtidiga körningen som äger versionen. Ingen ny race införd. Kommentar finns vid `after()`-siten. |
 
 Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).

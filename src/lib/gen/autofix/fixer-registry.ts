@@ -134,11 +134,20 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     id: "react-hook-import-fixer",
     category: "mechanical-import",
     sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
-    targetFailureMode: "Missing named React hook imports (useState etc.)",
-    triggers: ["hook call without import"],
+    targetFailureMode:
+      "Missing named React hook imports (useState etc.); also TS2300 from duplicate `react` imports",
+    triggers: [
+      "hook call without import",
+      "2+ `import ... from \"react\"` re-declaring the same local name",
+    ],
     status: "active",
     ownerPhase: "pre-syntax",
-    notes: "Shares implementation with react-import-fixer (see E5 notes).",
+    notes:
+      "Shares implementation with react-import-fixer (see E5 notes). Also " +
+      "consolidates duplicate react imports (mix of `import type {…}` + value " +
+      "`import {…}`, or inline `type X` duplicated) into a single value import " +
+      "+ a single `import type`, de-duping specifiers, before adding any " +
+      "missing hooks.",
   },
   {
     id: "nextjs-navigation-import-fixer",

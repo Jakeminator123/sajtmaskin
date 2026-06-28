@@ -269,6 +269,25 @@ function symbolLooksUsed(code: string, name: string): boolean {
     new RegExp(`\\b${escaped}\\s*(?:,|;|\\)|\\]|\\}|\\?|:)`, "m"),
     new RegExp(`(?:=|return|:|\\(|\\[|\\{)\\s*${escaped}\\b`, "m"),
   ];
+  // JSX usage: `<Reveal ...>`, `<Reveal/>`, `<Reveal>`, `</Reveal>` and the
+  // generic-tag form `<DataTable<Row> ...>` where the char right after the name
+  // is `<` (TS type arguments on a JSX component). Without this a local
+  // PascalCase component rendered ONLY as a JSX tag is never recognised as
+  // "used", so a uniquely-exported local component (e.g. `components/reveal.tsx`
+  // -> `<Reveal>`) is left unimported and the page crashes with
+  // `ReferenceError: <Name> is not defined`.
+  //
+  // Gated to PascalCase: React only treats capitalised tags as component
+  // references; an intrinsic HTML/SVG tag is lowercase. A local lowercase export
+  // that collides with one (e.g. `export const path` while a sibling renders
+  // `<svg><path/></svg>`) must NOT be treated as used, or we inject a bogus
+  // unused import that can push the lint quality gate over its warning budget.
+  if (/^[A-Z]/.test(name)) {
+    patterns.push(
+      new RegExp(`<${escaped}[\\s/><]`, "m"),
+      new RegExp(`</${escaped}>`, "m"),
+    );
+  }
   return patterns.some((pattern) => pattern.test(code));
 }
 
@@ -520,11 +539,35 @@ export function fixLocalNamedImportDefaultMismatches(
   };
 }
 
+/**
+ * Module specifiers that resolve to the file itself. A module importing from
+ * its own path (e.g. `components/ui/carousel.tsx` doing
+ * `import { Carousel } from "@/components/ui/carousel"`) is always wrong and
+ * causes TS2440 "Import declaration conflicts with local declaration" because
+ * the imported name re-declares the symbol the file already exports. Covers the
+ * `@/` alias form and the direct `./<basename>` relative form.
+ */
+function computeSelfImportSpecifiers(filePath: string): Set<string> {
+  const specs = new Set<string>();
+  specs.add(toAliasImportPath(filePath));
+  const normalized = filePath.replace(/\\/g, "/").replace(/\.(tsx?|jsx?)$/i, "");
+  const base = normalized.split("/").pop();
+  if (base) specs.add(`./${base}`);
+  return specs;
+}
+
 export function fixImportedDeclarationConflicts(
   code: string,
+  filePath?: string,
 ): { code: string; fixed: boolean; removedBindings: string[] } {
   const declarations = extractLocalDeclarations(code);
-  if (declarations.size === 0) {
+  // When the file path is known, treat self-module-path imports as conflicts
+  // unconditionally (a module cannot meaningfully import from itself), in
+  // addition to the general local-redeclaration rule below.
+  const selfSpecifiers = filePath
+    ? computeSelfImportSpecifiers(filePath)
+    : new Set<string>();
+  if (declarations.size === 0 && selfSpecifiers.size === 0) {
     return { code, fixed: false, removedBindings: [] };
   }
 
@@ -543,6 +586,15 @@ export function fixImportedDeclarationConflicts(
     const source = match[5];
 
     const namedSpecsParsed = parseNamedImportSpecifiersDetailed(namedSpecs);
+
+    if (selfSpecifiers.has(source)) {
+      // Self-module-path import: drop the whole statement (default + named).
+      removedBindings.push(defaultLocal);
+      for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
+      patches.push({ start: offset, end: importEnd, replacement: "" });
+      continue;
+    }
+
     const keptNamed = namedSpecsParsed.filter((spec) => {
       if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
         return true;
@@ -581,6 +633,14 @@ export function fixImportedDeclarationConflicts(
     const source = match[3];
 
     const namedSpecsParsed = parseNamedImportSpecifiersDetailed(specifiers);
+
+    if (selfSpecifiers.has(source)) {
+      // Self-module-path import: drop every named binding (remove the line).
+      for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
+      patches.push({ start: offset, end: importEnd, replacement: "" });
+      continue;
+    }
+
     const keptNamed = namedSpecsParsed.filter((spec) => {
       if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
         return true;
