@@ -351,10 +351,13 @@ export async function handleSseStream(
         : [];
       const lines: string[] = [];
       for (const entry of structural) {
+        // Defensive: the SSE `done` callback must never throw on a malformed
+        // payload (e.g. a null array entry), so skip non-object items.
+        if (!entry || typeof entry !== "object") continue;
         const file = typeof entry.file === "string" ? entry.file : "okänd fil";
         const labels = Array.isArray(entry.droppedElements)
           ? entry.droppedElements
-              .map((el) => (typeof el?.label === "string" ? el.label : null))
+              .map((el) => (el && typeof el.label === "string" ? el.label : null))
               .filter((l): l is string => Boolean(l))
           : [];
         lines.push(
@@ -364,6 +367,7 @@ export async function handleSseStream(
         );
       }
       for (const entry of shrinks) {
+        if (!entry || typeof entry !== "object") continue;
         const file = typeof entry.file === "string" ? entry.file : "okänd fil";
         lines.push(
           `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Försök igen.`,
