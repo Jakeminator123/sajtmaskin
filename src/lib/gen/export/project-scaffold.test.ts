@@ -327,6 +327,61 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.three).toBe("0.182.0");
   });
 
+  it("prunes the 3D stack from package.json when no file imports it (capability false-positive bloat)", () => {
+    const generated: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: {
+            next: "^16.0.0",
+            react: "^19.0.0",
+            "react-dom": "^19.0.0",
+            three: "0.182.0",
+            "@react-three/fiber": "9.6.0",
+            "@react-three/drei": "10.7.7",
+          },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <main>No 3D here</main>; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies.three).toBeUndefined();
+    expect(pkg.dependencies["@react-three/fiber"]).toBeUndefined();
+    expect(pkg.dependencies["@react-three/drei"]).toBeUndefined();
+  });
+
+  it("keeps three (shared peer dep) when only the React-Three wrappers are imported", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/scene.tsx",
+        content: `"use client";\nimport { Canvas } from "@react-three/fiber";\nexport default function Scene() { return <Canvas />; }`,
+        language: "tsx",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import Scene from "./scene";\nexport default function Page() { return <Scene />; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
+    expect(pkg.dependencies.three).toBe("0.182.0");
+  });
+
   it("detects scoped @radix-ui imports via dep-completer in buildCompleteProject", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
