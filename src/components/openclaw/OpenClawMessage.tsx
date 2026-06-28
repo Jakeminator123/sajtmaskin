@@ -10,6 +10,8 @@ import {
   type OpenClawRequestRepairAction,
 } from "@/lib/openclaw/text-field-actions";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import type { OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 
 export function OpenClawMessage({ msg }: { msg: Msg }) {
@@ -148,19 +150,53 @@ function readActiveBuilderTarget(): { chatId: string; versionId: string } | null
   return { chatId, versionId };
 }
 
+/**
+ * The client autofix flow only repairs the LATEST version (useAutoFix silently
+ * no-ops on an older selected version). Check before dispatch so the card never
+ * reports a false success when the user is viewing version history (Codex P2).
+ * Fail-open on network/unknown: useAutoFix re-checks latest itself, so we only
+ * hard-block the clear "not latest" case.
+ */
+async function isLatestChatVersion(
+  chatId: string,
+  versionId: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`);
+    if (!res.ok) return true;
+    const data = (await res.json().catch(() => null)) as
+      | {
+          versions?: Array<{
+            versionId?: string | null;
+            id?: string | null;
+            versionNumber?: number | null;
+            createdAt?: string | null;
+          }>;
+        }
+      | null;
+    const versions = Array.isArray(data?.versions) ? data.versions : [];
+    if (versions.length === 0) return true;
+    const newest = sortEngineVersionsNewestFirst(versions)[0];
+    const newestId = newest?.versionId || newest?.id || null;
+    return !newestId || newestId === versionId;
+  } catch {
+    return true;
+  }
+}
+
 function OpenClawRepairRequestCard({
   action,
 }: {
   action: OpenClawRequestRepairAction;
 }) {
   const [actionState, setActionState] = useState<
-    "pending" | "approved" | "declined" | "failed"
+    "pending" | "working" | "approved" | "declined" | "failed"
   >("pending");
   const [actionError, setActionError] = useState<string | null>(null);
   const target = readActiveBuilderTarget();
   const actionLabel = action.label || "Starta reparation av den här versionen";
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     const current = readActiveBuilderTarget();
     if (!current) {
       setActionState("failed");
@@ -169,6 +205,19 @@ function OpenClawRepairRequestCard({
       );
       return;
     }
+    setActionState("working");
+    setActionError(null);
+
+    // Codex P2: only the latest version can be repaired — block (don't fake
+    // success) when an older version is selected.
+    if (!(await isLatestChatVersion(current.chatId, current.versionId))) {
+      setActionState("failed");
+      setActionError(
+        "Reparation kan bara startas på den senaste versionen. Välj den senaste versionen i historiken och försök igen.",
+      );
+      return;
+    }
+
     // Reuse the vetted client repair flow: the builder's useAutoFix listener
     // picks this up (manual trigger), enriches context, runs the lease-/base-
     // bound repair, and produces a new version awaiting acceptance. OC never
@@ -209,7 +258,7 @@ function OpenClawRepairRequestCard({
           <>
             <button
               type="button"
-              onClick={handleApprove}
+              onClick={() => void handleApprove()}
               disabled={!target}
               className="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -225,10 +274,14 @@ function OpenClawRepairRequestCard({
           </>
         ) : null}
 
+        {actionState === "working" ? (
+          <p className="text-xs text-slate-300">Startar reparation…</p>
+        ) : null}
+
         {actionState === "approved" ? (
           <p className="text-xs text-emerald-300">
-            Reparation startad. En ny version skapas och dyker upp för godkännande
-            när den är klar.
+            Reparation startad på den senaste versionen. En ny version dyker upp
+            för godkännande när den är klar.
           </p>
         ) : null}
 

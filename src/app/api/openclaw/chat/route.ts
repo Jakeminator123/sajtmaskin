@@ -11,6 +11,7 @@ import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { resolveReviewReasoningEffort } from "@/lib/openclaw/review-tuning";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -171,17 +172,32 @@ export async function POST(req: NextRequest) {
           typeof body.context.activeVersionId === "string"
             ? body.context.activeVersionId
             : null;
-        // Fas 1 (findings) + Fas 4 (timeline) share a single DB read.
-        const { findings: findingsBlock, timeline: timelineBlock } =
-          await buildOpenClawReviewContext({
-            chatId: reviewChatId,
-            versionId: reviewVersionId,
-          });
-        if (findingsBlock) {
-          messages.push({ role: "system", content: findingsBlock });
-        }
-        if (timelineBlock) {
-          messages.push({ role: "system", content: timelineBlock });
+        // Cross-tenant guard (Codex P1): `activeVersionId` is client-supplied,
+        // so verify the REQUESTER owns this chat+version (tenant-scoped lookup)
+        // before reading its diagnostics — never surface another tenant's
+        // findings/timeline from a forged version id.
+        const scopedVersion =
+          reviewChatId && reviewVersionId
+            ? await getEngineVersionForChatByIdForRequest(
+                req,
+                reviewChatId,
+                reviewVersionId,
+              ).catch(() => null)
+            : null;
+        if (scopedVersion) {
+          // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
+          // by the OWNERSHIP-VERIFIED version id.
+          const { findings: findingsBlock, timeline: timelineBlock } =
+            await buildOpenClawReviewContext({
+              chatId: reviewChatId,
+              versionId: scopedVersion.version.id,
+            });
+          if (findingsBlock) {
+            messages.push({ role: "system", content: findingsBlock });
+          }
+          if (timelineBlock) {
+            messages.push({ role: "system", content: timelineBlock });
+          }
         }
       }
     }
