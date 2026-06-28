@@ -86,13 +86,33 @@ describe("generateCode providerOptions", () => {
     });
   });
 
-  it("omits providerOptions when thinking is disabled", async () => {
+  it("disables Anthropic thinking but keeps explicit effort when thinking is off", async () => {
     const { generateCode } = await loadEngineModule();
 
     generateCode({
       prompt: "Build this",
       systemPrompt: "System",
       model: "claude-opus-4.8",
+      thinking: false,
+      reasoningEffort: "medium",
+    });
+
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      anthropic: {
+        thinking: { type: "disabled" },
+        effort: "medium",
+      },
+    });
+  });
+
+  it("omits providerOptions for OpenAI models when thinking is disabled", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-5.4",
       thinking: false,
     });
 
