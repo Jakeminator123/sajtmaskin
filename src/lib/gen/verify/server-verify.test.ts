@@ -143,7 +143,7 @@ describe("isRepairBudgetExhausted (#284 follow-up — wall-clock graceful stop)"
     ).toBe(false);
   });
 
-  it("with nextStepMaxMs=0 (final verify) stops only once past the deadline", () => {
+  it("with nextStepMaxMs=0 stops only once past the deadline", () => {
     expect(
       isRepairBudgetExhausted({
         deadlineEpochMs,
@@ -158,6 +158,38 @@ describe("isRepairBudgetExhausted (#284 follow-up — wall-clock graceful stop)"
         nextStepMaxMs: 0,
       }),
     ).toBe(true);
+  });
+
+  // Codex P1 on #286: the FINAL preview-host verify must reserve the real verify
+  // timeout, not 0. Otherwise a repair pass that finishes BEFORE the deadline
+  // but leaves < verify-timeout of budget would still start the verify, which
+  // then runs past the route's maxDuration and is hard-killed mid-verify /
+  // mid-save — the exact failure this guard exists to prevent.
+  describe("final-verify gate reserves the verify timeout", () => {
+    // VERIFY_REPAIR_ROUTE_BUDGET_SECONDS (420) * 1000 - 30_000 release headroom.
+    const verifyTimeoutMs = 390_000;
+
+    it("skips the final verify when a pass finished but < verify-timeout remains", () => {
+      // 100s left before the deadline — far less than the ~390s a cold verify
+      // can take. The loop must skip it gracefully (-> time_budget_exceeded).
+      expect(
+        isRepairBudgetExhausted({
+          deadlineEpochMs,
+          nowMs: deadlineEpochMs - 100_000,
+          nextStepMaxMs: verifyTimeoutMs,
+        }),
+      ).toBe(true);
+    });
+
+    it("allows the final verify when a full verify-timeout still fits", () => {
+      expect(
+        isRepairBudgetExhausted({
+          deadlineEpochMs,
+          nowMs: deadlineEpochMs - 400_000,
+          nextStepMaxMs: verifyTimeoutMs,
+        }),
+      ).toBe(false);
+    });
   });
 });
 

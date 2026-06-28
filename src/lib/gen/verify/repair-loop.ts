@@ -102,6 +102,18 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * (#284 follow-up). Undefined = no wall-clock bound (back-compat).
    */
   repairDeadlineEpochMs?: number;
+  /**
+   * Worst-case duration (ms) of the final preview-host verify run by
+   * `onAttemptPromotion` after the LLM loop. The final gate is only started when
+   * at least this much budget remains before `repairDeadlineEpochMs`; otherwise
+   * it is skipped gracefully (`time_budget_exceeded`). Reserving the real verify
+   * timeout (not 0) stops a late verify from running past the route's
+   * maxDuration and being hard-killed mid-verify / mid-save — the exact failure
+   * this guard exists to prevent (Codex P1 on #286). Callers pass the canonical
+   * `PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify`. Defaults to 0 (no reserve) for
+   * back-compat.
+   */
+  finalGateReserveMs?: number;
 };
 
 type TargetedRepairBundle = {
@@ -666,15 +678,18 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: bestContent,
   });
   const syntaxClean = finalSyntaxResult.errors.length === 0;
-  // Wall-clock graceful stop (#284 follow-up): if the budget is already spent,
-  // do NOT start the final preview-host verify — it would run past the route's
-  // maxDuration and be hard-killed mid-verify / mid-save. Stop gracefully so the
+  // Wall-clock graceful stop (#284 follow-up, hardened per Codex P1 on #286): if
+  // there is not a full preview-host verify-timeout of budget left, do NOT start
+  // the final verify — a late verify would run past the route's maxDuration and
+  // be hard-killed mid-verify / mid-save (the exact failure this guard prevents).
+  // `finalGateReserveMs` is the verify timeout the caller passes; reserving it
+  // (rather than 0) is what makes the check correct. Stop gracefully so the
   // caller fails + releases the lease; the unverified (but syntax-clean) content
   // is intentionally NOT promoted.
   const budgetSpentBeforeFinalGate = isRepairBudgetExhausted({
     deadlineEpochMs: params.repairDeadlineEpochMs,
     nowMs: Date.now(),
-    nextStepMaxMs: 0,
+    nextStepMaxMs: params.finalGateReserveMs ?? 0,
   });
   if (syntaxClean && budgetSpentBeforeFinalGate) {
     earlyStopReason = "time_budget_exceeded";

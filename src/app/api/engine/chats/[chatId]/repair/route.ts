@@ -33,6 +33,7 @@ import {
   MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
   REPAIR_LOOP_BUDGET_MS,
 } from "@/lib/gen/defaults";
+import { PREVIEW_HOST_CLIENT_TIMEOUTS_MS } from "@/lib/gen/preview/preview-host-client";
 import {
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
@@ -442,6 +443,9 @@ async function handlePOST(
       llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
       llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
       repairDeadlineEpochMs,
+      // Reserve a full preview-host verify-timeout before starting the final
+      // gate so a late verify can't overrun maxDuration (Codex P1 on #286).
+      finalGateReserveMs: PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify,
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,
