@@ -39,8 +39,15 @@ export function describePreviewHostHttpFailure(params: {
  * preview-host-VM:ets egna budget i `preview-host/src/server.js` —
  * justera båda sidor om budgeten ändras.
  *
- * - START / VERIFY: cold-start på Fly.io kan ta 60–120 s när maskinen är
- *   skalad till 0; lägg på buffer för Next-build + warm-typecheck.
+ * - START: cold-start på Fly.io kan ta 60–120 s när maskinen är skalad
+ *   till 0; lägg på buffer för Next-build + warm-typecheck.
+ * - VERIFY: medvetet UNDER de leas-hållande routernas `maxDuration`
+ *   (300 s för quality-gate + repair). 270 s ger ~30 s marginal så routen
+ *   hinner fånga abort, markera versionen failed och köra
+ *   `finally { releaseVersionLease }` INNAN Vercel hård-dödar funktionen
+ *   vid 300 s. Utan marginalen stod leasen `running` till 15-min-TTL och
+ *   varje accept/verify/repair fick `version_busy` i fönstret
+ *   (BUG-SWARM #260 P2). Ändras detta: håll buffert-testet i synk.
  * - STATUS: poll under boot — håll kort så UI-spinnern inte hänger om
  *   preview-host hängt sig.
  * - CLEANUP: admin-städning av föräldralösa workspaces; körs sällan så
@@ -49,9 +56,17 @@ export function describePreviewHostHttpFailure(params: {
 export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
   start: 300_000,
   status: 15_000,
-  verify: 300_000,
+  verify: 270_000,
   cleanup: 30_000,
 } as const;
+
+/**
+ * `maxDuration` (sekunder) för de Vercel-routes som håller en version-lease
+ * runt ett `/preview/verify`-anrop. `verify`-timeouten ovan MÅSTE vara
+ * strikt mindre än detta * 1000 så `finally { releaseVersionLease }` hinner
+ * köra före Vercels hård-kill. Verifieras av `preview-host-client.test.ts`.
+ */
+export const LEASE_HOLDING_ROUTE_MAX_DURATION_S = 300;
 
 const START_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.start;
 const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;

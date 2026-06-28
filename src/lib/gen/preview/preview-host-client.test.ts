@@ -3,7 +3,9 @@ import {
   describePreviewHostHttpFailure,
   fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
+  LEASE_HOLDING_ROUTE_MAX_DURATION_S,
   patchPreviewHostSession,
+  PREVIEW_HOST_CLIENT_TIMEOUTS_MS,
   runPreviewHostQualityGate,
   startPreviewHostSession,
   updatePreviewHostSession,
@@ -453,5 +455,18 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
 
     const result = await fetchPreviewHostStatus("ps_1");
     expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+});
+
+// BUG-SWARM #260 P2: the quality-gate + repair routes hold a per-version lease
+// across the /preview/verify call. If the client verify timeout equals the
+// route maxDuration there is no headroom for `finally { releaseVersionLease }`
+// to run before Vercel hard-kills the function — the lease stays `running`
+// until the 15-min TTL and every accept/verify/repair returns version_busy.
+describe("verify timeout stays under the lease-holding route budget", () => {
+  it("leaves at least 20s of headroom below maxDuration for lease release", () => {
+    const routeBudgetMs = LEASE_HOLDING_ROUTE_MAX_DURATION_S * 1000;
+    expect(PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify).toBeLessThan(routeBudgetMs);
+    expect(routeBudgetMs - PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify).toBeGreaterThanOrEqual(20_000);
   });
 });

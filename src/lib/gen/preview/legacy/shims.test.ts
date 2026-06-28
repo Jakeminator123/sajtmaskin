@@ -89,4 +89,36 @@ describe("buildPreviewPrelude — PR #268 baseline-util builtins", () => {
     expect(prelude).toContain("var useVirtualizer = useVirtualizer;");
     expect(prelude).toContain("var useWindowVirtualizer = useWindowVirtualizer;");
   });
+
+  // Follow-up to PR #275: import-validator allowlists + the component-contract
+  // prompt promote useInfiniteQuery/useSuspenseQuery/useQueryClient, but the
+  // shim only mapped useQuery/useMutation. Without object-shaped stubs the new
+  // hooks fall back to `function() {}` (returns undefined) so destructuring
+  // `const { data } = useInfiniteQuery()` throws in the iframe preview.
+  it("maps @tanstack/react-query useInfiniteQuery/useSuspenseQuery/useQueryClient to object-shaped shims", () => {
+    const prelude = buildPreviewPrelude(
+      [
+        moduleWithImports([
+          imp("@tanstack/react-query", [
+            "useInfiniteQuery",
+            "useSuspenseQuery",
+            "useQueryClient",
+          ]),
+        ]),
+      ],
+      "/",
+    );
+    // Static stubs must exist (object-returning, so destructuring is safe).
+    expect(prelude).toContain(
+      "var useInfiniteQuery = function() { return { data: { pages: [], pageParams: [] }",
+    );
+    expect(prelude).toContain(
+      "var useSuspenseQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, isSuccess: true",
+    );
+    expect(prelude).toContain("var useQueryClient = function() { return __previewQueryClient; };");
+    // And the import bindings must resolve to those stubs, not `function() {}`.
+    expect(prelude).toContain("var useInfiniteQuery = useInfiniteQuery;");
+    expect(prelude).toContain("var useSuspenseQuery = useSuspenseQuery;");
+    expect(prelude).toContain("var useQueryClient = useQueryClient;");
+  });
 });

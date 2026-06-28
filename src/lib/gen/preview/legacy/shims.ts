@@ -599,10 +599,14 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
     "var getFilteredRowModel = function() { return function() { return { rows: [] }; }; };",
     "var getPaginationRowModel = function() { return function() { return { rows: [] }; }; };",
 
-    "var QueryClient = function() { return {}; };",
+    "var __previewQueryClient = { invalidateQueries: function(){return Promise.resolve()}, setQueryData: function(){}, getQueryData: function(){return undefined}, prefetchQuery: function(){return Promise.resolve()}, prefetchInfiniteQuery: function(){return Promise.resolve()}, cancelQueries: function(){return Promise.resolve()}, resetQueries: function(){return Promise.resolve()}, removeQueries: function(){}, refetchQueries: function(){return Promise.resolve()}, setQueryDefaults: function(){}, clear: function(){} };",
+    "var QueryClient = function() { return __previewQueryClient; };",
     "var QueryClientProvider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
-    "var useQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, refetch: function(){} }; };",
-    "var useMutation = function() { return { mutate: function(){}, mutateAsync: function(){return Promise.resolve()}, isLoading: false, isError: false, error: null }; };",
+    "var useQueryClient = function() { return __previewQueryClient; };",
+    "var useQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, isSuccess: false, isPending: false, refetch: function(){} }; };",
+    "var useSuspenseQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, isSuccess: true, isPending: false, refetch: function(){} }; };",
+    "var useInfiniteQuery = function() { return { data: { pages: [], pageParams: [] }, error: null, isLoading: false, isError: false, isSuccess: false, isPending: false, fetchNextPage: function(){return Promise.resolve()}, fetchPreviousPage: function(){return Promise.resolve()}, hasNextPage: false, hasPreviousPage: false, isFetchingNextPage: false, isFetchingPreviousPage: false, refetch: function(){} }; };",
+    "var useMutation = function() { return { mutate: function(){}, mutateAsync: function(){return Promise.resolve()}, isLoading: false, isPending: false, isError: false, isSuccess: false, error: null, data: undefined, reset: function(){} }; };",
 
     "var confetti = function() { return Promise.resolve(); };",
     "confetti.reset = function() {}; confetti.create = function() { var fn = function() { return Promise.resolve(); }; fn.reset = function() {}; return fn; };",
@@ -916,6 +920,8 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
         const knownRQ: Record<string, string> = {
           QueryClient: "QueryClient", QueryClientProvider: "QueryClientProvider",
           useQuery: "useQuery", useMutation: "useMutation",
+          useInfiniteQuery: "useInfiniteQuery", useSuspenseQuery: "useSuspenseQuery",
+          useQueryClient: "useQueryClient",
         };
         for (const binding of imp.namedImports) {
           emitBinding(binding.local, knownRQ[binding.imported] || "function() {}");
