@@ -382,11 +382,29 @@ export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
   return HEAVY_CAPABILITY_KEYS.some((key) => caps[key] === true);
 }
 
+export interface BuildCapabilityHintsOptions {
+  /**
+   * Generation lifecycle stage. F2 (`"design"`) is integration-mute: the
+   * payments/database hints must stay mock-first and must NOT instruct real
+   * env keys (`STRIPE_SECRET_KEY`, `process.env.*`), SDKs, or API routes —
+   * those belong to F3 (`"integrations"`, the "Bygg integrationer" pass).
+   *
+   * Defaults to `"integrations"` (full wiring) so the no-arg signature stays
+   * backwards-compatible for legacy callers; production orchestrate passes the
+   * resolved stage explicitly. See `.cursor/rules/env-flow-f2-mute.mdc`.
+   */
+  lifecycleStage?: "design" | "integrations";
+}
+
 /**
  * Build a short capability hint string for inclusion in the system prompt
  * dynamic context, so the model knows which libraries/patterns to use.
  */
-export function buildCapabilityHints(caps: InferredCapabilities): string | null {
+export function buildCapabilityHints(
+  caps: InferredCapabilities,
+  options?: BuildCapabilityHintsOptions,
+): string | null {
+  const isF2 = options?.lifecycleStage === "design";
   const lines: string[] = [];
 
   if (caps.needs3D) {
@@ -414,9 +432,19 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
     );
   }
   if (caps.needsPayments) {
-    lines.push(
-      "- **Payments requested**: Use the payments dossier selected for this build (typically `stripe-checkout`). Mount `<CheckoutButton>` from `@/components/checkout-button` on the pricing/buy CTA, and ship the `/api/checkout-session` server route as-is from the dossier. Treat `STRIPE_SECRET_KEY` as a build-blocking env (sajten kraschar utan), and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as warn-only (publishable, harmless placeholder OK). Style the button with the project's color tokens — do not import Stripe Elements UI; the dossier uses hosted Checkout.",
-    );
+    if (isF2) {
+      // F2 / design is mock-first: build a convincing checkout/pricing UI with
+      // NO real payment wiring. Stripe SDKs, `/api/checkout-session`, and
+      // `STRIPE_SECRET_KEY` / `process.env.STRIPE_*` are deferred to F3 so the
+      // prompt never both forbids (F2 contract) and requires payment keys.
+      lines.push(
+        "- **Payments requested (F2 / design — mock-first)**: Build a polished checkout/pricing UI only. Render the order summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" Do NOT import Stripe SDKs, add payment API routes/webhooks (`/api/checkout-session`, `/api/stripe/*`), or reference `STRIPE_SECRET_KEY` / `process.env.STRIPE_*`. Keep all price/order data as inline mock constants. Real keys and the hosted Checkout wiring are an F3 step.",
+      );
+    } else {
+      lines.push(
+        "- **Payments requested**: Use the payments dossier selected for this build (typically `stripe-checkout`). Mount `<CheckoutButton>` from `@/components/checkout-button` on the pricing/buy CTA, and ship the `/api/checkout-session` server route as-is from the dossier. Treat `STRIPE_SECRET_KEY` as a build-blocking env (sajten kraschar utan), and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as warn-only (publishable, harmless placeholder OK). Style the button with the project's color tokens — do not import Stripe Elements UI; the dossier uses hosted Checkout.",
+      );
+    }
   }
   if (caps.needsGame) {
     // Ship the six-point contract from the `interactive-game-loop` dossier
@@ -465,9 +493,17 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
     );
   }
   if (caps.needsDatabase) {
-    lines.push(
-      "- **Database or persistence requested**: Do not assume Prisma, SQLite, Supabase, or Postgres unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.",
-    );
+    if (isF2) {
+      // F2 / design is mock-first: no DB, ORM, or `process.env` DB connection.
+      // Real persistence (and its env keys) is wired in F3.
+      lines.push(
+        "- **Database / persistence mentioned (F2 / design — mock-first)**: Do NOT wire a database, ORM, or `process.env` DB connection in F2. Model the data as inline TypeScript mock constants and drive the UI from them (client-side `Array.filter`/`map`/`useState`). Real persistence (Prisma/SQLite/Supabase/Postgres + env keys) is wired in F3 via 'Bygg integrationer'.",
+      );
+    } else {
+      lines.push(
+        "- **Database or persistence requested**: Do not assume Prisma, SQLite, Supabase, or Postgres unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.",
+      );
+    }
   }
   if (caps.needsAuth) {
     lines.push(

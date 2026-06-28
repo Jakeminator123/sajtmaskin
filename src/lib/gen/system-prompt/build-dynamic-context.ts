@@ -286,7 +286,9 @@ export function buildDynamicContext(
     parts.push(...renderLucideIconsReminderBlock());
   }
   parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
-  parts.push(...renderPreGenerationContractsBlock(preGenerationContracts));
+  // F3-gated: pre-generation contracts (integrations/env/placeholder policy)
+  // must not render in F2, where `renderF2ContractBlock` forbids that wiring.
+  parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
   parts.push(...renderBriefBlocks(brief));
   parts.push(
     ...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }),
