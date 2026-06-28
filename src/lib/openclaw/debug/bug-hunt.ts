@@ -44,6 +44,40 @@ export const DEFAULT_BUG_HUNT_BUDGET: BugHuntBudget = {
   maxFindings: 500,
 };
 
+/**
+ * Server-owned hard ceilings. Even an authorized caller cannot exceed these via
+ * a request-body budget override — they cap autonomous cost/runaway loops.
+ */
+export const BUG_HUNT_BUDGET_CEILING: BugHuntBudget = {
+  maxPrompts: 30,
+  maxRepairsPerVersion: 5,
+  maxTotalMs: 2 * 60 * 60_000,
+  maxFindings: 2_000,
+};
+
+function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+/**
+ * Merge a (possibly client-supplied) partial budget onto the defaults and clamp
+ * every field to [1, ceiling]. Pure + total so it is unit-testable.
+ */
+export function clampBugHuntBudget(partial?: Partial<BugHuntBudget>): BugHuntBudget {
+  return {
+    maxPrompts: clampInt(partial?.maxPrompts, DEFAULT_BUG_HUNT_BUDGET.maxPrompts, 1, BUG_HUNT_BUDGET_CEILING.maxPrompts),
+    maxRepairsPerVersion: clampInt(
+      partial?.maxRepairsPerVersion,
+      DEFAULT_BUG_HUNT_BUDGET.maxRepairsPerVersion,
+      0,
+      BUG_HUNT_BUDGET_CEILING.maxRepairsPerVersion,
+    ),
+    maxTotalMs: clampInt(partial?.maxTotalMs, DEFAULT_BUG_HUNT_BUDGET.maxTotalMs, 1_000, BUG_HUNT_BUDGET_CEILING.maxTotalMs),
+    maxFindings: clampInt(partial?.maxFindings, DEFAULT_BUG_HUNT_BUDGET.maxFindings, 1, BUG_HUNT_BUDGET_CEILING.maxFindings),
+  };
+}
+
 export type BugHuntStopReason =
   | "completed"
   | "kill_switch"
@@ -115,11 +149,28 @@ export interface EngineVersionRef {
   versionId: string;
 }
 
+/** A failed quality-gate check, in the shape the repair endpoint expects. */
+export interface EngineRepairGateFailure {
+  check: "typecheck" | "build" | "lint";
+  exitCode: number;
+  output: string;
+  durationMs?: number | null;
+}
+
 export interface EngineBuildResult {
   result: "passed" | "failed" | "unknown";
   /** Optional error manifest (array of { file, diagnostics }) when build failed. */
   manifest?: unknown;
   detail?: string;
+  /** Failed checks from the forced gate — carried into repair as actionable context. */
+  qualityGate?: EngineRepairGateFailure[];
+  firstFailureCheck?: string | null;
+}
+
+/** Actionable context passed into a repair so the repair loop has something to fix. */
+export interface EngineRepairContext {
+  qualityGate?: EngineRepairGateFailure[];
+  qualityGateMeta?: { firstFailureCheck?: string | null };
 }
 
 export interface EngineRepairResult {
@@ -146,7 +197,7 @@ export interface BugHuntEngineClient {
   waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string }>;
   /** Force a real build / preview check and return whether it passed. */
   forceBuild(ref: EngineVersionRef): Promise<EngineBuildResult>;
-  repair(ref: EngineVersionRef): Promise<EngineRepairResult>;
+  repair(ref: EngineVersionRef, context?: EngineRepairContext): Promise<EngineRepairResult>;
   getErrorLogs(versionId: string): Promise<EngineErrorLogRow[]>;
 }
 
@@ -250,21 +301,31 @@ export function mapEngineFindingsToDebugFindings(
   return out;
 }
 
-/** Synthetic finding summarizing the build outcome the harness forced. */
+/**
+ * Synthetic finding summarizing the build outcome the harness forced. Only an
+ * explicit `passed` is green (info); `failed` is an error; anything else
+ * (`unknown` — gate unavailable/timeout/HTTP error) is a warning, never a
+ * false-green pass.
+ */
 export function buildOutcomeFinding(
   ctx: MapFindingsContext,
 ): DebugFindingPayload {
+  const passed = ctx.buildResult === "passed";
   const failed = ctx.buildResult === "failed";
+  const severity: DebugFindingSeverity = passed ? "info" : failed ? "error" : "warning";
+  const message = passed
+    ? `Forced build passed for scenario "${ctx.scenario}"`
+    : failed
+      ? `Forced build FAILED for scenario "${ctx.scenario}"`
+      : `Forced build could NOT be verified (result: ${ctx.buildResult}) for scenario "${ctx.scenario}"`;
   return {
     runId: ctx.runId,
     chatId: ctx.chatId,
     versionId: ctx.versionId,
     scenario: ctx.scenario,
-    severity: failed ? "error" : "info",
+    severity,
     category: "oc-debug:build",
-    message: failed
-      ? `Forced build FAILED for scenario "${ctx.scenario}"`
-      : `Forced build passed for scenario "${ctx.scenario}"`,
+    message,
     buildResult: ctx.buildResult,
     repairOutcome: ctx.repairOutcome ?? null,
     meta: null,
@@ -329,7 +390,12 @@ async function processVersion(
   if (build.result === "failed" && tracker.canRepair(ref.versionId)) {
     deps.log?.("bug_hunt_repair", { versionId: ref.versionId });
     tracker.recordRepair(ref.versionId);
-    const repair = await deps.client.repair(ref);
+    // Carry the failed quality-gate checks into the repair so the repair loop has
+    // actionable context (otherwise it can no-op on non-syntax build/lint fails).
+    const repair = await deps.client.repair(ref, {
+      qualityGate: build.qualityGate,
+      qualityGateMeta: { firstFailureCheck: build.firstFailureCheck ?? null },
+    });
     repairOutcome = repair.outcome;
     const repairedRef: EngineVersionRef = {
       chatId: ref.chatId,

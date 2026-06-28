@@ -8,11 +8,12 @@
  *
  * Model note: the gateway should run a current model (recommended
  * `openai/gpt-5.5`). GPT-5.5 supports `xhigh` and defaults to `medium`; the
- * deprecated `gpt-5.3-codex` is being retired. `xhigh` is reserved for the
- * hardest async agentic work (debug-mode bug-hunt).
+ * deprecated `gpt-5.3-codex` is being retired. `xhigh` uses markedly more
+ * tokens/latency/cost, so it is NOT the default — debug defaults to `high` and
+ * `xhigh` is opt-in via the env knob below (set it when a hard case justifies it).
  *
  * Controlled via `OPENCLAW_REVIEW_REASONING_EFFORT`:
- *   - unset            -> default effort ("high" for review, "xhigh" for debug)
+ *   - unset            -> default effort ("high" for both review and debug)
  *   - minimal|low|medium|high|xhigh -> that effort
  *   - off|none|false|0|"" -> null (do not send the field; e.g. if a gateway
  *     ever rejects it, this disables the behavior without a code change)
@@ -32,8 +33,12 @@ const DISABLED_VALUES = new Set(["off", "none", "false", "0", ""]);
 
 const DEFAULT_REVIEW_EFFORT: OpenClawReasoningEffort = "high";
 
-/** Debug-mode bug-hunt reasons harder by default than ordinary review. */
-export const DEFAULT_DEBUG_EFFORT: OpenClawReasoningEffort = "xhigh";
+/**
+ * Debug-mode default effort. Kept at `high` (not `xhigh`) to avoid the
+ * markedly higher token/latency/cost of `xhigh`. Bump to `xhigh` only when a
+ * hard case justifies it, via `OPENCLAW_REVIEW_REASONING_EFFORT=xhigh`.
+ */
+export const DEFAULT_DEBUG_EFFORT: OpenClawReasoningEffort = "high";
 
 export interface ResolveReasoningEffortOptions {
   /** Default effort to use when `raw` is unset or unrecognized. Lets debug

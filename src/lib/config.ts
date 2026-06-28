@@ -357,6 +357,12 @@ export const OPENCLAW = {
   get repoSlug(): string {
     return env.OC_REPO_SLUG ?? "";
   },
+  /** Shared secret required (via `x-oc-debug-token`) to trigger the Mode B
+   * bug-hunt run route. Distinct from tenant auth: it is the owner gate so a
+   * mere logged-in guest on a debug preview can't drive the expensive loop. */
+  get debugRunToken(): string {
+    return env.OC_DEBUG_RUN_TOKEN ?? "";
+  },
 } as const;
 
 /**

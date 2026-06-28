@@ -18,8 +18,6 @@ import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle
 import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 import {
   consumeMandateStep,
-  createArmedMandate,
-  DEFAULT_FOLLOWUP_COUNT,
   describeMandate,
   isMandateActive,
 } from "@/lib/openclaw/debug/armed-mandate";
@@ -179,11 +177,12 @@ function OpenClawFillTextFieldCard({
 }
 
 /**
- * Arming-handshake card (Mode A). When OC_DEBUG is on, OpenClaw's structured
- * `start_bug_hunt` confirmation arms a bounded mandate so the subsequent
- * auto-send steps are authorized. Outside debug it is inert (shows nothing
- * actionable). The user's own message already arms via the chat hook; this is
- * OpenClaw's explicit, visible confirmation of the mandate.
+ * Arming-handshake card (Mode A). This card NEVER arms autonomy by itself — a
+ * mandate is created only from the USER's explicit directive (handled in
+ * useOpenClawChat). The assistant's `start_bug_hunt` action is treated purely as
+ * a visible confirmation of an already-active, user-created mandate. This blocks
+ * a hallucinated / prompt-injected assistant action from authorizing auto-sends
+ * when the user never armed the run.
  */
 function OpenClawStartBugHuntCard({
   action,
@@ -193,20 +192,6 @@ function OpenClawStartBugHuntCard({
   debugEnabled: boolean;
 }) {
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
-  const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
-  const armedRef = useRef(false);
-
-  useEffect(() => {
-    if (!debugEnabled || armedRef.current) return;
-    armedRef.current = true;
-    setArmedMandate(
-      createArmedMandate({
-        mode: action.mode ?? "followups",
-        count: action.count ?? DEFAULT_FOLLOWUP_COUNT,
-        reason: action.reason ?? "OpenClaw bug-hunt mandate",
-      }),
-    );
-  }, [debugEnabled, action, setArmedMandate]);
 
   if (!debugEnabled) {
     return (
@@ -218,18 +203,26 @@ function OpenClawStartBugHuntCard({
     );
   }
 
+  const active = isMandateActive(armedMandate);
+
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
       <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-fuchsia-200/80">
         Armerad bug-hunt
       </p>
-      <p className="mt-1 text-sm font-semibold text-white">{describeMandate(armedMandate)}</p>
+      <p className="mt-1 text-sm font-semibold text-white">
+        {active
+          ? describeMandate(armedMandate)
+          : "Inget aktivt mandat — armera genom att uttryckligen be om det (t.ex. \u201dgör 5 follow-ups och buggranska\u201d)."}
+      </p>
       {action.reason ? (
         <p className="mt-1 text-xs leading-5 text-slate-300">{action.reason}</p>
       ) : null}
-      <p className="mt-1 text-[11px] text-slate-400">
-        Skriv &quot;stopp&quot; när som helst för att avbryta.
-      </p>
+      {active ? (
+        <p className="mt-1 text-[11px] text-slate-400">
+          Skriv &quot;stopp&quot; när som helst för att avbryta.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { nanoid } from "nanoid";
 import { OPENCLAW } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
   runBugHunt,
-  DEFAULT_BUG_HUNT_BUDGET,
+  clampBugHuntBudget,
   type BugHuntScenario,
   type BugHuntBudget,
   type EngineErrorLogRow,
@@ -19,11 +20,14 @@ export const maxDuration = 300;
 /**
  * Gated trigger for the OpenClaw debug-mode bug-hunt (Mode B).
  *
- * Hard gates:
+ * Hard gates (defense in depth):
  *  - `OPENCLAW.debugEnabled` (OC_DEBUG, production-safeguarded) must be on.
- *  - the request must carry the owner's auth (cookie/authorization), which is
- *    forwarded to the engine endpoints so generated chats belong to the owner /
- *    debug tenant. The engine endpoints enforce tenant scoping themselves.
+ *  - the OWNER gate: `OC_DEBUG_RUN_TOKEN` must be set AND the request must send a
+ *    matching `x-oc-debug-token` header (constant-time compared). This stops a
+ *    mere logged-in guest on a debug-enabled preview from driving the expensive
+ *    loop. The owner's session cookie is forwarded separately for tenant scoping;
+ *    the debug token is NEVER forwarded to the engine endpoints.
+ *  - budget overrides are clamped to server-owned ceilings.
  *
  * Intended to be driven by scripts/openclaw/bug-hunt.mjs one scenario at a time
  * so no single serverless invocation exceeds its budget; the script provides the
@@ -37,6 +41,7 @@ interface RunRequestBody {
   budget?: Partial<BugHuntBudget>;
 }
 
+/** Tenant-scoping headers forwarded to the engine endpoints (NOT the debug token). */
 function forwardAuthHeaders(req: Request): Record<string, string> {
   const headers: Record<string, string> = {};
   const cookie = req.headers.get("cookie");
@@ -44,6 +49,18 @@ function forwardAuthHeaders(req: Request): Record<string, string> {
   if (cookie) headers.cookie = cookie;
   if (authorization) headers.authorization = authorization;
   return headers;
+}
+
+/** Constant-time owner-token check. */
+function ownerTokenMatches(req: Request): boolean {
+  const expected = OPENCLAW.debugRunToken;
+  if (!expected) return false; // route hard-disabled unless the secret is set
+  const provided = req.headers.get("x-oc-debug-token") ?? "";
+  if (!provided) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export async function POST(req: Request) {
@@ -55,10 +72,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Owner gate: a real shared secret, not mere header presence.
+    if (!ownerTokenMatches(req)) {
+      return NextResponse.json(
+        { error: "Forbidden: set OC_DEBUG_RUN_TOKEN and send a matching x-oc-debug-token header." },
+        { status: 403 },
+      );
+    }
+
     const authHeaders = forwardAuthHeaders(req);
     if (!authHeaders.cookie && !authHeaders.authorization) {
       return NextResponse.json(
-        { error: "Authenticated owner session required (forward cookie or authorization)." },
+        { error: "Authenticated owner session required (forward cookie or authorization for tenant scoping)." },
         { status: 401 },
       );
     }
@@ -76,7 +101,8 @@ export async function POST(req: Request) {
     }
 
     const runId = typeof body.runId === "string" && body.runId.trim() ? body.runId.trim() : nanoid();
-    const budget: BugHuntBudget = { ...DEFAULT_BUG_HUNT_BUDGET, ...(body.budget ?? {}) };
+    // Clamp any client-supplied budget to server-owned ceilings (anti-runaway).
+    const budget: BugHuntBudget = clampBugHuntBudget(body.budget);
 
     const baseUrl = new URL(req.url).origin;
     const httpClient = createHttpEngineClient({ baseUrl, authHeaders });

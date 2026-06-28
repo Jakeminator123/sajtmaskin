@@ -128,6 +128,9 @@ export const serverSchema = z.object({
   OC_REPO_READ_TOKEN: z.string().optional(),
   /** owner/repo slug for the Sajtmaskin repo the debug repo-context reader fetches from. */
   OC_REPO_SLUG: z.string().optional(),
+  /** Owner gate for the Mode B bug-hunt run route (sent via `x-oc-debug-token`).
+   * The route is hard-disabled unless this is set AND matches. */
+  OC_DEBUG_RUN_TOKEN: z.string().optional(),
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),

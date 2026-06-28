@@ -24,6 +24,8 @@ import type {
   BugHuntEngineClient,
   EngineBuildResult,
   EngineErrorLogRow,
+  EngineRepairContext,
+  EngineRepairGateFailure,
   EngineRepairResult,
   EngineVersionRef,
 } from "./bug-hunt";
@@ -233,23 +235,54 @@ export function createHttpEngineClient(
           return { result: "unknown", detail: `HTTP ${res.status}` };
         }
         const data = (await res.json().catch(() => null)) as
-          | { passed?: boolean; checks?: unknown }
+          | {
+              passed?: boolean;
+              firstFailureCheck?: string | null;
+              checks?: Array<{
+                check?: string;
+                passed?: boolean;
+                exitCode?: number;
+                output?: string;
+                durationMs?: number | null;
+              }>;
+            }
           | null;
+        // Carry failed checks so repair has actionable context. Only the three
+        // gate checks the repair endpoint accepts are kept.
+        const allowed = new Set(["typecheck", "build", "lint"]);
+        const qualityGate: EngineRepairGateFailure[] = Array.isArray(data?.checks)
+          ? data!.checks
+              .filter((c) => c && c.passed === false && allowed.has(String(c.check)))
+              .map((c) => ({
+                check: c.check as EngineRepairGateFailure["check"],
+                exitCode: typeof c.exitCode === "number" ? c.exitCode : 1,
+                output: typeof c.output === "string" ? c.output : "",
+                durationMs: typeof c.durationMs === "number" ? c.durationMs : null,
+              }))
+          : [];
         return {
           result: data?.passed === true ? "passed" : data?.passed === false ? "failed" : "unknown",
-          detail: undefined,
+          qualityGate,
+          firstFailureCheck:
+            typeof data?.firstFailureCheck === "string" ? data.firstFailureCheck : null,
         };
       } catch (err) {
         return { result: "unknown", detail: err instanceof Error ? err.message : "error" };
       }
     },
 
-    async repair(ref: EngineVersionRef): Promise<EngineRepairResult> {
+    async repair(
+      ref: EngineVersionRef,
+      context?: EngineRepairContext,
+    ): Promise<EngineRepairResult> {
       try {
         const res = await doFetch(`${baseUrl}/api/engine/chats/${ref.chatId}/repair`, {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify({ versionId: ref.versionId, repairContext: {} }),
+          body: JSON.stringify({
+            versionId: ref.versionId,
+            repairContext: context ?? {},
+          }),
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (!res.ok) {

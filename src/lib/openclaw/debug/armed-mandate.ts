@@ -41,6 +41,13 @@ const REVIEW_NEXT_RE =
   /(granska|buggranska|kolla|ta\s+notis|notera)[^.!?]*\bn(ä|a)sta\b|\bn(ä|a)sta\s+(chatt)?meddelande/i;
 const STOP_RE = /\b(stopp|stoppa|sluta|avbryt|avsluta|stop|halt)\b/i;
 const COUNT_RE = /(\d{1,2})/;
+// An explicit imperative is required to arm — a bare noun like "follow-ups" or a
+// question ("kan du förklara follow-ups?") must NOT authorize auto-sends.
+const ARM_VERB_RE =
+  /\b(gör|göra|kör|skapa|starta|påbörja|utför|generera|do|run|create|start|launch)\b/i;
+const REVIEW_VERB_RE = /\b(granska|buggranska|notera|ta\s+notis|kolla|felsök|debugga)\b/i;
+// Negation/abstention must never arm ("gör inga follow-ups", "inte nu").
+const NEGATION_RE = /\b(inga|inte|ingen|aldrig|undvik|sluta|no|don'?t|do not)\b/i;
 
 function clampFollowupCount(raw: number): number {
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_FOLLOWUP_COUNT;
@@ -55,17 +62,22 @@ export function parseArmingDirective(text: string): ArmingDirective | null {
   if (typeof text !== "string") return null;
   const trimmed = text.trim();
   if (!trimmed) return null;
+  // A stop or any negation/abstention is never an arming directive.
+  if (parseStopDirective(trimmed)) return null;
+  if (NEGATION_RE.test(trimmed)) return null;
   const reason = trimmed.slice(0, 400);
 
-  if (FOLLOWUP_RE.test(trimmed)) {
-    // "gör 5 follow-ups", "skapa 3 på varandra follow ups", "follow-ups och buggranska"
+  // Follow-up mandate requires BOTH a follow-up reference AND an explicit
+  // imperative/review verb — "gör 5 follow-ups och buggranska", not a bare
+  // "follow-ups" or "kan du förklara follow-ups?".
+  if (FOLLOWUP_RE.test(trimmed) && (ARM_VERB_RE.test(trimmed) || REVIEW_VERB_RE.test(trimmed))) {
     const match = trimmed.match(COUNT_RE);
     const count = match ? clampFollowupCount(Number(match[1])) : DEFAULT_FOLLOWUP_COUNT;
     return { mode: "followups", count, reason };
   }
 
+  // "granska nästa meddelande jag skapar och ta notis om allt"
   if (REVIEW_NEXT_RE.test(trimmed)) {
-    // "granska nästa meddelande jag skapar och ta notis om allt"
     return { mode: "review_next", count: 1, reason };
   }
 

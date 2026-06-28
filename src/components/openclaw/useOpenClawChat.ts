@@ -71,20 +71,23 @@ export function useOpenClawChat() {
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || isStreaming) return;
+      if (!trimmed) return;
 
       // Debug-mode armed autonomy (Mode A): the user's own message is the
-      // consent. A stop directive disarms immediately; an arming directive
-      // ("granska nästa" / "gör 5 follow-ups och buggranska") creates a bounded
-      // mandate. Outside OC_DEBUG this never arms anything.
+      // consent. A stop directive disarms IMMEDIATELY — handled before the
+      // streaming guard so the user can cancel an in-flight autonomous run by
+      // typing "stopp" even while OpenClaw is still responding. An arming
+      // directive creates a bounded mandate. Outside OC_DEBUG this never arms.
       if (debugEnabled) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
-        } else {
+        } else if (!isStreaming) {
           const directive = parseArmingDirective(trimmed);
           if (directive) setArmedMandate(createArmedMandate(directive));
         }
       }
+
+      if (isStreaming) return;
 
       const userMsg: OpenClawMessage = {
         id: makeId(),

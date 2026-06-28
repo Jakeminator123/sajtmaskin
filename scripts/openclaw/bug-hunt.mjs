@@ -13,11 +13,14 @@
  *     owner / a dedicated debug tenant (never run against real user tenants).
  *
  * Usage (PowerShell):
- *   node scripts/openclaw/bug-hunt.mjs --base-url http://localhost:3000 --cookie "<session-cookie>"
+ *   node scripts/openclaw/bug-hunt.mjs --base-url http://localhost:3000 --cookie "<session-cookie>" --run-token "<OC_DEBUG_RUN_TOKEN>"
  *   node scripts/openclaw/bug-hunt.mjs --scenario jakobs-biljard-forum
  *   node scripts/openclaw/bug-hunt.mjs --all          # send every scenario in one call
  *
- * Env fallbacks: OC_DEBUG_BASE_URL, OC_DEBUG_COOKIE, OC_DEBUG_AUTH (bearer).
+ * The run-token (matching the server's OC_DEBUG_RUN_TOKEN) is the OWNER gate and
+ * is sent as `x-oc-debug-token`; the cookie/bearer is the tenant auth.
+ *
+ * Env fallbacks: OC_DEBUG_BASE_URL, OC_DEBUG_COOKIE, OC_DEBUG_AUTH (bearer), OC_DEBUG_RUN_TOKEN.
  */
 
 import { readFile } from "node:fs/promises";
@@ -79,15 +82,25 @@ async function main() {
   const baseUrl = args["base-url"] || process.env.OC_DEBUG_BASE_URL || "http://localhost:3000";
   const cookie = args.cookie || process.env.OC_DEBUG_COOKIE || "";
   const bearer = args.auth || process.env.OC_DEBUG_AUTH || "";
+  const runToken = args["run-token"] || process.env.OC_DEBUG_RUN_TOKEN || "";
 
   const headers = {};
   if (cookie) headers.cookie = cookie;
   if (bearer) headers.authorization = bearer.startsWith("Bearer ") ? bearer : `Bearer ${bearer}`;
+  if (runToken) headers["x-oc-debug-token"] = runToken;
 
   if (!headers.cookie && !headers.authorization) {
     console.error(
-      "[bug-hunt] No owner auth provided. Pass --cookie \"<session>\" or --auth <bearer> " +
+      "[bug-hunt] No tenant auth provided. Pass --cookie \"<session>\" or --auth <bearer> " +
         "(or set OC_DEBUG_COOKIE / OC_DEBUG_AUTH).",
+    );
+    process.exit(1);
+  }
+
+  if (!runToken) {
+    console.error(
+      "[bug-hunt] No owner token provided. Pass --run-token \"<OC_DEBUG_RUN_TOKEN>\" " +
+        "(or set OC_DEBUG_RUN_TOKEN). The server route is gated on a matching x-oc-debug-token.",
     );
     process.exit(1);
   }

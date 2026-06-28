@@ -42,6 +42,20 @@ describe("parseArmingDirective", () => {
     expect(directive?.mode).toBe("review_next");
     expect(directive?.count).toBe(1);
   });
+
+  it("does NOT arm on a bare/question mention of follow-ups (no imperative verb)", () => {
+    expect(parseArmingDirective("kan du förklara follow-ups?")).toBeNull();
+    expect(parseArmingDirective("vad är en follow-up egentligen")).toBeNull();
+  });
+
+  it("does NOT arm on negation/abstention", () => {
+    expect(parseArmingDirective("gör inga follow-ups")).toBeNull();
+    expect(parseArmingDirective("nej, inte follow-ups nu")).toBeNull();
+  });
+
+  it("does NOT treat a stop message as an arming directive", () => {
+    expect(parseArmingDirective("stopp")).toBeNull();
+  });
 });
 
 describe("parseStopDirective", () => {

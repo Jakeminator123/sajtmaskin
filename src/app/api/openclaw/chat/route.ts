@@ -212,12 +212,34 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.context && typeof body.context === "object") {
+      const reviewChatId =
+        typeof body.context.chatId === "string" ? body.context.chatId : null;
+      const reviewVersionId =
+        typeof body.context.activeVersionId === "string"
+          ? body.context.activeVersionId
+          : null;
+      // Cross-tenant guard (Codex P1): `chatId`/`activeVersionId` are
+      // client-supplied, so verify the REQUESTER owns this chat+version BEFORE
+      // exposing any version-scoped context. This gates BOTH the diagnostics
+      // (findings/timeline) AND — critically — the debug full-code context, so a
+      // forged id can never leak another tenant's generated files/diagnostics.
+      const scopedVersion =
+        reviewChatId && reviewVersionId
+          ? await getEngineVersionForChatByIdForRequest(
+              req,
+              reviewChatId,
+              reviewVersionId,
+            ).catch(() => null)
+          : null;
+      // Debug full-code context is only unlocked for an ownership-verified chat.
+      const debugOwned = debug && Boolean(scopedVersion);
+
       const contextMessage = await buildOpenClawContextSystemMessage({
         messages: body.messages,
         context: body.context,
         currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
-        debug,
+        debug: debugOwned,
       });
       messages.push({
         role: "system",
@@ -230,24 +252,6 @@ export async function POST(req: NextRequest) {
       // Compact + DB-guarded; null when nothing actionable, so normal chat
       // stays cheap.
       if (routingIntent === "review" || debug) {
-        const reviewChatId =
-          typeof body.context.chatId === "string" ? body.context.chatId : null;
-        const reviewVersionId =
-          typeof body.context.activeVersionId === "string"
-            ? body.context.activeVersionId
-            : null;
-        // Cross-tenant guard (Codex P1): `activeVersionId` is client-supplied,
-        // so verify the REQUESTER owns this chat+version (tenant-scoped lookup)
-        // before reading its diagnostics — never surface another tenant's
-        // findings/timeline from a forged version id.
-        const scopedVersion =
-          reviewChatId && reviewVersionId
-            ? await getEngineVersionForChatByIdForRequest(
-                req,
-                reviewChatId,
-                reviewVersionId,
-              ).catch(() => null)
-            : null;
         if (scopedVersion) {
           // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
           // by the OWNERSHIP-VERIFIED version id.
@@ -305,9 +309,9 @@ export async function POST(req: NextRequest) {
 
     // Fas 3: make the assistant reason harder on review/bug intent via the
     // OpenAI-compatible `reasoning_effort` field (codex-class models honor it).
-    // Sent on review intent and in debug-mode (debug defaults to xhigh — the
-    // hardest async agentic tier, ideal for bug-hunt). Env-reversible (set
-    // OPENCLAW_REVIEW_REASONING_EFFORT=off).
+    // Sent on review intent and in debug-mode (debug defaults to `high`; bump to
+    // `xhigh` only via OPENCLAW_REVIEW_REASONING_EFFORT when a hard case warrants
+    // the extra cost). Env-reversible (set OPENCLAW_REVIEW_REASONING_EFFORT=off).
     const reviewReasoningEffort =
       routingIntent === "review" || debug
         ? resolveReviewReasoningEffort(

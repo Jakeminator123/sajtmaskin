@@ -154,6 +154,7 @@
     "OC_DEBUG",
     "OC_DEBUGG",
     "OC_DEBUG_ALLOW_PROD",
+    "OC_DEBUG_RUN_TOKEN",
     "OC_REPO_READ_TOKEN",
     "OC_REPO_SLUG",
     "OPENCLAW_GATEWAY_TOKEN",
@@ -852,6 +853,15 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [],
       "notes": "Escape hatch required to let OC_DEBUG activate in production. Default unset = debug-mode is force-disabled in production regardless of OC_DEBUG. Keep unset unless you explicitly intend privileged OpenClaw debug autonomy on the prod tenant."
+    },
+    {
+      "key": "OC_DEBUG_RUN_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Owner gate for the Mode B bug-hunt run route (POST /api/openclaw/debug/run). The route is hard-disabled unless this is set AND the request sends a matching `x-oc-debug-token` header. Prevents a mere logged-in guest on a debug-enabled preview from driving the expensive generation/quality-gate/repair loop. The script scripts/openclaw/bug-hunt.mjs sends it via --run-token."
     },
     {
       "key": "OC_REPO_READ_TOKEN",

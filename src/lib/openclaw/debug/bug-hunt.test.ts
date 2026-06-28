@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   buildOutcomeFinding,
+  BUG_HUNT_BUDGET_CEILING,
+  clampBugHuntBudget,
   createBudgetTracker,
   DEFAULT_BUG_HUNT_BUDGET,
   mapEngineFindingsToDebugFindings,
@@ -84,6 +86,37 @@ describe("buildOutcomeFinding", () => {
   it("flags a failed build as an error finding", () => {
     expect(buildOutcomeFinding(CTX).severity).toBe("error");
     expect(buildOutcomeFinding({ ...CTX, buildResult: "passed" }).severity).toBe("info");
+  });
+
+  it("never reports an unknown build as passed (false-green)", () => {
+    const f = buildOutcomeFinding({ ...CTX, buildResult: "unknown" });
+    expect(f.severity).toBe("warning");
+    expect(f.message).toMatch(/could NOT be verified/i);
+  });
+});
+
+describe("clampBugHuntBudget", () => {
+  it("falls back to defaults when nothing is provided", () => {
+    expect(clampBugHuntBudget()).toEqual(DEFAULT_BUG_HUNT_BUDGET);
+  });
+
+  it("clamps oversized overrides to the server ceiling", () => {
+    const clamped = clampBugHuntBudget({
+      maxPrompts: 9999,
+      maxTotalMs: 999_999_999,
+      maxFindings: 1_000_000,
+      maxRepairsPerVersion: 99,
+    });
+    expect(clamped.maxPrompts).toBe(BUG_HUNT_BUDGET_CEILING.maxPrompts);
+    expect(clamped.maxTotalMs).toBe(BUG_HUNT_BUDGET_CEILING.maxTotalMs);
+    expect(clamped.maxFindings).toBe(BUG_HUNT_BUDGET_CEILING.maxFindings);
+    expect(clamped.maxRepairsPerVersion).toBe(BUG_HUNT_BUDGET_CEILING.maxRepairsPerVersion);
+  });
+
+  it("floors invalid/negative values", () => {
+    const clamped = clampBugHuntBudget({ maxPrompts: -5, maxFindings: 0 });
+    expect(clamped.maxPrompts).toBe(1);
+    expect(clamped.maxFindings).toBe(1);
   });
 });
 
