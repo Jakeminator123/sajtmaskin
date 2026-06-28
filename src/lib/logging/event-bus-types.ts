@@ -72,7 +72,17 @@ export interface VersionAutofixResultEvent extends EngineEventBase {
   fixes: number;
   warnings: number;
   dependencies?: number;
+  outcome?: "done" | "skipped" | "error";
   heavyLoad?: boolean;
+  previewBlockingWarnings?: number;
+  fixers?: Array<{
+    fixer: string;
+    category: "mechanical" | "llm";
+    lane?: string;
+    count: number;
+    files?: string[];
+    examples?: string[];
+  }>;
 }
 
 export interface VersionSyntaxPassEvent extends EngineEventBase {
@@ -80,6 +90,13 @@ export interface VersionSyntaxPassEvent extends EngineEventBase {
   pass: number;
   errors: number;
   phase?: "validating" | "fixed" | "invalid" | "gave_up" | "ok";
+  result?: string;
+  fixerUsed?: boolean;
+  fixerImproved?: boolean;
+  mechanicalFixes?: number;
+  llmFixes?: number;
+  tscRan?: boolean;
+  eslintRan?: boolean;
 }
 
 export interface VersionPreflightEvent extends EngineEventBase {
