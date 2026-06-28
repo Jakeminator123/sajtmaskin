@@ -820,6 +820,7 @@ async function tryServerRepairLoop(params: {
 
   const loopResult = await runRepairLoop({
     initialContent,
+    chatId,
     failedOutputs,
     contextLines: repairLogContext.contextLines,
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,

@@ -326,6 +326,24 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "pre-syntax",
   },
   {
+    id: "ts2304-known-import-fixer",
+    category: "mechanical-import",
+    sourcePath: "src/lib/gen/autofix/rules/ts2304-known-import-fixer.ts",
+    targetFailureMode:
+      "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK)",
+    triggers: [
+      "quality-gate tsc `Cannot find name 'X'` where X resolves to a known module",
+    ],
+    status: "active",
+    ownerPhase: "server-repair",
+    notes:
+      "Diagnostic-driven (consumes the gate's tsc output) rather than a JSX scan, " +
+      "so it also catches non-JSX value usages. Invoked from the repair-loop " +
+      "deterministic import-repair pre-pass (repair-loop/deterministic-import-repair.ts) " +
+      "BEFORE the LLM fixer. shadcn∩lucide ambiguous names (Calendar, Toggle, …) " +
+      "are left for the LLM. Stripe resolves only in API route / route-handler files.",
+  },
+  {
     id: "metadata-import-fixer",
     category: "mechanical-meta",
     sourcePath: "src/lib/gen/autofix/rules/metadata-import-fixer.ts",

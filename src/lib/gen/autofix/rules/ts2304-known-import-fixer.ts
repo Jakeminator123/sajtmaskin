@@ -1,5 +1,6 @@
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { KNOWN_MODULE_SPECIFIERS } from "../import-validator";
 import type { AutoFixEntry } from "../pipeline";
 
@@ -57,7 +58,36 @@ const DEFAULT_IMPORT_NAMES: Record<string, string> = {
   Link: "next/link",
 };
 
-function resolveKnownImport(name: string): ResolvedImport | null {
+// Clerk server-side symbols. These are unambiguous server APIs (used in
+// `middleware.ts` and route handlers) that production generations reference
+// without importing — `Cannot find name 'clerkMiddleware'` / `createRouteMatcher`.
+// Client-side Clerk symbols (`useAuth`, `ClerkProvider`, `<SignIn />`) live in
+// `@clerk/nextjs` and are intentionally NOT resolved here to avoid guessing the
+// wrong entrypoint.
+const CLERK_SERVER_IMPORTS = new Set([
+  "clerkMiddleware",
+  "createRouteMatcher",
+  "getAuth",
+  "currentUser",
+  "auth",
+  "clerkClient",
+]);
+
+/**
+ * True for server-only files where a bare `Stripe` reference resolves to the
+ * `stripe` package default export (`new Stripe(...)` in an API route). Gating by
+ * path keeps us from importing the Node SDK into a client component.
+ */
+function isServerRouteFile(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const p = toPosixPath(filePath);
+  return /\/api\//.test(p) || /(?:^|\/)route\.[tj]sx?$/.test(p);
+}
+
+function resolveKnownImport(
+  name: string,
+  filePath?: string,
+): ResolvedImport | null {
   // KNOWN_MODULE_SPECIFIERS wins over lucide-react: `Image` and `Link` exist in
   // BOTH sets, but a non-JSX `Cannot find name 'Image'` almost always means the
   // Next component (`import Image from "next/image"`), not the lucide glyph.
@@ -67,10 +97,28 @@ function resolveKnownImport(name: string): ResolvedImport | null {
   if (DEFAULT_IMPORT_NAMES[name]) {
     return { module: DEFAULT_IMPORT_NAMES[name], kind: "default" };
   }
+  // Stripe Node SDK — default export, server files only.
+  if (name === "Stripe" && isServerRouteFile(filePath)) {
+    return { module: "stripe", kind: "default" };
+  }
+  // Clerk server entrypoint — named imports.
+  if (CLERK_SERVER_IMPORTS.has(name)) {
+    return { module: "@clerk/nextjs/server", kind: "named" };
+  }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return { module, kind: "named" };
   }
-  if (LUCIDE_ICONS.has(name)) return { module: "lucide-react", kind: "named" };
+  // shadcn/ui components map to per-symbol subpaths (`@/components/ui/<file>`).
+  // Several shadcn names collide with lucide glyphs (e.g. `Calendar`, `Toggle`,
+  // `Progress`) — when a name is in BOTH registries the correct module is
+  // genuinely ambiguous, so we resolve neither and leave it for the LLM fixer.
+  const inShadcn = Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, name);
+  const inLucide = LUCIDE_ICONS.has(name);
+  if (inShadcn && inLucide) return null;
+  if (inShadcn) {
+    return { module: `@/components/ui/${SHADCN_COMPONENTS[name]}`, kind: "named" };
+  }
+  if (inLucide) return { module: "lucide-react", kind: "named" };
   return null;
 }
 
@@ -167,7 +215,7 @@ function addKnownImportsToFile(
     // Never import a symbol the file already declares/exports locally — the
     // local declaration is the source of truth, not the registry. #201
     if (fileDeclaresSymbol(code, name)) continue;
-    const resolved = resolveKnownImport(name);
+    const resolved = resolveKnownImport(name, filePath);
     if (!resolved) continue;
     // Never import from a module that resolves to this same file (e.g. adding
     // `import { cn } from "@/lib/utils"` into lib/utils.ts → self-import). #201
@@ -262,9 +310,12 @@ export function fixKnownTs2304Imports(
   const missingByFile = new Map<string, Set<string>>();
   for (const diagnostic of diagnostics) {
     const name = extractMissingName(diagnostic.message);
-    if (!name || !resolveKnownImport(name)) continue;
+    if (!name) continue;
     const file = toPosixPath(diagnostic.file);
     if (!file) continue;
+    // Resolution is file-aware (Stripe/shadcn path-gating), so resolve with the
+    // diagnostic's file before bucketing.
+    if (!resolveKnownImport(name, file)) continue;
     const bucket = missingByFile.get(file) ?? new Set<string>();
     bucket.add(name);
     missingByFile.set(file, bucket);

@@ -430,6 +430,7 @@ async function handlePOST(
 
     const loopResult = await runRepairLoop<{ newVersionId: string | null }>({
       initialContent,
+      chatId,
       failedOutputs: normalizedFailures,
       contextLines: gateErrorLines,
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,

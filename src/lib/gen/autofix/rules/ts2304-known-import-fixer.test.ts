@@ -213,4 +213,133 @@ export function cn(...inputs: ClassValue[]) {
       { file: FILE, name: "cn", module: "@/lib/utils" },
     ]);
   });
+
+  it("resolves a shadcn component to its @/components/ui subpath (prod TS2304)", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Button>Click</Button>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Button'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Button", module: "@/components/ui/button" },
+    ]);
+    expect(result.code).toContain('import { Button } from "@/components/ui/button"');
+  });
+
+  it("merges multiple shadcn symbols from the same module into one import", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Hi</CardTitle>
+      </CardHeader>
+      <CardContent>Body</CardContent>
+    </Card>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Card'." },
+      { file: FILE, message: "Cannot find name 'CardHeader'." },
+      { file: FILE, message: "Cannot find name 'CardTitle'." },
+      { file: FILE, message: "Cannot find name 'CardContent'." },
+    ]);
+
+    expect(result.code).toContain(
+      'import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"',
+    );
+    expect(result.code.match(/from "@\/components\/ui\/card"/g)).toHaveLength(1);
+  });
+
+  it("resolves Clerk server helpers to @clerk/nextjs/server (prod TS2304/2552)", () => {
+    const middleware = "middleware.ts";
+    const content = project(
+      middleware,
+      `const isProtected = createRouteMatcher(["/dashboard(.*)"]);
+
+export default clerkMiddleware((auth, req) => {
+  if (isProtected(req)) auth().protect();
+});`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: middleware, message: "Cannot find name 'clerkMiddleware'." },
+      {
+        file: middleware,
+        message: "Cannot find name 'createRouteMatcher'. Did you mean 'createRouteMatcher'?",
+      },
+    ]);
+
+    expect(result.code).toContain('from "@clerk/nextjs/server"');
+    expect(result.code).toContain("clerkMiddleware");
+    expect(result.code).toContain("createRouteMatcher");
+    expect(result.code.match(/from "@clerk\/nextjs\/server"/g)).toHaveLength(1);
+  });
+
+  it("resolves Stripe as a default import in an API route (prod TS2552)", () => {
+    const routeFile = "app/api/checkout-session/route.ts";
+    const content = project(
+      routeFile,
+      `export async function POST() {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return Response.json({ ok: true });
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: routeFile, message: "Cannot find name 'Stripe'. Did you mean 'stripe'?" },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: routeFile, name: "Stripe", module: "stripe" },
+    ]);
+    expect(result.code).toContain('import Stripe from "stripe"');
+  });
+
+  it("does NOT import Stripe into a non-server file (left for the LLM)", () => {
+    // `Stripe` only resolves in API route / route handler files. A client page
+    // referencing `Stripe` is almost certainly wrong in another way — don't pull
+    // the Node SDK into the browser bundle.
+    const content = project(
+      FILE,
+      `export default function Page() {
+  const s = new Stripe("");
+  return <div>{String(s)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Stripe'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("leaves a shadcn∩lucide ambiguous name (Calendar) for the LLM", () => {
+    // `Calendar` is both a shadcn component AND a lucide icon — the correct
+    // module is genuinely ambiguous, so the deterministic fixer must do nothing.
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Calendar />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Calendar'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
 });

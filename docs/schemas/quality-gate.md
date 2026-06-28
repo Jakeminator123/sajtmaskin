@@ -146,11 +146,44 @@ den också som exakt felkälla för repair-lanen:
 
 1. quality gate failar
 2. feloutput (`typecheck`, `lint`, `build`) samlas
-3. delad `runRepairLoop()` kör mekanisk fix + LLM-fix med samma policy för
-   både `server-verify` och manuell `/repair`
-4. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
+3. **deterministisk, diagnostik-driven import-repair körs FÖRST** (se nedan) på
+   de exakta tsc-koderna innan någon LLM-fix
+4. om gate:n passerar efter den deterministiska fixen promotas versionen utan
+   ett enda LLM-anrop (`method: "deterministic"`, `llmPasses: 0`)
+5. annars kör delad `runRepairLoop()` LLM-fix på **residuet** med samma policy
+   för både `server-verify` och manuell `/repair`
+6. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
    LLM-fixern när felmängden är lokal
-5. quality gate re-körs för att avgöra om reparerad version blir `repair_available`
+7. quality gate re-körs för att avgöra om reparerad version blir `repair_available`
+
+### Deterministisk import-repair före LLM
+
+Källa: `src/lib/gen/verify/repair-loop/deterministic-import-repair.ts`
+(anropas överst i `runRepairLoop()`).
+
+Bakgrund (prod-telemetri 2026-06): av de versioner vars quality gate failade på
+`tsc --noEmit` blev **noll** promotade. De dominerande felen är import-only och
+har redan mekaniska ägare som körs blint i `runAutoFix()` — men de når ändå
+gate:n eftersom de blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger
+exakt symbol + fil, vilket tar bort tvetydigheten. Pre-passen konsumerar
+diagnostiken och dirigerar varje fall till rätt **befintlig** fixer:
+
+| Kod | Felklass | Återanvänd fixer |
+|---|---|---|
+| TS2304 / TS2552 | saknad import (shadcn, Clerk-server, Stripe, lucide, Next) | `ts2304-known-import-fixer` |
+| TS1361 | `import type { X }` använd som värde | `value-used-from-type-import-fixer` (med bekräftade symboler) |
+| TS2440 | import krockar med lokal deklaration (self-import) | `fixImportedDeclarationConflicts` (path-medveten) |
+| TS2300 | duplicerad identifierare | `duplicate-import-binding-fixer` + `duplicate-import-local-type-collision-fixer` |
+
+Konservativ: bara dessa fem import-koder rörs. Logik-/typfel (TS2554, TS7006,
+TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-tvetydiga namn
+(t.ex. `Calendar`, `Toggle`) lämnas också till LLM. Stripe löses bara i
+API-route-/route-handler-filer. Alla fixers är idempotenta.
+
+Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers) och
+`validate.tsc.import-repair.resolved` (`llmSkippedBecauseResolved: true`) i
+dev-loggen, så prod-analys kan se om autofix saknades, lagade eller orsakade
+felet.
 
 Det betyder att quality gate i nuläget är både:
 
