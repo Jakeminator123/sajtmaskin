@@ -622,7 +622,7 @@ export const engineVersions = pgTable(
 /**
  * Distributed lease for server-verify / build-error-repair / manual-repair
  * background jobs (Plan C, P1 — see
- * docs/plans/active/2026-06-27-server-verify-distributed-lock.md).
+ * docs/plans/avklarat/2026-06-27-server-verify-distributed-lock.md).
  *
  * A single active (`status='running'`) row per `version_id` is the
  * cross-instance lock: any verify/repair run that mutates an `engine_versions`

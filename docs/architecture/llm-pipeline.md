@@ -293,7 +293,7 @@ Preview-host kör **två separata lanes**: live-preview (iframe) och verify (typ
 
 ### Repair-accept
 
-Server-repair (`runRepairLoop`) som passerar quality gate blir `repair_available` (filer i `repaired_files_json`) i stället för att skriva över. `POST .../accept-repair` (eller timeout-autoaccept) applicerar dem. `server-verify` och manuell `repair` delar samma `runRepairLoop`.
+Server-repair (`runRepairLoop`) som passerar quality gate blir `repair_available` (filer i `repaired_files_json`) i stället för att skriva över. `POST .../accept-repair` (eller timeout-autoaccept) applicerar dem. `server-verify` och manuell `repair` delar samma `runRepairLoop`. Sedan #265 är `repaired_files_json` ett bas-hashat kuvert (`baseFilesHash`); accept/auto-accept vägrar promota över en samtidig user-edit eller en legacy payload utan bas-hash (fail-closed), vilket stänger #260 P2 #5.
 
 ### Deploy (`src/app/api/v0/deployments/route.ts`)
 

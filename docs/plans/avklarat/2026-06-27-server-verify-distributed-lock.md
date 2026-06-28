@@ -1,19 +1,25 @@
 ---
-status: active
+status: levererad
 owner: unassigned
 created: 2026-06-27
+delivered: 2026-06-28
 topic: "#4 distribuerat lås för server-verify/repair (process-local Set → DB-lease)"
 related:
   - docs/architecture/open-questions.md (#4-klassen, multi-instans)
   - "PR #251 (Plan B schemahärdning — separat, redan i review)"
   - "docs/plans/active/README.md backlog B3/E2 (durable event-bus, samma multi-instans-korrekthetsrisk)"
-decision_required: true
+decision_required: false
 implementation_started: true
 ---
 
+<!-- Arkiverad till avklarat/ 2026-06-28: kärnan mergad via #256 (+ #265 base-bound repair).
+     Kvarvarande är INTE planarbete: prod-migration av engine_version_jobs är ägar-ops (runbook nedan)
+     och #260 P2 #4 spåras i BUG-SWARM-BACKLOG.md. -->
+
+
 # Plan C / P1 — Distribuerat lås för server-verify & repair
 
-> **Status: CORE IMPLEMENTERAD (dev), ej committad/mergad, prod-migration EJ körd.**
+> **Status: KOD MERGAD till master via #256 (2026-06-27); prod-migration (prod-DB) EJ körd.** Base-bound repair-save/accept landade i #265 (2026-06-28) och stänger #260 P2 #5; #260 hålls öppen för P2 #4 (quality-gate håller leasen över verify-budgeten).
 > Ägaren godkände bygget (2026-06-27) efter att #251 mergats. Den distribuerade
 > kärnan (lease-tabell + lease-API + auto-flödets `run_id`-kedja) är byggd och
 > verifierad lokalt: `npm run typecheck` (0 fel), `db:schema-drift`-testet grönt,

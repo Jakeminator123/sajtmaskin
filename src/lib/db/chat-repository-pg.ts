@@ -842,7 +842,7 @@ export async function updateVersionPreviewUrl(
 // instance that thaws after its lease expired can't silently clobber a newer
 // repair. The lock is per version_id (kind is metadata): whoever holds the one
 // active (status='running') lease owns every mutation of that engine_versions
-// row. See docs/plans/active/2026-06-27-server-verify-distributed-lock.md.
+// row. See docs/plans/avklarat/2026-06-27-server-verify-distributed-lock.md.
 
 export type VersionJobKind = "server_verify" | "build_error_repair" | "manual_repair";
 
