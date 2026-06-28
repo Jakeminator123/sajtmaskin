@@ -33,7 +33,7 @@ Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bak
 | pro | `gpt-5.3-codex` | Balanserad kod (**default**) |
 | max | `gpt-5.5` | Tyngre reasoning |
 | codex | `gpt-5.3-codex` | Kodprofil (högre reasoning-effort än `pro`; samma modell-id som Lagom) |
-| anthropic | `claude-sonnet-4.6` | Anthropic-väg |
+| anthropic | `claude-opus-4.8` | Anthropic-väg (Sonnet 4.6 pensionerad → aliasas till Opus) |
 
 Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schemas/model-build-profiles.md), `config/ai_models/manifest.json`.
 

@@ -26,7 +26,7 @@
 import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
-import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 // ============================================
@@ -69,7 +69,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "anthropic",
     label: "Anthropic",
-    description: "Jämförelseläge. Claude Sonnet 4.6 via Anthropic API för hela byggflödet.",
+    description: "Jämförelseläge. Claude Opus 4.8 via Anthropic API för hela byggflödet.",
     hint: "jämför",
   },
 ];
@@ -96,10 +96,10 @@ const PROMPT_ASSIST_LABELS: Record<string, string> = {
   "openai/gpt-5.4": "OpenAI GPT-5.4",
   "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
   "openai/gpt-5.2": "OpenAI GPT-5.2",
-  "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
+  "anthropic/claude-opus-4.8": "Anthropic Claude Opus 4.8",
   "anthropic/claude-opus-4.6": "Anthropic Claude Opus 4.6",
   "anthropic-direct/claude-haiku-4-5-20251001": "Anthropic Claude Haiku 4.5 (direct)",
-  "anthropic-direct/claude-sonnet-4-6": "Anthropic Claude Sonnet 4.6 (direct)",
+  "anthropic-direct/claude-opus-4-8": "Anthropic Claude Opus 4.8 (direct)",
   "anthropic-direct/claude-opus-4-6": "Anthropic Claude Opus 4.6 (direct)",
 };
 
@@ -131,7 +131,10 @@ export function getPromptAssistModelLabel(model: string): string {
 }
 
 export function getDefaultPromptAssistModel(): string {
-  const defaultCandidate = DEFAULT_PROMPT_ASSIST.model;
+  // Alias retired ids first so a deployment still setting SAJTMASKIN_ASSIST_MODEL
+  // to a retired Sonnet id resolves to its Opus replacement instead of silently
+  // failing the allow-list check and falling back to "off".
+  const defaultCandidate = aliasRetiredModelId(DEFAULT_PROMPT_ASSIST.model);
   if (PROMPT_ASSIST_MODEL_ALLOWLIST.has(defaultCandidate)) return defaultCandidate;
   return PROMPT_ASSIST_MODEL_OPTIONS[0]?.value || defaultCandidate;
 }

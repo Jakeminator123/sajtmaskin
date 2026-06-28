@@ -152,8 +152,8 @@ describe("getTemperatureConfig (brief sampling, MB-2)", () => {
     expect(getTemperatureConfig("openai/gpt-5.4", 0.2)).toEqual({});
   });
 
-  it("keeps temperature for non-reasoning, non-Opus models (e.g. Sonnet)", () => {
-    expect(getTemperatureConfig("anthropic/claude-sonnet-4.6", 0.2)).toEqual({
+  it("keeps temperature for non-reasoning, non-Opus models (e.g. Haiku)", () => {
+    expect(getTemperatureConfig("anthropic-direct/claude-haiku-4-5-20251001", 0.2)).toEqual({
       temperature: 0.2,
     });
     expect(getTemperatureConfig("anthropic-direct/claude-haiku-4-5-20251001", 0.5)).toEqual({
@@ -163,6 +163,6 @@ describe("getTemperatureConfig (brief sampling, MB-2)", () => {
 
   it("omits temperature when the caller provided none", () => {
     expect(getTemperatureConfig("anthropic/claude-opus-4.8")).toEqual({});
-    expect(getTemperatureConfig("anthropic/claude-sonnet-4.6")).toEqual({});
+    expect(getTemperatureConfig("anthropic-direct/claude-haiku-4-5-20251001")).toEqual({});
   });
 });

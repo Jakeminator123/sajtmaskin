@@ -52,7 +52,7 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
 
-  it("anthropic tier uses Claude Opus for planner/generator and Sonnet for fixer/verifier", () => {
+  it("anthropic tier uses Claude Opus 4.8 across all phases (Sonnet retired)", () => {
     const planner = resolvePhaseModel("anthropic", "planner");
     const verifier = resolvePhaseModel("anthropic", "verifier");
     const generator = resolvePhaseModel("anthropic", "generator");
@@ -60,8 +60,8 @@ describe("resolvePhaseModel", () => {
 
     expect(planner.modelId).toBe("claude-opus-4.8");
     expect(generator.modelId).toBe("claude-opus-4.8");
-    expect(verifier.modelId).toBe("claude-sonnet-4.6");
-    expect(fixer.modelId).toBe("claude-sonnet-4.6");
+    expect(verifier.modelId).toBe("claude-opus-4.8");
+    expect(fixer.modelId).toBe("claude-opus-4.8");
     expect(verifier.reason).toBe("anthropic-tier-unified");
   });
 
@@ -104,13 +104,13 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary["deploy-assistant"]).toBe("gpt-5.3-codex");
   });
 
-  it("anthropic tier: opus for planner/generator, sonnet elsewhere", () => {
+  it("anthropic tier: Opus 4.8 across every phase (Sonnet retired)", () => {
     const summary = getPhaseRoutingSummary("anthropic");
     expect(summary.planner).toBe("claude-opus-4.8");
     expect(summary.generator).toBe("claude-opus-4.8");
-    expect(summary.fixer).toBe("claude-sonnet-4.6");
-    expect(summary.verifier).toBe("claude-sonnet-4.6");
-    expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");
+    expect(summary.fixer).toBe("claude-opus-4.8");
+    expect(summary.verifier).toBe("claude-opus-4.8");
+    expect(summary["deploy-assistant"]).toBe("claude-opus-4.8");
   });
 });
 
@@ -136,14 +136,14 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
   });
 
-  it("anthropic tier enables thinking on fixer and verifier (heavier Claude path)", () => {
+  it("anthropic tier disables thinking on fixer/verifier (Opus cost control)", () => {
     expect(resolvePhaseThinking("anthropic", "fixer")).toEqual({
       phase: "fixer",
-      thinking: true,
+      thinking: false,
       reasoningEffort: "medium",
       reason: "manifest-phase-thinking",
     });
-    expect(resolvePhaseThinking("anthropic", "verifier").thinking).toBe(true);
+    expect(resolvePhaseThinking("anthropic", "verifier").thinking).toBe(false);
   });
 
   it("raises planner/generator reasoning effort for higher tiers", () => {

@@ -105,17 +105,24 @@ export function generateCode(
   const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;
 
   let providerOptions: ProviderOptionsRecord | undefined;
-  if (resolvedThinking) {
-    providerOptions = anthropic
-      ? {
-          anthropic: {
-            thinking: { type: "adaptive" as const },
-            effort: toAnthropicEffort(reasoningEffort),
-          },
-        }
-      : {
-          openai: { reasoningEffort },
-        };
+  if (anthropic) {
+    // Anthropic `effort` applies even without extended thinking, and for
+    // Opus 4.8 an omitted effort defaults to `high`. The fixer/verifier phases
+    // run with thinking:false to stay cheap/fast, so we must still pass `effort`
+    // explicitly (with thinking disabled) — otherwise those calls silently run
+    // at high effort/latency instead of the configured tier. (Codex P2, #283.)
+    providerOptions = {
+      anthropic: {
+        thinking: resolvedThinking
+          ? { type: "adaptive" as const }
+          : { type: "disabled" as const },
+        effort: toAnthropicEffort(reasoningEffort),
+      },
+    };
+  } else if (resolvedThinking) {
+    providerOptions = {
+      openai: { reasoningEffort },
+    };
   }
 
   // Pre-LLM systemprompt assertion — catches JSON-double-encoded leakage,

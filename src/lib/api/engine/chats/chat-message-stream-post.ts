@@ -930,9 +930,9 @@ export async function handleMessageStreamRequest(
         }
         const engineModel = resolveEngineModelId(resolvedModelTier);
         // MB-3: the actual codegen + telemetry model is the generator-phase
-        // model (manifest phaseRouting). On the `anthropic` tier this is
-        // Claude Opus 4.8 instead of the tier build-default Sonnet; for every
-        // other tier in the default config it equals `engineModel`. The chat's
+        // model (manifest phaseRouting). In the current default config it equals
+        // `engineModel` on every tier (the anthropic tier's build-default is now
+        // Claude Opus 4.8 too after Sonnet was retired 2026-06-28). The chat's
         // persisted `chat.model` (set at init) stays the tier build model so
         // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
         const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;

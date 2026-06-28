@@ -27,10 +27,11 @@ const MODEL_CONTEXT_WINDOWS: Partial<Record<OwnModelId, number>> = {
   "gpt-5.4": 400_000,
   "gpt-5.4-mini": 400_000,
   // Anthropic direct API (Claude API)
+  // Sonnet 4.6 is retired (aliased to Opus 4.8); kept only so any persisted
+  // row that still names it resolves to the 200k baseline instead of undefined.
   "claude-sonnet-4.6": 200_000,
-  // Opus 4.8 supports a 1M default context window (clamped to the 3.0x
-  // budget ceiling). Not the anthropic-tier build model today (sonnet is),
-  // so this is metadata until opus is selected as an engine model.
+  // Opus 4.8 is the anthropic-tier build model (2026-06-28) and supports a 1M
+  // default context window (clamped to the 3.0x budget ceiling).
   "claude-opus-4.8": 1_000_000,
   "claude-opus-4.6": 200_000,
 };

@@ -42,7 +42,7 @@ Defaults från `config/ai_models/manifest.json` (env-overrides via `SAJTMASKIN_M
 | `pro` | `gpt-5.3-codex` | Lagom | **Default** (`DEFAULT_MODEL_ID`) |
 | `max` | `gpt-5.5` | Tänker | Hög reasoning |
 | `codex` | `gpt-5.3-codex` | Kod Max | Kod-fokus (högre reasoning-effort) |
-| `anthropic` | `claude-sonnet-4.6` | Anthropic | Anthropic-väg |
+| `anthropic` | `claude-opus-4.8` | Anthropic | Anthropic-väg (Sonnet 4.6 pensionerad 2026-06-28 → aliasas till Opus) |
 
 ### Phase routing (`phaseRouting.defaultByTier` i manifestet)
 
@@ -54,7 +54,7 @@ Defaults från `config/ai_models/manifest.json` (env-overrides via `SAJTMASKIN_M
 | `pro` | `gpt-5.3-codex` | `gpt-5.3-codex` | selected | `gpt-5.3-codex` | `gpt-5.3-codex` |
 | `max` | selected | selected | `gpt-5.3-codex` | `gpt-5.3-codex` | `gpt-5.3-codex` |
 | `codex` | selected | selected | selected | `gpt-5.3-codex` | `gpt-5.3-codex` |
-| `anthropic` | `claude-opus-4.8` | `claude-opus-4.8` | selected | selected | selected |
+| `anthropic` | `claude-opus-4.8` | `claude-opus-4.8` | selected | selected | `claude-opus-4.8` |
 
 ### Övriga LLM-workloads
 
@@ -64,7 +64,7 @@ Defaults från `config/ai_models/manifest.json` (env-overrides via `SAJTMASKIN_M
 | Polish | `openai/gpt-5.3-codex` | `SAJTMASKIN_POLISH_MODEL` |
 | Deep Brief (`/api/ai/brief`) | `openai/gpt-5.5` | `SAJTMASKIN_BRIEF_MODEL` |
 | Server auto-brief (OpenAI) | `openai/gpt-5.5` | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI` |
-| Server auto-brief (Anthropic) | `anthropic/claude-sonnet-4.6` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |
+| Server auto-brief (Anthropic) | `anthropic/claude-opus-4.8` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |
 | Scaffold/variant-embeddings | `text-embedding-3-small` | — |
 
 Codegen och brief går **direkt** mot provider (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`), inte via gateway. Manifest-loader: `src/lib/ai-models/load-manifest.ts`.

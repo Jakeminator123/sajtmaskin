@@ -34,9 +34,9 @@ filen. Verifiera alltid mot leverantörens pris-sida innan budgetbeslut.
 
 | Modell | Input | Output | Fast mode (in/ut) | Status |
 |---|---|---|---|---|
-| `claude-opus-4.8` | $5.00 | $25.00 | $10 / $50 | **Opus-default** (phase-routing anthropic planner/generator) |
+| `claude-opus-4.8` | $5.00 | $25.00 | $10 / $50 | **Opus-default** (`anthropic`-profilens byggmodell + alla faser) |
 | `claude-opus-4.6` | $5.00 | $25.00 | — | Legacy (kvar för persisterad data) |
-| `claude-sonnet-4.6` | se Anthropic pricing | se Anthropic pricing | — | `anthropic`-profilens byggmodell |
+| `claude-sonnet-4.6` | se Anthropic pricing | se Anthropic pricing | — | Pensionerad 2026-06-28 → aliasas till `claude-opus-4.8` (endast historisk pris/display) |
 
 `claude-opus-4.8` släpptes 2026-05-28, samma pris som 4.7, **1M kontext default**
 (var 200k), 128k max output, `effort` default `high`. API-ID: `claude-opus-4-8`

@@ -36,7 +36,7 @@ config/ai_models/manifest.json
   → src/lib/models/selection.ts                (request → tier)
   → src/lib/gen/models.ts getOpenAIModel()     → streamText/generateObject
 ```
-Build-profil-defaults (`manifest.json:50-57`): fast=`gpt-5.4-mini` · pro/codex=`gpt-5.3-codex` · max=`gpt-5.5` · anthropic=`claude-sonnet-4.6`.
+Build-profil-defaults (`manifest.json:50-57`): fast=`gpt-5.4-mini` · pro/codex=`gpt-5.3-codex` · max=`gpt-5.5` · anthropic=`claude-opus-4.8` (Sonnet 4.6 pensionerad → aliasas till Opus).
 
 ## Callsite-matris — LLM-anrop
 
@@ -102,7 +102,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 ## Doc-drift mot befintliga kartor — rättad i 5-Z (2026-06-21)
 | Påstående (före) | Var | Kod-faktum | Status |
 |---|---|---|---|
-| Brief-fallback `gpt-4.1` | `llm-chain-flowchart.md:128` | Fallback = Anthropic `claude-sonnet-4.6` (`site-brief-generation.ts:677-678`) | ✅ rättad |
+| Brief-fallback `gpt-4.1` | `llm-chain-flowchart.md:128` | Fallback = Anthropic `claude-opus-4.8` (`AUTO_BRIEF_MODEL_ANTHROPIC`, `site-brief-generation.ts:677-678`; Sonnet 4.6 pensionerad 2026-06-28) | ✅ rättad |
 | Brief innehåller `scaffoldNomination`/`mustHave`/`avoid` | `llm-flow-end-to-end.md` + `llm-chain-flowchart.md` | Saknas i `siteBriefSchema` (`:128-198`); scaffold/variant = deterministisk pick, `*Nomination`-typfält vestigiala (alltid `null`, drift-logg fyrar aldrig) | ✅ rättad |
 | `domain-inference.ts` under `src/lib/gen/` | (ingen kvarvarande doc-referens) | Ligger i `src/lib/builder/domain-inference.ts`; ingen aktuell doc hävdar gen-path | ✅ ej aktuell |
 | Follow-up = "ingen LLM" generellt | `llm-flow-end-to-end.md:18` | Vanlig follow-up = ingen LLM; `clear-redesign` kör delta-brief-LLM (når orchestrate sedan #169) | ✅ rättad |

@@ -271,7 +271,7 @@ export interface OrchestrationInput {
   locale?: string;
   /**
    * Concrete own-engine model ID that will consume this generation
-   * (e.g. `"gpt-5.4"`, `"claude-sonnet-4.6"`). When provided we look up
+   * (e.g. `"gpt-5.4"`, `"claude-opus-4.8"`). When provided we look up
    * the model's input context window via `getModelContextWindowTokens()`
    * and pass it to `deriveBuildSpec()` so token budgets scale up to ~3×
    * for 1M-window models. Omit to use legacy 200k-baseline budgets.

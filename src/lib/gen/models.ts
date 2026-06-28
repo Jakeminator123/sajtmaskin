@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { DEFAULT_OWN_MODEL_ID } from "@/lib/models/catalog";
+import { DEFAULT_OWN_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
 
 /** Default model for code generation. Aligned with the shared model catalog. */
 export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
@@ -17,7 +17,7 @@ export function isAnthropicModel(id: string): boolean {
  * Anthropic models use ANTHROPIC_API_KEY directly.
  */
 export function getOpenAIModel(modelId?: string) {
-  const id = modelId ?? DEFAULT_MODEL;
+  const id = aliasRetiredModelId(modelId ?? DEFAULT_MODEL);
 
   if (ANTHROPIC_PREFIX_RE.test(id)) {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();

@@ -6,6 +6,7 @@
  */
 
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 
 // OpenAI-class assist models (loaded from manifest).
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
@@ -27,7 +28,9 @@ export const ANTHROPIC_ASSIST_MODELS = Object.freeze([
 ]);
 
 export function normalizeAssistModel(rawModel: string): string {
-  const raw = String(rawModel || "").trim();
+  // Retired ids (e.g. Sonnet 4.6) are routed to their live replacement before
+  // any allow-check / provider call so persisted selections never 400.
+  const raw = aliasRetiredModelId(String(rawModel || "").trim());
   if (!raw) return raw;
   if (raw.startsWith("v0-")) return raw;
   if (raw.includes("/")) return raw;
@@ -47,10 +50,11 @@ export function isPromptAssistOff(model: string): boolean {
 }
 
 export function isPromptAssistModelAllowed(model: string): boolean {
+  const m = aliasRetiredModelId(model);
   return (
-    isPromptAssistOff(model) ||
-    isOpenAIAssistModel(model) ||
-    isAnthropicAssistModel(model)
+    isPromptAssistOff(m) ||
+    isOpenAIAssistModel(m) ||
+    isAnthropicAssistModel(m)
   );
 }
 

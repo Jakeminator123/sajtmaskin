@@ -9,6 +9,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 
 const REASONING_MODEL_RE = /(^|\/)(o[1-9]|gpt-5)/;
 
@@ -27,7 +28,7 @@ function parseModelString(model: string): { provider: string; modelId: string } 
  * Replaces older gateway()-style routing with direct provider calls.
  */
 export function createDirectModel(model: string): LanguageModel {
-  const { provider, modelId } = parseModelString(model);
+  const { provider, modelId } = parseModelString(aliasRetiredModelId(model));
 
   if (provider === "anthropic") {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -59,8 +60,8 @@ function isReasoningModel(model: string): boolean {
  * (generateObject), so temperature/top-p/top-k must be omitted. Every Opus id
  * variant contains the `claude-opus` token: gateway (`anthropic/claude-opus-4.8`),
  * direct (`anthropic-direct/claude-opus-4-8`) and the version-normalized form
- * sent to the API (`claude-opus-4-8`). Sonnet/Haiku are unaffected and keep the
- * caller-provided temperature.
+ * sent to the API (`claude-opus-4-8`). Haiku is unaffected and keeps the
+ * caller-provided temperature. (Sonnet is retired → aliased to Opus upstream.)
  */
 function isClaudeOpusModel(model: string): boolean {
   return model.trim().toLowerCase().includes("claude-opus");

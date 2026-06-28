@@ -94,10 +94,10 @@ export async function generateOwnEngineSiteFromPrompt(
   });
   const engineModel = resolveEngineModelId(modelSelection.modelTier);
   // MB-3: codegen + telemetry run on the generator-phase model (manifest
-  // phaseRouting). On the `anthropic` tier this is Claude Opus 4.8 instead of
-  // the tier build-default Sonnet; identical to `engineModel` for every other
-  // tier in the default config. `chat.model` keeps the tier build model so
-  // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
+  // phaseRouting). In the current default config it equals `engineModel` on
+  // every tier (the anthropic tier's build-default is now Claude Opus 4.8 too
+  // after Sonnet was retired 2026-06-28). `chat.model` keeps the tier build
+  // model so repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
   const generatorModel = resolvePhaseModel(modelSelection.modelTier, "generator").modelId;
 
   const orchestrationInput = {

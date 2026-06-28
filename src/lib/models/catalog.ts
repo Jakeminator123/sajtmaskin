@@ -27,6 +27,11 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
  * `gpt-5.5` and `claude-opus-4.8` are the current full-size defaults; the
  * older `gpt-5.4` / `claude-opus-4.6` IDs are kept so persisted chat/version
  * rows and env overrides that still reference them resolve cleanly.
+ *
+ * `claude-sonnet-4.6` is **retired** (2026-06-28): it is no longer a default
+ * or selectable model and is never sent to a provider — any lingering reference
+ * is routed to `claude-opus-4.8` via {@link aliasRetiredModelId}. The token is
+ * kept here only so persisted/legacy strings still parse and round-trip.
  */
 export const OWN_MODEL_IDS = [
   "gpt-5.5",
@@ -62,6 +67,36 @@ const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
 
 const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS)[];
 
+/**
+ * Retired concrete model ids that must never reach a provider call. Any persisted
+ * row / env value / phase override that still names one is silently routed to its
+ * live replacement at the resolution boundaries (own-engine + prompt-assist), so
+ * nothing 400s and the retired model never actually executes.
+ *
+ * Sonnet 4.6 was retired 2026-06-28 → Opus 4.8 (see manifest `buildProfiles`).
+ * Both the dot form (`claude-sonnet-4.6`) and the API/version-normalized dash
+ * form (`claude-sonnet-4-6`, produced by `resolveAnthropicBriefModelId` before
+ * `createDirectModel`) are mapped across all provider prefixes so no brief /
+ * direct-model path can slip the retired id through.
+ */
+const RETIRED_MODEL_ALIAS: Record<string, string> = {
+  "claude-sonnet-4.6": "claude-opus-4.8",
+  "claude-sonnet-4-6": "claude-opus-4-8",
+  "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
+  "anthropic/claude-sonnet-4-6": "anthropic/claude-opus-4-8",
+  "anthropic-direct/claude-sonnet-4.6": "anthropic-direct/claude-opus-4-8",
+  "anthropic-direct/claude-sonnet-4-6": "anthropic-direct/claude-opus-4-8",
+};
+
+/**
+ * Map a retired model id to its live replacement; pass every other value through
+ * unchanged (trimmed). Returns "" for null/undefined so callers can short-circuit.
+ */
+export function aliasRetiredModelId(value: string | null | undefined): string {
+  const trimmed = (value ?? "").trim();
+  return RETIRED_MODEL_ALIAS[trimmed] ?? trimmed;
+}
+
 /** Union of every model ID accepted as input (canonical + legacy). */
 export const ACCEPTED_MODEL_IDS = [
   ...CANONICAL_MODEL_IDS,
@@ -89,7 +124,7 @@ export function canonicalizeModelId(
 export function ownModelIdToCanonicalModelId(
   value: string | null | undefined,
 ): CanonicalModelId | null {
-  const trimmed = value?.trim();
+  const trimmed = aliasRetiredModelId(value);
   if (!trimmed) return null;
   for (const candidate of CANONICAL_MODEL_IDS) {
     if (canonicalModelIdToOwnModelId(candidate) === trimmed) {
@@ -160,6 +195,7 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
       process.env[getBuildProfileEnvKey("anthropic")]?.trim() ||
       getBuildProfileDefaultOwnEngineModel("anthropic"),
   };
-  return (tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro")) as OwnModelId;
+  const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
+  return aliasRetiredModelId(raw) as OwnModelId;
 }
 

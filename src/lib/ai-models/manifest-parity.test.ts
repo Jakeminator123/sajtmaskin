@@ -81,6 +81,16 @@ describe("config/ai_models/manifest.json parity", () => {
       expect(allowed.models).toContain(id);
       expect(isPromptAssistModelAllowed(id)).toBe(true);
     }
+
+    // Sonnet 4.6 was retired from the allow-list but persisted selections must
+    // still pass via aliasRetiredModelId() — never 400 on /api/ai/chat or brief.
+    for (const id of [
+      "anthropic/claude-sonnet-4.6",
+      "anthropic-direct/claude-sonnet-4-6",
+    ]) {
+      expect(allowed.models).not.toContain(id);
+      expect(isPromptAssistModelAllowed(id)).toBe(true);
+    }
   });
 
   it("build profile defaults in manifest match getters", () => {
