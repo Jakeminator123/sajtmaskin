@@ -61,16 +61,32 @@ export function collectConfirmedContractAnswers(
   confirmedAnswers: ConfirmedContractAnswer[];
   pendingQuestion: ContractClarificationQuestion | null;
   currentReplyWasConsumed: boolean;
+  consumedReplyContext: {
+    /**
+     * The user request that caused the contract clarification. When the
+     * current reply only answers the gate, intent-sensitive follow-up logic
+     * must classify this source request instead of the short answer text.
+     */
+    sourceUserMessage: string;
+    question: string;
+  } | null;
 } {
   const confirmedAnswers: ConfirmedContractAnswer[] = [];
   let pendingQuestion: ContractClarificationQuestion | null = null;
+  let pendingQuestionSourceUserMessage: string | null = null;
+  let lastUserMessageContent: string | null = null;
   let currentReplyWasConsumed = false;
+  let consumedReplyContext: {
+    sourceUserMessage: string;
+    question: string;
+  } | null = null;
 
   for (const message of messages) {
     if (message.role === "assistant") {
       const clarification = readContractClarification(message);
       if (clarification) {
         pendingQuestion = clarification;
+        pendingQuestionSourceUserMessage = lastUserMessageContent;
       }
       continue;
     }
@@ -85,11 +101,24 @@ export function collectConfirmedContractAnswers(
         reason: pendingQuestion.reason,
       });
       pendingQuestion = null;
+      pendingQuestionSourceUserMessage = null;
+      lastUserMessageContent = message.content.trim();
+      continue;
+    }
+
+    if (message.role === "user") {
+      lastUserMessageContent = message.content.trim();
     }
   }
 
   const current = asString(currentReply);
   if (pendingQuestion && current) {
+    if (pendingQuestionSourceUserMessage) {
+      consumedReplyContext = {
+        sourceUserMessage: pendingQuestionSourceUserMessage,
+        question: pendingQuestion.question,
+      };
+    }
     confirmedAnswers.push({
       kind: pendingQuestion.kind,
       question: pendingQuestion.question,
@@ -99,6 +128,7 @@ export function collectConfirmedContractAnswers(
       reason: pendingQuestion.reason,
     });
     pendingQuestion = null;
+    pendingQuestionSourceUserMessage = null;
     currentReplyWasConsumed = true;
   }
 
@@ -106,5 +136,6 @@ export function collectConfirmedContractAnswers(
     confirmedAnswers,
     pendingQuestion,
     currentReplyWasConsumed,
+    consumedReplyContext,
   };
 }
