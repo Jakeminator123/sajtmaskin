@@ -54,6 +54,42 @@ export interface BuildFollowUpOrchestrationInputParams {
   requestKind?: OrchestrationInput["requestKind"];
 }
 
+function buildClearRedesignBriefFallbackFromSnapshot(
+  snapshot: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
+  if (!snapshotBrief) return null;
+
+  const fallback: Record<string, unknown> = {};
+  const requestedCapabilities = snapshotBrief.requestedCapabilities;
+  if (Array.isArray(requestedCapabilities) && requestedCapabilities.length > 0) {
+    fallback.requestedCapabilities = requestedCapabilities;
+  }
+  if (typeof snapshotBrief.domainProfile === "string") {
+    fallback.domainProfile = snapshotBrief.domainProfile;
+  }
+  if (typeof snapshotBrief.projectTitle === "string") {
+    fallback.projectTitle = snapshotBrief.projectTitle;
+  }
+  if (typeof snapshotBrief.brandName === "string") {
+    fallback.brandName = snapshotBrief.brandName;
+  }
+
+  return Object.keys(fallback).length > 0 ? fallback : null;
+}
+
+function resolveFollowUpActiveBrief(
+  params: BuildFollowUpOrchestrationInputParams,
+): Record<string, unknown> | null {
+  if (params.parsedMeta.brief) {
+    return params.parsedMeta.brief;
+  }
+  if (params.hasFollowUpBase && params.followUpIntent === "clear-redesign") {
+    return buildClearRedesignBriefFallbackFromSnapshot(params.orchestrationSnapshot);
+  }
+  return buildFollowUpBriefFromSnapshot(params.orchestrationSnapshot);
+}
+
 export function buildFollowUpOrchestrationInput(
   params: BuildFollowUpOrchestrationInputParams,
 ): OrchestrationInput {
@@ -82,9 +118,7 @@ export function buildFollowUpOrchestrationInput(
     buildIntent: params.buildIntent,
     scaffoldMode: params.parsedMeta.scaffoldMode,
     scaffoldId: params.parsedMeta.scaffoldId,
-    brief:
-      params.parsedMeta.brief ??
-      buildFollowUpBriefFromSnapshot(params.orchestrationSnapshot),
+    brief: resolveFollowUpActiveBrief(params),
     themeColors: params.parsedMeta.themeColors,
     imageGenerations: params.resolvedImageGenerations,
     componentPalette: params.parsedMeta.palette,
