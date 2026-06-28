@@ -167,4 +167,26 @@ describe("fixTypeOnlyImports", () => {
     expect(second.fixed).toBe(false);
     expect(second.code).toBe(first.code);
   });
+
+  it("does NOT demote a lucide-react import used only as an `icon:` value (white-screen guard)", () => {
+    // `icon: PawPrint` is an object-literal VALUE, but the `:`-preceder reads
+    // like a type annotation to the regex classifier. Lucide glyphs are runtime
+    // components, so demoting to `import type` would erase the import and crash
+    // the render with `PawPrint is not defined`.
+    const LUCIDE_ICON_VALUE_CASE = `import { PawPrint, Leaf } from "lucide-react";
+
+const MOTIFS = [
+  { label: "Trail", icon: PawPrint },
+  { label: "Forest", icon: Leaf },
+];
+
+export default function Motifs() {
+  return <div>{MOTIFS.length}</div>;
+}
+`;
+    const result = fixTypeOnlyImports(LUCIDE_ICON_VALUE_CASE, "components/motifs.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(LUCIDE_ICON_VALUE_CASE);
+    expect(result.code).toContain('import { PawPrint, Leaf } from "lucide-react";');
+  });
 });

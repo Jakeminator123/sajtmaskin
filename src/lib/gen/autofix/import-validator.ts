@@ -720,6 +720,136 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   return { code: lines.join("\n"), fixes };
 }
 
+// ---------------------------------------------------------------------------
+// Non-JSX lucide value usage: `icon: PawPrint` in a data/registry object.
+// ---------------------------------------------------------------------------
+
+/**
+ * `icon:`/`Icon:` (or any `*icon:` key like `activeIcon:`) whose value is a
+ * bare PascalCase identifier — the "icon registry" idiom:
+ *
+ *   const MOTIFS = [{ label: "Trail", icon: PawPrint }];
+ *
+ * `detectMissingImports` above only scans JSX (`<PawPrint/>`), so this value
+ * reference slips through on the deterministic export/preview path. There is no
+ * tsc there to trigger `ts2304-known-import-fixer`, so a missing import ships as
+ * a runtime `ReferenceError: PawPrint is not defined` (white screen). Captured
+ * group 1 is the candidate icon name.
+ */
+const ICON_PROPERTY_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*:\s*([A-Z][A-Za-z0-9]*)\b/g;
+
+/** Names bound by any import statement (default, named/aliased, namespace). */
+function collectImportedBindings(code: string): Set<string> {
+  const names = new Set<string>();
+  for (const line of code.split("\n")) {
+    const named = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}/);
+    if (named) {
+      for (const spec of named[1].split(",")) {
+        const aliased = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
+        const bound = aliased ? aliased[2] : spec.trim();
+        if (bound) names.add(bound);
+      }
+    }
+    const def = line.match(/^\s*import\s+([A-Za-z_$][\w$]*)\s*(?:,|from)\s/);
+    if (def) names.add(def[1]);
+    const ns = line.match(/^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)/);
+    if (ns) names.add(ns[1]);
+  }
+  return names;
+}
+
+/**
+ * True when the file declares or re-exports `name` locally, so the `icon:`
+ * value is a local symbol — NOT a lucide icon that needs importing. Mirrors the
+ * guard in `ts2304-known-import-fixer.ts` to avoid shadowing a local binding.
+ */
+function fileDeclaresSymbolLocally(code: string, name: string): boolean {
+  const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const declaration = new RegExp(
+    `(?:^|\\n)\\s*export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b` +
+      `|(?:^|\\n)\\s*(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b`,
+  );
+  if (declaration.test(code)) return true;
+  return new RegExp(`export\\s*\\{[^}]*\\b${n}\\b[^}]*\\}`).test(code);
+}
+
+/**
+ * Add a missing `lucide-react` value import for icons used only as a bare value
+ * in an `icon:` property (no JSX usage). Narrowly scoped to avoid false
+ * positives on common-word icon names (`Box`, `Text`, `Image`, …): the name
+ * must be a real lucide icon, NOT already imported, NOT declared locally, NOT a
+ * Next default-import name (`Image`/`Link`/`Metadata`), and NOT a shadcn
+ * component. Merges into an existing value `import { … } from "lucide-react"`
+ * line when present, otherwise inserts a fresh import.
+ */
+function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+  ICON_PROPERTY_VALUE_RE.lastIndex = 0;
+  const candidates = new Set<string>();
+  for (const m of code.matchAll(ICON_PROPERTY_VALUE_RE)) {
+    candidates.add(m[1]);
+  }
+  if (candidates.size === 0) return { code, fixes };
+
+  const imported = collectImportedBindings(code);
+  const toAdd: string[] = [];
+  for (const name of candidates) {
+    if (!LUCIDE_ICONS.has(name)) continue; // must be a real lucide icon
+    if (NEXT_AUTO_IMPORTS[name]) continue; // Image/Link/Metadata → next/*, not lucide
+    if (name in SHADCN_COMPONENTS) continue; // avoid shadcn-component collision
+    if (imported.has(name)) continue; // already imported (incl. JSX fixer above)
+    if (fileDeclaresSymbolLocally(code, name)) continue; // local symbol, not lucide
+    if (!toAdd.includes(name)) toAdd.push(name);
+  }
+  if (toAdd.length === 0) return { code, fixes };
+
+  const lines = code.split("\n");
+  // Merge ONLY into a value named import, never `import type { … }` (that would
+  // make the icon type-only and re-break the value usage with TS1361).
+  const existingIdx = lines.findIndex(
+    (l) =>
+      (l.includes('from "lucide-react"') || l.includes("from 'lucide-react'")) &&
+      /^\s*import\s+\{/.test(l) &&
+      !/^\s*import\s+type\s/.test(l),
+  );
+
+  if (existingIdx >= 0) {
+    const braceMatch = lines[existingIdx].match(/^(\s*import\s+\{)([^}]*)(\}\s+from\s+.+)$/);
+    if (braceMatch) {
+      const existingSpecs = braceMatch[2]
+        .split(",")
+        .map((spec) => spec.trim())
+        .filter(Boolean);
+      const newOnes = toAdd.filter((name) => !existingSpecs.includes(name));
+      if (newOnes.length > 0) {
+        lines[existingIdx] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, ${newOnes.join(", ")} ${braceMatch[3]}`;
+        fixes.push({
+          fixer: "import-validator",
+          description: `Added missing lucide value import(s) for icon property: ${newOnes.join(", ")}`,
+          line: existingIdx + 1,
+        });
+      }
+      return { code: lines.join("\n"), fixes };
+    }
+  }
+
+  let insertIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+      insertIdx = i + 1;
+    } else if (insertIdx > 0) {
+      break;
+    }
+  }
+  lines.splice(insertIdx, 0, `import { ${toAdd.join(", ")} } from "lucide-react"`);
+  fixes.push({
+    fixer: "import-validator",
+    description: `Added missing lucide value import(s) for icon property: ${toAdd.join(", ")}`,
+    line: 0,
+  });
+  return { code: lines.join("\n"), fixes };
+}
+
 /**
  * Validate all imports and return warnings for unknown components/icons.
  * Does not block — only flags for logging.
@@ -796,9 +926,12 @@ export function runImportValidator(code: string): {
   const radix = fixRadixImports(lucide.code);
   const slot = fixRadixSlotUsage(radix.code);
   const missing = detectMissingImports(slot.code);
-  const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
-  const warnings = validateImports(missing.code);
-  return { code: missing.code, fixes, warnings };
+  // Runs AFTER the JSX scan so a JSX-added lucide import is already present in
+  // `missing.code` and the bare `icon:` value reference is not imported twice.
+  const iconValues = fixMissingIconValueImports(missing.code);
+  const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes, ...iconValues.fixes];
+  const warnings = validateImports(iconValues.code);
+  return { code: iconValues.code, fixes, warnings };
 }
 
 /**
