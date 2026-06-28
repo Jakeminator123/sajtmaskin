@@ -6,7 +6,10 @@ import {
   applyOpenClawTextFieldAction,
   getOpenClawTextFieldContext,
   parseOpenClawMessage,
+  type OpenClawFillTextFieldAction,
+  type OpenClawRequestRepairAction,
 } from "@/lib/openclaw/text-field-actions";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import type { OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 
 export function OpenClawMessage({ msg }: { msg: Msg }) {
@@ -37,21 +40,25 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
           </div>
         ) : null}
 
-        {!isUser && action ? (
-          <OpenClawActionCard
+        {!isUser && action?.type === "fill_text_field" ? (
+          <OpenClawFillTextFieldCard
             key={`${action.target}:${action.value}`}
             action={action}
           />
+        ) : null}
+
+        {!isUser && action?.type === "request_repair" ? (
+          <OpenClawRepairRequestCard key="request_repair" action={action} />
         ) : null}
       </div>
     </div>
   );
 }
 
-function OpenClawActionCard({
+function OpenClawFillTextFieldCard({
   action,
 }: {
-  action: NonNullable<ReturnType<typeof parseOpenClawMessage>["action"]>;
+  action: OpenClawFillTextFieldAction;
 }) {
   const [actionState, setActionState] = useState<
     "pending" | "approved" | "declined" | "failed"
@@ -124,6 +131,114 @@ function OpenClawActionCard({
         {actionState === "failed" ? (
           <p className="text-xs text-rose-300">
             {actionError ?? "Kunde inte fylla fältet."}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function readActiveBuilderTarget(): { chatId: string; versionId: string } | null {
+  if (typeof window === "undefined") return null;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  const chatId = typeof ctx?.chatId === "string" ? ctx.chatId : null;
+  const versionId =
+    typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
+  if (!chatId || !versionId) return null;
+  return { chatId, versionId };
+}
+
+function OpenClawRepairRequestCard({
+  action,
+}: {
+  action: OpenClawRequestRepairAction;
+}) {
+  const [actionState, setActionState] = useState<
+    "pending" | "approved" | "declined" | "failed"
+  >("pending");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const target = readActiveBuilderTarget();
+  const actionLabel = action.label || "Starta reparation av den här versionen";
+
+  const handleApprove = () => {
+    const current = readActiveBuilderTarget();
+    if (!current) {
+      setActionState("failed");
+      setActionError(
+        "Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.",
+      );
+      return;
+    }
+    // Reuse the vetted client repair flow: the builder's useAutoFix listener
+    // picks this up (manual trigger), enriches context, runs the lease-/base-
+    // bound repair, and produces a new version awaiting acceptance. OC never
+    // writes files itself.
+    dispatchAutoFixEvent({
+      chatId: current.chatId,
+      versionId: current.versionId,
+      manual: true,
+      reasons: ["openclaw_requested_repair"],
+    });
+    setActionState("approved");
+    setActionError(null);
+  };
+
+  const handleDecline = () => {
+    setActionState("declined");
+    setActionError(null);
+  };
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-amber-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-amber-200/80">
+        Reparationsförslag
+      </p>
+      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-300">
+        {target
+          ? "Jag kan starta en reparation av den aktiva versionen när du godkänner. Den körs som ett vanligt fix-pass och skapar en ny version som du sedan godkänner — jag ändrar aldrig filer direkt."
+          : "Öppna en version i buildern först — reparation kan bara startas där."}
+      </p>
+      {action.reason ? (
+        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap wrap-break-word text-slate-200">
+          {action.reason}
+        </div>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {actionState === "pending" ? (
+          <>
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={!target}
+              className="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Godkänn och starta reparation
+            </button>
+            <button
+              type="button"
+              onClick={handleDecline}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Avvisa
+            </button>
+          </>
+        ) : null}
+
+        {actionState === "approved" ? (
+          <p className="text-xs text-emerald-300">
+            Reparation startad. En ny version skapas och dyker upp för godkännande
+            när den är klar.
+          </p>
+        ) : null}
+
+        {actionState === "declined" ? (
+          <p className="text-xs text-slate-300">Förslaget avvisades.</p>
+        ) : null}
+
+        {actionState === "failed" ? (
+          <p className="text-xs text-rose-300">
+            {actionError ?? "Kunde inte starta reparationen."}
           </p>
         ) : null}
       </div>
