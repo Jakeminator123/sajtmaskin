@@ -194,6 +194,10 @@ function renderHtml(data) {
       <p class="muted">${esc(data.meta.repo)} · commit ${esc(data.meta.commit)}${metaDate} · genererad ${esc(
         new Date().toISOString().slice(0, 19).replace("T", " "),
       )} UTC</p>
+      <p class="muted small">Ögonblicksbild vid körningstillfället: fil-källor (domain-map.json,
+      BUG-SWARM-BACKLOG.md, eval-rapport) läses från working tree, medan commit ${esc(
+        data.meta.commit,
+      )} och churn speglar committat läge (git log). Uppdateras inte automatiskt — kör <code>npm run canvas:open</code> igen för färsk status (öppnar en ny flik).</p>
       <div class="legend">${legend}</div>
     </header>
 
@@ -208,8 +212,11 @@ function renderHtml(data) {
     ${risks}
     ${evals}
     <footer>
-      Källa: domain-map, BUG-SWARM-BACKLOG.md, evals/results/baseline-master/, git-churn.
-      Uppdatera: <code>npm run canvas:open</code> · Cursor-vy: <code>node scripts/canvas/sync-to-cursor.mjs</code>
+      Källa: config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md, eval-rapport
+      (scaffold-selection / baseline-master), git-churn (committat läge).
+      Manuell uppdatering: <code>npm run canvas:open</code> (HTML) ·
+      <code>npm run canvas:build</code> (sparad .txt + .json) ·
+      Cursor-vy: <code>node scripts/canvas/sync-to-cursor.mjs</code>
     </footer>
   </main>
 </body>
