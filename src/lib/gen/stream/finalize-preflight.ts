@@ -961,19 +961,16 @@ export async function runFinalizePreflight({
     {
       const degeneracy = detectDegenerateFiles(finalFiles);
       if (degeneracy.degenerate) {
-        const degeneratePath = degeneracy.file ?? "preflight";
-        finalFiles = finalFiles.map((file) =>
-          degeneracy.file && normPath(file.path) === normPath(degeneracy.file)
-            ? {
-                ...file,
-                content: `// [degenerate output removed by finalize guard]\n// ${degeneracy.reason}\n`,
-              }
-            : file,
-        );
+        // Fully de-bloat via capDegeneratePayload (stub ALL oversized files +
+        // largest until total is under cap) — not just the single named file —
+        // so the total-size / split-bloat case is handled here too and the
+        // merged-syntax repair below never runs on bloat (Bugbot #322).
+        const capped = capDegeneratePayload(finalFiles, degeneracy.reason);
+        finalFiles = capped.files;
         nextFilesJson = JSON.stringify(finalFiles);
         preflightIssues.push(
           createIssue(
-            degeneratePath,
+            degeneracy.file ?? "preflight",
             "error",
             `Degenerate output blocked: ${degeneracy.reason}`,
             "code_structure_failure",
@@ -984,8 +981,10 @@ export async function runFinalizePreflight({
         devLogAppend("in-progress", {
           type: "degenerate-output.blocked",
           chatId,
+          branch: "pre-assembly",
           file: degeneracy.file,
           reason: degeneracy.reason,
+          stubbedPaths: capped.stubbedPaths,
           sizeBytes: degeneracy.sizeBytes,
           repeatedLine: degeneracy.repeatedLine,
           repeatCount: degeneracy.repeatCount,
