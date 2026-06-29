@@ -12,6 +12,7 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import { detectDegenerateFiles } from "@/lib/gen/verify/degeneracy-guard";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
@@ -945,6 +946,49 @@ export async function runFinalizePreflight({
           chatId,
           branch: "post-merge-initial-parse",
           droppedPaths,
+        });
+      }
+    }
+
+    // Early degenerate/oversized-output guard (M#og1). Runs BEFORE the
+    // merged-syntax validation + LLM repair escalation and before
+    // `buildCompleteProject`, so a multi-MB / self-repetitive project never
+    // churns the preflight LLM repair (Codex #322) and the bloat is not
+    // persisted whole. The offending file is replaced with a small marker stub
+    // and a blocking `code_structure_failure` issue is recorded; the rest of
+    // preflight then runs cheaply on the trimmed content, and the issue gates
+    // preview-start + verification through the normal preflight contract.
+    {
+      const degeneracy = detectDegenerateFiles(finalFiles);
+      if (degeneracy.degenerate) {
+        const degeneratePath = degeneracy.file ?? "preflight";
+        finalFiles = finalFiles.map((file) =>
+          degeneracy.file && normPath(file.path) === normPath(degeneracy.file)
+            ? {
+                ...file,
+                content: `// [degenerate output removed by finalize guard]\n// ${degeneracy.reason}\n`,
+              }
+            : file,
+        );
+        nextFilesJson = JSON.stringify(finalFiles);
+        preflightIssues.push(
+          createIssue(
+            degeneratePath,
+            "error",
+            `Degenerate output blocked: ${degeneracy.reason}`,
+            "code_structure_failure",
+          ),
+        );
+        previewBlockingReason =
+          previewBlockingReason ?? `Degenerate output blocked: ${degeneracy.reason}`;
+        devLogAppend("in-progress", {
+          type: "degenerate-output.blocked",
+          chatId,
+          file: degeneracy.file,
+          reason: degeneracy.reason,
+          sizeBytes: degeneracy.sizeBytes,
+          repeatedLine: degeneracy.repeatedLine,
+          repeatCount: degeneracy.repeatCount,
         });
       }
     }

@@ -31,6 +31,11 @@ export interface DegeneracyResult {
 export interface DegeneracyThresholds {
   /** A single source file above this byte size is treated as degenerate. */
   maxSingleFileBytes: number;
+  /**
+   * Total bytes across ALL files above this is degenerate — catches bloat split
+   * across several sub-`maxSingleFileBytes` files (Codex #322 P2).
+   */
+  maxTotalProjectBytes: number;
   /** Only "substantial" lines (>= this length, trimmed) count for repetition. */
   minRepeatLineLength: number;
   /** A substantial line repeated >= this many times in one file is degenerate. */
@@ -41,12 +46,16 @@ export const DEFAULT_DEGENERACY_THRESHOLDS: DegeneracyThresholds = {
   // Real generated source files top out ~100–150 KB; this ceiling only trips on
   // true bloat (the incident assembled a single ~4.4 MB file).
   maxSingleFileBytes: 768_000,
-  // Ignore short boilerplate (imports, closing braces) so ordinary repetition
-  // never trips the heuristic.
-  minRepeatLineLength: 24,
-  // The incident repeated a function signature 1024x; 50 is far above anything
-  // legitimate code emits for a 24+ char line.
-  maxLineRepeats: 50,
+  // A whole legitimate generated project is well under this; ~3 MB only trips on
+  // bloat spread across multiple files.
+  maxTotalProjectBytes: 3_000_000,
+  // Only count long, code-shaped lines so ordinary repeated DATA rows (a
+  // repeated image URL, category string, etc.) never trip the heuristic
+  // (Codex #322 P2). The incident repeated a 40+ char function signature.
+  minRepeatLineLength: 40,
+  // 120 is far above anything legitimate code/data emits for a 40+ char line;
+  // the incident repeated its signature 1024x.
+  maxLineRepeats: 120,
 };
 
 const CLEAN: DegeneracyResult = {
@@ -75,12 +84,26 @@ export function detectDegenerateFiles(
   thresholds: DegeneracyThresholds = DEFAULT_DEGENERACY_THRESHOLDS,
 ): DegeneracyResult {
   if (!Array.isArray(files) || files.length === 0) return CLEAN;
+  let totalBytes = 0;
   for (const file of files) {
     const path = typeof file.path === "string" ? file.path : "";
     const content = typeof file.content === "string" ? file.content : "";
     if (!content) continue;
 
     const sizeBytes = byteLength(content);
+    totalBytes += sizeBytes;
+    if (totalBytes > thresholds.maxTotalProjectBytes) {
+      return {
+        degenerate: true,
+        reason: `Total project size ${Math.round(totalBytes / 1024)} KB exceeds the ${Math.round(
+          thresholds.maxTotalProjectBytes / 1024,
+        )} KB project ceiling (oversized/degenerate output spread across files).`,
+        file: path || null,
+        sizeBytes: totalBytes,
+        repeatedLine: null,
+        repeatCount: null,
+      };
+    }
     if (sizeBytes > thresholds.maxSingleFileBytes) {
       return {
         degenerate: true,

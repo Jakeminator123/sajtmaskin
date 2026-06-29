@@ -40,7 +40,6 @@ import {
 } from "../finalize-pipeline-contract";
 import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { hasBuildBreakingVerifierFindings } from "@/lib/gen/preview/should-start-preview";
-import { detectDegenerateProjectJson } from "@/lib/gen/verify/degeneracy-guard";
 import { runFinalizeFastPath } from "./fast-path";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
@@ -332,30 +331,6 @@ export async function finalizeAndSaveVersion(
     repairScopeId,
   });
   contentForVersion = fastPathContent;
-  // Early degenerate/oversized-output guard (M#og1). Runs on the ASSEMBLED
-  // `filesJson` — a read-only prod-DB pass confirmed the credential-deck
-  // incident ballooned `files_json` to ~4.4 MB from an ~84 KB (21k-token)
-  // model output, i.e. amplified downstream in finalize, so the raw model
-  // output alone would not reveal it. A degenerate project is treated as a
-  // deterministic hard block (like a preflight parse error): the version fails
-  // fast with a named reason, the preview-start gate is closed, and it is kept
-  // out of the SERVER verify/repair loop (never auto-promoted or fed to
-  // server-verify/repair) instead of churning repair passes on a multi-MB
-  // artifact. (Bounded client-side post-check autofix retry is tracked
-  // separately — see M#dgc.)
-  const degeneracy = detectDegenerateProjectJson(filesJson);
-  if (degeneracy.degenerate) {
-    devLogAppend("in-progress", {
-      type: "degenerate-output.blocked",
-      chatId,
-      reason: degeneracy.reason,
-      file: degeneracy.file,
-      sizeBytes: degeneracy.sizeBytes,
-      repeatedLine: degeneracy.repeatedLine,
-      repeatCount: degeneracy.repeatCount,
-      repairPassIndex,
-    });
-  }
   const effectiveVerifierBlockingFindings = [
     ...previewBlockingWarnings.map((warning) => ({
       id: "autofix-preview-blocking",
@@ -536,32 +511,14 @@ export async function finalizeAndSaveVersion(
       ? verifierBlocked
       : hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
   const hasCurrentPreflightBlockers =
-    preflightErrors.length > 0 || syntaxResult.status === "failed" || degeneracy.degenerate;
-  // Degenerate output is deterministic (like a preflight parse error), so it
-  // gates verification AND pre-commits `failed` below — never repaired.
+    preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =
-    hasVerificationBlockingPreflightErrors ||
-    verifierGatesVerification ||
-    degeneracy.degenerate;
-  const baseVerificationFailureSummary = verifierBlocked
+    hasVerificationBlockingPreflightErrors || verifierGatesVerification;
+  const verificationFailureSummary = verifierBlocked
     ? hasVerificationBlockingPreflightErrors
       ? `${preflightFailureSummary} Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
       : `Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
     : preflightFailureSummary;
-  const verificationFailureSummary = degeneracy.degenerate
-    ? `Degenerate output blocked: ${degeneracy.reason}${
-        baseVerificationFailureSummary ? ` ${baseVerificationFailureSummary}` : ""
-      }`
-    : baseVerificationFailureSummary;
-  // Degenerate output must ALSO block the preview lane (Bugbot #322) — a
-  // multi-MB / self-repetitive project must never be pushed to the preview VM.
-  // Downstream preview + server-verify gating reads `preflight.previewBlocked`
-  // (not verification state), so fold degeneracy into the preview-blocked
-  // signal + reason emitted to the bus, telemetry, and the finalize result.
-  const previewBlocked = hasPreviewBlockingPreflightErrors || degeneracy.degenerate;
-  const previewBlockedReason =
-    previewBlockingReason ??
-    (degeneracy.degenerate ? `Degenerate output: ${degeneracy.reason}` : null);
 
   // OMTAG-06: preflight.summary now flows through the single-writer
   // event bus. The devLog-mirror subscriber (installed via the side-
@@ -578,15 +535,15 @@ export async function finalizeAndSaveVersion(
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
     verificationBlocked: hasVerificationBlockingErrors,
-    previewBlocked,
-    previewBlockingReason: previewBlockedReason,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
+    previewBlockingReason,
   });
   emitBusEvent({
     t: "version.saved",
     versionId: version.id,
     chatId,
     runId: finalizeRunId,
-    previewBlocked,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
     verificationBlocked: hasVerificationBlockingErrors,
     messageId: assistantMsg.id,
   });
@@ -627,7 +584,7 @@ export async function finalizeAndSaveVersion(
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
     verificationBlocked: hasVerificationBlockingErrors,
-    previewBlocked,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
   });
 
   await pruneStaleLogsIfCleanRepair({
@@ -649,14 +606,12 @@ export async function finalizeAndSaveVersion(
     syntaxResult,
     preflightErrors,
     preflightWarnings,
-    hasPreviewBlockingPreflightErrors: previewBlocked,
+    hasPreviewBlockingPreflightErrors,
     hasVerificationBlockingErrors,
     // SAJ-59: explicit so persist-telemetry can distinguish preflight-block
-    // from verifier-only-block when populating `qualityGateResult`. Degenerate
-    // output is a deterministic preflight-class failure, so label it as such.
-    hasPreflightVerificationErrors:
-      hasVerificationBlockingPreflightErrors || degeneracy.degenerate,
-    previewBlockingReason: previewBlockedReason,
+    // from verifier-only-block when populating `qualityGateResult`.
+    hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
+    previewBlockingReason,
     startedAt,
     tokenUsage,
     preflightFileCount,
@@ -695,7 +650,7 @@ export async function finalizeAndSaveVersion(
   // (with its real tsc+build) is the authority on terminal verification
   // state. This prevents the "Fel"-badge from appearing before server-verify
   // has actually confirmed anything. See docs/architecture/version-status-state-machine.md.
-  if (hasVerificationBlockingPreflightErrors || degeneracy.degenerate) {
+  if (hasVerificationBlockingPreflightErrors) {
     const failedVersion = await maybeFailVersionVerification({
       chatId,
       versionId: version.id,
@@ -741,7 +696,7 @@ export async function finalizeAndSaveVersion(
     versionId: version.id,
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
-    previewBlocked,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
     verificationBlocked: hasVerificationBlockingErrors,
     verifierBlocked,
   });
@@ -756,20 +711,14 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     preflight: {
       verificationBlocked: hasVerificationBlockingErrors,
-      previewBlocked,
+      previewBlocked: hasPreviewBlockingPreflightErrors,
       issueCount: preflightIssues.length,
       errorCount: preflightErrors.length,
       warningCount: preflightWarnings.length,
-      previewBlockingReason: previewBlockedReason,
+      previewBlockingReason,
       primaryPreviewTarget: preflightResult.previewStart.primaryPreviewTarget,
       issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
-      // Degenerate output must block the preview-START gate too (Bugbot #322):
-      // `shouldStartOwnEnginePreview` reads `previewStart.canStartPreview`, not
-      // the `previewBlocked` flag, so force it false here or a multi-MB
-      // artifact would still boot on the preview VM.
-      previewStart: degeneracy.degenerate
-        ? { ...preflightResult.previewStart, canStartPreview: false }
-        : preflightResult.previewStart,
+      previewStart: preflightResult.previewStart,
       scaffoldRetry,
       routePlan,
     },

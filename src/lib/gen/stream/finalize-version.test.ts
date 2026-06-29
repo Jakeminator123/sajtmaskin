@@ -1236,10 +1236,12 @@ describe("finalizeAndSaveVersion", () => {
   });
 
   it("WP4: blocks a degenerate (oversized) assembled project and fails the version", async () => {
-    // The assembled files_json contains a single multi-MB file (the
-    // credential-deck class: ~84 KB model output amplified downstream). The
-    // degeneracy guard must pre-commit `failed` with a named reason instead of
-    // persisting/serving the bloat or letting it churn through repair.
+    // The assembled files_json contains a single multi-MB file (the real
+    // credential-deck incident: ~84 KB model output amplified downstream). The
+    // finalize degeneracy guard must record a blocking code_structure_failure
+    // (so preview-start + verification are gated and `failed` is pre-committed)
+    // instead of persisting/serving the bloat or churning the preflight repair.
+    // The home page stays valid so only the degeneracy issue blocks.
     const huge = "z".repeat(800_000); // > 768 KB single-file ceiling
     parseFilesFromContent.mockReturnValue(
       JSON.stringify([
@@ -1257,7 +1259,13 @@ describe("finalizeAndSaveVersion", () => {
         },
         {
           path: "src/app/page.tsx",
-          content: `export default function Page() { return (<main><h1>Hello from Acme</h1><p>${huge}</p></main>); }`,
+          content:
+            "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
+          language: "tsx",
+        },
+        {
+          path: "components/credential-deck.tsx",
+          content: `export function CredentialDeck() { return (<div>${huge}</div>); }`,
           language: "tsx",
         },
       ]),
@@ -1274,14 +1282,21 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(result.preflight.verificationBlocked).toBe(true);
-    // Degenerate output must also block the preview lane (Bugbot #322) so a
-    // multi-MB project is never pushed to the preview VM — both the report flag
-    // AND the actual preview-start gate (`previewStart.canStartPreview`).
+    // Degenerate output must also block the preview lane (Codex #322) so a
+    // multi-MB project is never pushed to the preview VM — the preflight
+    // code_structure_failure forces `previewStart.canStartPreview = false`.
     expect(result.preflight.previewBlocked).toBe(true);
     expect(result.preflight.previewStart?.canStartPreview).toBe(false);
-    expect(failVersionVerification).toHaveBeenCalledWith(
-      "ver_1",
-      expect.stringContaining("Degenerate output blocked"),
+    expect(result.preflight.previewBlockingReason).toContain("Degenerate output blocked");
+    // Deterministic blocker → version pre-committed `failed`.
+    expect(failVersionVerification).toHaveBeenCalled();
+    // The named degeneracy reason is persisted as a code_structure_failure log.
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("Degenerate output blocked"),
+        }),
+      ]),
     );
   });
 

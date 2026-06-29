@@ -29,6 +29,29 @@ describe("detectDegenerateFiles", () => {
     expect(result.reason).toContain("ceiling");
   });
 
+  it("flags total project bloat split across several sub-ceiling files", () => {
+    // Each file is under the single-file ceiling, but together they exceed the
+    // total-project ceiling (Codex #322 P2).
+    const perFile = "a".repeat(700_000); // < 768 KB single-file ceiling
+    const files = Array.from({ length: 6 }, (_unused, i) => ({
+      path: `components/chunk-${i}.tsx`,
+      content: perFile,
+    }));
+    const result = detectDegenerateFiles(files);
+    expect(result.degenerate).toBe(true);
+    expect(result.reason).toContain("Total project size");
+  });
+
+  it("does NOT flag a legitimate data-heavy page with repeated short rows", () => {
+    // Repeated DATA rows (image URLs, category strings) are shorter than the
+    // 40-char code-line threshold and must not trip the repetition heuristic.
+    const rows = Array.from({ length: 300 }, () => '  { src: "/img/x.png" },').join("\n");
+    const result = detectDegenerateFiles([
+      { path: "app/catalog/page.tsx", content: `const DATA = [\n${rows}\n];` },
+    ]);
+    expect(result.degenerate).toBe(false);
+  });
+
   it("flags self-repetition (a substantial line repeated past the cap)", () => {
     const line = "export function CredentialDeck() { return <Deck cards={CARDS} />; }";
     const repeated = Array.from(
