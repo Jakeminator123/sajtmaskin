@@ -170,25 +170,41 @@ export function degenerateStubContent(reason: string | null): string {
 }
 
 /**
- * De-bloat an already-known-degenerate project for persistence: stub the
- * LARGEST files until total bytes drop under `maxTotalBytes`. Handles both a
- * single multi-MB file AND bloat split across several files (Codex #322 — the
- * total-size case is not de-bloated by stubbing just one file). Only call this
- * once the project is known degenerate; the version is failing, so replacing
- * the bloated file content with a marker stub is safe and prevents a multi-MB
- * `files_json` from ever being persisted.
+ * De-bloat an already-known-degenerate project for persistence. Two steps so a
+ * file in the per-file..total gap is not left behind (Bugbot #322):
+ *   1. stub EVERY file over `maxSingleFileBytes` (a single multi-MB file, or
+ *      the 512KB–1MB range that detection already considers oversized), then
+ *   2. stub the LARGEST remaining files until the TOTAL is under
+ *      `maxTotalBytes` (bloat split across sub-ceiling files).
+ * Only call this once the project is known degenerate; the version is failing,
+ * so replacing the bloated content with a marker stub is safe and guarantees a
+ * multi-MB `files_json` is never persisted. (A small but self-repetitive file
+ * that tripped only the repetition heuristic is left intact — it is blocked,
+ * not a persist-size problem.)
  */
 export function capDegeneratePayload<
   T extends { path: string; content: string; language?: string },
 >(
   files: ReadonlyArray<T>,
   reason: string | null,
-  maxTotalBytes: number = 1_000_000,
+  options: { maxSingleFileBytes?: number; maxTotalBytes?: number } = {},
 ): { files: T[]; stubbedPaths: string[] } {
+  const maxSingleFileBytes = options.maxSingleFileBytes ?? 512_000;
+  const maxTotalBytes = options.maxTotalBytes ?? 1_000_000;
   const sized = files.map((file) => ({ file, size: byteLength(file.content ?? "") }));
-  let total = sized.reduce((sum, entry) => sum + entry.size, 0);
   const toStub = new Set<string>();
-  for (const { file, size } of [...sized].sort((a, b) => b.size - a.size)) {
+  // 1. Every individually oversized file.
+  for (const { file, size } of sized) {
+    if (size > maxSingleFileBytes) toStub.add(file.path);
+  }
+  // 2. Largest remaining files until the total is under the cap.
+  let total = sized.reduce(
+    (sum, entry) => sum + (toStub.has(entry.file.path) ? 0 : entry.size),
+    0,
+  );
+  for (const { file, size } of [...sized]
+    .filter((entry) => !toStub.has(entry.file.path))
+    .sort((a, b) => b.size - a.size)) {
     if (total <= maxTotalBytes) break;
     toStub.add(file.path);
     total -= size; // the stub content is negligible

@@ -110,7 +110,16 @@ describe("capDegeneratePayload", () => {
     expect(totalAfter).toBeLessThanOrEqual(1_000_000);
   });
 
-  it("stubs nothing when already under the cap", () => {
+  it("stubs a per-file-oversized file even when total is under the total cap (Bugbot #322)", () => {
+    const files = [
+      { path: "package.json", content: "{}" },
+      { path: "components/mid.tsx", content: "z".repeat(800_000) }, // > 512 KB, total < 1 MB
+    ];
+    const { stubbedPaths } = capDegeneratePayload(files, "mid");
+    expect(stubbedPaths).toEqual(["components/mid.tsx"]);
+  });
+
+  it("stubs nothing when already under the caps", () => {
     const { stubbedPaths } = capDegeneratePayload([{ path: "a.tsx", content: "small" }], null);
     expect(stubbedPaths).toEqual([]);
   });
