@@ -19,10 +19,14 @@ export interface VerifierFinding {
  *     (`TS2304` / `TS2307` / `TS2552`)
  *   - Free-form messages from server-verify like `Cannot find name X`,
  *     `Cannot find module Y`, `X is not exported from Y`
+ *   - `undefined-jsx-symbol` and `autofix-preview-blocking`
+ *   - `r3f-client-boundary` — a runtime-fatal R3F `<Canvas>` missing
+ *     `"use client"` (passes typecheck, crashes the preview)
  *
- * Design quality findings, eslint warnings, Product Postcheck rows and
- * other "soft" signals are intentionally NOT classified here. Those
- * lanes have their own UX surface.
+ * Design quality findings (e.g. `navigation-placeholder-actions`,
+ * `footer-dead-links`, motion-reduce / reduced-motion-stub), eslint
+ * warnings, Product Postcheck rows and other "soft" signals are
+ * intentionally NOT classified here — they stay advisory in F2.
  */
 const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
   /\bTag mismatch for <[A-Z]\w*>/i,
@@ -38,6 +42,13 @@ export function isBuildBreakingFinding(finding: VerifierFinding): boolean {
   if (finding.id === "build-breaking-missing-imports") return true;
   if (finding.id === "undefined-jsx-symbol") return true;
   if (finding.id === "autofix-preview-blocking") return true;
+  // `r3f-client-boundary` is a deterministic RUNTIME blocker: a React Three
+  // Fiber `<Canvas>` in a file without `"use client"` passes typecheck but
+  // crashes the preview in Next App Router (server-component / client-hook
+  // error → dead preview). It must stay render-dead so F2 keeps gating it
+  // (Codex #317 P1; matches the "R3F/WebGL boundary that kills the preview"
+  // class the F2 contract explicitly still blocks).
+  if (finding.id === "r3f-client-boundary") return true;
   if (!finding.detail) return false;
   return BUILD_BREAKING_PATTERNS.some((re) => re.test(finding.detail));
 }
