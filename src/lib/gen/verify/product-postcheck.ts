@@ -220,14 +220,25 @@ export function evaluateProductDomSnapshot(
 }
 
 /**
- * STRUCTURAL render-fatal patterns. An uncaught `pageerror` matching one of
- * these tears down the React tree → guaranteed white screen, regardless of
- * what (if anything) rendered before. This is the F2 false-green that M#f2et
- * describes (e.g. a JSX element passed where a React component was expected →
- * "Element type is invalid ... got: object"). These ALWAYS block the product
- * check so the version can never read as solid green.
+ * Render-fatal browser-runtime error patterns. An uncaught `pageerror`
+ * matching one of these tears down the React tree → guaranteed white screen,
+ * even though the dev-server booted and the build/typecheck passed. This is
+ * the F2 false-green that M#f2et describes (e.g. a JSX element passed where a
+ * React component was expected → "Element type is invalid ... got: object").
+ * Matching errors block the product check so the version can never read as
+ * solid green.
+ *
+ * Deliberately scoped to the React-STRUCTURAL class only. These messages are
+ * unambiguous tree-fatal crashes and do not appear in benign third-party
+ * throws, so they can block WITHOUT a fragile, timing-sensitive blank-screen
+ * probe and without over-blocking F2 (Bugbot #321 — the earlier
+ * ambiguous-error + render-health gating was racy across viewports/hydration).
+ * Generic JS throws (`is not a function`, `Cannot read properties of
+ * undefined`, hydration warnings, ...) can be non-fatal/third-party and are
+ * intentionally NOT blocked here; catching that class safely needs a robust
+ * runtime render-health signal and is tracked as a follow-up.
  */
-const STRUCTURAL_RENDER_FATAL_PATTERNS: readonly RegExp[] = [
+const RENDER_FATAL_ERROR_PATTERNS: readonly RegExp[] = [
   /Element type is invalid/i,
   /Minified React error/i,
   /Objects are not valid as a React child/i,
@@ -235,54 +246,24 @@ const STRUCTURAL_RENDER_FATAL_PATTERNS: readonly RegExp[] = [
   /Maximum update depth exceeded/i,
 ];
 
-/**
- * AMBIGUOUS runtime patterns. These often indicate a real render crash, but
- * the SAME message can also come from a benign third-party/analytics script
- * that does NOT blank the page (Bugbot #321). To avoid over-blocking an
- * otherwise-fine F2 design preview, an ambiguous error only blocks when the
- * page also rendered effectively empty (blank-screen confirmed).
- */
-const AMBIGUOUS_RUNTIME_PATTERNS: readonly RegExp[] = [
-  /\bis not defined\b/i,
-  /\bis not a function\b/i,
-  /Cannot read propert(?:y|ies) of (?:undefined|null)/i,
-  /Hydration failed/i,
-];
-
-export function isStructuralRenderFatal(message: string): boolean {
+export function isRenderFatalError(message: string): boolean {
   if (!message) return false;
-  return STRUCTURAL_RENDER_FATAL_PATTERNS.some((re) => re.test(message));
-}
-
-export function isAmbiguousRuntimeError(message: string): boolean {
-  if (!message) return false;
-  return AMBIGUOUS_RUNTIME_PATTERNS.some((re) => re.test(message));
+  return RENDER_FATAL_ERROR_PATTERNS.some((re) => re.test(message));
 }
 
 /**
  * Classify uncaught browser `pageerror` messages captured while the preview
- * loaded (desktop AND mobile viewports). Structural React-tree crashes always
- * block; ambiguous JS throws block only when `renderedEmpty` confirms the page
- * actually blanked — so F2 stays fast and is not over-blocked by benign
- * third-party throws. Pure + deterministic so it can be unit-tested without a
- * real browser.
+ * loaded (desktop AND mobile viewports). Only render-fatal React crashes block
+ * the product check; benign/ambiguous throws are ignored so F2 stays fast and
+ * is not over-blocked. Pure + deterministic — unit-testable without a browser.
  */
-export function evaluateRuntimeErrors(
-  pageErrors: readonly string[],
-  options: { renderedEmpty?: boolean } = {},
-): ProductDomEvaluation {
-  const renderedEmpty = options.renderedEmpty === true;
+export function evaluateRuntimeErrors(pageErrors: readonly string[]): ProductDomEvaluation {
   const warnings: ProductPostcheckWarning[] = [];
   const seen = new Set<string>();
   let productBlocked = false;
   for (const raw of pageErrors) {
     const message = typeof raw === "string" ? raw.trim() : "";
-    if (!message) continue;
-    const structural = isStructuralRenderFatal(message);
-    const ambiguous = isAmbiguousRuntimeError(message);
-    // Structural → always fatal. Ambiguous → fatal only if the page blanked.
-    const fatal = structural || (ambiguous && renderedEmpty);
-    if (!fatal) continue;
+    if (!message || !isRenderFatalError(message)) continue;
     const key = message.slice(0, 200);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -430,26 +411,6 @@ export async function runProductPostcheck(params: {
       };
     });
 
-    // Render-health probe (desktop): used to disambiguate ambiguous runtime
-    // errors — an ambiguous throw only counts as render-fatal when the page
-    // actually rendered empty (Bugbot #321). If the probe itself throws we
-    // CANNOT confirm a blank screen, so default `renderedEmpty = false` and
-    // never let an ambiguous error block off the back of a failed probe.
-    let desktopRenderedEmpty = false;
-    try {
-      const renderHealth = await page.evaluate(() => {
-        const root =
-          (document.querySelector("#root, #__next, main") as HTMLElement | null) ??
-          document.body;
-        const textLen = (root?.innerText || "").trim().length;
-        const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
-        return { textLen, hasVisual };
-      });
-      desktopRenderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
-    } catch {
-      desktopRenderedEmpty = false;
-    }
-
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
     // error can surface only at 375px or after the hamburger toggle below.
@@ -480,29 +441,8 @@ export async function runProductPostcheck(params: {
       return { status: "failed", reason: "hamburger_button_did_not_change_dom_or_aria" };
     });
 
-    // Mobile render-health probe (after the menu interaction) so an ambiguous
-    // runtime error that only blanks the 375px viewport is not gated on desktop
-    // render health (Bugbot #321). `renderedEmpty` is true if EITHER viewport
-    // blanked — a dead preview in either viewport is a real defect.
-    let mobileRenderedEmpty = false;
-    try {
-      const mobileRenderHealth = await mobilePage.evaluate(() => {
-        const root =
-          (document.querySelector("#root, #__next, main") as HTMLElement | null) ??
-          document.body;
-        const textLen = (root?.innerText || "").trim().length;
-        const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
-        return { textLen, hasVisual };
-      });
-      mobileRenderedEmpty = mobileRenderHealth.textLen < 5 && !mobileRenderHealth.hasVisual;
-    } catch {
-      mobileRenderedEmpty = false;
-    }
-
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
-    const runtimeEval = evaluateRuntimeErrors(pageErrors, {
-      renderedEmpty: desktopRenderedEmpty || mobileRenderedEmpty,
-    });
+    const runtimeEval = evaluateRuntimeErrors(pageErrors);
     const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,
