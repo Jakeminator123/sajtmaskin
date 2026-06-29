@@ -751,7 +751,14 @@ export async function runRepairLoop<TPayload = unknown>(
         method: "llm",
         payload: promoted.payload,
         llmPasses,
-        earlyStopReason,
+        // M#sr0: gate-only failures (syntax clean but the quality gate still
+        // fails) used to exit via the `if (syntaxResult.valid) break` above with
+        // `earlyStopReason` left null, so prod saw 0/16 promoted server-repairs
+        // all reporting `earlyStopReason=null` — silent. When the final gate
+        // does NOT promote, surface an explicit `no_improvement` so the outcome
+        // is observable and the caller can name a reason. A successful promotion
+        // keeps the existing reason (null on a clean resolve).
+        earlyStopReason: promoted.promoted ? earlyStopReason : (earlyStopReason ?? "no_improvement"),
         remainingErrors: 0,
         improvedSyntax: 0 < initialSyntaxErrorCount,
         noContext: false,
@@ -764,7 +771,10 @@ export async function runRepairLoop<TPayload = unknown>(
     promoted: false,
     method: "llm",
     llmPasses,
-    earlyStopReason,
+    // M#sr0: a non-promoted loop must never report `earlyStopReason=null`. If
+    // the loop ran its passes without an explicit early stop (or skipped the
+    // final gate), default to `no_improvement` so the failure is observable.
+    earlyStopReason: earlyStopReason ?? "no_improvement",
     remainingErrors: finalSyntaxResult.errors.length,
     improvedSyntax: finalSyntaxResult.errors.length < initialSyntaxErrorCount,
     noContext: false,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateProductDomSnapshot,
+  evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
+  isRenderFatalError,
   productPostcheckSkipReasonFromError,
   type ProductDomEvaluation,
   type ProductPostcheckWarning,
@@ -178,5 +180,81 @@ describe("productPostcheckSkipReasonFromError", () => {
       "navigation_failed",
     );
     expect(productPostcheckSkipReasonFromError(new Error("unexpected"))).toBe("runtime_error");
+  });
+});
+
+describe("isRenderFatalError", () => {
+  it("matches React-tree-fatal crashes (white screen)", () => {
+    expect(
+      isRenderFatalError(
+        "Error: Element type is invalid: expected a string ... but got: object",
+      ),
+    ).toBe(true);
+    expect(isRenderFatalError("Minified React error #130")).toBe(true);
+    expect(isRenderFatalError("Objects are not valid as a React child (found: object)")).toBe(true);
+    expect(isRenderFatalError("Rendered fewer hooks than expected")).toBe(true);
+  });
+
+  it("does not match ambiguous/benign throws (no over-blocking)", () => {
+    expect(isRenderFatalError("")).toBe(false);
+    // Generic JS throws are intentionally NOT treated as render-fatal here —
+    // they can be non-fatal/third-party. Catching that class safely needs a
+    // robust render-health signal (tracked follow-up).
+    expect(isRenderFatalError("TypeError: item.icon is not a function")).toBe(false);
+    expect(
+      isRenderFatalError("TypeError: Cannot read properties of undefined (reading 'map')"),
+    ).toBe(false);
+    expect(isRenderFatalError("Failed to load resource: 404")).toBe(false);
+  });
+});
+
+describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead)", () => {
+  const elementTypeInvalid =
+    "Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. Check the render method of `IconMark`.";
+
+  it("blocks on a render-fatal React crash (white screen)", () => {
+    const result = evaluateRuntimeErrors([elementTypeInvalid]);
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("does NOT block on benign / ambiguous uncaught errors when the page still rendered (F2 stays fast)", () => {
+    const result = evaluateRuntimeErrors([
+      "Failed to load resource: the server responded with 404",
+      "TypeError: Cannot read properties of undefined (reading 'map')",
+    ]);
+    expect(result.productBlocked).toBe(false);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("blocks when the Next.js error overlay is present, even for an ambiguous render crash (Codex #321 P1)", () => {
+    // "Cannot read properties of undefined" during render is ambiguous on its
+    // own, but if Next shows its error overlay the preview is dead → block.
+    const result = evaluateRuntimeErrors(
+      ["TypeError: Cannot read properties of undefined (reading 'map')"],
+      { nextErrorOverlay: true },
+    );
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("blocks on the Next.js error overlay even with no captured pageerror", () => {
+    const result = evaluateRuntimeErrors([], { nextErrorOverlay: true });
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("returns a clean result when there were no runtime errors and no overlay", () => {
+    expect(evaluateRuntimeErrors([])).toEqual({ warnings: [], productBlocked: false });
+    expect(evaluateRuntimeErrors([], { nextErrorOverlay: false })).toEqual({
+      warnings: [],
+      productBlocked: false,
+    });
+  });
+
+  it("dedupes repeated render-fatal messages and still blocks", () => {
+    const result = evaluateRuntimeErrors([elementTypeInvalid, elementTypeInvalid, elementTypeInvalid]);
+    expect(result.productBlocked).toBe(true);
+    expect(result.warnings).toHaveLength(1);
   });
 });
