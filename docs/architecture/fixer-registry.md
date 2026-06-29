@@ -36,7 +36,7 @@ interface FixerRegistryEntry {
 
 `FixEntry` (runtime output from autofix/preflight) now also carries `lane` for
 telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense`,
-`post_merge`, `server_repair`). Canonical lane contracts: `docs/architecture/fixer-lanes.md`.
+`post_merge`, `server_repair`). Canonical lane contracts: see the **Lane contracts** section below.
 
 See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 
@@ -72,6 +72,26 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 | `preflight` | During finalize-preflight (partial-file-repair) |
 | `post-merge` | After follow-up merge against previous version |
 | `server-repair` | Server-side after quality-gate failures |
+
+## Lane contracts
+
+Lane-kontrakten för fixer-systemet. Målet är tydliga entrypoints per lane, inte en monolit.
+
+| Lane | Entrypoint | När den kör | Input | Output | Får mutera |
+|---|---|---|---|---|---|
+| `mechanical` | `runAutoFix()` i `src/lib/gen/autofix/pipeline.ts` | Under finalize/validate när kandidatversion byggs | CodeProject-innehåll | Mekaniskt reparerat innehåll + `FixEntry[]` | Kandidatens filer |
+| `static_gate` | `validateAndFix()` + `runFinalizePreflightAll()` | Efter mekanisk lane för gate-signaler | Kandidatens filer | Valideringsresultat/preflight-issues | Ingen kod (bara signaler) |
+| `llm_repair` | `runLlmRepairGate()` (syntax + verifier) | När static-gate blockerar | Kandidat + fel-sammanfattning | LLM-reparerat kandidatinnehåll (eller noop) | Kandidatens filer |
+| `stream_suspense` | `createDefaultRules()` i `src/lib/gen/suspense/default-rules.ts` | Under streamning, rad-för-rad | Stream-rader | Transformerade rader före parse/finalize | Endast stream-buffer/context |
+| `post_merge` | `repairGeneratedFiles()` + `fixTypeOnlyModuleDefaultImports()` | Efter merge/scaffold-preflight | Merged `CodeFile[]` | Reparerat merged filset + fixes | Merged filset |
+| `server_repair` | `runRepairLoop()` i `src/lib/gen/verify/repair-loop.ts` | Efter server-verify/quality-gate-fel | Persistad version + verifierfel | Reparerad serverversion eller early-stop | Persistad version |
+
+Lane-gränser:
+
+- `runAutoFix()` är entrypoint för mekanisk lane; den producerar lane-taggade `FixEntry` (`mechanical`).
+- `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`.
+- `createDefaultRules()` är enda default-väg till suspense-rules i streaming-lane.
+- Server-repair (`runRepairLoop`) är separat lane och konsolideras inte med autofix-lane.
 
 ## Adding a new fixer
 

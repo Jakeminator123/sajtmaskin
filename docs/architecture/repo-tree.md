@@ -54,7 +54,7 @@ repo/
 
 docs/
 ├── README.md             NAV — enda fulla navtabellen
-├── architecture/         kanonisk systembeskrivning + llm-pipeline + glossary + repo-tree + db-cascade-graph + documentation-lifecycle (+ _archived/)
+├── architecture/         kanonisk systembeskrivning + llm-pipeline + glossary + repo-tree + db-cascade-graph + documentation-lifecycle
 ├── schemas/              människoläsbara kontrakt + strict/ (maskin-scheman; dossier/health/LLM-telemetri AJV-validerade i CI)
 ├── plans/
 │   ├── active/           router (README.md) + ev. enstaka aktiv planfil. Ingen drivlinje just nu (stabilisering klar)
@@ -64,8 +64,7 @@ docs/
 ├── canvases/             CI-genererad llm-flow-canvas (artefakt, inte arkiv)
 ├── operating/            driftdokument: cheatsheets + incidents/
 ├── contracts/            lätt kontraktsindex (schema/policy/regel/beslut)
-├── handoffs/             daterade agent-handoffs (historik)
-├── llm/ · evals/ · howto/ · external-pipelines/ · agent-reports/   ämnesdocs
+├── llm/ · evals/ · howto/ · external-pipelines/   ämnesdocs
 └── old/                  pekare → git-historik
 ```
 

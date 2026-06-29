@@ -4,7 +4,7 @@ Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas
 
 ## Grandmaster-stabiliseringsplan (2026-06-18 → 2026-06-22)
 
-Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — flyttad hit från `active/` 2026-06-22 (nivå 1–3 + loggbok bevarade i [`grandmaster/`](grandmaster/)). Closing-handoff: [`../../handoffs/2026-06-21-grandmaster-closing-handoff.md`](../../handoffs/2026-06-21-grandmaster-closing-handoff.md). Tag: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
+Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — flyttad hit från `active/` 2026-06-22 (nivå 1–3 bevarade i [`grandmaster/`](grandmaster/); loggbok + closing-handoff i git-historik). Tag: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
 
 | Område (nivå 2) | Levererat (PR) |
 |---|---|
@@ -44,7 +44,7 @@ Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — 
 
 Äldre planfiler kan saknas i trädet men finns kvar i **git-historik**. Operativ sanning ligger nu i:
 
-- [`../../architecture/fas3-preview-and-deploy.md`](../../architecture/fas3-preview-and-deploy.md)
-- [`../../architecture/fas2-orchestration-and-build.md`](../../architecture/fas2-orchestration-and-build.md)
+- [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) § FAS 3 (preview & deploy)
+- [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) § FAS 2 (orchestration & build)
 
 När en äldre plan inte längre finns som fil: behandla README:n här som pekare och använd git-historik vid behov i stället för att återintroducera duplicerade roadmap-dokument.

@@ -111,7 +111,6 @@ Not runtime dependencies:
 | Plans (all buckets) | `docs/plans/README.md` |
 | **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |
 | **Delivery-bias** (förmåga före dokumentation) | [`docs/delivery-bias.md`](delivery-bias.md) |
-| Plan / agent handoff (historik) | [`handoffs/`](handoffs/) — daterade agent-handoffs. |
 | Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |

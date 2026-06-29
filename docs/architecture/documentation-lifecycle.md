@@ -52,4 +52,4 @@ Konservativ lagerregel:
 
 ## Historik
 
-Äldre arkitekturmaterial som fortfarande behövs ligger under `docs/architecture/_archived/`. Ännu äldre `docs/architecture/archive/` (inkl. tidigare `pre-2026-03-consolidation/`) finns **inte** i trädet längre. Återställ vid behov med `git log` / `git show`.
+Äldre arkitekturmaterial finns **inte** kvar i trädet (tidigare `docs/architecture/_archived/` samt `docs/architecture/archive/`, inkl. `pre-2026-03-consolidation/`, är borttagna). Återställ vid behov med `git log` / `git show`.

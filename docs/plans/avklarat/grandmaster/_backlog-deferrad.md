@@ -3,8 +3,8 @@
 > **Orchestrator-artefakt, ej planfil.** Strukturerad backlog över medvetet uppskjutna
 > hårdnings-/perf-/hygien-/arkitekturposter från grandmaster-PR:erna. **Inte buggar** —
 > P1/P2-sanning lever i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Pekas från
-> [`_loggbok.md`](_loggbok.md). Källa: read-only-utredning **verifierad mot HEAD `cccc843dd`**
-> (kod = sanning). Ersätter de spridda backlog-punkterna i `_loggbok.md` (en sanning, ett ställe).
+> [`../../active/README.md`](../../active/README.md). Källa: read-only-utredning **verifierad mot HEAD `cccc843dd`**
+> (kod = sanning). Konsoliderar de spridda backlog-punkterna från grandmaster-loggen (git-historik; en sanning, ett ställe).
 >
 > **STATUS: PAUSAD (2026-06-19)** — exekvering parkerad medvetet för att spara kontext åt
 > LLM-flöde-/Område 5-spåret (coachens Fas 0). Återuppta enligt § Worktree-exekveringsplan.
