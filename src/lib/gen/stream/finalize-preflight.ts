@@ -12,6 +12,7 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import { capDegeneratePayload, detectDegenerateFiles } from "@/lib/gen/verify/degeneracy-guard";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
@@ -949,6 +950,48 @@ export async function runFinalizePreflight({
       }
     }
 
+    // Early degenerate/oversized-output guard (M#og1). Runs BEFORE the
+    // merged-syntax validation + LLM repair escalation and before
+    // `buildCompleteProject`, so a multi-MB / self-repetitive project never
+    // churns the preflight LLM repair (Codex #322) and the bloat is not
+    // persisted whole. The offending file is replaced with a small marker stub
+    // and a blocking `code_structure_failure` issue is recorded; the rest of
+    // preflight then runs cheaply on the trimmed content, and the issue gates
+    // preview-start + verification through the normal preflight contract.
+    {
+      const degeneracy = detectDegenerateFiles(finalFiles);
+      if (degeneracy.degenerate) {
+        // Fully de-bloat via capDegeneratePayload (stub ALL oversized files +
+        // largest until total is under cap) — not just the single named file —
+        // so the total-size / split-bloat case is handled here too and the
+        // merged-syntax repair below never runs on bloat (Bugbot #322).
+        const capped = capDegeneratePayload(finalFiles, degeneracy.reason);
+        finalFiles = capped.files;
+        nextFilesJson = JSON.stringify(finalFiles);
+        preflightIssues.push(
+          createIssue(
+            degeneracy.file ?? "preflight",
+            "error",
+            `Degenerate output blocked: ${degeneracy.reason}`,
+            "code_structure_failure",
+          ),
+        );
+        previewBlockingReason =
+          previewBlockingReason ?? `Degenerate output blocked: ${degeneracy.reason}`;
+        devLogAppend("in-progress", {
+          type: "degenerate-output.blocked",
+          chatId,
+          branch: "pre-assembly",
+          file: degeneracy.file,
+          reason: degeneracy.reason,
+          stubbedPaths: capped.stubbedPaths,
+          sizeBytes: degeneracy.sizeBytes,
+          repeatedLine: degeneracy.repeatedLine,
+          repeatCount: degeneracy.repeatCount,
+        });
+      }
+    }
+
     const shellFill = ensureDeferredRouteShells({ files: finalFiles, routePlan, buildSpec });
     finalFiles = shellFill.files;
     if (shellFill.addedPaths.length > 0) {
@@ -1251,9 +1294,52 @@ export async function runFinalizePreflight({
       });
     }
     finalizedFilesForPreview = finalFiles;
-    const completeProjectFiles = repairGeneratedFiles(
+    let completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
     ).files;
+    // Final degenerate-payload guard (Codex #322): the ASSEMBLED project — not
+    // just the pre-assembly input — is what gets persisted, and finalize can
+    // AMPLIFY size (the credential-deck incident: ~84 KB model output → ~4.4 MB
+    // files_json). Re-check the assembled set; if degenerate, record a blocking
+    // issue and cap the persisted payload (stub the largest files) so a
+    // multi-MB files_json is never written and the home/sanity passes below run
+    // on the trimmed content.
+    {
+      const assembledDegeneracy = detectDegenerateFiles(completeProjectFiles);
+      if (assembledDegeneracy.degenerate) {
+        const capped = capDegeneratePayload(
+          completeProjectFiles,
+          assembledDegeneracy.reason,
+        );
+        if (capped.stubbedPaths.length > 0) {
+          completeProjectFiles = capped.files;
+        }
+        const alreadyFlagged = preflightIssues.some((issue) =>
+          issue.message.startsWith("Degenerate output blocked"),
+        );
+        if (!alreadyFlagged) {
+          preflightIssues.push(
+            createIssue(
+              assembledDegeneracy.file ?? "preflight",
+              "error",
+              `Degenerate output blocked: ${assembledDegeneracy.reason}`,
+              "code_structure_failure",
+            ),
+          );
+          previewBlockingReason =
+            previewBlockingReason ??
+            `Degenerate output blocked: ${assembledDegeneracy.reason}`;
+        }
+        devLogAppend("in-progress", {
+          type: "degenerate-output.blocked",
+          chatId,
+          branch: "assembled",
+          file: assembledDegeneracy.file,
+          reason: assembledDegeneracy.reason,
+          stubbedPaths: capped.stubbedPaths,
+        });
+      }
+    }
     // Canonical persistence payload after finalize-preflight:
     // store the complete scaffold-merged + repaired project so downstream
     // preview/bootstrap does not need to rebuild it again.
