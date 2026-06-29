@@ -39,6 +39,7 @@ import {
   type OwnEnginePostStreamPhaseId,
 } from "../finalize-pipeline-contract";
 import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
+import { hasBuildBreakingVerifierFindings } from "@/lib/gen/preview/should-start-preview";
 import { runFinalizeFastPath } from "./fast-path";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
@@ -487,11 +488,32 @@ export async function finalizeAndSaveVersion(
   // preflight bundle only knows about preflight errors, so we OR the verifier
   // signal in here and use the effective flag for telemetry, generation log
   // status, and `failVersionVerification` below.
+  //
+  // `verifierBlocked` stays the RAW "verifier produced >= 1 blocking finding"
+  // signal — it still drives telemetry meta (`preflight.verifierBlocked` + the
+  // finding count) and the advisory `quality-gate:verifier-blocking` logs, so
+  // the verifier signal is never lost for analytics.
+  //
+  // What it must NOT do in F2 (design preview) is terminally fail a version
+  // that renders fine just because the verifier flagged a product-quality
+  // issue (e.g. `navigation-placeholder-actions`, `footer-dead-links`). Prod
+  // (us-east) showed visually-OK F2 previews ending up `failed` via the
+  // `diagnosticOnly` server-verify path purely from these advisory findings
+  // (M#vf2). So in F2 only the render-dead / build-breaking class
+  // (`undefined-jsx-symbol`, `build-breaking-missing-imports`,
+  // `autofix-preview-blocking`, `TS2304/2307/2552`, ...) — already encoded in
+  // `isBuildBreakingFinding` (`should-start-preview.ts`) — may gate
+  // verification. F3 (integrations) stays strict: every verifier blocking
+  // finding gates the row.
   const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
+  const verifierGatesVerification =
+    buildSpec?.previewPolicy === "fidelity3"
+      ? verifierBlocked
+      : hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
   const hasCurrentPreflightBlockers =
     preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =
-    hasVerificationBlockingPreflightErrors || verifierBlocked;
+    hasVerificationBlockingPreflightErrors || verifierGatesVerification;
   const verificationFailureSummary = verifierBlocked
     ? hasVerificationBlockingPreflightErrors
       ? `${preflightFailureSummary} Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
@@ -639,7 +661,13 @@ export async function finalizeAndSaveVersion(
     if (failedVersion?.id) {
       version = failedVersion;
     }
-  } else if (verifierBlocked) {
+  } else if (verifierGatesVerification) {
+    // Only log "pending server-verify" when the verifier signal actually gates
+    // this version (F3, or F2 with a build-breaking finding). A pure F2
+    // product-quality finding is advisory: it is still recorded in telemetry
+    // and the `quality-gate:verifier-blocking` log, but no server-verify is
+    // scheduled for it, so claiming "pending server-verify" here would be
+    // misleading.
     devLogAppend("in-progress", {
       type: "preflight.version.verifier-blocked-pending-server-verify",
       chatId,
