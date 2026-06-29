@@ -432,19 +432,23 @@ export async function runProductPostcheck(params: {
 
     // Render-health probe (desktop): used to disambiguate ambiguous runtime
     // errors — an ambiguous throw only counts as render-fatal when the page
-    // actually rendered empty (Bugbot #321). On probe failure default to
-    // non-empty so we never FALSELY treat a probe error as a blank screen.
-    const renderHealth = await page
-      .evaluate(() => {
+    // actually rendered empty (Bugbot #321). If the probe itself throws we
+    // CANNOT confirm a blank screen, so default `renderedEmpty = false` and
+    // never let an ambiguous error block off the back of a failed probe.
+    let renderedEmpty = false;
+    try {
+      const renderHealth = await page.evaluate(() => {
         const root =
           (document.querySelector("#root, #__next, main") as HTMLElement | null) ??
           document.body;
         const textLen = (root?.innerText || "").trim().length;
         const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
         return { textLen, hasVisual };
-      })
-      .catch(() => ({ textLen: 1, hasVisual: false }));
-    const renderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
+      });
+      renderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
+    } catch {
+      renderedEmpty = false;
+    }
 
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
