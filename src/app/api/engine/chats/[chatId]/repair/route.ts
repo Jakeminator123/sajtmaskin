@@ -605,10 +605,15 @@ async function handlePOST(
       const stopSuffix = loopResult.earlyStopReason
         ? ` (${loopResult.earlyStopReason})`
         : "";
+      // Keep this stored summary consistent with the JSON `reason` below: when
+      // the loop stopped on the wall-clock budget the cause is time, not an
+      // unresolved gate, so don't blame the gate (Bugbot #318).
       const failSummary =
-        loopResult.remainingErrors === 0
-          ? `Server repair could not resolve the quality gate after ${llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}.`
-          : `Server repair incomplete after ${llmPasses} attempt(s): ${loopResult.remainingErrors} syntax error(s) remain${stopSuffix}.`;
+        loopResult.earlyStopReason === "time_budget_exceeded"
+          ? `Server repair stopped after ${llmPasses} attempt(s): time budget exceeded before the errors could be resolved${loopResult.remainingErrors === 0 ? "" : ` (${loopResult.remainingErrors} syntax error(s) remaining)`}.`
+          : loopResult.remainingErrors === 0
+            ? `Server repair could not resolve the quality gate after ${llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}.`
+            : `Server repair incomplete after ${llmPasses} attempt(s): ${loopResult.remainingErrors} syntax error(s) remain${stopSuffix}.`;
       ownershipLost = !(await failAfterRepair(currentVersionId, failSummary));
     } else if (staleBaseNoOp) {
       // #260 Codex P2: skip failing the version — a concurrent user edit
