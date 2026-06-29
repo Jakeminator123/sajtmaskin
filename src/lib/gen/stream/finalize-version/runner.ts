@@ -760,7 +760,13 @@ export async function finalizeAndSaveVersion(
       previewBlockingReason: previewBlockedReason,
       primaryPreviewTarget: preflightResult.previewStart.primaryPreviewTarget,
       issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
-      previewStart: preflightResult.previewStart,
+      // Degenerate output must block the preview-START gate too (Bugbot #322):
+      // `shouldStartOwnEnginePreview` reads `previewStart.canStartPreview`, not
+      // the `previewBlocked` flag, so force it false here or a multi-MB
+      // artifact would still boot on the preview VM.
+      previewStart: degeneracy.degenerate
+        ? { ...preflightResult.previewStart, canStartPreview: false }
+        : preflightResult.previewStart,
       scaffoldRetry,
       routePlan,
     },

@@ -1275,8 +1275,10 @@ describe("finalizeAndSaveVersion", () => {
 
     expect(result.preflight.verificationBlocked).toBe(true);
     // Degenerate output must also block the preview lane (Bugbot #322) so a
-    // multi-MB project is never pushed to the preview VM.
+    // multi-MB project is never pushed to the preview VM — both the report flag
+    // AND the actual preview-start gate (`previewStart.canStartPreview`).
     expect(result.preflight.previewBlocked).toBe(true);
+    expect(result.preflight.previewStart?.canStartPreview).toBe(false);
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
       expect.stringContaining("Degenerate output blocked"),
