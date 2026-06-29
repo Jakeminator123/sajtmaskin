@@ -525,10 +525,15 @@ export async function runProductPostcheck(params: {
     // the overlay catches) is not lost when the throw happened before the
     // happy-path overlay probe ran.
     let overlayInCatch = false;
-    if (page) {
-      overlayInCatch = await page
+    for (const candidate of [page, mobilePage]) {
+      if (!candidate) continue;
+      const seen = await candidate
         .evaluate(detectNextErrorOverlayInBrowser)
         .catch(() => false);
+      if (seen) {
+        overlayInCatch = true;
+        break;
+      }
     }
     const runtimeEval = evaluateRuntimeErrors(pageErrors, { nextErrorOverlay: overlayInCatch });
     if (runtimeEval.productBlocked) {
