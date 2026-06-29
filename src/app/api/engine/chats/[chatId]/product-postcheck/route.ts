@@ -177,7 +177,12 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         new Set(
           result.warnings
             .map((warning) => warning.code)
-            .filter((code) => code === "mobile_menu_failed" || code === "broken_anchor"),
+            .filter(
+              (code) =>
+                code === "mobile_menu_failed" ||
+                code === "broken_anchor" ||
+                code === "runtime_crash",
+            ),
         ),
       );
       emitPostcheckBlocked({

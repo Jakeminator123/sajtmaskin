@@ -5,7 +5,8 @@ export type ProductPostcheckWarningCode =
   | "broken_image"
   | "cta_no_handler"
   | "mobile_menu_failed"
-  | "fake_form";
+  | "fake_form"
+  | "runtime_crash";
 
 export type ProductPostcheckSkipReason =
   | "feature_disabled"
@@ -218,6 +219,103 @@ export function evaluateProductDomSnapshot(
   return { warnings, productBlocked };
 }
 
+/**
+ * Render-fatal browser-runtime error patterns. An uncaught `pageerror`
+ * matching one of these tears down the React tree → guaranteed white screen,
+ * even though the dev-server booted and the build/typecheck passed. This is
+ * the F2 false-green that M#f2et describes (e.g. a JSX element passed where a
+ * React component was expected → "Element type is invalid ... got: object").
+ * Matching errors block the product check so the version can never read as
+ * solid green.
+ *
+ * Deliberately scoped to the React-STRUCTURAL class only. These messages are
+ * unambiguous tree-fatal crashes and do not appear in benign third-party
+ * throws, so they can block WITHOUT a fragile, timing-sensitive blank-screen
+ * probe and without over-blocking F2 (Bugbot #321 — the earlier
+ * ambiguous-error + render-health gating was racy across viewports/hydration).
+ * Generic JS throws (`is not a function`, `Cannot read properties of
+ * undefined`, hydration warnings, ...) can be non-fatal/third-party and are
+ * intentionally NOT blocked here; catching that class safely needs a robust
+ * runtime render-health signal and is tracked as a follow-up.
+ */
+const RENDER_FATAL_ERROR_PATTERNS: readonly RegExp[] = [
+  /Element type is invalid/i,
+  /Minified React error/i,
+  /Objects are not valid as a React child/i,
+  /Rendered (?:more|fewer) hooks than/i,
+  /Maximum update depth exceeded/i,
+];
+
+export function isRenderFatalError(message: string): boolean {
+  if (!message) return false;
+  return RENDER_FATAL_ERROR_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * Runs in the BROWSER (serialized via `page.evaluate`). Detects the Next.js dev
+ * error overlay, which Next renders into `nextjs-portal`'s open shadow root
+ * whenever a render/runtime error fires — INCLUDING the ambiguous class the
+ * structural pattern list deliberately skips (e.g. "Cannot read properties of
+ * undefined" during render → Next shows its overlay). The overlay lives in a
+ * separate portal, not in the app content, so its presence is an unambiguous
+ * "preview crashed" signal that does not over-block a normally-rendered page
+ * (Codex #321 P1). Degrades to `false` if Next changes its markers — no
+ * over-block.
+ */
+function detectNextErrorOverlayInBrowser(): boolean {
+  const portal = document.querySelector("nextjs-portal");
+  const shadow = portal ? portal.shadowRoot : null;
+  if (!shadow) return false;
+  return Boolean(
+    shadow.querySelector(
+      "[data-nextjs-dialog], [data-nextjs-dialog-overlay], [data-nextjs-error-overlay], #nextjs__container_errors_label",
+    ),
+  );
+}
+
+/**
+ * Classify the runtime health of the loaded preview (desktop AND mobile
+ * viewports). Two block signals, both meaning "the preview is dead":
+ *   1. a render-fatal `pageerror` (the unambiguous structural class), or
+ *   2. the Next.js dev error overlay is present (`options.nextErrorOverlay`) —
+ *      this also covers the ambiguous render crashes the pattern list skips.
+ * Benign/ambiguous throws on a page that still renders are ignored, so F2 stays
+ * fast and is not over-blocked. Pure + deterministic — unit-testable.
+ */
+export function evaluateRuntimeErrors(
+  pageErrors: readonly string[],
+  options: { nextErrorOverlay?: boolean } = {},
+): ProductDomEvaluation {
+  const warnings: ProductPostcheckWarning[] = [];
+  const seen = new Set<string>();
+  let productBlocked = false;
+  if (options.nextErrorOverlay) {
+    productBlocked = true;
+    warnings.push(
+      warning(
+        "runtime_crash",
+        "Next.js-felöverlägg visas — previewen kraschade vid körning.",
+      ),
+    );
+  }
+  for (const raw of pageErrors) {
+    const message = typeof raw === "string" ? raw.trim() : "";
+    if (!message || !isRenderFatalError(message)) continue;
+    const key = message.slice(0, 200);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    productBlocked = true;
+    warnings.push(
+      warning(
+        "runtime_crash",
+        `Preview kraschade vid körning: ${textPreview(message) ?? message.slice(0, 120)}`,
+      ),
+    );
+    if (warnings.length >= 5) break;
+  }
+  return { warnings, productBlocked };
+}
+
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
   if (!(err instanceof Error)) return "runtime_error";
   if (/timeout/i.test(err.message)) return "timeout";
@@ -260,6 +358,11 @@ export async function runProductPostcheck(params: {
   let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | null = null;
   let page: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
   let mobilePage: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
+  // Uncaught runtime exceptions captured across BOTH viewports. Hoisted to
+  // function scope so the catch below can still surface a render-fatal crash
+  // that was captured before a later phase (mobile nav / menu probe) threw —
+  // otherwise that crash would be silently downgraded to a skip (Bugbot #321).
+  const pageErrors: string[] = [];
 
   try {
     const { chromium } = await import("playwright");
@@ -268,6 +371,15 @@ export async function runProductPostcheck(params: {
       viewport: { width: 1280, height: 900 },
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    });
+
+    // Capture uncaught runtime exceptions while the preview boots. A
+    // render-fatal crash (e.g. "Element type is invalid") blanks the page even
+    // though the dev-server is up and the build passed — without this the F2
+    // design preview reads as solid green (M#f2et). Classified by
+    // `evaluateRuntimeErrors` below; only render-fatal crashes block.
+    page.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
     });
 
     await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -340,8 +452,25 @@ export async function runProductPostcheck(params: {
       };
     });
 
+    // Desktop Next.js error-overlay probe — catches ambiguous render crashes
+    // (Codex #321 P1) without piercing app content.
+    const desktopErrorOverlay = await page
+      .evaluate(detectNextErrorOverlayInBrowser)
+      .catch(() => false);
+
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
+    // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
+    // error can surface only at 375px or after the hamburger toggle below.
+    mobilePage.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
+    });
     await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    // Let the mobile page settle like the desktop one so a render-fatal crash
+    // that fires just after the initial paint is captured before we classify
+    // `pageErrors` below (Bugbot #321).
+    await mobilePage
+      .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
+      .catch(() => {});
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
         const label = [
@@ -365,18 +494,61 @@ export async function runProductPostcheck(params: {
       return { status: "failed", reason: "hamburger_button_did_not_change_dom_or_aria" };
     });
 
+    // Mobile Next.js error-overlay probe (after the menu interaction) — a render
+    // crash can surface only at 375px or after the toggle.
+    const mobileErrorOverlay = await mobilePage
+      .evaluate(detectNextErrorOverlayInBrowser)
+      .catch(() => false);
+
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, {
+      nextErrorOverlay: desktopErrorOverlay || mobileErrorOverlay,
+    });
+    const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,
       skipped: false,
       skippedReason: null,
-      warnings: evaluation.warnings,
-      warningCount: evaluation.warnings.length,
-      productBlocked: evaluation.productBlocked,
+      warnings,
+      warningCount: warnings.length,
+      productBlocked: evaluation.productBlocked || runtimeEval.productBlocked,
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
     };
   } catch (err) {
+    // A render-fatal crash may already be visible even though a later phase
+    // (mobile nav / menu probe) threw. Surface it instead of silently
+    // downgrading to a skip (productBlocked:false) — a dead preview must never
+    // read as green just because a subsequent step errored (Bugbot #321).
+    // Best-effort: re-probe the Next.js error overlay on the desktop page too,
+    // so an ambiguous render crash (which the structural pattern list skips but
+    // the overlay catches) is not lost when the throw happened before the
+    // happy-path overlay probe ran.
+    let overlayInCatch = false;
+    for (const candidate of [page, mobilePage]) {
+      if (!candidate) continue;
+      const seen = await candidate
+        .evaluate(detectNextErrorOverlayInBrowser)
+        .catch(() => false);
+      if (seen) {
+        overlayInCatch = true;
+        break;
+      }
+    }
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, { nextErrorOverlay: overlayInCatch });
+    if (runtimeEval.productBlocked) {
+      console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
+      return {
+        ok: true,
+        skipped: false,
+        skippedReason: null,
+        warnings: runtimeEval.warnings,
+        warningCount: runtimeEval.warnings.length,
+        productBlocked: true,
+        durationMs: Date.now() - startedAt,
+        checkedUrl: previewUrl,
+      };
+    }
     const reason = productPostcheckSkipReasonFromError(err);
     console.warn("[product-postcheck] skipped:", err);
     return skippedResult(reason, Date.now() - startedAt, previewUrl);
