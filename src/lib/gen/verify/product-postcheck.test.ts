@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateProductDomSnapshot,
+  evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
+  isFatalRuntimeError,
   productPostcheckSkipReasonFromError,
   type ProductDomEvaluation,
   type ProductPostcheckWarning,
@@ -178,5 +180,54 @@ describe("productPostcheckSkipReasonFromError", () => {
       "navigation_failed",
     );
     expect(productPostcheckSkipReasonFromError(new Error("unexpected"))).toBe("runtime_error");
+  });
+});
+
+describe("isFatalRuntimeError", () => {
+  it("matches render-fatal React/runtime crashes", () => {
+    expect(
+      isFatalRuntimeError(
+        "Error: Element type is invalid: expected a string ... but got: object",
+      ),
+    ).toBe(true);
+    expect(isFatalRuntimeError("Minified React error #130")).toBe(true);
+    expect(isFatalRuntimeError("TypeError: item.icon is not a function")).toBe(true);
+    expect(
+      isFatalRuntimeError("TypeError: Cannot read properties of undefined (reading 'map')"),
+    ).toBe(true);
+    expect(isFatalRuntimeError("ReferenceError: Foo is not defined")).toBe(true);
+  });
+
+  it("does not match benign / non-render throws", () => {
+    expect(isFatalRuntimeError("")).toBe(false);
+    expect(isFatalRuntimeError("Failed to load resource: 404")).toBe(false);
+    expect(isFatalRuntimeError("[analytics] beacon blocked by client")).toBe(false);
+  });
+});
+
+describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead)", () => {
+  it("blocks on a render-fatal uncaught error (white screen)", () => {
+    const result = evaluateRuntimeErrors([
+      "Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. Check the render method of `IconMark`.",
+    ]);
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("does NOT block on a benign uncaught error (F2 stays fast)", () => {
+    const result = evaluateRuntimeErrors(["Failed to load resource: the server responded with 404"]);
+    expect(result.productBlocked).toBe(false);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("returns a clean result when there were no runtime errors", () => {
+    expect(evaluateRuntimeErrors([])).toEqual({ warnings: [], productBlocked: false });
+  });
+
+  it("dedupes repeated fatal messages and still blocks", () => {
+    const msg = "Error: Element type is invalid ... got: object";
+    const result = evaluateRuntimeErrors([msg, msg, msg]);
+    expect(result.productBlocked).toBe(true);
+    expect(result.warnings).toHaveLength(1);
   });
 });

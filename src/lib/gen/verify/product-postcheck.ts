@@ -5,7 +5,8 @@ export type ProductPostcheckWarningCode =
   | "broken_image"
   | "cta_no_handler"
   | "mobile_menu_failed"
-  | "fake_form";
+  | "fake_form"
+  | "runtime_crash";
 
 export type ProductPostcheckSkipReason =
   | "feature_disabled"
@@ -218,6 +219,66 @@ export function evaluateProductDomSnapshot(
   return { warnings, productBlocked };
 }
 
+/**
+ * Render-fatal browser-runtime error patterns. An uncaught `pageerror` that
+ * matches one of these means the generated preview CRASHED at render (white
+ * screen / torn-down React tree) even though the dev-server booted and the
+ * build/typecheck passed — the F2 false-green that M#f2et describes (e.g. a
+ * JSX element passed where a React component was expected →
+ * "Element type is invalid ... got: object"). Matching errors block the
+ * product check so the version can never read as solid green.
+ *
+ * Deliberately scoped to render-fatal classes: a non-matching uncaught error
+ * (a benign third-party/analytics throw that does NOT blank the page) must not
+ * over-block an otherwise-fine F2 design preview. F2 stays fast/advisory; only
+ * a dead preview gates.
+ */
+const FATAL_RUNTIME_ERROR_PATTERNS: readonly RegExp[] = [
+  /Element type is invalid/i,
+  /Minified React error/i,
+  /Objects are not valid as a React child/i,
+  /Hydration failed/i,
+  /Rendered (?:more|fewer) hooks than/i,
+  /Maximum update depth exceeded/i,
+  /\bis not defined\b/i,
+  /\bis not a function\b/i,
+  /Cannot read propert(?:y|ies) of (?:undefined|null)/i,
+];
+
+export function isFatalRuntimeError(message: string): boolean {
+  if (!message) return false;
+  return FATAL_RUNTIME_ERROR_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * Classify uncaught browser `pageerror` messages captured while the preview
+ * loaded. Only render-fatal crashes (see `FATAL_RUNTIME_ERROR_PATTERNS`) are
+ * surfaced and block the product check; benign throws are ignored so F2 is
+ * never over-blocked. Pure + deterministic so it can be unit-tested without a
+ * real browser.
+ */
+export function evaluateRuntimeErrors(pageErrors: readonly string[]): ProductDomEvaluation {
+  const warnings: ProductPostcheckWarning[] = [];
+  const seen = new Set<string>();
+  let productBlocked = false;
+  for (const raw of pageErrors) {
+    const message = typeof raw === "string" ? raw.trim() : "";
+    if (!message || !isFatalRuntimeError(message)) continue;
+    const key = message.slice(0, 200);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    productBlocked = true;
+    warnings.push(
+      warning(
+        "runtime_crash",
+        `Preview kraschade vid körning: ${textPreview(message) ?? message.slice(0, 120)}`,
+      ),
+    );
+    if (warnings.length >= 5) break;
+  }
+  return { warnings, productBlocked };
+}
+
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
   if (!(err instanceof Error)) return "runtime_error";
   if (/timeout/i.test(err.message)) return "timeout";
@@ -268,6 +329,16 @@ export async function runProductPostcheck(params: {
       viewport: { width: 1280, height: 900 },
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    });
+
+    // Capture uncaught runtime exceptions while the preview boots. A
+    // render-fatal crash (e.g. "Element type is invalid") blanks the page even
+    // though the dev-server is up and the build passed — without this the F2
+    // design preview reads as solid green (M#f2et). Classified by
+    // `evaluateRuntimeErrors` below; only render-fatal crashes block.
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
     });
 
     await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -366,13 +437,15 @@ export async function runProductPostcheck(params: {
     });
 
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
+    const runtimeEval = evaluateRuntimeErrors(pageErrors);
+    const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,
       skipped: false,
       skippedReason: null,
-      warnings: evaluation.warnings,
-      warningCount: evaluation.warnings.length,
-      productBlocked: evaluation.productBlocked,
+      warnings,
+      warningCount: warnings.length,
+      productBlocked: evaluation.productBlocked || runtimeEval.productBlocked,
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
     };
