@@ -1067,6 +1067,174 @@ describe("finalizeAndSaveVersion", () => {
     expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
+  it("WP2: F2 verifier product-quality finding is advisory (does not block verification)", async () => {
+    // `navigation-placeholder-actions` is NOT a build-breaking finding. In F2
+    // (design preview) a version that renders fine must not be gated on it —
+    // the finding stays as advisory telemetry/log but verification is clean.
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "navigation-placeholder-actions",
+          detail: "src/app/page.tsx: hero CTA href is empty",
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(false);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    // Advisory: the finding is still surfaced (telemetry/logs), just not gating.
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "navigation-placeholder-actions" }),
+    ]);
+  });
+
+  it("WP2: F2 build-breaking verifier finding still blocks verification (never green when dead)", async () => {
+    // `undefined-jsx-symbol` is render-dead (white screen). Even in F2 it must
+    // gate verification — F2 is fast/advisory but never green when the preview
+    // cannot render.
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "undefined-jsx-symbol",
+          detail:
+            "src/app/page.tsx: `<Cuboid />` is used but `Cuboid` is neither imported nor declared in this file.",
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(true);
+    // Verifier-only findings never pre-commit `failed` here; server-verify
+    // (real tsc/build) is the terminal authority. The gate signal is what
+    // routes the version into that diagnostic server-verify.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("WP2: F3 keeps every verifier finding blocking (strict integrations lane)", async () => {
+    // The SAME advisory finding that is non-blocking in F2 must still gate F3
+    // (integrations). F3 strictness is unchanged.
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "navigation-placeholder-actions",
+          detail: "src/app/page.tsx: hero CTA href is empty",
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(true);
+  });
+
   it("(fas D1) preflight hard errors still pre-commit failed (unchanged path)", async () => {
     // Preflight code-structure failures — distinct from verifier-LLM findings —
     // ARE deterministic and should still immediately fail the version so

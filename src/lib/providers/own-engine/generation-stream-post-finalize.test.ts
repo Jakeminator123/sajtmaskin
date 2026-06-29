@@ -914,6 +914,49 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
       reason: "design_preview_skip_verify",
     });
   });
+
+  it("runs diagnostic-only server-verify for an F2 design init when verification is blocked (WP2 build-breaking path)", () => {
+    // WP2: in F2 a build-breaking verifier finding is the only thing that sets
+    // `verificationBlocked: true` (product-quality findings stay advisory in
+    // runner.ts). When it IS set, the design-preview fast-skip must not apply —
+    // we still run server-verify in diagnostic-only mode so the render-dead
+    // code is surfaced (never green when dead), without auto-promoting.
+    const finalizedBlocked = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        verificationBlocked: true,
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 48_000,
+            refsChars: 24_000,
+            systemContextChars: 96_000,
+          },
+        },
+        finalized: finalizedBlocked as never,
+      }),
+    ).toEqual({
+      run: true,
+      reason: "diagnostic_only_verification_blocked",
+      diagnosticOnly: true,
+    });
+  });
 });
 
 describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {

@@ -153,6 +153,16 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(true);
   });
 
+  it("classifies r3f-client-boundary (runtime-fatal R3F Canvas without use client)", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "r3f-client-boundary",
+        detail:
+          "components/scene.tsx: React Three Fiber `<Canvas>` appears in a file without `\"use client\"`; this can pass typecheck but fail at runtime in Next App Router.",
+      }),
+    ).toBe(true);
+  });
+
   it("does NOT classify quality / design findings", () => {
     expect(
       isBuildBreakingFinding({
