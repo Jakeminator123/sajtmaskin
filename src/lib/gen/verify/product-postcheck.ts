@@ -220,50 +220,69 @@ export function evaluateProductDomSnapshot(
 }
 
 /**
- * Render-fatal browser-runtime error patterns. An uncaught `pageerror` that
- * matches one of these means the generated preview CRASHED at render (white
- * screen / torn-down React tree) even though the dev-server booted and the
- * build/typecheck passed — the F2 false-green that M#f2et describes (e.g. a
- * JSX element passed where a React component was expected →
- * "Element type is invalid ... got: object"). Matching errors block the
- * product check so the version can never read as solid green.
- *
- * Deliberately scoped to render-fatal classes: a non-matching uncaught error
- * (a benign third-party/analytics throw that does NOT blank the page) must not
- * over-block an otherwise-fine F2 design preview. F2 stays fast/advisory; only
- * a dead preview gates.
+ * STRUCTURAL render-fatal patterns. An uncaught `pageerror` matching one of
+ * these tears down the React tree → guaranteed white screen, regardless of
+ * what (if anything) rendered before. This is the F2 false-green that M#f2et
+ * describes (e.g. a JSX element passed where a React component was expected →
+ * "Element type is invalid ... got: object"). These ALWAYS block the product
+ * check so the version can never read as solid green.
  */
-const FATAL_RUNTIME_ERROR_PATTERNS: readonly RegExp[] = [
+const STRUCTURAL_RENDER_FATAL_PATTERNS: readonly RegExp[] = [
   /Element type is invalid/i,
   /Minified React error/i,
   /Objects are not valid as a React child/i,
-  /Hydration failed/i,
   /Rendered (?:more|fewer) hooks than/i,
   /Maximum update depth exceeded/i,
+];
+
+/**
+ * AMBIGUOUS runtime patterns. These often indicate a real render crash, but
+ * the SAME message can also come from a benign third-party/analytics script
+ * that does NOT blank the page (Bugbot #321). To avoid over-blocking an
+ * otherwise-fine F2 design preview, an ambiguous error only blocks when the
+ * page also rendered effectively empty (blank-screen confirmed).
+ */
+const AMBIGUOUS_RUNTIME_PATTERNS: readonly RegExp[] = [
   /\bis not defined\b/i,
   /\bis not a function\b/i,
   /Cannot read propert(?:y|ies) of (?:undefined|null)/i,
+  /Hydration failed/i,
 ];
 
-export function isFatalRuntimeError(message: string): boolean {
+export function isStructuralRenderFatal(message: string): boolean {
   if (!message) return false;
-  return FATAL_RUNTIME_ERROR_PATTERNS.some((re) => re.test(message));
+  return STRUCTURAL_RENDER_FATAL_PATTERNS.some((re) => re.test(message));
+}
+
+export function isAmbiguousRuntimeError(message: string): boolean {
+  if (!message) return false;
+  return AMBIGUOUS_RUNTIME_PATTERNS.some((re) => re.test(message));
 }
 
 /**
  * Classify uncaught browser `pageerror` messages captured while the preview
- * loaded. Only render-fatal crashes (see `FATAL_RUNTIME_ERROR_PATTERNS`) are
- * surfaced and block the product check; benign throws are ignored so F2 is
- * never over-blocked. Pure + deterministic so it can be unit-tested without a
+ * loaded (desktop AND mobile viewports). Structural React-tree crashes always
+ * block; ambiguous JS throws block only when `renderedEmpty` confirms the page
+ * actually blanked — so F2 stays fast and is not over-blocked by benign
+ * third-party throws. Pure + deterministic so it can be unit-tested without a
  * real browser.
  */
-export function evaluateRuntimeErrors(pageErrors: readonly string[]): ProductDomEvaluation {
+export function evaluateRuntimeErrors(
+  pageErrors: readonly string[],
+  options: { renderedEmpty?: boolean } = {},
+): ProductDomEvaluation {
+  const renderedEmpty = options.renderedEmpty === true;
   const warnings: ProductPostcheckWarning[] = [];
   const seen = new Set<string>();
   let productBlocked = false;
   for (const raw of pageErrors) {
     const message = typeof raw === "string" ? raw.trim() : "";
-    if (!message || !isFatalRuntimeError(message)) continue;
+    if (!message) continue;
+    const structural = isStructuralRenderFatal(message);
+    const ambiguous = isAmbiguousRuntimeError(message);
+    // Structural → always fatal. Ambiguous → fatal only if the page blanked.
+    const fatal = structural || (ambiguous && renderedEmpty);
+    if (!fatal) continue;
     const key = message.slice(0, 200);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -411,7 +430,28 @@ export async function runProductPostcheck(params: {
       };
     });
 
+    // Render-health probe (desktop): used to disambiguate ambiguous runtime
+    // errors — an ambiguous throw only counts as render-fatal when the page
+    // actually rendered empty (Bugbot #321). On probe failure default to
+    // non-empty so we never FALSELY treat a probe error as a blank screen.
+    const renderHealth = await page
+      .evaluate(() => {
+        const root =
+          (document.querySelector("#root, #__next, main") as HTMLElement | null) ??
+          document.body;
+        const textLen = (root?.innerText || "").trim().length;
+        const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
+        return { textLen, hasVisual };
+      })
+      .catch(() => ({ textLen: 1, hasVisual: false }));
+    const renderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
+
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
+    // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
+    // error can surface only at 375px or after the hamburger toggle below.
+    mobilePage.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
+    });
     await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
@@ -437,7 +477,7 @@ export async function runProductPostcheck(params: {
     });
 
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
-    const runtimeEval = evaluateRuntimeErrors(pageErrors);
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, { renderedEmpty });
     const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,

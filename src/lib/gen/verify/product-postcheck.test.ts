@@ -3,7 +3,8 @@ import {
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
-  isFatalRuntimeError,
+  isAmbiguousRuntimeError,
+  isStructuralRenderFatal,
   productPostcheckSkipReasonFromError,
   type ProductDomEvaluation,
   type ProductPostcheckWarning,
@@ -183,39 +184,69 @@ describe("productPostcheckSkipReasonFromError", () => {
   });
 });
 
-describe("isFatalRuntimeError", () => {
-  it("matches render-fatal React/runtime crashes", () => {
+describe("isStructuralRenderFatal", () => {
+  it("matches React-tree-fatal crashes regardless of render state", () => {
     expect(
-      isFatalRuntimeError(
+      isStructuralRenderFatal(
         "Error: Element type is invalid: expected a string ... but got: object",
       ),
     ).toBe(true);
-    expect(isFatalRuntimeError("Minified React error #130")).toBe(true);
-    expect(isFatalRuntimeError("TypeError: item.icon is not a function")).toBe(true);
+    expect(isStructuralRenderFatal("Minified React error #130")).toBe(true);
     expect(
-      isFatalRuntimeError("TypeError: Cannot read properties of undefined (reading 'map')"),
+      isStructuralRenderFatal("Objects are not valid as a React child (found: object)"),
     ).toBe(true);
-    expect(isFatalRuntimeError("ReferenceError: Foo is not defined")).toBe(true);
   });
 
-  it("does not match benign / non-render throws", () => {
-    expect(isFatalRuntimeError("")).toBe(false);
-    expect(isFatalRuntimeError("Failed to load resource: 404")).toBe(false);
-    expect(isFatalRuntimeError("[analytics] beacon blocked by client")).toBe(false);
+  it("does not match ambiguous or benign throws", () => {
+    expect(isStructuralRenderFatal("")).toBe(false);
+    expect(isStructuralRenderFatal("TypeError: item.icon is not a function")).toBe(false);
+    expect(isStructuralRenderFatal("Failed to load resource: 404")).toBe(false);
+  });
+});
+
+describe("isAmbiguousRuntimeError", () => {
+  it("matches generic JS throws that may or may not blank the page", () => {
+    expect(isAmbiguousRuntimeError("TypeError: item.icon is not a function")).toBe(true);
+    expect(
+      isAmbiguousRuntimeError("TypeError: Cannot read properties of undefined (reading 'map')"),
+    ).toBe(true);
+    expect(isAmbiguousRuntimeError("ReferenceError: Foo is not defined")).toBe(true);
+  });
+
+  it("does not match structural-fatal or benign throws", () => {
+    expect(isAmbiguousRuntimeError("Element type is invalid ... got: object")).toBe(false);
+    expect(isAmbiguousRuntimeError("Failed to load resource: 404")).toBe(false);
   });
 });
 
 describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead)", () => {
-  it("blocks on a render-fatal uncaught error (white screen)", () => {
-    const result = evaluateRuntimeErrors([
-      "Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. Check the render method of `IconMark`.",
-    ]);
+  const elementTypeInvalid =
+    "Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. Check the render method of `IconMark`.";
+
+  it("blocks on a structural React crash regardless of render state", () => {
+    const result = evaluateRuntimeErrors([elementTypeInvalid], { renderedEmpty: false });
     expect(result.productBlocked).toBe(true);
     expect(codes(result)).toEqual(["runtime_crash"]);
   });
 
+  it("blocks on an ambiguous throw ONLY when the page actually rendered empty", () => {
+    const message = "TypeError: Cannot read properties of undefined (reading 'map')";
+    const blankedResult = evaluateRuntimeErrors([message], { renderedEmpty: true });
+    expect(blankedResult.productBlocked).toBe(true);
+    expect(codes(blankedResult)).toEqual(["runtime_crash"]);
+
+    // Same throw, but the page rendered content (e.g. a third-party script
+    // threw) → not fatal, do not over-block F2.
+    const renderedResult = evaluateRuntimeErrors([message], { renderedEmpty: false });
+    expect(renderedResult.productBlocked).toBe(false);
+    expect(renderedResult.warnings).toEqual([]);
+  });
+
   it("does NOT block on a benign uncaught error (F2 stays fast)", () => {
-    const result = evaluateRuntimeErrors(["Failed to load resource: the server responded with 404"]);
+    const result = evaluateRuntimeErrors(
+      ["Failed to load resource: the server responded with 404"],
+      { renderedEmpty: true },
+    );
     expect(result.productBlocked).toBe(false);
     expect(result.warnings).toEqual([]);
   });
@@ -224,9 +255,8 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     expect(evaluateRuntimeErrors([])).toEqual({ warnings: [], productBlocked: false });
   });
 
-  it("dedupes repeated fatal messages and still blocks", () => {
-    const msg = "Error: Element type is invalid ... got: object";
-    const result = evaluateRuntimeErrors([msg, msg, msg]);
+  it("dedupes repeated structural messages and still blocks", () => {
+    const result = evaluateRuntimeErrors([elementTypeInvalid, elementTypeInvalid, elementTypeInvalid]);
     expect(result.productBlocked).toBe(true);
     expect(result.warnings).toHaveLength(1);
   });
