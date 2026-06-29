@@ -338,8 +338,11 @@ export async function finalizeAndSaveVersion(
   // model output, i.e. amplified downstream in finalize, so the raw model
   // output alone would not reveal it. A degenerate project is treated as a
   // deterministic hard block (like a preflight parse error): the version fails
-  // fast with a named reason and is kept out of the repair loop instead of
-  // persisting/serving a multi-MB artifact and churning repair passes on it.
+  // fast with a named reason, the preview-start gate is closed, and it is kept
+  // out of the SERVER verify/repair loop (never auto-promoted or fed to
+  // server-verify/repair) instead of churning repair passes on a multi-MB
+  // artifact. (Bounded client-side post-check autofix retry is tracked
+  // separately — see M#dgc.)
   const degeneracy = detectDegenerateProjectJson(filesJson);
   if (degeneracy.degenerate) {
     devLogAppend("in-progress", {

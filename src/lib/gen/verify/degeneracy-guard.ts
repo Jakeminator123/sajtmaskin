@@ -10,7 +10,8 @@
  * guard runs on the ASSEMBLED file set (where the bloat actually exists), where
  * it can fail the version fast with an explicit, named reason instead of
  * letting a multi-MB artifact be persisted/served and churned through the
- * repair loop (the incident logged 3 follow-up repair passes, all failed).
+ * SERVER verify/repair loop (the incident logged 3 follow-up repair passes,
+ * all failed).
  *
  * Deterministic + pure so it can be unit-tested without any pipeline plumbing.
  * Conservative thresholds: real generated source files top out ~100–150 KB and
