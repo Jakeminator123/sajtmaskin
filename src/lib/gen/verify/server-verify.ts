@@ -930,14 +930,14 @@ async function tryServerRepairLoop(params: {
   }
 
   if (finalizeAction === "fail_syntax_clean") {
-    const stopSuffix = loopResult.earlyStopReason
-      ? ` (${loopResult.earlyStopReason})`
-      : "";
-    await failVersionVerification(
-      versionId,
-      `Server repair could not resolve the quality gate after ${loopResult.llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}. Try a smaller or more specific prompt, or edit the file manually.`,
-      runId,
-    ).catch(() => null);
+    // Keep the cause honest: a wall-clock / fixer timeout is NOT an unresolved
+    // gate, so don't blame the gate when the loop stopped on time budget
+    // (Bugbot #318 — same branching as the manual repair route).
+    const syntaxCleanSummary =
+      loopResult.earlyStopReason === "time_budget_exceeded"
+        ? `Server repair stopped after ${loopResult.llmPasses} attempt(s): time budget exceeded before the quality gate could be resolved (code is syntactically valid). Try again, or edit the file manually.`
+        : `Server repair could not resolve the quality gate after ${loopResult.llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${loopResult.earlyStopReason ? ` (${loopResult.earlyStopReason})` : ""}. Try a smaller or more specific prompt, or edit the file manually.`;
+    await failVersionVerification(versionId, syntaxCleanSummary, runId).catch(() => null);
     logRepairOutcome(
       chatId,
       versionId,
@@ -954,11 +954,11 @@ async function tryServerRepairLoop(params: {
     return { supersededByUserEdit: false, buildOriginated };
   }
 
-  await failVersionVerification(
-    versionId,
-    `Server repair incomplete after ${loopResult.llmPasses} attempt(s): ${loopResult.remainingErrors} esbuild syntax error(s) remain${loopResult.earlyStopReason ? ` (${loopResult.earlyStopReason})` : ""}.`,
-    runId,
-  ).catch(() => null);
+  const incompleteSummary =
+    loopResult.earlyStopReason === "time_budget_exceeded"
+      ? `Server repair stopped after ${loopResult.llmPasses} attempt(s): time budget exceeded with ${loopResult.remainingErrors} esbuild syntax error(s) remaining.`
+      : `Server repair incomplete after ${loopResult.llmPasses} attempt(s): ${loopResult.remainingErrors} esbuild syntax error(s) remain${loopResult.earlyStopReason ? ` (${loopResult.earlyStopReason})` : ""}.`;
+  await failVersionVerification(versionId, incompleteSummary, runId).catch(() => null);
   logRepairOutcome(
     chatId,
     versionId,
