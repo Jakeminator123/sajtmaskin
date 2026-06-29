@@ -550,6 +550,15 @@ export async function finalizeAndSaveVersion(
         baseVerificationFailureSummary ? ` ${baseVerificationFailureSummary}` : ""
       }`
     : baseVerificationFailureSummary;
+  // Degenerate output must ALSO block the preview lane (Bugbot #322) — a
+  // multi-MB / self-repetitive project must never be pushed to the preview VM.
+  // Downstream preview + server-verify gating reads `preflight.previewBlocked`
+  // (not verification state), so fold degeneracy into the preview-blocked
+  // signal + reason emitted to the bus, telemetry, and the finalize result.
+  const previewBlocked = hasPreviewBlockingPreflightErrors || degeneracy.degenerate;
+  const previewBlockedReason =
+    previewBlockingReason ??
+    (degeneracy.degenerate ? `Degenerate output: ${degeneracy.reason}` : null);
 
   // OMTAG-06: preflight.summary now flows through the single-writer
   // event bus. The devLog-mirror subscriber (installed via the side-
@@ -566,15 +575,15 @@ export async function finalizeAndSaveVersion(
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
     verificationBlocked: hasVerificationBlockingErrors,
-    previewBlocked: hasPreviewBlockingPreflightErrors,
-    previewBlockingReason,
+    previewBlocked,
+    previewBlockingReason: previewBlockedReason,
   });
   emitBusEvent({
     t: "version.saved",
     versionId: version.id,
     chatId,
     runId: finalizeRunId,
-    previewBlocked: hasPreviewBlockingPreflightErrors,
+    previewBlocked,
     verificationBlocked: hasVerificationBlockingErrors,
     messageId: assistantMsg.id,
   });
@@ -615,7 +624,7 @@ export async function finalizeAndSaveVersion(
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
     verificationBlocked: hasVerificationBlockingErrors,
-    previewBlocked: hasPreviewBlockingPreflightErrors,
+    previewBlocked,
   });
 
   await pruneStaleLogsIfCleanRepair({
@@ -637,12 +646,14 @@ export async function finalizeAndSaveVersion(
     syntaxResult,
     preflightErrors,
     preflightWarnings,
-    hasPreviewBlockingPreflightErrors,
+    hasPreviewBlockingPreflightErrors: previewBlocked,
     hasVerificationBlockingErrors,
     // SAJ-59: explicit so persist-telemetry can distinguish preflight-block
-    // from verifier-only-block when populating `qualityGateResult`.
-    hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
-    previewBlockingReason,
+    // from verifier-only-block when populating `qualityGateResult`. Degenerate
+    // output is a deterministic preflight-class failure, so label it as such.
+    hasPreflightVerificationErrors:
+      hasVerificationBlockingPreflightErrors || degeneracy.degenerate,
+    previewBlockingReason: previewBlockedReason,
     startedAt,
     tokenUsage,
     preflightFileCount,
@@ -727,7 +738,7 @@ export async function finalizeAndSaveVersion(
     versionId: version.id,
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
-    previewBlocked: hasPreviewBlockingPreflightErrors,
+    previewBlocked,
     verificationBlocked: hasVerificationBlockingErrors,
     verifierBlocked,
   });
@@ -742,11 +753,11 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     preflight: {
       verificationBlocked: hasVerificationBlockingErrors,
-      previewBlocked: hasPreviewBlockingPreflightErrors,
+      previewBlocked,
       issueCount: preflightIssues.length,
       errorCount: preflightErrors.length,
       warningCount: preflightWarnings.length,
-      previewBlockingReason,
+      previewBlockingReason: previewBlockedReason,
       primaryPreviewTarget: preflightResult.previewStart.primaryPreviewTarget,
       issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
       previewStart: preflightResult.previewStart,
