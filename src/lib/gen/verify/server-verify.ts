@@ -930,9 +930,12 @@ async function tryServerRepairLoop(params: {
   }
 
   if (finalizeAction === "fail_syntax_clean") {
+    const stopSuffix = loopResult.earlyStopReason
+      ? ` (${loopResult.earlyStopReason})`
+      : "";
     await failVersionVerification(
       versionId,
-      "Server repair: syntax clean (esbuild) but quality gate (typecheck/build) still failing.",
+      `Server repair could not resolve the quality gate after ${loopResult.llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}. Try a smaller or more specific prompt, or edit the file manually.`,
       runId,
     ).catch(() => null);
     logRepairOutcome(
@@ -953,7 +956,7 @@ async function tryServerRepairLoop(params: {
 
   await failVersionVerification(
     versionId,
-    `Server repair incomplete (${loopResult.remainingErrors} esbuild syntax errors remain).`,
+    `Server repair incomplete after ${loopResult.llmPasses} attempt(s): ${loopResult.remainingErrors} esbuild syntax error(s) remain${loopResult.earlyStopReason ? ` (${loopResult.earlyStopReason})` : ""}.`,
     runId,
   ).catch(() => null);
   logRepairOutcome(

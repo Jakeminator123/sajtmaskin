@@ -602,10 +602,13 @@ async function handlePOST(
     }
 
     if (!loopResult.promoted && dbConfigured && !staleBaseNoOp) {
+      const stopSuffix = loopResult.earlyStopReason
+        ? ` (${loopResult.earlyStopReason})`
+        : "";
       const failSummary =
         loopResult.remainingErrors === 0
-          ? "Server repair: syntax clean but quality gate still failing."
-          : `Server repair incomplete (${loopResult.remainingErrors} errors remain).`;
+          ? `Server repair could not resolve the quality gate after ${llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}.`
+          : `Server repair incomplete after ${llmPasses} attempt(s): ${loopResult.remainingErrors} syntax error(s) remain${stopSuffix}.`;
       ownershipLost = !(await failAfterRepair(currentVersionId, failSummary));
     } else if (staleBaseNoOp) {
       // #260 Codex P2: skip failing the version — a concurrent user edit
@@ -657,7 +660,13 @@ async function handlePOST(
           ? "Versionen ändrades under reparationen — den här reparationen sparades inte."
           : ownershipLost
             ? "En annan körning tog över versionen — den här reparationen sparades inte."
-            : null,
+            : loopResult.noContext
+              ? "Ingen åtgärdbar felinformation hittades, så ingen automatisk reparation kördes."
+              : loopResult.earlyStopReason === "time_budget_exceeded"
+                ? "Reparationen avbröts: tidsbudgeten tog slut innan felen kunde lösas. Försök igen eller redigera filen manuellt."
+                : loopResult.remainingErrors === 0
+                  ? `Automatisk reparation kunde inte lösa bygg-/typfelet efter ${llmPasses} försök (koden är syntaktiskt korrekt men quality-gaten failar fortfarande). Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`
+                  : `Automatisk reparation ofullständig efter ${llmPasses} försök: ${loopResult.remainingErrors} kvarstående syntaxfel. Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`,
     });
   } catch (err) {
     console.error("[repair] Error:", err);
