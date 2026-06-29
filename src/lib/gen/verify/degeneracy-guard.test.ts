@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  capDegeneratePayload,
   DEFAULT_DEGENERACY_THRESHOLDS,
   detectDegenerateFiles,
   detectDegenerateProjectJson,
@@ -83,6 +84,35 @@ describe("detectDegenerateFiles", () => {
   it("ignores empty input and missing content", () => {
     expect(detectDegenerateFiles([]).degenerate).toBe(false);
     expect(detectDegenerateFiles([{ path: "x.ts" }]).degenerate).toBe(false);
+  });
+});
+
+describe("capDegeneratePayload", () => {
+  it("stubs the single oversized file so the persisted payload is small", () => {
+    const files = [
+      { path: "package.json", content: "{}" },
+      { path: "components/big.tsx", content: "z".repeat(2_000_000) },
+    ];
+    const { files: out, stubbedPaths } = capDegeneratePayload(files, "too big");
+    expect(stubbedPaths).toEqual(["components/big.tsx"]);
+    expect(out.find((f) => f.path === "components/big.tsx")!.content.length).toBeLessThan(200);
+    expect(out.find((f) => f.path === "package.json")!.content).toBe("{}");
+  });
+
+  it("stubs multiple files for total-size bloat split across files (Codex #322)", () => {
+    const files = Array.from({ length: 6 }, (_unused, i) => ({
+      path: `c-${i}.tsx`,
+      content: "a".repeat(700_000),
+    }));
+    const { files: out, stubbedPaths } = capDegeneratePayload(files, "total too big");
+    expect(stubbedPaths.length).toBeGreaterThan(1);
+    const totalAfter = out.reduce((n, f) => n + f.content.length, 0);
+    expect(totalAfter).toBeLessThanOrEqual(1_000_000);
+  });
+
+  it("stubs nothing when already under the cap", () => {
+    const { stubbedPaths } = capDegeneratePayload([{ path: "a.tsx", content: "small" }], null);
+    expect(stubbedPaths).toEqual([]);
   });
 });
 

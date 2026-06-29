@@ -162,3 +162,43 @@ export function detectDegenerateProjectJson(
     thresholds,
   );
 }
+
+export function degenerateStubContent(reason: string | null): string {
+  return `// [degenerate output removed by finalize guard]\n// ${
+    reason ?? "oversized/degenerate output"
+  }\n`;
+}
+
+/**
+ * De-bloat an already-known-degenerate project for persistence: stub the
+ * LARGEST files until total bytes drop under `maxTotalBytes`. Handles both a
+ * single multi-MB file AND bloat split across several files (Codex #322 — the
+ * total-size case is not de-bloated by stubbing just one file). Only call this
+ * once the project is known degenerate; the version is failing, so replacing
+ * the bloated file content with a marker stub is safe and prevents a multi-MB
+ * `files_json` from ever being persisted.
+ */
+export function capDegeneratePayload<
+  T extends { path: string; content: string; language?: string },
+>(
+  files: ReadonlyArray<T>,
+  reason: string | null,
+  maxTotalBytes: number = 1_000_000,
+): { files: T[]; stubbedPaths: string[] } {
+  const sized = files.map((file) => ({ file, size: byteLength(file.content ?? "") }));
+  let total = sized.reduce((sum, entry) => sum + entry.size, 0);
+  const toStub = new Set<string>();
+  for (const { file, size } of [...sized].sort((a, b) => b.size - a.size)) {
+    if (total <= maxTotalBytes) break;
+    toStub.add(file.path);
+    total -= size; // the stub content is negligible
+  }
+  if (toStub.size === 0) return { files: [...files], stubbedPaths: [] };
+  const stub = degenerateStubContent(reason);
+  return {
+    files: files.map((file) =>
+      toStub.has(file.path) ? { ...file, content: stub } : file,
+    ),
+    stubbedPaths: [...toStub],
+  };
+}
