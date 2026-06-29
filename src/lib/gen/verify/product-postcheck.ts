@@ -516,11 +516,21 @@ export async function runProductPostcheck(params: {
       checkedUrl: previewUrl,
     };
   } catch (err) {
-    // A render-fatal crash may already be in `pageErrors` even though a later
-    // phase (mobile nav / menu probe) threw. Surface it instead of silently
+    // A render-fatal crash may already be visible even though a later phase
+    // (mobile nav / menu probe) threw. Surface it instead of silently
     // downgrading to a skip (productBlocked:false) — a dead preview must never
     // read as green just because a subsequent step errored (Bugbot #321).
-    const runtimeEval = evaluateRuntimeErrors(pageErrors);
+    // Best-effort: re-probe the Next.js error overlay on the desktop page too,
+    // so an ambiguous render crash (which the structural pattern list skips but
+    // the overlay catches) is not lost when the throw happened before the
+    // happy-path overlay probe ran.
+    let overlayInCatch = false;
+    if (page) {
+      overlayInCatch = await page
+        .evaluate(detectNextErrorOverlayInBrowser)
+        .catch(() => false);
+    }
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, { nextErrorOverlay: overlayInCatch });
     if (runtimeEval.productBlocked) {
       console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
       return {
