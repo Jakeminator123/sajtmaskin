@@ -736,7 +736,7 @@
       "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
       "default": 131072,
       "min": 4096,
-      "max": 262144
+      "max": 131072
     },
     "autofixMaxOutputTokens": {
       "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
@@ -832,9 +832,9 @@
       },
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-        "default": 82768,
+        "default": 131072,
         "min": 4096,
-        "max": 262144
+        "max": 131072
       },
       "anthropicModelIdNormalization": "Trailing version segments like 4.8 in claude-opus-4.8 are sent to the API as 4-8 (regex in gen/models.ts and builder/direct-model.ts).",
       "docLinks": [
