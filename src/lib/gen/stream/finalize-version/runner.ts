@@ -40,6 +40,7 @@ import {
 } from "../finalize-pipeline-contract";
 import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { hasBuildBreakingVerifierFindings } from "@/lib/gen/preview/should-start-preview";
+import { detectDegenerateProjectJson } from "@/lib/gen/verify/degeneracy-guard";
 import { runFinalizeFastPath } from "./fast-path";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
@@ -331,6 +332,27 @@ export async function finalizeAndSaveVersion(
     repairScopeId,
   });
   contentForVersion = fastPathContent;
+  // Early degenerate/oversized-output guard (M#og1). Runs on the ASSEMBLED
+  // `filesJson` — a read-only prod-DB pass confirmed the credential-deck
+  // incident ballooned `files_json` to ~4.4 MB from an ~84 KB (21k-token)
+  // model output, i.e. amplified downstream in finalize, so the raw model
+  // output alone would not reveal it. A degenerate project is treated as a
+  // deterministic hard block (like a preflight parse error): the version fails
+  // fast with a named reason and is kept out of the repair loop instead of
+  // persisting/serving a multi-MB artifact and churning repair passes on it.
+  const degeneracy = detectDegenerateProjectJson(filesJson);
+  if (degeneracy.degenerate) {
+    devLogAppend("in-progress", {
+      type: "degenerate-output.blocked",
+      chatId,
+      reason: degeneracy.reason,
+      file: degeneracy.file,
+      sizeBytes: degeneracy.sizeBytes,
+      repeatedLine: degeneracy.repeatedLine,
+      repeatCount: degeneracy.repeatCount,
+      repairPassIndex,
+    });
+  }
   const effectiveVerifierBlockingFindings = [
     ...previewBlockingWarnings.map((warning) => ({
       id: "autofix-preview-blocking",
@@ -511,14 +533,23 @@ export async function finalizeAndSaveVersion(
       ? verifierBlocked
       : hasBuildBreakingVerifierFindings(effectiveVerifierBlockingFindings);
   const hasCurrentPreflightBlockers =
-    preflightErrors.length > 0 || syntaxResult.status === "failed";
+    preflightErrors.length > 0 || syntaxResult.status === "failed" || degeneracy.degenerate;
+  // Degenerate output is deterministic (like a preflight parse error), so it
+  // gates verification AND pre-commits `failed` below — never repaired.
   const hasVerificationBlockingErrors =
-    hasVerificationBlockingPreflightErrors || verifierGatesVerification;
-  const verificationFailureSummary = verifierBlocked
+    hasVerificationBlockingPreflightErrors ||
+    verifierGatesVerification ||
+    degeneracy.degenerate;
+  const baseVerificationFailureSummary = verifierBlocked
     ? hasVerificationBlockingPreflightErrors
       ? `${preflightFailureSummary} Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
       : `Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
     : preflightFailureSummary;
+  const verificationFailureSummary = degeneracy.degenerate
+    ? `Degenerate output blocked: ${degeneracy.reason}${
+        baseVerificationFailureSummary ? ` ${baseVerificationFailureSummary}` : ""
+      }`
+    : baseVerificationFailureSummary;
 
   // OMTAG-06: preflight.summary now flows through the single-writer
   // event bus. The devLog-mirror subscriber (installed via the side-
@@ -650,7 +681,7 @@ export async function finalizeAndSaveVersion(
   // (with its real tsc+build) is the authority on terminal verification
   // state. This prevents the "Fel"-badge from appearing before server-verify
   // has actually confirmed anything. See docs/architecture/version-status-state-machine.md.
-  if (hasVerificationBlockingPreflightErrors) {
+  if (hasVerificationBlockingPreflightErrors || degeneracy.degenerate) {
     const failedVersion = await maybeFailVersionVerification({
       chatId,
       versionId: version.id,

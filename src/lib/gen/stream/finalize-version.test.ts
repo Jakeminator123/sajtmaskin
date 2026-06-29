@@ -1235,6 +1235,51 @@ describe("finalizeAndSaveVersion", () => {
     expect(result.preflight.verificationBlocked).toBe(true);
   });
 
+  it("WP4: blocks a degenerate (oversized) assembled project and fails the version", async () => {
+    // The assembled files_json contains a single multi-MB file (the
+    // credential-deck class: ~84 KB model output amplified downstream). The
+    // degeneracy guard must pre-commit `failed` with a named reason instead of
+    // persisting/serving the bloat or letting it churn through repair.
+    const huge = "z".repeat(800_000); // > 768 KB single-file ceiling
+    parseFilesFromContent.mockReturnValue(
+      JSON.stringify([
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            name: "unit-test",
+            version: "0.0.0",
+            private: true,
+            scripts: { dev: "next dev", build: "next build" },
+            dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+            devDependencies: { typescript: "5.6.0" },
+          }),
+          language: "json",
+        },
+        {
+          path: "src/app/page.tsx",
+          content: `export default function Page() { return (<main><h1>Hello from Acme</h1><p>${huge}</p></main>); }`,
+          language: "tsx",
+        },
+      ]),
+    );
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(true);
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver_1",
+      expect.stringContaining("Degenerate output blocked"),
+    );
+  });
+
   it("(fas D1) preflight hard errors still pre-commit failed (unchanged path)", async () => {
     // Preflight code-structure failures — distinct from verifier-LLM findings —
     // ARE deterministic and should still immediately fail the version so

@@ -1,0 +1,140 @@
+/**
+ * Early degenerate / oversized-output guard.
+ *
+ * Catches the failure class behind the prod `credential-deck.tsx` incident
+ * (M#og1): a generated project whose `files_json` ballooned to ~4.4 MB /
+ * 90k lines with one component repeated ~1024x. A read-only prod-DB pass
+ * confirmed that case was a SINGLE version (no repair accumulation) whose model
+ * completion was only ~21k tokens (~84 KB) — i.e. the bloat was amplified
+ * downstream in finalize assembly, NOT emitted whole by the model. So the
+ * guard runs on the ASSEMBLED file set (where the bloat actually exists), where
+ * it can fail the version fast with an explicit, named reason instead of
+ * letting a multi-MB artifact be persisted/served and churned through the
+ * repair loop (the incident logged 3 follow-up repair passes, all failed).
+ *
+ * Deterministic + pure so it can be unit-tested without any pipeline plumbing.
+ * Conservative thresholds: real generated source files top out ~100–150 KB and
+ * never repeat a substantial line dozens of times, so a legitimate project is
+ * never flagged.
+ */
+
+export interface DegeneracyResult {
+  degenerate: boolean;
+  reason: string | null;
+  file: string | null;
+  sizeBytes: number | null;
+  repeatedLine: string | null;
+  repeatCount: number | null;
+}
+
+export interface DegeneracyThresholds {
+  /** A single source file above this byte size is treated as degenerate. */
+  maxSingleFileBytes: number;
+  /** Only "substantial" lines (>= this length, trimmed) count for repetition. */
+  minRepeatLineLength: number;
+  /** A substantial line repeated >= this many times in one file is degenerate. */
+  maxLineRepeats: number;
+}
+
+export const DEFAULT_DEGENERACY_THRESHOLDS: DegeneracyThresholds = {
+  // Real generated source files top out ~100–150 KB; this ceiling only trips on
+  // true bloat (the incident assembled a single ~4.4 MB file).
+  maxSingleFileBytes: 768_000,
+  // Ignore short boilerplate (imports, closing braces) so ordinary repetition
+  // never trips the heuristic.
+  minRepeatLineLength: 24,
+  // The incident repeated a function signature 1024x; 50 is far above anything
+  // legitimate code emits for a 24+ char line.
+  maxLineRepeats: 50,
+};
+
+const CLEAN: DegeneracyResult = {
+  degenerate: false,
+  reason: null,
+  file: null,
+  sizeBytes: null,
+  repeatedLine: null,
+  repeatCount: null,
+};
+
+function byteLength(value: string): number {
+  try {
+    return Buffer.byteLength(value, "utf8");
+  } catch {
+    return value.length;
+  }
+}
+
+/**
+ * Inspect a parsed file list for oversized files or self-repetition. Returns at
+ * the FIRST offending file so the caller gets a concrete, named reason.
+ */
+export function detectDegenerateFiles(
+  files: ReadonlyArray<{ path?: unknown; content?: unknown }>,
+  thresholds: DegeneracyThresholds = DEFAULT_DEGENERACY_THRESHOLDS,
+): DegeneracyResult {
+  if (!Array.isArray(files) || files.length === 0) return CLEAN;
+  for (const file of files) {
+    const path = typeof file.path === "string" ? file.path : "";
+    const content = typeof file.content === "string" ? file.content : "";
+    if (!content) continue;
+
+    const sizeBytes = byteLength(content);
+    if (sizeBytes > thresholds.maxSingleFileBytes) {
+      return {
+        degenerate: true,
+        reason: `File ${path || "(unknown)"} is ${Math.round(sizeBytes / 1024)} KB, over the ${Math.round(
+          thresholds.maxSingleFileBytes / 1024,
+        )} KB single-file ceiling (oversized/degenerate output).`,
+        file: path || null,
+        sizeBytes,
+        repeatedLine: null,
+        repeatCount: null,
+      };
+    }
+
+    const counts = new Map<string, number>();
+    for (const rawLine of content.split("\n")) {
+      const line = rawLine.trim();
+      if (line.length < thresholds.minRepeatLineLength) continue;
+      const next = (counts.get(line) ?? 0) + 1;
+      counts.set(line, next);
+      if (next >= thresholds.maxLineRepeats) {
+        return {
+          degenerate: true,
+          reason: `File ${path || "(unknown)"} repeats a substantial line ${next}+ times (self-repetition loop): "${line.slice(
+            0,
+            80,
+          )}".`,
+          file: path || null,
+          sizeBytes,
+          repeatedLine: line.slice(0, 120),
+          repeatCount: next,
+        };
+      }
+    }
+  }
+  return CLEAN;
+}
+
+/**
+ * Convenience wrapper for the persisted `files_json` payload (a JSON array of
+ * `{ path, content }`). Never throws — an unparseable payload is treated as
+ * non-degenerate (other guards handle malformed JSON).
+ */
+export function detectDegenerateProjectJson(
+  filesJson: string,
+  thresholds?: DegeneracyThresholds,
+): DegeneracyResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(filesJson);
+  } catch {
+    return CLEAN;
+  }
+  if (!Array.isArray(parsed)) return CLEAN;
+  return detectDegenerateFiles(
+    parsed as Array<{ path?: unknown; content?: unknown }>,
+    thresholds,
+  );
+}
