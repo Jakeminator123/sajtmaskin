@@ -252,15 +252,52 @@ export function isRenderFatalError(message: string): boolean {
 }
 
 /**
- * Classify uncaught browser `pageerror` messages captured while the preview
- * loaded (desktop AND mobile viewports). Only render-fatal React crashes block
- * the product check; benign/ambiguous throws are ignored so F2 stays fast and
- * is not over-blocked. Pure + deterministic — unit-testable without a browser.
+ * Runs in the BROWSER (serialized via `page.evaluate`). Detects the Next.js dev
+ * error overlay, which Next renders into `nextjs-portal`'s open shadow root
+ * whenever a render/runtime error fires — INCLUDING the ambiguous class the
+ * structural pattern list deliberately skips (e.g. "Cannot read properties of
+ * undefined" during render → Next shows its overlay). The overlay lives in a
+ * separate portal, not in the app content, so its presence is an unambiguous
+ * "preview crashed" signal that does not over-block a normally-rendered page
+ * (Codex #321 P1). Degrades to `false` if Next changes its markers — no
+ * over-block.
  */
-export function evaluateRuntimeErrors(pageErrors: readonly string[]): ProductDomEvaluation {
+function detectNextErrorOverlayInBrowser(): boolean {
+  const portal = document.querySelector("nextjs-portal");
+  const shadow = portal ? portal.shadowRoot : null;
+  if (!shadow) return false;
+  return Boolean(
+    shadow.querySelector(
+      "[data-nextjs-dialog], [data-nextjs-dialog-overlay], [data-nextjs-error-overlay], #nextjs__container_errors_label",
+    ),
+  );
+}
+
+/**
+ * Classify the runtime health of the loaded preview (desktop AND mobile
+ * viewports). Two block signals, both meaning "the preview is dead":
+ *   1. a render-fatal `pageerror` (the unambiguous structural class), or
+ *   2. the Next.js dev error overlay is present (`options.nextErrorOverlay`) —
+ *      this also covers the ambiguous render crashes the pattern list skips.
+ * Benign/ambiguous throws on a page that still renders are ignored, so F2 stays
+ * fast and is not over-blocked. Pure + deterministic — unit-testable.
+ */
+export function evaluateRuntimeErrors(
+  pageErrors: readonly string[],
+  options: { nextErrorOverlay?: boolean } = {},
+): ProductDomEvaluation {
   const warnings: ProductPostcheckWarning[] = [];
   const seen = new Set<string>();
   let productBlocked = false;
+  if (options.nextErrorOverlay) {
+    productBlocked = true;
+    warnings.push(
+      warning(
+        "runtime_crash",
+        "Next.js-felöverlägg visas — previewen kraschade vid körning.",
+      ),
+    );
+  }
   for (const raw of pageErrors) {
     const message = typeof raw === "string" ? raw.trim() : "";
     if (!message || !isRenderFatalError(message)) continue;
@@ -415,6 +452,12 @@ export async function runProductPostcheck(params: {
       };
     });
 
+    // Desktop Next.js error-overlay probe — catches ambiguous render crashes
+    // (Codex #321 P1) without piercing app content.
+    const desktopErrorOverlay = await page
+      .evaluate(detectNextErrorOverlayInBrowser)
+      .catch(() => false);
+
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
     // error can surface only at 375px or after the hamburger toggle below.
@@ -451,8 +494,16 @@ export async function runProductPostcheck(params: {
       return { status: "failed", reason: "hamburger_button_did_not_change_dom_or_aria" };
     });
 
+    // Mobile Next.js error-overlay probe (after the menu interaction) — a render
+    // crash can surface only at 375px or after the toggle.
+    const mobileErrorOverlay = await mobilePage
+      .evaluate(detectNextErrorOverlayInBrowser)
+      .catch(() => false);
+
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
-    const runtimeEval = evaluateRuntimeErrors(pageErrors);
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, {
+      nextErrorOverlay: desktopErrorOverlay || mobileErrorOverlay,
+    });
     const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,

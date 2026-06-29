@@ -35,7 +35,8 @@
             "broken_image",
             "cta_no_handler",
             "mobile_menu_failed",
-            "fake_form"
+            "fake_form",
+            "runtime_crash"
           ]
         },
         "href": { "type": ["string", "null"] },

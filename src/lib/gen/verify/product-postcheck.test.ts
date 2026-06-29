@@ -218,7 +218,7 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     expect(codes(result)).toEqual(["runtime_crash"]);
   });
 
-  it("does NOT block on benign / ambiguous uncaught errors (F2 stays fast)", () => {
+  it("does NOT block on benign / ambiguous uncaught errors when the page still rendered (F2 stays fast)", () => {
     const result = evaluateRuntimeErrors([
       "Failed to load resource: the server responded with 404",
       "TypeError: Cannot read properties of undefined (reading 'map')",
@@ -227,8 +227,29 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     expect(result.warnings).toEqual([]);
   });
 
-  it("returns a clean result when there were no runtime errors", () => {
+  it("blocks when the Next.js error overlay is present, even for an ambiguous render crash (Codex #321 P1)", () => {
+    // "Cannot read properties of undefined" during render is ambiguous on its
+    // own, but if Next shows its error overlay the preview is dead → block.
+    const result = evaluateRuntimeErrors(
+      ["TypeError: Cannot read properties of undefined (reading 'map')"],
+      { nextErrorOverlay: true },
+    );
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("blocks on the Next.js error overlay even with no captured pageerror", () => {
+    const result = evaluateRuntimeErrors([], { nextErrorOverlay: true });
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["runtime_crash"]);
+  });
+
+  it("returns a clean result when there were no runtime errors and no overlay", () => {
     expect(evaluateRuntimeErrors([])).toEqual({ warnings: [], productBlocked: false });
+    expect(evaluateRuntimeErrors([], { nextErrorOverlay: false })).toEqual({
+      warnings: [],
+      productBlocked: false,
+    });
   });
 
   it("dedupes repeated render-fatal messages and still blocks", () => {
