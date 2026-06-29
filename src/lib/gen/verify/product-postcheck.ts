@@ -435,7 +435,7 @@ export async function runProductPostcheck(params: {
     // actually rendered empty (Bugbot #321). If the probe itself throws we
     // CANNOT confirm a blank screen, so default `renderedEmpty = false` and
     // never let an ambiguous error block off the back of a failed probe.
-    let renderedEmpty = false;
+    let desktopRenderedEmpty = false;
     try {
       const renderHealth = await page.evaluate(() => {
         const root =
@@ -445,9 +445,9 @@ export async function runProductPostcheck(params: {
         const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
         return { textLen, hasVisual };
       });
-      renderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
+      desktopRenderedEmpty = renderHealth.textLen < 5 && !renderHealth.hasVisual;
     } catch {
-      renderedEmpty = false;
+      desktopRenderedEmpty = false;
     }
 
     mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
@@ -480,8 +480,29 @@ export async function runProductPostcheck(params: {
       return { status: "failed", reason: "hamburger_button_did_not_change_dom_or_aria" };
     });
 
+    // Mobile render-health probe (after the menu interaction) so an ambiguous
+    // runtime error that only blanks the 375px viewport is not gated on desktop
+    // render health (Bugbot #321). `renderedEmpty` is true if EITHER viewport
+    // blanked — a dead preview in either viewport is a real defect.
+    let mobileRenderedEmpty = false;
+    try {
+      const mobileRenderHealth = await mobilePage.evaluate(() => {
+        const root =
+          (document.querySelector("#root, #__next, main") as HTMLElement | null) ??
+          document.body;
+        const textLen = (root?.innerText || "").trim().length;
+        const hasVisual = Boolean(document.querySelector("canvas, svg, img"));
+        return { textLen, hasVisual };
+      });
+      mobileRenderedEmpty = mobileRenderHealth.textLen < 5 && !mobileRenderHealth.hasVisual;
+    } catch {
+      mobileRenderedEmpty = false;
+    }
+
     const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
-    const runtimeEval = evaluateRuntimeErrors(pageErrors, { renderedEmpty });
+    const runtimeEval = evaluateRuntimeErrors(pageErrors, {
+      renderedEmpty: desktopRenderedEmpty || mobileRenderedEmpty,
+    });
     const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
     return {
       ok: true,
