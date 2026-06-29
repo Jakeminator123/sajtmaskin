@@ -5,7 +5,7 @@ created: 2026-06-27
 delivered: 2026-06-28
 topic: "#4 distribuerat lås för server-verify/repair (process-local Set → DB-lease)"
 related:
-  - docs/architecture/open-questions.md (#4-klassen, multi-instans)
+  - "open-questions #4-klassen (multi-instans) — konsoliderad till git-historik"
   - "PR #251 (Plan B schemahärdning — separat, redan i review)"
   - "docs/plans/active/README.md backlog B3/E2 (durable event-bus, samma multi-instans-korrekthetsrisk)"
 decision_required: false

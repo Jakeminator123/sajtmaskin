@@ -2,7 +2,7 @@
 
 > **Orchestrator-artefakt, ej planfil.** Strukturerad backlog över medvetet uppskjutna
 > hårdnings-/perf-/hygien-/arkitekturposter från grandmaster-PR:erna. **Inte buggar** —
-> P1/P2-sanning lever i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Pekas från
+> P1/P2-sanning lever i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md). Pekas från
 > [`../../active/README.md`](../../active/README.md). Källa: read-only-utredning **verifierad mot HEAD `cccc843dd`**
 > (kod = sanning). Konsoliderar de spridda backlog-punkterna från grandmaster-loggen (git-historik; en sanning, ett ställe).
 >
@@ -30,7 +30,7 @@
 - **Gäller än:** Ja. S3 ligger uteslutande i warn-only-lanen.
 - **Risk:** Namn-/substräng-ankrad vakt, **inte** beteende-vakt. Fångar: återinförd import/anrop av den raderade symbolen. Fångar **inte**: ny DB-flagg-resolver med annat namn, UI som läser DB-flaggor direkt, eller `busStatus` som beräknas men ignoreras i render.
 - **Minsta åtgärd:** Testet är deterministiskt (ren fs, ingen DB/nät/flake) → kan flyttas till blockerande `test:ci` utan flake-risk. Kräver dock rename av filen (→ `.test.ts`) **eller** include-undantag, eftersom default-configen exkluderar `.stability.test.ts`-globben.
-- **Isolerbar:** Rör `ci.yml` + båda vitest-configar (+ ev. rename). Smal men ett **lane-arkitekturbeslut** (bryter S1:s "hela stability-lanen är warn-only"). Medvetet deferrad (`_loggbok.md:123`) — ej blint åtgärda.
+- **Isolerbar:** Rör `ci.yml` + båda vitest-configar (+ ev. rename). Smal men ett **lane-arkitekturbeslut** (bryter S1:s "hela stability-lanen är warn-only"). Medvetet deferrad (grandmaster-loggen, git-historik) — ej blint åtgärda.
 
 ## B2 — VADE-perf: `readAll` per rad på `/versions` — **KLAR 2026-06-21 (#184, `681c79ad1`)**
 
@@ -67,7 +67,7 @@
 - **Kod:** Schema `src/lib/env.ts:170`; flagga `src/lib/config.ts:356` (`refuseDossierStubs`, default-OFF). Beteende `cross-file-import-checker.ts:670-689` (ON → `refused:true`, ingen stub) vs `:691-719` (OFF → tyst stub, master). Nedströms-blocker via `runProjectSanityChecks` → `code_structure_failure` (`refuse-dossier-stubs.stability.test.ts:123-147`).
 - **Saknas i policy/docs:** Ja — nyckeln finns **inte** i `config/env-policy.json` eller `docs/ENV.md`.
 - **Risk:** Med flaggan **PÅ** kan en oresolvad dossier-import flippa version-status röd (poängen) — kan ge false-red om dossier-pipelinen släpper igenom legitima fall innan Område 5 stabiliserat follow-up/preview.
-- **Minsta säkra åtgärd:** (a) Lägg env-nyckeln i `config/env-policy.json` + `docs/ENV.md` (**isolerbar nu**, runtime oförändrat). (b) Flippa default **först** efter att Område 5 landat (Område 6 klart per `00-master-plan.md:138`; 5 orört `:141`; flipp blockerad `_loggbok.md:112`).
+- **Minsta säkra åtgärd:** (a) Lägg env-nyckeln i `config/env-policy.json` + `docs/ENV.md` (**isolerbar nu**, runtime oförändrat). (b) Flippa default **först** efter att Område 5 landat (Område 6 klart per `00-master-plan.md:138`; 5 orört `:141`; flipp blockerad (git-historik)).
 - **Isolerbar:** Env-doc-PR ja. Default-flippen blockerad av Område 5.
 
 ## B6 — Område 8-svans (städ-karta, inget raderat)

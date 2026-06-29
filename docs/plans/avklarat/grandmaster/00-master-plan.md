@@ -93,7 +93,7 @@ innan nivå 3-aktiviteter skapas). Parallellt = distinkta ytor.
 | [7](07-false-green-hardning.md) | False-green-härdning | 3 | autofix `cross-file-import-checker.ts`, F2/F3-postcheck | 2, 5 |
 | [8](08-cleanup-och-hygien.md) | Cleanup & hygien | löpande | `.cursorignore`, `.gitignore`, scratch, deps | gemensam |
 
-> **Bug-swarm-koppling:** vilka öppna `BUG-SWARM-BACKLOG.md`-rader som hör till vilket område → se [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) (kopplingsdokumentet finns i git-historik).
+> **Bug-swarm-koppling:** vilka öppna `BUG-SWARM-BACKLOG.md`-rader som hör till vilket område → se [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) (kopplingsdokumentet finns i git-historik).
 
 **Städ-/struktur-pass per område (scoped):** varje nivå-2-område **inleds eller avslutas med
 ett städ-/struktur-pass begränsat till områdets owner-surface** — radera oanvända filer,
