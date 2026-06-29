@@ -54,7 +54,7 @@ They are not the same thing as:
 
 - v0 Platform API model IDs such as `v0-1.5-lg`
 - prompt-assist model strings such as `openai/gpt-5.5`
-- concrete provider model IDs such as `gpt-5.5` or `claude-sonnet-4.6`
+- concrete provider model IDs such as `gpt-5.5` or `claude-opus-4.8`
 
 ## Default selection
 
@@ -71,7 +71,7 @@ They are not the same thing as:
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.5` | OpenAI | `v0-1.5-lg` |
 | `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex` | OpenAI | `v0-gpt-5` |
-| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
+| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.8` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
 
@@ -146,9 +146,11 @@ Prompt assist accepts provider-coded model strings such as:
 
 - `openai/gpt-5.5`
 - `openai/gpt-5.3-codex`
-- `anthropic/claude-sonnet-4.6`
 - `anthropic/claude-opus-4.8`
-- `anthropic-direct/claude-sonnet-4-6`
+- `anthropic/claude-opus-4.6`
+- `anthropic-direct/claude-opus-4-8`
+
+> **Sonnet 4.6 pensionerad 2026-06-28** och borttagen ur manifestets allow-list. Persisterade `anthropic/claude-sonnet-4.6`- eller `anthropic-direct/claude-sonnet-4-6`-värden aliasas tyst till Opus-4.8 av `aliasRetiredModelId()` (`src/lib/models/catalog.ts`) före allow-check.
 
 Current provider categories:
 
@@ -213,9 +215,10 @@ Model routing still works like this:
 - **codex**: **planner**, **generator**, and **fixer** follow
   `selected_build_model`; **verifier** and **deploy-assistant** use
   **`gpt-5.3-codex`**.
-- **anthropic**: **planner** and **generator** use **`claude-opus-4.8`**; **fixer**
-  and **verifier** follow `selected_build_model` (the tier’s primary Claude model,
-  `claude-sonnet-4.6`); **deploy-assistant** uses **`claude-sonnet-4.6`**.
+- **anthropic**: **planner**, **generator**, and **deploy-assistant** use
+  **`claude-opus-4.8`**; **fixer** and **verifier** follow `selected_build_model`
+  (the tier’s primary Claude model, now **`claude-opus-4.8`** after Sonnet 4.6 was
+  retired 2026-06-28) — so the anthropic tier runs Opus 4.8 across every phase.
 
 Env overrides on the build profile still apply to the resolved **base** model for
 phases that resolve via `selected_build_model`. The `thinkingByTier` settings do

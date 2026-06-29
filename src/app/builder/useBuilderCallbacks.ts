@@ -87,9 +87,8 @@ export function useBuilderCallbacks({
   // the user back to the start screen with `?restartedFrom=<chatId>`
   // gives a clean blank entry that cannot mistakenly send `followup_general`
   // into the dead chatId. The query param itself is currently unused on the
-  // server side — `restartedFromChatId` lineage stamping is tracked in
-  // `docs/architecture/open-questions.md` (§ "Versionless restart lineage")
-  // and is intentionally out of scope for the P0 UX fix.
+  // server side — `restartedFromChatId` lineage stamping is an intentional
+  // future enhancement and is out of scope for the P0 UX fix.
   const handleRestartGeneration = useCallback(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams();

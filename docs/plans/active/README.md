@@ -8,7 +8,7 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ## Status: Grandmaster-plan AVKLARAD (arkiverad 2026-06-22)
 
-Stabiliserings-/kontrakts-/städplanen (8 områden nivå 1–3 + bug-swarm-drive) är **levererad och arkiverad** → [`../avklarat/grandmaster/`](../avklarat/grandmaster/) (master-plan, områdesdokument, aktiviteter, `_loggbok.md`, `_backlog-deferrad.md`). Closing-handoff: [`../../handoffs/2026-06-21-grandmaster-closing-handoff.md`](../../handoffs/2026-06-21-grandmaster-closing-handoff.md). Tag/backup: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
+Stabiliserings-/kontrakts-/städplanen (8 områden nivå 1–3 + bug-swarm-drive) är **levererad och arkiverad** → [`../avklarat/grandmaster/`](../avklarat/grandmaster/) (master-plan, områdesdokument, aktiviteter, `_backlog-deferrad.md`). Closing-handoff + loggbok: git-historik. Tag/backup: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
 
 **Ingen aktiv drivlinje just nu.** Nästa fas = pivot "härda → bygga" mot [`../../architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md). Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
 

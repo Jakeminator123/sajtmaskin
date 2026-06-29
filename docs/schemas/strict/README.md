@@ -16,6 +16,10 @@ Rules:
 | `dossier.schema.json` | `data/dossiers/<class>/<id>/manifest.json` | `src/lib/gen/dossiers/types.ts` + `validate-manifest.ts` | **Yes** — AJV in `validate-manifest.ts` |
 | `control-plane-registry.schema.json` | `config/control-plane/{schema,policy}-registry.json` | `config/control-plane/README.md` | CI: `npm run control-plane:check` (AJV 2020-12) + `src/lib/control-plane/registry.test.ts`. No runtime read. |
 | `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` | Editor-only (runtime in `registry.ts`) |
+| `env-policy.schema.json` | `config/env-policy.json` (env governance + classification) | `src/lib/env-audit.ts` + `scripts/env/manage_env.py`; runtime read-truth = Zod `serverSchema` i `src/lib/env.ts` | CI: parity via `src/lib/env-policy-parity.test.ts`. Ingen runtime-read. |
+| `domain-rules.schema.json` | `config/domain-rules.json` (domän-keyword-regler) | `src/lib/builder/domain-inference.ts` | Editor-only (backoffice save-guard); ej runtime |
+| `prompt-heuristic-tokens.schema.json` | `config/prompt-heuristic-tokens.json` (heuristik-token-listor) | `src/lib/builder/prompt-heuristics.ts` | Editor-only (backoffice validate-on-save); ej runtime |
+| `tier3-sdk-deny.schema.json` | `config/integrations/tier3-sdk-deny.json` (F2 backend-SDK deny-list) | `src/lib/integrations/tier3-sdk-deny.ts` | CI: `tier3-sdk-deny.schema.test.ts` (cross-category-unikhet); ej runtime |
 | `preview-session-contract.schema.json` | Preview session objects (machine-readable spec, not a draft-07 schema) | See file | No — TS contracts are source of truth |
 | `db-health-check-report.schema.json` | stdout-payload from `scripts/db/db-health-check.mjs` | `scripts/db/db-health-check.mjs` | CI: AJV mot fixtures (`src/lib/db/health-schemas.test.ts`). Ingen live-DB-validering i CI; manuell roundtrip-validering kan köras lokalt med `node scripts/db/db-health-check.mjs \| ajv …` |
 | `redis-health-check-report.schema.json` | stdout-payload from `scripts/db/redis-health-check.mjs` | `scripts/db/redis-health-check.mjs` | CI: AJV mot fixtures. Manuell live-roundtrip lokalt. |
@@ -40,6 +44,7 @@ läser och aggregerar de NDJSON-signaler den kan se.
 | `product-postcheck.schema.json` | `product_postcheck.*` | `src/lib/gen/verify/product-postcheck.ts` + `src/lib/hooks/chat/post-checks.ts` | `engine_version_error_logs` via befintlig `persistVersionErrorLogs()` | No — observability-only |
 | `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — forward-deklaration |
 | `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — forward-deklaration |
+| `llm-repair-gate-deduped.schema.json` | `llm_repair_gate.deduped` | `src/lib/gen/autofix/llm-repair-gate.ts` (repair-gate ledger-dedup) | `devLogAppend` → NDJSON | No — observability-only |
 
 **Obs för `image-replaced-with-placeholder` och `dossier-stub-created`:** dessa schemas
 är forward-deklarationer — de dokumenterar den planerade event-strukturen men de
