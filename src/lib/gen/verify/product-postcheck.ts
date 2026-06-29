@@ -321,6 +321,11 @@ export async function runProductPostcheck(params: {
   let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | null = null;
   let page: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
   let mobilePage: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
+  // Uncaught runtime exceptions captured across BOTH viewports. Hoisted to
+  // function scope so the catch below can still surface a render-fatal crash
+  // that was captured before a later phase (mobile nav / menu probe) threw —
+  // otherwise that crash would be silently downgraded to a skip (Bugbot #321).
+  const pageErrors: string[] = [];
 
   try {
     const { chromium } = await import("playwright");
@@ -336,7 +341,6 @@ export async function runProductPostcheck(params: {
     // though the dev-server is up and the build passed — without this the F2
     // design preview reads as solid green (M#f2et). Classified by
     // `evaluateRuntimeErrors` below; only render-fatal crashes block.
-    const pageErrors: string[] = [];
     page.on("pageerror", (error) => {
       pageErrors.push(error?.message ?? String(error));
     });
@@ -418,6 +422,12 @@ export async function runProductPostcheck(params: {
       pageErrors.push(error?.message ?? String(error));
     });
     await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    // Let the mobile page settle like the desktop one so a render-fatal crash
+    // that fires just after the initial paint is captured before we classify
+    // `pageErrors` below (Bugbot #321).
+    await mobilePage
+      .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
+      .catch(() => {});
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
         const label = [
@@ -455,6 +465,24 @@ export async function runProductPostcheck(params: {
       checkedUrl: previewUrl,
     };
   } catch (err) {
+    // A render-fatal crash may already be in `pageErrors` even though a later
+    // phase (mobile nav / menu probe) threw. Surface it instead of silently
+    // downgrading to a skip (productBlocked:false) — a dead preview must never
+    // read as green just because a subsequent step errored (Bugbot #321).
+    const runtimeEval = evaluateRuntimeErrors(pageErrors);
+    if (runtimeEval.productBlocked) {
+      console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
+      return {
+        ok: true,
+        skipped: false,
+        skippedReason: null,
+        warnings: runtimeEval.warnings,
+        warningCount: runtimeEval.warnings.length,
+        productBlocked: true,
+        durationMs: Date.now() - startedAt,
+        checkedUrl: previewUrl,
+      };
+    }
     const reason = productPostcheckSkipReasonFromError(err);
     console.warn("[product-postcheck] skipped:", err);
     return skippedResult(reason, Date.now() - startedAt, previewUrl);
