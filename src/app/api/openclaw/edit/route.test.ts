@@ -80,7 +80,15 @@ describe("POST /api/openclaw/edit", () => {
     getPreferredVersion.mockResolvedValue({ id: "ver-1" });
     getLatestVersion.mockResolvedValue({ id: "ver-1" });
     getVersionFiles.mockResolvedValue([{ path: "app/globals.css", content: ":root{--brand:pink}" }]);
-    requestQuickEditOps.mockResolvedValue({ ok: true, ops: OPS, summary: "Byter rosa mot blå" });
+    requestQuickEditOps.mockResolvedValue({
+      ok: true,
+      ops: OPS,
+      summary: "Byter rosa mot blå",
+      // The op's path MUST be among includedPaths or the op_path_not_shown guard
+      // would reject it (see the dedicated test below).
+      includedPaths: ["app/globals.css"],
+      truncated: false,
+    });
     runQuickEdit.mockResolvedValue({
       ok: true,
       versionId: "ver-2",
@@ -187,6 +195,53 @@ describe("POST /api/openclaw/edit", () => {
     expect(body.reason).toBe("ops_generation_failed");
     expect(body.error).toContain("Text not found");
     expect(runQuickEdit).not.toHaveBeenCalled();
+  });
+
+  it("422s op_path_not_shown when an op targets a base file that was never shown to the gateway", async () => {
+    // Two base files, but the gateway only saw one (the other was dropped by
+    // truncation) yet returned an op for the unseen file — a hallucinated
+    // overwrite that must be rejected before it reaches runQuickEdit.
+    getVersionFiles.mockResolvedValue([
+      { path: "app/globals.css", content: ":root{--brand:pink}" },
+      { path: "app/page.tsx", content: "export default function Page(){return null}" },
+    ]);
+    requestQuickEditOps.mockResolvedValue({
+      ok: true,
+      ops: [{ kind: "replace_text", path: "app/page.tsx", find: "null", replace: "<div/>" }],
+      summary: "ändrar sidan",
+      includedPaths: ["app/globals.css"],
+      truncated: true,
+    });
+    const res = await post({
+      chatId: "chat-1",
+      instruction: "ändra startsidan",
+      activeVersionId: "ver-1",
+    });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.reason).toBe("op_path_not_shown");
+    // Never apply an edit to a file the model never actually saw.
+    expect(runQuickEdit).not.toHaveBeenCalled();
+  });
+
+  it("allows an op creating a NEW file (path absent from base) even if not in includedPaths", async () => {
+    requestQuickEditOps.mockResolvedValue({
+      ok: true,
+      ops: [
+        { kind: "replace_content", path: "app/about/page.tsx", content: "export default () => null;" },
+      ],
+      summary: "ny sida",
+      includedPaths: ["app/globals.css"],
+      truncated: false,
+    });
+    const res = await post({
+      chatId: "chat-1",
+      instruction: "lägg till en om-sida",
+      activeVersionId: "ver-1",
+    });
+    expect(res.status).toBe(200);
+    // New-file creation is legitimate — it must reach the quick-edit lane.
+    expect(runQuickEdit).toHaveBeenCalled();
   });
 
   it("applies gateway ops via runQuickEdit and returns the new version + preview", async () => {

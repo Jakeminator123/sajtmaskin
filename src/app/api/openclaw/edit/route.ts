@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { runQuickEdit } from "@/lib/gen/quick-edit";
+import { normalizeQuickEditPath } from "@/lib/gen/quick-edit/guards";
 import { requestQuickEditOps } from "@/lib/openclaw/edit";
 
 export const runtime = "nodejs";
@@ -21,7 +22,8 @@ export const maxDuration = 120;
 
 const bodySchema = z.object({
   chatId: z.string().min(1),
-  instruction: z.string().min(1).max(2_000),
+  // Trim server-side so a whitespace-only instruction is rejected (min after trim).
+  instruction: z.string().trim().min(1).max(2_000),
   /** The version the widget is looking at — used as the edit base + stale check. */
   activeVersionId: z.string().min(1).optional(),
   /** Explicit client "known latest"; falls back to activeVersionId. */
@@ -54,8 +56,9 @@ function httpStatusForQuickEditFailure(reason: string): number {
  * via the existing quick-edit lane (no heavy scaffold/preflight rebuild).
  *
  * Reversibility: the whole route 404s when OPENCLAW_EDIT_AGENT is off, so the
- * feature is a no-op by default. Persistence + preview patching are delegated
- * entirely to `runQuickEdit`; this route never writes to the DB or logs.
+ * feature is a no-op by default. This route does not write to the DB directly;
+ * all persistence + preview patching goes through `runQuickEdit` (which DOES
+ * persist the new version).
  */
 export async function POST(req: Request) {
   // Hard feature gate: when the master flag is off the route does not exist.
@@ -177,6 +180,30 @@ export async function POST(req: Request) {
         );
       }
 
+      // The model may only edit files it actually saw. Reject an op that targets
+      // a file that EXISTS in the base but was NOT inlined into the prompt (e.g.
+      // dropped by truncation or filtered as binary/blocked) — that is a
+      // hallucinated overwrite of unseen content. An op whose path is absent from
+      // the base entirely is a legitimate NEW-file creation (replace_content) and
+      // is allowed through.
+      const shownPaths = new Set(opsResult.includedPaths.map(normalizeQuickEditPath));
+      const baseFilePaths = new Set(baseFiles.map((file) => normalizeQuickEditPath(file.path)));
+      const unseenEdit = opsResult.ops.find((op) => {
+        const opPath = normalizeQuickEditPath(op.path);
+        return baseFilePaths.has(opPath) && !shownPaths.has(opPath);
+      });
+      if (unseenEdit) {
+        return NextResponse.json(
+          {
+            ok: false,
+            reason: "op_path_not_shown",
+            error:
+              "Jag kunde inte genomföra ändringen säkert: en fil som skulle ändras visades aldrig för redigeringsmodellen. Prova en mindre eller mer specifik ändring.",
+          },
+          { status: 422 },
+        );
+      }
+
       const appProjectId =
         typeof chat.project_id === "string" && chat.project_id.trim()
           ? chat.project_id.trim()
@@ -211,8 +238,10 @@ export async function POST(req: Request) {
         ...(result.previewError ? { previewError: result.previewError } : {}),
       });
     } catch (err) {
+      // Never echo raw error internals to the client; log server-side instead.
+      console.error("[openclaw/edit] unexpected error", err);
       return NextResponse.json(
-        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { ok: false, error: "Ett oväntat fel inträffade. Försök igen om en stund." },
         { status: 500 },
       );
     }

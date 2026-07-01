@@ -1,4 +1,8 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import { isBlockedQuickEditPath } from "@/lib/gen/quick-edit/guards";
+
+/** Marks a file whose content is a base64-encoded binary import (not editable text). */
+const BINARY_CONTENT_PREFIX = "base64:";
 
 export interface BuildEditOpsPromptInput {
   instruction: string;
@@ -55,6 +59,18 @@ export function buildEditOpsPrompt(input: BuildEditOpsPromptInput): EditOpsPromp
   let truncated = false;
 
   for (const file of input.files) {
+    // Never show the model files it cannot meaningfully edit as text:
+    // - base64 binary imports (images/fonts) just waste tokens and produce garbage.
+    // - secrets/lockfiles are hard-blocked by the quick-edit lane anyway, so
+    //   inlining them only risks a leaked/hallucinated overwrite.
+    // Skipping here keeps `includedPaths` == exactly the files the model saw,
+    // which the route uses to reject edits to unseen files.
+    if (typeof file.content === "string" && file.content.startsWith(BINARY_CONTENT_PREFIX)) {
+      continue;
+    }
+    if (isBlockedQuickEditPath(file.path)) {
+      continue;
+    }
     const block = `--- ${file.path} ---\n${file.content}`;
     if (used + block.length > maxChars && includedPaths.length > 0) {
       truncated = true;

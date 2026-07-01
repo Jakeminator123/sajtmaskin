@@ -112,8 +112,9 @@ export function OpenClawChatPanel({
   isOpen?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
-  const { sendEdit } = useOpenClawEdit();
-  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate } = useOpenClawStore();
+  const { sendEdit, stopEdit } = useOpenClawEdit();
+  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate, scopeKey } =
+    useOpenClawStore();
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
   // Prompt-driven edit agent (flag-gated). `editAgentAvailable` mirrors the
@@ -151,11 +152,13 @@ export function OpenClawChatPanel({
       try {
         const res = await fetch("/api/openclaw/health");
         const data = (await res.json().catch(() => null)) as
-          | { debugEnabled?: boolean; editAgentEnabled?: boolean }
+          | { debugEnabled?: boolean; editAgentEnabled?: boolean; status?: string }
           | null;
         if (!cancelled) {
           setDebugEnabled(data?.debugEnabled === true);
-          setEditAgentAvailable(data?.editAgentEnabled === true);
+          // Only offer the edit toggle when the flag is on AND the gateway is
+          // healthy — otherwise the wand would appear but every edit would fail.
+          setEditAgentAvailable(data?.editAgentEnabled === true && data?.status === "ok");
         }
       } catch {
         if (!cancelled) {
@@ -168,6 +171,12 @@ export function OpenClawChatPanel({
       cancelled = true;
     };
   }, [setDebugEnabled]);
+
+  // Edit-mode is a per-session toggle; reset it when the builder scope changes
+  // (chat/site switch) so it never silently leaks into a different site.
+  useEffect(() => {
+    setEditMode(false);
+  }, [scopeKey]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -217,6 +226,13 @@ export function OpenClawChatPanel({
     setInput("");
   }, [input, isStreaming, dispatchSend]);
 
+  // Stop must cancel BOTH lanes: the chat stream and any in-flight prompt edit,
+  // since either could be the source of the current streaming state.
+  const handleStop = useCallback(() => {
+    stop();
+    stopEdit();
+  }, [stop, stopEdit]);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -226,7 +242,10 @@ export function OpenClawChatPanel({
 
   const handleStarterPrompt = (prompt: string) => {
     if (isStreaming) return;
-    dispatchSend(prompt);
+    // Starter prompts are canned questions, never edit instructions — always
+    // route them to the Sajtagenten chat regardless of edit-mode so they can't
+    // trigger an accidental site edit.
+    void send(prompt);
     setInput("");
   };
 
@@ -609,7 +628,7 @@ export function OpenClawChatPanel({
           {isStreaming ? (
             <button
               type="button"
-              onClick={stop}
+              onClick={handleStop}
               className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
               aria-label="Stoppa"
             >
