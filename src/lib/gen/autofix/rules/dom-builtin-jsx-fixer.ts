@@ -79,6 +79,22 @@ function resolveReplacementTag(name: string): { tag: string; isFallback: boolean
   return { tag: "div", isFallback: true };
 }
 
+/** A capitalised identifier that is a DOM interface name (e.g. `HTMLFormElement`). */
+const HTML_INTERFACE_NAME_RE = /^HTML[A-Z][A-Za-z0-9]*Element$/;
+
+/**
+ * If `name` is a DOM-interface identifier that an LLM mistook for a JSX
+ * component (`HTMLFormElement`, `HTMLInputElement`, …), return the lowercase
+ * HTML tag it should be rewritten to (curated mapping, `div` fallback for
+ * unknown `HTML*Element` names). Returns `null` for anything that is not a DOM
+ * interface name, so callers can special-case this deterministically-fixable
+ * class instead of routing it to the LLM fixer with a generic hint.
+ */
+export function resolveHtmlInterfaceTag(name: string): string | null {
+  if (!HTML_INTERFACE_NAME_RE.test(name)) return null;
+  return resolveReplacementTag(name).tag;
+}
+
 /**
  * Rewrite `<HTMLxxxElement>` JSX tags (opening, self-closing, and matching
  * closing tags) to their lowercase HTML equivalent. Returns the rewritten

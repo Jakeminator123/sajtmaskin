@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { resolveHtmlInterfaceTag } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
 import { toAnthropicEffort } from "@/lib/gen/engine";
 import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
@@ -386,6 +387,34 @@ function stripCommentsAndStrings(source: string): string {
  * so false positives stay at zero. The cost of missing a real undefined
  * symbol is bounded — tsc/eslint still catches it on the verify lane.
  */
+/**
+ * Build the `detail` string for an undefined-JSX-symbol finding. Three cases,
+ * most-specific first, so the fixer gets a precise, non-misleading instruction:
+ *
+ *  1. DOM-interface tag (`<HTMLFormElement/>`): deterministic — name the exact
+ *     lowercase HTML tag and explicitly forbid pulling in a library/component.
+ *     (This class is also fixed deterministically by `dom-builtin-jsx-fixer`
+ *     before the LLM; the precise hint is the belt-and-suspenders fallback.)
+ *  2. File genuinely uses R3F/`<Canvas>`: keep the react-three primitive hint.
+ *  3. Otherwise: neutral "import or replace" — NO react-three hint (it used to
+ *     be emitted unconditionally and misled the fixer, prod chat 8bf59f13).
+ */
+export function buildUndefinedJsxDetail(
+  path: string,
+  name: string,
+  fileUsesR3F: boolean,
+): string {
+  const htmlTag = resolveHtmlInterfaceTag(name);
+  if (htmlTag) {
+    return `${path}: \`<${name} />\` is a DOM interface type, not a JSX component. Replace it with the lowercase HTML tag \`<${htmlTag}>\` and keep the same props/children. Do NOT import a library or introduce a new component to satisfy \`${name}\`.`;
+  }
+  const base = `${path}: \`<${name} />\` is used but \`${name}\` is neither imported nor declared in this file. Either import it from the correct package or replace it with a supported element.`;
+  if (fileUsesR3F) {
+    return `${base} (If the model meant a React Three Fiber primitive, use lowercase \`<mesh>\` + \`<boxGeometry>\`, or import \`Box\` from \`@react-three/drei\`.)`;
+  }
+  return base;
+}
+
 export function checkUndefinedJsxSymbols(
   files: Array<Pick<CodeFile, "path" | "content">>,
   options: { maxFindings?: number } = {},
@@ -415,6 +444,11 @@ export function checkUndefinedJsxSymbols(
     const scrubbed = stripCommentsAndStrings(f.content);
     const declared = collectDeclaredIdentifiers(scrubbed);
     const seen = new Set<string>();
+    // The React Three Fiber hint is only relevant for files that actually use
+    // R3F/`<Canvas>`. Appending it to every undefined-symbol finding misled the
+    // fixer into "repairing" a plain `<HTMLFormElement/>` by pulling in a
+    // Three.js canvas (prod chat 8bf59f13, 2026-07-01). Gate it on real R3F use.
+    const fileUsesR3F = R3F_IMPORT_RE.test(f.content) || JSX_CANVAS_RE.test(f.content);
 
     const JSX_OPENING_TAG = /<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
     let match: RegExpExecArray | null;
@@ -426,7 +460,7 @@ export function checkUndefinedJsxSymbols(
       if (ALWAYS_IN_SCOPE.has(name)) continue;
       findings.push({
         id: "undefined-jsx-symbol",
-        detail: `${f.path}: \`<${name} />\` is used but \`${name}\` is neither imported nor declared in this file. Either import it from the correct package or replace it with a supported element. (If the model meant a React Three Fiber primitive, use lowercase \`<mesh>\` + \`<boxGeometry>\`, or import \`Box\` from \`@react-three/drei\`.)`,
+        detail: buildUndefinedJsxDetail(f.path, name, fileUsesR3F),
       });
       if (findings.length >= maxFindings) break;
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixDomBuiltinJsxTags } from "./dom-builtin-jsx-fixer";
+import { fixDomBuiltinJsxTags, resolveHtmlInterfaceTag } from "./dom-builtin-jsx-fixer";
 
 const PAIRED_FORM_CASE = `"use client";
 
@@ -68,5 +68,24 @@ describe("fixDomBuiltinJsxTags", () => {
     const second = fixDomBuiltinJsxTags(first.code, "x.tsx");
     expect(second.fixed).toBe(false);
     expect(second.code).toBe(first.code);
+  });
+});
+
+describe("resolveHtmlInterfaceTag", () => {
+  it("maps known HTML interfaces to their lowercase tag", () => {
+    expect(resolveHtmlInterfaceTag("HTMLFormElement")).toBe("form");
+    expect(resolveHtmlInterfaceTag("HTMLInputElement")).toBe("input");
+    expect(resolveHtmlInterfaceTag("HTMLAnchorElement")).toBe("a");
+  });
+
+  it("falls back to div for unknown HTML*Element names", () => {
+    expect(resolveHtmlInterfaceTag("HTMLFooBarElement")).toBe("div");
+  });
+
+  it("returns null for identifiers that are not DOM interface names", () => {
+    expect(resolveHtmlInterfaceTag("Hero")).toBeNull();
+    expect(resolveHtmlInterfaceTag("Box")).toBeNull();
+    expect(resolveHtmlInterfaceTag("Cuboid")).toBeNull();
+    expect(resolveHtmlInterfaceTag("HTMLFormElementWrapper")).toBeNull();
   });
 });

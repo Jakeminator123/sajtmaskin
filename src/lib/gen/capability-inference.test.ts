@@ -138,6 +138,23 @@ describe("inferCapabilities", () => {
     expect(caps.needsDataUI).toBe(false);
   });
 
+  it("suppresses needsEcommerce when ecommerce is explicitly negated", () => {
+    const caps = inferCapabilities(
+      "Bygg en storefront som visar produkter, men utan varukorg och utan checkout.",
+    );
+    expect(caps.needsEcommerce).toBe(false);
+  });
+
+  it("suppresses needsEcommerce for an English 'no cart/checkout' display shop", () => {
+    const caps = inferCapabilities("A shop page to showcase products without a cart or checkout");
+    expect(caps.needsEcommerce).toBe(false);
+  });
+
+  it("still infers needsEcommerce for a genuine webshop request", () => {
+    const caps = inferCapabilities("Build a webshop with a cart and checkout");
+    expect(caps.needsEcommerce).toBe(true);
+  });
+
   it("detects scroll-parallax from English 'parallax scroll'", () => {
     const caps = inferCapabilities("a landing page with parallax scroll effects");
     expect(caps.needsParallax).toBe(true);
