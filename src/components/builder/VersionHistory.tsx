@@ -230,10 +230,17 @@ export function VersionHistory({
   const isLoading = externalVersions ? false : internal.isLoading;
   const mutate = externalMutate ?? internal.mutate;
   const rawVersionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
+  // Sync grace: a chat with no rows yet shows "Synkar..." for ~5s before the
+  // real empty state. Declared here so the last-known fallback below can stop
+  // serving a stale list once an empty result is CONFIRMED (grace elapsed).
+  const [syncingElapsed, setSyncingElapsed] = useState(false);
   // Retain the last non-empty list per chat so a transient empty refetch
   // (SWR revalidation, post-generation mutate) never blanks the panel into
   // "Inga versioner ännu" while the DB still has versions. Updating a ref
   // during render is a pure cache — no re-render, no effect-delay flash.
+  // Bounded by `syncingElapsed`: once an empty result is confirmed (e.g. every
+  // version deleted, or a sustained empty response), the fallback is dropped so
+  // the panel shows the true empty state instead of versions that no longer exist.
   const lastNonEmptyVersionsRef = useRef<{ chatId: string | null; list: VersionSummary[] }>({
     chatId: null,
     list: [],
@@ -245,7 +252,11 @@ export function VersionHistory({
     lastNonEmptyVersionsRef.current.list = rawVersionList;
   }
   const versionList =
-    rawVersionList.length > 0 ? rawVersionList : lastNonEmptyVersionsRef.current.list;
+    rawVersionList.length > 0
+      ? rawVersionList
+      : syncingElapsed
+        ? []
+        : lastNonEmptyVersionsRef.current.list;
   const pinnedCount = versionList.filter((version) => Boolean(version?.pinned)).length;
   // Highest sort key in the list — a row is "latest" (no newer version
   // exists) when its key matches this. Feeds the bus display-context.
@@ -279,7 +290,6 @@ export function VersionHistory({
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
   const [acceptingRepairVersionId, setAcceptingRepairVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
-  const [syncingElapsed, setSyncingElapsed] = useState(false);
   const [showLocalTimes, setShowLocalTimes] = useState(false);
 
   const collaborationVersionIds = versionList
@@ -333,13 +343,16 @@ export function VersionHistory({
   }, []);
 
   useEffect(() => {
-    if (!chatId || versionList.length > 0) {
+    // Key on the RAW fetch result, not the fallback-masked `versionList` — else
+    // the grace timer would never fire while the last-known fallback is shown,
+    // and a confirmed-empty chat would keep displaying stale versions forever.
+    if (!chatId || rawVersionList.length > 0) {
       setSyncingElapsed(false);
       return;
     }
     const timer = setTimeout(() => setSyncingElapsed(true), 5000);
     return () => clearTimeout(timer);
-  }, [chatId, versionList.length]);
+  }, [chatId, rawVersionList.length]);
 
   const formatVersionTime = (value: string | Date | null | undefined): string => {
     if (!value) return "Just now";

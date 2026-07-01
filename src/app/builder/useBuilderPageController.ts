@@ -1389,7 +1389,14 @@ export function useBuilderPageController() {
       // running. VM bootstrap + preview-session polling replace this URL once
       // the new preview is ready, and the version_mismatch / "startar preview"
       // overlays render on top of the retained frame instead of a white panel.
-      if (shouldRetainLastGoodPreviewOnVersionChange({ didChangeVersion, nextDemoUrl, currentPreviewUrl })) {
+      if (
+        shouldRetainLastGoodPreviewOnVersionChange({
+          didChangeVersion,
+          nextDemoUrl,
+          currentPreviewUrl,
+          userSelectedActiveVersion,
+        })
+      ) {
         return;
       }
       setCurrentPreviewUrl(null);

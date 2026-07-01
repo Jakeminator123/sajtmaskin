@@ -21,6 +21,7 @@ import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
   QUALITY_GATE_CHECK_VALUES,
+  isTypecheckOnlyAdvisory,
 } from "@/lib/gen/verify/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
 import {
@@ -270,14 +271,23 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // is never advisory. Render-safety itself is enforced upstream in
         // finalize-preflight (buildPreviewHtml + home-route gate), so a version
         // that cannot render never reaches this promote path.
-        const isF2Lane = scopedVersion.version.lifecycle_stage !== "integrations";
-        const failingChecks = results.filter((r) => !r.passed);
-        const isTypecheckOnlyFailure =
-          failingChecks.length > 0 && failingChecks.every((r) => r.check === "typecheck");
-        const f2TypecheckAdvisory = isF2Lane && !gateResult.passed && isTypecheckOnlyFailure;
+        const f2TypecheckAdvisory = isTypecheckOnlyAdvisory({
+          isDesignPreview: scopedVersion.version.lifecycle_stage !== "integrations",
+          gatePassed: gateResult.passed,
+          // The client-triggered route has no build-origin re-verify concept; a
+          // build/lint failure is already excluded by the typecheck-only check.
+          buildOriginated: false,
+          results,
+        });
         const advisoryCheckNames = f2TypecheckAdvisory
-          ? Array.from(new Set(failingChecks.map((r) => r.check)))
+          ? Array.from(new Set(results.filter((r) => !r.passed).map((r) => r.check)))
           : [];
+        // Carried into the retryable (non-promoted) response branches too, so a
+        // transient promote failure on an advisory version does not make the
+        // client treat the typecheck-only failure as hard and auto-repair it.
+        const advisoryResponseFields = f2TypecheckAdvisory
+          ? { designAdvisory: true as const, advisoryChecks: advisoryCheckNames }
+          : {};
         // Check superseded BEFORE persisting the regular logs so we don't
         // pile error rows on a version that no longer represents the
         // chat's head; the superseded path persists its own scoped log.
@@ -475,9 +485,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            vmGatePassed: gateResult.passed,
             promoteError: true,
             promoteGuardUnavailable: true,
+            ...advisoryResponseFields,
           });
         }
         // Transient promote failure: not green, but not a verifier block either.
@@ -485,8 +496,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            vmGatePassed: gateResult.passed,
             promoteError: true,
+            ...advisoryResponseFields,
           });
         }
         // F2 render-first advisory promotion: report `passed:true` so the client

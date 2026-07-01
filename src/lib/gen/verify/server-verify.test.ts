@@ -14,12 +14,84 @@ import {
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+  isTypecheckOnlyAdvisory,
   resolvePostRepairGateChecks,
 } from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
 } from "./repair-loop";
+
+describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-verify rule)", () => {
+  const fail = (check: string) => ({ check, passed: false });
+  const pass = (check: string) => ({ check, passed: true });
+
+  it("is advisory when F2 and the only failing check is typecheck", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(true);
+  });
+
+  it("is NOT advisory for F3 (integrations) — stays hard", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: false,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when a build/lint check also fails", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [pass("typecheck"), fail("build")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory for a build-originated re-verify (build must stay hard)", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: true,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when the gate actually passed (not applicable)", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: true,
+        buildOriginated: false,
+        results: [pass("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when there are no failing checks", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [pass("typecheck")],
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("resolveServerRepairEarlyStopReason", () => {
   it("stops when the fixer produced no output", () => {

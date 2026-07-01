@@ -44,7 +44,7 @@ import {
 // below reaches both the legacy surfaces and the UI projection.
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
-import { resolvePostRepairGateChecks } from "./quality-gate-checks";
+import { isTypecheckOnlyAdvisory, resolvePostRepairGateChecks } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -297,6 +297,39 @@ export async function triggerServerVerification(params: {
         return;
       }
       await promoteVersion(versionId, "Automatic server verification passed.", runId).catch(() => null);
+      return;
+    }
+
+    // F2 render-first (#330): mirror the quality-gate route so a BACKGROUND
+    // server-verify never hard-fails (or repairs) what the route promoted as
+    // advisory — otherwise the two gate paths race/undo each other. A
+    // design-preview (F2) version whose ONLY failing check is `typecheck` is
+    // advisory: `next dev` renders despite TS type errors, so promote instead of
+    // repairing. False-green protection matches the route: only F2, only when
+    // every failing check is `typecheck`, never build-originated
+    // (`forceBuildCheck`), and NEVER in `diagnosticOnly` mode (verifier blockers
+    // still forbid promotion → falls through to the diagnostic fail branch).
+    const isF2TypecheckOnlyAdvisory = isTypecheckOnlyAdvisory({
+      isDesignPreview: previewPolicy === "fidelity2",
+      gatePassed: passed,
+      buildOriginated: forceBuildCheck,
+      results: gateResult.results,
+    });
+    if (isF2TypecheckOnlyAdvisory && !diagnosticOnly) {
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "warning",
+        category: "quality-gate:typecheck-advisory",
+        message:
+          "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotar utan repair.",
+        meta: { serverOwned: true, advisory: true, failedChecks: ["typecheck"] },
+      }]).catch(() => null);
+      await promoteVersion(
+        versionId,
+        "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+        runId,
+      ).catch(() => null);
       return;
     }
 

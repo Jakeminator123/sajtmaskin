@@ -95,3 +95,34 @@ export function resolvePostRepairGateChecks(
   if (!buildOriginated) return DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
   return [...new Set<QualityGateCheck>([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS, "build"])];
 }
+
+/**
+ * F2 render-first (#330): should a FAILED quality gate be treated as an
+ * ADVISORY (promote, no auto-repair) instead of a hard failure?
+ *
+ * True only for a design-preview (F2) version whose ONLY failing check is
+ * `typecheck` — `next dev` renders JS despite TS type errors, so the live
+ * preview is usable and a type error is advisory, not a blocker.
+ *
+ * SINGLE SOURCE OF TRUTH shared by the client-triggered `quality-gate` route AND
+ * the background `server-verify`, so the two gate paths never disagree (one
+ * advisory-promoting while the other repairs/fails the same result). The
+ * false-green protection lives here:
+ *  - the gate passed → false (not applicable),
+ *  - not a design-preview (F2) version → false (F3 stays hard),
+ *  - build-originated re-verify → false (a build failure must stay hard),
+ *  - any non-`typecheck` failing check (build/lint) → false.
+ * Verifier / promote-guard blocks are enforced separately by the callers.
+ */
+export function isTypecheckOnlyAdvisory(params: {
+  isDesignPreview: boolean;
+  gatePassed: boolean;
+  buildOriginated: boolean;
+  results: ReadonlyArray<{ check: string; passed: boolean }>;
+}): boolean {
+  if (params.gatePassed) return false;
+  if (!params.isDesignPreview) return false;
+  if (params.buildOriginated) return false;
+  const failing = params.results.filter((result) => !result.passed);
+  return failing.length > 0 && failing.every((result) => result.check === "typecheck");
+}

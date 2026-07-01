@@ -46,22 +46,29 @@ export function versionSummaryHasPreview(
 
 /**
  * Decide whether to keep the current live preview visible when the active
- * version just changed but the newly active version has no usable preview URL
- * yet. Prevents the "white preview" flash on follow-up completion: the client
- * auto-selects the freshly generated draft the instant the stream ends, seconds
- * before the new version's VM preview is running. Retaining the established
- * tier-2 (VM/live) preview keeps the last-good page on screen (with the
- * "startar preview" / version_mismatch overlay on top) until the new preview
- * arrives. Only a real tier-2 live URL is retained — a shim/compat or missing
- * current URL is cleared as before so we never pin a non-live frame.
+ * version just changed but no preview URL resolves for it yet. Prevents the
+ * "white preview" flash on follow-up completion: the client auto-advances to
+ * the freshly generated draft the instant the stream ends, seconds before the
+ * new version's VM preview is running. Retaining the established tier-2 (VM/live)
+ * preview keeps the last-good page on screen (with the "startar preview" /
+ * version_mismatch overlay on top) until the new preview arrives.
+ *
+ * Only retained for an AUTOMATIC advance. When the user has explicitly selected
+ * a specific version (`userSelectedActiveVersion`), we NEVER retain — we must
+ * show that version's true state (blank/pending), never a different version's
+ * frame, otherwise the builder would display the wrong site while another
+ * version is selected. A shim/compat or missing current URL is also never
+ * retained.
  */
 export function shouldRetainLastGoodPreviewOnVersionChange(params: {
   didChangeVersion: boolean;
   nextDemoUrl: string | null;
   currentPreviewUrl: string | null;
+  userSelectedActiveVersion: boolean;
 }): boolean {
-  const { didChangeVersion, nextDemoUrl, currentPreviewUrl } = params;
+  const { didChangeVersion, nextDemoUrl, currentPreviewUrl, userSelectedActiveVersion } = params;
   if (!didChangeVersion) return false;
+  if (userSelectedActiveVersion) return false;
   if (nextDemoUrl) return false;
   if (!currentPreviewUrl) return false;
   return isTier2LivePreviewUrl(currentPreviewUrl);
