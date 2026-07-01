@@ -78,14 +78,42 @@ export interface VersionStatusDisplay {
   degraded: boolean;
   /** Pass-through of the projection's degradation notes for UI surfacing. */
   degradations: VersionStatus["degradations"];
+  /**
+   * Latest repair pass index (0 when not repairing / never repaired). Lets the
+   * UI show bounded "Reparerar X/2" progress so a running repair never reads as
+   * an infinite spinner.
+   */
+  repairPassIndex: number;
+}
+
+/**
+ * Client-safe upper bound for server repair passes, used as the denominator in
+ * the "Reparerar X/2" progress label so a running repair reads as bounded. Must
+ * mirror the server `SERVER_REPAIR_MAX_PASSES` (manifest
+ * `repairPolicies.serverRepairPasses`); a parity test asserts they stay in sync.
+ * Kept as a plain client constant so UI code never imports the server-only
+ * env/manifest-reading `defaults.ts` into the browser bundle.
+ */
+export const MAX_REPAIR_PASSES_DISPLAY = 2;
+
+/**
+ * Format repair-pass progress as `current/max` (e.g. `"1/2"`), or `null` when
+ * there is no active pass to show. Clamps to the max so a runaway index can
+ * never render `"3/2"`.
+ */
+export function formatRepairPassProgress(repairPassIndex: number): string | null {
+  if (!Number.isFinite(repairPassIndex) || repairPassIndex <= 0) return null;
+  const current = Math.min(Math.floor(repairPassIndex), MAX_REPAIR_PASSES_DISPLAY);
+  return `${current}/${MAX_REPAIR_PASSES_DISPLAY}`;
 }
 
 function makeDisplay(
   status: VersionDisplayStatus,
   degraded: boolean,
   degradations: VersionStatus["degradations"],
+  repairPassIndex = 0,
 ): VersionStatusDisplay {
-  return { status, degraded, degradations };
+  return { status, degraded, degradations, repairPassIndex };
 }
 
 /**
@@ -130,7 +158,7 @@ export function mapVersionStatusToDisplay(
     case "verifying":
       return makeDisplay("verifying", degraded, degradations);
     case "repairing":
-      return makeDisplay("repairing", degraded, degradations);
+      return makeDisplay("repairing", degraded, degradations, status.repairPassIndex);
     case "blocked":
       return makeDisplay("blocked", degraded, degradations);
     case "failed":

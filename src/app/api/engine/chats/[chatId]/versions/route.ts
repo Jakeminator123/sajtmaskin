@@ -19,6 +19,7 @@ import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
+import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -121,7 +122,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // `readAll` is the same pure, side-effect-free reader the
           // `version-status` route already calls in route context; a version
           // with no events folds to `selectVersionStatus([])` → phase "idle".
-          busStatus: selectVersionStatus(readAll(v.id)),
+          //
+          // Read-only terminal reconcile (parity with `/version-status`): map an
+          // ALREADY-terminal DB `verification_state` (failed/passed) onto a bus
+          // that is still spinning, so a died-mid-verify version can't render a
+          // perpetual "Verifierar"/"Reparerar" lifecycle badge in VersionHistory
+          // while the active-version surface has already settled. Pure + no DB
+          // write — the lease-safe watchdog write stays on `/version-status` +
+          // `/readiness`; a list poll must never write.
+          busStatus: reconcileTerminalDbState(
+            selectVersionStatus(readAll(v.id)),
+            v.verification_state,
+          ),
           canPin: false,
       }));
       return NextResponse.json({

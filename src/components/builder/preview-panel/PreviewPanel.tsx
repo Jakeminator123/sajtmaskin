@@ -120,6 +120,7 @@ export function PreviewPanel({
   activeVersionStatus = null,
   activeVersionSummary = null,
   activeVersionIsLatest = true,
+  activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
   onPreviewSessionSuspect,
   placementMode = false,
@@ -1092,6 +1093,7 @@ export function PreviewPanel({
         activeVersionStatus={activeVersionStatus}
         activeVersionSummary={activeVersionSummary}
         activeVersionIsLatest={activeVersionIsLatest}
+        activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         onFixPreview={onFixPreview}
       />
     );
@@ -1134,6 +1136,7 @@ export function PreviewPanel({
         activeVersionStatus={activeVersionStatus}
         activeVersionSummary={activeVersionSummary}
         activeVersionIsLatest={activeVersionIsLatest}
+        activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         iframeError={iframeError}
         iframeErrorMessage={iframeErrorMessage}
         isCodeView={isCodeView}

@@ -1,7 +1,10 @@
 "use client";
 
 import { AlertCircle, Loader2, MessageCircleQuestion, RotateCcw, Wand2 } from "lucide-react";
-import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
+import {
+  formatRepairPassProgress,
+  type VersionDisplayStatus,
+} from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +23,8 @@ interface PreviewPanelEmptyStateProps {
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
+  /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
+  activeVersionRepairPassIndex?: number;
   onFixPreview?: (() => void) | null;
   /**
    * P0 stream-abort recovery (2026-04-26). True when the most recent
@@ -45,6 +50,7 @@ export function PreviewPanelEmptyState({
   activeVersionStatus,
   activeVersionSummary,
   activeVersionIsLatest = true,
+  activeVersionRepairPassIndex = 0,
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
@@ -68,7 +74,11 @@ export function PreviewPanelEmptyState({
           : activeVersionStatus === "verifying"
             ? "Verifierar version"
             : activeVersionStatus === "repairing"
-              ? "Reparerar version"
+              ? `Reparerar version${
+                  formatRepairPassProgress(activeVersionRepairPassIndex)
+                    ? ` (${formatRepairPassProgress(activeVersionRepairPassIndex)})`
+                    : ""
+                }`
               : null;
   const activeStatusSubtitle =
     activeVersionStatus === "autofixing"

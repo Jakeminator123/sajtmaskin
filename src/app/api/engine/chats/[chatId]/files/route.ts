@@ -108,7 +108,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       if (repairResult.fixes.length > 0) {
         files = repairResult.files;
         if (resolvedVersionId) {
-          await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+          // Best-effort, fail-fast heal-persist (M#files1). A files READ must
+          // never block on — or fail from — a ~120 KB `files_json` UPDATE under
+          // row-lock contention. `lockTimeoutMs` makes a contended write give up
+          // fast (so it can't starve concurrent reads → 429 / error-log INSERTs
+          // → 500), and the try/catch guarantees the read still returns the
+          // repaired files even if the persist is skipped. The repair is
+          // idempotent, so the next uncontended read commits the heal.
+          try {
+            await updateVersionFiles(resolvedVersionId, JSON.stringify(files), {
+              lockTimeoutMs: 2000,
+            });
+          } catch {
+            // never turn a files read into a 429/500 over a best-effort heal
+          }
         }
       }
 

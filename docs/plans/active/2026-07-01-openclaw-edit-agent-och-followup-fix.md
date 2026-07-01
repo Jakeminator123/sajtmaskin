@@ -1,76 +1,127 @@
 ---
-id: 2026-07-01-openclaw-edit-agent-och-followup-fix
-status: in-progress
+status: active
+owner: unassigned
 created: 2026-07-01
-linear: null
-parent: null
-supersedes: null
+topic: OpenClaw edit-agent (reversibel), follow-up preflight-fix och mall→Blob-upload
 ---
 
-# OpenClaw edit-agent (spår A) — prompt-driven redigering via quick-edit-lanen
+# OpenClaw edit-agent + follow-up-fix + mall→Blob — plan & sekvens
 
-Branch: `feat/openclaw-edit-agent` (av `origin/master`). Detta är en **branch-lokal** kopia av spår A; den kanoniska planen landar via #336. Kod är source of truth; allt nedan är verifierat mot repo 2026-07-01.
+## TL;DR (beslut som väntar på OK)
 
-## Mål
+Tre spår, medvetet åtskilda så `master` inte störs och allt är reversibelt:
 
-Låt OpenClaw (Sajtagenten) gå från att bara *föreslå* UI-actions till att **editera användarprojektet**: användaren skriver en prompt i OpenClaw-chatten (t.ex. "gör färgen blå istället för rosa") → prompten tolkas till deterministiska `QuickEditOp[]` → ändringen appliceras på projektets **senaste version** → preview-VM:en patchas. Allt bakom en master-flagga så det är ett test, inte ny standard.
+| Spår | Vad | Leverans | När |
+|---|---|---|---|
+| **C — mallar→Blob** | Backoffice-upload + Blob-manifest + katalog som styr `Mallar`/Templates | **PR #336** (`feat/mallar-blob-catalog`) — pågår | Nu (upload körs) |
+| **B — follow-up-fix** | Fixa att follow-up i vanliga LLM-flödet blockeras på mall-chattar | **Egen liten PR** (rekommendation) eller in i #336 | Nu, efter upload |
+| **A — OpenClaw edit-agent** | OpenClaw redigerar användarprojekt från en prompt i OpenClaw-chatten → ändringar till VM | **Ny separat branch** `feat/openclaw-edit-agent` (av `master`) | **Senare** — efter att B+C är i mål och efter påminnelse |
 
-## Återanvänd infra (minimal ny kod)
+**Sekvens (låst efter din bekräftelse):** slutför C → gör B → (påminn dig) → skapa branch A → bygg OpenClaw-agenten. Ingen OpenClaw-kod och inga Vercel-env-ändringar skrivs förrän branch A skapas.
 
-| Behov | Återanvänd (befintligt) |
-|---|---|
-| Läs senaste version, ägar-/cross-tenant-säkert | `getEngineChatByIdForRequest` + `getEngineVersionForChatByIdForRequest` (`src/lib/tenant.ts`), `getPreferredVersion`/`getLatestVersion` (`chat-repository-pg`) |
-| Applicera ops + persistens + preview-patch | `runQuickEdit` (`src/lib/gen/quick-edit/service.ts`) → `applyQuickEdits` + `guards.ts` → `addAssistantMessageAndCreateDraftVersion` → `tryPatchPreviewSession` → preview-host `POST /preview/session/patch` |
-| Op-kontrakt (replace_text/replace_content/delete_file) | `QuickEditOp` (`src/lib/gen/quick-edit/types.ts`) |
-| Path-/secret-/lockfile-skydd | `guards.ts` (path-traversal, `.env*`, nycklar, lockfiles) |
-| Preview hot-patch | `SAJTMASKIN_PREVIEW_PATCH_LANE` + `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT` (redan i env/policy) |
+---
 
-## Ny kod (isolerad → trivial att ta bort)
+## Spår C — mallar → Blob (pågår)
 
-| Fil | Roll |
-|---|---|
-| `src/app/api/openclaw/edit/route.ts` | Tunn route: 404 om flaggan av → ägarverifiering → resolve base → stale-base 409 → F3-decline → gateway-ops (server-LLM) → `runQuickEdit` in-process |
-| `src/lib/openclaw/edit/prompt.ts` | Bygger strikt-JSON-prompt + inlinear exakta filrader (för verbatim `find`) |
-| `src/lib/openclaw/edit/ops-schema.ts` | Zod-schema + `parseOpenClawEditOps` (JSON-extraktion, aldrig tyst no-op) |
-| `src/lib/openclaw/edit/gateway.ts` | `requestQuickEditOps` — anropar OpenClaw-gatewayen (`/v1/chat/completions`, non-stream), validerar |
-| `src/lib/openclaw/edit/index.ts` | Barrel |
-| `src/components/openclaw/useOpenClawEdit.ts` | Klient-hook: POST `/api/openclaw/edit`, renderar resultat i samma chattråd |
-| `OpenClawChatPanel.tsx` (edit) | Wand-toggle (visas när flaggan är på via `/api/openclaw/health`), routar send till edit-hook i edit-läge |
+- Uploader: `scripts/v0-templates/upload-mallar-blob.mjs --upload --write-catalog` (inkrementell, hoppar redan uppladdade per SHA-256).
+- Skriver `template-blob-manifest.json` (runtime-källa) + regenererar `templates.json` + `template-categories.json` (galleri).
+- För stora mallar (>2 MB/fil eller >12 MB totalt, `preview-host/src/validate.js`) laddas upp men **utesluts ur katalogen** (`previewFits:false`) så de aldrig blir klickbara.
+- Verifiering: `verify-mallar-blob.mjs`. Status: 313 mallar på disk, uppladdning körs.
 
-Punktändringar i befintliga (additiva, flagg-gejtade): `config.ts` (`OPENCLAW.editAgentEnabled`), `env.ts` (`OPENCLAW_EDIT_AGENT`), `config/env-policy.json` (rule + extraKnownKeys), `status.ts` (`editAgentEnabled` i snapshot), `rateLimit.ts` (`openclaw:edit`-bucket).
+## Spår B — follow-up-fixen (rotorsak + fix)
 
-**Ingen** registrering i kärn-pipelinen (gen/finalize/preview). `runQuickEdit` äger all persistens; routen skriver aldrig direkt till DB eller loggar.
+### Rotorsak (kod-verifierad)
 
-## Kontrakt som respekteras
+En follow-up på en **mall-initierad chatt** mergas korrekt mot mallens filer
+(`finalize-merge.ts` → `hasMergeablePrevious` = previousFiles>0 → previousFiles vinner),
+**men** resten av finalize-kedjan kör scaffold-antaganden som är byggda för
+own-engine-scaffolds, inte importerade v0-repon:
 
-- **Cross-tenant:** `getEngineChatByIdForRequest` + `getEngineVersionForChatByIdForRequest` före all fil-läsning.
-- **Stale-base:** 409 `stale_base_version` när klientens known-latest ≠ serverns preferred och base ≠ preferred.
-- **F3 (`integrations_base`):** nekas med tydligt fel (422) → hänvisa till builder-chatten. `runQuickEdit` har samma spärr (defense in depth).
-- **Verbatim `find`:** gatewayen instrueras kopiera `find` ordagrant; `applyQuickEdits` rapporterar `no_match`/`ambiguous_match` → routen surfacar felet (aldrig tyst no-op).
-- Guards blockerar redan path-traversal/secrets/lockfiles.
+1. `chat-message-stream-post.ts` kör scaffold-selection ändå → `scaffoldId=landing-page`, `variant_lock_fallback=corporate-grid` (mall-chatten saknar "importerat repo"-markör).
+2. `finalize-preflight.ts`:
+   - `partitionGeneratedFilesForProtectedPaths` → *"scaffold-protected paths — dropped to keep scaffold default"*.
+   - `buildCompleteProject(...)` injicerar scaffold-defaults som inte hör till v0-repot.
+   - Home-route-grind `HOME_PAGE_MIN_RENDERED_CHARS = 200` + `runProjectSanityChecks` → `code_structure_failure`.
+3. `previewBlocked=true, verificationBlocked=true` → nya versionen kan inte promotas → preview-panelen byter aldrig → `preview_status … version_mismatch → stopped`. **Ingen krasch.**
 
-## Reversibilitet — borttagnings-checklista
+Jämför init-vägen: mall importeras med `skipProjectScaffold:true, skipRepair:true` i `startPreviewSession` — men follow-up-finalize har **ingen motsvarande flagga**.
 
-1. Radera `src/app/api/openclaw/edit/` och `src/lib/openclaw/edit/`.
-2. Radera `src/components/openclaw/useOpenClawEdit.ts` + återställ `OpenClawChatPanel.tsx` (ta bort Wand-toggle, `editMode`/`editAgentAvailable`, `dispatchSend`, health-fältet `editAgentEnabled`).
-3. Ta bort `editAgentEnabled` i `src/lib/config.ts` och `src/lib/openclaw/status.ts` (+ health returnerar det automatiskt via snapshot).
-4. Ta bort `OPENCLAW_EDIT_AGENT` i `src/lib/env.ts` + `config/env-policy.json` (rule + extraKnownKeys).
-5. Ta bort `openclaw:edit`-raden i `src/lib/rateLimit.ts` (annars ofarlig orphan).
-6. Ta bort env-värdet `OPENCLAW_EDIT_AGENT` i `.env.local` + Vercel.
+### Fix (reversibel, bakåtkompatibel)
 
-Inga migrationer, inga kärnfil-beteendediffar → ren revert. Master-flaggan av ⇒ routen 404:ar, widget-knappen döljs, allt återgår till dagens "föreslå prompt".
+1. **Persistera ursprung** vid mall-init (`src/app/api/template/route.ts`): markera chatten som `origin="imported-repo"` (ny kolumn/flagga eller scaffold-sentinel).
+2. **Tråda flaggan** genom `chat-message-stream-post.ts` → `finalize-version/runner.ts` → `preflight-phase.ts`.
+3. **Imported-repo-läge i finalize-preflight**: hoppa scaffold-injektion (`buildCompleteProject`) + relaxa home-route-grinden och scaffold-specifik `project-sanity`; **behåll** syntax- + degeneracy-guards (säkerhet).
+4. **Ingen scaffold-selection** för imported-repo-chattar i stream.
 
-## Env
+- **Reversibelt:** allt bakom flaggan. Saknas flaggan → oförändrat beteende.
+- **Tester:** vitest för preflight imported-repo-läge (blockerar EJ ett giltigt v0-repo; blockerar fortfarande tomt `<main>`).
+- **Kvarstående okänt (låg risk):** exakta 2 felsträngarna (per-version error-log ej hämtad; servern var nedstängd) + om det räcker att relaxa grindarna eller om `buildCompleteProject` också måste hoppas. Bekräftas med en riktad körning.
+- **Berörda filer:** `src/app/api/template/route.ts`, `src/lib/api/engine/chats/chat-message-stream-post.ts`, `src/lib/gen/stream/finalize-preflight.ts`, `src/lib/gen/stream/finalize-version/{runner,preflight-phase}.ts`.
+- **Review:** protected path (`src/lib/gen`) → kräver tester + oberoende granskning (Codex/Bugbot) före merge.
 
-| Var | Var | Not |
+## Spår A — OpenClaw som edit-agent (ny branch, senare)
+
+### Mål
+
+Användaren skriver i **OpenClaw-chatten** t.ex. *"gör färgen blå ist för rosa"* →
+OpenClaw läser projektets senaste version, tar fram ändringar och skickar dem till VM-previewn.
+
+### Design — återanvänder befintlig infrastruktur (minimal ny kod)
+
+| Steg | Återanvänd (finns) | Nytt (isolerat) |
 |---|---|---|
-| `OPENCLAW_EDIT_AGENT` | `.env.local` + Vercel (development/preview) | **Ny** master-flagga. Av = 404. Ej production i test-skedet. |
-| `SAJTMASKIN_PREVIEW_PATCH_LANE=true` | verifiera | Hot-patch till VM (finns redan). |
-| `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT=true` | verifiera | Klient quick-edit-lane (finns redan). |
-| `OPENCLAW_GATEWAY_URL` / `OPENCLAW_GATEWAY_TOKEN` | befintliga | Peka INTE gateway på egen Next-host. |
+| Läs senaste version | `resolveFileContext` + `getEngineVersionForChatByIdForRequest` (tenant-guard) | — |
+| Prompt → ändringar | — | Gateway producerar `QuickEditOp[]` (deterministiska `replace_text`) |
+| Applicera → VM | `POST /api/engine/chats/[chatId]/quick-edit` → `runQuickEdit` → `tryPatchPreviewSession` → preview-host `/preview/session/patch` | Tunn route `src/app/api/openclaw/edit/route.ts` som proxar med session-auth |
 
-## Verifiering
+**Nyckelinsikt + synergi med spår B:** små ändringar ("gör blå") ska gå via
+**quick-edit-lanen**, inte vanliga follow-up-strömmen. Quick-edit applicerar
+deterministiska ops och kör **inte** den tunga scaffold/preflight-kedjan →
+möjliggör agenten **och** kringgår follow-up-blocket för små edits. Stora
+redesigns kan falla tillbaka på befintlig `fill_text_field` → builder-send → stream.
 
-- `npm run typecheck` = 0, `npm run lint` = 0, riktad `vitest` grön.
-- Enhetstester: prompt→ops-mappning (`ops-schema.test.ts`, `prompt.test.ts`), flaggan av → 404, ägar-guard nekar fel tenant, stale-base → 409, F3 → 422, ops-fail → 422, happy path → 200 (`route.test.ts`).
-- E2E (preview-VM): starta en mall-preview, skriv "gör färgen blå istället för rosa" i OpenClaw-chatten → verifiera ny version + patchad preview (`previewUrl`/`preview_status`).
+### Reversibilitet (borttagning ska vara trivial)
+
+- All ny kod i **isolerade sökvägar**: `src/lib/openclaw/edit/**`, `src/app/api/openclaw/edit/**`, ev. `src/components/openclaw/edit-*`.
+- **Inga** ändringar i kärn-pipelinen (gen/finalize/preview) för spår A.
+- Bakom env-flagga `OPENCLAW_EDIT_AGENT` — av = routen 404:ar, allt återgår till dagens "föreslå prompt".
+- Varje edit skapar **ny draft-version** → `Restore` återställer.
+- **Borttagnings-checklista** (dokumenteras i branch A): radera `**/openclaw/edit/**`, ta bort flaggan i `src/lib/config.ts`, ta bort ev. widget-knapp. Inga migrationer, inga kärnfil-diffar → ren revert.
+
+### Env som (kan) behövas — .env.local + Vercel "All Environments"
+
+Sätts först i branch A (inget konsumeras innan dess). Policy: läsbara
+(`encrypted`, ej `sensitive`) så värden kan inspekteras; rör **aldrig**
+`ENV_VAR_ENCRYPTION_KEY`.
+
+| Var | Roll | Ny? |
+|---|---|---|
+| `OPENCLAW_EDIT_AGENT` | Master på/av för edit-vägen | **Ny** |
+| `SAJTMASKIN_PREVIEW_PATCH_LANE=true` | Hot-patch till VM (quick-edit) | Kontrollera/aktivera |
+| `NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT` | Client quick-edit-lane | Kontrollera/aktivera |
+| `OPENCLAW_GATEWAY_URL` / `OPENCLAW_GATEWAY_TOKEN` | Extern gateway (finns) | Befintlig |
+
+### Kontrakt att respektera (från kartläggningen)
+
+- Stale-base → 409 (`quick-edit/route.ts`), F3-versioner nekar quick-edit.
+- Alltid `getEngineVersionForChatByIdForRequest(req, chatId, versionId)` före fil-läsning (cross-tenant).
+- Ingen direkt DB-/logg-skrivning i edit-flödet.
+
+---
+
+## Branch/PR-strategi
+
+```text
+master
+ ├── feat/mallar-blob-catalog   (PR #336)  → spår C  (+ ev. spår B, om du vill bunta)
+ └── feat/openclaw-edit-agent    (ny, av master, SENARE) → spår A
+```
+
+- Rekommendation: **spår B som egen liten PR av `master`** (renare review, rör pipeline-kontrakt). Kan buntas i #336 om du hellre vill — ditt val.
+- Spår A startar **först** efter B+C, på egen branch, efter påminnelse.
+
+## Beslut (bekräftade 2026-07-01)
+
+1. **Sekvens: C → B → (påminnelse) → A.** OpenClaw sist, på egen branch efter påminnelse.
+2. **Spår B = egen liten PR av `master`** (inte buntad i #336).
+3. **Env i spår A:** OK att sätta nya var (t.ex. `OPENCLAW_EDIT_AGENT`) i både `.env.local` och Vercel "All Environments" som läsbar (`encrypted`, ej `sensitive`) — men **först när branch A skapas**.

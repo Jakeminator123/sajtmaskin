@@ -24,3 +24,4 @@ alwaysApply: false
 | `npm run plans:archive:apply` | flytta klara planer |
 | `npm run env:status` | env-status |
 | `npm run db:check` | read-only DB sanity |
+| `npm run db:settle-stuck-verifications` | dry-run: lista versioner fast i `verifying`/`repairing` (lease-säker, inga writes). `-- --apply` + `DB_ALLOW_PROD_LIKE_WRITE=1` för prod-städning |
