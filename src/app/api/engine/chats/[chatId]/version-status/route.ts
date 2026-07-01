@@ -66,26 +66,37 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       );
     }
 
-    // Lease-safe stale watchdog: settle a version stuck past the route budget
-    // to a terminal DB state. The failure-summary read is lazy — it only runs
-    // when a row is actually stale, keeping the 4s poll cheap in the hot path.
-    const { version: dbVersion } = await settleStaleVerificationIfNeeded(
-      scopedVersion.version,
-      {
-        resolveFailureSummary: async () =>
-          resolveGateFailureSummaryFromLogs(
-            await getEngineVersionErrorLogs(scopedVersion.version.id),
-          ),
-      },
-    );
+    const events = readAll(scopedVersion.version.id);
+    const busStatus = selectVersionStatus(events);
 
-    const events = readAll(dbVersion.id);
-    // Reconcile the bus projection with the authoritative DB terminal state so
-    // a died-mid-verify job can never leave the spinner ticking forever.
-    const status = reconcileTerminalDbState(
-      selectVersionStatus(events),
-      dbVersion.verification_state,
-    );
+    // Stale-watchdog WRITE is gated on TWO conditions so a normal 4s poll can
+    // never false-fail a valid version:
+    //   1. The bus projection is actually stuck non-terminal (still
+    //      verifying/repairing) — a terminal bus (incl. F2 design-preview
+    //      "skipped" → done) needs no DB touch.
+    //   2. Server-verify was actually EXPECTED for this row. F2/design previews
+    //      intentionally skip server-verify and rest at DB `pending`; failing
+    //      them from a status poll would be a false-red (Codex #337 P1). Only
+    //      `integrations` (F3) rows genuinely wait on server-verify. Stuck F2
+    //      rows are covered by the client-side poll cap in `useVersionStatus`.
+    let dbVersion = scopedVersion.version;
+    const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
+    const serverVerifyExpected =
+      (typeof dbVersion.lifecycle_stage === "string" ? dbVersion.lifecycle_stage : "design") ===
+      "integrations";
+    if (busStuck && serverVerifyExpected) {
+      const settled = await settleStaleVerificationIfNeeded(dbVersion, {
+        resolveFailureSummary: async () =>
+          resolveGateFailureSummaryFromLogs(await getEngineVersionErrorLogs(dbVersion.id)),
+      });
+      dbVersion = settled.version;
+    }
+
+    // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
+    // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
+    // no-op when the DB is non-terminal (e.g. a pending design preview), so this
+    // never fabricates a terminal state.
+    const status = reconcileTerminalDbState(busStatus, dbVersion.verification_state);
 
     return NextResponse.json<VersionStatusApiResponse>({
       ok: true,

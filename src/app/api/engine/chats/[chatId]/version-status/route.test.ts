@@ -110,26 +110,27 @@ describe("GET version-status (engine)", () => {
     expect(body.status?.degradations.map((d) => d.kind)).toEqual(["verifier_skipped_by_policy"]);
   });
 
-  it("reconciles a still-spinning bus to failed when the DB watchdog failed the version", async () => {
-    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "v1" } });
-    // Stale watchdog failed the row in the DB...
-    settleStaleVerificationIfNeeded.mockResolvedValue({
-      version: { id: "v1", verification_state: "failed" },
-      failed: true,
+  // A spinning bus event stream (repair started, no terminal event) reused by
+  // the reconcile tests below.
+  const spinningBus = [
+    {
+      t: "version.repair.started",
+      id: "e1",
+      ts: "2026-07-01T10:00:00.000Z",
+      runId: "root",
+      versionId: "v1",
+      chatId: "chat_1",
+      reason: "verify",
+      trigger: "server-verify",
+    },
+  ];
+
+  it("read-only reconcile maps an already-failed DB row onto a still-spinning bus", async () => {
+    // DB is already terminal (failed) via some other path; no watchdog write needed.
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "failed", lifecycle_stage: "design" },
     });
-    // ...but the bus never received a terminal event (stuck on repairing).
-    readAll.mockReturnValue([
-      {
-        t: "version.repair.started",
-        id: "e1",
-        ts: "2026-07-01T10:00:00.000Z",
-        runId: "root",
-        versionId: "v1",
-        chatId: "chat_1",
-        reason: "verify",
-        trigger: "server-verify",
-      },
-    ]);
+    readAll.mockReturnValue(spinningBus);
 
     const res = await GET(
       new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
@@ -139,34 +140,44 @@ describe("GET version-status (engine)", () => {
     expect(body.ok).toBe(true);
     // Without reconciliation this would be "repairing" (a perpetual spinner).
     expect(body.status?.phase).toBe("failed");
+    // Read-only path: no DB write attempted.
+    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
   });
 
-  it("reconciles a still-spinning bus to done when the DB shows passed with no blockers", async () => {
-    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "v1" } });
-    settleStaleVerificationIfNeeded.mockResolvedValue({
-      version: { id: "v1", verification_state: "passed" },
-      failed: false,
+  it("runs the stale watchdog for a stuck F3/integrations row and reconciles to failed", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
     });
-    readAll.mockReturnValue([
-      {
-        t: "version.repair.started",
-        id: "e1",
-        ts: "2026-07-01T10:00:00.000Z",
-        runId: "root",
-        versionId: "v1",
-        chatId: "chat_1",
-        reason: "verify",
-        trigger: "server-verify",
-      },
-    ]);
+    settleStaleVerificationIfNeeded.mockResolvedValue({
+      version: { id: "v1", verification_state: "failed" },
+      failed: true,
+    });
+    readAll.mockReturnValue(spinningBus);
 
     const res = await GET(
       new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
       { params: Promise.resolve({ chatId: "chat_1" }) },
     );
-    const body = (await res.json()) as { ok: boolean; status?: { phase: string; done: boolean } };
+    const body = (await res.json()) as { ok: boolean; status?: { phase: string } };
     expect(body.ok).toBe(true);
-    expect(body.status?.phase).toBe("done");
-    expect(body.status?.done).toBe(true);
+    expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(body.status?.phase).toBe("failed");
+  });
+
+  it("NEVER fails a pending F2/design preview from a status poll (Codex #337 P1)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "pending", lifecycle_stage: "design" },
+    });
+    readAll.mockReturnValue(spinningBus);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = (await res.json()) as { ok: boolean; status?: { phase: string } };
+    expect(body.ok).toBe(true);
+    // Design previews rest at DB `pending` by design — the poll must not fail them.
+    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
+    expect(body.status?.phase).toBe("repairing");
   });
 });
