@@ -92,6 +92,30 @@ def _trigger_reindex(repo_root: Path) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def _prod_fault_matrix(repo_root: Path, use_prod: bool = True) -> dict[str, Any]:
+    """Read the durable Postgres fault matrix (error_log_events) via the
+    read-only `fault-matrix.mjs` script. `use_prod` points it at the pulled
+    production snapshot so the human view matches what Vercel prod actually
+    logged (the NDJSON view above is local-only)."""
+    script = repo_root / "scripts" / "observability" / "fault-matrix.mjs"
+    if not script.exists():
+        return {"ok": False, "error": "fault-matrix.mjs saknas."}
+    args = ["node", str(script), "--json", "--limit", "40"]
+    if use_prod:
+        args.append("--prod")
+    try:
+        result = subprocess.run(
+            args, cwd=repo_root, capture_output=True, text=True, timeout=30
+        )
+        # On failure the script still emits a JSON error envelope on stdout.
+        try:
+            return json.loads(result.stdout or "{}")
+        except Exception:
+            return {"ok": False, "error": result.stderr or result.stdout or "Okänt fel."}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def render(ctx: BackofficeContext) -> None:
     st.header("Error-log RAG")
     st.caption(
@@ -131,6 +155,45 @@ def render(ctx: BackofficeContext) -> None:
             st.success(output)
         else:
             st.error(output)
+
+    st.divider()
+    st.subheader("Prod fault-matris (error_log_events, Postgres)")
+    st.caption(
+        "Läser den DURABLA Postgres-store:n via "
+        "`node scripts/observability/fault-matrix.mjs --prod` — dvs. felen från dina "
+        "Vercel-**production**-tester, inte lokal NDJSON ovan. Read-only (SELECT). "
+        "Kräver att du dragit prod-env: "
+        "`vercel env pull .env.vercel.production.pulled --environment=production --yes`."
+    )
+    if st.button("Läs prod fault-matris"):
+        matrix = _prod_fault_matrix(ctx.repo_root, use_prod=True)
+        if not matrix.get("ok"):
+            st.error(matrix.get("error", "Kunde inte läsa prod fault-matris."))
+        elif matrix.get("tableMissing"):
+            st.info("error_log_events saknas i prod-databasen ännu.")
+        else:
+            st.caption(
+                f"Prod: {matrix.get('totalRows', 0)} rader, "
+                f"{matrix.get('distinctFaults', 0)} distinkta fel."
+            )
+            st.dataframe(
+                [
+                    {
+                        "fault": f.get("fault"),
+                        "total": f.get("total"),
+                        "chats": f.get("chats"),
+                        "top_fixer": f.get("top_fixer") or "-",
+                        "result": ", ".join(
+                            f"{k}:{v}"
+                            for k, v in (f.get("result_breakdown") or {}).items()
+                        ),
+                        "last_seen": f.get("last_seen"),
+                    }
+                    for f in matrix.get("faults", [])
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
 
     st.divider()
     st.subheader("Topp fault-kategorier (senaste 5000 rader)")
