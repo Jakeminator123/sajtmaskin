@@ -15,39 +15,96 @@
  *   node scripts/dossiers/check-sdk-versions.mjs          # human-readable, exit 1 on drift
  *   node scripts/dossiers/check-sdk-versions.mjs --json    # machine-readable (backoffice)
  *
+ * FAIL-CLOSED: if a recognized SDK is installed but its expected version cannot
+ * be READ/PARSED, that is a hard failure (`unreadable`) — NOT a silent skip —
+ * so a stale pin can never pass CI just because the SDK's type-file format
+ * changed (Codex P1). Only a genuinely NOT-installed SDK is a skip (its dossier
+ * ships to the generated project, not this repo).
+ *
  * Extensible: add an entry to SDK_VERSION_SOURCES to cover another SDK whose
  * types pin a version literal.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = resolve(process.cwd());
 const DOSSIERS_ROOT = join(ROOT, "data", "dossiers");
-const wantJson = process.argv.includes("--json");
+
+// Pinned apiVersion literal in a dossier file: `apiVersion: "…"`.
+export const API_VERSION_RE = /apiVersion\s*:\s*["']([^"']+)["']/;
 
 /**
  * Each entry maps an SDK to:
  *  - `importMatch`: how to detect a file uses this SDK (bare specifier).
  *  - `expected()`: resolve the version literal the INSTALLED SDK expects, read
- *    from its own generated types so it tracks `npm install`/upgrades.
- * Returns null when the SDK isn't installed (skip — nothing to compare against).
+ *    from its own generated types so it tracks `npm install`/upgrades. Returns
+ *    `{ status: "ok", version }` | `{ status: "unreadable" }` (installed but the
+ *    literal could not be parsed → FAIL) | `{ status: "not-installed" }` (skip).
  */
-const SDK_VERSION_SOURCES = {
+export const SDK_VERSION_SOURCES = {
   stripe: {
     label: "stripe",
     importMatch: /from\s+["']stripe["']/,
     expected() {
       // stripe SDK generates types/apiVersion.d.ts: `export const ApiVersion = '<v>';`
       const p = join(ROOT, "node_modules", "stripe", "types", "apiVersion.d.ts");
-      if (!existsSync(p)) return null;
-      const m = readFileSync(p, "utf8").match(/ApiVersion\s*=\s*['"]([^'"]+)['"]/);
-      return m ? m[1] : null;
+      if (!existsSync(p)) return { status: "not-installed" };
+      const raw = readFileSync(p, "utf8");
+      const m = raw.match(/ApiVersion\s*=\s*['"]([^'"]+)['"]/);
+      return m ? { status: "ok", version: m[1] } : { status: "unreadable" };
     },
   },
 };
 
-// Pinned apiVersion literal in a dossier file: `apiVersion: "…"`.
-const API_VERSION_RE = /apiVersion\s*:\s*["']([^"']+)["']/;
+/**
+ * Pure evaluation: given parsed dossier files and the SDK source map, classify
+ * every pinned `apiVersion` into checked / drift / unreadable / skipped. No IO,
+ * so it is unit-testable. `sdkSources[sdk].expected()` is injected by the
+ * caller (real fs in `main`, stubs in tests).
+ *
+ * @param {{ files: Array<{ path: string, content: string }>, sdkSources?: Record<string, { label: string, importMatch: RegExp, expected: () => { status: string, version?: string } }> }} params
+ */
+export function evaluatePins({ files, sdkSources = SDK_VERSION_SOURCES }) {
+  const drifts = [];
+  const checked = [];
+  const skipped = [];
+  const unreadable = [];
+
+  for (const { path: rel, content } of files) {
+    const apiMatch = content.match(API_VERSION_RE);
+    if (!apiMatch) continue;
+    const pinned = apiMatch[1];
+
+    let matched = null;
+    for (const sdk of Object.values(sdkSources)) {
+      if (sdk.importMatch.test(content)) {
+        matched = sdk;
+        break;
+      }
+    }
+    if (!matched) {
+      skipped.push({ file: rel, pinned, reason: "unrecognized-sdk" });
+      continue;
+    }
+    const resolved = matched.expected();
+    if (resolved.status === "not-installed") {
+      skipped.push({ file: rel, pinned, reason: `${matched.label}-not-installed` });
+      continue;
+    }
+    if (resolved.status !== "ok" || !resolved.version) {
+      // Installed but unparseable → fail closed (do NOT collapse into skip).
+      unreadable.push({ file: rel, sdk: matched.label, pinned });
+      continue;
+    }
+    checked.push({ file: rel, sdk: matched.label, pinned, expected: resolved.version });
+    if (pinned !== resolved.version) {
+      drifts.push({ file: rel, sdk: matched.label, pinned, expected: resolved.version });
+    }
+  }
+
+  return { checked, drifts, skipped, unreadable };
+}
 
 function listFilesRecursive(dir) {
   const out = [];
@@ -61,7 +118,13 @@ function listFilesRecursive(dir) {
   return out;
 }
 
+function relPath(file) {
+  return file.replace(ROOT + "\\", "").replace(ROOT + "/", "").replace(/\\/g, "/");
+}
+
 function main() {
+  const wantJson = process.argv.includes("--json");
+
   if (!existsSync(DOSSIERS_ROOT)) {
     const msg = "data/dossiers not found.";
     if (wantJson) process.stdout.write(JSON.stringify({ ok: false, error: msg }));
@@ -69,57 +132,24 @@ function main() {
     process.exit(1);
   }
 
-  const files = [
+  const paths = [
     ...listFilesRecursive(join(DOSSIERS_ROOT, "hard")),
     ...listFilesRecursive(join(DOSSIERS_ROOT, "soft")),
   ];
-
-  const drifts = [];
-  const checked = [];
-  const skipped = [];
-
-  for (const file of files) {
-    let content;
+  const files = paths.map((p) => {
     try {
-      content = readFileSync(file, "utf8");
+      return { path: relPath(p), content: readFileSync(p, "utf8") };
     } catch {
-      continue;
+      return { path: relPath(p), content: "" };
     }
-    const apiMatch = content.match(API_VERSION_RE);
-    if (!apiMatch) continue;
-    const pinned = apiMatch[1];
-    const rel = file.replace(ROOT + "\\", "").replace(ROOT + "/", "").replace(/\\/g, "/");
+  });
 
-    // Attribute the pin to an SDK by its import.
-    let matchedSdk = null;
-    for (const [, sdk] of Object.entries(SDK_VERSION_SOURCES)) {
-      if (sdk.importMatch.test(content)) {
-        matchedSdk = sdk;
-        break;
-      }
-    }
-    if (!matchedSdk) {
-      // A pinned apiVersion we can't attribute to a known SDK — surface as a
-      // skip so it's visible but never a false-positive failure.
-      skipped.push({ file: rel, pinned, reason: "unrecognized-sdk" });
-      continue;
-    }
-    const expected = matchedSdk.expected();
-    if (!expected) {
-      skipped.push({ file: rel, pinned, reason: `${matchedSdk.label}-not-installed` });
-      continue;
-    }
-    checked.push({ file: rel, sdk: matchedSdk.label, pinned, expected });
-    if (pinned !== expected) {
-      drifts.push({ file: rel, sdk: matchedSdk.label, pinned, expected });
-    }
-  }
+  const { checked, drifts, skipped, unreadable } = evaluatePins({ files });
+  const failed = drifts.length > 0 || unreadable.length > 0;
 
   if (wantJson) {
-    process.stdout.write(
-      JSON.stringify({ ok: drifts.length === 0, checked, drifts, skipped }),
-    );
-    process.exit(drifts.length === 0 ? 0 : 1);
+    process.stdout.write(JSON.stringify({ ok: !failed, checked, drifts, skipped, unreadable }));
+    process.exit(failed ? 1 : 0);
   }
 
   console.log(`Dossier SDK-version check — ${checked.length} pinned apiVersion(s) checked\n`);
@@ -130,16 +160,41 @@ function main() {
   for (const s of skipped) {
     console.log(`SKIP  ${s.file}  pinned=${s.pinned} (${s.reason})`);
   }
-  if (drifts.length > 0) {
-    console.error(
-      `\n${drifts.length} dossier SDK apiVersion drift(s). Update the dossier literal to match the installed SDK:`,
-    );
-    for (const d of drifts) {
-      console.error(`  - ${d.file}: ${d.sdk} apiVersion "${d.pinned}" -> "${d.expected}"`);
+  for (const u of unreadable) {
+    console.error(`FAIL  ${u.file}  [${u.sdk}] pinned=${u.pinned} — installed SDK version could not be read`);
+  }
+  if (failed) {
+    if (drifts.length > 0) {
+      console.error(
+        `\n${drifts.length} dossier SDK apiVersion drift(s). Update the dossier literal to match the installed SDK:`,
+      );
+      for (const d of drifts) {
+        console.error(`  - ${d.file}: ${d.sdk} apiVersion "${d.pinned}" -> "${d.expected}"`);
+      }
+    }
+    if (unreadable.length > 0) {
+      console.error(
+        `\n${unreadable.length} pinned SDK(s) installed but expected version unreadable — cannot verify (failing closed).`,
+      );
     }
     process.exit(1);
   }
   console.log("\nAll pinned dossier SDK apiVersions match the installed SDKs.");
 }
 
-main();
+// Only run when invoked directly (so the test can import evaluatePins without
+// walking the fs or calling process.exit). Compare URL strings — robust across
+// Windows backslash/drive-letter differences (mirrors run-migrations.ts).
+function isInvokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main();
+}

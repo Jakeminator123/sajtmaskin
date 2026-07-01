@@ -327,10 +327,21 @@ def _run_sdk_version_check() -> dict[str, Any]:
             check=False,
             timeout=60,
         )
+        # The script emits a JSON envelope on BOTH success (exit 0) and drift
+        # (exit 1). A crash before writing JSON leaves empty stdout — do NOT treat
+        # that as `{}`/success; gate on parseability + returncode so the operator
+        # never sees a green banner when the check never actually ran (Bugbot).
+        stdout = (result.stdout or "").strip()
+        if not stdout:
+            return {
+                "ok": False,
+                "error": (result.stderr or "").strip()
+                or f"SDK-versionskollen gav ingen output (exit {result.returncode}).",
+            }
         try:
-            return json.loads(result.stdout or "{}")
+            return json.loads(stdout)
         except json.JSONDecodeError:
-            return {"ok": False, "error": result.stderr or result.stdout or "Okänt fel."}
+            return {"ok": False, "error": result.stderr or stdout or "Okänt fel."}
     except Exception as exc:  # noqa: BLE001 - surface any failure to the operator
         return {"ok": False, "error": str(exc)}
 
@@ -352,19 +363,34 @@ def _section_health() -> None:
         else:
             drifts = res.get("drifts", [])
             checked = res.get("checked", [])
+            unreadable = res.get("unreadable", [])
+            skipped = res.get("skipped", [])
             if drifts:
                 st.error(f"{len(drifts)} SDK-versionsdrift(er) hittades:")
                 st.dataframe(drifts, use_container_width=True, hide_index=True)
-            else:
-                st.success(
-                    f"Alla {len(checked)} pinnade SDK-apiVersion(er) matchar installerade SDK:er."
+            if unreadable:
+                st.error(
+                    f"{len(unreadable)} pinnad SDK installerad men versionen kunde inte läsas "
+                    "(kan ej verifiera — fail-closed):"
                 )
+                st.dataframe(unreadable, use_container_width=True, hide_index=True)
+            if not drifts and not unreadable:
+                if checked:
+                    st.success(
+                        f"Alla {len(checked)} pinnade SDK-apiVersion(er) matchar installerade SDK:er."
+                    )
+                else:
+                    # Nothing verified is NOT the same as healthy — don't show green.
+                    st.info(
+                        "Inga pinnade SDK-apiVersion(er) kunde kontrolleras "
+                        "(inga kända pins, eller SDK:erna är inte installerade i detta repo)."
+                    )
             if checked:
                 st.caption("Kontrollerade pins:")
                 st.dataframe(checked, use_container_width=True, hide_index=True)
-            if res.get("skipped"):
+            if skipped:
                 st.caption("Överhoppade (okänd/ej installerad SDK):")
-                st.dataframe(res["skipped"], use_container_width=True, hide_index=True)
+                st.dataframe(skipped, use_container_width=True, hide_index=True)
 
 
 def _list_template_refs() -> list[str]:
