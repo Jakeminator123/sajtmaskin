@@ -74,6 +74,21 @@ const CLERK_SERVER_IMPORTS = new Set([
   "clerkClient",
 ]);
 
+// Named symbols resolved to a package ONLY here (diagnostic-driven). These are
+// deliberately NOT added to `KNOWN_MODULE_SPECIFIERS`, because that map also
+// feeds the BLIND orphan-import guesser (`guessModuleForSpecifiers`), whose
+// `some()` match would pull unrelated names into the package (e.g. a corrupted
+// `{ toast, Clapperboard }` block wrongly closing as `from "sonner"` — Bugbot).
+// The diagnostic path is exact (tsc names the missing symbol), so it is safe.
+//
+// `toast`: the sonner toast FUNCTION is the #1 recurring prod fault
+// (`Cannot find name 'toast'`). The `<Toaster />` wrapper is separately handled
+// via SHADCN_COMPONENTS (`@/components/ui/sonner`). sonner is not a tier-3 SDK,
+// so this resolves in both F2 and F3.
+const NAMED_PACKAGE_IMPORTS: Record<string, string> = {
+  toast: "sonner",
+};
+
 /**
  * True for server-only files where a bare `Stripe` reference resolves to the
  * `stripe` package default export (`new Stripe(...)` in an API route). Gating by
@@ -128,6 +143,12 @@ function resolveKnownImportRaw(
   // Clerk server entrypoint — named imports.
   if (CLERK_SERVER_IMPORTS.has(name)) {
     return { module: "@clerk/nextjs/server", kind: "named" };
+  }
+  // Diagnostic-only named package imports (e.g. `toast` → sonner). See the
+  // NAMED_PACKAGE_IMPORTS comment: kept out of KNOWN_MODULE_SPECIFIERS so the
+  // blind guesser can't mis-attribute unrelated symbols.
+  if (NAMED_PACKAGE_IMPORTS[name]) {
+    return { module: NAMED_PACKAGE_IMPORTS[name], kind: "named" };
   }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return { module, kind: "named" };
