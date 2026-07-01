@@ -779,6 +779,60 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(false);
   });
 
+  it("imported-repo mode: downgrades the trivial home-route block to a non-blocking warning", async () => {
+    // A verbatim v0-template repo edit must not be false-blocked by the
+    // scaffold-only home-route min-content gate. Same trivial page as the
+    // plan-11 test above, but with importedRepoMode → warning, not error.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const trivialPage = "export default function Page() { return <main></main>; }";
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_imported_trivial",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: trivialPage, language: "tsx" },
+      ]),
+      importedRepoMode: true,
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(trivialIssue?.severity).toBe("warning");
+    expect(result.previewStart.canStartPreview).toBe(true);
+  });
+
+  it("imported-repo mode: downgrades project-sanity errors to warnings (VM validates verbatim repos)", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    runProjectSanityChecks.mockReturnValue({
+      valid: false,
+      issues: [
+        {
+          file: "src/app/page.tsx",
+          severity: "error",
+          message: "Missing required export",
+          category: "code_structure_failure",
+        },
+      ],
+    });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_imported_sanity",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+      ]),
+      importedRepoMode: true,
+    });
+
+    const sanityIssue = result.preflightIssues.find(
+      (i) => i.message === "Missing required export",
+    );
+    expect(sanityIssue?.severity).toBe("warning");
+    expect(result.previewStart.canStartPreview).toBe(true);
+  });
+
   it("does not flag a composed home route that delegates to a real local component", async () => {
     // Regression: prod chat bb918df9 (version 103e60b5) shipped a thin
     // `app/page.tsx` that delegated its whole body to `<PalmaGuide />`.

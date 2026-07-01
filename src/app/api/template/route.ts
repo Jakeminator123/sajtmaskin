@@ -180,6 +180,11 @@ async function initializeLocalTemplateProject(params: {
     chat.id,
     assistantMessage.id,
     JSON.stringify(imported.files),
+    undefined,
+    // Mark the imported v0 repo so follow-up generations treat it as a
+    // verbatim repo edit (skip scaffold assembly + relax scaffold-only
+    // preflight gates) instead of forcing the landing-page scaffold contract.
+    { editKind: "imported_repo" },
   );
 
   let previewUrl: string | null = null;

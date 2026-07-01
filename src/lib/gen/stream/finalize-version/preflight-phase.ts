@@ -190,6 +190,21 @@ export async function runPreflightPhase(params: {
     }
   }
 
+  // Imported-repo detection: a chat that started from a verbatim v0-template
+  // import carries edit_kind="imported_repo" on its origin version. Such a
+  // follow-up must relax the scaffold-only preflight gates (home-route min
+  // content, project-sanity) — an arbitrary v0 repo does not conform to the
+  // own-engine scaffold contract and would otherwise be false-blocked.
+  let importedRepoMode = false;
+  if (previousFiles && previousFiles.length > 0) {
+    try {
+      const versions = await chatRepo.getVersionsByChat(chatId);
+      importedRepoMode = versions.some((v) => v.edit_kind === "imported_repo");
+    } catch {
+      /* best-effort; default to strict scaffold gates on lookup failure */
+    }
+  }
+
   let preflightResult = await runFinalizePreflight({
     chatId,
     model,
@@ -201,6 +216,7 @@ export async function runPreflightPhase(params: {
     originalPrompt,
     repairLedger,
     repairScopeId,
+    importedRepoMode,
   });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
@@ -326,6 +342,7 @@ export async function runPreflightPhase(params: {
         originalPrompt,
         repairLedger,
         repairScopeId,
+        importedRepoMode,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair

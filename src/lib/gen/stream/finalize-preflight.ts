@@ -78,6 +78,16 @@ export interface RunFinalizePreflightParams {
   originalPrompt?: string;
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * True for verbatim imported-repo edits (v0-template chats). Relaxes the
+   * scaffold-only quality gates — the missing/trivial home-route gate and
+   * project-sanity — from blocking errors to non-blocking warnings, and skips
+   * scaffold home-route LLM recovery. Syntax, degeneracy and buildable-preview
+   * checks stay blocking. An arbitrary v0 repo does not conform to the
+   * own-engine scaffold contract, so those gates would otherwise false-block
+   * every follow-up on an imported repo.
+   */
+  importedRepoMode?: boolean;
 }
 
 export interface RunFinalizePreflightResult {
@@ -702,13 +712,23 @@ type FinalizePreflightAllResult = {
 function runFinalizePreflightAll(params: {
   files: CodeFile[];
   actualRoutes: string[];
+  importedRepoMode?: boolean;
 }): FinalizePreflightAllResult {
   const tier2Issues = collectTier2HygieneIssues(params.files);
 
   const sanity = runProjectSanityChecks(params.files);
-  const sanityIssues = sanity.issues.map((issue) =>
-    createIssue(issue.file, issue.severity, issue.message, issue.category),
-  );
+  // Imported repos (v0 templates) do not conform to the own-engine scaffold
+  // contract, so downgrade project-sanity errors to non-blocking warnings —
+  // the VM is the real validator for a verbatim repo edit.
+  const sanityIssues = sanity.issues.map((issue) => {
+    const downgrade = params.importedRepoMode && issue.severity === "error";
+    return createIssue(
+      issue.file,
+      downgrade ? "warning" : issue.severity,
+      issue.message,
+      downgrade ? "non_blocking_quality_warning" : issue.category,
+    );
+  });
 
   const seoIssues = runSeoPreflightChecks(params.files).map((issue) =>
     createIssue(issue.file || "seo", issue.severity, issue.message, issue.category),
@@ -898,6 +918,7 @@ export async function runFinalizePreflight({
   originalPrompt: _originalPrompt,
   repairLedger: providedRepairLedger,
   repairScopeId,
+  importedRepoMode = false,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   const repairLedger = providedRepairLedger ?? new RepairLedger();
   let nextFilesJson = filesJson;
@@ -1214,16 +1235,20 @@ export async function runFinalizePreflight({
       }
     }
 
-    const homeRecovery = await tryRecoverMissingHomeRoute({
-      chatId,
-      resolvedTier: _resolvedTier,
-      files: finalFiles,
-      originalPrompt: _originalPrompt,
-      buildSpec,
-      routePlan,
-      repairLedger,
-      repairScopeId,
-    });
+    // Imported repos already ship their own home route; skip scaffold
+    // home-route LLM recovery (it would try to re-brand a verbatim v0 page).
+    const homeRecovery = importedRepoMode
+      ? { files: finalFiles, recovered: false, attempted: false }
+      : await tryRecoverMissingHomeRoute({
+          chatId,
+          resolvedTier: _resolvedTier,
+          files: finalFiles,
+          originalPrompt: _originalPrompt,
+          buildSpec,
+          routePlan,
+          repairLedger,
+          repairScopeId,
+        });
     if (homeRecovery.attempted) {
       if (homeRecovery.recovered) {
         finalFiles = homeRecovery.files;
@@ -1352,10 +1377,20 @@ export async function runFinalizePreflight({
     // upstream because the user's complaint is "blank promoted site",
     // and the only way that can happen is if `completeProjectFiles`
     // reaches persist without a renderable Home route.
-    const homePageGateIssue = buildMissingHomeRouteIssue(
+    const homePageGateIssueRaw = buildMissingHomeRouteIssue(
       findHomePageFile(completeProjectFiles),
       completeProjectFiles,
     );
+    // Imported repos: downgrade the scaffold home-route gate to a non-blocking
+    // warning so a valid v0 repo whose page delegates deeply is not false-blocked.
+    const homePageGateIssue =
+      homePageGateIssueRaw && importedRepoMode
+        ? {
+            ...homePageGateIssueRaw,
+            severity: "warning" as const,
+            category: "non_blocking_quality_warning" as const,
+          }
+        : homePageGateIssueRaw;
     if (homePageGateIssue) {
       preflightIssues.push(homePageGateIssue);
       devLogAppend("in-progress", {
@@ -1416,6 +1451,7 @@ export async function runFinalizePreflight({
     const preflightAll = runFinalizePreflightAll({
       files: completeProjectFiles,
       actualRoutes,
+      importedRepoMode,
     });
     preflightIssues.push(...preflightAll.issues);
     if (preflightAll.unresolvedImportFallbackUsed) {
