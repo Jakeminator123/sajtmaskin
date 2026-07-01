@@ -165,8 +165,16 @@ def render(ctx: BackofficeContext) -> None:
         "Kräver att du dragit prod-env: "
         "`vercel env pull .env.vercel.production.pulled --environment=production --yes`."
     )
+    # Persist the fetched matrix in session_state and render OUTSIDE the button
+    # handler: st.button() is only True on the run right after the click, so a
+    # render inside the `if` vanishes on the next Streamlit rerun (Bugbot). This
+    # mirrors database_health.py / redis_health.py / log_export.py.
     if st.button("Läs prod fault-matris"):
-        matrix = _prod_fault_matrix(ctx.repo_root, use_prod=True)
+        st.session_state["prod_fault_matrix"] = _prod_fault_matrix(
+            ctx.repo_root, use_prod=True
+        )
+    matrix = st.session_state.get("prod_fault_matrix")
+    if matrix is not None:
         if not matrix.get("ok"):
             st.error(matrix.get("error", "Kunde inte läsa prod fault-matris."))
         elif matrix.get("tableMissing"):
