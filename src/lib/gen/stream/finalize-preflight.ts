@@ -79,13 +79,13 @@ export interface RunFinalizePreflightParams {
   repairLedger?: RepairLedger;
   repairScopeId?: string;
   /**
-   * True for verbatim imported-repo edits (v0-template chats). Relaxes the
-   * scaffold-only quality gates — the missing/trivial home-route gate and
-   * project-sanity — from blocking errors to non-blocking warnings, and skips
-   * scaffold home-route LLM recovery. Syntax, degeneracy and buildable-preview
-   * checks stay blocking. An arbitrary v0 repo does not conform to the
-   * own-engine scaffold contract, so those gates would otherwise false-block
-   * every follow-up on an imported repo.
+   * True for verbatim imported-repo edits (v0-template chats). Relaxes ONLY the
+   * scaffold-*contract* check (project-sanity) from blocking errors to
+   * non-blocking warnings — an arbitrary v0 repo does not conform to the
+   * own-engine scaffold contract. Render-safety gates stay blocking for all
+   * chats: the composition-aware home-route gate (a dropped/broken page or
+   * missing delegated component must still block, not ship blank), merged-syntax,
+   * degeneracy, and buildable-preview.
    */
   importedRepoMode?: boolean;
 }
@@ -1235,20 +1235,16 @@ export async function runFinalizePreflight({
       }
     }
 
-    // Imported repos already ship their own home route; skip scaffold
-    // home-route LLM recovery (it would try to re-brand a verbatim v0 page).
-    const homeRecovery = importedRepoMode
-      ? { files: finalFiles, recovered: false, attempted: false }
-      : await tryRecoverMissingHomeRoute({
-          chatId,
-          resolvedTier: _resolvedTier,
-          files: finalFiles,
-          originalPrompt: _originalPrompt,
-          buildSpec,
-          routePlan,
-          repairLedger,
-          repairScopeId,
-        });
+    const homeRecovery = await tryRecoverMissingHomeRoute({
+      chatId,
+      resolvedTier: _resolvedTier,
+      files: finalFiles,
+      originalPrompt: _originalPrompt,
+      buildSpec,
+      routePlan,
+      repairLedger,
+      repairScopeId,
+    });
     if (homeRecovery.attempted) {
       if (homeRecovery.recovered) {
         finalFiles = homeRecovery.files;
@@ -1377,20 +1373,15 @@ export async function runFinalizePreflight({
     // upstream because the user's complaint is "blank promoted site",
     // and the only way that can happen is if `completeProjectFiles`
     // reaches persist without a renderable Home route.
-    const homePageGateIssueRaw = buildMissingHomeRouteIssue(
+    // Home-route gate is a universal render-safety check (composition-aware, so
+    // legit deep delegation to PRESENT components passes). It stays BLOCKING even
+    // for imported repos — a follow-up that drops/breaks the page or a delegated
+    // component must not ship a blank site. Only the scaffold-contract check
+    // (project-sanity) is relaxed for imported repos (see runFinalizePreflightAll).
+    const homePageGateIssue = buildMissingHomeRouteIssue(
       findHomePageFile(completeProjectFiles),
       completeProjectFiles,
     );
-    // Imported repos: downgrade the scaffold home-route gate to a non-blocking
-    // warning so a valid v0 repo whose page delegates deeply is not false-blocked.
-    const homePageGateIssue =
-      homePageGateIssueRaw && importedRepoMode
-        ? {
-            ...homePageGateIssueRaw,
-            severity: "warning" as const,
-            category: "non_blocking_quality_warning" as const,
-          }
-        : homePageGateIssueRaw;
     if (homePageGateIssue) {
       preflightIssues.push(homePageGateIssue);
       devLogAppend("in-progress", {

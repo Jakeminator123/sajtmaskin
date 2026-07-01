@@ -779,10 +779,11 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(false);
   });
 
-  it("imported-repo mode: downgrades the trivial home-route block to a non-blocking warning", async () => {
-    // A verbatim v0-template repo edit must not be false-blocked by the
-    // scaffold-only home-route min-content gate. Same trivial page as the
-    // plan-11 test above, but with importedRepoMode → warning, not error.
+  it("imported-repo mode: STILL blocks a trivial/blank home route (render-safety gate is universal)", async () => {
+    // Bugbot guard: importedRepoMode must NOT bypass the home-route render-safety
+    // gate — a follow-up that drops the page or breaks a delegated component must
+    // still block, never ship a blank site. Only project-sanity (scaffold
+    // contract) is relaxed for imported repos.
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const trivialPage = "export default function Page() { return <main></main>; }";
 
@@ -799,8 +800,8 @@ describe("runFinalizePreflight", () => {
       (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
     );
     expect(trivialIssue).toBeDefined();
-    expect(trivialIssue?.severity).toBe("warning");
-    expect(result.previewStart.canStartPreview).toBe(true);
+    expect(trivialIssue?.severity).toBe("error");
+    expect(result.previewStart.canStartPreview).toBe(false);
   });
 
   it("imported-repo mode: downgrades project-sanity errors to warnings (VM validates verbatim repos)", async () => {
