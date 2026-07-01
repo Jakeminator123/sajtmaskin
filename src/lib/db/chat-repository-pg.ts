@@ -488,45 +488,76 @@ export async function getVersionById(versionId: string): Promise<Version | null>
   return rows.length > 0 ? (toRow(rows[0]) as unknown as Version) : null;
 }
 
-export async function updateVersionFiles(versionId: string, filesJson: string): Promise<boolean> {
-  const result = await db
-    .update(engineVersions)
-    .set({
-      filesJson,
-      // Invalidate the cached tier-2 preview URL: the next preview-session
-      // request must boot a fresh VM against the updated files instead of
-      // short-circuiting to `startOutcome: "reused_url"` and showing the
-      // previous snapshot. Without this, file mutations via /files were
-      // silently masked by the stale URL (P19 ingress point 1).
-      previewUrl: null,
-      repairedFilesJson: null,
-      repairAvailableAt: null,
-      releaseState: sql<EngineVersionReleaseState>`
-        CASE
-          WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'draft'
-          ELSE ${engineVersions.releaseState}
-        END
-      `,
-      verificationState: sql<EngineVersionVerificationState>`
-        CASE
-          WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'pending'
-          ELSE ${engineVersions.verificationState}
-        END
-      `,
-      verificationSummary: sql<string | null>`
-        CASE
-          WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
-          ELSE ${engineVersions.verificationSummary}
-        END
-      `,
-      promotedAt: sql<Date | null>`
-        CASE
-          WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
-          ELSE ${engineVersions.promotedAt}
-        END
-      `,
-    })
-    .where(eq(engineVersions.id, versionId));
+export async function updateVersionFiles(
+  versionId: string,
+  filesJson: string,
+  options?: { lockTimeoutMs?: number },
+): Promise<boolean> {
+  const setValues = {
+    filesJson,
+    // Invalidate the cached tier-2 preview URL: the next preview-session
+    // request must boot a fresh VM against the updated files instead of
+    // short-circuiting to `startOutcome: "reused_url"` and showing the
+    // previous snapshot. Without this, file mutations via /files were
+    // silently masked by the stale URL (P19 ingress point 1).
+    previewUrl: null,
+    repairedFilesJson: null,
+    repairAvailableAt: null,
+    releaseState: sql<EngineVersionReleaseState>`
+      CASE
+        WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'draft'
+        ELSE ${engineVersions.releaseState}
+      END
+    `,
+    verificationState: sql<EngineVersionVerificationState>`
+      CASE
+        WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'pending'
+        ELSE ${engineVersions.verificationState}
+      END
+    `,
+    verificationSummary: sql<string | null>`
+      CASE
+        WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
+        ELSE ${engineVersions.verificationSummary}
+      END
+    `,
+    promotedAt: sql<Date | null>`
+      CASE
+        WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
+        ELSE ${engineVersions.promotedAt}
+      END
+    `,
+  };
+
+  const lockTimeoutMs = options?.lockTimeoutMs;
+  if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {
+    // Fail-fast, best-effort mode for HOT READ paths (GET /files heal-persist,
+    // M#files1). Writing the whole ~120 KB `files_json` on a read is a
+    // write-on-read anti-pattern: several concurrent /files reads on the same
+    // `engine_versions` row (plus a concurrent error-log INSERT needing a
+    // `FOR KEY SHARE` FK-lock on that row) serialized on the row lock and
+    // blocked to `statement_timeout` (57014) — surfacing as /files 429 +
+    // /error-log 500, and the timed-out UPDATE rolled back so the heal never
+    // stuck (a feedback loop). A transaction-local `lock_timeout` makes a
+    // contended write give up in ~ms so ONE writer commits the (idempotent)
+    // heal fast and the rest bail; NEVER throws, so a read can't 429/500.
+    try {
+      return await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT set_config('lock_timeout', ${String(Math.floor(lockTimeoutMs))}, true)`,
+        );
+        const result = await tx.update(engineVersions).set(setValues).where(eq(engineVersions.id, versionId));
+        return (result.rowCount ?? 0) > 0;
+      });
+    } catch {
+      // Lock contention (55P03) / transient error → skip the heal-persist. The
+      // caller already holds the repaired files and returns them; the next
+      // uncontended read persists the idempotent heal.
+      return false;
+    }
+  }
+
+  const result = await db.update(engineVersions).set(setValues).where(eq(engineVersions.id, versionId));
   return (result.rowCount ?? 0) > 0;
 }
 
