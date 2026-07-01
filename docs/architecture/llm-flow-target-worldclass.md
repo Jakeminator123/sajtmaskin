@@ -1,6 +1,6 @@
 # LLM-flöde — målbild (världsklass)
 
-**Senast uppdaterad:** 2026-04-23.
+**Senast uppdaterad:** 2026-07-01.
 **Syfte:** **norra stjärna** för hur Sajtmaskins LLM-flöde *bör* se ut, separat från hur det faktiskt är just nu. När docs och kod beskriver "vad som finns idag", beskriver den här filen "vad vi siktar mot" så vi kan mäta gap.
 
 > **Den här filen är inte source of truth för runtime.** Det är `src/lib/gen/`, `docs/architecture/fas{1,2,3}-*.md` och `glossary.md`. Den här filen är en **referensvision** att jämföra emot.
@@ -129,6 +129,8 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
 
 **Detta är implementerat.** UI-text mellan `verifying`/`repairing`/`repair_available`/`promoted` glider fortfarande ihop — se status-bus nedan.
 
+> **Kvarvarande F2-friktion (kod-sanning 2026-07-01):** F2:s quality gate är `["typecheck"]` men **fortfarande en hård promotion-gate** — `POST .../quality-gate` kör `failVersionVerification` när `gateResult.passed === false` (`quality-gate/route.ts:396-400`). Ett F2-typecheck-fel failar alltså versionen och triggar repair även om previewn redan renderar. Det är **inte** "render räcker". PR #330 ("F2 render is enough" → typecheck advisory när preview renderar) är **stängd, ej mergad** (`state: CLOSED`, `draft`), så den friktionen finns kvar i master. Målbilden ovan (F2 = "preview bootar, renderar, ingen fatal") är alltså aspiration, inte nuläge.
+
 ### Single status truth
 
 ```
@@ -143,9 +145,9 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
                      overlay
 ```
 
-**Idag:** OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion, och Område 6 (cut-over) flippade builder-ytorna dit: `BuilderShellContent.tsx` läser bus-status via `useVersionStatus`, `VersionHistory` via server-enrichat `busStatus`. Den gamla DB-flagg-helpern `resolveEngineVersionDisplayStatus` är **borttagen** (6-3).
+**Idag:** OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion, och Område 6 (cut-over) flippade builder-ytorna dit: `BuilderShellContent.tsx` läser bus-status via `useVersionStatus`, `VersionHistory` via server-enrichat `busStatus`. Den gamla DB-flagg-helpern `resolveEngineVersionDisplayStatus` är **borttagen** (6-3). Bussen är dock inte längre *enda* källan: sedan #337/#342 är statusytan en **hybrid** — `/version-status` + `/versions` reconcilar bus-fasen mot terminalt DB-`verification_state` (`reconcileTerminalDbState`), `/version-status` + `/readiness` delar en lease-säker stale-watchdog (`settleStaleVerificationIfNeeded`), och `useVersionStatus` har ett klient-poll-tak. Det stänger de eviga `verifying`/`repairing`-spinner-lägena.
 
-**Plan:** event-bus UI-flip (spår A) — se `docs/plans/active/README.md` (öppna P2) + arkiverad `Kvarvarande-uppgifter.md` punkt 11. F2/F3-ordval (spår B) ägs separat av `docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
+**Status:** event-bus UI-flip (spår A / f.d. "Kvarvarande #11") är **klar** — bus-projektion + terminal DB-reconcile + stale-watchdog + klient-tak levererade (#337, #342). F2/F3-ordval (spår B) ägs separat av `docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
 
 ---
 
