@@ -242,7 +242,7 @@ Ordning enligt `OWN_ENGINE_POST_STREAM_PIPELINE` (`finalize-pipeline-contract.ts
 | `GET .../preview-status` | Status/resync/recover |
 | `POST .../preview-heartbeat` / `-hibernate` / `-destroy` | Sessionslivscykel |
 | `POST .../quality-gate` | Quality-gate lane |
-| `GET .../version-status` | Server-projektion (`selectVersionStatus`), läses av `useVersionStatus` (poll 4s) |
+| `GET .../version-status` | Server-projektion (`selectVersionStatus`), läses av `useVersionStatus` (poll 4s). Kör samma lease-säkra stale-watchdog som `/readiness` (`settleStaleVerificationIfNeeded`) och reconcilar bus-fasen mot terminalt DB-`verification_state` (`reconcileTerminalDbState`) så en död verify-runda aldrig lämnar spinnern tickande |
 | `POST .../repair` / `accept-repair` | Repair-flöde |
 | `POST .../finalize-design` | F3-trigger ("Bygg integrationer") |
 | `POST /api/v0/deployments` | Deploy till Vercel |
@@ -322,7 +322,7 @@ Rate limit/bot-check/Zod → credits → ladda version → **pre-deploy fix-pipe
 |---|-----|----------------|
 | 1 | Intent (Deep Brief) | Delvis — fyra brief-vägar möts i `OrchestrationInput.brief` |
 | 2 | Prompt composition | ✅ `composeEngineSystemPrompt()` + `static-core-loader` |
-| 3 | Runtime status | Delvis — `selectVersionStatus()` är kanonisk projektion; `done`-SSE + DB-flaggor lever parallellt |
+| 3 | Runtime status | Delvis — `selectVersionStatus()` är kanonisk projektion; `done`-SSE + DB-flaggor lever parallellt. `/version-status` reconcilar numera bus mot terminalt DB-`verification_state` (`reconcileTerminalDbState`) + delar stale-watchdog med `/readiness` så ytorna konvergerar terminalt |
 | 4 | Ett repair-kontrakt | Delvis — `runLlmRepairGate()` + `RepairLedger` centraliserar; flera entry points kvar |
 | 5 | F2 vs F3 | ✅ i kod (`previewPolicy`, `lifecycleStage`, env-lager); UI kan glida i begrepp |
 

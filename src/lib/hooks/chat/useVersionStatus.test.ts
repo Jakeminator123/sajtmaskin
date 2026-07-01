@@ -291,3 +291,94 @@ describe("useVersionStatus — deterministic post-check refetch (område 6-3 pun
     expect(result.current.status?.degradations[0]?.kind).toBe("product_postcheck_skipped");
   });
 });
+
+/**
+ * Perpetual-spinner backstop (fix/verify-status-single-source).
+ *
+ * The builder spinner reads the bus projection; a background verify job that
+ * dies without a terminal event would otherwise leave `useVersionStatus`
+ * polling a non-terminal phase forever. The server-side stale watchdog settles
+ * such a row to `failed` first, but as an ultimate client net the hook stops
+ * polling after `maxNonTerminalMs` and surfaces a timeout instead of spinning /
+ * churning network forever.
+ */
+describe("useVersionStatus — perpetual-spinner client backstop", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("stops polling and surfaces a timeout when the projection never becomes terminal", async () => {
+    const spinning = vs({ phase: "verifying", done: false, verifierOutcome: null, eventCount: 1 });
+    const fetchMock = sequenceFetch([spinning]); // clamped tail = always spinning
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        maxNonTerminalMs: 2_500,
+      }),
+    );
+
+    // Initial fetch at t0 starts the non-terminal window.
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+
+    // Polls at t=1000 and t=2000 are still within the 2500ms cap.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 2);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.error).toBeNull();
+
+    // Poll at t=3000 exceeds the cap → stop polling + surface the timeout.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.current.error).toBe("verification_status_timeout");
+
+    // No further polling after the cap trips.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 10);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("never trips the cap once the projection reaches a terminal phase", async () => {
+    const failed = vs({ phase: "failed", done: false, verifierOutcome: "failed", eventCount: 2 });
+    const fetchMock = sequenceFetch([failed]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        maxNonTerminalMs: 1_000,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // `failed` hard-stops immediately; the cap is irrelevant and no error is set.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 5);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+    expect(result.current.status?.phase).toBe("failed");
+  });
+});

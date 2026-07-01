@@ -103,6 +103,7 @@
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
     "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --gate --save-baseline",
     "db:migrate": "npx tsx scripts/db/run-migrations.ts",
+    "db:settle-stuck-verifications": "node scripts/db/settle-stuck-verifications.mjs",
     "db:push": "node scripts/db/db-push.mjs",
     "db:generate": "npx drizzle-kit generate",
     "vercel:link": "vercel link",

@@ -16,14 +16,26 @@
  * 6-2 the version-history badges read the bus too — via the
  * server-enriched `busStatus` field on the `/versions` route — so the
  * legacy DB resolver is no longer the status source for the builder.
+ *
+ * Terminal backstop: this route reads the bus projection, but a background
+ * verify job that dies without emitting a terminal event would otherwise
+ * leave the bus stuck on `verifying`/`repairing` forever — a perpetual
+ * "Verifierar"-spinner. So we run the same lease-safe stale-verification
+ * watchdog as `/readiness` (shared `settleStaleVerificationIfNeeded`) and
+ * reconcile the bus projection with the authoritative DB terminal state
+ * (`reconcileTerminalDbState`). This guarantees the spinner always resolves.
  */
 
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
+import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
+import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -54,12 +66,30 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       );
     }
 
-    const events = readAll(scopedVersion.version.id);
-    const status = selectVersionStatus(events);
+    // Lease-safe stale watchdog: settle a version stuck past the route budget
+    // to a terminal DB state. The failure-summary read is lazy — it only runs
+    // when a row is actually stale, keeping the 4s poll cheap in the hot path.
+    const { version: dbVersion } = await settleStaleVerificationIfNeeded(
+      scopedVersion.version,
+      {
+        resolveFailureSummary: async () =>
+          resolveGateFailureSummaryFromLogs(
+            await getEngineVersionErrorLogs(scopedVersion.version.id),
+          ),
+      },
+    );
+
+    const events = readAll(dbVersion.id);
+    // Reconcile the bus projection with the authoritative DB terminal state so
+    // a died-mid-verify job can never leave the spinner ticking forever.
+    const status = reconcileTerminalDbState(
+      selectVersionStatus(events),
+      dbVersion.verification_state,
+    );
 
     return NextResponse.json<VersionStatusApiResponse>({
       ok: true,
-      versionId: scopedVersion.version.id,
+      versionId: dbVersion.id,
       status,
     });
   } catch (err) {

@@ -41,6 +41,20 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
 
 const DEFAULT_POLL_INTERVAL_MS = 4_000;
 
+/**
+ * Client-side ultimate backstop against a perpetual "Verifierar" spinner: stop
+ * polling once the projection has stayed non-terminal (never `done`/`failed`)
+ * for this long. Set strictly ABOVE the server-side stale-verification watchdog
+ * (`STALE_VERIFICATION_TIMEOUT_MS`, ~= the verify/repair route budget) so the
+ * server settles a genuinely stuck version to `failed` FIRST — and the client
+ * observes that terminal phase on its next poll. This cap therefore only trips
+ * when the projection itself never resolves (e.g. `/version-status` unreachable),
+ * where continuing to poll forever helps nobody. Kept as a plain client
+ * constant (not imported from server `defaults.ts`) to avoid pulling server-only
+ * code into the client bundle; the value just needs to exceed the server budget.
+ */
+const DEFAULT_MAX_NON_TERMINAL_POLL_MS = 15 * 60_000;
+
 type FetchResponseOk = { ok: true; versionId: string; status: VersionStatus };
 type FetchResponseErr = { ok: false; error: string };
 
@@ -63,8 +77,19 @@ export function useVersionStatus(params: {
    * polling cadence (e.g. after a repair-triggered button press).
    */
   refreshNonce?: number;
+  /**
+   * Override the wall-clock cap after which a never-terminal projection stops
+   * polling (see `DEFAULT_MAX_NON_TERMINAL_POLL_MS`). Mainly for tests.
+   */
+  maxNonTerminalMs?: number;
 }): FetchState {
-  const { chatId, versionId, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS, refreshNonce = 0 } = params;
+  const {
+    chatId,
+    versionId,
+    pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+    refreshNonce = 0,
+    maxNonTerminalMs = DEFAULT_MAX_NON_TERMINAL_POLL_MS,
+  } = params;
   const [state, setState] = useState<FetchState>({
     status: null,
     loading: false,
@@ -78,6 +103,10 @@ export function useVersionStatus(params: {
   // count) is always observed before polling ends. `null` = no prior
   // fetch yet for this key.
   const prevEventCountRef = useRef<number | null>(null);
+  // Wall-clock timestamp of the first non-terminal poll for the current key —
+  // drives the client-side perpetual-spinner backstop. `null` = not yet in a
+  // tracked non-terminal window (reset per key and whenever `done` is reached).
+  const nonTerminalStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!chatId || !versionId) {
@@ -89,6 +118,7 @@ export function useVersionStatus(params: {
     lastKeyRef.current = key;
     // Fresh stability tracking for each (chat, version, refresh) key.
     prevEventCountRef.current = null;
+    nonTerminalStartRef.current = null;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled && lastKeyRef.current === key) {
@@ -155,8 +185,31 @@ export function useVersionStatus(params: {
         // Still in-flight (or a transient fetch error → null): keep
         // polling and restart the done-confirmation window.
         doneConfirmPolls = 0;
+        // Perpetual-spinner backstop: if the projection never reaches a
+        // terminal phase within the cap, stop polling. The server-side
+        // stale-verification watchdog (shared by /version-status + /readiness)
+        // normally settles a genuinely stuck version to `failed` well before
+        // this, so reaching the cap means the projection itself never resolved
+        // — surface it as an error rather than spin (or churn network) forever.
+        const now = Date.now();
+        if (nonTerminalStartRef.current === null) {
+          nonTerminalStartRef.current = now;
+        } else if (now - nonTerminalStartRef.current > maxNonTerminalMs) {
+          if (!cancelled && lastKeyRef.current === key) {
+            setState((prevState) => ({
+              status: prevState.status,
+              loading: false,
+              error: "verification_status_timeout",
+            }));
+          }
+          return true;
+        }
         return false;
       }
+
+      // Reached a `done` projection → clear the non-terminal window so a later
+      // (post-refresh) non-terminal phase starts a fresh cap.
+      nonTerminalStartRef.current = null;
 
       doneConfirmPolls += 1;
       // Stable: `done` AND no new event since the previous fetch.
@@ -192,7 +245,7 @@ export function useVersionStatus(params: {
         window.clearInterval(intervalId);
       }
     };
-  }, [chatId, versionId, pollIntervalMs, refreshNonce]);
+  }, [chatId, versionId, pollIntervalMs, refreshNonce, maxNonTerminalMs]);
 
   if (!chatId || !versionId) {
     return { status: null, loading: false, error: null };
