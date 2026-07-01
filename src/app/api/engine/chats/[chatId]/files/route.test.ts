@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const shouldUseV0Fallback = vi.hoisted(() => vi.fn(() => false));
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
+const getLatestVersionFiles = vi.hoisted(() => vi.fn());
 const updateVersionFiles = vi.hoisted(() => vi.fn());
+const getPreferredVersion = vi.hoisted(() => vi.fn());
+const getLatestVersion = vi.hoisted(() => vi.fn());
+const repairGeneratedFiles = vi.hoisted(() =>
+  vi.fn((files: unknown) => ({ files, fixes: [] as unknown[] })),
+);
 vi.mock("@/lib/tenant", () => ({
   getChatByV0ChatIdForRequest: vi.fn(),
-  getEngineChatByIdForRequest: vi.fn(),
+  getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 }));
 
@@ -43,12 +50,12 @@ vi.mock("@/lib/gen/engine", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
-  getLatestVersionFiles: vi.fn(),
+  getLatestVersionFiles,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getPreferredVersion: vi.fn(),
-  getLatestVersion: vi.fn(),
+  getPreferredVersion,
+  getLatestVersion,
   updateVersionFiles,
 }));
 
@@ -65,20 +72,23 @@ vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
 }));
 
 vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
-  repairGeneratedFiles: (files: unknown) => ({
-    files,
-    fixes: [],
-  }),
+  repairGeneratedFiles,
 }));
 
-import { DELETE, PATCH } from "./route";
+import { DELETE, GET, PATCH } from "./route";
 
 describe("own-engine file route parity", () => {
   beforeEach(() => {
     shouldUseV0Fallback.mockReturnValue(false);
     getEngineVersionForChatByIdForRequest.mockReset();
+    getEngineChatByIdForRequest.mockReset();
     getVersionFiles.mockReset();
+    getLatestVersionFiles.mockReset();
     updateVersionFiles.mockReset();
+    getPreferredVersion.mockReset();
+    getLatestVersion.mockReset();
+    repairGeneratedFiles.mockReset();
+    repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
   });
 
   it("updates a single own-engine file via PATCH without touching the v0 path", async () => {
@@ -135,5 +145,64 @@ describe("own-engine file route parity", () => {
       "ver_1",
       JSON.stringify([{ path: "src/lib/util.ts", content: "util", language: "ts" }]),
     );
+  });
+});
+
+describe("GET /files heal-persist (M#files1 write-on-read)", () => {
+  const originalFiles = [{ path: "src/app/page.tsx", content: "before", language: "tsx" }];
+  const repairedFiles = [{ path: "src/app/page.tsx", content: "after", language: "tsx" }];
+
+  beforeEach(() => {
+    shouldUseV0Fallback.mockReturnValue(false);
+    getEngineVersionForChatByIdForRequest.mockReset();
+    getEngineChatByIdForRequest.mockReset();
+    getVersionFiles.mockReset();
+    updateVersionFiles.mockReset();
+    repairGeneratedFiles.mockReset();
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "ver_1" } });
+    getVersionFiles.mockResolvedValue(originalFiles);
+  });
+
+  function getReq() {
+    return GET(
+      new Request("https://example.com/api/engine/chats/chat_1/files?versionId=ver_1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+  }
+
+  it("does NOT persist when the repair is a no-op (avoids write-on-read storm)", async () => {
+    repairGeneratedFiles.mockReturnValue({ files: originalFiles, fixes: [] });
+    const res = await getReq();
+    expect(res.status).toBe(200);
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("persists a real heal fail-fast (bounded lockTimeoutMs) on the read path", async () => {
+    repairGeneratedFiles.mockReturnValue({
+      files: repairedFiles,
+      fixes: [{ fixer: "x", category: "mechanical" }],
+    });
+    updateVersionFiles.mockResolvedValue(true);
+    const res = await getReq();
+    const body = (await res.json()) as { files: Array<{ content: string }> };
+    expect(res.status).toBe(200);
+    expect(body.files[0]?.content).toBe("after");
+    // Heal-persist is fail-fast: passes a bounded lock timeout, never a raw write.
+    expect(updateVersionFiles).toHaveBeenCalledWith("ver_1", JSON.stringify(repairedFiles), {
+      lockTimeoutMs: expect.any(Number),
+    });
+  });
+
+  it("still returns 200 with repaired files when the heal-persist throws (best-effort)", async () => {
+    repairGeneratedFiles.mockReturnValue({
+      files: repairedFiles,
+      fixes: [{ fixer: "x", category: "mechanical" }],
+    });
+    updateVersionFiles.mockRejectedValue(new Error("lock timeout / statement_timeout"));
+    const res = await getReq();
+    const body = (await res.json()) as { files: Array<{ content: string }> };
+    expect(res.status).toBe(200);
+    expect(body.files[0]?.content).toBe("after");
   });
 });
