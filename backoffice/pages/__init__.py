@@ -37,6 +37,7 @@ from . import (
     scaffolds,
     selection_rationale,
     shadcn_audit,
+    templates_blob,
     user_degraded_env,
 )
 
@@ -82,6 +83,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Databashälsa", "Overhead", database_health.render),
     PageSpec("Redis-hälsa", "Overhead", redis_health.render),
     PageSpec("Projekt-admin (radera)", "Overhead", projects_admin.render),
+    PageSpec("Mallar → Blob-upload", "Overhead", templates_blob.render),
     PageSpec("Mental modell", "Overhead", mental_model.render),
 )
 
