@@ -181,6 +181,7 @@ request needs 3D
 | Element Preservation Guard | ✅ | Mekaniskt skydd mot att follow-ups tappar high-value-element |
 | Verifier-fynd → LLM-fixer på pre-VM-vägen | ✅ | Kvalitet rättas innan UI ser version |
 | Auto-repair på `build-error` (dev/preview) | ✅ | Stänger F2 + `verificationPolicy: fast`-gapet |
+| Status event bus (UI-flip + terminalitet) | ✅ | Bus-projektion + terminal DB-reconcile + delad stale-watchdog + klient-poll-tak (#337/#342); f.d. `Kvarvarande #11` |
 | Brief-cache i Redis | ✅ | Sparar 1 LLM-anrop/retry på samma input |
 
 ---
@@ -192,7 +193,7 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 | Gap | Idag | Mål | Plan / status |
 |---|---|---|---|
 | **Single repair gate** | 5 callsites till `runLlmFixer` | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
-| **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB | UI läser projektion `selectVersionStatus(events)` | `Kvarvarande-uppgifter.md` #11 |
+| **F2 = render räcker** | F2 quality gate `["typecheck"]` failar versionen hårt vid typfel även när preview renderar | F2-typecheck advisory när preview renderar; hårt först i F3 | PR #330 **stängd, ej mergad** — friktionen finns kvar |
 | **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief; fallback-addendum finns kvar som degraderad helper, inte som init-chat-wrapper | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
 | **Follow-up som strikt delta** | rätt i praktiken, men spritt över helpers | `FollowUpContract`-typ som samlar inheritance | (ingen aktiv plan) |
 | **Verifier-pass placering** | Inline i finalize, men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
@@ -220,5 +221,5 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 |---|---|
 | [`llm-pipeline.md`](./llm-pipeline.md) | Vad som faktiskt händer när användaren skickar en prompt — kanoniskt körflöde FAS 1→2→3 |
 | [`llm-signal-flow.md`](./llm-signal-flow.md) | Signal-ownership-matris |
-| [`docs/plans/active/README.md`](../plans/active/README.md) | Koncentrat med konkreta öppna punkter (inkl. event-bus UI-flip, spår A) |
+| [`docs/plans/active/README.md`](../plans/active/README.md) | Koncentrat med konkreta öppna punkter (event-bus UI-flip är numera **levererad** via #337/#342) |
 | [`docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`](../plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md) | F2/F3 copy-konsolidering (spår B, arkiverad) |
