@@ -136,4 +136,19 @@ describe("settleStaleVerificationIfNeeded", () => {
     const [, summary] = failVersionVerificationIfUnleased.mock.calls[0];
     expect(String(summary)).toContain("tog för lång tid");
   });
+
+  it("still settles (generic summary) when resolveFailureSummary throws (Bugbot #337)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveFailureSummary: async () => {
+        throw new Error("transient log-read failure");
+      },
+    });
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+    const [, summary] = failVersionVerificationIfUnleased.mock.calls[0];
+    expect(String(summary)).toContain("tog för lång tid");
+  });
 });

@@ -58,8 +58,16 @@ export async function settleStaleVerificationIfNeeded(
 
   // Prefer the concrete already-logged gate failure (e.g. a deterministic
   // typecheck error) over the generic "took too long" copy — resolved lazily so
-  // the (extra) error-log read only happens when a row is actually stale.
-  const concreteFailureSummary = (await opts?.resolveFailureSummary?.()) ?? null;
+  // the (extra) error-log read only happens when a row is actually stale. The
+  // resolve is best-effort: a transient log-read failure must NOT abort the
+  // settle (else the perpetual-spinner this guards against goes unhandled), so
+  // fall back to the generic summary (Bugbot #337).
+  let concreteFailureSummary: string | null = null;
+  try {
+    concreteFailureSummary = (await opts?.resolveFailureSummary?.()) ?? null;
+  } catch {
+    concreteFailureSummary = null;
+  }
   const timedOutVersion = await failVersionVerificationIfUnleased(
     version.id,
     concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY,

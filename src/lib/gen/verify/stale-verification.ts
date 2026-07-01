@@ -82,13 +82,19 @@ export function reconcileTerminalDbState(
   status: VersionStatus,
   dbVerificationState: string | null | undefined,
 ): VersionStatus {
-  // Bus already terminal → trust it (it carries the richest detail).
+  // DB `failed` is authoritative-negative: honor it even over a `done` bus so a
+  // version the quality gate failed can never read as green. This is the
+  // false-green guard — promote/deploy/readiness all read the DB, so the status
+  // surface must agree once the DB says failed. (Codex/Bugbot #337.)
+  if (dbVerificationState === "failed" && status.phase !== "failed") {
+    return { ...status, phase: "failed" };
+  }
+  // Otherwise a terminal bus wins — never fabricate success over a bus `failed`.
   if (status.phase === "done" || status.phase === "failed") {
     return status;
   }
-  if (dbVerificationState === "failed") {
-    return { ...status, phase: "failed" };
-  }
+  // DB `passed` upgrades a still-spinning bus to done, but only with no blockers,
+  // so a degraded/blocked version never gets settled to solid green.
   if (
     dbVerificationState === "passed" &&
     !status.verificationBlocked &&

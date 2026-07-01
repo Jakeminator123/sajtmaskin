@@ -65,11 +65,21 @@ describe("isTimedOutVerificationState", () => {
 });
 
 describe("reconcileTerminalDbState", () => {
-  it("leaves an already-terminal bus phase untouched", () => {
+  it("lets DB failed override even a done bus (no false-green)", () => {
     const done = makeStatus({ phase: "done", done: true });
-    expect(reconcileTerminalDbState(done, "failed")).toBe(done);
+    const out = reconcileTerminalDbState(done, "failed");
+    expect(out.phase).toBe("failed");
+  });
+
+  it("never upgrades a failed bus via DB passed", () => {
     const failed = makeStatus({ phase: "failed" });
     expect(reconcileTerminalDbState(failed, "passed")).toBe(failed);
+  });
+
+  it("leaves a done bus untouched when the DB is not failed", () => {
+    const done = makeStatus({ phase: "done", done: true });
+    expect(reconcileTerminalDbState(done, "passed")).toBe(done);
+    expect(reconcileTerminalDbState(done, "pending")).toBe(done);
   });
 
   it("maps DB failed → phase failed when the bus is still spinning", () => {
