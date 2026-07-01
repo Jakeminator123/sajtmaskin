@@ -211,6 +211,91 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings[0]?.detail).toContain("<Cuboid");
   });
 
+  it("gives a precise lowercase-tag hint for DOM-interface tags (no react-three noise)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/contact-form.tsx",
+        content: [
+          "export default function ContactForm() {",
+          "  return (",
+          "    <HTMLFormElement onSubmit={() => {}}>",
+          "      <input name='email' />",
+          "    </HTMLFormElement>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("<form>");
+    expect(findings[0]?.detail).toContain("DOM interface");
+    // The misleading react-three hint must NOT appear for a plain DOM tag.
+    expect(findings[0]?.detail.toLowerCase()).not.toContain("boxgeometry");
+    expect(findings[0]?.detail).not.toContain("@react-three/drei");
+  });
+
+  it("omits the react-three hint for undefined symbols in non-R3F files", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: ["export default function Page() {", "  return <FancyWidget />;", "}"].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("<FancyWidget");
+    expect(findings[0]?.detail.toLowerCase()).not.toContain("boxgeometry");
+    expect(findings[0]?.detail).not.toContain("@react-three/drei");
+  });
+
+  it("keeps the react-three hint for a mesh-only R3F child (parent owns Canvas)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/scene-content.tsx",
+        content: [
+          "export default function SceneContent() {",
+          "  return (",
+          "    <group>",
+          "      <mesh>",
+          "        <Cuboid args={[1, 1, 1]} />",
+          "        <meshStandardMaterial color='hotpink' />",
+          "      </mesh>",
+          "    </group>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("<Cuboid");
+    // No `<Canvas>` and no @react-three import in THIS file, but the R3F
+    // intrinsics (<group>/<mesh>/<meshStandardMaterial>) still qualify it.
+    expect(findings[0]?.detail).toContain("@react-three/drei");
+  });
+
+  it("keeps the react-three hint for undefined symbols in files that actually use R3F", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/scene.tsx",
+        content: [
+          'import { Canvas } from "@react-three/fiber";',
+          "export default function Scene() {",
+          "  return (",
+          "    <Canvas>",
+          "      <Cuboid args={[1, 1, 1]} />",
+          "    </Canvas>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("@react-three/drei");
+  });
+
   it("accepts components that are imported via named / default / namespace imports", () => {
     const findings = checkUndefinedJsxSymbols([
       {

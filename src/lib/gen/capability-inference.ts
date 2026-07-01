@@ -28,6 +28,7 @@ import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import {
   hasNegatedAuthIntent,
   hasNegatedBackendIntent,
+  hasNegatedEcommerceIntent,
   hasNegatedPaymentIntent,
   isVisualOnlyFollowUpPrompt,
 } from "@/lib/builder/prompt-negation";
@@ -302,6 +303,10 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   const visualOnlyFollowUp = isVisualOnlyFollowUpPrompt(prompt);
   if (visualOnlyFollowUp || hasNegatedAuthIntent(prompt)) result.needsAuth = false;
   if (visualOnlyFollowUp || hasNegatedPaymentIntent(prompt)) result.needsPayments = false;
+  // needsEcommerce had no negation guard (unlike payments/auth/backend), so a
+  // prompt like "en butik utan varukorg/betalning" still inferred Ecommerce
+  // and dragged in cart/checkout scaffolding (prod chat 8bf59f13, 2026-07-01).
+  if (visualOnlyFollowUp || hasNegatedEcommerceIntent(prompt)) result.needsEcommerce = false;
   if (visualOnlyFollowUp || hasNegatedBackendIntent(prompt)) {
     result.needsDatabase = false;
     result.needsDataUI = false;

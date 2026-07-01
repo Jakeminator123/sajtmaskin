@@ -13,6 +13,14 @@ const PAYMENT_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:betalning|betalningar|payment|payments|stripe|checkout|kassa|kortbetalning|subscription|billing)(?![\p{L}\p{N}_])/iu,
 ];
 
+// Deliberately excludes bare `shop`/`store`/`butik`: those match inside
+// unrelated compounds (e.g. "coffee shop") within a negation window and would
+// wrongly suppress a genuine webshop request elsewhere in the same prompt.
+// Mirror the unambiguous `strongEcommerceIntent` set in capability-inference.ts.
+const ECOMMERCE_TERMS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:webshop|webbshop|e-handel|ehandel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|näthandel|online\s+store|online\s+shop)(?![\p{L}\p{N}_])/iu,
+];
+
 const BACKEND_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:backend|api[-\s]?routes?|api|server|databas|database|sqlite|postgres|prisma|drizzle|persist(?:ed|ence)?|externa\s+tjänster|external\s+services)(?![\p{L}\p{N}_])/iu,
 ];
@@ -53,6 +61,10 @@ export function hasNegatedAuthIntent(prompt: string): boolean {
 
 export function hasNegatedPaymentIntent(prompt: string): boolean {
   return hasNegatedTerms(prompt, PAYMENT_TERMS);
+}
+
+export function hasNegatedEcommerceIntent(prompt: string): boolean {
+  return hasNegatedTerms(prompt, ECOMMERCE_TERMS);
 }
 
 export function hasNegatedBackendIntent(prompt: string): boolean {

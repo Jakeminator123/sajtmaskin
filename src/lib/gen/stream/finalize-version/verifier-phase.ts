@@ -26,7 +26,9 @@ import {
 } from "@/lib/gen/verify/verifier-pass";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { devLogAppend } from "@/lib/logging/devLog";
-import type { AutoFixResult } from "@/lib/gen/autofix/pipeline";
+import { parseCodeProject } from "@/lib/gen/parser";
+import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
+import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
@@ -39,6 +41,40 @@ export interface VerifierPhaseResult {
   contentForVersion: string;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   stepTelemetry: FinalizeStepTelemetry;
+}
+
+/**
+ * Rewrite DOM-interface JSX tags (`<HTMLFormElement/>` → `<form>`) across a
+ * serialized CodeProject deterministically. Writes changes back in place via
+ * `rebuildContent` (per-file fenced-block replacement) rather than re-serializing
+ * the parsed files — so any preamble / non-fence content the parser doesn't
+ * capture is preserved (same approach `runAutoFix` uses). Returns the input
+ * unchanged when nothing was fixed. Pure + cheap (regex, no network) — safe in
+ * the finalize hot path. Failures degrade to the original content.
+ */
+function applyDeterministicDomJsxFix(content: string, chatId: string): string {
+  try {
+    const { files } = parseCodeProject(content);
+    if (files.length === 0) return content;
+    const fixedFiles = files.map((file) => {
+      if (typeof file.content !== "string") return file;
+      const result = fixDomBuiltinJsxTags(file.content, file.path);
+      return result.fixed ? { ...file, content: result.code } : file;
+    });
+    const changedPaths = fixedFiles
+      .filter((f, i) => f.content !== files[i].content)
+      .map((f) => f.path);
+    if (changedPaths.length === 0) return content;
+    devLogAppend("in-progress", {
+      type: "verifier-pass.dom-prefix",
+      chatId,
+      fixedFiles: changedPaths,
+    });
+    return rebuildContent(content, files, fixedFiles);
+  } catch {
+    // Never let a deterministic pre-fix break finalize; fall back to input.
+    return content;
+  }
 }
 
 export async function runVerifierPhase(params: {
@@ -83,6 +119,16 @@ export async function runVerifierPhase(params: {
       stepTelemetry: createFinalizeStepTelemetry(Date.now(), "skipped", { reason }),
     };
   }
+
+  // Deterministic DOM-interface JSX pre-fix, BEFORE the verifier → LLM handoff.
+  // `<HTMLFormElement/>` and friends are trivially and reliably fixable by the
+  // deterministic `dom-builtin-jsx-fixer`. Running it here means this class is
+  // resolved mechanically and never routed to the LLM fixer (which previously
+  // over-fixed a plain `<HTMLFormElement/>` into a Three.js canvas + new import
+  // errors — prod chat 8bf59f13, 2026-07-01). Mirrors the repair-loop, which
+  // already runs the mechanical autofix pass before its LLM fixer.
+  // Guarded on an actual change so the no-op path leaves content untouched.
+  contentForVersion = applyDeterministicDomJsxFix(contentForVersion, chatId);
 
   const verifierStartedAt = Date.now();
   onProgress?.("verifier", { phase: "start" });

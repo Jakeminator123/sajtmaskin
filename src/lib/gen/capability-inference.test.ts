@@ -138,6 +138,25 @@ describe("inferCapabilities", () => {
     expect(caps.needsDataUI).toBe(false);
   });
 
+  it("suppresses needsEcommerce when ecommerce is explicitly negated", () => {
+    const caps = inferCapabilities(
+      "Bygg en storefront som visar produkter, men utan varukorg och utan checkout.",
+    );
+    expect(caps.needsEcommerce).toBe(false);
+  });
+
+  it("still infers needsEcommerce for a genuine webshop request", () => {
+    const caps = inferCapabilities("Build a webshop with a cart and checkout");
+    expect(caps.needsEcommerce).toBe(true);
+  });
+
+  it("does NOT treat an unrelated 'coffee shop' mention as an ecommerce negation", () => {
+    // Bare `shop` is not an ecommerce negation term, so an unrelated mention in a
+    // negation window must not suppress a genuine webshop request (Bugbot #338).
+    const caps = inferCapabilities("Build a webshop with cart. No coffee shop vibes in the branding.");
+    expect(caps.needsEcommerce).toBe(true);
+  });
+
   it("detects scroll-parallax from English 'parallax scroll'", () => {
     const caps = inferCapabilities("a landing page with parallax scroll effects");
     expect(caps.needsParallax).toBe(true);
