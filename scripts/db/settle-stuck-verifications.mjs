@@ -48,7 +48,6 @@ const OLDER_THAN_MINUTES = (() => {
   return Number.isFinite(n) && n > 0 ? n : 20;
 })();
 
-const NON_TERMINAL_STATES = ["pending", "verifying", "repairing"];
 const SETTLE_SUMMARY =
   "Automatisk verifiering tog för lång tid (settlad av underhållsscript). Starta en ny förfining eller försök igen.";
 
@@ -103,10 +102,24 @@ async function leaseTableExists(client) {
   }
 }
 
-/** WHERE clause shared by the count/sample/update queries. Params: $1 states[], $2 minutes. */
+/**
+ * WHERE clause shared by the count/sample/update queries. Param: $1 minutes.
+ *
+ * Only settle rows that would actually leave the UI spinning:
+ *   - `verifying`/`repairing` (ANY stage): a verify/repair actually started and
+ *     stalled.
+ *   - `pending` ONLY for `lifecycle_stage = 'integrations'` (F3): server-verify
+ *     was expected but never settled.
+ * F2/design previews rest at `pending` BY DESIGN (server-verify is skipped and
+ * the bus records the skipped verifier) — failing them would corrupt valid
+ * rows (Codex #337 P1), so `pending` design rows are excluded.
+ */
 function buildWhere(hasLeaseTable) {
-  const base =
-    "verification_state = ANY($1::text[]) AND created_at < now() - ($2 || ' minutes')::interval";
+  const base = `created_at < now() - ($1 || ' minutes')::interval
+    AND (
+      verification_state IN ('verifying', 'repairing')
+      OR (verification_state = 'pending' AND lifecycle_stage = 'integrations')
+    )`;
   if (!hasLeaseTable) return base;
   return `${base}
     AND NOT EXISTS (
@@ -123,7 +136,7 @@ async function main() {
   try {
     const hasLease = await leaseTableExists(client);
     const where = buildWhere(hasLease);
-    const params = [NON_TERMINAL_STATES, String(OLDER_THAN_MINUTES)];
+    const params = [String(OLDER_THAN_MINUTES)];
 
     console.log("=".repeat(64));
     console.log(`Mode:        ${APPLY ? "APPLY (stuck rows WILL be failed)" : "DRY-RUN (no rows touched)"}`);
@@ -173,7 +186,7 @@ async function main() {
       `UPDATE engine_versions
           SET verification_state = 'failed',
               release_state = 'draft',
-              verification_summary = $3,
+              verification_summary = $2,
               repaired_files_json = NULL,
               repair_available_at = NULL,
               promoted_at = NULL
