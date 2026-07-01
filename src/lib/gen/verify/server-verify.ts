@@ -667,6 +667,15 @@ async function tryServerRepairLoop(params: {
   let staleBaseNoOp = false;
 
   await markVersionRepairing(versionId, undefined, runId).catch(() => null);
+  // NOTE: intentionally NOT emitting version.repair.started/passIndex here.
+  // Surfacing bounded "Reparerar X/2" for the server-verify auto-repair path
+  // would require a terminal bus event when the loop finishes — but its
+  // success outcome is `repair_available` (awaiting accept), which has no clean
+  // terminal phase in the bus lifecycle, so emitting repair.started alone would
+  // strand the projection in `repairing` (Bugbot #340). The finalize-runner
+  // repair path DOES emit + settle, so the UI progress works there. Wiring the
+  // server-verify path is tracked as a follow-up (needs a repair_available
+  // bus-settle). See BUG-SWARM-BACKLOG.md.
 
   const exportable = await buildExportableProject(codeFiles);
   const initialContent = serializeCodeProject(exportable);
