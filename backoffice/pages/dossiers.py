@@ -311,6 +311,88 @@ def _section_capability_map(dossiers: list[dict[str, Any]]) -> None:
     st.json(fresh["capabilities"])
 
 
+def _run_sdk_version_check() -> dict[str, Any]:
+    """Run the read-only dossier SDK-version drift check across ALL dossiers.
+    Catches the recurring class where a dossier pins a stale SDK apiVersion
+    literal (e.g. Stripe) that no longer typechecks against the installed SDK."""
+    script = REPO_ROOT / "scripts" / "dossiers" / "check-sdk-versions.mjs"
+    if not script.exists():
+        return {"ok": False, "error": "check-sdk-versions.mjs saknas."}
+    try:
+        result = subprocess.run(
+            ["node", str(script), "--json"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        # The script emits a JSON envelope on BOTH success (exit 0) and drift
+        # (exit 1). A crash before writing JSON leaves empty stdout — do NOT treat
+        # that as `{}`/success; gate on parseability + returncode so the operator
+        # never sees a green banner when the check never actually ran (Bugbot).
+        stdout = (result.stdout or "").strip()
+        if not stdout:
+            return {
+                "ok": False,
+                "error": (result.stderr or "").strip()
+                or f"SDK-versionskollen gav ingen output (exit {result.returncode}).",
+            }
+        try:
+            return json.loads(stdout)
+        except json.JSONDecodeError:
+            return {"ok": False, "error": result.stderr or stdout or "Okänt fel."}
+    except Exception as exc:  # noqa: BLE001 - surface any failure to the operator
+        return {"ok": False, "error": str(exc)}
+
+
+def _section_health() -> None:
+    st.subheader("Hälsokoll: SDK-versioner")
+    st.caption(
+        "Går igenom ALLA dossiers och jämför pinnade SDK-`apiVersion`-literaler "
+        "(t.ex. Stripe) mot den installerade SDK:ns förväntade version. En stale "
+        "pin gör att varje generering som injicerar dossiern failar typecheck "
+        "(TS2322). Read-only. Kommando: `npm run dossiers:check-sdk`."
+    )
+    if st.button("Kör SDK-versionskoll"):
+        st.session_state["dossier_sdk_check"] = _run_sdk_version_check()
+    res = st.session_state.get("dossier_sdk_check")
+    if res is not None:
+        if res.get("error"):
+            st.error(res["error"])
+        else:
+            drifts = res.get("drifts", [])
+            checked = res.get("checked", [])
+            unreadable = res.get("unreadable", [])
+            skipped = res.get("skipped", [])
+            if drifts:
+                st.error(f"{len(drifts)} SDK-versionsdrift(er) hittades:")
+                st.dataframe(drifts, use_container_width=True, hide_index=True)
+            if unreadable:
+                st.error(
+                    f"{len(unreadable)} pinnad SDK installerad men versionen kunde inte läsas "
+                    "(kan ej verifiera — fail-closed):"
+                )
+                st.dataframe(unreadable, use_container_width=True, hide_index=True)
+            if not drifts and not unreadable:
+                if checked:
+                    st.success(
+                        f"Alla {len(checked)} pinnade SDK-apiVersion(er) matchar installerade SDK:er."
+                    )
+                else:
+                    # Nothing verified is NOT the same as healthy — don't show green.
+                    st.info(
+                        "Inga pinnade SDK-apiVersion(er) kunde kontrolleras "
+                        "(inga kända pins, eller SDK:erna är inte installerade i detta repo)."
+                    )
+            if checked:
+                st.caption("Kontrollerade pins:")
+                st.dataframe(checked, use_container_width=True, hide_index=True)
+            if skipped:
+                st.caption("Överhoppade (okänd/ej installerad SDK):")
+                st.dataframe(skipped, use_container_width=True, hide_index=True)
+
+
 def _list_template_refs() -> list[str]:
     if not TEMPLATE_REFS_ROOT.exists():
         return []
@@ -393,6 +475,7 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
             "Capability tiers",
             "Redigera",
             "Capability map",
+            "Hälsokoll",
             "AI-kuration",
         ]
     )
@@ -409,4 +492,6 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
     with tabs[5]:
         _section_capability_map(dossiers)
     with tabs[6]:
+        _section_health()
+    with tabs[7]:
         _section_curate()
