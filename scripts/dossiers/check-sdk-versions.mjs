@@ -136,15 +136,27 @@ function main() {
     ...listFilesRecursive(join(DOSSIERS_ROOT, "hard")),
     ...listFilesRecursive(join(DOSSIERS_ROOT, "soft")),
   ];
-  const files = paths.map((p) => {
+  // A file we cannot READ must fail closed — swapping in "" would silently drop
+  // any pinned apiVersion it contains and let the CI gate pass unverified
+  // (Bugbot). Track read failures and fold them into `unreadable`.
+  const files = [];
+  const readErrors = [];
+  for (const p of paths) {
     try {
-      return { path: relPath(p), content: readFileSync(p, "utf8") };
-    } catch {
-      return { path: relPath(p), content: "" };
+      files.push({ path: relPath(p), content: readFileSync(p, "utf8") });
+    } catch (err) {
+      readErrors.push({
+        file: relPath(p),
+        sdk: "-",
+        pinned: "-",
+        reason: `read-error: ${err instanceof Error ? err.message : String(err)}`,
+      });
     }
-  });
+  }
 
-  const { checked, drifts, skipped, unreadable } = evaluatePins({ files });
+  const evaluated = evaluatePins({ files });
+  const { checked, drifts, skipped } = evaluated;
+  const unreadable = [...evaluated.unreadable, ...readErrors];
   const failed = drifts.length > 0 || unreadable.length > 0;
 
   if (wantJson) {
