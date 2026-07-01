@@ -31,7 +31,7 @@ Checklista:
 | Docs-only | länk-/diff-koll; ingen runtime-test krävs |
 | TS/runtime | `npm run typecheck` + riktade tester |
 | Scaffold | `npm run typecheck` + `npm run scaffolds:validate` |
-| Dossier | `npm run dossiers:validate-all` + ev. `npm run dossiers:capability-map:check` |
+| Dossier | `npm run dossiers:validate-all` (capability-map är genererad vy — regenerera vid behov med `npm run dossiers:capability-map:write`, ej CI-tvingad) |
 | Pipeline/status | `npm run typecheck` + relevant vitest + docs-sync |
 | Stor filflytt | `npm run typecheck` + grep efter gamla paths |
 

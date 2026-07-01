@@ -497,6 +497,11 @@ async function runTier2VerifyLane(params: {
       promotionBlocked?: boolean;
       promotionBlockedReason?: string | null;
       promoteError?: boolean;
+      // F2 render-first advisory: `passed:true` with `vmGatePassed:false` means a
+      // typecheck-only failure was treated as non-blocking on a design preview
+      // (the version was promoted). No auto-repair should run for this.
+      designAdvisory?: boolean;
+      advisoryChecks?: string[];
     } | null;
 
     if (!res.ok || !data) {
@@ -544,6 +549,14 @@ async function runTier2VerifyLane(params: {
       );
     } else if (data.promoteError) {
       steps.push("Promotion misslyckades tillfälligt — försök verifiera igen.");
+    } else if (data.designAdvisory) {
+      const advisoryLabel =
+        Array.isArray(data.advisoryChecks) && data.advisoryChecks.length > 0
+          ? data.advisoryChecks.join(", ")
+          : "typecheck";
+      steps.push(
+        `F2 render-first: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar. Åtgärda i lugn och ro; ingen automatisk reparation kördes.`,
+      );
     }
 
     const visualQa =
@@ -585,10 +598,18 @@ async function runTier2VerifyLane(params: {
           data.promotionBlocked && typeof data.promotionBlockedReason === "string"
             ? data.promotionBlockedReason
             : undefined,
+        designAdvisory: data.designAdvisory === true ? true : undefined,
+        advisoryChecks:
+          data.designAdvisory && Array.isArray(data.advisoryChecks)
+            ? data.advisoryChecks
+            : undefined,
       },
     } as UiMessagePart);
 
-    if (!data.passed && failedChecks.length > 0) {
+    // F2 render-first: a typecheck-only advisory returns `passed:true`, so this
+    // guard is already false — but keep `!data.designAdvisory` explicit so a
+    // future response shape change can never route an advisory into auto-repair.
+    if (!data.passed && !data.designAdvisory && failedChecks.length > 0) {
       const handled = handleEnvSignal(data.checks ?? [], versionId, setMessages, assistantMessageId);
       if (handled) return;
 

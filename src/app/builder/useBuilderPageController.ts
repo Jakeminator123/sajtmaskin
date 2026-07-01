@@ -55,6 +55,7 @@ import {
   asRecord,
   parsePreviewOverride,
   pickVersionPreviewUrl,
+  shouldRetainLastGoodPreviewOnVersionChange,
   versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
 
@@ -1380,6 +1381,17 @@ export function useBuilderPageController() {
     }
 
     if (!nextDemoUrl && didChangeVersion && currentPreviewUrl) {
+      // Keep the last-good live (tier-2/VM) preview visible while the newly
+      // active version is still spinning up its own preview (no previewUrl in
+      // the versions list yet). Blanking here was the "white preview" flash on
+      // follow-up completion: the client auto-selects the freshly generated
+      // draft the instant the stream ends — seconds before its VM preview is
+      // running. VM bootstrap + preview-session polling replace this URL once
+      // the new preview is ready, and the version_mismatch / "startar preview"
+      // overlays render on top of the retained frame instead of a white panel.
+      if (shouldRetainLastGoodPreviewOnVersionChange({ didChangeVersion, nextDemoUrl, currentPreviewUrl })) {
+        return;
+      }
       setCurrentPreviewUrl(null);
       setPreviewRefreshToken(Date.now());
       return;

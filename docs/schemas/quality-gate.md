@@ -103,6 +103,33 @@ Revert: sätt `qualityGateTiers.designPreview` till
 `["typecheck", "build", "lint"]` i `config/ai_models/manifest.json` om
 du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
+### F2 render-first: typecheck-only är advisory (#330, 2026-07-02)
+
+I F2 (`lifecycle_stage !== "integrations"`) failar ett **typecheck-only**-fel
+inte längre versionen. `next dev` kör JS oavsett TS-typfel, så previewn
+renderar — därför behandlas typfelet som **advisory**:
+
+- `POST .../quality-gate` promotar versionen (fortfarande via
+  `assertPromoteAllowed`) och svarar
+  `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }`
+  i stället för `failVersionVerification`.
+- `post-checks.ts` kör **ingen** auto-repair-loop (`passed: true` +
+  explicit `!data.designAdvisory`-grind).
+- Diagnostiken bevaras: summary-loggen blir `warning` (ej `error`) och
+  typecheck-raden loggas under `quality-gate:typecheck-advisory`.
+
+**Falsk-grön-skydd** (varför detta inte blir tyst grön):
+
+- Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
+- Bara när **varje** failande check är `typecheck`. Ett `build`- eller
+  `lint`-fel (t.ex. build-origin-repair) failar hårt som förr.
+- `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande.
+- Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
+  (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
+  når aldrig advisory-promote.
+- `vmGatePassed: false` bevaras så ingen konsument läser advisory som
+  solid-grön build.
+
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
 togs bort från background-verify tillfälligt (tysta lint-fail blockerade
@@ -294,7 +321,8 @@ flowchart TD
     persist --> preview[PreviewStart]
     preview --> qualityGate[QualityGate]
     qualityGate -->|pass| promoted[PromoteVersion]
-    qualityGate -->|fail| repair[ServerRepair]
+    qualityGate -->|"F2 typecheck-only (advisory)"| promoted
+    qualityGate -->|"fail (F3, or F2 build/lint)"| repair[ServerRepair]
     repair --> qualityGate
     qualityGate -->|repair pass| repairAvailable[RepairAvailable]
     repairAvailable --> acceptRepair[AcceptRepair]

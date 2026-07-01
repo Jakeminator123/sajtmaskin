@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   resolveEngineVersionVerificationSurfaceStatus,
   resolveQualityTier,
@@ -229,7 +229,23 @@ export function VersionHistory({
   const versions = externalVersions ?? internal.versions;
   const isLoading = externalVersions ? false : internal.isLoading;
   const mutate = externalMutate ?? internal.mutate;
-  const versionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
+  const rawVersionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
+  // Retain the last non-empty list per chat so a transient empty refetch
+  // (SWR revalidation, post-generation mutate) never blanks the panel into
+  // "Inga versioner ännu" while the DB still has versions. Updating a ref
+  // during render is a pure cache — no re-render, no effect-delay flash.
+  const lastNonEmptyVersionsRef = useRef<{ chatId: string | null; list: VersionSummary[] }>({
+    chatId: null,
+    list: [],
+  });
+  if (lastNonEmptyVersionsRef.current.chatId !== (chatId ?? null)) {
+    lastNonEmptyVersionsRef.current = { chatId: chatId ?? null, list: [] };
+  }
+  if (rawVersionList.length > 0) {
+    lastNonEmptyVersionsRef.current.list = rawVersionList;
+  }
+  const versionList =
+    rawVersionList.length > 0 ? rawVersionList : lastNonEmptyVersionsRef.current.list;
   const pinnedCount = versionList.filter((version) => Boolean(version?.pinned)).length;
   // Highest sort key in the list — a row is "latest" (no newer version
   // exists) when its key matches this. Feeds the bus display-context.
@@ -598,7 +614,7 @@ export function VersionHistory({
     );
   }
 
-  if (versions.length === 0) {
+  if (versionList.length === 0) {
     const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center p-4">
@@ -618,7 +634,7 @@ export function VersionHistory({
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-semibold">Version History</h3>
             <p className="text-muted-foreground mt-1 text-xs">
-              {versions.length} version{versions.length !== 1 ? "s" : ""}
+              {versionList.length} version{versionList.length !== 1 ? "s" : ""}
               {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
             </p>
             <p className="text-muted-foreground text-xs">

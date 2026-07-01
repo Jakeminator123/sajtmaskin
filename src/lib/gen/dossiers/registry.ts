@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import type { DossierClass, DossierEntry } from "./types";
+import { dossierRequiresF3, type DossierClass, type DossierEntry } from "./types";
 import { validateDossierManifest } from "./validate-manifest";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
@@ -228,6 +228,21 @@ export function getDossierExposesByImportPath(importPath: string): DossierExpose
     }
   }
   return null;
+}
+
+/**
+ * Capabilities whose (real) dossier requires F3 — i.e. carries a build-enforced
+ * env secret (see {@link dossierRequiresF3}). Data-driven: the F2/F3 boundary
+ * for secret-backed integrations is read from each dossier's env contract, not
+ * a hardcoded capability list. Today this resolves to `{payments, auth,
+ * ai-chat}` (Stripe / Clerk / OpenAI). Cheap — `getAllDossiers()` is cached.
+ */
+export function getF3RequiredCapabilities(): Set<string> {
+  const caps = new Set<string>();
+  for (const d of getAllDossiers()) {
+    if (dossierRequiresF3(d)) caps.add(d.capability);
+  }
+  return caps;
 }
 
 /** Build the {capability → [ids]} map. Used for backoffice listing. */

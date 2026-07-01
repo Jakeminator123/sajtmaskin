@@ -62,7 +62,11 @@ import {
   resolveShadcnUiRecipes,
   type ShadcnUiRecipe,
 } from "./data/shadcn-ui-recipes";
-import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
+import {
+  getF3RequiredCapabilities,
+  selectDossiersForRequest,
+  type DossierSelectionResult,
+} from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
 import type { FollowUpContract } from "./orchestration-snapshot";
@@ -317,23 +321,43 @@ function explicitlyRequestsCarousel(prompt: string): boolean {
   return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildkarusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
 }
 
-const F3_ONLY_DOSSIER_CAPABILITIES = new Set([
-  "ai-chat",
-  "analytics",
-  "auth",
-  "error-tracking",
-  "payments",
-]);
+/**
+ * Non-secret integration capabilities that F2 mutes by POLICY
+ * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
+ * build-enforced env secret — e.g. analytics (`<Analytics/>` needs no build
+ * key) and Sentry error-tracking (all `warn-only`). These are integration
+ * WIRING that the F2 design pass should not emit. The secret-requiring
+ * capabilities (payments / auth / ai-chat) are NOT listed here — they are
+ * derived from each dossier's env contract via `getF3RequiredCapabilities()`
+ * (see `dossierRequiresF3`). Keep this residual minimal; prefer expressing
+ * "needs F3" through a dossier's `envVars` enforcement.
+ */
+const F2_MUTE_POLICY_ONLY_CAPABILITIES = new Set(["analytics", "error-tracking"]);
+
+/**
+ * Integration capabilities muted from the F2 dossier prompt injection.
+ * Canonical F3 signal = `dossierRequiresF3` (envVars/`enforcement: "build"`),
+ * enumerated as capabilities by `getF3RequiredCapabilities()`, unioned with the
+ * small non-secret policy residual above. Replaces the former hardcoded
+ * `F3_ONLY_DOSSIER_CAPABILITIES` list so the boundary tracks the dossier env
+ * contract instead of a duplicated constant.
+ */
+function getF2MutedIntegrationCapabilities(): Set<string> {
+  const caps = new Set<string>(getF3RequiredCapabilities());
+  for (const cap of F2_MUTE_POLICY_ONLY_CAPABILITIES) caps.add(cap);
+  return caps;
+}
 
 export function filterDossierCapabilitiesForPrompt(params: {
   capabilities: string[];
   prompt: string;
   previewPolicy: BuildSpec["previewPolicy"];
 }): string[] {
+  const f2MutedIntegrationCapabilities = getF2MutedIntegrationCapabilities();
   const filtered = params.capabilities.filter((capability) => {
     if (
       params.previewPolicy !== "fidelity3" &&
-      F3_ONLY_DOSSIER_CAPABILITIES.has(capability)
+      f2MutedIntegrationCapabilities.has(capability)
     ) {
       return false;
     }
@@ -753,8 +777,8 @@ export interface FollowUpCapabilityFloorInput {
   contractCapabilities: string[];
   /**
    * Active preview policy for this generation. When it is NOT `"fidelity3"`
-   * (i.e. F2 / design) the floor must not silently re-introduce F3-only
-   * integrations ({@link F3_ONLY_DOSSIER_CAPABILITIES}) that
+   * (i.e. F2 / design) the floor must not silently re-introduce F2-muted
+   * integrations ({@link getF2MutedIntegrationCapabilities}) that
    * `filterDossierCapabilitiesForPrompt` just dropped — F2 is integration-mute.
    * Those caps stay parked in the contract and are restored once the project
    * is lifted to F3. Optional/back-compat: when absent the floor restores every
@@ -802,8 +826,8 @@ function normalizeCapabilityList(capabilities: readonly unknown[]): string[] {
  * No-op on init (no contract floor) and whenever the floor is already covered.
  *
  * F2-mute exception: when `previewPolicy` is supplied and is NOT `"fidelity3"`
- * the floor will not restore F3-only integrations
- * ({@link F3_ONLY_DOSSIER_CAPABILITIES}). They are integration wiring that the
+ * the floor will not restore F2-muted integrations
+ * ({@link getF2MutedIntegrationCapabilities}). They are integration wiring that the
  * F2 design pass must not emit; they remain frozen in the contract and the
  * floor restores them once the project is lifted to F3 (previewPolicy
  * `"fidelity3"`), so can-only-grow still holds across the lifecycle.
@@ -820,12 +844,13 @@ export function enforceFollowUpCapabilityFloor(
   const floor = normalizeCapabilityList(input.contractCapabilities);
   const resolvedSet = new Set(resolved);
   let restoredCapabilities = floor.filter((capability) => !resolvedSet.has(capability));
-  // F2 (design) is integration-mute: do not re-introduce F3-only integrations
+  // F2 (design) is integration-mute: do not re-introduce F2-muted integrations
   // the prompt filter dropped for this preview policy. Parked in the contract;
   // restored in F3 (when previewPolicy is "fidelity3" or absent/back-compat).
   if (input.previewPolicy && input.previewPolicy !== "fidelity3") {
+    const f2MutedIntegrationCapabilities = getF2MutedIntegrationCapabilities();
     restoredCapabilities = restoredCapabilities.filter(
-      (capability) => !F3_ONLY_DOSSIER_CAPABILITIES.has(capability),
+      (capability) => !f2MutedIntegrationCapabilities.has(capability),
     );
   }
   if (restoredCapabilities.length === 0) {

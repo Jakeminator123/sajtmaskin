@@ -58,6 +58,12 @@ stateDiagram-v2
 3. Server-verify i `diagnosticOnly: true` **resolverar** terminalt via `failVersionVerification` både vid gate-pass (verifier-LLM och tsc oeniga) och gate-fail (båda eniga om fel). Detta säkrar att versionen aldrig fastnar i `pending` utan att någon sätter slutstatus.
 4. `triggerBuildErrorRepair` (VM build-error SSE) kan fortfarande override:a vilket state som helst genom `saveRepairedFiles` → `repair_available`.
 
+## 2026-07-02 — F2 render-first (typecheck advisory, #330)
+
+För F2-rader (`lifecycle_stage !== "integrations"`) leder ett **typecheck-only**-gate-fel numera till `verifying → promoted` (advisory), **inte** `verifying → failed`. `POST .../quality-gate` promotar (fortfarande via `assertPromoteAllowed`) och svarar `{ passed: true, vmGatePassed: false, designAdvisory: true }`; ingen auto-repair triggas. `verification_state` blir alltså `passed`/`promoted` med en `warning`-logg (`quality-gate:typecheck-advisory`), inte `failed`.
+
+Oförändrat hårt (→ `failed`/repair som förr): F3 (`integrations`), samt varje F2-fel där `build` eller `lint` failar. Verifier/promote-guard-block ger fortfarande `failed`. Render-säkerheten (att sidan renderar) gate:as uppströms i finalize-preflight, inte här.
+
 Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 
 ## Uppföljningsspår
