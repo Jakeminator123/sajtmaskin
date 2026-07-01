@@ -41,6 +41,7 @@
  */
 
 import { put } from "@vercel/blob";
+import JSZip from "jszip";
 import { createHash } from "node:crypto";
 import { access, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -57,6 +58,32 @@ const MANIFEST_PATH = resolve(ROOT, "src/lib/templates/template-blob-manifest.js
 const TEMPLATES_PATH = resolve(ROOT, "src/lib/templates/templates.json");
 const CATEGORY_MAP_PATH = resolve(ROOT, "src/lib/templates/template-categories.json");
 const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
+
+// Preview-host payload limits (preview-host/src/validate.js). Templates over these
+// are uploaded to Blob but excluded from the gallery catalog, because clicking them
+// would fail at preview-start ("Invalid filesJson: file too large / total payload too large").
+const PREVIEW_MAX_FILE_BYTES = 2 * 1024 * 1024;
+const PREVIEW_MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+const BINARY_BASE64_PREFIX = "base64:";
+const BLOCKED_IMPORT_PREFIXES = [
+  "node_modules/",
+  ".git/",
+  ".next/",
+  "dist/",
+  "build/",
+  "coverage/",
+  "out/",
+];
+const TEXT_EXTENSIONS = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".css", ".scss", ".sass", ".less",
+  ".html", ".md", ".mdx", ".txt", ".yml", ".yaml", ".toml", ".env", ".example", ".svg", ".sql",
+  ".sh", ".prisma", ".graphql", ".gql",
+]);
+const TEXT_BASENAMES = new Set([
+  "dockerfile", "makefile", ".gitignore", ".npmrc", ".nvmrc", ".env", ".env.local", ".env.example",
+  ".env.production", ".env.development", ".env.test", "readme", "license", "package-lock.json",
+  "pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock",
+]);
 
 const APP_CATEGORY_ID_LIST = [
   "ai",
@@ -214,12 +241,6 @@ async function readJsonl(path) {
     .filter(Boolean);
 }
 
-async function sha256File(path) {
-  const hash = createHash("sha256");
-  hash.update(await readFile(path));
-  return hash.digest("hex");
-}
-
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -296,15 +317,84 @@ async function readTitle(sourceRoot, templateId) {
   return normalizeTitle(metadata.ogTitle || metadata.h1 || metadata.twitterTitle || "", templateId);
 }
 
+function stripCommonArchiveRoot(paths) {
+  if (paths.length === 0) return paths;
+  const segments = paths.map((filePath) => filePath.split("/").filter(Boolean));
+  const first = segments[0]?.[0];
+  if (!first) return paths;
+  const shouldStrip = segments.every((parts) => parts.length > 1 && parts[0] === first);
+  if (!shouldStrip) return paths;
+  return segments.map((parts) => parts.slice(1).join("/"));
+}
+
+function normalizeImportedPath(rawPath) {
+  const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized || normalized.includes("\0")) return null;
+  if (normalized.split("/").some((s) => s === "..")) return null;
+  if (BLOCKED_IMPORT_PREFIXES.some((p) => normalized.startsWith(p))) return null;
+  return normalized;
+}
+
+function shouldTreatAsText(filePath) {
+  const lower = filePath.toLowerCase();
+  const basename = lower.split("/").pop() ?? "";
+  if (TEXT_BASENAMES.has(basename)) return true;
+  for (const ext of TEXT_EXTENSIONS) if (lower.endsWith(ext)) return true;
+  return false;
+}
+
+function looksBinary(buffer) {
+  if (buffer.length === 0) return false;
+  let suspicious = 0;
+  const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
+  for (const byte of sample) {
+    if (byte === 0) return true;
+    if ((byte < 7 || (byte > 14 && byte < 32)) && byte !== 9 && byte !== 10 && byte !== 13) suspicious += 1;
+  }
+  return suspicious / sample.length > 0.1;
+}
+
+/**
+ * Replicate the imported preview payload (text vs base64) and check the preview-host
+ * limits, so we can flag/exclude templates the VM would reject at preview-start.
+ * On any parse error we default to "fits" (do not block on an unreadable edge case).
+ */
+async function computePreviewFit(buffer) {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const rawEntries = Object.values(zip.files).filter((e) => !e.dir).map((e) => e.name);
+    const normalized = stripCommonArchiveRoot(rawEntries);
+    let totalBytes = 0;
+    let maxFileBytes = 0;
+    for (let i = 0; i < rawEntries.length; i += 1) {
+      const safePath = normalizeImportedPath(normalized[i]);
+      if (!safePath) continue;
+      const content = Buffer.from(await zip.files[rawEntries[i]].async("uint8array"));
+      const isText = shouldTreatAsText(safePath) && !looksBinary(content);
+      const payloadBytes = isText
+        ? Buffer.byteLength(content.toString("utf8"), "utf8")
+        : Buffer.byteLength(BINARY_BASE64_PREFIX + content.toString("base64"), "utf8");
+      totalBytes += payloadBytes;
+      if (payloadBytes > maxFileBytes) maxFileBytes = payloadBytes;
+    }
+    return {
+      fits: maxFileBytes <= PREVIEW_MAX_FILE_BYTES && totalBytes <= PREVIEW_MAX_TOTAL_BYTES,
+      totalBytes,
+      maxFileBytes,
+    };
+  } catch {
+    return { fits: true, totalBytes: 0, maxFileBytes: 0 };
+  }
+}
+
 function blobKeyFor(appCategory, templateId) {
   return `${blobPrefix}/raw/${appCategory}/${templateId}/template.zip`;
 }
 
-async function uploadZip(appCategory, templateId, absolutePath) {
+async function uploadZip(appCategory, templateId, buffer) {
   const key = blobKeyFor(appCategory, templateId);
   if (dryRun) return { url: `blob-dry-run://${key}` };
-  const fileBuffer = await readFile(absolutePath);
-  const blob = await put(key, fileBuffer, {
+  const blob = await put(key, buffer, {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: overwrite,
@@ -314,7 +404,10 @@ async function uploadZip(appCategory, templateId, absolutePath) {
 }
 
 function buildCatalogFiles(items) {
-  const templates = items.map((item) => ({
+  // Exclude templates that would be rejected by the preview host so the gallery
+  // never exposes a clickable template that can't open in the VM.
+  const catalogItems = items.filter((item) => item.previewFits !== false);
+  const templates = catalogItems.map((item) => ({
     id: item.id,
     title: item.title || item.id,
     slug: item.id,
@@ -325,7 +418,7 @@ function buildCatalogFiles(items) {
   }));
 
   const categoryMap = Object.fromEntries(APP_CATEGORY_ID_LIST.map((id) => [id, []]));
-  for (const item of items) {
+  for (const item of catalogItems) {
     const cat = APP_CATEGORY_IDS.has(item.category) ? item.category : "website-templates";
     categoryMap[cat].push(item.id);
   }
@@ -396,9 +489,13 @@ async function main() {
   const mergedById = new Map(existingById);
   let uploadedCount = 0;
   let skippedCount = 0;
+  let previewBlockedCount = 0;
   for (const candidate of selected) {
     const title = await readTitle(sourceRoot, candidate.templateId);
-    const archiveSha256 = await sha256File(candidate.absolutePath);
+    const buffer = await readFile(candidate.absolutePath);
+    const archiveSha256 = createHash("sha256").update(buffer).digest("hex");
+    const previewFit = await computePreviewFit(buffer);
+    if (!previewFit.fits) previewBlockedCount += 1;
     const existing = existingById.get(candidate.templateId);
     const alreadyUploaded =
       !overwrite &&
@@ -413,12 +510,19 @@ async function main() {
       skippedCount += 1;
       console.log(`[mallar-blob] skip (already uploaded, same sha) ${candidate.templateId}`);
     } else {
-      const uploaded = await uploadZip(candidate.appCategory, candidate.templateId, candidate.absolutePath);
+      const uploaded = await uploadZip(candidate.appCategory, candidate.templateId, buffer);
       archiveUrl = uploaded.url;
       uploadedCount += 1;
       console.log(
         `[mallar-blob] ${dryRun ? "would upload" : "uploaded"} ${candidate.templateId} ` +
           `(${candidate.sourceCategory} -> ${candidate.appCategory}, ${candidate.sizeBytes} bytes)`,
+      );
+    }
+    if (!previewFit.fits) {
+      console.log(
+        `[mallar-blob] preview-blocked ${candidate.templateId} ` +
+          `(maxFile=${(previewFit.maxFileBytes / 1024 / 1024).toFixed(2)}MB, ` +
+          `total=${(previewFit.totalBytes / 1024 / 1024).toFixed(1)}MB) — excluded from catalog`,
       );
     }
 
@@ -432,12 +536,16 @@ async function main() {
       archiveUrl,
       archiveSizeBytes: candidate.sizeBytes,
       archiveSha256,
+      previewFits: previewFit.fits,
+      previewMaxFileBytes: previewFit.maxFileBytes,
+      previewTotalBytes: previewFit.totalBytes,
     });
   }
 
   const items = [...mergedById.values()].sort((a, b) => a.id.localeCompare(b.id));
 
   console.log(`[mallar-blob] Uploaded: ${uploadedCount} | Skipped (already uploaded): ${skippedCount}`);
+  console.log(`[mallar-blob] Preview-blocked (excluded from catalog): ${previewBlockedCount}`);
   console.log(`[mallar-blob] Manifest total after merge: ${items.length}`);
 
   const manifest = {

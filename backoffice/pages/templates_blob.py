@@ -57,6 +57,20 @@ def _pick_folder(initial: str | None) -> str | None:
         return None
 
 
+def _on_browse_click() -> None:
+    """Button callback: runs BEFORE widgets are instantiated on the rerun, so it is
+    safe to set the ``mallar_blob_source`` widget key here (setting it after the
+    text_input is created would raise StreamlitAPIException)."""
+    picked = _pick_folder(st.session_state.get("mallar_blob_source"))
+    if picked:
+        st.session_state["mallar_blob_source"] = picked
+        st.session_state["mallar_blob_browse_msg"] = None
+    else:
+        st.session_state["mallar_blob_browse_msg"] = (
+            "Ingen mapp vald (eller ingen dialog tillgänglig). Skriv sökvägen manuellt."
+        )
+
+
 def _run_uploader(repo_root: Path, source: str, *, upload: bool) -> dict:
     script = repo_root / _UPLOADER_REL
     if not script.exists():
@@ -112,7 +126,7 @@ def render(ctx: BackofficeContext) -> None:
 
     col_input, col_browse = st.columns([5, 1])
     with col_input:
-        source = st.text_input(
+        st.text_input(
             "Mapp med mallar",
             key="mallar_blob_source",
             help="Rooten som innehåller out/downloaded.jsonl och downloads/<kategori>/<id>/*.zip",
@@ -120,13 +134,13 @@ def render(ctx: BackofficeContext) -> None:
     with col_browse:
         st.write("")
         st.write("")
-        if st.button("Bläddra…", use_container_width=True):
-            picked = _pick_folder(st.session_state.get("mallar_blob_source"))
-            if picked:
-                st.session_state["mallar_blob_source"] = picked
-                st.rerun()
-            else:
-                st.info("Ingen mapp vald (eller ingen dialog tillgänglig). Skriv sökvägen manuellt.")
+        # on_click callback runs before widgets instantiate on the rerun, so it can
+        # safely update the text_input's session_state key.
+        st.button("Bläddra…", use_container_width=True, on_click=_on_browse_click)
+
+    browse_msg = st.session_state.pop("mallar_blob_browse_msg", None)
+    if browse_msg:
+        st.info(browse_msg)
 
     source = st.session_state["mallar_blob_source"]
     source_path = Path(source) if source else None
