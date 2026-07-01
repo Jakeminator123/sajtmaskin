@@ -13,6 +13,9 @@ const maybeAutoAcceptTimedOutRepair = vi.hoisted(() =>
 const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const readAll = vi.hoisted(() => vi.fn(() => [] as unknown[]));
+
+vi.mock("@/lib/logging/event-bus", () => ({ readAll }));
 
 vi.mock("@/lib/gen/engine", () => ({
   shouldUseV0Fallback,
@@ -91,6 +94,8 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     }));
     createEngineVersionErrorLogs.mockReset();
     createEngineVersionErrorLogs.mockResolvedValue(null);
+    readAll.mockReset();
+    readAll.mockReturnValue([]);
   });
 
   it("returns failed own-engine versions without a preview URL", async () => {
@@ -192,6 +197,47 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0]).not.toHaveProperty("legacyShimPreviewUrl");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("reconciles a still-spinning bus badge to the terminal DB state (no perpetual VersionHistory spinner)", async () => {
+    // A version whose bus stream is stuck non-terminal (repair started, no
+    // terminal event) but whose DB row is already `failed` must render a
+    // terminal lifecycle badge — not a perpetual "Reparerar". Read-only
+    // reconcile parity with /version-status (#337 follow-up).
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_stuck",
+        created_at: "2026-07-01T17:47:00.000Z",
+        version_number: 3,
+        message_id: "msg_1",
+        release_state: "draft",
+        verification_state: "failed",
+        verification_summary: "took too long",
+        promoted_at: null,
+      },
+    ]);
+    readAll.mockReturnValue([
+      {
+        t: "version.repair.started",
+        id: "e1",
+        ts: "2026-07-01T17:47:10.000Z",
+        runId: "root",
+        versionId: "ver_stuck",
+        chatId: "chat_1",
+        reason: "verify",
+        trigger: "server-verify",
+      },
+    ]);
+
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    // Without the reconcile this would be "repairing" (a perpetual spinner).
+    expect(json.versions[0].busStatus.phase).toBe("failed");
   });
 
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {

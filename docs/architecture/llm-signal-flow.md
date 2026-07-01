@@ -2,7 +2,7 @@
 
 Hur signallagren samspelar i create-chat, follow-up och repair, plus **vem äger vilken signal** (canonical source).
 
-**Senast uppdaterad:** 2026-05-01.
+**Senast uppdaterad:** 2026-07-01.
 
 För kontraktslika tabellen över lager, inputs och outputs: `docs/schemas/orchestration-signal-contract.md`.
 För matrisen över LLM-roller/modeller: `docs/schemas/llm-role-matrix.md`.
@@ -98,7 +98,7 @@ Sidoyta till prompt-/scaffold-signalerna ovan. Owners-matrix:
 | Signal | Source-of-truth | Konsument | Notering |
 |----|-----|-----|-----|
 | **Lifecycle-events per `versionId`** | `src/lib/logging/event-bus.ts` (`emit`) → `data/runs/<versionId>/<runId>/events.ndjson` | `selectVersionStatus()` projection, `event-bus-subscribers.ts` (devLog mirror), `backoffice/pages/llm_flode_telemetry.py` | `EngineEventType` är closed union — nya event-typer kräver också projection-rule |
-| **Aggregerad `VersionStatus`** | `src/lib/logging/event-bus-projection.ts` (`selectVersionStatus`) | server: `GET /api/engine/chats/[chatId]/version-status`; client: `useVersionStatus`-hook | Legacy DB-helper `resolveEngineVersionDisplayStatus` **borttagen** (Område 6-3, cut-over klar) — bus-projektionen är enda statusvägen (N#6) |
+| **Aggregerad `VersionStatus`** | `src/lib/logging/event-bus-projection.ts` (`selectVersionStatus`) | server: `GET /api/engine/chats/[chatId]/version-status`; client: `useVersionStatus`-hook | Legacy DB-helper `resolveEngineVersionDisplayStatus` **borttagen** (Område 6-3). Bus-projektionen är **primär**, men sedan #337 är statusytan en **hybrid**: `/version-status` reconcilar bus-fasen mot terminalt DB-`verification_state` (`reconcileTerminalDbState` i `verify/stale-verification.ts`) och delar en lease-säker stale-watchdog (`settleStaleVerificationIfNeeded`) med `/readiness` så en död verify-runda aldrig fastnar på "verifying". `/versions`-listan gör samma **read-only** reconcile (ingen skrivning). `useVersionStatus` har dessutom ett klient-tak (`maxNonTerminalMs` → `verification_status_timeout`) |
 | **Degraded "works but degraded"-spårning** | `version.degraded` event (`VersionDegradationKind` enum) → `VersionStatus.degradations` | `_render_degradations`-sektionen i backoffice; framtida UI badge | Idag emitteras `verifier_skipped_by_policy` + `product_postcheck_skipped` (inkl. runtime_error). Lägg INTE till nya kinds utan emitter + UX-konsument. |
 
 ---
