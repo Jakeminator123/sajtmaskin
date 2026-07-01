@@ -74,6 +74,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
 - `/818` = **en** fråga, **åtta** parallella read-only Composer-agenter (korta röster, gärna %), du sammanfattar, gör **minimal** ändring, verifierar, **review-pass** på diffen. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
+- `/automat` = **flera** sekventiella read-only audit-svärmar (default 3 rundor, 8 agenter/runda; `/automat 7` = 7 rundor). Roterar lanes, för in värdefulla fynd i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter, valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
 
