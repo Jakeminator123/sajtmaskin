@@ -16,14 +16,26 @@
  * 6-2 the version-history badges read the bus too — via the
  * server-enriched `busStatus` field on the `/versions` route — so the
  * legacy DB resolver is no longer the status source for the builder.
+ *
+ * Terminal backstop: this route reads the bus projection, but a background
+ * verify job that dies without emitting a terminal event would otherwise
+ * leave the bus stuck on `verifying`/`repairing` forever — a perpetual
+ * "Verifierar"-spinner. So we run the same lease-safe stale-verification
+ * watchdog as `/readiness` (shared `settleStaleVerificationIfNeeded`) and
+ * reconcile the bus projection with the authoritative DB terminal state
+ * (`reconcileTerminalDbState`). This guarantees the spinner always resolves.
  */
 
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
+import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
+import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -55,11 +67,33 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     }
 
     const events = readAll(scopedVersion.version.id);
-    const status = selectVersionStatus(events);
+    const busStatus = selectVersionStatus(events);
+
+    // Only touch the DB when the spinner is actually stuck: a terminal bus (incl.
+    // an F2 design-preview whose verifier was "skipped" → done) needs no DB work,
+    // which keeps the 4s poll cheap. The lease-safe watchdog itself refuses to
+    // fail valid pending design previews (see `settleStaleVerificationIfNeeded`),
+    // so it can never false-red them; stuck F2 rows are additionally covered by
+    // the client-side poll cap in `useVersionStatus`.
+    let dbVersion = scopedVersion.version;
+    const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
+    if (busStuck) {
+      const settled = await settleStaleVerificationIfNeeded(dbVersion, {
+        resolveFailureSummary: async () =>
+          resolveGateFailureSummaryFromLogs(await getEngineVersionErrorLogs(dbVersion.id)),
+      });
+      dbVersion = settled.version;
+    }
+
+    // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
+    // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
+    // no-op when the DB is non-terminal (e.g. a pending design preview), so this
+    // never fabricates a terminal state.
+    const status = reconcileTerminalDbState(busStatus, dbVersion.verification_state);
 
     return NextResponse.json<VersionStatusApiResponse>({
       ok: true,
-      versionId: scopedVersion.version.id,
+      versionId: dbVersion.id,
       status,
     });
   } catch (err) {
