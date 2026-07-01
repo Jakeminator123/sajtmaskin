@@ -41,13 +41,6 @@ export const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
     "QueryClient", "QueryClientProvider", "useQuery", "useMutation",
     "useInfiniteQuery", "useQueryClient", "useSuspenseQuery",
   ],
-  // sonner is the canonical toast library in the shadcn stack. The `<Toaster />`
-  // wrapper lives in shadcn (`@/components/ui/sonner`, in SHADCN_COMPONENTS), but
-  // the `toast` FUNCTION is imported directly from the `sonner` package and is a
-  // top recurring prod fault (`Cannot find name 'toast'`) that otherwise falls
-  // through to the slow LLM fixer. Resolve it deterministically. Not a tier-3 SDK,
-  // so it applies in both F2 and F3.
-  sonner: ["toast"],
   "@/lib/utils": ["cn"],
 };
 
