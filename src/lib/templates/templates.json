@@ -4,6 +4,7 @@
     "title": "Brutalist Void Portfolio Template",
     "slug": "0brPGNpjNkt",
     "preview_image_url": "/api/template-image/0brPGNpjNkt",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/0brPGNpjNkt/template.zip",
     "image_filename": "0brPGNpjNkt.jpg",
     "category": "blog-and-portfolio"
   },
@@ -12,6 +13,7 @@
     "title": "100,000 particles WebGPU Microphone visualizer",
     "slug": "0NFF1rjZrz5",
     "preview_image_url": "/api/template-image/0NFF1rjZrz5",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/0NFF1rjZrz5/template.zip",
     "image_filename": "0NFF1rjZrz5.jpg",
     "category": "animations"
   },
@@ -20,6 +22,7 @@
     "title": "Frosted - Item Selector",
     "slug": "0OtwCx7MrG0",
     "preview_image_url": "/api/template-image/0OtwCx7MrG0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/0OtwCx7MrG0/template.zip",
     "image_filename": "0OtwCx7MrG0.jpg",
     "category": "components"
   },
@@ -28,38 +31,25 @@
     "title": "Glassmorphic Feature Showcase",
     "slug": "1CnksjadNl9",
     "preview_image_url": "/api/template-image/1CnksjadNl9",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/1CnksjadNl9/template.zip",
     "image_filename": "1CnksjadNl9.jpg",
     "category": "animations"
-  },
-  {
-    "id": "1FuIGdkaNxS",
-    "title": "rwandan-media",
-    "slug": "1FuIGdkaNxS",
-    "preview_image_url": "/api/template-image/1FuIGdkaNxS",
-    "image_filename": "1FuIGdkaNxS.jpg",
-    "category": "blog-and-portfolio"
   },
   {
     "id": "1fwaS3xF7MM",
     "title": "Ai Blog",
     "slug": "1fwaS3xF7MM",
     "preview_image_url": "/api/template-image/1fwaS3xF7MM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/1fwaS3xF7MM/template.zip",
     "image_filename": "1fwaS3xF7MM.jpg",
     "category": "blog-and-portfolio"
-  },
-  {
-    "id": "1Nu0E0eAo9q",
-    "title": "Face Swap Template",
-    "slug": "1Nu0E0eAo9q",
-    "preview_image_url": "/api/template-image/1Nu0E0eAo9q",
-    "image_filename": "1Nu0E0eAo9q.jpg",
-    "category": "ai"
   },
   {
     "id": "1QfMmXT8Yl6",
     "title": "Nano Banana + AI Gateway Starter",
     "slug": "1QfMmXT8Yl6",
     "preview_image_url": "/api/template-image/1QfMmXT8Yl6",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/1QfMmXT8Yl6/template.zip",
     "image_filename": "1QfMmXT8Yl6.jpg",
     "category": "ai"
   },
@@ -68,22 +58,16 @@
     "title": "AI Powered Animation Studio",
     "slug": "1qOBpfH2Jz6",
     "preview_image_url": "/api/template-image/1qOBpfH2Jz6",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/1qOBpfH2Jz6/template.zip",
     "image_filename": "1qOBpfH2Jz6.jpg",
     "category": "ai"
-  },
-  {
-    "id": "1w6b0ZtZeUK",
-    "title": "Folders UI",
-    "slug": "1w6b0ZtZeUK",
-    "preview_image_url": "/api/template-image/1w6b0ZtZeUK",
-    "image_filename": "1w6b0ZtZeUK.jpg",
-    "category": "components"
   },
   {
     "id": "2fPrB0auQxF",
     "title": "Gaming potential test",
     "slug": "2fPrB0auQxF",
     "preview_image_url": "/api/template-image/2fPrB0auQxF",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/2fPrB0auQxF/template.zip",
     "image_filename": "2fPrB0auQxF.jpg",
     "category": "apps-and-games"
   },
@@ -92,22 +76,16 @@
     "title": "Video to ASCII",
     "slug": "2La0PO04WOw",
     "preview_image_url": "/api/template-image/2La0PO04WOw",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/2La0PO04WOw/template.zip",
     "image_filename": "2La0PO04WOw.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "2xWfxlQ9V8B",
-    "title": "Embeddings demo",
-    "slug": "2xWfxlQ9V8B",
-    "preview_image_url": "/api/template-image/2xWfxlQ9V8B",
-    "image_filename": "2xWfxlQ9V8B.jpg",
-    "category": "ai"
   },
   {
     "id": "350IE4ojQXK",
     "title": "Color Palette Generator",
     "slug": "350IE4ojQXK",
     "preview_image_url": "/api/template-image/350IE4ojQXK",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/350IE4ojQXK/template.zip",
     "image_filename": "350IE4ojQXK.jpg",
     "category": "apps-and-games"
   },
@@ -116,6 +94,7 @@
     "title": "Startup Game Adventure",
     "slug": "3hu4ItXIX8I",
     "preview_image_url": "/api/template-image/3hu4ItXIX8I",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/3hu4ItXIX8I/template.zip",
     "image_filename": "3hu4ItXIX8I.jpg",
     "category": "apps-and-games"
   },
@@ -124,6 +103,7 @@
     "title": "v0 games",
     "slug": "3hYTJ9qj9x0",
     "preview_image_url": "/api/template-image/3hYTJ9qj9x0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/3hYTJ9qj9x0/template.zip",
     "image_filename": "3hYTJ9qj9x0.jpg",
     "category": "apps-and-games"
   },
@@ -132,6 +112,7 @@
     "title": "ElevenLabs Music Starter",
     "slug": "3kUs17TFCI7",
     "preview_image_url": "/api/template-image/3kUs17TFCI7",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/3kUs17TFCI7/template.zip",
     "image_filename": "3kUs17TFCI7.jpg",
     "category": "ai"
   },
@@ -140,6 +121,7 @@
     "title": "Card Scan Carousel",
     "slug": "3toeHPa3WwQ",
     "preview_image_url": "/api/template-image/3toeHPa3WwQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/3toeHPa3WwQ/template.zip",
     "image_filename": "3toeHPa3WwQ.jpg",
     "category": "animations"
   },
@@ -148,6 +130,7 @@
     "title": "Network Traffic Analyzer (w/mock packet data)",
     "slug": "4b4SzAt1CLV",
     "preview_image_url": "/api/template-image/4b4SzAt1CLV",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/4b4SzAt1CLV/template.zip",
     "image_filename": "4b4SzAt1CLV.jpg",
     "category": "apps-and-games"
   },
@@ -156,6 +139,7 @@
     "title": "The Model's Dilemma",
     "slug": "4E26j9y3vqF",
     "preview_image_url": "/api/template-image/4E26j9y3vqF",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/4E26j9y3vqF/template.zip",
     "image_filename": "4E26j9y3vqF.jpg",
     "category": "ai"
   },
@@ -164,6 +148,7 @@
     "title": "Recreate Figma UI",
     "slug": "4e9eOkrBW2n",
     "preview_image_url": "/api/template-image/4e9eOkrBW2n",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/4e9eOkrBW2n/template.zip",
     "image_filename": "4e9eOkrBW2n.jpg",
     "category": "apps-and-games"
   },
@@ -172,6 +157,7 @@
     "title": "Crypto Trading Website",
     "slug": "5i8lmS4n11p",
     "preview_image_url": "/api/template-image/5i8lmS4n11p",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/5i8lmS4n11p/template.zip",
     "image_filename": "5i8lmS4n11p.jpg",
     "category": "apps-and-games"
   },
@@ -180,6 +166,7 @@
     "title": "Aura Vibes Pulse",
     "slug": "5QHYQNBsEpM",
     "preview_image_url": "/api/template-image/5QHYQNBsEpM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/5QHYQNBsEpM/template.zip",
     "image_filename": "5QHYQNBsEpM.jpg",
     "category": "animations"
   },
@@ -188,6 +175,7 @@
     "title": "ElevenLabs Agents Starter",
     "slug": "5TN93pl3bRS",
     "preview_image_url": "/api/template-image/5TN93pl3bRS",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/5TN93pl3bRS/template.zip",
     "image_filename": "5TN93pl3bRS.jpg",
     "category": "ai"
   },
@@ -196,6 +184,7 @@
     "title": "Layout Component Library",
     "slug": "5vAhV4ZveIk",
     "preview_image_url": "/api/template-image/5vAhV4ZveIk",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/5vAhV4ZveIk/template.zip",
     "image_filename": "5vAhV4ZveIk.jpg",
     "category": "layouts"
   },
@@ -204,6 +193,7 @@
     "title": "Image Analysis",
     "slug": "5xX7MpdfZpD",
     "preview_image_url": "/api/template-image/5xX7MpdfZpD",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/5xX7MpdfZpD/template.zip",
     "image_filename": "5xX7MpdfZpD.jpg",
     "category": "apps-and-games"
   },
@@ -212,6 +202,7 @@
     "title": "Workout tracking website",
     "slug": "62ZUMJIca8e",
     "preview_image_url": "/api/template-image/62ZUMJIca8e",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/62ZUMJIca8e/template.zip",
     "image_filename": "62ZUMJIca8e.jpg",
     "category": "apps-and-games"
   },
@@ -220,6 +211,7 @@
     "title": "3D Globe Card Gallery",
     "slug": "6MpbaEutNfe",
     "preview_image_url": "/api/template-image/6MpbaEutNfe",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/6MpbaEutNfe/template.zip",
     "image_filename": "6MpbaEutNfe.jpg",
     "category": "components"
   },
@@ -228,6 +220,7 @@
     "title": "Mobile app website",
     "slug": "6NeDUjQz68c",
     "preview_image_url": "/api/template-image/6NeDUjQz68c",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/6NeDUjQz68c/template.zip",
     "image_filename": "6NeDUjQz68c.jpg",
     "category": "apps-and-games"
   },
@@ -236,6 +229,7 @@
     "title": "Art Gallery Slider",
     "slug": "6u6ohes4zFB",
     "preview_image_url": "/api/template-image/6u6ohes4zFB",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/6u6ohes4zFB/template.zip",
     "image_filename": "6u6ohes4zFB.jpg",
     "category": "animations"
   },
@@ -244,6 +238,7 @@
     "title": "Financial Dashboard",
     "slug": "6UhtTqtAVaZ",
     "preview_image_url": "/api/template-image/6UhtTqtAVaZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/6UhtTqtAVaZ/template.zip",
     "image_filename": "6UhtTqtAVaZ.jpg",
     "category": "apps-and-games"
   },
@@ -252,6 +247,7 @@
     "title": "Ai Chat Interface",
     "slug": "6VLiqkGu5vw",
     "preview_image_url": "/api/template-image/6VLiqkGu5vw",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/6VLiqkGu5vw/template.zip",
     "image_filename": "6VLiqkGu5vw.jpg",
     "category": "apps-and-games"
   },
@@ -260,6 +256,7 @@
     "title": "Microfish Landing Page",
     "slug": "6zbTT0QS4pq",
     "preview_image_url": "/api/template-image/6zbTT0QS4pq",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/6zbTT0QS4pq/template.zip",
     "image_filename": "6zbTT0QS4pq.jpg",
     "category": "apps-and-games"
   },
@@ -268,6 +265,7 @@
     "title": "ai-sdk starter",
     "slug": "7gxDwyxCpxb",
     "preview_image_url": "/api/template-image/7gxDwyxCpxb",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/7gxDwyxCpxb/template.zip",
     "image_filename": "7gxDwyxCpxb.jpg",
     "category": "ai"
   },
@@ -276,22 +274,16 @@
     "title": "AI Ad Creator",
     "slug": "7JdqEwKmtIG",
     "preview_image_url": "/api/template-image/7JdqEwKmtIG",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/7JdqEwKmtIG/template.zip",
     "image_filename": "7JdqEwKmtIG.jpg",
     "category": "ai"
-  },
-  {
-    "id": "7LynQs5Dg8M",
-    "title": "Neobrutalist UI design",
-    "slug": "7LynQs5Dg8M",
-    "preview_image_url": "/api/template-image/7LynQs5Dg8M",
-    "image_filename": "7LynQs5Dg8M.jpg",
-    "category": "design-systems"
   },
   {
     "id": "7YygHkO1oj4",
     "title": "Grok Creative Studio",
     "slug": "7YygHkO1oj4",
     "preview_image_url": "/api/template-image/7YygHkO1oj4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/7YygHkO1oj4/template.zip",
     "image_filename": "7YygHkO1oj4.jpg",
     "category": "ai"
   },
@@ -300,6 +292,7 @@
     "title": "Qym",
     "slug": "8DzMBKwa4qM",
     "preview_image_url": "/api/template-image/8DzMBKwa4qM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/8DzMBKwa4qM/template.zip",
     "image_filename": "8DzMBKwa4qM.jpg",
     "category": "login-and-sign-up"
   },
@@ -308,22 +301,16 @@
     "title": "live-portrait",
     "slug": "8jO5g4s3yiw",
     "preview_image_url": "/api/template-image/8jO5g4s3yiw",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/8jO5g4s3yiw/template.zip",
     "image_filename": "8jO5g4s3yiw.jpg",
     "category": "ai"
-  },
-  {
-    "id": "8LY3pRthul6",
-    "title": "Logo particles (GPT-5)",
-    "slug": "8LY3pRthul6",
-    "preview_image_url": "/api/template-image/8LY3pRthul6",
-    "image_filename": "8LY3pRthul6.jpg",
-    "category": "animations"
   },
   {
     "id": "8QhCJAwn16K",
     "title": "MindSpace - SaaS Landing Page Template",
     "slug": "8QhCJAwn16K",
     "preview_image_url": "/api/template-image/8QhCJAwn16K",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/8QhCJAwn16K/template.zip",
     "image_filename": "8QhCJAwn16K.jpg",
     "category": "website-templates"
   },
@@ -332,6 +319,7 @@
     "title": "Flowly - SaaS Landing Page Template",
     "slug": "8Y9E0cStKrW",
     "preview_image_url": "/api/template-image/8Y9E0cStKrW",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/8Y9E0cStKrW/template.zip",
     "image_filename": "8Y9E0cStKrW.jpg",
     "category": "website-templates"
   },
@@ -340,6 +328,7 @@
     "title": "Globe To Map Transform",
     "slug": "99MAOQptgL3",
     "preview_image_url": "/api/template-image/99MAOQptgL3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/99MAOQptgL3/template.zip",
     "image_filename": "99MAOQptgL3.jpg",
     "category": "components"
   },
@@ -348,6 +337,7 @@
     "title": "Research paper app",
     "slug": "9aYhYGn8JY1",
     "preview_image_url": "/api/template-image/9aYhYGn8JY1",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/9aYhYGn8JY1/template.zip",
     "image_filename": "9aYhYGn8JY1.jpg",
     "category": "apps-and-games"
   },
@@ -356,6 +346,7 @@
     "title": "Cyberpunk Buttons",
     "slug": "9CwgIZ7U6MK",
     "preview_image_url": "/api/template-image/9CwgIZ7U6MK",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/9CwgIZ7U6MK/template.zip",
     "image_filename": "9CwgIZ7U6MK.jpg",
     "category": "animations"
   },
@@ -364,6 +355,7 @@
     "title": "Realtime Drawing to AI Image with FAL",
     "slug": "9dPeJBX8qhz",
     "preview_image_url": "/api/template-image/9dPeJBX8qhz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/9dPeJBX8qhz/template.zip",
     "image_filename": "9dPeJBX8qhz.jpg",
     "category": "ai"
   },
@@ -372,6 +364,7 @@
     "title": "AI Data Scientist",
     "slug": "9FIZoMXO1Us",
     "preview_image_url": "/api/template-image/9FIZoMXO1Us",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/9FIZoMXO1Us/template.zip",
     "image_filename": "9FIZoMXO1Us.jpg",
     "category": "ai"
   },
@@ -380,6 +373,7 @@
     "title": "ElevenLabs v3 Podcast Generator",
     "slug": "9zvVUBtxy6i",
     "preview_image_url": "/api/template-image/9zvVUBtxy6i",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/9zvVUBtxy6i/template.zip",
     "image_filename": "9zvVUBtxy6i.jpg",
     "category": "ai"
   },
@@ -388,6 +382,7 @@
     "title": "oddity.001",
     "slug": "a3Cz4EF5P5G",
     "preview_image_url": "/api/template-image/a3Cz4EF5P5G",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/a3Cz4EF5P5G/template.zip",
     "image_filename": "a3Cz4EF5P5G.jpg",
     "category": "animations"
   },
@@ -396,6 +391,7 @@
     "title": "Redis Langcache v0 Template",
     "slug": "a9HJA3gXB4w",
     "preview_image_url": "/api/template-image/a9HJA3gXB4w",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/a9HJA3gXB4w/template.zip",
     "image_filename": "a9HJA3gXB4w.jpg",
     "category": "ai"
   },
@@ -404,6 +400,7 @@
     "title": "Logo particles (v0 + aws)",
     "slug": "AdFqYlEFVdC",
     "preview_image_url": "/api/template-image/AdFqYlEFVdC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/AdFqYlEFVdC/template.zip",
     "image_filename": "AdFqYlEFVdC.jpg",
     "category": "animations"
   },
@@ -412,15 +409,8 @@
     "title": "Exact landing page clone",
     "slug": "Aftb1Fdaj7K",
     "preview_image_url": "/api/template-image/Aftb1Fdaj7K",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/Aftb1Fdaj7K/template.zip",
     "image_filename": "Aftb1Fdaj7K.jpg",
-    "category": "website-templates"
-  },
-  {
-    "id": "ALfQrxyrJ8b",
-    "title": "Nexus Work Management Platform",
-    "slug": "ALfQrxyrJ8b",
-    "preview_image_url": "/api/template-image/ALfQrxyrJ8b",
-    "image_filename": "ALfQrxyrJ8b.jpg",
     "category": "website-templates"
   },
   {
@@ -428,6 +418,7 @@
     "title": "Decart SDK Realtime Template",
     "slug": "AOPC1SjEm82",
     "preview_image_url": "/api/template-image/AOPC1SjEm82",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/AOPC1SjEm82/template.zip",
     "image_filename": "AOPC1SjEm82.jpg",
     "category": "ai"
   },
@@ -436,6 +427,7 @@
     "title": "Meal Planning Agent",
     "slug": "ARm3GSOLRRU",
     "preview_image_url": "/api/template-image/ARm3GSOLRRU",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ARm3GSOLRRU/template.zip",
     "image_filename": "ARm3GSOLRRU.jpg",
     "category": "ai"
   },
@@ -444,6 +436,7 @@
     "title": "React Flow Builder Setup",
     "slug": "aRzoeK43OwD",
     "preview_image_url": "/api/template-image/aRzoeK43OwD",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/aRzoeK43OwD/template.zip",
     "image_filename": "aRzoeK43OwD.jpg",
     "category": "ai"
   },
@@ -452,6 +445,7 @@
     "title": "ElevenLabs \"True\" Crime Podcast Generator",
     "slug": "atL3dDgpfG3",
     "preview_image_url": "/api/template-image/atL3dDgpfG3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/atL3dDgpfG3/template.zip",
     "image_filename": "atL3dDgpfG3.jpg",
     "category": "ai"
   },
@@ -460,6 +454,7 @@
     "title": "melhores ofertas mercado livre",
     "slug": "aUc1nGf6ZqL",
     "preview_image_url": "/api/template-image/aUc1nGf6ZqL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/aUc1nGf6ZqL/template.zip",
     "image_filename": "aUc1nGf6ZqL.jpg",
     "category": "apps-and-games"
   },
@@ -468,6 +463,7 @@
     "title": "Dotted Surface Attractor v2",
     "slug": "AY7BzWP7o3y",
     "preview_image_url": "/api/template-image/AY7BzWP7o3y",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/AY7BzWP7o3y/template.zip",
     "image_filename": "AY7BzWP7o3y.jpg",
     "category": "animations"
   },
@@ -476,22 +472,16 @@
     "title": "Marketplace",
     "slug": "b3DN1aOd6mQ",
     "preview_image_url": "/api/template-image/b3DN1aOd6mQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/b3DN1aOd6mQ/template.zip",
     "image_filename": "b3DN1aOd6mQ.jpg",
     "category": "website-templates"
-  },
-  {
-    "id": "b7GDYVxuoGC",
-    "title": "Dashboard – M.O.N.K.Y",
-    "slug": "b7GDYVxuoGC",
-    "preview_image_url": "/api/template-image/b7GDYVxuoGC",
-    "image_filename": "b7GDYVxuoGC.jpg",
-    "category": "apps-and-games"
   },
   {
     "id": "BAzStwqo8Vz",
     "title": "Nano Banana Cam",
     "slug": "BAzStwqo8Vz",
     "preview_image_url": "/api/template-image/BAzStwqo8Vz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/BAzStwqo8Vz/template.zip",
     "image_filename": "BAzStwqo8Vz.jpg",
     "category": "ai"
   },
@@ -500,6 +490,7 @@
     "title": "Churrasco shopping list",
     "slug": "BhUpVbCd0od",
     "preview_image_url": "/api/template-image/BhUpVbCd0od",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/BhUpVbCd0od/template.zip",
     "image_filename": "BhUpVbCd0od.jpg",
     "category": "apps-and-games"
   },
@@ -508,6 +499,7 @@
     "title": "K55 T3",
     "slug": "BMrqNoeQW4Y",
     "preview_image_url": "/api/template-image/BMrqNoeQW4Y",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/BMrqNoeQW4Y/template.zip",
     "image_filename": "BMrqNoeQW4Y.jpg",
     "category": "apps-and-games"
   },
@@ -516,6 +508,7 @@
     "title": "Lucky Wheel",
     "slug": "bnWo8eBownn",
     "preview_image_url": "/api/template-image/bnWo8eBownn",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/bnWo8eBownn/template.zip",
     "image_filename": "bnWo8eBownn.jpg",
     "category": "apps-and-games"
   },
@@ -524,6 +517,7 @@
     "title": "AI SVG Generator",
     "slug": "BQW8hvkvuos",
     "preview_image_url": "/api/template-image/BQW8hvkvuos",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/BQW8hvkvuos/template.zip",
     "image_filename": "BQW8hvkvuos.jpg",
     "category": "ai"
   },
@@ -532,6 +526,7 @@
     "title": "3D Model Generator, Powered by Hyper3D Rodin",
     "slug": "bTIhXEOJa8w",
     "preview_image_url": "/api/template-image/bTIhXEOJa8w",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/bTIhXEOJa8w/template.zip",
     "image_filename": "bTIhXEOJa8w.jpg",
     "category": "apps-and-games"
   },
@@ -540,6 +535,7 @@
     "title": "Button component animation",
     "slug": "c0iiBjH3PvL",
     "preview_image_url": "/api/template-image/c0iiBjH3PvL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/c0iiBjH3PvL/template.zip",
     "image_filename": "c0iiBjH3PvL.jpg",
     "category": "animations"
   },
@@ -548,22 +544,16 @@
     "title": "Shader Gradient Component",
     "slug": "cAawT1AJaki",
     "preview_image_url": "/api/template-image/cAawT1AJaki",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/cAawT1AJaki/template.zip",
     "image_filename": "cAawT1AJaki.jpg",
     "category": "animations"
-  },
-  {
-    "id": "CGGkfm1fWy6",
-    "title": "Saurav's ShopMate",
-    "slug": "CGGkfm1fWy6",
-    "preview_image_url": "/api/template-image/CGGkfm1fWy6",
-    "image_filename": "CGGkfm1fWy6.jpg",
-    "category": "ai"
   },
   {
     "id": "CirmLMhUoF0",
     "title": "Car rental website clone",
     "slug": "CirmLMhUoF0",
     "preview_image_url": "/api/template-image/CirmLMhUoF0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/CirmLMhUoF0/template.zip",
     "image_filename": "CirmLMhUoF0.jpg",
     "category": "website-templates"
   },
@@ -572,6 +562,7 @@
     "title": "Shaders Hero Section",
     "slug": "cJOO8mnVR01",
     "preview_image_url": "/api/template-image/cJOO8mnVR01",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/cJOO8mnVR01/template.zip",
     "image_filename": "cJOO8mnVR01.jpg",
     "category": "website-templates"
   },
@@ -580,6 +571,7 @@
     "title": "System resource widget",
     "slug": "COcCGMomTKL",
     "preview_image_url": "/api/template-image/COcCGMomTKL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/COcCGMomTKL/template.zip",
     "image_filename": "COcCGMomTKL.jpg",
     "category": "components"
   },
@@ -588,6 +580,7 @@
     "title": "SVG Trace Playground",
     "slug": "CXZEQN6g51Q",
     "preview_image_url": "/api/template-image/CXZEQN6g51Q",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/CXZEQN6g51Q/template.zip",
     "image_filename": "CXZEQN6g51Q.jpg",
     "category": "animations"
   },
@@ -596,6 +589,7 @@
     "title": "Cms Full Form - Admin Dashboard Tailwind Templates",
     "slug": "d7j5B58dlp4",
     "preview_image_url": "/api/template-image/d7j5B58dlp4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/d7j5B58dlp4/template.zip",
     "image_filename": "d7j5B58dlp4.jpg",
     "category": "apps-and-games"
   },
@@ -604,22 +598,16 @@
     "title": "Gothic Font Editor",
     "slug": "D8CqM5uabMY",
     "preview_image_url": "/api/template-image/D8CqM5uabMY",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/D8CqM5uabMY/template.zip",
     "image_filename": "D8CqM5uabMY.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "Dav88XZy66u",
-    "title": "Apple-Style Scroll Animation 3D Product Explode",
-    "slug": "Dav88XZy66u",
-    "preview_image_url": "/api/template-image/Dav88XZy66u",
-    "image_filename": "Dav88XZy66u.jpg",
-    "category": "animations"
   },
   {
     "id": "DcLJZ6h8Y8g",
     "title": "3D Card Animation",
     "slug": "DcLJZ6h8Y8g",
     "preview_image_url": "/api/template-image/DcLJZ6h8Y8g",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/DcLJZ6h8Y8g/template.zip",
     "image_filename": "DcLJZ6h8Y8g.jpg",
     "category": "animations"
   },
@@ -628,6 +616,7 @@
     "title": "RoomVision - Nanobanana",
     "slug": "DHIFaBKHZan",
     "preview_image_url": "/api/template-image/DHIFaBKHZan",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/DHIFaBKHZan/template.zip",
     "image_filename": "DHIFaBKHZan.jpg",
     "category": "ai"
   },
@@ -636,6 +625,7 @@
     "title": "Card Component",
     "slug": "dopSzBaceIo",
     "preview_image_url": "/api/template-image/dopSzBaceIo",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/dopSzBaceIo/template.zip",
     "image_filename": "dopSzBaceIo.jpg",
     "category": "animations"
   },
@@ -644,6 +634,7 @@
     "title": "Modern AI app Hero WIth CTA",
     "slug": "dr50tQNxbqo",
     "preview_image_url": "/api/template-image/dr50tQNxbqo",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/dr50tQNxbqo/template.zip",
     "image_filename": "dr50tQNxbqo.jpg",
     "category": "website-templates"
   },
@@ -652,6 +643,7 @@
     "title": "Financial Dashboard",
     "slug": "DuidKNEmCKf",
     "preview_image_url": "/api/template-image/DuidKNEmCKf",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/DuidKNEmCKf/template.zip",
     "image_filename": "DuidKNEmCKf.jpg",
     "category": "apps-and-games"
   },
@@ -660,6 +652,7 @@
     "title": "Microsoft Clarity - Session recordings, Heatmap, AI analytics template",
     "slug": "e2jmpF9VrDo",
     "preview_image_url": "/api/template-image/e2jmpF9VrDo",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/e2jmpF9VrDo/template.zip",
     "image_filename": "e2jmpF9VrDo.jpg",
     "category": "ai"
   },
@@ -668,14 +661,16 @@
     "title": "Sign in with Vercel",
     "slug": "E2PMKQo5S11",
     "preview_image_url": "/api/template-image/E2PMKQo5S11",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/E2PMKQo5S11/template.zip",
     "image_filename": "E2PMKQo5S11.jpg",
-    "category": "login-and-sign-up"
+    "category": "website-templates"
   },
   {
     "id": "E3xFlIXCZi4",
     "title": "Portfolio website design",
     "slug": "E3xFlIXCZi4",
     "preview_image_url": "/api/template-image/E3xFlIXCZi4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/E3xFlIXCZi4/template.zip",
     "image_filename": "E3xFlIXCZi4.jpg",
     "category": "blog-and-portfolio"
   },
@@ -684,6 +679,7 @@
     "title": "Custom dashboard layout",
     "slug": "ecgqv3bQWCs",
     "preview_image_url": "/api/template-image/ecgqv3bQWCs",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/ecgqv3bQWCs/template.zip",
     "image_filename": "ecgqv3bQWCs.jpg",
     "category": "layouts"
   },
@@ -692,6 +688,7 @@
     "title": "Text Reveal Animation",
     "slug": "EdD4Xpeoo0w",
     "preview_image_url": "/api/template-image/EdD4Xpeoo0w",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/EdD4Xpeoo0w/template.zip",
     "image_filename": "EdD4Xpeoo0w.jpg",
     "category": "animations"
   },
@@ -700,6 +697,7 @@
     "title": "Online Courses",
     "slug": "EDZtzSpZG41",
     "preview_image_url": "/api/template-image/EDZtzSpZG41",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/EDZtzSpZG41/template.zip",
     "image_filename": "EDZtzSpZG41.jpg",
     "category": "apps-and-games"
   },
@@ -708,15 +706,8 @@
     "title": "Audio Visualizer",
     "slug": "eGfAJ9Uw70W",
     "preview_image_url": "/api/template-image/eGfAJ9Uw70W",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/eGfAJ9Uw70W/template.zip",
     "image_filename": "eGfAJ9Uw70W.jpg",
-    "category": "ai"
-  },
-  {
-    "id": "ER8WF4pvTuh",
-    "title": "AI Story Book Creator",
-    "slug": "ER8WF4pvTuh",
-    "preview_image_url": "/api/template-image/ER8WF4pvTuh",
-    "image_filename": "ER8WF4pvTuh.jpg",
     "category": "ai"
   },
   {
@@ -724,6 +715,7 @@
     "title": "Nano Banana Starter",
     "slug": "eTc5ncilekt",
     "preview_image_url": "/api/template-image/eTc5ncilekt",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/eTc5ncilekt/template.zip",
     "image_filename": "eTc5ncilekt.jpg",
     "category": "ai"
   },
@@ -732,6 +724,7 @@
     "title": "Minimal Weather App",
     "slug": "etegl2n0R9K",
     "preview_image_url": "/api/template-image/etegl2n0R9K",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/etegl2n0R9K/template.zip",
     "image_filename": "etegl2n0R9K.jpg",
     "category": "apps-and-games"
   },
@@ -740,6 +733,7 @@
     "title": "Image Encryption",
     "slug": "eTZutXBVOef",
     "preview_image_url": "/api/template-image/eTZutXBVOef",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/eTZutXBVOef/template.zip",
     "image_filename": "eTZutXBVOef.jpg",
     "category": "apps-and-games"
   },
@@ -748,14 +742,16 @@
     "title": "Habbo Hotel like Multiplayer Chatroom using GPT-5",
     "slug": "EYN85i0FdYV",
     "preview_image_url": "/api/template-image/EYN85i0FdYV",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/EYN85i0FdYV/template.zip",
     "image_filename": "EYN85i0FdYV.jpg",
-    "category": "apps-and-games"
+    "category": "website-templates"
   },
   {
     "id": "ezmvVsZJxz8",
     "title": "Modern Agency Website - Liquid Glass",
     "slug": "ezmvVsZJxz8",
     "preview_image_url": "/api/template-image/ezmvVsZJxz8",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/ezmvVsZJxz8/template.zip",
     "image_filename": "ezmvVsZJxz8.jpg",
     "category": "website-templates"
   },
@@ -764,15 +760,8 @@
     "title": "Music player app",
     "slug": "ezo48z1chOD",
     "preview_image_url": "/api/template-image/ezo48z1chOD",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/ezo48z1chOD/template.zip",
     "image_filename": "ezo48z1chOD.jpg",
-    "category": "apps-and-games"
-  },
-  {
-    "id": "f7Ir4nwiRLc",
-    "title": "Air Chess",
-    "slug": "f7Ir4nwiRLc",
-    "preview_image_url": "/api/template-image/f7Ir4nwiRLc",
-    "image_filename": "f7Ir4nwiRLc.jpg",
     "category": "apps-and-games"
   },
   {
@@ -780,6 +769,7 @@
     "title": "Rebill checkout page",
     "slug": "f9HJfxl2Edq",
     "preview_image_url": "/api/template-image/f9HJfxl2Edq",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/f9HJfxl2Edq/template.zip",
     "image_filename": "f9HJfxl2Edq.jpg",
     "category": "website-templates"
   },
@@ -788,6 +778,7 @@
     "title": "Event Badge Animation",
     "slug": "FDTQNrWefMP",
     "preview_image_url": "/api/template-image/FDTQNrWefMP",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/FDTQNrWefMP/template.zip",
     "image_filename": "FDTQNrWefMP.jpg",
     "category": "animations"
   },
@@ -796,6 +787,7 @@
     "title": "Login Form with atmospheric shader",
     "slug": "FjVZH4DboBv",
     "preview_image_url": "/api/template-image/FjVZH4DboBv",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/FjVZH4DboBv/template.zip",
     "image_filename": "FjVZH4DboBv.jpg",
     "category": "login-and-sign-up"
   },
@@ -804,6 +796,7 @@
     "title": "Task Manager",
     "slug": "FlR7JxdFesy",
     "preview_image_url": "/api/template-image/FlR7JxdFesy",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/FlR7JxdFesy/template.zip",
     "image_filename": "FlR7JxdFesy.jpg",
     "category": "apps-and-games"
   },
@@ -812,22 +805,16 @@
     "title": "Saas Landing Page",
     "slug": "fnLkUW05eg3",
     "preview_image_url": "/api/template-image/fnLkUW05eg3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/fnLkUW05eg3/template.zip",
     "image_filename": "fnLkUW05eg3.jpg",
     "category": "website-templates"
-  },
-  {
-    "id": "FOHHswbknRG",
-    "title": "Portfolio website",
-    "slug": "FOHHswbknRG",
-    "preview_image_url": "/api/template-image/FOHHswbknRG",
-    "image_filename": "FOHHswbknRG.jpg",
-    "category": "apps-and-games"
   },
   {
     "id": "FPh26E3ZGGL",
     "title": "Animated Border Cards",
     "slug": "FPh26E3ZGGL",
     "preview_image_url": "/api/template-image/FPh26E3ZGGL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/FPh26E3ZGGL/template.zip",
     "image_filename": "FPh26E3ZGGL.jpg",
     "category": "animations"
   },
@@ -836,6 +823,7 @@
     "title": "Metallic Silver Border Card",
     "slug": "FPle6SOomI6",
     "preview_image_url": "/api/template-image/FPle6SOomI6",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/FPle6SOomI6/template.zip",
     "image_filename": "FPle6SOomI6.jpg",
     "category": "components"
   },
@@ -844,6 +832,7 @@
     "title": "ChefSmart",
     "slug": "FqIegFfY4ju",
     "preview_image_url": "/api/template-image/FqIegFfY4ju",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/FqIegFfY4ju/template.zip",
     "image_filename": "FqIegFfY4ju.jpg",
     "category": "ai"
   },
@@ -852,6 +841,7 @@
     "title": "AI Infograhics Generator",
     "slug": "FRTdsTVElQ9",
     "preview_image_url": "/api/template-image/FRTdsTVElQ9",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/FRTdsTVElQ9/template.zip",
     "image_filename": "FRTdsTVElQ9.jpg",
     "category": "ai"
   },
@@ -860,22 +850,16 @@
     "title": "GSAP Reveal Components",
     "slug": "fShkzhrSUh4",
     "preview_image_url": "/api/template-image/fShkzhrSUh4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/fShkzhrSUh4/template.zip",
     "image_filename": "fShkzhrSUh4.jpg",
     "category": "animations"
-  },
-  {
-    "id": "fUqrRFEXLnm",
-    "title": "SaaS Landing Page",
-    "slug": "fUqrRFEXLnm",
-    "preview_image_url": "/api/template-image/fUqrRFEXLnm",
-    "image_filename": "fUqrRFEXLnm.jpg",
-    "category": "website-templates"
   },
   {
     "id": "fWGkNDEFPBw",
     "title": "Openfort Starter",
     "slug": "fWGkNDEFPBw",
     "preview_image_url": "/api/template-image/fWGkNDEFPBw",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/fWGkNDEFPBw/template.zip",
     "image_filename": "fWGkNDEFPBw.jpg",
     "category": "website-templates"
   },
@@ -884,6 +868,7 @@
     "title": "SaaS Hero Section",
     "slug": "FxqhLEDOgnB",
     "preview_image_url": "/api/template-image/FxqhLEDOgnB",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/FxqhLEDOgnB/template.zip",
     "image_filename": "FxqhLEDOgnB.jpg",
     "category": "website-templates"
   },
@@ -892,6 +877,7 @@
     "title": "Neobrutalist UI design",
     "slug": "g1jsp1c0OGv",
     "preview_image_url": "/api/template-image/g1jsp1c0OGv",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/design-systems/g1jsp1c0OGv/template.zip",
     "image_filename": "g1jsp1c0OGv.jpg",
     "category": "design-systems"
   },
@@ -900,22 +886,16 @@
     "title": "Calculator App",
     "slug": "G66YB7U9Nik",
     "preview_image_url": "/api/template-image/G66YB7U9Nik",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/G66YB7U9Nik/template.zip",
     "image_filename": "G66YB7U9Nik.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "GA0zcf6Lpzs",
-    "title": "Roastinator PRD Evaluator",
-    "slug": "GA0zcf6Lpzs",
-    "preview_image_url": "/api/template-image/GA0zcf6Lpzs",
-    "image_filename": "GA0zcf6Lpzs.jpg",
-    "category": "ai"
   },
   {
     "id": "GB2Aln8GBDP",
     "title": "Shadcn registry generator",
     "slug": "GB2Aln8GBDP",
     "preview_image_url": "/api/template-image/GB2Aln8GBDP",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/GB2Aln8GBDP/template.zip",
     "image_filename": "GB2Aln8GBDP.jpg",
     "category": "apps-and-games"
   },
@@ -924,6 +904,7 @@
     "title": "Neumorphic User Onboarding",
     "slug": "gEmHlupUYoH",
     "preview_image_url": "/api/template-image/gEmHlupUYoH",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/gEmHlupUYoH/template.zip",
     "image_filename": "gEmHlupUYoH.jpg",
     "category": "login-and-sign-up"
   },
@@ -932,6 +913,7 @@
     "title": "Glassmorphism website",
     "slug": "giqITkce06I",
     "preview_image_url": "/api/template-image/giqITkce06I",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/giqITkce06I/template.zip",
     "image_filename": "giqITkce06I.jpg",
     "category": "apps-and-games"
   },
@@ -940,6 +922,7 @@
     "title": "mixion",
     "slug": "GjrzBcSDXUd",
     "preview_image_url": "/api/template-image/GjrzBcSDXUd",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/GjrzBcSDXUd/template.zip",
     "image_filename": "GjrzBcSDXUd.jpg",
     "category": "apps-and-games"
   },
@@ -948,6 +931,7 @@
     "title": "Immersive 3D Studio",
     "slug": "GtT9AaHuaXp",
     "preview_image_url": "/api/template-image/GtT9AaHuaXp",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/GtT9AaHuaXp/template.zip",
     "image_filename": "GtT9AaHuaXp.jpg",
     "category": "animations"
   },
@@ -956,6 +940,7 @@
     "title": "v0 Agent Builder",
     "slug": "GwWzatIJKwl",
     "preview_image_url": "/api/template-image/GwWzatIJKwl",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/GwWzatIJKwl/template.zip",
     "image_filename": "GwWzatIJKwl.jpg",
     "category": "ai"
   },
@@ -964,6 +949,7 @@
     "title": "Vibe code your MCP Server",
     "slug": "GxLqHcLosSF",
     "preview_image_url": "/api/template-image/GxLqHcLosSF",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/GxLqHcLosSF/template.zip",
     "image_filename": "GxLqHcLosSF.jpg",
     "category": "ai"
   },
@@ -972,6 +958,7 @@
     "title": "Recreate UI from screenshot",
     "slug": "GxpWTmluG13",
     "preview_image_url": "/api/template-image/GxpWTmluG13",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/GxpWTmluG13/template.zip",
     "image_filename": "GxpWTmluG13.jpg",
     "category": "ai"
   },
@@ -980,6 +967,7 @@
     "title": "Snake V1",
     "slug": "GYIOZoeAD2G",
     "preview_image_url": "/api/template-image/GYIOZoeAD2G",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/GYIOZoeAD2G/template.zip",
     "image_filename": "GYIOZoeAD2G.jpg",
     "category": "apps-and-games"
   },
@@ -988,6 +976,7 @@
     "title": "Modern AI Chatbot Interface Template",
     "slug": "GzHBHQAiS2F",
     "preview_image_url": "/api/template-image/GzHBHQAiS2F",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/GzHBHQAiS2F/template.zip",
     "image_filename": "GzHBHQAiS2F.jpg",
     "category": "ai"
   },
@@ -996,6 +985,7 @@
     "title": "AEGIS-Ω",
     "slug": "h4nibkqysVJ",
     "preview_image_url": "/api/template-image/h4nibkqysVJ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/h4nibkqysVJ/template.zip",
     "image_filename": "h4nibkqysVJ.jpg",
     "category": "ai"
   },
@@ -1004,6 +994,7 @@
     "title": "Dentist Marketing Campaign Management",
     "slug": "Hdt4ES3UM3t",
     "preview_image_url": "/api/template-image/Hdt4ES3UM3t",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/Hdt4ES3UM3t/template.zip",
     "image_filename": "Hdt4ES3UM3t.jpg",
     "category": "apps-and-games"
   },
@@ -1012,6 +1003,7 @@
     "title": "Base Pay Prototype",
     "slug": "hFsI8wYbdfC",
     "preview_image_url": "/api/template-image/hFsI8wYbdfC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/hFsI8wYbdfC/template.zip",
     "image_filename": "hFsI8wYbdfC.jpg",
     "category": "apps-and-games"
   },
@@ -1020,6 +1012,7 @@
     "title": "Stumble-a-prompt",
     "slug": "hGkpdDsuXiZ",
     "preview_image_url": "/api/template-image/hGkpdDsuXiZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/hGkpdDsuXiZ/template.zip",
     "image_filename": "hGkpdDsuXiZ.jpg",
     "category": "ai"
   },
@@ -1028,6 +1021,7 @@
     "title": "Nano Banana Pro Playground",
     "slug": "hkRpZoLOrJC",
     "preview_image_url": "/api/template-image/hkRpZoLOrJC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/hkRpZoLOrJC/template.zip",
     "image_filename": "hkRpZoLOrJC.jpg",
     "category": "ai"
   },
@@ -1036,6 +1030,7 @@
     "title": "Nano Banana Playground Template",
     "slug": "hO33zwNmsQF",
     "preview_image_url": "/api/template-image/hO33zwNmsQF",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/hO33zwNmsQF/template.zip",
     "image_filename": "hO33zwNmsQF.jpg",
     "category": "ai"
   },
@@ -1044,6 +1039,7 @@
     "title": "Split flap display simulator",
     "slug": "hSuyv7J9ZkR",
     "preview_image_url": "/api/template-image/hSuyv7J9ZkR",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/hSuyv7J9ZkR/template.zip",
     "image_filename": "hSuyv7J9ZkR.jpg",
     "category": "animations"
   },
@@ -1052,6 +1048,7 @@
     "title": "Flightly Sticker Modal",
     "slug": "IakrUQ3dqso",
     "preview_image_url": "/api/template-image/IakrUQ3dqso",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/IakrUQ3dqso/template.zip",
     "image_filename": "IakrUQ3dqso.jpg",
     "category": "layouts"
   },
@@ -1060,6 +1057,7 @@
     "title": "Interior Design Landing",
     "slug": "iBPsMqPGRTZ",
     "preview_image_url": "/api/template-image/iBPsMqPGRTZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/iBPsMqPGRTZ/template.zip",
     "image_filename": "iBPsMqPGRTZ.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1068,6 +1066,7 @@
     "title": "Amazon Bedrock Chat",
     "slug": "ic02oOr94dp",
     "preview_image_url": "/api/template-image/ic02oOr94dp",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ic02oOr94dp/template.zip",
     "image_filename": "ic02oOr94dp.jpg",
     "category": "ai"
   },
@@ -1076,6 +1075,7 @@
     "title": "Macintosh Operating System",
     "slug": "iONNOaUulfd",
     "preview_image_url": "/api/template-image/iONNOaUulfd",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/iONNOaUulfd/template.zip",
     "image_filename": "iONNOaUulfd.jpg",
     "category": "apps-and-games"
   },
@@ -1084,6 +1084,7 @@
     "title": "FLUX.2 Playground",
     "slug": "iueA46Y9BHz",
     "preview_image_url": "/api/template-image/iueA46Y9BHz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/iueA46Y9BHz/template.zip",
     "image_filename": "iueA46Y9BHz.jpg",
     "category": "ai"
   },
@@ -1092,6 +1093,7 @@
     "title": "Dashboard design requirements",
     "slug": "IVWc0rHCBAL",
     "preview_image_url": "/api/template-image/IVWc0rHCBAL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/IVWc0rHCBAL/template.zip",
     "image_filename": "IVWc0rHCBAL.jpg",
     "category": "apps-and-games"
   },
@@ -1100,6 +1102,7 @@
     "title": "oddity.003",
     "slug": "Iwn2WCVDWO9",
     "preview_image_url": "/api/template-image/Iwn2WCVDWO9",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/Iwn2WCVDWO9/template.zip",
     "image_filename": "Iwn2WCVDWO9.jpg",
     "category": "animations"
   },
@@ -1108,6 +1111,7 @@
     "title": "Animated Spotlight",
     "slug": "IYFdVOxSc1S",
     "preview_image_url": "/api/template-image/IYFdVOxSc1S",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/IYFdVOxSc1S/template.zip",
     "image_filename": "IYFdVOxSc1S.jpg",
     "category": "animations"
   },
@@ -1116,6 +1120,7 @@
     "title": "3D galaxy page",
     "slug": "jAKW17eb3Os",
     "preview_image_url": "/api/template-image/jAKW17eb3Os",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/jAKW17eb3Os/template.zip",
     "image_filename": "jAKW17eb3Os.jpg",
     "category": "apps-and-games"
   },
@@ -1124,6 +1129,7 @@
     "title": "Agentic AI Task Orchestrator",
     "slug": "jCeGSebTxo0",
     "preview_image_url": "/api/template-image/jCeGSebTxo0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/jCeGSebTxo0/template.zip",
     "image_filename": "jCeGSebTxo0.jpg",
     "category": "ai"
   },
@@ -1132,6 +1138,7 @@
     "title": "Crypto Dashboard",
     "slug": "JfGEPnqVAVL",
     "preview_image_url": "/api/template-image/JfGEPnqVAVL",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/JfGEPnqVAVL/template.zip",
     "image_filename": "JfGEPnqVAVL.jpg",
     "category": "apps-and-games"
   },
@@ -1140,6 +1147,7 @@
     "title": "Retro CRT Portfolio",
     "slug": "JgcWH8Dw9d3",
     "preview_image_url": "/api/template-image/JgcWH8Dw9d3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/JgcWH8Dw9d3/template.zip",
     "image_filename": "JgcWH8Dw9d3.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1148,6 +1156,7 @@
     "title": "Shader generator",
     "slug": "jhKVBI997Dk",
     "preview_image_url": "/api/template-image/jhKVBI997Dk",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/jhKVBI997Dk/template.zip",
     "image_filename": "jhKVBI997Dk.jpg",
     "category": "apps-and-games"
   },
@@ -1156,6 +1165,7 @@
     "title": "pixlecam",
     "slug": "joSCTpKq5OM",
     "preview_image_url": "/api/template-image/joSCTpKq5OM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/joSCTpKq5OM/template.zip",
     "image_filename": "joSCTpKq5OM.jpg",
     "category": "apps-and-games"
   },
@@ -1164,6 +1174,7 @@
     "title": "Recreate Figma UI",
     "slug": "JSfH6c1bw15",
     "preview_image_url": "/api/template-image/JSfH6c1bw15",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/JSfH6c1bw15/template.zip",
     "image_filename": "JSfH6c1bw15.jpg",
     "category": "apps-and-games"
   },
@@ -1172,6 +1183,7 @@
     "title": "Neon + Stripe SaaS",
     "slug": "jSYDGSkRBFX",
     "preview_image_url": "/api/template-image/jSYDGSkRBFX",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/jSYDGSkRBFX/template.zip",
     "image_filename": "jSYDGSkRBFX.jpg",
     "category": "login-and-sign-up"
   },
@@ -1180,6 +1192,7 @@
     "title": "3D Keyboard Chat",
     "slug": "JTMkCmk0GvC",
     "preview_image_url": "/api/template-image/JTMkCmk0GvC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/JTMkCmk0GvC/template.zip",
     "image_filename": "JTMkCmk0GvC.jpg",
     "category": "apps-and-games"
   },
@@ -1188,6 +1201,7 @@
     "title": "Financial Dashboard - Functional",
     "slug": "jUBqSBJsNrz",
     "preview_image_url": "/api/template-image/jUBqSBJsNrz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/jUBqSBJsNrz/template.zip",
     "image_filename": "jUBqSBJsNrz.jpg",
     "category": "apps-and-games"
   },
@@ -1196,22 +1210,16 @@
     "title": "AI Gateway Starter",
     "slug": "jV5ixbx4BOl",
     "preview_image_url": "/api/template-image/jV5ixbx4BOl",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/jV5ixbx4BOl/template.zip",
     "image_filename": "jV5ixbx4BOl.jpg",
     "category": "ai"
-  },
-  {
-    "id": "jz21jJIFr0i",
-    "title": "Lorenzo Motocross - Landing Page",
-    "slug": "jz21jJIFr0i",
-    "preview_image_url": "/api/template-image/jz21jJIFr0i",
-    "image_filename": "jz21jJIFr0i.jpg",
-    "category": "website-templates"
   },
   {
     "id": "jZpf5doYiNe",
     "title": "Ghibli Inspired Landing Page",
     "slug": "jZpf5doYiNe",
     "preview_image_url": "/api/template-image/jZpf5doYiNe",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/jZpf5doYiNe/template.zip",
     "image_filename": "jZpf5doYiNe.jpg",
     "category": "website-templates"
   },
@@ -1220,6 +1228,7 @@
     "title": "Clerk Waitlist Starter",
     "slug": "KFyeD1PKXF4",
     "preview_image_url": "/api/template-image/KFyeD1PKXF4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/KFyeD1PKXF4/template.zip",
     "image_filename": "KFyeD1PKXF4.jpg",
     "category": "login-and-sign-up"
   },
@@ -1228,6 +1237,7 @@
     "title": "Joy new",
     "slug": "Klr0jEtw0Qn",
     "preview_image_url": "/api/template-image/Klr0jEtw0Qn",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/Klr0jEtw0Qn/template.zip",
     "image_filename": "Klr0jEtw0Qn.jpg",
     "category": "apps-and-games"
   },
@@ -1236,6 +1246,7 @@
     "title": "Jellyfish",
     "slug": "ksbI8QJx40F",
     "preview_image_url": "/api/template-image/ksbI8QJx40F",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/ksbI8QJx40F/template.zip",
     "image_filename": "ksbI8QJx40F.jpg",
     "category": "animations"
   },
@@ -1244,6 +1255,7 @@
     "title": "AI Elements with AI SDK 5",
     "slug": "ksSTzATPzMq",
     "preview_image_url": "/api/template-image/ksSTzATPzMq",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ksSTzATPzMq/template.zip",
     "image_filename": "ksSTzATPzMq.jpg",
     "category": "ai"
   },
@@ -1252,6 +1264,7 @@
     "title": "AI Image Generation Benchmark",
     "slug": "kz69KY1ux5H",
     "preview_image_url": "/api/template-image/kz69KY1ux5H",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/kz69KY1ux5H/template.zip",
     "image_filename": "kz69KY1ux5H.jpg",
     "category": "ai"
   },
@@ -1260,6 +1273,7 @@
     "title": "Bank App",
     "slug": "LAKk0lLpkdb",
     "preview_image_url": "/api/template-image/LAKk0lLpkdb",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/LAKk0lLpkdb/template.zip",
     "image_filename": "LAKk0lLpkdb.jpg",
     "category": "apps-and-games"
   },
@@ -1268,6 +1282,7 @@
     "title": "Agent - Hero Section",
     "slug": "lcJ8H4J0vMy",
     "preview_image_url": "/api/template-image/lcJ8H4J0vMy",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/lcJ8H4J0vMy/template.zip",
     "image_filename": "lcJ8H4J0vMy.jpg",
     "category": "animations"
   },
@@ -1276,6 +1291,7 @@
     "title": "V0.dev game engine",
     "slug": "lDWoG8tQbFz",
     "preview_image_url": "/api/template-image/lDWoG8tQbFz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/lDWoG8tQbFz/template.zip",
     "image_filename": "lDWoG8tQbFz.jpg",
     "category": "apps-and-games"
   },
@@ -1284,6 +1300,7 @@
     "title": "Masonry Grid",
     "slug": "lezjBDZqoIO",
     "preview_image_url": "/api/template-image/lezjBDZqoIO",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/lezjBDZqoIO/template.zip",
     "image_filename": "lezjBDZqoIO.jpg",
     "category": "layouts"
   },
@@ -1292,6 +1309,7 @@
     "title": "Animated dialog component",
     "slug": "Lj65px9R6TK",
     "preview_image_url": "/api/template-image/Lj65px9R6TK",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/Lj65px9R6TK/template.zip",
     "image_filename": "Lj65px9R6TK.jpg",
     "category": "animations"
   },
@@ -1300,6 +1318,7 @@
     "title": "Shaders Hero Section",
     "slug": "lJXGkoM1koN",
     "preview_image_url": "/api/template-image/lJXGkoM1koN",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/lJXGkoM1koN/template.zip",
     "image_filename": "lJXGkoM1koN.jpg",
     "category": "website-templates"
   },
@@ -1308,6 +1327,7 @@
     "title": "Sign In with X",
     "slug": "Ln5i4EVw63N",
     "preview_image_url": "/api/template-image/Ln5i4EVw63N",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/Ln5i4EVw63N/template.zip",
     "image_filename": "Ln5i4EVw63N.jpg",
     "category": "login-and-sign-up"
   },
@@ -1316,6 +1336,7 @@
     "title": "Satori Bot",
     "slug": "lNkDS3MVHTk",
     "preview_image_url": "/api/template-image/lNkDS3MVHTk",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/lNkDS3MVHTk/template.zip",
     "image_filename": "lNkDS3MVHTk.jpg",
     "category": "ai"
   },
@@ -1324,6 +1345,7 @@
     "title": "Montserrat page design",
     "slug": "lt2xTPgmFNB",
     "preview_image_url": "/api/template-image/lt2xTPgmFNB",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/lt2xTPgmFNB/template.zip",
     "image_filename": "lt2xTPgmFNB.jpg",
     "category": "apps-and-games"
   },
@@ -1332,6 +1354,7 @@
     "title": "TREMOR -- Real-Time Global Earthquake Monitor",
     "slug": "lUo6XTuTJXl",
     "preview_image_url": "/api/template-image/lUo6XTuTJXl",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/lUo6XTuTJXl/template.zip",
     "image_filename": "lUo6XTuTJXl.jpg",
     "category": "apps-and-games"
   },
@@ -1340,6 +1363,7 @@
     "title": "ASCII sound canvas",
     "slug": "lvecd98w3nd",
     "preview_image_url": "/api/template-image/lvecd98w3nd",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/lvecd98w3nd/template.zip",
     "image_filename": "lvecd98w3nd.jpg",
     "category": "apps-and-games"
   },
@@ -1348,22 +1372,16 @@
     "title": "Sales CRM design",
     "slug": "m23KLm1bn8K",
     "preview_image_url": "/api/template-image/m23KLm1bn8K",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/m23KLm1bn8K/template.zip",
     "image_filename": "m23KLm1bn8K.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "m6qR7WMa6Q9",
-    "title": "Langar e Panjatan app",
-    "slug": "m6qR7WMa6Q9",
-    "preview_image_url": "/api/template-image/m6qR7WMa6Q9",
-    "image_filename": "m6qR7WMa6Q9.jpg",
-    "category": "ai"
   },
   {
     "id": "mA8N4h1POSv",
     "title": "Portfolio Template",
     "slug": "mA8N4h1POSv",
     "preview_image_url": "/api/template-image/mA8N4h1POSv",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/mA8N4h1POSv/template.zip",
     "image_filename": "mA8N4h1POSv.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1372,6 +1390,7 @@
     "title": "Infinite Scrolling Images",
     "slug": "mE2nwltmoDT",
     "preview_image_url": "/api/template-image/mE2nwltmoDT",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/mE2nwltmoDT/template.zip",
     "image_filename": "mE2nwltmoDT.jpg",
     "category": "animations"
   },
@@ -1380,6 +1399,7 @@
     "title": "enhanced-travel-website",
     "slug": "mEefgKyVifq",
     "preview_image_url": "/api/template-image/mEefgKyVifq",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/mEefgKyVifq/template.zip",
     "image_filename": "mEefgKyVifq.jpg",
     "category": "website-templates"
   },
@@ -1388,6 +1408,7 @@
     "title": "Neon Maze",
     "slug": "MHeBveWfasp",
     "preview_image_url": "/api/template-image/MHeBveWfasp",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/MHeBveWfasp/template.zip",
     "image_filename": "MHeBveWfasp.jpg",
     "category": "apps-and-games"
   },
@@ -1396,6 +1417,7 @@
     "title": "ElevenLabs Music Starter",
     "slug": "mNsIdIhAeGR",
     "preview_image_url": "/api/template-image/mNsIdIhAeGR",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/mNsIdIhAeGR/template.zip",
     "image_filename": "mNsIdIhAeGR.jpg",
     "category": "ai"
   },
@@ -1404,6 +1426,7 @@
     "title": "Swarm of bouncing dots",
     "slug": "MPMI9radTRV",
     "preview_image_url": "/api/template-image/MPMI9radTRV",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/MPMI9radTRV/template.zip",
     "image_filename": "MPMI9radTRV.jpg",
     "category": "animations"
   },
@@ -1412,6 +1435,7 @@
     "title": "Webstore design concept",
     "slug": "mQB1SyhOpe8",
     "preview_image_url": "/api/template-image/mQB1SyhOpe8",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/mQB1SyhOpe8/template.zip",
     "image_filename": "mQB1SyhOpe8.jpg",
     "category": "components"
   },
@@ -1420,22 +1444,16 @@
     "title": "Calendar App",
     "slug": "N0Nmf5w51Ja",
     "preview_image_url": "/api/template-image/N0Nmf5w51Ja",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/N0Nmf5w51Ja/template.zip",
     "image_filename": "N0Nmf5w51Ja.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "NFhsR5cAXJp",
-    "title": "Minimalist portfolio",
-    "slug": "NFhsR5cAXJp",
-    "preview_image_url": "/api/template-image/NFhsR5cAXJp",
-    "image_filename": "NFhsR5cAXJp.jpg",
-    "category": "blog-and-portfolio"
   },
   {
     "id": "NjOUgG6VT7X",
     "title": "EinCode Digital Lab",
     "slug": "NjOUgG6VT7X",
     "preview_image_url": "/api/template-image/NjOUgG6VT7X",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/NjOUgG6VT7X/template.zip",
     "image_filename": "NjOUgG6VT7X.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1444,6 +1462,7 @@
     "title": "Generative UI Chatbot",
     "slug": "nt3ZjSIbBQ1",
     "preview_image_url": "/api/template-image/nt3ZjSIbBQ1",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/nt3ZjSIbBQ1/template.zip",
     "image_filename": "nt3ZjSIbBQ1.jpg",
     "category": "ai"
   },
@@ -1452,6 +1471,7 @@
     "title": "Model Selector Component",
     "slug": "O0nZnK9pEDN",
     "preview_image_url": "/api/template-image/O0nZnK9pEDN",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/O0nZnK9pEDN/template.zip",
     "image_filename": "O0nZnK9pEDN.jpg",
     "category": "ai"
   },
@@ -1460,6 +1480,7 @@
     "title": "oddity.002",
     "slug": "O7jBnej3ZoZ",
     "preview_image_url": "/api/template-image/O7jBnej3ZoZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/O7jBnej3ZoZ/template.zip",
     "image_filename": "O7jBnej3ZoZ.jpg",
     "category": "animations"
   },
@@ -1468,6 +1489,7 @@
     "title": "Next js e commerce",
     "slug": "o8uJYnZCaJQ",
     "preview_image_url": "/api/template-image/o8uJYnZCaJQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/o8uJYnZCaJQ/template.zip",
     "image_filename": "o8uJYnZCaJQ.jpg",
     "category": "apps-and-games"
   },
@@ -1476,6 +1498,7 @@
     "title": "starship with music",
     "slug": "OaIDrvjAKZO",
     "preview_image_url": "/api/template-image/OaIDrvjAKZO",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/OaIDrvjAKZO/template.zip",
     "image_filename": "OaIDrvjAKZO.jpg",
     "category": "animations"
   },
@@ -1484,6 +1507,7 @@
     "title": "Animated File Upload",
     "slug": "oIMQgf3OiTC",
     "preview_image_url": "/api/template-image/oIMQgf3OiTC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/oIMQgf3OiTC/template.zip",
     "image_filename": "oIMQgf3OiTC.jpg",
     "category": "components"
   },
@@ -1492,6 +1516,7 @@
     "title": "Construction Estimating Tool",
     "slug": "OkDt3okrIDl",
     "preview_image_url": "/api/template-image/OkDt3okrIDl",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/OkDt3okrIDl/template.zip",
     "image_filename": "OkDt3okrIDl.jpg",
     "category": "apps-and-games"
   },
@@ -1500,6 +1525,7 @@
     "title": "AI Landing Page",
     "slug": "ONoAgsMmNOt",
     "preview_image_url": "/api/template-image/ONoAgsMmNOt",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/ONoAgsMmNOt/template.zip",
     "image_filename": "ONoAgsMmNOt.jpg",
     "category": "website-templates"
   },
@@ -1508,6 +1534,7 @@
     "title": "Documentation Starter",
     "slug": "ov3ApgfOdx5",
     "preview_image_url": "/api/template-image/ov3ApgfOdx5",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/ov3ApgfOdx5/template.zip",
     "image_filename": "ov3ApgfOdx5.jpg",
     "category": "apps-and-games"
   },
@@ -1516,22 +1543,16 @@
     "title": "WebGPU Graphene 3D model with particles setting",
     "slug": "oWfCwEBFVQP",
     "preview_image_url": "/api/template-image/oWfCwEBFVQP",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/oWfCwEBFVQP/template.zip",
     "image_filename": "oWfCwEBFVQP.jpg",
     "category": "animations"
-  },
-  {
-    "id": "OxkUxmTykyl",
-    "title": "Fe₂O₃",
-    "slug": "OxkUxmTykyl",
-    "preview_image_url": "/api/template-image/OxkUxmTykyl",
-    "image_filename": "OxkUxmTykyl.jpg",
-    "category": "apps-and-games"
   },
   {
     "id": "oZxBJ6zcOsz",
     "title": "Form Template",
     "slug": "oZxBJ6zcOsz",
     "preview_image_url": "/api/template-image/oZxBJ6zcOsz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/oZxBJ6zcOsz/template.zip",
     "image_filename": "oZxBJ6zcOsz.jpg",
     "category": "website-templates"
   },
@@ -1540,6 +1561,7 @@
     "title": "Portfolio clone",
     "slug": "p3gyw1zYsVe",
     "preview_image_url": "/api/template-image/p3gyw1zYsVe",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/p3gyw1zYsVe/template.zip",
     "image_filename": "p3gyw1zYsVe.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1548,6 +1570,7 @@
     "title": "Call of duty theme portfolio",
     "slug": "P6C7shyXgMi",
     "preview_image_url": "/api/template-image/P6C7shyXgMi",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/P6C7shyXgMi/template.zip",
     "image_filename": "P6C7shyXgMi.jpg",
     "category": "blog-and-portfolio"
   },
@@ -1556,6 +1579,7 @@
     "title": "Geometric Product Design Portfolio",
     "slug": "pCMjvDLPVe3",
     "preview_image_url": "/api/template-image/pCMjvDLPVe3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/design-systems/pCMjvDLPVe3/template.zip",
     "image_filename": "pCMjvDLPVe3.jpg",
     "category": "design-systems"
   },
@@ -1564,6 +1588,7 @@
     "title": "Shadcn Dashboard",
     "slug": "Pf7lw1nypu5",
     "preview_image_url": "/api/template-image/Pf7lw1nypu5",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/Pf7lw1nypu5/template.zip",
     "image_filename": "Pf7lw1nypu5.jpg",
     "category": "apps-and-games"
   },
@@ -1572,22 +1597,16 @@
     "title": "抽奖页面生成器",
     "slug": "PFPtOqR0kgD",
     "preview_image_url": "/api/template-image/PFPtOqR0kgD",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/PFPtOqR0kgD/template.zip",
     "image_filename": "PFPtOqR0kgD.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "PGnZe6Nijjz",
-    "title": "AI Infographic generator",
-    "slug": "PGnZe6Nijjz",
-    "preview_image_url": "/api/template-image/PGnZe6Nijjz",
-    "image_filename": "PGnZe6Nijjz.jpg",
-    "category": "ai"
   },
   {
     "id": "PirDCuCCQHM",
     "title": "OpenAI orb shader design",
     "slug": "PirDCuCCQHM",
     "preview_image_url": "/api/template-image/PirDCuCCQHM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/PirDCuCCQHM/template.zip",
     "image_filename": "PirDCuCCQHM.jpg",
     "category": "ai"
   },
@@ -1596,6 +1615,7 @@
     "title": "Blockchain voting system",
     "slug": "Pn0urcUHyKT",
     "preview_image_url": "/api/template-image/Pn0urcUHyKT",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/Pn0urcUHyKT/template.zip",
     "image_filename": "Pn0urcUHyKT.jpg",
     "category": "apps-and-games"
   },
@@ -1604,6 +1624,7 @@
     "title": "Login Page",
     "slug": "Pr8Pms0CEBm",
     "preview_image_url": "/api/template-image/Pr8Pms0CEBm",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/login-and-sign-up/Pr8Pms0CEBm/template.zip",
     "image_filename": "Pr8Pms0CEBm.jpg",
     "category": "login-and-sign-up"
   },
@@ -1612,6 +1633,7 @@
     "title": "Logistic web app design",
     "slug": "psAJMi8CXGQ",
     "preview_image_url": "/api/template-image/psAJMi8CXGQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/psAJMi8CXGQ/template.zip",
     "image_filename": "psAJMi8CXGQ.jpg",
     "category": "apps-and-games"
   },
@@ -1620,6 +1642,7 @@
     "title": "Video to ascii",
     "slug": "ptJQj5OYUxj",
     "preview_image_url": "/api/template-image/ptJQj5OYUxj",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/ptJQj5OYUxj/template.zip",
     "image_filename": "ptJQj5OYUxj.jpg",
     "category": "animations"
   },
@@ -1628,22 +1651,16 @@
     "title": "Oklch Color Picker",
     "slug": "pYVLlced3as",
     "preview_image_url": "/api/template-image/pYVLlced3as",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/pYVLlced3as/template.zip",
     "image_filename": "pYVLlced3as.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "QeFZttwuC80",
-    "title": "Light/dark image toggle e-commerce",
-    "slug": "QeFZttwuC80",
-    "preview_image_url": "/api/template-image/QeFZttwuC80",
-    "image_filename": "QeFZttwuC80.jpg",
-    "category": "website-templates"
   },
   {
     "id": "qgqM6vLnylJ",
     "title": "Transport app design",
     "slug": "qgqM6vLnylJ",
     "preview_image_url": "/api/template-image/qgqM6vLnylJ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/qgqM6vLnylJ/template.zip",
     "image_filename": "qgqM6vLnylJ.jpg",
     "category": "apps-and-games"
   },
@@ -1652,6 +1669,7 @@
     "title": "v0 icon",
     "slug": "qK8iWfx4VMX",
     "preview_image_url": "/api/template-image/qK8iWfx4VMX",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/qK8iWfx4VMX/template.zip",
     "image_filename": "qK8iWfx4VMX.jpg",
     "category": "animations"
   },
@@ -1660,6 +1678,7 @@
     "title": "IRON DISTRICT -- Brutalist CrossFit",
     "slug": "QkihcSMmdWP",
     "preview_image_url": "/api/template-image/QkihcSMmdWP",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/QkihcSMmdWP/template.zip",
     "image_filename": "QkihcSMmdWP.jpg",
     "category": "website-templates"
   },
@@ -1668,6 +1687,7 @@
     "title": "Next.js Conf 2024",
     "slug": "qLnKzYiN4yI",
     "preview_image_url": "/api/template-image/qLnKzYiN4yI",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/qLnKzYiN4yI/template.zip",
     "image_filename": "qLnKzYiN4yI.jpg",
     "category": "apps-and-games"
   },
@@ -1676,6 +1696,7 @@
     "title": "Shader Button",
     "slug": "QwoT8svq9DJ",
     "preview_image_url": "/api/template-image/QwoT8svq9DJ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/QwoT8svq9DJ/template.zip",
     "image_filename": "QwoT8svq9DJ.jpg",
     "category": "components"
   },
@@ -1684,6 +1705,7 @@
     "title": "Shader SVG",
     "slug": "R1iL1WGkMKP",
     "preview_image_url": "/api/template-image/R1iL1WGkMKP",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/R1iL1WGkMKP/template.zip",
     "image_filename": "R1iL1WGkMKP.jpg",
     "category": "animations"
   },
@@ -1692,6 +1714,7 @@
     "title": "Shaders Landing Page",
     "slug": "R3n0gnvYFbO",
     "preview_image_url": "/api/template-image/R3n0gnvYFbO",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/R3n0gnvYFbO/template.zip",
     "image_filename": "R3n0gnvYFbO.jpg",
     "category": "website-templates"
   },
@@ -1700,6 +1723,7 @@
     "title": "KDP Helper Bot",
     "slug": "RCBbQOxx8Sw",
     "preview_image_url": "/api/template-image/RCBbQOxx8Sw",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/RCBbQOxx8Sw/template.zip",
     "image_filename": "RCBbQOxx8Sw.jpg",
     "category": "apps-and-games"
   },
@@ -1708,6 +1732,7 @@
     "title": "Tradewise",
     "slug": "RCmolY8MtBQ",
     "preview_image_url": "/api/template-image/RCmolY8MtBQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/RCmolY8MtBQ/template.zip",
     "image_filename": "RCmolY8MtBQ.jpg",
     "category": "apps-and-games"
   },
@@ -1716,6 +1741,7 @@
     "title": "throw shade",
     "slug": "rcoLUer40Zj",
     "preview_image_url": "/api/template-image/rcoLUer40Zj",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/rcoLUer40Zj/template.zip",
     "image_filename": "rcoLUer40Zj.jpg",
     "category": "animations"
   },
@@ -1724,6 +1750,7 @@
     "title": "Novo projeto",
     "slug": "Rhdy2EzbqyE",
     "preview_image_url": "/api/template-image/Rhdy2EzbqyE",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/Rhdy2EzbqyE/template.zip",
     "image_filename": "Rhdy2EzbqyE.jpg",
     "category": "apps-and-games"
   },
@@ -1732,22 +1759,16 @@
     "title": "Doppel Template - AI Voice Conversation Starter",
     "slug": "rhQ1SQjfhor",
     "preview_image_url": "/api/template-image/rhQ1SQjfhor",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/rhQ1SQjfhor/template.zip",
     "image_filename": "rhQ1SQjfhor.jpg",
     "category": "ai"
-  },
-  {
-    "id": "rHTER3Yq6df",
-    "title": "The future is now",
-    "slug": "rHTER3Yq6df",
-    "preview_image_url": "/api/template-image/rHTER3Yq6df",
-    "image_filename": "rHTER3Yq6df.jpg",
-    "category": "website-templates"
   },
   {
     "id": "rO6Lkpq4IZh",
     "title": "v0 orbit animation",
     "slug": "rO6Lkpq4IZh",
     "preview_image_url": "/api/template-image/rO6Lkpq4IZh",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/rO6Lkpq4IZh/template.zip",
     "image_filename": "rO6Lkpq4IZh.jpg",
     "category": "animations"
   },
@@ -1756,6 +1777,7 @@
     "title": "AppSport",
     "slug": "RTz7dLt3u0c",
     "preview_image_url": "/api/template-image/RTz7dLt3u0c",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/RTz7dLt3u0c/template.zip",
     "image_filename": "RTz7dLt3u0c.jpg",
     "category": "apps-and-games"
   },
@@ -1764,6 +1786,7 @@
     "title": "v0 System Instructions",
     "slug": "RutwgOGrI7y",
     "preview_image_url": "/api/template-image/RutwgOGrI7y",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/RutwgOGrI7y/template.zip",
     "image_filename": "RutwgOGrI7y.jpg",
     "category": "ai"
   },
@@ -1772,6 +1795,7 @@
     "title": "Notion to app AI agent and dashboard",
     "slug": "s3sZ1m6sLtz",
     "preview_image_url": "/api/template-image/s3sZ1m6sLtz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/s3sZ1m6sLtz/template.zip",
     "image_filename": "s3sZ1m6sLtz.jpg",
     "category": "ai"
   },
@@ -1780,6 +1804,7 @@
     "title": "Html template",
     "slug": "s78K2pIjjJs",
     "preview_image_url": "/api/template-image/s78K2pIjjJs",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/s78K2pIjjJs/template.zip",
     "image_filename": "s78K2pIjjJs.jpg",
     "category": "apps-and-games"
   },
@@ -1788,6 +1813,7 @@
     "title": "Clerk B2C SaaS - Agent Chat",
     "slug": "s9GBm33G9a7",
     "preview_image_url": "/api/template-image/s9GBm33G9a7",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/s9GBm33G9a7/template.zip",
     "image_filename": "s9GBm33G9a7.jpg",
     "category": "ai"
   },
@@ -1796,6 +1822,7 @@
     "title": "geometric microscope",
     "slug": "s9SjRDV2cSZ",
     "preview_image_url": "/api/template-image/s9SjRDV2cSZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/s9SjRDV2cSZ/template.zip",
     "image_filename": "s9SjRDV2cSZ.jpg",
     "category": "apps-and-games"
   },
@@ -1804,6 +1831,7 @@
     "title": "Rounded Neo-Brutalist Portfolio",
     "slug": "ScHFjhCyY8z",
     "preview_image_url": "/api/template-image/ScHFjhCyY8z",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/design-systems/ScHFjhCyY8z/template.zip",
     "image_filename": "ScHFjhCyY8z.jpg",
     "category": "design-systems"
   },
@@ -1812,6 +1840,7 @@
     "title": "Frosted Glass UI - CRM Dashboard UI Design",
     "slug": "SD8IPhg8bcC",
     "preview_image_url": "/api/template-image/SD8IPhg8bcC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/SD8IPhg8bcC/template.zip",
     "image_filename": "SD8IPhg8bcC.jpg",
     "category": "apps-and-games"
   },
@@ -1820,6 +1849,7 @@
     "title": "FINBRO Dashboard",
     "slug": "shuOX59VNOv",
     "preview_image_url": "/api/template-image/shuOX59VNOv",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/shuOX59VNOv/template.zip",
     "image_filename": "shuOX59VNOv.jpg",
     "category": "apps-and-games"
   },
@@ -1828,6 +1858,7 @@
     "title": "Marketing Website",
     "slug": "sV0OtrkXM6x",
     "preview_image_url": "/api/template-image/sV0OtrkXM6x",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/sV0OtrkXM6x/template.zip",
     "image_filename": "sV0OtrkXM6x.jpg",
     "category": "website-templates"
   },
@@ -1836,6 +1867,7 @@
     "title": "AI Components Generator",
     "slug": "t02Cx1KfaCS",
     "preview_image_url": "/api/template-image/t02Cx1KfaCS",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/t02Cx1KfaCS/template.zip",
     "image_filename": "t02Cx1KfaCS.jpg",
     "category": "ai"
   },
@@ -1844,6 +1876,7 @@
     "title": "iOS on the Web",
     "slug": "taxzyCxnfAu",
     "preview_image_url": "/api/template-image/taxzyCxnfAu",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/taxzyCxnfAu/template.zip",
     "image_filename": "taxzyCxnfAu.jpg",
     "category": "apps-and-games"
   },
@@ -1852,6 +1885,7 @@
     "title": "Prism AI",
     "slug": "TfVtT1k0tVU",
     "preview_image_url": "/api/template-image/TfVtT1k0tVU",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/TfVtT1k0tVU/template.zip",
     "image_filename": "TfVtT1k0tVU.jpg",
     "category": "ai"
   },
@@ -1860,6 +1894,7 @@
     "title": "Skal Ventures Template",
     "slug": "tnZGzubtsTc",
     "preview_image_url": "/api/template-image/tnZGzubtsTc",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/tnZGzubtsTc/template.zip",
     "image_filename": "tnZGzubtsTc.jpg",
     "category": "website-templates"
   },
@@ -1868,6 +1903,7 @@
     "title": "Ai Card Generation",
     "slug": "Tpxvlz16QiJ",
     "preview_image_url": "/api/template-image/Tpxvlz16QiJ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/Tpxvlz16QiJ/template.zip",
     "image_filename": "Tpxvlz16QiJ.jpg",
     "category": "ai"
   },
@@ -1876,6 +1912,7 @@
     "title": "Chord Grid",
     "slug": "ttvZNcuHmbh",
     "preview_image_url": "/api/template-image/ttvZNcuHmbh",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/ttvZNcuHmbh/template.zip",
     "image_filename": "ttvZNcuHmbh.jpg",
     "category": "animations"
   },
@@ -1884,6 +1921,7 @@
     "title": "Research Deck Agent",
     "slug": "TuM37pNlZf3",
     "preview_image_url": "/api/template-image/TuM37pNlZf3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/TuM37pNlZf3/template.zip",
     "image_filename": "TuM37pNlZf3.jpg",
     "category": "ai"
   },
@@ -1892,6 +1930,7 @@
     "title": "AI Ads Creation",
     "slug": "Tzs0ZuMKnx0",
     "preview_image_url": "/api/template-image/Tzs0ZuMKnx0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/Tzs0ZuMKnx0/template.zip",
     "image_filename": "Tzs0ZuMKnx0.jpg",
     "category": "ai"
   },
@@ -1900,23 +1939,8 @@
     "title": "Arabic HTML template",
     "slug": "U0ycCKnEzIz",
     "preview_image_url": "/api/template-image/U0ycCKnEzIz",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/U0ycCKnEzIz/template.zip",
     "image_filename": "U0ycCKnEzIz.jpg",
-    "category": "apps-and-games"
-  },
-  {
-    "id": "U4rrvkJyVtF",
-    "title": "ASCII Water Ripple Effect",
-    "slug": "U4rrvkJyVtF",
-    "preview_image_url": "/api/template-image/U4rrvkJyVtF",
-    "image_filename": "U4rrvkJyVtF.jpg",
-    "category": "animations"
-  },
-  {
-    "id": "UA5phGkaJIu",
-    "title": "Ocean Quest minigame",
-    "slug": "UA5phGkaJIu",
-    "preview_image_url": "/api/template-image/UA5phGkaJIu",
-    "image_filename": "UA5phGkaJIu.jpg",
     "category": "apps-and-games"
   },
   {
@@ -1924,6 +1948,7 @@
     "title": "AI Chat",
     "slug": "uDAblBwYgXC",
     "preview_image_url": "/api/template-image/uDAblBwYgXC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/uDAblBwYgXC/template.zip",
     "image_filename": "uDAblBwYgXC.jpg",
     "category": "ai"
   },
@@ -1932,6 +1957,7 @@
     "title": "Liquid glass tabs",
     "slug": "uPRGgdXET9Z",
     "preview_image_url": "/api/template-image/uPRGgdXET9Z",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/uPRGgdXET9Z/template.zip",
     "image_filename": "uPRGgdXET9Z.jpg",
     "category": "animations"
   },
@@ -1940,6 +1966,7 @@
     "title": "Language Learning App",
     "slug": "UrXd7wc8L3N",
     "preview_image_url": "/api/template-image/UrXd7wc8L3N",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/UrXd7wc8L3N/template.zip",
     "image_filename": "UrXd7wc8L3N.jpg",
     "category": "apps-and-games"
   },
@@ -1948,6 +1975,7 @@
     "title": "Waitlist Hero Section",
     "slug": "UtmLtArPhu4",
     "preview_image_url": "/api/template-image/UtmLtArPhu4",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/UtmLtArPhu4/template.zip",
     "image_filename": "UtmLtArPhu4.jpg",
     "category": "website-templates"
   },
@@ -1956,6 +1984,7 @@
     "title": "AI Workflow Canvas",
     "slug": "Uwmr1erx4dK",
     "preview_image_url": "/api/template-image/Uwmr1erx4dK",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/Uwmr1erx4dK/template.zip",
     "image_filename": "Uwmr1erx4dK.jpg",
     "category": "ai"
   },
@@ -1964,6 +1993,7 @@
     "title": "Typing Speed Test",
     "slug": "UZN9r47C8ZE",
     "preview_image_url": "/api/template-image/UZN9r47C8ZE",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/UZN9r47C8ZE/template.zip",
     "image_filename": "UZN9r47C8ZE.jpg",
     "category": "apps-and-games"
   },
@@ -1972,6 +2002,7 @@
     "title": "DynamicFrameLayout",
     "slug": "v1tIli3svjV",
     "preview_image_url": "/api/template-image/v1tIli3svjV",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/v1tIli3svjV/template.zip",
     "image_filename": "v1tIli3svjV.jpg",
     "category": "layouts"
   },
@@ -1980,22 +2011,16 @@
     "title": "Cyberpunk dashboard design",
     "slug": "v9Hg1dBb5o3",
     "preview_image_url": "/api/template-image/v9Hg1dBb5o3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/v9Hg1dBb5o3/template.zip",
     "image_filename": "v9Hg1dBb5o3.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "VEoDcF84vxz",
-    "title": "Liquid Glass Login page",
-    "slug": "VEoDcF84vxz",
-    "preview_image_url": "/api/template-image/VEoDcF84vxz",
-    "image_filename": "VEoDcF84vxz.jpg",
-    "category": "login-and-sign-up"
   },
   {
     "id": "VfaC3JPSzkU",
     "title": "Workflow Lab",
     "slug": "VfaC3JPSzkU",
     "preview_image_url": "/api/template-image/VfaC3JPSzkU",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/VfaC3JPSzkU/template.zip",
     "image_filename": "VfaC3JPSzkU.jpg",
     "category": "ai"
   },
@@ -2004,6 +2029,7 @@
     "title": "Waitlist",
     "slug": "VGs1Sc5BbGi",
     "preview_image_url": "/api/template-image/VGs1Sc5BbGi",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/VGs1Sc5BbGi/template.zip",
     "image_filename": "VGs1Sc5BbGi.jpg",
     "category": "website-templates"
   },
@@ -2012,6 +2038,7 @@
     "title": "Music generating network",
     "slug": "VKilTGtSDrQ",
     "preview_image_url": "/api/template-image/VKilTGtSDrQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/VKilTGtSDrQ/template.zip",
     "image_filename": "VKilTGtSDrQ.jpg",
     "category": "ai"
   },
@@ -2020,6 +2047,7 @@
     "title": "WebGPU Graphene 3D model",
     "slug": "vkqDgbJWgYt",
     "preview_image_url": "/api/template-image/vkqDgbJWgYt",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/vkqDgbJWgYt/template.zip",
     "image_filename": "vkqDgbJWgYt.jpg",
     "category": "animations"
   },
@@ -2028,6 +2056,7 @@
     "title": "Cash App Navigation Drawer - Rebuild",
     "slug": "VNtl9Ti0Kag",
     "preview_image_url": "/api/template-image/VNtl9Ti0Kag",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/VNtl9Ti0Kag/template.zip",
     "image_filename": "VNtl9Ti0Kag.jpg",
     "category": "animations"
   },
@@ -2036,22 +2065,16 @@
     "title": "Modern business landing page",
     "slug": "Vt3PtqfiHkh",
     "preview_image_url": "/api/template-image/Vt3PtqfiHkh",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/Vt3PtqfiHkh/template.zip",
     "image_filename": "Vt3PtqfiHkh.jpg",
     "category": "website-templates"
-  },
-  {
-    "id": "VW7dQnGbzKF",
-    "title": "V0X3D - 3D Experience Interactive",
-    "slug": "VW7dQnGbzKF",
-    "preview_image_url": "/api/template-image/VW7dQnGbzKF",
-    "image_filename": "VW7dQnGbzKF.jpg",
-    "category": "animations"
   },
   {
     "id": "vYDG35nW3Kv",
     "title": "AI Agent Builder",
     "slug": "vYDG35nW3Kv",
     "preview_image_url": "/api/template-image/vYDG35nW3Kv",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/vYDG35nW3Kv/template.zip",
     "image_filename": "vYDG35nW3Kv.jpg",
     "category": "ai"
   },
@@ -2060,15 +2083,8 @@
     "title": "An unusual hero",
     "slug": "VZ9EEGUUq9M",
     "preview_image_url": "/api/template-image/VZ9EEGUUq9M",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/VZ9EEGUUq9M/template.zip",
     "image_filename": "VZ9EEGUUq9M.jpg",
-    "category": "website-templates"
-  },
-  {
-    "id": "W0v7PBF5ev4",
-    "title": "YoYo - AI Version Control",
-    "slug": "W0v7PBF5ev4",
-    "preview_image_url": "/api/template-image/W0v7PBF5ev4",
-    "image_filename": "W0v7PBF5ev4.jpg",
     "category": "website-templates"
   },
   {
@@ -2076,6 +2092,7 @@
     "title": "Sensory Playground Experience",
     "slug": "waJPmfhZSc2",
     "preview_image_url": "/api/template-image/waJPmfhZSc2",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/waJPmfhZSc2/template.zip",
     "image_filename": "waJPmfhZSc2.jpg",
     "category": "animations"
   },
@@ -2084,6 +2101,7 @@
     "title": "Random Number Generator - Frosted Glass UI",
     "slug": "WDfUCVvbzqf",
     "preview_image_url": "/api/template-image/WDfUCVvbzqf",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/components/WDfUCVvbzqf/template.zip",
     "image_filename": "WDfUCVvbzqf.jpg",
     "category": "components"
   },
@@ -2092,6 +2110,7 @@
     "title": "loyiha",
     "slug": "wFZAteMLKr7",
     "preview_image_url": "/api/template-image/wFZAteMLKr7",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/wFZAteMLKr7/template.zip",
     "image_filename": "wFZAteMLKr7.jpg",
     "category": "apps-and-games"
   },
@@ -2100,22 +2119,16 @@
     "title": "Expense Tracker",
     "slug": "wJ5xjuRwEEE",
     "preview_image_url": "/api/template-image/wJ5xjuRwEEE",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/wJ5xjuRwEEE/template.zip",
     "image_filename": "wJ5xjuRwEEE.jpg",
     "category": "apps-and-games"
-  },
-  {
-    "id": "wJihb9UXmJ1",
-    "title": "Saurav's AmazePlay",
-    "slug": "wJihb9UXmJ1",
-    "preview_image_url": "/api/template-image/wJihb9UXmJ1",
-    "image_filename": "wJihb9UXmJ1.jpg",
-    "category": "ai"
   },
   {
     "id": "WKlyoWxO1ZD",
     "title": "Token Generation Speed Visualizer",
     "slug": "WKlyoWxO1ZD",
     "preview_image_url": "/api/template-image/WKlyoWxO1ZD",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/WKlyoWxO1ZD/template.zip",
     "image_filename": "WKlyoWxO1ZD.jpg",
     "category": "apps-and-games"
   },
@@ -2124,6 +2137,7 @@
     "title": "AniChatAi By ARK",
     "slug": "WlCGNvNd3UZ",
     "preview_image_url": "/api/template-image/WlCGNvNd3UZ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/WlCGNvNd3UZ/template.zip",
     "image_filename": "WlCGNvNd3UZ.jpg",
     "category": "ai"
   },
@@ -2132,6 +2146,7 @@
     "title": "Cliste website navigation",
     "slug": "wNB9dqGZXGU",
     "preview_image_url": "/api/template-image/wNB9dqGZXGU",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/wNB9dqGZXGU/template.zip",
     "image_filename": "wNB9dqGZXGU.jpg",
     "category": "website-templates"
   },
@@ -2140,6 +2155,7 @@
     "title": "CareerForge AI",
     "slug": "wOEd1PX2b9M",
     "preview_image_url": "/api/template-image/wOEd1PX2b9M",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/wOEd1PX2b9M/template.zip",
     "image_filename": "wOEd1PX2b9M.jpg",
     "category": "ai"
   },
@@ -2148,6 +2164,7 @@
     "title": "Movie website clone",
     "slug": "WTyH7d8cWtE",
     "preview_image_url": "/api/template-image/WTyH7d8cWtE",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/WTyH7d8cWtE/template.zip",
     "image_filename": "WTyH7d8cWtE.jpg",
     "category": "ai"
   },
@@ -2156,22 +2173,16 @@
     "title": "Differing Effect Resume Template",
     "slug": "wvXzAf0NBYB",
     "preview_image_url": "/api/template-image/wvXzAf0NBYB",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/wvXzAf0NBYB/template.zip",
     "image_filename": "wvXzAf0NBYB.jpg",
     "category": "blog-and-portfolio"
-  },
-  {
-    "id": "wWvJxkk3ra7",
-    "title": "Simple Parallax Sticky Footer Landing",
-    "slug": "wWvJxkk3ra7",
-    "preview_image_url": "/api/template-image/wWvJxkk3ra7",
-    "image_filename": "wWvJxkk3ra7.jpg",
-    "category": "website-templates"
   },
   {
     "id": "wXoCjXN36zd",
     "title": "sevasphere",
     "slug": "wXoCjXN36zd",
     "preview_image_url": "/api/template-image/wXoCjXN36zd",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/wXoCjXN36zd/template.zip",
     "image_filename": "wXoCjXN36zd.jpg",
     "category": "apps-and-games"
   },
@@ -2180,22 +2191,16 @@
     "title": "Matrix rain effect",
     "slug": "WYpwk7z9FNM",
     "preview_image_url": "/api/template-image/WYpwk7z9FNM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/WYpwk7z9FNM/template.zip",
     "image_filename": "WYpwk7z9FNM.jpg",
     "category": "animations"
-  },
-  {
-    "id": "x5UGPjYkxIn",
-    "title": "MacOS simulator",
-    "slug": "x5UGPjYkxIn",
-    "preview_image_url": "/api/template-image/x5UGPjYkxIn",
-    "image_filename": "x5UGPjYkxIn.jpg",
-    "category": "apps-and-games"
   },
   {
     "id": "XAMOoZPMUO5",
     "title": "Storefront w/Nano Banana + AI SDK + AI Gateway",
     "slug": "XAMOoZPMUO5",
     "preview_image_url": "/api/template-image/XAMOoZPMUO5",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/XAMOoZPMUO5/template.zip",
     "image_filename": "XAMOoZPMUO5.jpg",
     "category": "ai"
   },
@@ -2204,6 +2209,7 @@
     "title": "3D Software Engineer Portfolio",
     "slug": "xAnNep21FiQ",
     "preview_image_url": "/api/template-image/xAnNep21FiQ",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/xAnNep21FiQ/template.zip",
     "image_filename": "xAnNep21FiQ.jpg",
     "category": "blog-and-portfolio"
   },
@@ -2212,6 +2218,7 @@
     "title": "Clerk Pixel Art Badge Generator",
     "slug": "xbwwZ9kD745",
     "preview_image_url": "/api/template-image/xbwwZ9kD745",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/xbwwZ9kD745/template.zip",
     "image_filename": "xbwwZ9kD745.jpg",
     "category": "ai"
   },
@@ -2220,6 +2227,7 @@
     "title": "Custom dinner wheel",
     "slug": "XCbAA7turPC",
     "preview_image_url": "/api/template-image/XCbAA7turPC",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/XCbAA7turPC/template.zip",
     "image_filename": "XCbAA7turPC.jpg",
     "category": "apps-and-games"
   },
@@ -2228,6 +2236,7 @@
     "title": "Chat UI with Vibration",
     "slug": "xf3RmrkKlxc",
     "preview_image_url": "/api/template-image/xf3RmrkKlxc",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/xf3RmrkKlxc/template.zip",
     "image_filename": "xf3RmrkKlxc.jpg",
     "category": "ai"
   },
@@ -2236,6 +2245,7 @@
     "title": "OpenAI and AI SDK Chatbot",
     "slug": "XFP4VKnRE3t",
     "preview_image_url": "/api/template-image/XFP4VKnRE3t",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/XFP4VKnRE3t/template.zip",
     "image_filename": "XFP4VKnRE3t.jpg",
     "category": "ai"
   },
@@ -2244,6 +2254,7 @@
     "title": "INTERFACE",
     "slug": "XhGK3naSZPB",
     "preview_image_url": "/api/template-image/XhGK3naSZPB",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/XhGK3naSZPB/template.zip",
     "image_filename": "XhGK3naSZPB.jpg",
     "category": "website-templates"
   },
@@ -2252,6 +2263,7 @@
     "title": "Amazon Bedrock Chatbot",
     "slug": "xKE6K4FVM8F",
     "preview_image_url": "/api/template-image/xKE6K4FVM8F",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/xKE6K4FVM8F/template.zip",
     "image_filename": "xKE6K4FVM8F.jpg",
     "category": "ai"
   },
@@ -2260,6 +2272,7 @@
     "title": "Shopify Ecommerce Template",
     "slug": "XmzC9oi7g4m",
     "preview_image_url": "/api/template-image/XmzC9oi7g4m",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/XmzC9oi7g4m/template.zip",
     "image_filename": "XmzC9oi7g4m.jpg",
     "category": "website-templates"
   },
@@ -2268,15 +2281,8 @@
     "title": "Stillpoint Studio Interior Design",
     "slug": "XOMN4texeRO",
     "preview_image_url": "/api/template-image/XOMN4texeRO",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/XOMN4texeRO/template.zip",
     "image_filename": "XOMN4texeRO.jpg",
-    "category": "website-templates"
-  },
-  {
-    "id": "XQxxv76lK5w",
-    "title": "Pointer AI landing page",
-    "slug": "XQxxv76lK5w",
-    "preview_image_url": "/api/template-image/XQxxv76lK5w",
-    "image_filename": "XQxxv76lK5w.jpg",
     "category": "website-templates"
   },
   {
@@ -2284,22 +2290,16 @@
     "title": "Lamp Animation",
     "slug": "Xt1w9ecW6XV",
     "preview_image_url": "/api/template-image/Xt1w9ecW6XV",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/Xt1w9ecW6XV/template.zip",
     "image_filename": "Xt1w9ecW6XV.jpg",
     "category": "animations"
-  },
-  {
-    "id": "xU39T0XywpR",
-    "title": "Newsletter Template",
-    "slug": "xU39T0XywpR",
-    "preview_image_url": "/api/template-image/xU39T0XywpR",
-    "image_filename": "xU39T0XywpR.jpg",
-    "category": "components"
   },
   {
     "id": "xuCjYtmbQri",
     "title": "ElevenLabs Music Starter",
     "slug": "xuCjYtmbQri",
     "preview_image_url": "/api/template-image/xuCjYtmbQri",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/xuCjYtmbQri/template.zip",
     "image_filename": "xuCjYtmbQri.jpg",
     "category": "ai"
   },
@@ -2308,6 +2308,7 @@
     "title": "Interactive scrolling page",
     "slug": "YaNQpRmUJUK",
     "preview_image_url": "/api/template-image/YaNQpRmUJUK",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/YaNQpRmUJUK/template.zip",
     "image_filename": "YaNQpRmUJUK.jpg",
     "category": "animations"
   },
@@ -2316,6 +2317,7 @@
     "title": "PrintLess Eco Metrics",
     "slug": "YEBQHPfbqc0",
     "preview_image_url": "/api/template-image/YEBQHPfbqc0",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/YEBQHPfbqc0/template.zip",
     "image_filename": "YEBQHPfbqc0.jpg",
     "category": "apps-and-games"
   },
@@ -2324,6 +2326,7 @@
     "title": "Hero Section with React Bits Floating Lines",
     "slug": "yih2hMiv5q3",
     "preview_image_url": "/api/template-image/yih2hMiv5q3",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/yih2hMiv5q3/template.zip",
     "image_filename": "yih2hMiv5q3.jpg",
     "category": "website-templates"
   },
@@ -2332,6 +2335,7 @@
     "title": "v0 for Images",
     "slug": "yJIhiXPzcGg",
     "preview_image_url": "/api/template-image/yJIhiXPzcGg",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/yJIhiXPzcGg/template.zip",
     "image_filename": "yJIhiXPzcGg.jpg",
     "category": "ai"
   },
@@ -2340,6 +2344,7 @@
     "title": "Ai service landing page",
     "slug": "ynxEcmOKflT",
     "preview_image_url": "/api/template-image/ynxEcmOKflT",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ynxEcmOKflT/template.zip",
     "image_filename": "ynxEcmOKflT.jpg",
     "category": "ai"
   },
@@ -2348,6 +2353,7 @@
     "title": "Online banking app",
     "slug": "yoaLyl5O0zR",
     "preview_image_url": "/api/template-image/yoaLyl5O0zR",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/yoaLyl5O0zR/template.zip",
     "image_filename": "yoaLyl5O0zR.jpg",
     "category": "apps-and-games"
   },
@@ -2356,6 +2362,7 @@
     "title": "Classic Snake",
     "slug": "yqocJo8Be4R",
     "preview_image_url": "/api/template-image/yqocJo8Be4R",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/yqocJo8Be4R/template.zip",
     "image_filename": "yqocJo8Be4R.jpg",
     "category": "apps-and-games"
   },
@@ -2364,6 +2371,7 @@
     "title": "Wechat mini game",
     "slug": "yToC74ndVbM",
     "preview_image_url": "/api/template-image/yToC74ndVbM",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/yToC74ndVbM/template.zip",
     "image_filename": "yToC74ndVbM.jpg",
     "category": "apps-and-games"
   },
@@ -2372,22 +2380,16 @@
     "title": "PWA Subscription Tracker",
     "slug": "YZqzCqeqEat",
     "preview_image_url": "/api/template-image/YZqzCqeqEat",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/YZqzCqeqEat/template.zip",
     "image_filename": "YZqzCqeqEat.jpg",
     "category": "ai"
-  },
-  {
-    "id": "ZAICjqmFe5w",
-    "title": "Seq",
-    "slug": "ZAICjqmFe5w",
-    "preview_image_url": "/api/template-image/ZAICjqmFe5w",
-    "image_filename": "ZAICjqmFe5w.jpg",
-    "category": "apps-and-games"
   },
   {
     "id": "ZAyrQvYVCUs",
     "title": "Futuristic Dashboard",
     "slug": "ZAyrQvYVCUs",
     "preview_image_url": "/api/template-image/ZAyrQvYVCUs",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/ZAyrQvYVCUs/template.zip",
     "image_filename": "ZAyrQvYVCUs.jpg",
     "category": "apps-and-games"
   },
@@ -2396,6 +2398,7 @@
     "title": "Product follow path template",
     "slug": "zbic5y4t1Ti",
     "preview_image_url": "/api/template-image/zbic5y4t1Ti",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/zbic5y4t1Ti/template.zip",
     "image_filename": "zbic5y4t1Ti.jpg",
     "category": "animations"
   },
@@ -2404,6 +2407,7 @@
     "title": "Portfolio page for ui developer",
     "slug": "zCqVN9y0kOi",
     "preview_image_url": "/api/template-image/zCqVN9y0kOi",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/blog-and-portfolio/zCqVN9y0kOi/template.zip",
     "image_filename": "zCqVN9y0kOi.jpg",
     "category": "blog-and-portfolio"
   },
@@ -2412,6 +2416,7 @@
     "title": "Brillance SaaS Landing Page",
     "slug": "zdiN8dHwaaT",
     "preview_image_url": "/api/template-image/zdiN8dHwaaT",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/zdiN8dHwaaT/template.zip",
     "image_filename": "zdiN8dHwaaT.jpg",
     "category": "website-templates"
   },
@@ -2420,6 +2425,7 @@
     "title": "Alpaca Generator",
     "slug": "ZFmw4JKE4E1",
     "preview_image_url": "/api/template-image/ZFmw4JKE4E1",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ZFmw4JKE4E1/template.zip",
     "image_filename": "ZFmw4JKE4E1.jpg",
     "category": "ai"
   },
@@ -2428,6 +2434,7 @@
     "title": "Vessel Studio",
     "slug": "ZIHJBIvfeuW",
     "preview_image_url": "/api/template-image/ZIHJBIvfeuW",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/website-templates/ZIHJBIvfeuW/template.zip",
     "image_filename": "ZIHJBIvfeuW.jpg",
     "category": "website-templates"
   },
@@ -2436,6 +2443,7 @@
     "title": "Creative Agency Portfolio",
     "slug": "zjD8UoZcXy9",
     "preview_image_url": "/api/template-image/zjD8UoZcXy9",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/zjD8UoZcXy9/template.zip",
     "image_filename": "zjD8UoZcXy9.jpg",
     "category": "apps-and-games"
   },
@@ -2444,6 +2452,7 @@
     "title": "الذكاء الاصطناعي الخارق",
     "slug": "ZLfLRzbMb81",
     "preview_image_url": "/api/template-image/ZLfLRzbMb81",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/ZLfLRzbMb81/template.zip",
     "image_filename": "ZLfLRzbMb81.jpg",
     "category": "apps-and-games"
   },
@@ -2452,6 +2461,7 @@
     "title": "Forum website layout",
     "slug": "ZM9DOfqpkf8",
     "preview_image_url": "/api/template-image/ZM9DOfqpkf8",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/layouts/ZM9DOfqpkf8/template.zip",
     "image_filename": "ZM9DOfqpkf8.jpg",
     "category": "layouts"
   },
@@ -2460,22 +2470,16 @@
     "title": "Amazon Bedrock Image Generator",
     "slug": "ZmGpaOMlNFh",
     "preview_image_url": "/api/template-image/ZmGpaOMlNFh",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/ai/ZmGpaOMlNFh/template.zip",
     "image_filename": "ZmGpaOMlNFh.jpg",
     "category": "ai"
-  },
-  {
-    "id": "zoQPxUaTqvE",
-    "title": "Auralink - SaaS Landing Page",
-    "slug": "zoQPxUaTqvE",
-    "preview_image_url": "/api/template-image/zoQPxUaTqvE",
-    "image_filename": "zoQPxUaTqvE.jpg",
-    "category": "website-templates"
   },
   {
     "id": "ZRwgOSMcfCF",
     "title": "Interactive Waves",
     "slug": "ZRwgOSMcfCF",
     "preview_image_url": "/api/template-image/ZRwgOSMcfCF",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/ZRwgOSMcfCF/template.zip",
     "image_filename": "ZRwgOSMcfCF.jpg",
     "category": "animations"
   },
@@ -2484,6 +2488,7 @@
     "title": "Animated unauthorized page",
     "slug": "zz6bnLs4zgs",
     "preview_image_url": "/api/template-image/zz6bnLs4zgs",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/animations/zz6bnLs4zgs/template.zip",
     "image_filename": "zz6bnLs4zgs.jpg",
     "category": "animations"
   },
@@ -2492,6 +2497,7 @@
     "title": "Simple dashboard",
     "slug": "ZZFpa3jFqnO",
     "preview_image_url": "/api/template-image/ZZFpa3jFqnO",
+    "archive_url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/v0-templates/raw/apps-and-games/ZZFpa3jFqnO/template.zip",
     "image_filename": "ZZFpa3jFqnO.jpg",
     "category": "apps-and-games"
   }
