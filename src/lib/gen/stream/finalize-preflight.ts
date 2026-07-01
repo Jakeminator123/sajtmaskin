@@ -78,6 +78,16 @@ export interface RunFinalizePreflightParams {
   originalPrompt?: string;
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * True for verbatim imported-repo edits (v0-template chats). Relaxes ONLY the
+   * scaffold-*contract* check (project-sanity) from blocking errors to
+   * non-blocking warnings — an arbitrary v0 repo does not conform to the
+   * own-engine scaffold contract. Render-safety gates stay blocking for all
+   * chats: the composition-aware home-route gate (a dropped/broken page or
+   * missing delegated component must still block, not ship blank), merged-syntax,
+   * degeneracy, and buildable-preview.
+   */
+  importedRepoMode?: boolean;
 }
 
 export interface RunFinalizePreflightResult {
@@ -702,13 +712,23 @@ type FinalizePreflightAllResult = {
 function runFinalizePreflightAll(params: {
   files: CodeFile[];
   actualRoutes: string[];
+  importedRepoMode?: boolean;
 }): FinalizePreflightAllResult {
   const tier2Issues = collectTier2HygieneIssues(params.files);
 
   const sanity = runProjectSanityChecks(params.files);
-  const sanityIssues = sanity.issues.map((issue) =>
-    createIssue(issue.file, issue.severity, issue.message, issue.category),
-  );
+  // Imported repos (v0 templates) do not conform to the own-engine scaffold
+  // contract, so downgrade project-sanity errors to non-blocking warnings —
+  // the VM is the real validator for a verbatim repo edit.
+  const sanityIssues = sanity.issues.map((issue) => {
+    const downgrade = params.importedRepoMode && issue.severity === "error";
+    return createIssue(
+      issue.file,
+      downgrade ? "warning" : issue.severity,
+      issue.message,
+      downgrade ? "non_blocking_quality_warning" : issue.category,
+    );
+  });
 
   const seoIssues = runSeoPreflightChecks(params.files).map((issue) =>
     createIssue(issue.file || "seo", issue.severity, issue.message, issue.category),
@@ -898,6 +918,7 @@ export async function runFinalizePreflight({
   originalPrompt: _originalPrompt,
   repairLedger: providedRepairLedger,
   repairScopeId,
+  importedRepoMode = false,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   const repairLedger = providedRepairLedger ?? new RepairLedger();
   let nextFilesJson = filesJson;
@@ -1352,6 +1373,11 @@ export async function runFinalizePreflight({
     // upstream because the user's complaint is "blank promoted site",
     // and the only way that can happen is if `completeProjectFiles`
     // reaches persist without a renderable Home route.
+    // Home-route gate is a universal render-safety check (composition-aware, so
+    // legit deep delegation to PRESENT components passes). It stays BLOCKING even
+    // for imported repos — a follow-up that drops/breaks the page or a delegated
+    // component must not ship a blank site. Only the scaffold-contract check
+    // (project-sanity) is relaxed for imported repos (see runFinalizePreflightAll).
     const homePageGateIssue = buildMissingHomeRouteIssue(
       findHomePageFile(completeProjectFiles),
       completeProjectFiles,
@@ -1416,6 +1442,7 @@ export async function runFinalizePreflight({
     const preflightAll = runFinalizePreflightAll({
       files: completeProjectFiles,
       actualRoutes,
+      importedRepoMode,
     });
     preflightIssues.push(...preflightAll.issues);
     if (preflightAll.unresolvedImportFallbackUsed) {

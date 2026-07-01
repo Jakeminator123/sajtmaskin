@@ -377,7 +377,12 @@ export async function createDraftVersion(
   messageId: string | null,
   filesJson: string,
   previewUrl?: string,
-  lifecycle?: { stage?: "design" | "integrations"; parentVersionId?: string | null },
+  lifecycle?: {
+    stage?: "design" | "integrations";
+    parentVersionId?: string | null;
+    /** Provenance marker, e.g. "imported_repo" for verbatim v0-template imports. */
+    editKind?: string | null;
+  },
 ): Promise<Version> {
   return insertDraftVersionRow(db, {
     chatId,
@@ -386,6 +391,7 @@ export async function createDraftVersion(
     previewUrl,
     lifecycleStage: lifecycle?.stage,
     parentVersionId: lifecycle?.parentVersionId,
+    editKind: lifecycle?.editKind,
   });
 }
 

@@ -227,6 +227,8 @@ describe("POST /api/template", () => {
       "chat_import",
       "msg_import",
       expect.stringContaining('"path":"pnpm-lock.yaml"'),
+      undefined,
+      { editKind: "imported_repo" },
     );
     expect(startPreviewSession).toHaveBeenCalledWith(
       expect.arrayContaining([
