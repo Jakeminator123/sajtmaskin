@@ -27,6 +27,24 @@ describe("ts2304-known-import-fixer", () => {
     expect(result.fixes[0]?.fixer).toBe("ts2304-known-import-fixer");
   });
 
+  it("adds a sonner import for a `toast` call flagged by TS2304 (top recurring prod fault)", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <button onClick={() => toast.success("Saved")}>Save</button>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'toast'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "toast", module: "sonner" },
+    ]);
+    expect(result.code).toContain('import { toast } from "sonner"');
+  });
+
   it("adds a lucide import for a NON-JSX usage flagged by TS2304", () => {
     // This is the gap the JSX-scan fixers miss: the icon is used as a value,
     // never as `<Clapperboard/>`, so only a diagnostic-driven fixer catches it.
