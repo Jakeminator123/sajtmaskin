@@ -1384,7 +1384,7 @@ export async function runAutoFix(
  * Uses file-path-aware fenced block matching to avoid replacing the wrong file
  * when multiple files contain identical content snippets.
  */
-function rebuildContent(
+export function rebuildContent(
   originalContent: string,
   originalFiles: CodeFile[],
   fixedFiles: CodeFile[],

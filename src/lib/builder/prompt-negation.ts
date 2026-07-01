@@ -13,8 +13,12 @@ const PAYMENT_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:betalning|betalningar|payment|payments|stripe|checkout|kassa|kortbetalning|subscription|billing)(?![\p{L}\p{N}_])/iu,
 ];
 
+// Deliberately excludes bare `shop`/`store`/`butik`: those match inside
+// unrelated compounds (e.g. "coffee shop") within a negation window and would
+// wrongly suppress a genuine webshop request elsewhere in the same prompt.
+// Mirror the unambiguous `strongEcommerceIntent` set in capability-inference.ts.
 const ECOMMERCE_TERMS: RegExp[] = [
-  /(?<![\p{L}\p{N}_])(?:webshop|webbshop|e-handel|ehandel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|butik|shop|nätbutik|näthandel|online\s+store|online\s+shop)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:webshop|webbshop|e-handel|ehandel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|näthandel|online\s+store|online\s+shop)(?![\p{L}\p{N}_])/iu,
 ];
 
 const BACKEND_TERMS: RegExp[] = [

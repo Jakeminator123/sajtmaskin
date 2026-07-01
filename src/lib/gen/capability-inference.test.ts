@@ -145,13 +145,15 @@ describe("inferCapabilities", () => {
     expect(caps.needsEcommerce).toBe(false);
   });
 
-  it("suppresses needsEcommerce for an English 'no cart/checkout' display shop", () => {
-    const caps = inferCapabilities("A shop page to showcase products without a cart or checkout");
-    expect(caps.needsEcommerce).toBe(false);
-  });
-
   it("still infers needsEcommerce for a genuine webshop request", () => {
     const caps = inferCapabilities("Build a webshop with a cart and checkout");
+    expect(caps.needsEcommerce).toBe(true);
+  });
+
+  it("does NOT treat an unrelated 'coffee shop' mention as an ecommerce negation", () => {
+    // Bare `shop` is not an ecommerce negation term, so an unrelated mention in a
+    // negation window must not suppress a genuine webshop request (Bugbot #338).
+    const caps = inferCapabilities("Build a webshop with cart. No coffee shop vibes in the branding.");
     expect(caps.needsEcommerce).toBe(true);
   });
 

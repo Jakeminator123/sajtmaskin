@@ -26,9 +26,9 @@ import {
 } from "@/lib/gen/verify/verifier-pass";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
+import { parseCodeProject } from "@/lib/gen/parser";
 import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
-import type { AutoFixResult } from "@/lib/gen/autofix/pipeline";
+import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
@@ -45,30 +45,32 @@ export interface VerifierPhaseResult {
 
 /**
  * Rewrite DOM-interface JSX tags (`<HTMLFormElement/>` → `<form>`) across a
- * serialized CodeProject deterministically. Only re-serializes when at least
- * one file actually changed, so the common no-op path returns the input string
- * unchanged. Pure + cheap (regex, no network) — safe to run in the finalize
- * hot path. Failures degrade to the original content (never blocks finalize).
+ * serialized CodeProject deterministically. Writes changes back in place via
+ * `rebuildContent` (per-file fenced-block replacement) rather than re-serializing
+ * the parsed files — so any preamble / non-fence content the parser doesn't
+ * capture is preserved (same approach `runAutoFix` uses). Returns the input
+ * unchanged when nothing was fixed. Pure + cheap (regex, no network) — safe in
+ * the finalize hot path. Failures degrade to the original content.
  */
 function applyDeterministicDomJsxFix(content: string, chatId: string): string {
   try {
     const { files } = parseCodeProject(content);
     if (files.length === 0) return content;
-    let anyFixed = false;
-    const nextFiles = files.map((file) => {
+    const fixedFiles = files.map((file) => {
       if (typeof file.content !== "string") return file;
       const result = fixDomBuiltinJsxTags(file.content, file.path);
-      if (!result.fixed) return file;
-      anyFixed = true;
-      return { ...file, content: result.code };
+      return result.fixed ? { ...file, content: result.code } : file;
     });
-    if (!anyFixed) return content;
+    const changedPaths = fixedFiles
+      .filter((f, i) => f.content !== files[i].content)
+      .map((f) => f.path);
+    if (changedPaths.length === 0) return content;
     devLogAppend("in-progress", {
       type: "verifier-pass.dom-prefix",
       chatId,
-      fixedFiles: nextFiles.filter((f, i) => f !== files[i]).map((f) => f.path),
+      fixedFiles: changedPaths,
     });
-    return serializeCodeProject(nextFiles);
+    return rebuildContent(content, files, fixedFiles);
   } catch {
     // Never let a deterministic pre-fix break finalize; fall back to input.
     return content;
