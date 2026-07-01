@@ -1547,6 +1547,34 @@ export function useBuilderPageController() {
     ],
   );
 
+  // OpenClaw prompt-driven edit (flag-gated feature, OPENCLAW_EDIT_AGENT): the
+  // Sajtagenten widget lives outside the builder React tree, so after a
+  // successful edit it dispatches a window event carrying the new version +
+  // preview meta. Adopt it through the SAME tested handleFilesSaved path the
+  // normal quick-edit save uses (select the version, refresh the list, keep the
+  // hot patch) so the edit actually shows in the builder. The event name is kept
+  // as a matching string literal (see OPENCLAW_EDIT_APPLIED_EVENT in
+  // components/openclaw/useOpenClawEdit.ts) so removing the feature never breaks
+  // this file's import graph — delete this effect as part of that removal.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | {
+            versionId?: string;
+            previewUrl?: string | null;
+            previewSessionId?: string | null;
+            previewMode?: string | null;
+          }
+        | undefined;
+      if (!detail?.versionId) return;
+      handleFilesSaved(detail);
+    };
+    window.addEventListener("sajtmaskin:openclaw-edit-applied", handler as EventListener);
+    return () =>
+      window.removeEventListener("sajtmaskin:openclaw-edit-applied", handler as EventListener);
+  }, [handleFilesSaved]);
+
   // Auto-start generation for prompt-handoff flows from landing page.
   // Triggers when user submitted a prompt on `/` and was navigated to /builder
   // with a promptId in the URL — both `kostnadsfri` and `freeform` are valid handoffs.

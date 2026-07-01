@@ -3,6 +3,16 @@
 import { useCallback, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 
+/**
+ * Dispatched on `window` after a SUCCESSFUL OpenClaw prompt edit so the builder
+ * can adopt the new version exactly like a normal quick-edit save (select it,
+ * refresh the version list, keep the hot-patched preview). The widget lives
+ * outside the builder React tree, so a window event is the reverse channel.
+ * Listener: `useBuilderPageController` (kept as a matching string literal there
+ * so deleting this feature never breaks the builder import graph).
+ */
+export const OPENCLAW_EDIT_APPLIED_EVENT = "sajtmaskin:openclaw-edit-applied";
+
 function makeId() {
   return `oc-edit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -29,6 +39,8 @@ interface EditResponse {
   changedFiles?: string[];
   summary?: string | null;
   previewUrl?: string | null;
+  previewSessionId?: string | null;
+  previewMode?: string | null;
   previewError?: string;
   error?: string;
   reason?: string;
@@ -51,6 +63,9 @@ function describeEditError(status: number, data: EditResponse | null): string {
       data.error ??
       "Den här versionen kan inte snabbredigeras. Använd builder-chatten för större ändringar."
     );
+  }
+  if (data?.reason === "no_change") {
+    return "Ingen ändring gjordes — jag hittade inget att ändra för det du bad om. Prova att formulera om mer specifikt (t.ex. vilken text eller färg).";
   }
   const detail = (data?.error && data.error.trim()) || "";
   return detail
@@ -121,7 +136,24 @@ export function useOpenClawEdit() {
 
         const data = (await res.json().catch(() => null)) as EditResponse | null;
 
-        if (res.ok && data?.ok) {
+        if (res.ok && data?.ok && data.versionId) {
+          // Wire the new version back into the builder (select it, refresh the
+          // version list, keep the hot-patched preview) via a window event the
+          // builder listens for — mirroring the normal quick-edit save path.
+          // Without this the edit is applied server-side but never shows in the
+          // UI (which read as "no new version came").
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent(OPENCLAW_EDIT_APPLIED_EVENT, {
+                detail: {
+                  versionId: data.versionId,
+                  previewUrl: data.previewUrl ?? null,
+                  previewSessionId: data.previewSessionId ?? null,
+                  previewMode: data.previewMode ?? null,
+                },
+              }),
+            );
+          }
           const changed = data.changedFiles ?? [];
           const summary =
             (data.summary && data.summary.trim()) || "Ändringen är genomförd.";
@@ -132,7 +164,7 @@ export function useOpenClawEdit() {
             : "";
           updateAssistantMessage(
             placeholderId,
-            `${summary}${fileLine}${previewLine}\n\nEn ny version skapades — du kan återställa den i versionshistoriken.`,
+            `${summary}${fileLine}${previewLine}\n\nEn ny version skapades och valdes — du kan återställa den i versionshistoriken.`,
           );
         } else {
           updateAssistantMessage(placeholderId, describeEditError(res.status, data));
