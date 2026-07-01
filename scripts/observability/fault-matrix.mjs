@@ -99,21 +99,46 @@ try {
   // Per-fault aggregate: total, distinct chats, result breakdown, dominant
   // fixer, last-seen. `result` values are surfaced verbatim (no hardcoded
   // success label) so the matrix stays honest across schema evolution.
+  //
+  // The result breakdown and top-fixer are built from PRE-GROUPED subqueries
+  // (`group by fault, <key>`) so `jsonb_object_agg` only ever receives ONE row
+  // per (fault, result) — duplicate keys would otherwise make jsonb_object_agg
+  // raise on some Postgres configs (Bugbot).
   const perFault = await pool.query(
-    `select fault,
-            count(*)::int as total,
-            count(distinct chat_id)::int as chats,
-            max(created_at) as last_seen,
-            jsonb_object_agg(coalesce(result, 'unknown'), rc) as result_breakdown,
-            (array_agg(fixer order by fc desc) filter (where fixer is not null))[1] as top_fixer
-     from (
-       select fault, chat_id, result, fixer, created_at,
-              count(*) over (partition by fault, result) as rc,
-              count(*) over (partition by fault, fixer) as fc
+    `with agg as (
+       select fault,
+              count(*)::int as total,
+              count(distinct chat_id)::int as chats,
+              max(created_at) as last_seen
        from error_log_events
-     ) t
-     group by fault
-     order by total desc
+       group by fault
+     ),
+     breakdown as (
+       select fault, jsonb_object_agg(result_key, cnt) as result_breakdown
+       from (
+         select fault, coalesce(result, 'unknown') as result_key, count(*)::int as cnt
+         from error_log_events
+         group by fault, coalesce(result, 'unknown')
+       ) s
+       group by fault
+     ),
+     fixers as (
+       select distinct on (fault) fault, fixer as top_fixer
+       from (
+         select fault, fixer, count(*)::int as fc
+         from error_log_events
+         where fixer is not null
+         group by fault, fixer
+       ) t
+       order by fault, fc desc
+     )
+     select a.fault, a.total, a.chats, a.last_seen,
+            coalesce(b.result_breakdown, '{}'::jsonb) as result_breakdown,
+            f.top_fixer
+     from agg a
+     left join breakdown b on b.fault = a.fault
+     left join fixers f on f.fault = a.fault
+     order by a.total desc
      limit $1`,
     [limit],
   );
