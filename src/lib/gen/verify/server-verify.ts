@@ -667,6 +667,18 @@ async function tryServerRepairLoop(params: {
   let staleBaseNoOp = false;
 
   await markVersionRepairing(versionId, undefined, runId).catch(() => null);
+  // Surface the repair on the event bus so the status projection shows
+  // "repairing" (and the UI's bounded "Reparerar X/2" progress) for
+  // server-verify auto-repairs — not just the finalize-runner repair path
+  // (Codex #340 P2). Per-pass index is emitted from onBeforePass below.
+  emitBusEvent({
+    t: "version.repair.started",
+    versionId,
+    chatId,
+    runId,
+    reason: "server-verify-repair",
+    trigger: "server-verify",
+  });
 
   const exportable = await buildExportableProject(codeFiles);
   const initialContent = serializeCodeProject(exportable);
@@ -856,7 +868,15 @@ async function tryServerRepairLoop(params: {
     fixerReasoningEffort: fixerThinking?.reasoningEffort,
     recurringPatterns: readRecurringPatternsForChat(chatId),
     hasActionableErrorContext: hadQualityGateFailures,
-    onBeforePass: async () => {
+    onBeforePass: async (passIndex: number) => {
+      // 1-based so the UI reads "1/2", "2/2" (bus projection takes the max).
+      emitBusEvent({
+        t: "version.repair.passIndex",
+        versionId,
+        chatId,
+        runId,
+        passIndex: passIndex + 1,
+      });
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },
     onAttemptPromotion: async (projectContent, method) => ({
