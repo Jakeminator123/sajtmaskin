@@ -156,6 +156,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       scopedVersion.version.lifecycle_stage === "integrations"
         ? [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]
         : checks;
+    // A ("render is enough" for F2): design/F2 rows treat a typecheck-only gate
+    // failure as ADVISORY (see the fail branch below). Integrations/F3 is never
+    // advisory — build/lint genuinely block a real deploy.
+    const isDesignStage = scopedVersion.version.lifecycle_stage !== "integrations";
 
     const codeFiles = await getVersionFiles(internalVersionId);
     if (codeFiles && codeFiles.length > 0) {
@@ -238,7 +242,23 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           visualQA,
         };
 
-        const verificationSummary = buildVerificationSummary(results);
+        // A ("render is enough" for F2): a design/F2 gate that fails ONLY on
+        // `typecheck` is treated as ADVISORY — the live preview already rendered,
+        // so type errors that don't stop rendering must not hard-fail the version
+        // or spin the repair loop. F3/integrations is unchanged (it runs, and
+        // blocks on, the full build+lint lane). Type issues are still surfaced as
+        // warnings below, so this is an honest "renders, with warnings", never a
+        // hidden green. A latent type error is still caught by `next build` at F3.
+        const failedCheckNames = results.filter((r) => !r.passed).map((r) => r.check);
+        const designTypecheckAdvisory =
+          isDesignStage &&
+          !gateResult.passed &&
+          failedCheckNames.length > 0 &&
+          failedCheckNames.every((name) => name === "typecheck");
+        const effectivePassed = gateResult.passed || designTypecheckAdvisory;
+        const verificationSummary = designTypecheckAdvisory
+          ? "F2-preview renderar; typecheck-varningar behandlas som icke-blockerande i design-läget (F3-bygget kontrollerar typerna strikt)."
+          : buildVerificationSummary(results);
         // Check superseded BEFORE persisting the regular logs so we don't
         // pile error rows on a version that no longer represents the
         // chat's head; the superseded path persists its own scoped log.
@@ -280,6 +300,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               jobFinishedAt,
               visualQA,
             }),
+            // F2 advisory: don't log a scary "error"/"failed" summary for a
+            // render-that-typechecks-with-warnings — record it as a warning.
+            ...(designTypecheckAdvisory
+              ? {
+                  level: "warning" as const,
+                  message:
+                    "F2 design-preview: typecheck-varningar (icke-blockerande — previewn renderar).",
+                }
+              : {}),
           },
           ...results
             .filter((r) => !r.passed)
@@ -287,9 +316,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               return {
                 chatId,
                 versionId: internalVersionId,
-                level: "error" as const,
+                level: designTypecheckAdvisory ? ("warning" as const) : ("error" as const),
                 category: `quality-gate:${r.check}`,
-                message: `${r.check} failed (exit ${r.exitCode})`,
+                message: `${r.check} ${designTypecheckAdvisory ? "warning" : "failed"} (exit ${r.exitCode})`,
                 meta: {
                   stage: r.check,
                   command: QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
@@ -310,7 +339,12 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         let promotionBlocked = false;
         let promoteError = false;
         let promoteGuardUnavailable = false;
-        if (gateResult.passed) {
+        // `effectivePassed` folds in the F2 typecheck-advisory case so a design
+        // preview that renders is promoted (verified) with type warnings instead
+        // of being hard-failed. The promote guard below still runs, so a
+        // verifier-flagged F2 row is still blocked — advisory only relaxes the
+        // typecheck lane, never the finalize verifier.
+        if (effectivePassed) {
           // Check the false-green guard *explicitly* before promoting so we can
           // tell three cases apart: (1) an explicit verifier block, (2) a guard
           // that could not READ the finalize signal (DB error), and (3) a clean
@@ -434,7 +468,17 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             promoteError: true,
           });
         }
-        return NextResponse.json(gateResult);
+        // Clean pass, or F2 typecheck-advisory pass. Report `passed:true` so the
+        // client verify-lane shows verified and does NOT trigger the repair loop.
+        // `designAdvisory` lets the UI say "renderar (typvarningar)" instead of a
+        // plain green, keeping it honest.
+        return NextResponse.json({
+          ...gateResult,
+          passed: effectivePassed,
+          ...(designTypecheckAdvisory
+            ? { designAdvisory: true, advisoryChecks: failedCheckNames }
+            : {}),
+        });
       } catch (err) {
         // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
         // the gate never evaluated the code, so do NOT mark the version `failed`

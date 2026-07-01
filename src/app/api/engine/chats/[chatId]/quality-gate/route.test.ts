@@ -33,6 +33,13 @@ const QualityGateUnavailableError = vi.hoisted(
     },
 );
 
+// Bypass the rate limiter in unit tests: these exercise the handler logic, not
+// the limiter, and the real in-memory limiter otherwise 429s once the file grows
+// past its per-window budget (making the suite flaky as tests are added).
+vi.mock("@/lib/rateLimit", () => ({
+  withRateLimit: (_req: unknown, _key: string, fn: () => unknown) => fn(),
+}));
+
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
 }));
@@ -601,5 +608,109 @@ describe("POST quality-gate", () => {
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     const f2Checks = runQualityGateChecks.mock.calls[0][0].checks;
     expect(f2Checks).toEqual([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]);
+  });
+
+  it("treats an F2 design typecheck-only failure as advisory: promotes with warnings, no fail, no repair (A)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Typecheck fails (e.g. TS2304 Cannot find name 'toast') but the preview
+    // renders — F2 must NOT hard-fail on this.
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        {
+          check: "typecheck",
+          passed: false,
+          exitCode: 2,
+          output: "contact-form.tsx(22,5): error TS2304: Cannot find name 'toast'.",
+          durationMs: 10,
+        },
+      ],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: "2026-07-01T10:00:00.000Z",
+      jobFinishedAt: "2026-07-01T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // Advisory pass: verified (promoted), NOT failed, and the client sees green
+    // so it never triggers the repair loop.
+    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String), "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(true);
+    expect(body.designAdvisory).toBe(true);
+    expect(body.advisoryChecks).toEqual(["typecheck"]);
+  });
+
+  it("does NOT treat an F3 integrations typecheck failure as advisory — it still hard-fails", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "integrations" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        { check: "typecheck", passed: false, exitCode: 2, output: "TS2304", durationMs: 10 },
+      ],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: "2026-07-01T10:00:00.000Z",
+      jobFinishedAt: "2026-07-01T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    describeQualityGateVerification.mockReturnValue("Automatic verification failed: typecheck.");
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // F3 never gets the advisory treatment: a failing typecheck hard-fails.
+    expect(failVersionVerification).toHaveBeenCalledWith("ver-1", expect.any(String), "run-1");
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.designAdvisory).toBeUndefined();
   });
 });
