@@ -16,7 +16,7 @@ Definierat i [`src/lib/db/engine-version-lifecycle.ts`](../../src/lib/db/engine-
 | `draft` | `failed` | Verifiering misslyckades definitivt. |
 | `promoted` | (vilken som) | Publicerad — live. |
 
-UI:n läser dessa via `resolveEngineVersionLifecycleStatus(version)` och visar labels som "Draft"/"Verifierar"/"Reparerar"/"Fix redo"/"Fel"/"Publicerad".
+**Två statusytor läser detta:** publicerings-/deploy-ytan (`/readiness`) läser DB-state via `resolveEngineVersionLifecycleStatus(version)` och visar labels som "Draft"/"Verifierar"/"Reparerar"/"Fix redo"/"Fel"/"Publicerad". **Builder-spinnern + version-historik-badgen** läser däremot event-bus-projektionen (`selectVersionStatus` via `/version-status` + `/versions`), som sedan #337 reconcilas mot terminalt DB-`verification_state` (`reconcileTerminalDbState`) så en död verify-runda aldrig fastnar på "verifying".
 
 ## Transitioner
 
@@ -62,5 +62,5 @@ Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 
 ## Uppföljningsspår
 
-- **Full event-bus UI-flip** (Kvarvarande #11) — UI:n läser fortfarande DB-state direkt. `selectVersionStatus(events)` från [`event-bus-projection.ts`](../../src/lib/logging/event-bus-projection.ts) kan ersätta det, men det är 1-2 dagars refaktor och ingår inte i 2026-04-23-passet.
+- **Full event-bus UI-flip** (Kvarvarande #11) — ✅ **klar** (Område 6-3): builder-ytorna läser `selectVersionStatus(events)` från [`event-bus-projection.ts`](../../src/lib/logging/event-bus-projection.ts) via `/version-status` + `/versions`. #337 la till terminal DB-reconcile (`reconcileTerminalDbState`) + en lease-säker stale-watchdog (`settleStaleVerificationIfNeeded`, delad med `/readiness`) så bussen aldrig fastnar icke-terminalt. Kvar-fältet `resolveEngineVersionLifecycleStatus` används nu bara av publicerings-/deploy-ytan.
 - **Audit §3.2** (slå ihop server-verify + quality-gate + accept-repair till ett enda pass) — större refaktor, parkerad.
