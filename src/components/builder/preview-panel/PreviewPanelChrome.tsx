@@ -20,7 +20,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
+import {
+  formatRepairPassProgress,
+  type VersionDisplayStatus,
+} from "@/lib/builder/version-status-display";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
 import type { PreviewRouteInfo } from "./preview-route-helpers";
@@ -68,6 +71,8 @@ interface PreviewPanelChromeProps {
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
+  /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
+  activeVersionRepairPassIndex?: number;
   iframeError: boolean;
   iframeErrorMessage?: string | null;
   isCodeView: boolean;
@@ -147,6 +152,7 @@ export function PreviewPanelChrome({
   activeVersionStatus,
   activeVersionSummary,
   activeVersionIsLatest = true,
+  activeVersionRepairPassIndex = 0,
   iframeError,
   iframeErrorMessage,
   isCodeView,
@@ -297,12 +303,13 @@ export function PreviewPanelChrome({
       };
     }
     if (activeVersionStatus === "repairing") {
+      const progress = formatRepairPassProgress(activeVersionRepairPassIndex);
       return {
         tone: "warning" as const,
-        title: "Reparerar version",
+        title: progress ? `Reparerar version (${progress})` : "Reparerar version",
         detail:
           localizedVersionSummary ||
-          "Servern reparerar fel i bakgrunden. Nuvarande iframe kan vara trasig eller äldre.",
+          "Servern reparerar fel i bakgrunden (max 2 försök). Nuvarande iframe kan vara trasig eller äldre.",
       };
     }
     if (activeVersionStatus === "retrying" && !activeVersionIsLatest) {

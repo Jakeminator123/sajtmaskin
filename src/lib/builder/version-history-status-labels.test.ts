@@ -17,6 +17,7 @@ function display(
     status,
     degraded: status === "degraded",
     degradations: [],
+    repairPassIndex: 0,
     ...overrides,
   };
 }
@@ -63,6 +64,33 @@ describe("versionHistoryStatusBadge — label/variant mapping", () => {
     expect(versionHistoryStatusBadge(display("retrying")).retryIcon).toBe(true);
     expect(versionHistoryStatusBadge(display("ready")).retryIcon).toBe(false);
     expect(versionHistoryStatusBadge(display("failed")).retryIcon).toBe(false);
+  });
+
+  it("appends bounded repair progress to the Reparerar label", () => {
+    expect(versionHistoryStatusBadge(display("repairing", { repairPassIndex: 1 })).label).toBe(
+      "Reparerar 1/2",
+    );
+    expect(versionHistoryStatusBadge(display("repairing", { repairPassIndex: 2 })).label).toBe(
+      "Reparerar 2/2",
+    );
+  });
+
+  it("keeps the plain Reparerar label before the first pass index arrives", () => {
+    expect(versionHistoryStatusBadge(display("repairing", { repairPassIndex: 0 })).label).toBe(
+      "Reparerar",
+    );
+  });
+
+  it("clamps a runaway pass index so it never shows more than the max", () => {
+    expect(versionHistoryStatusBadge(display("repairing", { repairPassIndex: 9 })).label).toBe(
+      "Reparerar 2/2",
+    );
+  });
+
+  it("only annotates the repairing state, not other spinners", () => {
+    expect(versionHistoryStatusBadge(display("verifying", { repairPassIndex: 1 })).label).toBe(
+      "Verifierar",
+    );
   });
 });
 

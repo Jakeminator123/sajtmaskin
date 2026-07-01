@@ -25,9 +25,10 @@
  *     "Acceptera fix" action, which `VersionHistory` keeps unchanged.
  */
 
-import type {
-  VersionDisplayStatus,
-  VersionStatusDisplay,
+import {
+  formatRepairPassProgress,
+  type VersionDisplayStatus,
+  type VersionStatusDisplay,
 } from "./version-status-display";
 
 /** Subset of shadcn `Badge` variants this surface uses. */
@@ -208,7 +209,16 @@ export function localizeVerificationSummary(
 export function versionHistoryStatusBadge(
   display: VersionStatusDisplay,
 ): VersionHistoryStatusBadge {
-  return BADGES[display.status] ?? BADGES.idle;
+  const badge = BADGES[display.status] ?? BADGES.idle;
+  // Show bounded repair progress ("Reparerar 1/2") so a running repair reads as
+  // finite. Falls back to the plain label before the first pass index arrives.
+  if (display.status === "repairing") {
+    const progress = formatRepairPassProgress(display.repairPassIndex);
+    if (progress) {
+      return { ...badge, label: `${badge.label} ${progress}` };
+    }
+  }
+  return badge;
 }
 
 /**

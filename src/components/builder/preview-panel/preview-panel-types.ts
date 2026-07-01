@@ -104,6 +104,8 @@ export interface PreviewPanelProps {
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
+  /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
+  activeVersionRepairPassIndex?: number;
   /** Non-blocking overlay payload when the selected version and preview-VM diverge. */
   versionMismatchPayload?: VersionMismatchOverlayPayload | null;
   /** Ask controller to verify server session and recover preview if needed. */

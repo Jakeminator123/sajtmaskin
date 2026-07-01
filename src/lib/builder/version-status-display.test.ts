@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatRepairPassProgress,
   mapVersionStatusToDisplay,
+  MAX_REPAIR_PASSES_DISPLAY,
   type VersionDisplayContext,
 } from "./version-status-display";
+import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import type { VersionStatus, VersionStatusPhase } from "@/lib/logging/event-bus-types";
 
 function status(overrides: Partial<VersionStatus> & { phase: VersionStatusPhase }): VersionStatus {
@@ -195,5 +198,37 @@ describe("mapVersionStatusToDisplay — false-green guard (degraded ≠ success)
     expect(display.status).not.toBe("promoted");
     expect(display.status).not.toBe("ready");
     expect(display.degraded).toBe(true);
+  });
+});
+
+describe("repair pass progress", () => {
+  it("threads repairPassIndex through the repairing display", () => {
+    expect(
+      mapVersionStatusToDisplay(status({ phase: "repairing", repairPassIndex: 2 }), LATEST)
+        .repairPassIndex,
+    ).toBe(2);
+  });
+
+  it("defaults repairPassIndex to 0 for non-repairing phases", () => {
+    expect(
+      mapVersionStatusToDisplay(status({ phase: "verifying", repairPassIndex: 2 }), LATEST)
+        .repairPassIndex,
+    ).toBe(0);
+  });
+
+  it("formats bounded progress and clamps a runaway index", () => {
+    expect(formatRepairPassProgress(1)).toBe("1/2");
+    expect(formatRepairPassProgress(2)).toBe("2/2");
+    expect(formatRepairPassProgress(9)).toBe("2/2");
+  });
+
+  it("returns null when there is no active pass", () => {
+    expect(formatRepairPassProgress(0)).toBeNull();
+    expect(formatRepairPassProgress(-1)).toBeNull();
+    expect(formatRepairPassProgress(Number.NaN)).toBeNull();
+  });
+
+  it("keeps the client display denominator in sync with the server max (drift guard)", () => {
+    expect(MAX_REPAIR_PASSES_DISPLAY).toBe(SERVER_REPAIR_MAX_PASSES);
   });
 });
