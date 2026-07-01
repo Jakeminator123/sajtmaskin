@@ -194,6 +194,10 @@ export function useBuilderPageController() {
   const latestVersionIdRef = useRef<string | null>(null);
   selectedVersionIdRef.current = state.selectedVersionId;
   latestVersionIdRef.current = derived.latestVersionId;
+  // Fast Edit Lane: id of a version we optimistically selected (in
+  // handleFilesSaved) before the versions list has refetched. The stale-
+  // selection guard must not clear it during that window — see the guard below.
+  const pendingSelectionRef = useRef<string | null>(null);
 
   /** Active live-preview URL for the version. */
   const activeVersionAlternatePreview = useMemo(() => {
@@ -1265,15 +1269,28 @@ export function useBuilderPageController() {
 
   // Reset selected version on chat change
   useEffect(() => {
+    pendingSelectionRef.current = null;
     setSelectedVersionId(null);
     setExternalProjectId(null);
   }, [chatId, setSelectedVersionId, setExternalProjectId]);
 
   useEffect(() => {
-    if (!selectedVersionId) return;
-    if (!derived.versionIdSet.has(selectedVersionId)) {
-      setSelectedVersionId(null);
+    // Clear the optimistic marker once the version actually lands in the list.
+    if (
+      pendingSelectionRef.current &&
+      derived.versionIdSet.has(pendingSelectionRef.current)
+    ) {
+      pendingSelectionRef.current = null;
     }
+    if (!selectedVersionId) return;
+    if (derived.versionIdSet.has(selectedVersionId)) return;
+    // The selection isn't in the list. If a quick edit JUST optimistically
+    // selected this id and the versions list hasn't refetched yet, keep it —
+    // the pending mutateVersions() will add it. Nulling here would race the
+    // refetch and fall back to the previous (stale) version. Only clear a
+    // genuinely stale selection.
+    if (selectedVersionId === pendingSelectionRef.current) return;
+    setSelectedVersionId(null);
   }, [selectedVersionId, derived.versionIdSet, setSelectedVersionId]);
 
   // ChatId URL sync
@@ -1515,6 +1532,11 @@ export function useBuilderPageController() {
       // follow-ups build on the patched version (avoids a stale-base reject) and
       // refresh the version list so the new v.x row appears.
       if (info?.versionId) {
+        // Mark this as an optimistic selection so the stale-selection guard does
+        // not null it before mutateVersions() refetches the list and the new
+        // minor appears in versionIdSet (otherwise the follow-up falls back to
+        // the previous version — the selection-guard race).
+        pendingSelectionRef.current = info.versionId;
         setSelectedVersionId(info.versionId);
         void mutateVersions();
         // If the live preview was patched in place (same preview session, new

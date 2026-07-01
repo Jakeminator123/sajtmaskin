@@ -1,6 +1,9 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  QUALITY_GATE_CHECK_VALUES,
+} from "@/lib/gen/verify/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
@@ -643,6 +646,14 @@ function handleEnvSignal(
   return true;
 }
 
+// The /repair route validates each qualityGate entry against
+// z.enum(["typecheck","build","lint"]). The preview-host verify lane can also
+// surface non-canonical check rows (e.g. "install" / "install-cache-share" /
+// "install-peer-fallback"), and a failed one of those would 400 the ENTIRE
+// repair request. Keep the repair payload to the canonical set so a stray check
+// name can never block a legitimate repair (and the cast below stays sound).
+const CANONICAL_REPAIR_CHECKS = new Set<string>(QUALITY_GATE_CHECK_VALUES);
+
 async function handleRepairOrAutofix(params: {
   chatId: string;
   versionId: string;
@@ -672,7 +683,7 @@ async function handleRepairOrAutofix(params: {
 
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
-      .filter((c) => !c.passed)
+      .filter((c) => !c.passed && CANONICAL_REPAIR_CHECKS.has(c.check))
       .map((c) => ({
         check: c.check as "typecheck" | "build" | "lint",
         exitCode: c.exitCode,

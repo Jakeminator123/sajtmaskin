@@ -153,7 +153,14 @@ export async function runQuickEdit(params: {
   }
 
   if (previewUrl && previewUrl.trim()) {
-    await updateVersionPreviewUrl(newVersionId, previewUrl).catch(() => null);
+    // Best-effort persist: the URL is still returned to the caller for the live
+    // session, but a silently swallowed DB failure would lose the persisted
+    // preview URL on reload / a new tab. Log so the drop is observable instead
+    // of vanishing without a trace.
+    await updateVersionPreviewUrl(newVersionId, previewUrl).catch((err) => {
+      console.warn("[quick-edit] Failed to persist preview URL:", err);
+      return null;
+    });
   }
 
   return {

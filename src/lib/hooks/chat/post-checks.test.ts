@@ -911,6 +911,98 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("keeps non-canonical checks (install) out of the /repair request body", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          // Preview-host `npm install` failed and the verify job returned early,
+          // so the only failed row is the non-canonical "install" check. The
+          // /repair route's zod enum (typecheck|build|lint) would 400 on it.
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "install-cache-share",
+                passed: true,
+                exitCode: 0,
+                output: "Reused node_modules from live workspace.",
+                durationMs: 0,
+              },
+              {
+                check: "install",
+                passed: false,
+                exitCode: 1,
+                output: "npm error code E404 - registry returned 404 for bogus-package",
+                durationMs: 900,
+              },
+            ],
+            verifyLaneDurationMs: 1200,
+            firstFailureCheck: "install",
+            jobStartedAt: "2026-04-03T12:00:00.000Z",
+            jobFinishedAt: "2026-04-03T12:00:01.200Z",
+          });
+        }
+        if (url.endsWith("/repair")) {
+          return jsonResponse({
+            repaired: false,
+            deterministic: false,
+            remainingErrors: 0,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const repairCall = fetchCalls.find((call) => call.url.endsWith("/repair"));
+    expect(repairCall).toBeDefined();
+    const repairBody = JSON.parse(String(repairCall?.init?.body)) as {
+      repairContext: { qualityGate?: Array<{ check: string }> };
+    };
+    const sentChecks = (repairBody.repairContext.qualityGate ?? []).map((c) => c.check);
+    // The non-canonical rows must be filtered out so the request validates.
+    expect(sentChecks).not.toContain("install");
+    expect(sentChecks).not.toContain("install-cache-share");
+    for (const check of sentChecks) {
+      expect(["typecheck", "build", "lint"]).toContain(check);
+    }
+  });
+
   it("surfaces actionable business workflow prompts in post-check output", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
