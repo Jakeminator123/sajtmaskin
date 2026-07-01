@@ -249,6 +249,32 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings[0]?.detail).not.toContain("@react-three/drei");
   });
 
+  it("keeps the react-three hint for a mesh-only R3F child (parent owns Canvas)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/scene-content.tsx",
+        content: [
+          "export default function SceneContent() {",
+          "  return (",
+          "    <group>",
+          "      <mesh>",
+          "        <Cuboid args={[1, 1, 1]} />",
+          "        <meshStandardMaterial color='hotpink' />",
+          "      </mesh>",
+          "    </group>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("<Cuboid");
+    // No `<Canvas>` and no @react-three import in THIS file, but the R3F
+    // intrinsics (<group>/<mesh>/<meshStandardMaterial>) still qualify it.
+    expect(findings[0]?.detail).toContain("@react-three/drei");
+  });
+
   it("keeps the react-three hint for undefined symbols in files that actually use R3F", () => {
     const findings = checkUndefinedJsxSymbols([
       {

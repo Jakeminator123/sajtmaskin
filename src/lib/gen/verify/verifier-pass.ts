@@ -286,6 +286,12 @@ const CANVAS_WITH_CLASSNAME_RE =
   /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
 const R3F_IMPORT_RE = /from\s+["']@react-three\/fiber["']|import\s*\(\s*["']@react-three\/fiber["']\s*\)/;
 const JSX_CANVAS_RE = /<Canvas\b/;
+// R3F usage signals for split-out scene children that don't own `<Canvas>` or
+// the import themselves: R3F intrinsic primitives (`<mesh>`, `<group>`, …),
+// lowercase `*Geometry`/`*Material`/`*Light` intrinsics (`<boxGeometry>`,
+// `<meshStandardMaterial>`, `<ambientLight>`), and the R3F render hooks.
+const R3F_INTRINSIC_RE =
+  /<(?:mesh|instancedMesh|group|points|primitive|scene)\b|<[a-z][A-Za-z]*(?:Geometry|Material|Light)\b|\b(?:useFrame|useThree|useLoader)\b/;
 const USE_CLIENT_RE = /^\s*["']use client["']\s*;?/m;
 const ELEMENT_WITH_CLASSNAME_RE =
   /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
@@ -445,10 +451,16 @@ export function checkUndefinedJsxSymbols(
     const declared = collectDeclaredIdentifiers(scrubbed);
     const seen = new Set<string>();
     // The React Three Fiber hint is only relevant for files that actually use
-    // R3F/`<Canvas>`. Appending it to every undefined-symbol finding misled the
-    // fixer into "repairing" a plain `<HTMLFormElement/>` by pulling in a
-    // Three.js canvas (prod chat 8bf59f13, 2026-07-01). Gate it on real R3F use.
-    const fileUsesR3F = R3F_IMPORT_RE.test(f.content) || JSX_CANVAS_RE.test(f.content);
+    // R3F. Appending it to every undefined-symbol finding misled the fixer into
+    // "repairing" a plain `<HTMLFormElement/>` by pulling in a Three.js canvas
+    // (prod chat 8bf59f13, 2026-07-01). Gate it on real R3F use — including
+    // split-out mesh-only scene children where the PARENT owns `<Canvas>`/the
+    // import, so those still get the R3F hint (Codex #338 P2): detect R3F
+    // intrinsics (`<mesh>`, `<group>`, `*Geometry/*Material/*Light`) + hooks.
+    const fileUsesR3F =
+      R3F_IMPORT_RE.test(f.content) ||
+      JSX_CANVAS_RE.test(f.content) ||
+      R3F_INTRINSIC_RE.test(f.content);
 
     const JSX_OPENING_TAG = /<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
     let match: RegExpExecArray | null;
