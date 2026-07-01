@@ -69,22 +69,15 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     const events = readAll(scopedVersion.version.id);
     const busStatus = selectVersionStatus(events);
 
-    // Stale-watchdog WRITE is gated on TWO conditions so a normal 4s poll can
-    // never false-fail a valid version:
-    //   1. The bus projection is actually stuck non-terminal (still
-    //      verifying/repairing) — a terminal bus (incl. F2 design-preview
-    //      "skipped" → done) needs no DB touch.
-    //   2. Server-verify was actually EXPECTED for this row. F2/design previews
-    //      intentionally skip server-verify and rest at DB `pending`; failing
-    //      them from a status poll would be a false-red (Codex #337 P1). Only
-    //      `integrations` (F3) rows genuinely wait on server-verify. Stuck F2
-    //      rows are covered by the client-side poll cap in `useVersionStatus`.
+    // Only touch the DB when the spinner is actually stuck: a terminal bus (incl.
+    // an F2 design-preview whose verifier was "skipped" → done) needs no DB work,
+    // which keeps the 4s poll cheap. The lease-safe watchdog itself refuses to
+    // fail valid pending design previews (see `settleStaleVerificationIfNeeded`),
+    // so it can never false-red them; stuck F2 rows are additionally covered by
+    // the client-side poll cap in `useVersionStatus`.
     let dbVersion = scopedVersion.version;
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
-    const serverVerifyExpected =
-      (typeof dbVersion.lifecycle_stage === "string" ? dbVersion.lifecycle_stage : "design") ===
-      "integrations";
-    if (busStuck && serverVerifyExpected) {
+    if (busStuck) {
       const settled = await settleStaleVerificationIfNeeded(dbVersion, {
         resolveFailureSummary: async () =>
           resolveGateFailureSummaryFromLogs(await getEngineVersionErrorLogs(dbVersion.id)),

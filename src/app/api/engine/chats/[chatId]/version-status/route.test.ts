@@ -126,9 +126,9 @@ describe("GET version-status (engine)", () => {
   ];
 
   it("read-only reconcile maps an already-failed DB row onto a still-spinning bus", async () => {
-    // DB is already terminal (failed) via some other path; no watchdog write needed.
+    // DB is already terminal (failed); the watchdog is a no-op pass-through here.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      version: { id: "v1", verification_state: "failed", lifecycle_stage: "design" },
+      version: { id: "v1", verification_state: "failed", lifecycle_stage: "integrations" },
     });
     readAll.mockReturnValue(spinningBus);
 
@@ -140,11 +140,9 @@ describe("GET version-status (engine)", () => {
     expect(body.ok).toBe(true);
     // Without reconciliation this would be "repairing" (a perpetual spinner).
     expect(body.status?.phase).toBe("failed");
-    // Read-only path: no DB write attempted.
-    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
   });
 
-  it("runs the stale watchdog for a stuck F3/integrations row and reconciles to failed", async () => {
+  it("runs the stale watchdog for a stuck row and reconciles to failed", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
     });
@@ -164,11 +162,24 @@ describe("GET version-status (engine)", () => {
     expect(body.status?.phase).toBe("failed");
   });
 
-  it("NEVER fails a pending F2/design preview from a status poll (Codex #337 P1)", async () => {
+  it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "pending", lifecycle_stage: "design" },
     });
-    readAll.mockReturnValue(spinningBus);
+    // Design-preview flow: verifier "skipped" → the projection terminal-settles
+    // to `done`, so the bus is NOT stuck and the poll must not touch the DB.
+    readAll.mockReturnValue([
+      {
+        t: "version.verifier.done",
+        id: "e1",
+        ts: "2026-07-01T10:00:00.000Z",
+        runId: "root",
+        versionId: "v1",
+        chatId: "chat_1",
+        blocked: false,
+        outcome: "skipped",
+      },
+    ]);
 
     const res = await GET(
       new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
@@ -176,8 +187,7 @@ describe("GET version-status (engine)", () => {
     );
     const body = (await res.json()) as { ok: boolean; status?: { phase: string } };
     expect(body.ok).toBe(true);
-    // Design previews rest at DB `pending` by design — the poll must not fail them.
     expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
-    expect(body.status?.phase).toBe("repairing");
+    expect(body.status?.phase).toBe("done");
   });
 });

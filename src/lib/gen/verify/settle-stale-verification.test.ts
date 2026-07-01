@@ -40,6 +40,43 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  it("NEVER fails a stale pending design preview (Codex/Vercel #337 P1)", async () => {
+    const v = makeVersion({ verification_state: "pending", lifecycle_stage: "design" });
+    const res = await settleStaleVerificationIfNeeded(v);
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("NEVER fails a stale pending row with no lifecycle_stage (legacy → treated as design)", async () => {
+    const v = makeVersion({ verification_state: "pending", lifecycle_stage: null });
+    const res = await settleStaleVerificationIfNeeded(v);
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("DOES fail a stale pending integrations row (server-verify was expected)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "pending", lifecycle_stage: "integrations" }),
+    );
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
+  it("DOES fail a stale verifying design row (verify actually started)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "verifying", lifecycle_stage: "design" }),
+    );
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
   it("fails a stale verifying version (lease-safe) and returns the updated row", async () => {
     const updated = makeVersion({ verification_state: "failed" });
     failVersionVerificationIfUnleased.mockResolvedValue(updated);

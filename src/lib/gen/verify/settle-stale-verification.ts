@@ -33,6 +33,18 @@ export async function settleStaleVerificationIfNeeded(
   version: Version,
   opts?: { resolveFailureSummary?: () => Promise<string | null> | string | null },
 ): Promise<{ version: Version; failed: boolean }> {
+  // Design previews (F2) intentionally rest at `pending` — server-verify is
+  // skipped and only the event bus records the skipped verifier. Never fail such
+  // a row by age alone (Codex + Vercel #337 P1): that would turn a valid,
+  // launchable design preview into a false-red on both /readiness and the 4s
+  // /version-status poll. A `verifying`/`repairing` row means a verify/repair
+  // ACTUALLY started, so it stays settleable when stuck regardless of stage.
+  const lifecycleStage =
+    typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
+  if (version.verification_state === "pending" && lifecycleStage !== "integrations") {
+    return { version, failed: false };
+  }
+
   let staleCandidate = isTimedOutVerificationState(
     version.verification_state,
     version.created_at,
