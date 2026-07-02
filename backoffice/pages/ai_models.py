@@ -137,10 +137,10 @@ def _render_generator_chain(
         f"2. Därefter går den in i **själva byggmodellen** ({human_model_label(build_profiles.get('max', ''))} när profilen är `max`).\n"
         f"3. Om du väljer **planläge** används planner-fasen ({planner.get('notes') or 'styrs av phase routing'}).\n"
         f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}).\n"
-        f"5. Om kvaliteten fortfarande faller kan **LLM-fix / repair** försöka laga fel — både i explicit repair-route och i background verify."
+        f"5. Om kvaliteten fortfarande faller kan **RepairGate** försöka laga residual — både i explicit repair-route och i background verify."
     )
     st.caption(
-        "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, mekanisk fix = deterministisk regex/AST-fix, LLM-fix = modelldriven reparation, `verifier` = efterkontroll i bakgrunden."
+        "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, Normalize = deterministisk regex/AST-fix, RepairGate = modelldriven reparation, `verifier` = efterkontroll i bakgrunden."
     )
     st.info(
         "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: `qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`."
@@ -584,7 +584,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         key="tb_engine",
     )
     autofix_tokens = st.number_input(
-        "Autofix / fixer max output tokens",
+        "Normalize / RepairGate max output tokens",
         value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 82000)),
         step=512,
         key="tb_autofix",
@@ -647,10 +647,10 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
 
     qg = manifest.setdefault("qualityGateTiers", {})
-    st.markdown("#### Quality gate-lanes")
+    st.markdown("#### RenderGate / ReleaseGate-lanes")
     st.caption(
         "Konsoliderade 2026-04 från fyra lanes (`tier2`, `serverVerify`, `promotion`, `interactive`) till två: "
-        "`designPreview` (F2) och `integrationsBuild` (F3). Ändras här eller direkt i `manifest.json`."
+        "`designPreview` (F2 / RenderGate) och `integrationsBuild` (F3 / ReleaseGate). Ändras här eller direkt i `manifest.json`."
     )
     qg_design = ", ".join(qg.get("designPreview") or ["typecheck"])
     qg_int = ", ".join(qg.get("integrationsBuild") or ["typecheck", "build"])
@@ -658,7 +658,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     st.text(f"integrationsBuild (F3): {qg_int}")
 
     deterministic_passes = st.number_input(
-        "Mekaniska fix-pass före LLM",
+        "Normalize-pass före RepairGate",
         value=int(rp.get("deterministicAutofixPasses", 2)),
         min_value=1,
         max_value=10,

@@ -64,10 +64,10 @@ def render(ctx: BackofficeContext) -> None:
         "`preview-ready`/VM-preview och hur buildern växlar mellan versioner."
     )
 
-    st.subheader("Fas 3-status (begrepp)")
+    st.subheader("Fas 3-status (RepairGate / release)")
     st.markdown(
         """
-- **`repair_available`**: serverrepair passerade quality gate men väntar på `accept-repair`.
+- **`repair_available`**: serverrepair passerade RenderGate/ReleaseGate men väntar på `accept-repair`.
 - **`accept-repair`**: applicerar staged `repaired_files_json` till `files_json` för senaste versionen.
 - **Auto-accept timeout**: styrs av `repairPolicies.repairAcceptTimeoutMinutes` i `manifest.json`.
 - **Verify install-signaler**: `install-cache-share` (node_modules-delning) och `install-peer-fallback` (peer-fallback använd).
@@ -75,12 +75,12 @@ def render(ctx: BackofficeContext) -> None:
 """
     )
 
-    st.subheader("F2 / F3 livscykel (2026-04)")
+    st.subheader("F2 / F3 livscykel: RenderGate och ReleaseGate")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate, `["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
-- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build", "lint"]`).
+- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. ReleaseGate (kod: `integrationsBuild` quality gate, `["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
 - **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin
@@ -100,8 +100,8 @@ def render(ctx: BackofficeContext) -> None:
   `navigation-placeholder-actions`, `motion-reduce-canvas-trap` och `motion-reduce-overlay-trap`.
   `lazy(`-bailouten är smal: bara filer med `React.lazy(` eller `lazy` importerat från
   `react`/`react-dom` skippas.
-- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` (både deterministiska
-  och LLM-reported) matas in i `runLlmFixer` direkt efter verifier-passet. Lyckad fixer rensar
+- **Verifier-fynd → RepairGate (Wave 2 2026-04-20)**: Blocker-fynd från `runVerifierPass` (både deterministiska
+  och LLM-reported) matas in i `runLlmRepairGate` direkt efter verifier-passet. Lyckad repair rensar
   `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats.
 - **Auto-repair på `build-error` (Wave 4 2026-04-20)**: `triggerBuildErrorRepair` är default ON i
   `development` + Vercel `preview`, default OFF i `production`. Override via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1`.

@@ -38,7 +38,7 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
     "prompts": ("Promptar (prompt_logs)", "Användarens prompt + formaterad prompt per tur."),
     "generations": ("Genereringar (engine_generation_logs)", "Model, tokens, duration, success/fel per generering."),
     "versions": ("Versioner (engine_versions)", "Version-rader: lifecycle, release/verify-state, summary."),
-    "telemetry": ("Telemetri (generation_telemetry)", "Scaffold, retry, autofix, preflight, quality gate, preview."),
+    "telemetry": ("Telemetri (generation_telemetry)", "Scaffold, retry, Normalize, preflight, RenderGate/ReleaseGate, preview."),
     "errors": ("Fel/warnings (engine_version_error_logs)", "Per-version fel- och varningsrader."),
     "chats": ("Chattar (engine_chats)", "Chatt/projekt-metadata."),
     "oc": ("OpenClaw-fynd (oc_debug_findings)", "Bug-hunt (Mode B): severity, build_result, repair_outcome."),
