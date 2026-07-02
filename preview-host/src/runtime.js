@@ -1685,6 +1685,26 @@ function inspectInjectionTag(search) {
   return `<script src="${INSPECT_APP_ORIGIN}/api/inspect-bridge?parent=${encodeURIComponent(INSPECT_APP_ORIGIN)}"><\/script>`;
 }
 
+/**
+ * Inspect-kluster C (#164/#197): `?inspect=1` är preview-hostens injektions-
+ * kontrakt, inte app-input. Strippa parametern innan requesten proxas vidare
+ * så den genererade appens `searchParams`/SSR aldrig ser den (en app som
+ * läser query-params kan annars ändra beteende/render i inspektionsläge).
+ */
+function stripInspectParam(search) {
+  let qs = String(search || "");
+  if (!qs) return "";
+  if (qs.startsWith("?")) qs = qs.slice(1);
+  try {
+    const params = new URLSearchParams(qs);
+    params.delete("inspect");
+    const rest = params.toString();
+    return rest ? `?${rest}` : "";
+  } catch {
+    return search;
+  }
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
@@ -1696,8 +1716,10 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   const state = getRuntimeStateForChat(info.chatId);
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
-    rewriteRequestUrl(req, info.chatId, info.restPath, search);
     const inspectTag = inspectInjectionTag(search);
+    // C: den genererade appen får aldrig se `?inspect=1` — parametern
+    // konsumeras här (injektionsbeslutet) och strippas från upstream-URL:en.
+    rewriteRequestUrl(req, info.chatId, info.restPath, inspectTag ? stripInspectParam(search) : search);
     if (inspectTag) {
       // Buffra svaret själva (proxyRes-handlern injicerar scriptet före </body>).
       req.__inspectInjectTag = inspectTag;

@@ -133,6 +133,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           busStatus: reconcileTerminalDbState(
             selectVersionStatus(readAll(v.id)),
             v.verification_state,
+            v.release_state,
           ),
           canPin: false,
       }));

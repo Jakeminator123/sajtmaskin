@@ -47,7 +47,9 @@ export type QuickEditFailureReason =
   | "no_match"
   | "ambiguous_match"
   | "no_change"
-  | "integrations_base";
+  | "integrations_base"
+  /** Base version is owned by an active verify/repair lease — retry shortly (M#qe1). */
+  | "base_busy";
 
 export type QuickEditApplyResult =
   | { ok: true; files: CodeFile[]; changedPaths: string[]; removedPaths: string[] }

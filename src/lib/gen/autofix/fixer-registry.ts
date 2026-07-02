@@ -90,6 +90,24 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "pre-syntax",
   },
   {
+    id: "media-alias-fixer",
+    category: "mechanical-misc",
+    sourcePath: "src/lib/gen/autofix/rules/media-alias-fixer.ts",
+    targetFailureMode:
+      "Leaked `{{MEDIA_n}}`/`{{URL_n}}` URL-compression aliases persisting past finalize (next/image src parse crash at build/SSG)",
+    triggers: [
+      "`{{MEDIA_n}}` or `{{URL_n}}` alias in file content (tolerant: whitespace, `-` separator)",
+    ],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "M#oc1: `expandUrls` runs exactly once in finalize (pre-phases.ts); LLM repair " +
+      "passes (verifier-fixer, partial-file, server repair-loop) can re-introduce " +
+      "aliases from prompt context. The urlMap is stream-scoped, so this fixer " +
+      "replaces leaked aliases with the same /placeholder.svg fallback that " +
+      "expandUrls uses for unresolved aliases. Runs on every language.",
+  },
+  {
     id: "use-client-fixer",
     category: "mechanical-misc",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",

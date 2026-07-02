@@ -291,6 +291,8 @@ Preview-host kör **två separata lanes**: live-preview (iframe) och verify (typ
 | Tier-3 SDK-imports | Strippas → placeholders (`tier3-sdk-guard-fixer`) | Behålls; kräver riktiga env-keys |
 | Readiness | Ingen tier-3-check | `validateTier3Readiness` mot dossier-`enforcement: "build"` (412 + `missingByIntegration` vid blockerande keys) |
 
+Readiness-gaten ägs av `src/lib/integrations/tier3-readiness-gate.ts` (`checkTier3ReadinessForVersion`) och konsulteras av **båda** F3-ingångarna: `POST .../finalize-design` (412/409 innan stream-meta lämnas ut) och `POST .../stream` med `meta.lifecycleStage: "integrations"` (server-auktoritativ re-check — en klient som hoppar över finalize-design kan inte starta F3-codegen utan riktiga nycklar; M#818-2).
+
 ### Repair-accept
 
 Server-repair (`runRepairLoop`) som passerar quality gate blir `repair_available` (filer i `repaired_files_json`) i stället för att skriva över. `POST .../accept-repair` (eller timeout-autoaccept) applicerar dem. `server-verify` och manuell `repair` delar samma `runRepairLoop`. Sedan #265 är `repaired_files_json` ett bas-hashat kuvert (`baseFilesHash`); accept/auto-accept vägrar promota över en samtidig user-edit eller en legacy payload utan bas-hash (fail-closed), vilket stänger #260 P2 #5.

@@ -394,6 +394,9 @@ export function PreviewPanel({
     setInspectStatus,
     setLastCodeMatch,
     onPick: handleBridgePick,
+    // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
+    // injektionen. Växla till kartmotorn i stället för en inert inspektor.
+    onBridgeUnavailable: () => setInspectEngine("map"),
   });
 
   const iframeRunbookLines = useMemo(

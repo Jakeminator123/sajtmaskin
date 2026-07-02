@@ -691,9 +691,14 @@ async function handleRepairOrAutofix(params: {
     onAutoFix,
   } = params;
 
+  // M#rep1: the verify lane may include info-signals (`install-cache-share`,
+  // `install-peer-fallback`, …) in `checks[]`. The repair route's zod enum only
+  // accepts the three canonical checks, so anything else would 400 the whole
+  // repair POST if it ever arrived as `passed:false`. Filter, don't cast blindly.
+  const CANONICAL_QUALITY_GATE_CHECKS = new Set(["typecheck", "build", "lint"]);
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
-      .filter((c) => !c.passed)
+      .filter((c) => !c.passed && CANONICAL_QUALITY_GATE_CHECKS.has(c.check))
       .map((c) => ({
         check: c.check as "typecheck" | "build" | "lint",
         exitCode: c.exitCode,

@@ -22,77 +22,18 @@ import {
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { getVersionFiles } from "@/lib/gen/version-manager";
-import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
-import {
-  deriveTier3BuildSpec,
-  validateTier3Readiness,
-  type Tier3BuildSpec,
-} from "@/lib/integrations/tier3-build-spec";
-import type {
-  PlanContracts,
-  PlanIntegrationContract,
-} from "@/lib/gen/plan/schema";
-import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
+// Shared with the stream route's F3 gate (M#818-2) — single owner for the
+// file-based spec derivation, see tier3-readiness-gate.ts.
+import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
   versionId: z.string().min(1).optional(),
 });
-
-function buildContractsFromDetectedIntegrations(
-  detected: ReturnType<typeof detectIntegrationsFromVersionFiles>,
-): PlanContracts {
-  const integrations: PlanIntegrationContract[] = detected
-    .filter((d) => d.key !== "custom-env")
-    .map((d): PlanIntegrationContract => ({
-      provider: d.provider ?? d.key,
-      name: d.name,
-      reason: typeof d.intent === "string" ? d.intent : "detected from generated code",
-      status: "chosen",
-      envVars: d.envVars,
-      // P31 follow-up: propagate the per-key enforcement classification
-      // so `tier3-build-spec.ts` can partition tier-3 keys into build /
-      // feature-runtime / warn-only buckets — matching what the readiness
-      // route surfaces. Without this, finalize-design treats every tier-3
-      // key as build-blocking even when the readiness card already passed.
-      ...(d.envEnforcement && Object.keys(d.envEnforcement).length > 0
-        ? { envEnforcement: d.envEnforcement }
-        : {}),
-    }));
-  return {
-    dataMode: integrations.length > 0 ? "persisted" : "none",
-    integrations,
-    envVars: [],
-  };
-}
-
-async function deriveTier3BuildSpecForVersion(
-  versionId: string,
-  selectedDossiers: SelectedDossier[],
-): Promise<Tier3BuildSpec | null> {
-  const codeFiles = await getVersionFiles(versionId);
-  if (!codeFiles || codeFiles.length === 0) {
-    // G#21: the version exists (caller already resolved it) but its files
-    // could not be loaded/parsed (empty or corrupt `files_json`). Returning
-    // `{ requirements: [] }` here previously made the route answer
-    // `ready: true` ("no integrations detected") — a false green that lets
-    // F3 start against a project we never actually inspected. Signal
-    // "could not determine" so the caller blocks instead of greenlighting.
-    return null;
-  }
-  const detected = detectIntegrationsFromVersionFiles(
-    codeFiles
-      .filter((f) => typeof f?.path === "string" && typeof f?.content === "string")
-      .map((f) => ({ name: f.path as string, content: f.content as string })),
-    { selectedDossiers },
-  );
-  const contracts = buildContractsFromDetectedIntegrations(detected);
-  return deriveTier3BuildSpec(contracts);
-}
 
 export async function POST(
   request: Request,

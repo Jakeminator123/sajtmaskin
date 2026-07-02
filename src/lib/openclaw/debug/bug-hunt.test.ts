@@ -236,5 +236,50 @@ describe("runBugHunt", () => {
     // ref which breaks the chain, so it is never processed and f2 never sends.
     expect(client.forceBuild).toHaveBeenCalledTimes(1);
     expect(client.sendFollowUp).toHaveBeenCalledTimes(1);
+    // BB#oc3: the unresolved follow-up records the same explicit warning
+    // finding as the init path — not just a log line.
+    const calls = writeFindings.mock.calls as unknown as Array<
+      [Array<{ severity: string; buildResult: string }>]
+    >;
+    const written = calls.flatMap((c) => c[0]);
+    expect(written.some((f) => f.severity === "warning" && f.buildResult === "unknown")).toBe(true);
+  });
+
+  it("continues with remaining scenarios when one scenario throws (BB#oc2)", async () => {
+    const createChat = vi
+      .fn(async () => ({ chatId: "chat1", versionId: "v1" }))
+      .mockRejectedValueOnce(new Error("Engine error 502: bad gateway"));
+    const client = fakeClient({
+      createChat,
+      forceBuild: vi.fn(async () => ({ result: "passed" as const })),
+    });
+    const writeFindings = vi.fn(async () => undefined);
+    const result = await runBugHunt(
+      { client, writeFindings, now: () => 0 },
+      {
+        runId: "run1",
+        scenarios: [
+          { id: "throws", prompt: "x" },
+          { id: "survives", prompt: "y" },
+        ],
+      },
+    );
+    // The throwing scenario is recorded as a warning finding, and the run
+    // continues to the second scenario instead of aborting the whole batch.
+    expect(result.scenariosRun).toBe(2);
+    expect(result.stopReason).toBe("completed");
+    expect(createChat).toHaveBeenCalledTimes(2);
+    const calls = writeFindings.mock.calls as unknown as Array<
+      [Array<{ severity: string; category: string | null; message: string }>]
+    >;
+    const written = calls.flatMap((c) => c[0]);
+    expect(
+      written.some(
+        (f) =>
+          f.severity === "warning" &&
+          f.category === "oc-debug:scenario-error" &&
+          f.message.includes("502"),
+      ),
+    ).toBe(true);
   });
 });

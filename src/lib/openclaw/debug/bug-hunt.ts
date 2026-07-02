@@ -535,6 +535,18 @@ export async function runBugHuntScenario(
         chatId: ref.chatId,
         versionId: ref.versionId,
       });
+      // BB#oc3: same explicit warning finding as the init path — an unresolved
+      // follow-up must not read as a silent success either.
+      await persistFindings(deps, tracker, [
+        buildOutcomeFinding({
+          runId,
+          scenario: scenario.id,
+          chatId: ref.chatId,
+          versionId: ref.versionId,
+          buildResult: "unknown",
+          repairOutcome: null,
+        }),
+      ]);
       break;
     }
     await processVersion(deps, tracker, runId, scenario, ref);
@@ -557,7 +569,38 @@ export async function runBugHunt(
   let scenariosRun = 0;
 
   for (const scenario of options.scenarios) {
-    const reason = await runBugHuntScenario(deps, tracker, options.runId, scenario);
+    // BB#oc2: a scenario whose engine calls throw (createChat/sendFollowUp
+    // reject on any non-OK HTTP status — 400/409/502…) must not abort the
+    // whole batch run with a 500 and discard the results of every other
+    // scenario. Record a warning finding for the failed scenario and continue.
+    let reason: BugHuntStopReason | null = null;
+    try {
+      reason = await runBugHuntScenario(deps, tracker, options.runId, scenario);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.log?.("bug_hunt_scenario_error", { scenario: scenario.id, message });
+      try {
+        await persistFindings(deps, tracker, [
+          {
+            runId: options.runId,
+            chatId: null,
+            versionId: null,
+            scenario: scenario.id,
+            severity: "warning",
+            category: "oc-debug:scenario-error",
+            message: `Scenario "${scenario.id}" aborted by engine error: ${message.slice(0, 500)}`,
+            buildResult: "unknown",
+            repairOutcome: null,
+            meta: null,
+          },
+        ]);
+      } catch (persistErr) {
+        deps.log?.("bug_hunt_scenario_error_persist_failed", {
+          scenario: scenario.id,
+          message: persistErr instanceof Error ? persistErr.message : String(persistErr),
+        });
+      }
+    }
     scenariosRun += 1;
     if (reason) {
       stopReason = reason;

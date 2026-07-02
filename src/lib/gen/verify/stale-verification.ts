@@ -74,6 +74,14 @@ export function isTimedOutVerificationState(
  *     `degradations[]` are preserved so a degraded version still maps to
  *     "degraded" downstream, never solid green — the false-green invariant)
  *
+ * ONE exception to "terminal bus wins" (M#flap1): DB `passed` **+ release
+ * `promoted`** upgrades even a terminal bus `failed`. A path that emitted a
+ * terminal `failed` and LATER promoted (gate-fail → repair → accept-repair →
+ * promoted) leaves a stale `failed` on the bus with no later terminal emit —
+ * the UI then shows "Verifiering misslyckades" while the authoritative store
+ * (which promote/deploy read) says promoted/passed. This is not a false-green
+ * risk: `promoted` is the strongest positive signal in the system.
+ *
  * `repair_available` is intentionally left to the bus: its accept-prompt is
  * surfaced by the readiness/versions surfaces, not this projection, and the
  * client-side poll cap is the ultimate backstop for that rarer case.
@@ -81,6 +89,7 @@ export function isTimedOutVerificationState(
 export function reconcileTerminalDbState(
   status: VersionStatus,
   dbVerificationState: string | null | undefined,
+  dbReleaseState?: string | null,
 ): VersionStatus {
   // DB `failed` is authoritative-negative: honor it even over a `done` bus so a
   // version the quality gate failed can never read as green. This is the
@@ -88,6 +97,16 @@ export function reconcileTerminalDbState(
   // surface must agree once the DB says failed. (Codex/Bugbot #337.)
   if (dbVerificationState === "failed" && status.phase !== "failed") {
     return { ...status, phase: "failed" };
+  }
+  // M#flap1: authoritative-positive exception — promoted+passed in the DB
+  // upgrades a stale terminal bus `failed` (see JSDoc). Degradations are
+  // preserved by the spread so a degraded version still renders degraded.
+  if (
+    status.phase === "failed" &&
+    dbVerificationState === "passed" &&
+    dbReleaseState === "promoted"
+  ) {
+    return { ...status, phase: "done", done: true };
   }
   // Otherwise a terminal bus wins — never fabricate success over a bus `failed`.
   if (status.phase === "done" || status.phase === "failed") {

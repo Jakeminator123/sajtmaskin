@@ -18,7 +18,7 @@ Do not use for:
 
 The dossier ships three files. Drop each one in unchanged unless explicitly overridden:
 
-1. **`components/middleware.ts` → `middleware.ts` at the project root** (verbatim). Clerk's middleware must live at the project root, not under `app/`, and the `matcher` syntax is load-bearing — paraphrasing the regex breaks session resolution on dynamic routes.
+1. **`components/middleware.ts` → `middleware.ts` at the project root** (verbatim). Clerk's middleware must live at the project root, not under `app/`, and the `matcher` syntax is load-bearing — paraphrasing the regex breaks session resolution on dynamic routes. The file key-gates itself: with missing or placeholder keys (e.g. `pk_test_placeholder`) it returns `NextResponse.next()` instead of invoking Clerk, so an unconfigured preview never 500s.
 2. **`components/clerk-provider-shell.tsx` → `components/clerk-provider-shell.tsx`** (verbatim). Wrap the entire `<body>…</body>` of `app/layout.tsx` in `<ClerkProviderShell>`. The shell adds an unconfigured-state fallback so the app does not crash when keys are missing in development.
 3. **`components/auth-buttons.tsx` → `components/auth-buttons.tsx`** (rewritable). Use `<AuthButtons />` in the site header / nav. You may restyle freely — change text, swap buttons for icon-only avatars, add a dropdown — but keep the `<SignedIn>` / `<SignedOut>` boundaries intact.
 
@@ -82,4 +82,5 @@ export default async function DashboardPage() {
 - Reload the page — still signed in (session cookie survives).
 - Visit a protected route (e.g. `/dashboard`) signed-out → redirected to `/sign-in`.
 - Remove `CLERK_SECRET_KEY` from `.env.local` and restart `next dev` — the page renders an "Auth not configured" placeholder banner instead of a blank screen / 500.
+- With placeholder keys (`pk_test_placeholder` / `sk_test_placeholder_preview`) every route still renders (middleware passes through, banner shows) — no "Publishable key not valid" 500.
 - Open the Network tab and confirm no request includes a `sk_…` token (the secret key must never reach the client).

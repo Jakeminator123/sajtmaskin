@@ -313,6 +313,53 @@ export default clerkMiddleware((auth, req) => {
     expect(result.code).toBe(clerkMiddlewareContent);
   });
 
+  it("never injects @clerk/nextjs/server into a 'use client' file (BB#291)", () => {
+    // A TS2304 on `auth` in a CLIENT component must stay residual for the LLM
+    // fixer — the server entrypoint is illegal in the client bundle and would
+    // trade one build error for another.
+    const clientFile = "components/user-badge.tsx";
+    const content = project(
+      clientFile,
+      `"use client";
+
+export function UserBadge() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: clientFile, message: "Cannot find name 'auth'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+    expect(result.code).not.toContain("@clerk/nextjs/server");
+  });
+
+  it("still resolves Clerk server helpers in a server component without a directive (BB#291)", () => {
+    const serverPage = "app/dashboard/page.tsx";
+    const content = project(
+      serverPage,
+      `export default async function DashboardPage() {
+  const { userId } = await auth();
+  return <main>{userId}</main>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: serverPage, message: "Cannot find name 'auth'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([
+      { file: serverPage, name: "auth", module: "@clerk/nextjs/server" },
+    ]);
+  });
+
   const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
   const stripeRouteContent = project(
     STRIPE_ROUTE,

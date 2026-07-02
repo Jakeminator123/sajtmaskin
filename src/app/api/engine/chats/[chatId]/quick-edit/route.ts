@@ -49,6 +49,7 @@ function httpStatusForQuickEditFailure(reason: string): number {
     case "empty_ops":
       return 400;
     case "ambiguous_match":
+    case "base_busy":
       return 409;
     case "file_not_found":
     case "no_match":

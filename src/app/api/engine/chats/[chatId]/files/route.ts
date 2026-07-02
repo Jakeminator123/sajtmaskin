@@ -161,7 +161,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
                 content: blobFileMap.get(f.path) ?? f.content,
               }));
               if (resolvedVersionId) {
-                await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+                // Same fail-fast, best-effort pattern as the heal-persist above
+                // (M#files1): a files READ must never block on — or fail from —
+                // a large `files_json` UPDATE under row-lock contention. The
+                // blob URLs are already uploaded, so the next uncontended
+                // materialize pass re-persists idempotently.
+                try {
+                  await updateVersionFiles(resolvedVersionId, JSON.stringify(files), {
+                    lockTimeoutMs: 2000,
+                  });
+                } catch (persistErr) {
+                  console.warn(
+                    "[materialize] Skipped contended files_json persist (read still returns materialized files):",
+                    persistErr instanceof Error ? persistErr.message : persistErr,
+                  );
+                }
               }
               console.info(
                 `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,

@@ -61,6 +61,11 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
     qualityBar: str(brief.qualityBar),
     motionLevel: str(brief.motionLevel),
     primaryCTA: str(brief.primaryCallToAction),
+    // M#818-1: seasonal/campaign signals from Deep Brief must survive into
+    // follow-ups (guidance-resolvers consume them per turn). `pages[]` is
+    // deliberately NOT snapshotted — follow-up IA is derived from the base
+    // version's files via the route freeze, which is the fresher truth.
+    seasonalHints: strList(brief.seasonalHints),
     colorPalette,
     typography: typographySummary,
     // Persist capability + domain so follow-ups can drive deterministic
