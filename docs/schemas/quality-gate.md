@@ -560,6 +560,27 @@ per våg, inte rakt mot dessa tal.
 
 Källa: `scripts/db/control-stats.mjs` (14 d) + kodverifiering mot master 2026-07-02.
 
+### Fas 6 mätavstämning
+
+Den här PR:ens tooling äger bara jämförelse och syntetiska fixtures. Själva
+prod-mätningen ägs av orkestratorn/ägaren, eftersom den kräver prod-snapshot
+och databasåtkomst.
+
+Kör avstämningen så här:
+
+```bash
+npm run env:pull:prod-snapshot
+node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl > /tmp/control-stats-current.json
+npm run stats:compare -- --baseline scripts/observability/control-stats-baseline-2026-07-02.json --current /tmp/control-stats-current.json --md
+```
+
+Eval-sviten för de historiska import-/repair-klasserna är CI-buren via vanlig
+Vitest och kan köras riktat med:
+
+```bash
+npx vitest run src/lib/gen/autofix/eval/
+```
+
 ## LLM-fixer incomplete-files-skydd (Wave 5 hot-fix #5)
 
 `runLlmFixer` i `src/lib/gen/autofix/llm-fixer.ts` validerar varje returnerad

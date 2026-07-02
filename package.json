@@ -122,6 +122,7 @@
     "faults:report": "node scripts/observability/report-fault-promotion-candidates.mjs",
     "faults:matrix": "node scripts/observability/fault-matrix.mjs",
     "faults:matrix:prod": "node scripts/observability/fault-matrix.mjs --prod",
+    "stats:compare": "node scripts/observability/compare-control-stats.mjs",
     "observability:rebuild-all": "npm run rag:error-log:reindex:force && npm run fixers:dump",
     "provision:warm-cache": "npx tsx scripts/provision-warm-cache.ts",
     "provision:warm-cache:force": "npx tsx scripts/provision-warm-cache.ts --force",
