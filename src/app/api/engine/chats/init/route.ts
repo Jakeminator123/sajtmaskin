@@ -489,10 +489,17 @@ export async function POST(req: Request) {
         ? "Projektet importerades till own-engine och ar redo for vidare andringar. Din startinstruktion sparades i chatten, men har inte korsts automatiskt an."
         : "Projektet importerades till own-engine och ar redo for vidare andringar.";
       const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
+      // Provenance: a ZIP/GitHub import is a verbatim repo import, exactly like
+      // the template route. The marker (a) excludes the row from the browser
+      // resume-verify lane (it never had a post-check lane to resume) and
+      // (b) opts follow-ups into the imported-repo preflight relaxation in
+      // finalize (arbitrary repos don't conform to the scaffold contract).
       const version = await chatRepo.createDraftVersion(
         chat.id,
         assistantMessage.id,
         JSON.stringify(importedFiles),
+        undefined,
+        { editKind: "imported_repo" },
       );
       const previewSessionStarted = await startPreviewSession(importedFiles, {
         chatId: chat.id,

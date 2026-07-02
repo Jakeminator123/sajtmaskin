@@ -9,6 +9,7 @@ const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
+const getLatestEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
@@ -17,6 +18,7 @@ vi.mock("@/lib/project-env-vars", () => ({
   readAllowPlaceholdersInF3,
 }));
 vi.mock("@/lib/gen/preview/env-local", () => ({ loadPlaceholderKeySet }));
+vi.mock("@/lib/db/services/version-errors", () => ({ getLatestEngineVersionErrorLogs }));
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
 
@@ -40,6 +42,7 @@ beforeEach(() => {
   getStoredProjectEnvVarMap.mockResolvedValue({});
   readAllowPlaceholdersInF3.mockResolvedValue(false);
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
+  getLatestEngineVersionErrorLogs.mockResolvedValue([]);
 });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
@@ -88,5 +91,42 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
     expect(result.ok).toBe(true);
     expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("blocks with product_postcheck_blocked when the newest summary row is blocking (Codex P1 r5)", async () => {
+    getLatestEngineVersionErrorLogs.mockResolvedValue([
+      { category: "product_postcheck.summary", meta: { productBlocked: true } },
+    ]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      selectedDossiers: [],
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
+    // The block fires before any spec derivation.
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("lets a later passing summary unblock (newest row wins) and fails open on read errors", async () => {
+    getLatestEngineVersionErrorLogs.mockResolvedValue([
+      // Newest-first (ORDER BY created_at DESC in the service).
+      { category: "product_postcheck.summary", meta: { productBlocked: false } },
+      { category: "product_postcheck.summary", meta: { productBlocked: true } },
+    ]);
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const unblocked = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      selectedDossiers: [],
+      projectId: null,
+    });
+    expect(unblocked.ok).toBe(true);
+
+    getLatestEngineVersionErrorLogs.mockRejectedValue(new Error("db down"));
+    const failOpen = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      selectedDossiers: [],
+      projectId: null,
+    });
+    expect(failOpen.ok).toBe(true);
   });
 });

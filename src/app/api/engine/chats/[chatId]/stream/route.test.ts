@@ -1019,6 +1019,47 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(createGenerationPipeline).not.toHaveBeenCalled();
   });
 
+  it("blocks F3 stream start when the gate reports product_postcheck_blocked (Codex P1 r5)", async () => {
+    // The Product Postcheck block must hold on BOTH F3 entry points — a
+    // client that skips finalize-design and posts straight to /stream with
+    // lifecycleStage: "integrations" hits the same shared gate.
+    resolveChatPreferredVersionId.mockResolvedValue("ver_preferred");
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "product_postcheck_blocked",
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          lifecycleStage: "integrations",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg integrationer nu." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.error).toBe("product_postcheck_blocked");
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+  });
+
   it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([

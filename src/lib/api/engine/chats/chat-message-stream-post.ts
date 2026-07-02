@@ -478,6 +478,23 @@ export async function handleMessageStreamRequest(
                   ),
                 );
               }
+              if (!gate.ok && gate.reason === "product_postcheck_blocked") {
+                // Codex P1 round 5 (#353): the Product Postcheck block must
+                // hold on BOTH F3 entry points — build/lint gates cannot catch
+                // DOM product failures (dead mobile menu, broken anchors).
+                return attachSessionCookie(
+                  NextResponse.json(
+                    {
+                      error: "product_postcheck_blocked",
+                      ready: false,
+                      parentVersionId: gateVersionId,
+                      message:
+                        "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
+                    },
+                    { status: 409 },
+                  ),
+                );
+              }
               if (!gate.ok) {
                 return attachSessionCookie(
                   NextResponse.json(

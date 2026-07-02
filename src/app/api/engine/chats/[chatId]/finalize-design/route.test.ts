@@ -12,6 +12,11 @@ const validateTier3Readiness = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
+const getLatestEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/db/services/version-errors", () => ({
+  getLatestEngineVersionErrorLogs,
+}));
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
@@ -90,6 +95,51 @@ describe("POST finalize-design", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({});
     readAllowPlaceholdersInF3.mockResolvedValue(false);
     loadPlaceholderKeySet.mockReturnValue(new Set());
+    getLatestEngineVersionErrorLogs.mockResolvedValue([]);
+  });
+
+  it("blocks F3 server-side when the newest product_postcheck.summary is productBlocked (Codex P1 r3)", async () => {
+    getLatestEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { productBlocked: true, warningCount: 1 },
+      },
+    ]);
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.ready).toBe(false);
+    expect(body.reason).toBe("product_postcheck_blocked");
+    // The block fires before requirements derivation — no false readiness work.
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("lets a later passing summary unblock F3 (newest row wins)", async () => {
+    getLatestEngineVersionErrorLogs.mockResolvedValue([
+      // Rows arrive newest-first from the service (ORDER BY created_at DESC).
+      { category: "product_postcheck.summary", meta: { productBlocked: false } },
+      { category: "product_postcheck.summary", meta: { productBlocked: true } },
+    ]);
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("fails open when the product-postcheck block read throws", async () => {
+    getLatestEngineVersionErrorLogs.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
   });
 
   it("rejects an explicit stale design version before deriving F3 requirements", async () => {
