@@ -575,6 +575,13 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["unbalanced JSX tags", "missing default export in route file"],
     status: "active",
     ownerPhase: "post-syntax",
+    notes:
+      "Tag-mismatch warnings are parse-gated: they are only emitted when the " +
+      "TS parser confirms the file does not parse (a genuinely unclosed/" +
+      "mis-paired JSX tag always breaks parsing). This stops false " +
+      "preview-blocking findings on valid 3D/R3F shapes the count regexes " +
+      "mis-read (nested self-closing in props, `=>` in props, imported types " +
+      "in generic position) — prod incident retro-3D 'Monster 3D'.",
   },
   {
     id: "dep-completer",

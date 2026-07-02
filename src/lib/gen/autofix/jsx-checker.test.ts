@@ -355,4 +355,113 @@ export default function Hero() {
     expect(out).not.toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
     expect(warnings.some((w) => w.includes("ambiguous shadcn∩lucide"))).toBe(true);
   });
+
+  // Parse gate (prod incident retro-3D "Monster 3D Sälja TV-spel i Stockholm AB",
+  // components/retro-3d-scene.tsx): checkTagMatching's count regexes mis-fire on
+  // three perfectly VALID JSX shapes, and the false `Tag mismatch` escalates to a
+  // preview-blocking verifier finding → version failed → repair loop that never
+  // converges (the code is already correct, so the fixer changes nothing and the
+  // checker deterministically re-reports). The TS parser is ground truth: a
+  // genuinely unclosed/mis-paired JSX tag always makes the file unparseable, so
+  // tag warnings are only emitted when the file fails to parse.
+
+  it("does not report tag mismatch for valid nested self-closing JSX in a prop (fallback={<X />})", () => {
+    // Vector A: the strip regex eats the opening tag head because `[^>]*`
+    // crosses `fallback={<SceneFallback /` and lands on the nested `/>`.
+    // `fallback={<X />}` is the MANDATORY API of the three-fiber-canvas
+    // dossier's ThreeCanvasShell, so every 3D generation hits this shape.
+    const code = `
+"use client";
+
+import { ThreeCanvasShell } from "@/components/three-canvas-shell";
+import { SceneFallback } from "@/components/scene-fallback";
+import { RetroLogo } from "@/components/retro-logo";
+
+export default function Retro3dScene() {
+  return (
+    <ThreeCanvasShell className="h-96 w-full" fallback={<SceneFallback />}>
+      <ambientLight intensity={0.6} />
+      <RetroLogo />
+    </ThreeCanvasShell>
+  );
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/retro-3d-scene.tsx");
+    expect(warnings.some((w) => w.includes("Tag mismatch"))).toBe(false);
+  });
+
+  it("does not report tag mismatch for a valid self-closing tag with an arrow-function prop", () => {
+    // Vector B: `[^>]*` in the self-closing strip regex cannot cross the `>`
+    // of `=>`, so the tag is never stripped and gets counted as an opening.
+    const code = `
+"use client";
+
+import { useState } from "react";
+import { Group } from "@react-three/drei";
+
+export default function HoverPart() {
+  const [hovered, setHovered] = useState(false);
+  return <Group onPointerOver={() => setHovered(true)} position={[0, 1, 0]} data-hovered={hovered} />;
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/retro-3d-scene.tsx");
+    expect(warnings.some((w) => w.includes("Tag mismatch"))).toBe(false);
+
+    // Same guarantee without a filePath (parse gate defaults to TSX dialect).
+    const { warnings: noPathWarnings } = runJsxChecker(code);
+    expect(noPathWarnings.some((w) => w.includes("Tag mismatch"))).toBe(false);
+  });
+
+  it("does not report tag mismatch for an imported type used in generic position", () => {
+    // Vector C: `useRef<Group>(null)` with `import type { Group } from "three"`
+    // (ubiquitous in R3F/drei code). The #356 guard only covers GLOBAL DOM type
+    // names and LOCAL declarations — imported type names were still counted.
+    const code = `
+"use client";
+
+import { useRef } from "react";
+import type { Group } from "three";
+import { useFrame } from "@react-three/fiber";
+
+export default function SpinningLogo() {
+  const groupRef = useRef<Group>(null);
+  useFrame((_, delta) => {
+    if (groupRef.current) groupRef.current.rotation.y += delta;
+  });
+  return (
+    <group ref={groupRef}>
+      <mesh />
+    </group>
+  );
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/retro-3d-scene.tsx");
+    expect(warnings.some((w) => w.includes("Tag mismatch for <Group>"))).toBe(false);
+  });
+
+  it("still reports (and preview-blocks) a genuine tag mismatch in an R3F-critical file", () => {
+    // True positive preserved: <Group> opened but closed by </ThreeCanvasShell>
+    // (the exact shape the prod verifier reported). The file does not parse, so
+    // the parse gate keeps the count-based warnings as locator hints — including
+    // the preview-blocking escalation for R3F-critical paths.
+    const code = `
+"use client";
+
+import { ThreeCanvasShell } from "@/components/three-canvas-shell";
+
+export default function Retro3dScene() {
+  return (
+    <ThreeCanvasShell className="h-96 w-full">
+      <Group>
+    </ThreeCanvasShell>
+  );
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/retro-3d-scene.tsx");
+    expect(
+      warnings.some((w) =>
+        w.includes("preview-blocking: Tag mismatch for <Group>"),
+      ),
+    ).toBe(true);
+  });
 });

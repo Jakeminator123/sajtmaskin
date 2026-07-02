@@ -1,7 +1,10 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
-import { isDenylistedStubDefaultName } from "./rules/import-binding-ast";
+import {
+  countParseErrors,
+  isDenylistedStubDefaultName,
+} from "./rules/import-binding-ast";
 import { classifyShadcnLucideCollisionUsage } from "./rules/lucide-misuse-fixer";
 
 /**
@@ -233,6 +236,11 @@ function findLastImportLine(lines: string[]): number {
 /**
  * Simple tag-matching check: count opening and closing tags.
  * Returns warnings for any components with mismatched counts.
+ *
+ * NOTE: the counting is regex-heuristic and mis-fires on valid JSX shapes
+ * (nested self-closing in props, `=>` in props, imported types in generic
+ * position). `runJsxChecker` therefore parse-gates the result: warnings are
+ * only emitted when the TS parser confirms the file does not parse.
  *
  * SAJ-63: takes `localDecls` so a name that is locally a TS `type`/`interface`/
  * `class` (and therefore appears in a generic position like `useState<X>(…)`,
@@ -515,7 +523,24 @@ export function runJsxChecker(
   // `type GamePhase`) do not produce phantom `Tag mismatch` warnings.
   const localDecls = extractLocalDeclarations(code);
 
-  const tagWarnings = checkTagMatching(code, localDecls);
+  let tagWarnings = checkTagMatching(code, localDecls);
+  // PARSE GATE: the TS parser is ground truth for tag pairing — a genuinely
+  // unclosed or mis-paired JSX tag ALWAYS makes a .tsx/.jsx file unparseable.
+  // The naive count regexes above mis-fire on perfectly VALID JSX (nested
+  // self-closing inside a prop `fallback={<X />}`, `=>` inside self-closing
+  // props, imported types in generic position `useRef<Group>(null)`), and a
+  // false `Tag mismatch` here escalates to a preview-blocking verifier
+  // finding that fails the version and sends it into a repair loop that can
+  // never converge (prod: retro-3D "Monster 3D", components/retro-3d-scene.tsx).
+  // So: only emit tag warnings when the file actually fails to parse — the
+  // counts then serve as locator hints for the repair prompt. Lazy: the
+  // parser only runs when the regex counting flagged something.
+  if (
+    tagWarnings.length > 0 &&
+    countParseErrors(code, filePath ?? "generated-file.tsx") === 0
+  ) {
+    tagWarnings = [];
+  }
   const criticalJsxFile = isPreviewCriticalJsxFile(filePath, code);
   warnings.push(
     ...tagWarnings.map((warning) =>
