@@ -183,14 +183,26 @@ function toPosixPath(value: string): string {
  * must NOT pull in `@clerk/nextjs/server` — that import is illegal in the
  * client bundle and trades one build error for another. Server pages,
  * middleware and route handlers (no directive) still resolve normally.
+ *
+ * Tolerates the directive variants Next.js accepts (Codex P2, PR #351):
+ * a trailing `//`/`/* … *​/` comment after the directive, and full multi-line
+ * block comments before it (tracked statefully — an inner block-comment line
+ * does not have to start with `*`).
  */
 function hasUseClientDirective(code: string): boolean {
+  let inBlockComment = false;
   for (const line of code.split("\n")) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+    if (inBlockComment) {
+      if (trimmed.includes("*/")) inBlockComment = false;
       continue;
     }
-    return /^["']use client["'];?$/.test(trimmed);
+    if (!trimmed || trimmed.startsWith("//")) continue;
+    if (trimmed.startsWith("/*")) {
+      if (!trimmed.includes("*/")) inBlockComment = true;
+      continue;
+    }
+    return /^["']use client["']\s*;?\s*(?:\/\/.*|\/\*.*?\*\/\s*)?$/.test(trimmed);
   }
   return false;
 }

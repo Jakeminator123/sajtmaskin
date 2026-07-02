@@ -339,6 +339,49 @@ export function UserBadge() {
     expect(result.code).not.toContain("@clerk/nextjs/server");
   });
 
+  it("detects a 'use client' directive with trailing comment or after a block comment (Codex P2)", () => {
+    // `"use client"; // hooks` and a directive preceded by a multi-line block
+    // comment are valid Next.js client files — the server-only skip must
+    // still apply to them.
+    const trailing = "components/trailing-comment.tsx";
+    const trailingContent = project(
+      trailing,
+      `"use client"; // needs hooks
+
+export function A() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+    const blockComment = "components/block-comment.tsx";
+    const blockCommentContent = project(
+      blockComment,
+      `/*
+Header comment that does not
+prefix every line with a star
+*/
+"use client";
+
+export function B() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+
+    for (const [file, content] of [
+      [trailing, trailingContent],
+      [blockComment, blockCommentContent],
+    ] as const) {
+      const result = fixKnownTs2304Imports(
+        content,
+        [{ file, message: "Cannot find name 'auth'." }],
+        { allowTier3: true },
+      );
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    }
+  });
+
   it("still resolves Clerk server helpers in a server component without a directive (BB#291)", () => {
     const serverPage = "app/dashboard/page.tsx";
     const content = project(

@@ -1690,13 +1690,17 @@ function inspectInjectionTag(search) {
  * kontrakt, inte app-input. Strippa parametern innan requesten proxas vidare
  * så den genererade appens `searchParams`/SSR aldrig ser den (en app som
  * läser query-params kan annars ändra beteende/render i inspektionsläge).
+ * Körs OAVSETT om injektion är möjlig (Codex P2, PR #351): även när
+ * `SAJTMASKIN_APP_ORIGIN` saknas (partiell rollout/felkonfig) får appen
+ * aldrig se parametern. Fast-path: no-op när `inspect` inte finns i queryn.
  */
 function stripInspectParam(search) {
   let qs = String(search || "");
-  if (!qs) return "";
+  if (!qs || qs.indexOf("inspect") === -1) return search;
   if (qs.startsWith("?")) qs = qs.slice(1);
   try {
     const params = new URLSearchParams(qs);
+    if (!params.has("inspect")) return search;
     params.delete("inspect");
     const rest = params.toString();
     return rest ? `?${rest}` : "";
@@ -1718,8 +1722,9 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   if (state.running && state.runtimePort) {
     const inspectTag = inspectInjectionTag(search);
     // C: den genererade appen får aldrig se `?inspect=1` — parametern
-    // konsumeras här (injektionsbeslutet) och strippas från upstream-URL:en.
-    rewriteRequestUrl(req, info.chatId, info.restPath, inspectTag ? stripInspectParam(search) : search);
+    // konsumeras här (injektionsbeslutet) och strippas ALLTID från
+    // upstream-URL:en, även när injektion inte är möjlig (Codex P2).
+    rewriteRequestUrl(req, info.chatId, info.restPath, stripInspectParam(search));
     if (inspectTag) {
       // Buffra svaret själva (proxyRes-handlern injicerar scriptet före </body>).
       req.__inspectInjectTag = inspectTag;
