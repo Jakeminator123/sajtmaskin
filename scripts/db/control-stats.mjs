@@ -297,6 +297,45 @@ try {
      GROUP BY 1 ORDER BY n DESC LIMIT 40`,
   );
 
+  // 20) Import-relaterad andel av typecheck-felen (Fas 6-KPI). Samma metod som
+  //     baslinjen 2026-07-02: TS-koder regexas ur meta.output pa typecheck-rader
+  //     (bade harda och advisory), numerator = importklassen TS2304+TS2300+TS2440,
+  //     denominator = alla TSxxxx-traffar. `stats:compare` laser
+  //     derivedKpis.importRelatedTypecheckErrorsPct explicit.
+  const typecheckOutputs = await safe(
+    "typecheckOutputs",
+    `SELECT meta->>'output' AS output
+     FROM engine_version_error_logs
+     WHERE created_at > ${W}
+       AND category IN ('quality-gate:typecheck','quality-gate:typecheck-advisory')
+       AND meta->>'output' IS NOT NULL
+     LIMIT 500`,
+  );
+  const IMPORT_RELATED_TS_CODES = ["TS2304", "TS2300", "TS2440"];
+  const tsCodeCounts = {};
+  if (Array.isArray(typecheckOutputs)) {
+    for (const row of typecheckOutputs) {
+      for (const m of String(row.output ?? "").matchAll(/\bTS(\d{4})\b/g)) {
+        const code = `TS${m[1]}`;
+        tsCodeCounts[code] = (tsCodeCounts[code] ?? 0) + 1;
+      }
+    }
+  }
+  const totalTsCodeHits = Object.values(tsCodeCounts).reduce((a, b) => a + b, 0);
+  const importRelatedTsHits = IMPORT_RELATED_TS_CODES.reduce(
+    (a, code) => a + (tsCodeCounts[code] ?? 0),
+    0,
+  );
+  out.typecheckTsCodes = tsCodeCounts;
+  out.derivedKpis = {
+    importRelatedTypecheckErrorsPct:
+      totalTsCodeHits > 0
+        ? Math.round((importRelatedTsHits / totalTsCodeHits) * 1000) / 10
+        : null,
+    importRelatedTsHits,
+    totalTsCodeHits,
+  };
+
   if (wantJson) process.stdout.write(JSON.stringify(out));
   else console.log(JSON.stringify(out, null, 2));
   process.exit(0);

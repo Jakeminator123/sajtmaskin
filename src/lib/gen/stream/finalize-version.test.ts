@@ -569,6 +569,61 @@ describe("finalizeAndSaveVersion", () => {
     );
   });
 
+  it("runs verifier when validateAndFix used LLM fixes even if autofix was safe-only (coach-lucka 1)", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: [
+        {
+          fixer: "use-client-fixer",
+          category: "mechanical",
+          description: "safe fixture",
+          file: "src/app/page.tsx",
+        },
+      ],
+      warnings: [],
+      dependencies: {},
+    });
+    validateAndFix.mockResolvedValueOnce({
+      content: BASIC_GENERATED_CONTENT,
+      hadErrors: true,
+      fixerUsed: true,
+      fixerImproved: true,
+      errorsBefore: 3,
+      errorsAfter: 0,
+      passesUsed: 1,
+      budgetExceeded: false,
+      earlyStopReason: null,
+      mechanicalFixCount: 0,
+      llmFixCount: 2,
+      residualPatterns: [],
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec(),
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(runVerifierPass).toHaveBeenCalled();
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          postStreamSteps: expect.objectContaining({
+            verifier: expect.objectContaining({
+              status: "done",
+              trigger: "llm_fixes_in_validate",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("runs verifier for risky autofix and records risky_fixes trigger", async () => {
     runAutoFix.mockResolvedValueOnce({
       fixedContent: BASIC_GENERATED_CONTENT,
