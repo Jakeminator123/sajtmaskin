@@ -145,7 +145,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      const resumed = await tryResumeTier2Runtime(session);
+      // Require CONTENT-readiness (not just a live process) before reporting the
+      // session as running here: the builder maps this route's "running" status
+      // to the `live` lifecycle, so a still-compiling VM serving the boot page
+      // must stay "starting" (false-green guard, BUG-SWARM #3).
+      const resumed = await tryResumeTier2Runtime(session, { requireReady: true });
       if (!resumed) {
         const booting = isWithinBootGrace(session, now);
         const status = booting ? "starting" : "stopped";

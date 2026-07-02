@@ -150,7 +150,20 @@ async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; mess
 
 export async function fetchPreviewHostStatus(
   previewSessionId: string,
-  opts?: { expectedVersionId?: string | null },
+  opts?: {
+    expectedVersionId?: string | null;
+    /**
+     * When true, only treat the session as resumable once the host reports
+     * CONTENT-readiness (`ready`), not just process-liveness (`running`). Used by
+     * the preview-status polling that the builder maps to the `live` lifecycle,
+     * so a still-compiling VM (serving the "Startar preview" boot page) is not
+     * surfaced as live (false-green). Older hosts that don't report `ready` fall
+     * back to `running` to preserve behavior during rollout. Defaults to false so
+     * fast-resume/recover callers keep the process-alive semantics (a booting
+     * session is reused instead of being torn down mid-compile).
+     */
+    requireReady?: boolean;
+  },
 ): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -167,7 +180,18 @@ export async function fetchPreviewHostStatus(
     );
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
-    if (body.ok !== true || body.running !== true) return null;
+    if (body.ok !== true) return null;
+    // False-green guard (BUG-SWARM #3): the host's `running` flag only means the
+    // child PROCESS is alive — a still-compiling VM reports `running:true` before
+    // it serves real content. When the caller needs a live signal (`requireReady`)
+    // gate on the host's `ready` flag instead. Fall back to `running` only when
+    // the host omits `ready` (older deploy), so rollout stays back-compatible.
+    const hostReportsReady = typeof body.ready === "boolean";
+    const contentReady =
+      opts?.requireReady === true && hostReportsReady
+        ? body.ready === true
+        : body.running === true;
+    if (!contentReady) return null;
     const url = readPreviewUrlFromHostBody(body);
     const sid = readPreviewSessionIdFromHostBody(body);
     if (!url || !sid) return null;

@@ -402,7 +402,13 @@ async function routeRequest(req, res) {
     const latest = findSessionByPreviewSessionId(readStoreSync(), previewSessionId) ?? statusResult.session;
     return json(res, 200, {
       ok: true,
+      // `running` = child dev-server process alive (unchanged, back-compat).
       running: runtimeState.running,
+      // `ready` = process alive AND the readiness probe settled (app serves real,
+      // non-boot-page HTML). Clients should gate "live" on `ready`, not `running`,
+      // so a still-compiling VM serving the boot page is not treated as live
+      // (false-green). Older clients that only read `running` keep prior behavior.
+      ready: runtimeState.ready,
       previewSessionId: latest.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,

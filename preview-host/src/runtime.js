@@ -1332,6 +1332,12 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     workspaceDir,
     chatId,
     previewSessionId: session.previewSessionId,
+    // Content-readiness: `false` until the readiness probe (`waitForReady`,
+    // which checks the child app actually serves real, non-boot-page HTML) has
+    // settled. Distinct from process-liveness (`child.exitCode === null`): a
+    // freshly spawned dev server is alive but still compiling and serving the
+    // "Startar preview" boot page, so it must NOT be reported ready/live yet.
+    ready: false,
     // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
     // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
     // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
@@ -1423,18 +1429,26 @@ async function bootRuntimeForSession(session, options = {}) {
       });
 
       waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
-        .then(() =>
-          appendRuntimeLog(
+        .then(() => {
+          markRuntimeContentReady(session.sessionId, runtimePort);
+          return appendRuntimeLog(
             session.previewSessionId,
             `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-          ),
-        )
-        .catch((err) =>
-          appendRuntimeLog(
+          );
+        })
+        .catch((err) => {
+          // The probe only rejects on the overall deadline (transient errors are
+          // retried internally). If the child is still alive we treat it as
+          // ready anyway — mirroring the deliberate empty-body escape hatch — so
+          // a slow/atypical app is not left reported-not-ready forever (which
+          // would starve the client of a live signal). `markRuntimeContentReady`
+          // no-ops if the child already exited/was replaced.
+          markRuntimeContentReady(session.sessionId, runtimePort);
+          return appendRuntimeLog(
             session.previewSessionId,
             `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
-          ),
-        );
+          );
+        });
 
       return { runtimePort };
     };
@@ -1506,17 +1520,39 @@ function queueRuntimeBoot(chatId, options = {}) {
   });
 }
 
+/**
+ * Marks a tracked runtime as content-ready once its readiness probe has settled.
+ * Guarded on the port so a probe from a previous boot can never mark a
+ * freshly-restarted child ready, and on the child still being alive so a runtime
+ * that crashed during the probe window is never reported ready.
+ */
+function markRuntimeContentReady(sessionId, runtimePort) {
+  const tracked = runtimeChildren.get(sessionId);
+  if (tracked && tracked.port === runtimePort && tracked.child.exitCode === null) {
+    tracked.ready = true;
+  }
+}
+
 function getRuntimeStateForChat(chatId) {
   const session = findSessionByChatId(readStoreSync(), chatId);
   if (!session) {
-    return { session: null, running: false, booting: false, runtimePort: null };
+    return { session: null, running: false, ready: false, booting: false, runtimePort: null };
   }
   const tracked = runtimeChildren.get(session.sessionId);
+  // `running` = the child dev-server process is alive. This is the signal the
+  // proxy/HMR paths use to decide whether to forward requests (a still-compiling
+  // Next dev must receive requests so it can build the first page).
   const running = Boolean(tracked && tracked.child.exitCode === null);
+  // `ready` additionally requires the content-readiness probe to have settled,
+  // i.e. the app actually served real (non-boot-page) HTML. The client uses this
+  // — not bare liveness — to decide the preview is live, so a booting VM serving
+  // the "Startar preview" page is never reported as ready/live (false-green).
+  const ready = running && tracked.ready === true;
   const booting = inflightBootByChat.has(chatId) || session.status === "starting";
   return {
     session,
     running,
+    ready,
     booting,
     runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
   };

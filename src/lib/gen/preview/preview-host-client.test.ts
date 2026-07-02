@@ -459,6 +459,75 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
   });
 });
 
+describe("fetchPreviewHostStatus content-readiness gate (BUG-SWARM #3)", () => {
+  function stubStatus(body: Record<string, unknown>) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  it("requireReady: refuses to resume a still-compiling VM (running but not ready)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      ready: false,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { requireReady: true });
+    expect(result).toBeNull();
+  });
+
+  it("requireReady: resumes once the host reports content-readiness", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      ready: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { requireReady: true });
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+
+  it("requireReady: falls back to running when an older host omits the ready field", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { requireReady: true });
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+
+  it("default (no requireReady): reuses a live-but-not-ready session (fast-resume semantics)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      ready: false,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1");
+    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+  });
+});
+
 // BUG-SWARM #260 P2: the quality-gate + repair routes hold a per-version lease
 // across the /preview/verify call. If the client verify timeout equals the
 // route maxDuration there is no headroom for `finally { releaseVersionLease }`
