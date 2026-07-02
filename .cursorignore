@@ -66,8 +66,6 @@ data/prompt-dumps/*
 # --- Tunga genererade artefakter ---
 src/lib/templates/template-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 
 # --- External-template pipeline ---
@@ -85,6 +83,8 @@ data/external-template-pipeline/reference-library/dossiers/*/manifest.json
 .cursor/automation/archive/
 .cursor/automation/input/
 .cursor/migration-archive/
+# Local IDE MCP config (may hold tokens/machine paths; template: .cursor/mcp.json.example)
+.cursor/mcp.json
 
 # --- Media ---
 public/video/
@@ -93,7 +93,7 @@ public/images/
 *.webm
 
 # --- Logs ---
-#logs/**
+logs/**
 #!logs/
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
@@ -133,6 +133,8 @@ DOM_dev_tols.txt
 chat_till_vanster.txt
 eval-output/
 output/generations/
+# Local v0-template intake (maintainer only; blob is prod source)
+templates_v0/
 
 # --- MCP/docs/logs ---
 #services/mpc/docs/**
@@ -157,5 +159,4 @@ next-env.d.ts
 # Parkeringsyta: filer/mappar man jobbar med 'senare'. Ej indexerad, ej bevakad
 # (se .vscode/settings.json watcherExclude/search.exclude). Fortfarande i git.
 _parkering/
-data/prompt-dumps/**
 
