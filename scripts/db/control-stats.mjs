@@ -255,6 +255,36 @@ try {
      GROUP BY 1 ORDER BY n DESC LIMIT 30`,
   );
 
+  // 17) Server-repair-utfall per kanonisk outcome-taxonomi (Fas 0). Historiska
+  //     rader utan meta.outcome faller i bucketen "(historisk/utan-outcome)".
+  out.serverRepairOutcomes = await safe(
+    "serverRepairOutcomes",
+    `SELECT COALESCE(meta->>'outcome','(historisk/utan-outcome)') AS outcome,
+            level, COUNT(*)::int AS n, COUNT(DISTINCT version_id)::int AS versions
+     FROM engine_version_error_logs
+     WHERE category = 'server-repair' AND created_at > ${W}
+     GROUP BY 1,2 ORDER BY n DESC`,
+  );
+
+  // 18) Deploy-utfall (Fas 0). deploy_result skrivs fran deploy-flodet;
+  //     rader utan deploy faller i "(ingen deploy)".
+  out.deployOutcomes = await safe(
+    "deployOutcomes",
+    `SELECT COALESCE(deploy_result,'(ingen deploy)') AS deploy_result, COUNT(*)::int AS n
+     FROM generation_telemetry WHERE created_at > ${W}
+     GROUP BY 1 ORDER BY n DESC`,
+  );
+
+  // 19) Dossier-anvandning (Fas 0). meta.selectedDossierIds ar en array; en rad
+  //     per dossier-id via jsonb_array_elements_text.
+  out.dossierUsage = await safe(
+    "dossierUsage",
+    `SELECT d AS dossier_id, COUNT(*)::int AS n
+     FROM generation_telemetry, jsonb_array_elements_text(meta->'selectedDossierIds') d
+     WHERE created_at > ${W} AND meta ? 'selectedDossierIds'
+     GROUP BY 1 ORDER BY n DESC LIMIT 40`,
+  );
+
   if (wantJson) process.stdout.write(JSON.stringify(out));
   else console.log(JSON.stringify(out, null, 2));
   process.exit(0);
