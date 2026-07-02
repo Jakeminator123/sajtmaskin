@@ -114,9 +114,12 @@ describe("own-engine file route parity", () => {
     );
 
     expect(response.status).toBe(200);
+    // Material user edit: the write must reset any promoted/passed verdict —
+    // the old verdict described the previous file contents (post-#351 P1).
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       JSON.stringify([{ path: "src/app/page.tsx", content: "new content", language: "tsx" }]),
+      { invalidateVerification: true },
     );
   });
 
@@ -144,6 +147,7 @@ describe("own-engine file route parity", () => {
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       JSON.stringify([{ path: "src/lib/util.ts", content: "util", language: "ts" }]),
+      { invalidateVerification: true },
     );
   });
 });

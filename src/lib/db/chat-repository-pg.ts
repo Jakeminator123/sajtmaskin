@@ -491,9 +491,21 @@ export async function getVersionById(versionId: string): Promise<Version | null>
 export async function updateVersionFiles(
   versionId: string,
   filesJson: string,
-  options?: { lockTimeoutMs?: number },
+  options?: {
+    lockTimeoutMs?: number;
+    /**
+     * Post-#351 P1 (false-green on in-place edits): a MATERIAL file mutation —
+     * a user saving edited code via PUT/PATCH/DELETE `/files` — must not keep
+     * a `promoted`/`passed` verdict that was earned by the PREVIOUS file
+     * contents. Pass `true` on user-edit save paths to reset the row to
+     * `draft`/`pending` (same reset the `repair_available` case below does).
+     * Leave unset for idempotent heal/materialize persists (GET `/files`),
+     * where the row's verdict still describes the same logical content.
+     */
+    invalidateVerification?: boolean;
+  },
 ): Promise<boolean> {
-  const setValues = {
+  const baseValues = {
     filesJson,
     // Invalidate the cached tier-2 preview URL: the next preview-session
     // request must boot a fresh VM against the updated files instead of
@@ -503,31 +515,42 @@ export async function updateVersionFiles(
     previewUrl: null,
     repairedFilesJson: null,
     repairAvailableAt: null,
-    releaseState: sql<EngineVersionReleaseState>`
+  };
+  const setValues = options?.invalidateVerification
+    ? {
+        ...baseValues,
+        releaseState: "draft" as EngineVersionReleaseState,
+        verificationState: "pending" as EngineVersionVerificationState,
+        verificationSummary: null,
+        promotedAt: null,
+      }
+    : {
+        ...baseValues,
+        releaseState: sql<EngineVersionReleaseState>`
       CASE
         WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'draft'
         ELSE ${engineVersions.releaseState}
       END
     `,
-    verificationState: sql<EngineVersionVerificationState>`
+        verificationState: sql<EngineVersionVerificationState>`
       CASE
         WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'pending'
         ELSE ${engineVersions.verificationState}
       END
     `,
-    verificationSummary: sql<string | null>`
+        verificationSummary: sql<string | null>`
       CASE
         WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
         ELSE ${engineVersions.verificationSummary}
       END
     `,
-    promotedAt: sql<Date | null>`
+        promotedAt: sql<Date | null>`
       CASE
         WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
         ELSE ${engineVersions.promotedAt}
       END
     `,
-  };
+      };
 
   const lockTimeoutMs = options?.lockTimeoutMs;
   if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {

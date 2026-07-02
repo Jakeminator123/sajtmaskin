@@ -29,6 +29,7 @@ const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const buildFileContext = vi.hoisted(() => vi.fn());
 const parseSSEBuffer = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
+const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -196,6 +197,14 @@ vi.mock("@/lib/gen/orchestrate", () => ({
 vi.mock("@/lib/gen/version-manager", () => ({
   resolveFollowUpPreviousFiles,
   resolveChatPreferredVersionId,
+}));
+
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  checkTier3ReadinessForVersion,
+}));
+
+vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
+  resolveSelectedDossiersFromSnapshot: vi.fn(() => []),
 }));
 
 vi.mock("@/lib/gen/plan/prompt", () => ({
@@ -958,6 +967,56 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(createGenerationPipeline).toHaveBeenCalled();
+  });
+
+  it("gates F3 readiness against the build base (preferred) when only parentVersionId is sent", async () => {
+    // Post-#351 hardening: `parentVersionId` is lineage-only — the generation
+    // builds from `engineBaseVersionId ?? preferred`. When the meta omits
+    // `engineBaseVersionId`, the readiness gate must inspect the preferred
+    // version (the actual build base), never the parentVersionId.
+    resolveChatPreferredVersionId.mockResolvedValue("ver_preferred");
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "missing_env",
+      readiness: {
+        ready: false,
+        missingByIntegration: { stripe: ["STRIPE_SECRET_KEY"] },
+      },
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          lifecycleStage: "integrations",
+          parentVersionId: "ver_parent_no_integrations",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg integrationer nu." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(412);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.error).toBe("tier3_env_not_ready");
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId: "ver_preferred" }),
+    );
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
   });
 
   it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
