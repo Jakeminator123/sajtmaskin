@@ -190,7 +190,7 @@ ANVÄNDARENS PROMPT
   │
   └─10. Post-generation:
         ├─ Normalize → Syntax validate/fix → Finalize
-        ├─ ReleaseGate-readiness (heuristisk)
+        ├─ ReleaseGate-bedömning (heuristisk)
         ├─ RenderGate (F2 typecheck/preview)
         │    ├─ Env-signal (saknade nycklar → UI-hint)
         │    ├─ Server repair (Normalize → RepairGate)

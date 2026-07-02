@@ -81,7 +81,7 @@ def render(ctx: BackofficeContext) -> None:
 - **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate, `["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
 - **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. ReleaseGate (kod: `integrationsBuild` quality gate, `["typecheck", "build", "lint"]`).
-  Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
+  Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 ReleaseGate-krav mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
 - **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin
   F2-rot via `engine_versions.parent_version_id`.

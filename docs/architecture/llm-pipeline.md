@@ -86,7 +86,7 @@ Typisk ordning i runtime:
 11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder.
 12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 strikt
-    typecheck + build + lint + env-gate när användaren explicit går till F3.
+    typecheck + build + lint + env-krav när användaren explicit går till F3.
 13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard.
 

@@ -330,7 +330,7 @@ felet. `handledCodes` registrerar varje faktisk tsc-kod för sig — TS2552
 ("Cannot find name … Did you mean …") särskiljs från TS2304 även om båda löses
 av samma known-import-fixer, så statistiken inte buntar ihop dem.
 
-Det betyder att gate-lagret i nuläget är både verifieringslager och källa till
+Det betyder att RenderGate/ReleaseGate i nuläget är både verifieringslager och källa till
 repair-kontext, medan själva LLM-reparationen fortfarande går genom RepairGate.
 
 ### En repair-port: RepairGate (Fas 3)
