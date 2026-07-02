@@ -16,7 +16,11 @@ import { countParseErrors, GUARDABLE_EXT_RE } from "./rules/import-binding-ast";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixGlobalShadowingImports } from "./rules/global-shadow-import-fixer";
-import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
+import {
+  fixLucideImageMisuse,
+  fixLucideLinkMisuse,
+  fixLucideShadcnCollisionMisuse,
+} from "./rules/lucide-misuse-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
@@ -976,6 +980,26 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] lucide-link-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4e2. lucide-shadcn-collision-fixer — shadcn∩lucide names (Badge, …)
+      // imported from lucide-react but used as the shadcn component. Rendering
+      // the glyph puts children inside an <svg> → hydration mismatch.
+      try {
+        const collisionResult = fixLucideShadcnCollisionMisuse(currentCode, file.path);
+        if (collisionResult.fixed) {
+          currentCode = collisionResult.code;
+          allFixes.push({
+            fixer: "lucide-shadcn-collision-fixer",
+            category: "mechanical",
+            description: `Rewrote lucide-react import(s) to shadcn/ui for component usage: ${collisionResult.fixedNames.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] lucide-shadcn-collision-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

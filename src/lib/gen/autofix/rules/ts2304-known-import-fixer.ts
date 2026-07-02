@@ -3,6 +3,7 @@ import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
 import { KNOWN_MODULE_SPECIFIERS } from "../import-validator";
+import { classifyShadcnLucideCollisionUsage } from "./lucide-misuse-fixer";
 import type { AutoFixEntry } from "../pipeline";
 
 /**
@@ -115,8 +116,9 @@ function resolveKnownImport(
   name: string,
   filePath?: string,
   allowTier3 = false,
+  fileCode?: string,
 ): ResolvedImport | null {
-  const resolved = resolveKnownImportRaw(name, filePath);
+  const resolved = resolveKnownImportRaw(name, filePath, fileCode);
   if (resolved && !allowTier3 && isTier3SdkModule(resolved.module)) {
     return null;
   }
@@ -126,6 +128,7 @@ function resolveKnownImport(
 function resolveKnownImportRaw(
   name: string,
   filePath?: string,
+  fileCode?: string,
 ): ResolvedImport | null {
   // KNOWN_MODULE_SPECIFIERS wins over lucide-react: `Image` and `Link` exist in
   // BOTH sets, but a non-JSX `Cannot find name 'Image'` almost always means the
@@ -154,12 +157,23 @@ function resolveKnownImportRaw(
     if (names.includes(name)) return { module, kind: "named" };
   }
   // shadcn/ui components map to per-symbol subpaths (`@/components/ui/<file>`).
-  // Several shadcn names collide with lucide glyphs (e.g. `Calendar`, `Toggle`,
-  // `Progress`) — when a name is in BOTH registries the correct module is
-  // genuinely ambiguous, so we resolve neither and leave it for the LLM fixer.
+  // Several shadcn names collide with lucide glyphs (e.g. `Badge`, `Calendar`,
+  // `Table`) — when a name is in BOTH registries, disambiguate from the file's
+  // actual usage (M#badge1): children or `variant=`/`asChild` can only be the
+  // shadcn component (a glyph would render children inside an <svg> — invalid
+  // HTML → hydration mismatch), while icon-ish self-closing usage is the glyph.
+  // Anything unclear (e.g. a bare `<Calendar />`) stays with the LLM fixer.
   const inShadcn = Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, name);
   const inLucide = LUCIDE_ICONS.has(name);
-  if (inShadcn && inLucide) return null;
+  if (inShadcn && inLucide) {
+    if (!fileCode) return null;
+    const usage = classifyShadcnLucideCollisionUsage(fileCode, name);
+    if (usage === "shadcn") {
+      return { module: `@/components/ui/${SHADCN_COMPONENTS[name]}`, kind: "named" };
+    }
+    if (usage === "lucide") return { module: "lucide-react", kind: "named" };
+    return null;
+  }
   if (inShadcn) {
     return { module: `@/components/ui/${SHADCN_COMPONENTS[name]}`, kind: "named" };
   }
@@ -296,7 +310,7 @@ function addKnownImportsToFile(
     // Never import a symbol the file already declares/exports locally — the
     // local declaration is the source of truth, not the registry. #201
     if (fileDeclaresSymbol(code, name)) continue;
-    const resolved = resolveKnownImport(name, filePath, allowTier3);
+    const resolved = resolveKnownImport(name, filePath, allowTier3, code);
     if (!resolved) continue;
     // BB#291: never inject a server-only module into a "use client" file.
     // Content-gated (not path-gated) so server components, middleware.ts and
@@ -395,27 +409,32 @@ export function fixKnownTs2304Imports(
   options: { allowTier3?: boolean } = {},
 ): Ts2304KnownImportFixResult {
   const allowTier3 = options.allowTier3 ?? false;
+  // Parse before bucketing: collision resolution (shadcn∩lucide) is
+  // usage-driven and needs the file's source, not just its path.
+  const project = parseCodeProject(content);
+  if (project.files.length === 0) {
+    return { code: content, fixes: [], addedImports: [] };
+  }
+  const codeByFile = new Map(
+    project.files.map((file) => [toPosixPath(file.path), file.content]),
+  );
+
   const missingByFile = new Map<string, Set<string>>();
   for (const diagnostic of diagnostics) {
     const name = extractMissingName(diagnostic.message);
     if (!name) continue;
     const file = toPosixPath(diagnostic.file);
     if (!file) continue;
-    // Resolution is file-aware (Stripe/shadcn path-gating) and lifecycle-aware
-    // (tier-3 SDKs only in F3), so resolve with the diagnostic's file + policy
-    // before bucketing.
-    if (!resolveKnownImport(name, file, allowTier3)) continue;
+    // Resolution is file-aware (Stripe/shadcn path-gating), usage-aware
+    // (shadcn∩lucide collisions) and lifecycle-aware (tier-3 SDKs only in F3),
+    // so resolve with the diagnostic's file + code + policy before bucketing.
+    if (!resolveKnownImport(name, file, allowTier3, codeByFile.get(file))) continue;
     const bucket = missingByFile.get(file) ?? new Set<string>();
     bucket.add(name);
     missingByFile.set(file, bucket);
   }
 
   if (missingByFile.size === 0) {
-    return { code: content, fixes: [], addedImports: [] };
-  }
-
-  const project = parseCodeProject(content);
-  if (project.files.length === 0) {
     return { code: content, fixes: [], addedImports: [] };
   }
 

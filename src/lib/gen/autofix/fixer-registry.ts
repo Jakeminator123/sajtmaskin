@@ -358,10 +358,12 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "Diagnostic-driven (consumes the gate's tsc output) rather than a JSX scan, " +
       "so it also catches non-JSX value usages. Invoked from the repair-loop " +
       "deterministic import-repair pre-pass (repair-loop/deterministic-import-repair.ts) " +
-      "BEFORE the LLM fixer. shadcn∩lucide ambiguous names (Calendar, Toggle, …) " +
-      "are left for the LLM. Stripe resolves only in API route / route-handler files. " +
-      "Tier-3 backend SDKs (Clerk-server, Stripe) are only (re)introduced in F3 " +
-      "(fidelity3); in F2 they stay residual so the F2 SDK guard is never undone.",
+      "BEFORE the LLM fixer. shadcn∩lucide collision names (Badge, Calendar, Table, …) " +
+      "are resolved usage-aware (M#badge1): children/variant/asChild → shadcn, " +
+      "icon-ish self-closing → lucide, unclear → left for the LLM. Stripe resolves " +
+      "only in API route / route-handler files. Tier-3 backend SDKs (Clerk-server, " +
+      "Stripe) are only (re)introduced in F3 (fidelity3); in F2 they stay residual " +
+      "so the F2 SDK guard is never undone.",
   },
   {
     id: "metadata-import-fixer",
@@ -416,6 +418,25 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["lucide-react Link used as component"],
     status: "active",
     ownerPhase: "pre-syntax",
+  },
+  {
+    id: "lucide-shadcn-collision-fixer",
+    category: "mechanical-misc",
+    sourcePath: "src/lib/gen/autofix/rules/lucide-misuse-fixer.ts",
+    targetFailureMode:
+      "shadcn∩lucide name (Badge, Calendar, Command, Form, Sheet, Sidebar, Table) " +
+      "imported from lucide-react but used as the shadcn component — renders an " +
+      "svg glyph whose children are invalid HTML (hydration mismatch)",
+    triggers: [
+      "lucide-react collision import used with children or variant=/asChild",
+    ],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "Usage-driven: paired tags/children or shadcn-only props flip the import " +
+      "to @/components/ui/<subpath>; icon-only usages in the same file keep the " +
+      "glyph as <XIcon/>. Added after prod chat 1c34592c v3 (follow-up rewrote " +
+      "the Badge import to lucide-react and every validator accepted it).",
   },
   {
     id: "tailwind-font-arbitrary-fixer",

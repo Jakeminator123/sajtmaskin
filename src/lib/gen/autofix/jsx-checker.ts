@@ -2,6 +2,7 @@ import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
 import { isDenylistedStubDefaultName } from "./rules/import-binding-ast";
+import { hasShadcnComponentUsage } from "./rules/lucide-misuse-fixer";
 
 /**
  * Single-line import matcher. Multiline imports are normalised first
@@ -259,6 +260,14 @@ function checkTagMatching(code: string, localDecls: Set<string>): string[] {
   const allTags = new Set([...openCounts.keys(), ...closeCounts.keys()]);
   for (const tag of allTags) {
     if (localDecls.has(tag)) continue;
+    // Global DOM/standard-library type names appear in TS generic positions
+    // (`useRef<HTMLCanvasElement | null>`) where JSX_OPEN_TAG_RE still matches.
+    // They can never be JSX components, so counting them produces false
+    // `Tag mismatch for <HTMLCanvasElement>: 1 opening vs 0 closing` warnings —
+    // which escalate to preview-blocking verifier findings in canvas/R3F files
+    // (prod chat 1c34592c v3 was failed + sent to repair on exactly this).
+    // Same exclusion `fixMissingImports` already applies.
+    if (isGlobalTypeName(tag)) continue;
     const open = openCounts.get(tag) ?? 0;
     const close = closeCounts.get(tag) ?? 0;
     if (open !== close) {
@@ -273,8 +282,13 @@ function checkTagMatching(code: string, localDecls: Set<string>): string[] {
 
 function isPreviewCriticalJsxFile(filePath: string | undefined, code: string): boolean {
   const normalized = (filePath ?? "").replace(/\\/g, "/").toLowerCase();
-  if (/components\/.*(?:3d|three|webgl|canvas).*\.tsx?$/.test(normalized)) return true;
-  if (/@react-three\/fiber|@react-three\/drei|<Canvas\b|<mesh\b|<group\b/i.test(code)) {
+  if (/components\/.*(?:3d|three|webgl).*\.tsx?$/.test(normalized)) return true;
+  // Case-SENSITIVE on purpose: `<Canvas` is the R3F component while `<canvas`
+  // is a plain HTML element (2D canvas games etc). The previous `i` flag made
+  // every DOM-canvas file "R3F-critical", escalating ordinary jsx-checker
+  // warnings to preview-blocking verifier findings. `<mesh`/`<group` are the
+  // lowercase R3F intrinsics; the package specifiers are lowercase already.
+  if (/@react-three\/fiber|@react-three\/drei|<Canvas\b|<mesh\b|<group\b/.test(code)) {
     return true;
   }
   return false;
@@ -315,7 +329,22 @@ function fixMissingImports(code: string): {
   const genericNames: string[] = [];
 
   for (const name of missing) {
-    if (LUCIDE_ICONS.has(name)) {
+    // shadcn∩lucide collision (Badge, Calendar, Table, …): decide by usage.
+    // Children or `variant=`/`asChild` means the shadcn component — merging the
+    // name into the lucide import instead renders an svg glyph whose children
+    // are invalid HTML (hydration mismatch; prod chat 1c34592c v3). Same
+    // usage-detector as the lucide-shadcn-collision fixer, and same
+    // shadcn-before-lucide outcome as import-validator's detectMissingImports.
+    if (
+      LUCIDE_ICONS.has(name) &&
+      SHADCN_COMPONENTS[name] &&
+      hasShadcnComponentUsage(code, name)
+    ) {
+      const path = `@/components/ui/${SHADCN_COMPONENTS[name]}`;
+      const existing = shadcnByPath.get(path) ?? [];
+      existing.push(name);
+      shadcnByPath.set(path, existing);
+    } else if (LUCIDE_ICONS.has(name)) {
       lucideNames.push(name);
     } else if (SHADCN_COMPONENTS[name]) {
       const path = `@/components/ui/${SHADCN_COMPONENTS[name]}`;

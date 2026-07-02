@@ -15,6 +15,7 @@ const renewVersionLease = vi.hoisted(() => vi.fn());
 const markVersionRepairing = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
@@ -22,6 +23,17 @@ const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
 const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
+const QualityGateUnavailableError = vi.hoisted(
+  () =>
+    class QualityGateUnavailableError extends Error {
+      retryable: boolean;
+      constructor(message: string, retryable: boolean) {
+        super(message);
+        this.name = "QualityGateUnavailableError";
+        this.retryable = retryable;
+      }
+    },
+);
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: unknown, _key: string, fn: () => unknown) => {
@@ -37,6 +49,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionRepairing,
   failVersionVerification,
   failVersionVerificationIfUnleased,
+  resetVersionVerificationToPending,
   saveRepairedFiles,
   getChat,
   acquireVersionLease,
@@ -47,6 +60,8 @@ vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject: vi.fn(async (f: unknown) => f),
 }));
 vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
+  QUALITY_GATE_SETUP_HINT: "hint",
+  QualityGateUnavailableError,
   maybeAnalyzeVisualQAForPassedExportable: vi.fn(() => undefined),
   shouldPromoteAfterRepair,
 }));
@@ -635,5 +650,74 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     // No concurrent edit -> the crash legitimately fails the version.
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
+  });
+});
+
+// Prod chat 1c34592c v3 (2026-07-02): the post-repair gate's preview-host fetch
+// failed (Fly VM unreachable) and the catch-all finalized the version as
+// `failed` with "Repair crashed: fetch failed" — a false-RED about infra. An
+// unreachable verify lane never evaluated the code, so the route must mirror
+// quality-gate/route.ts: reset to `pending` and return a retryable 503.
+describe("POST repair — unreachable verify lane must not fail the version (false-RED)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    resetVersionVerificationToPending.mockResolvedValue({ id: "ver-1" });
+    // The promotion attempt's quality gate throws because preview-host is
+    // unreachable (undici "fetch failed" → typed retryable error).
+    shouldPromoteAfterRepair.mockRejectedValue(
+      new QualityGateUnavailableError("fetch failed", true),
+    );
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        await opts.onAttemptPromotion('```tsx file="app/page.tsx"\nx\n```', "deterministic");
+        throw new Error("unreachable — the promotion attempt already threw");
+      },
+    );
+  });
+
+  it("returns retryable 503, resets to pending and never writes 'Repair crashed'", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("quality_gate_unavailable");
+    expect(body.retryable).toBe(true);
+    // The version must NOT be finalized as failed — the gate never ran.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    // Honest resting state instead: pending (awaiting verification, retryable).
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      "run-1",
+    );
+    // Lease still released in finally.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 });

@@ -228,9 +228,11 @@ diagnostiken och dirigerar varje fall till rätt **befintlig** fixer:
 | TS2300 | duplicerad identifierare | `duplicate-import-binding-fixer` + `duplicate-import-local-type-collision-fixer` |
 
 Konservativ: bara dessa fem import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-tvetydiga namn
-(t.ex. `Calendar`, `Toggle`) lämnas också till LLM. Stripe löses bara i
-API-route-/route-handler-filer. Alla fixers är idempotenta.
+TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-krocknamn
+(`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
+children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
+användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till LLM.
+Stripe löses bara i API-route-/route-handler-filer. Alla fixers är idempotenta.
 
 **F2/F3-kontrakt (tier-3 SDK):** F2-guarden (`tier3-sdk-guard-fixer`) strippar
 tier-3 backend-SDK-importer (`stripe`, `@clerk/nextjs/server`, …) i F2. Pre-passen
