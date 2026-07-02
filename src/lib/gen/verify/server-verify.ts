@@ -254,11 +254,7 @@ export async function triggerServerVerification(params: {
 
     // For the advisory case, ATTEMPT the promotion before emitting the outcome
     // so the bus signal reflects reality. `promoteVersion` is lease-conditioned:
-    // a no-op (null) means a takeover/lease-loss or a guard/DB refusal, in which
-    // case we must NOT emit a green "passed" the row never actually reached.
-    // A lease no-op is expected (the owning run resolves terminal state); we do
-    // not fail here — the stale-verification watchdog is the backstop and
-    // `reconcileTerminalDbState` uses the authoritative DB state either way.
+    // a no-op (null) means a takeover/lease-loss or a guard/DB refusal.
     const advisoryPromoted = advisoryPromote
       ? Boolean(
           await promoteVersion(
@@ -268,9 +264,31 @@ export async function triggerServerVerification(params: {
           ).catch(() => null),
         )
       : false;
+
+    // Advisory promote that did NOT take (lease takeover / guard / transient DB
+    // write). Emit NO terminal bus event: a terminal bus `failed` is sticky in
+    // `reconcileTerminalDbState` (a later DB `passed` from the client
+    // quality-gate route or a takeover run cannot upgrade a bus already
+    // `failed`), so a `failed` here would pin a false-red even after the version
+    // is promoted elsewhere. Leaving the bus spinning lets the authoritative DB
+    // `passed` upgrade it to `done`, and the stale-verification watchdog is the
+    // backstop if nothing promotes. Failing the row here would also clobber the
+    // owning run on a lease takeover.
+    if (advisoryPromote && !advisoryPromoted) {
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "info",
+        category: "quality-gate:typecheck-advisory",
+        message:
+          "F2 render-first: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
+        meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
+      }]).catch(() => null);
+      return;
+    }
+
     // Green for the outcome bus signal / summary log when the VM gate passed OR
-    // the advisory promotion actually took — never on an advisory promote that
-    // no-op'd (that would be a false-green).
+    // the advisory promotion actually took.
     const outcomeIsGreen = passed || advisoryPromoted;
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
@@ -315,11 +333,8 @@ export async function triggerServerVerification(params: {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
 
-    // Advisory path already attempted promotion above (before the emit). Return
-    // regardless of whether it took: a lease no-op means another run owns the
-    // version, and the watchdog resolves any residual `verifying` — failing here
-    // would clobber the owning run.
-    if (advisoryPromote) {
+    // Advisory promotion succeeded (the no-op case returned above); done.
+    if (advisoryPromoted) {
       return;
     }
 
