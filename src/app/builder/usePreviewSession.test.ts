@@ -12,6 +12,7 @@ vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
 }));
 
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
+import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 const TIER2_URL = "https://chat-1.fly.dev/preview";
 
@@ -38,17 +39,21 @@ function harness(overrides?: { now?: () => number }) {
   return { rendered, setRecovering, setForceKey, setRetryNonce, bootstrapDone };
 }
 
-const mismatch = (previewSessionId: string, versionId: string, direction: "session_newer" | "session_older" | "unknown") =>
+const mismatch = (
+  previewSessionId: string,
+  versionId: string,
+  direction: "session_newer" | "session_older" | "unknown",
+): PreviewStatusApiJson =>
   ({
-    ok: true as const,
-    status: "version_mismatch" as const,
+    ok: true,
+    status: "version_mismatch",
     previewSessionId,
     previewUrl: TIER2_URL,
     versionId,
     sessionExpiresAt: null,
     reason: "session_bound_to_other_version",
     mismatchDirection: direction,
-  });
+  }) satisfies PreviewStatusApiJson;
 
 describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () => {
   beforeEach(() => {
