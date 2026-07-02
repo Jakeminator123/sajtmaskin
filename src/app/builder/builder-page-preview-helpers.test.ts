@@ -27,29 +27,29 @@ describe("pickVersionPreviewUrl", () => {
 describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
   const liveUrl = "https://vm-fly-jakem.fly.dev/chat-123";
 
-  it("retains an established tier-2 live preview on an automatic advance with no preview yet", () => {
-    // The follow-up-completion white-flash case: version auto-advanced, no
-    // previewUrl resolves yet, a live VM preview is already on screen, and the
-    // user did NOT explicitly select this version.
+  it("retains an established tier-2 live preview when the LATEST version has no preview yet", () => {
+    // The follow-up-completion white-flash case: the newest (just-generated)
+    // version is active, no previewUrl resolves yet, a live VM preview is on
+    // screen. The client sets it as the selected version, but it is the latest.
     expect(
       shouldRetainLastGoodPreviewOnVersionChange({
         didChangeVersion: true,
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
-        userSelectedActiveVersion: false,
+        activeVersionIsLatest: true,
       }),
     ).toBe(true);
   });
 
-  it("does NOT retain when the user explicitly selected the version (never show a different version's frame)", () => {
+  it("does NOT retain when an OLDER (non-latest) version is active (never show a different version's frame)", () => {
     // Bugbot #1: retaining here would display the previous version's site while
-    // a user-selected, preview-less version is active.
+    // a user-selected, preview-less OLDER version is active.
     expect(
       shouldRetainLastGoodPreviewOnVersionChange({
         didChangeVersion: true,
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
-        userSelectedActiveVersion: true,
+        activeVersionIsLatest: false,
       }),
     ).toBe(false);
   });
@@ -60,7 +60,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         didChangeVersion: true,
         nextDemoUrl: "https://vm-fly-jakem.fly.dev/chat-456",
         currentPreviewUrl: liveUrl,
-        userSelectedActiveVersion: false,
+        activeVersionIsLatest: true,
       }),
     ).toBe(false);
   });
@@ -71,7 +71,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         didChangeVersion: true,
         nextDemoUrl: null,
         currentPreviewUrl: null,
-        userSelectedActiveVersion: false,
+        activeVersionIsLatest: true,
       }),
     ).toBe(false);
   });
@@ -82,7 +82,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         didChangeVersion: false,
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
-        userSelectedActiveVersion: false,
+        activeVersionIsLatest: true,
       }),
     ).toBe(false);
   });
@@ -93,7 +93,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         didChangeVersion: true,
         nextDemoUrl: null,
         currentPreviewUrl: "https://app.example/api/preview-render?id=1",
-        userSelectedActiveVersion: false,
+        activeVersionIsLatest: true,
       }),
     ).toBe(false);
   });

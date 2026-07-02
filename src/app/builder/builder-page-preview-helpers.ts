@@ -53,22 +53,22 @@ export function versionSummaryHasPreview(
  * preview keeps the last-good page on screen (with the "startar preview" /
  * version_mismatch overlay on top) until the new preview arrives.
  *
- * Only retained for an AUTOMATIC advance. When the user has explicitly selected
- * a specific version (`userSelectedActiveVersion`), we NEVER retain — we must
- * show that version's true state (blank/pending), never a different version's
- * frame, otherwise the builder would display the wrong site while another
- * version is selected. A shim/compat or missing current URL is also never
- * retained.
+ * Gated on `activeVersionIsLatest` (active === newest non-failed version). This
+ * is true for a follow-up's freshly generated version (the intended retain
+ * case) but false when the user manually selected an OLDER version or when the
+ * latest is failed — in those cases we must show that version's true state
+ * (blank/pending), never a different version's frame. A shim/compat or missing
+ * current URL is also never retained.
  */
 export function shouldRetainLastGoodPreviewOnVersionChange(params: {
   didChangeVersion: boolean;
   nextDemoUrl: string | null;
   currentPreviewUrl: string | null;
-  userSelectedActiveVersion: boolean;
+  activeVersionIsLatest: boolean;
 }): boolean {
-  const { didChangeVersion, nextDemoUrl, currentPreviewUrl, userSelectedActiveVersion } = params;
+  const { didChangeVersion, nextDemoUrl, currentPreviewUrl, activeVersionIsLatest } = params;
   if (!didChangeVersion) return false;
-  if (userSelectedActiveVersion) return false;
+  if (!activeVersionIsLatest) return false;
   if (nextDemoUrl) return false;
   if (!currentPreviewUrl) return false;
   return isTier2LivePreviewUrl(currentPreviewUrl);
