@@ -20,6 +20,7 @@ import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { useInitBrief } from "@/lib/hooks/useInitBrief";
 import { useChatMessaging } from "@/lib/hooks/chat/useChatMessaging";
+import { useResumePendingVerification } from "@/lib/hooks/chat/useResumePendingVerification";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -176,6 +177,18 @@ export function useBuilderPageController() {
       });
     }
   }, [versions]);
+
+  // F2-promotion körs från webbläsaren (post-checks → /quality-gate). Om
+  // fliken stängdes/navigerades i fönstret efter finalize blir versionen
+  // strandad som draft/pending för alltid (watchdogen rör medvetet inte
+  // F2-pending). Denna hook återupptar verify-lanen för en strandad senaste
+  // version vid nästa builder-besök. Se useResumePendingVerification.
+  useResumePendingVerification({
+    chatId: chatHooksChatId,
+    versions,
+    isStreaming: isAnyStreamingEarly,
+    mutateVersions,
+  });
 
   // ── Derived / memoized state ─────────────────────────────────────────
   const derived = useBuilderDerivedState({

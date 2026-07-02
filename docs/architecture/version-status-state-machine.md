@@ -71,6 +71,13 @@ Oförändrat hårt (→ `failed`/repair som förr): F3 (`integrations`), varje F
 
 Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 
+## 2026-07-02 — strandade F2-drafts + preview-url-persist
+
+F2-promotion körs från webbläsaren (post-checks → `POST /quality-gate` → promote), och watchdogen rör medvetet inte F2-`pending`. Två härdanden efter prod-incidenten (chat `4314362f`, follow-up-version strandad som `draft`/`pending` för alltid):
+
+1. **Resume av strandad verify-lane:** `useResumePendingVerification` (monterad i `useBuilderPageController`) återupptar verifieringen för chattens senaste version när den är `draft`+`pending`, F2 (ej `integrations`), har `edit_kind = NULL` (provenance-gate: `quick_edit`/`imported_repo`/`restore`-rader hade aldrig någon browser-lane och ska varken promotas eller false-red:as av en resume) och är 3 min–24 h gammal (`RESUME_VERIFY_MIN_AGE_MS`/`RESUME_VERIFY_MAX_AGE_MS`). Resumen speglar ordinarie lane-svans: först `POST /product-postcheck` (emitterar `version.degraded` server-side för skipped/blocked DOM-checkar — false-green-guarden), sedan `POST /quality-gate`; `productBlocked` hoppar över gaten (ordinarie lane routar dit till autofix, inte promote). En stängd/omladdad flik lämnar alltså inte längre versionen ogrön för alltid; nästa builder-besök plockar upp den. Routens per-version-lease gör dubbelkörning ofarlig (409 `version_busy`). Medveten avgränsning: `validate-images`-steget (muterar filer) körs inte i resume-vägen. Provenance-stödet: restore/rollback-drafts markeras nu `edit_kind="restore"` och ZIP/GitHub-import (`/api/engine/chats/init`) markeras `edit_kind="imported_repo"` (samma marker som template-import, vilket också ger imported-repo-preflightrelaxen på follow-ups).
+2. **`preview_url` persisteras awaitat:** `updateVersionPreviewUrl` efter `preview-ready` i `generation-stream-post-finalize.ts` var fire-and-forget — på serverless kunde skrivningen dö vid function-freeze och lämna `preview_url = NULL` trots lyckad preview. Skrivningen awaitas nu.
+
 ## Uppföljningsspår
 
 - **Full event-bus UI-flip** (Kvarvarande #11) — ✅ **klar** (Område 6-3): builder-ytorna läser `selectVersionStatus(events)` från [`event-bus-projection.ts`](../../src/lib/logging/event-bus-projection.ts) via `/version-status` + `/versions`. #337 la till terminal DB-reconcile (`reconcileTerminalDbState`) + en lease-säker stale-watchdog (`settleStaleVerificationIfNeeded`, delad med `/readiness`) så bussen aldrig fastnar icke-terminalt. Kvar-fältet `resolveEngineVersionLifecycleStatus` används nu bara av publicerings-/deploy-ytan.
