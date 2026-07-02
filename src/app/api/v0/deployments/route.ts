@@ -35,6 +35,7 @@ import {
   resolveEngineVersionLifecycleStage,
   resolveEngineVersionLifecycleStatus,
 } from "@/lib/db/engine-version-lifecycle";
+import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
@@ -456,6 +457,31 @@ export async function POST(req: Request) {
         if (deployBlock) {
           return NextResponse.json(
             { error: deployBlock.message, code: deployBlock.code },
+            { status: 409 },
+          );
+        }
+        // Deploy/readiness parity: the readiness route blocks publishing when a
+        // `product_postcheck.summary` log reports blocking product defects
+        // (`meta.productBlocked === true`). Enforce the SAME check server-side so
+        // a direct deploy call can't publish a product-blocked version that the
+        // Launch Readiness card already shows as `canDeploy: false`. Mirrors
+        // `app/api/engine/chats/[chatId]/readiness/route.ts`.
+        const versionErrorLogs = await getEngineVersionErrorLogs(versionId);
+        const productPostcheckBlocked = versionErrorLogs.some((log) => {
+          if (log.category !== "product_postcheck.summary") return false;
+          const meta =
+            log.meta && typeof log.meta === "object"
+              ? (log.meta as Record<string, unknown>)
+              : null;
+          return meta?.productBlocked === true;
+        });
+        if (productPostcheckBlocked) {
+          return NextResponse.json(
+            {
+              error:
+                "Produktkontrollen hittade blockerande fel (mobilmeny / in-page-länkar). Åtgärda dem innan du publicerar.",
+              code: "DEPLOY_PRODUCT_POSTCHECK_BLOCKED",
+            },
             { status: 409 },
           );
         }

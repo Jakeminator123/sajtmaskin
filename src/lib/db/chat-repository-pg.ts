@@ -310,34 +310,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
 }
 
 /**
- * Thrown by {@link addAssistantMessageAndUpdateExistingVersion} when an
- * optimistic-concurrency base was supplied but the version's `files_json`
- * no longer matches it — a concurrent writer (user `/files` edit, background
- * repair) advanced the row while this finalize was in flight. The whole
- * transaction (including the assistant-message insert) is rolled back so the
- * concurrent write is never clobbered. Mirrors the `stale_base` outcome of
- * {@link saveRepairedFiles}.
- */
-export class StaleBaseVersionError extends Error {
-  readonly versionId: string;
-  constructor(versionId: string) {
-    super(`Version ${versionId} advanced past the finalize base snapshot (stale_base_version).`);
-    this.name = "StaleBaseVersionError";
-    this.versionId = versionId;
-  }
-}
-
-/**
  * Create assistant message and update an existing version's files in one transaction.
  * Used by autofix / repair so the result replaces v1 instead of creating v2.
- *
- * When `options.baseFilesJson` is provided, the version UPDATE is bound —
- * atomically, in the same statement — to `files_json` still equalling that
- * base snapshot (the same optimistic-concurrency guard `saveRepairedFiles`
- * uses). If a concurrent writer advanced `files_json` in the meantime the
- * UPDATE matches no row and this throws {@link StaleBaseVersionError} instead
- * of silently overwriting the newer state. Omitting it preserves the legacy
- * unguarded write (no base known).
  */
 export async function addAssistantMessageAndUpdateExistingVersion(
   chatId: string,
@@ -349,15 +323,9 @@ export async function addAssistantMessageAndUpdateExistingVersion(
     uiParts?: Record<string, unknown>[] | null;
     /** See `addAssistantMessageAndCreateDraftVersion` for semantics. */
     thinking?: string | null;
-    /**
-     * Optimistic-concurrency base: the EXACT `files_json` string this finalize
-     * started from. When set, the write only lands if the stored `files_json`
-     * still equals it; otherwise {@link StaleBaseVersionError} is thrown.
-     */
-    baseFilesJson?: string;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, thinking, baseFilesJson } = options;
+  const { tokenCount, uiParts, thinking } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -373,14 +341,6 @@ export async function addAssistantMessageAndUpdateExistingVersion(
       .update(engineChats)
       .set({ updatedAt: new Date() })
       .where(eq(engineChats.id, chatId));
-    const rowMatch = and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId));
-    // Revision-binding: only persist if the version still holds the exact
-    // snapshot this finalize started from. Comparing the literal DB string is
-    // atomic and needs no migration / hash column (same as `saveRepairedFiles`).
-    const updateWhere =
-      typeof baseFilesJson === "string"
-        ? and(rowMatch, sql`${engineVersions.filesJson} = ${baseFilesJson}`)
-        : rowMatch;
     const result = await tx
       .update(engineVersions)
       .set({
@@ -394,24 +354,8 @@ export async function addAssistantMessageAndUpdateExistingVersion(
         verificationSummary: null,
         promotedAt: null,
       })
-      .where(updateWhere);
+      .where(and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId)));
     if ((result.rowCount ?? 0) === 0) {
-      // With a base provided, a 0-row UPDATE is either (a) the revision-binding
-      // predicate missing because a concurrent writer advanced `files_json`, or
-      // (b) a genuinely missing row. Probe the row to tell them apart so a
-      // concurrent edit is reported as stale (and the tx rolls back) rather
-      // than masked as "not found".
-      if (typeof baseFilesJson === "string") {
-        const rows = await tx
-          .select({ filesJson: engineVersions.filesJson })
-          .from(engineVersions)
-          .where(rowMatch)
-          .limit(1);
-        const current = rows[0]?.filesJson;
-        if (typeof current === "string" && current !== baseFilesJson) {
-          throw new StaleBaseVersionError(versionId);
-        }
-      }
       throw new Error("Version not found for chat.");
     }
 

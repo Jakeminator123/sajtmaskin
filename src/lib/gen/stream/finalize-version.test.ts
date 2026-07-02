@@ -15,7 +15,6 @@ const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndUpdateExistingVersion = vi.hoisted(() => vi.fn());
-const getVersionById = vi.hoisted(() => vi.fn());
 const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const getChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
@@ -105,7 +104,6 @@ vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   addAssistantMessageAndUpdateExistingVersion,
-  getVersionById,
   updateChatOrchestrationSnapshot,
   getChatOrchestrationSnapshot,
   addMessage,
@@ -175,7 +173,6 @@ describe("finalizeAndSaveVersion", () => {
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
     addAssistantMessageAndUpdateExistingVersion.mockReset();
-    getVersionById.mockReset();
     updateChatOrchestrationSnapshot.mockReset();
     getChatOrchestrationSnapshot.mockReset();
     addMessage.mockReset();
@@ -289,14 +286,6 @@ describe("finalizeAndSaveVersion", () => {
       message: { id: "msg_1" },
       version: { id: "ver_1" },
     });
-    // In-place finalize snapshots the target version's files_json before the
-    // autofix/verify window; default to a stored base so the optimistic-
-    // concurrency binding is threaded on the repair path.
-    getVersionById.mockResolvedValue({
-      id: "ver_existing",
-      chat_id: "chat_1",
-      files_json: '[{"path":"src/app/page.tsx","content":"base"}]',
-    });
     updateChatOrchestrationSnapshot.mockResolvedValue(true);
     getChatOrchestrationSnapshot.mockResolvedValue(null);
     addMessage.mockResolvedValue({ id: "orphan_msg" });
@@ -379,71 +368,6 @@ describe("finalizeAndSaveVersion", () => {
 
       const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
       expect(call?.[3]).toEqual(expect.objectContaining({ thinking: null }));
-    });
-  });
-
-  describe("in-place optimistic-concurrency base", () => {
-    it("threads the target version's files_json snapshot as baseFilesJson (repair path)", async () => {
-      getVersionById.mockResolvedValue({
-        id: "ver_existing",
-        chat_id: "chat_1",
-        files_json: '[{"path":"src/app/page.tsx","content":"snapshot-before-autofix"}]',
-      });
-
-      await finalizeAndSaveVersion({
-        accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
-        chatId: "chat_1",
-        model: "gpt-5.4",
-        resolvedScaffold: null,
-        urlMap: {},
-        startedAt: Date.now() - 500,
-        targetVersionId: "ver_existing",
-      });
-
-      expect(getVersionById).toHaveBeenCalledWith("ver_existing");
-      expect(addAssistantMessageAndUpdateExistingVersion).toHaveBeenCalledTimes(1);
-      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
-      expect(call?.[4]).toEqual(
-        expect.objectContaining({
-          baseFilesJson: '[{"path":"src/app/page.tsx","content":"snapshot-before-autofix"}]',
-        }),
-      );
-    });
-
-    it("passes baseFilesJson: undefined when the target version can't be read (unguarded fallback)", async () => {
-      getVersionById.mockResolvedValue(null);
-
-      await finalizeAndSaveVersion({
-        accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
-        chatId: "chat_1",
-        model: "gpt-5.4",
-        resolvedScaffold: null,
-        urlMap: {},
-        startedAt: Date.now() - 500,
-        targetVersionId: "ver_existing",
-      });
-
-      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
-      expect(call?.[4]).toEqual(
-        expect.objectContaining({ baseFilesJson: undefined }),
-      );
-    });
-
-    it("does not read a base snapshot on the new-version path (no targetVersionId)", async () => {
-      await finalizeAndSaveVersion({
-        accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
-        chatId: "chat_1",
-        model: "gpt-5.4",
-        resolvedScaffold: null,
-        urlMap: {},
-        startedAt: Date.now() - 500,
-      });
-
-      expect(getVersionById).not.toHaveBeenCalled();
-      expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -225,27 +225,6 @@ export async function finalizeAndSaveVersion(
     return typeof duration === "number" && Number.isFinite(duration) ? duration : 0;
   };
 
-  // Optimistic-concurrency base for the in-place repair/autofix persist path:
-  // snapshot the target version's current `files_json` BEFORE the long
-  // autofix/verify/preflight window runs, so the final in-place UPDATE can bind
-  // to it (see `addAssistantMessageAndUpdateExistingVersion`). A concurrent
-  // user `/files` edit that lands during finalize then fails the bind and
-  // throws instead of being silently clobbered — mirroring the revision-binding
-  // `saveRepairedFiles` uses. Read failures degrade to an unguarded write
-  // (legacy behavior), never a false stale-abort.
-  let inPlaceBaseFilesJson: string | undefined;
-  if (targetVersionId) {
-    try {
-      const baseVersion = await chatRepo.getVersionById(targetVersionId);
-      inPlaceBaseFilesJson =
-        typeof baseVersion?.files_json === "string" ? baseVersion.files_json : undefined;
-    } catch {
-      // Transient read failure → fall back to the legacy unguarded write rather
-      // than newly failing an otherwise-healthy finalize.
-      inPlaceBaseFilesJson = undefined;
-    }
-  }
-
   devLogAppend("in-progress", {
     type: "finalize.pipeline",
     chatId,
@@ -381,9 +360,7 @@ export async function finalizeAndSaveVersion(
         targetVersionId,
         contentForVersion,
         filesJson,
-        // `inPlaceBaseFilesJson` was snapshotted at finalize start (pre-autofix)
-        // so a concurrent `/files` edit during this finalize can't be clobbered.
-        { thinking: thinkingForPersist, baseFilesJson: inPlaceBaseFilesJson },
+        { thinking: thinkingForPersist },
       )
     : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
