@@ -38,12 +38,12 @@ kräver en riktig Next-/Node-miljö och därför körs i preview-hostens isolera
 verify-lane, inte i samma workspace som den live dev-preview användaren ser i
 iframen.
 
-Gate-lagret svarar främst på frågan:
+De svarar främst på frågan:
 
 - Går det här projektet att installera, typechecka, linta eller bygga enligt
   den policy som gäller för den aktuella versionen?
 
-Gate-lagret är alltså inte samma sak som:
+De är alltså inte samma sak som:
 
 - Normalize (kod: url-expand + autofix + deterministisk import-repair)
 - syntaxvalidering i finalize

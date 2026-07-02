@@ -90,7 +90,7 @@ i `server-verify-log-meta.ts` (outcome-strängar).
 Invariants:
 
 - `runLlmFixer` har exakt en produktions-callsite: inuti `runLlmRepairGate`.
-  Vaktad av `llm-fixer-callsite-guard.test.ts` — ny LLM-fix-ingång routas via
+  Vaktad av `llm-fixer-callsite-guard.test.ts` — ny RepairGate-ingång routas via
   gaten, aldrig direkt.
 - En repair är bara lyckad när SAMMA signal som failade passerar igen
   (`resolveSameSignalGateChecks` unionerar ursprungets failade checks in i
