@@ -2,7 +2,7 @@ import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
 import { isDenylistedStubDefaultName } from "./rules/import-binding-ast";
-import { hasShadcnComponentUsage } from "./rules/lucide-misuse-fixer";
+import { classifyShadcnLucideCollisionUsage } from "./rules/lucide-misuse-fixer";
 
 /**
  * Single-line import matcher. Multiline imports are normalised first
@@ -333,17 +333,22 @@ function fixMissingImports(code: string): {
     // Children or `variant=`/`asChild` means the shadcn component — merging the
     // name into the lucide import instead renders an svg glyph whose children
     // are invalid HTML (hydration mismatch; prod chat 1c34592c v3). Same
-    // usage-detector as the lucide-shadcn-collision fixer, and same
-    // shadcn-before-lucide outcome as import-validator's detectMissingImports.
-    if (
-      LUCIDE_ICONS.has(name) &&
-      SHADCN_COMPONENTS[name] &&
-      hasShadcnComponentUsage(code, name)
-    ) {
-      const path = `@/components/ui/${SHADCN_COMPONENTS[name]}`;
-      const existing = shadcnByPath.get(path) ?? [];
-      existing.push(name);
-      shadcnByPath.set(path, existing);
+    // usage-classifier as the ts2304 fixer; mixed/bare usage stays unresolved
+    // (one import can't satisfy both — the LLM fixer owns that case).
+    if (LUCIDE_ICONS.has(name) && SHADCN_COMPONENTS[name]) {
+      const usage = classifyShadcnLucideCollisionUsage(code, name);
+      if (usage === "shadcn") {
+        const path = `@/components/ui/${SHADCN_COMPONENTS[name]}`;
+        const existing = shadcnByPath.get(path) ?? [];
+        existing.push(name);
+        shadcnByPath.set(path, existing);
+      } else if (usage === "lucide") {
+        lucideNames.push(name);
+      } else {
+        warnings.push(
+          `Skipped ambiguous shadcn∩lucide import for ${name} (mixed/bare usage — left for the LLM fixer)`,
+        );
+      }
     } else if (LUCIDE_ICONS.has(name)) {
       lucideNames.push(name);
     } else if (SHADCN_COMPONENTS[name]) {

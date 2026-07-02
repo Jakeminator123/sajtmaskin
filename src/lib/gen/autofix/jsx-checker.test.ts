@@ -332,4 +332,27 @@ export default function Hero() {
     expect(out).toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
     expect(out).not.toContain("@/components/ui/badge");
   });
+
+  // Codex P2 (PR #356): mixed shadcn + icon-shaped usage — importing from
+  // either module silently mis-binds one of the usages, so the checker must
+  // leave the name unresolved (LLM fixer owns it).
+  it("skips a mixed shadcn/icon collision usage instead of guessing", () => {
+    const code = `
+import { Fish } from "lucide-react";
+
+export default function Hero() {
+  return (
+    <div>
+      <Badge variant="secondary">Nyhet</Badge>
+      <Badge className="h-4 w-4" />
+      <Fish className="h-4 w-4" />
+    </div>
+  );
+}
+`.trim();
+    const { code: out, warnings } = runJsxChecker(code, "app/page.tsx");
+    expect(out).not.toContain("@/components/ui/badge");
+    expect(out).not.toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
+    expect(warnings.some((w) => w.includes("ambiguous shadcn∩lucide"))).toBe(true);
+  });
 });

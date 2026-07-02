@@ -514,4 +514,50 @@ export function B() {
     ]);
     expect(result.code).toContain('import { Badge } from "lucide-react"');
   });
+
+  // Codex P2 (PR #356): mixed shadcn + icon-shaped usage in the same file —
+  // one import cannot satisfy both, so the deterministic fixer must defer.
+  it("leaves a mixed shadcn/icon collision usage for the LLM", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <div>
+      <Badge variant="secondary">Nyhet</Badge>
+      <Badge className="h-4 w-4" />
+    </div>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // Codex P2 (PR #356): a bare self-closing usage anywhere keeps the whole
+  // file ambiguous — the bare `<Calendar />` may be the shadcn calendar.
+  it("keeps a collision ambiguous when icon-ish and bare usages are mixed", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <div>
+      <Calendar className="h-4 w-4" />
+      <Calendar />
+    </div>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Calendar'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
 });

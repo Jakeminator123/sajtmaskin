@@ -305,4 +305,57 @@ describe("fixLucideShadcnCollisionMisuse", () => {
     expect(result.code).toContain('import { Table } from "@/components/ui/table"');
     expect(result.code).not.toContain("lucide-react");
   });
+
+  // Codex P1 (PR #356): an already-aliased lucide import means the collision
+  // name is NOT bound to the glyph — the fixer must not touch it. Previously
+  // the before/after specifier split produced invalid code like
+  // `import { as BadgeIcon, Fish } from "lucide-react"`.
+  it("leaves an aliased lucide import (Badge as BadgeIcon) untouched", () => {
+    const code = [
+      'import { Badge as BadgeIcon, Fish } from "lucide-react";',
+      'import { Badge } from "@/components/ui/badge";',
+      "",
+      "export default function Page() {",
+      "  return (",
+      "    <div>",
+      '      <Badge variant="secondary">Nyhet</Badge>',
+      '      <BadgeIcon className="h-4 w-4" />',
+      "    </div>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+  });
+
+  it("leaves a reverse-aliased lucide import (BadgeCheck as Badge) untouched", () => {
+    const code = [
+      'import { BadgeCheck as Badge } from "lucide-react";',
+      "",
+      "export default function Page() {",
+      '  return <Badge className="h-4 w-4" />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+  });
+
+  // Codex P2 (PR #356): an explicit empty pair is icon-shaped, not component
+  // usage — `<Badge className="h-4 w-4"></Badge>` must stay a lucide glyph.
+  it("does nothing for an explicit empty-pair icon usage", () => {
+    const code = [
+      'import { Badge } from "lucide-react";',
+      "",
+      "export default function Icon() {",
+      '  return <Badge className="h-4 w-4"></Badge>;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
 });
