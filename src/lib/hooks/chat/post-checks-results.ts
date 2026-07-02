@@ -497,9 +497,17 @@ export function buildPostCheckArtifacts(params: {
   }
   if (productPostcheck?.productBlocked) warningReasons.push("produktkontroll blockerar F3");
 
-  const autoFixReasons = criticalReasons;
-  const autoFixQueued = criticalReasons.length > 0;
-  const verifyPending = !autoFixQueued;
+  // M#dgc (WP4 residual): degenerate/oversized output is terminally failed
+  // server-side by the degeneracy guard and is by definition NOT client-
+  // repairable — an autofix retry re-enters the same guard, burns one of the
+  // capped retries and churns the pipeline. Report the failure truthfully but
+  // never QUEUE an autofix for it.
+  const degenerateOutputBlocked =
+    typeof previewBlockingReason === "string" &&
+    previewBlockingReason.startsWith("Degenerate output blocked");
+  const autoFixReasons = degenerateOutputBlocked ? [] : criticalReasons;
+  const autoFixQueued = autoFixReasons.length > 0;
+  const verifyPending = criticalReasons.length === 0;
   const provisionalVersion = !readinessPassed || verifyPending || autoFixQueued;
 
   const qualityTier: QualityTier =

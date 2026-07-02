@@ -88,8 +88,13 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
     // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
     // no-op when the DB is non-terminal (e.g. a pending design preview), so this
-    // never fabricates a terminal state.
-    const status = reconcileTerminalDbState(busStatus, dbVersion.verification_state);
+    // never fabricates a terminal state. release_state is threaded so a
+    // promoted+passed row can upgrade a stale terminal bus `failed` (M#flap1).
+    const status = reconcileTerminalDbState(
+      busStatus,
+      dbVersion.verification_state,
+      dbVersion.release_state,
+    );
 
     return NextResponse.json<VersionStatusApiResponse>({
       ok: true,

@@ -12,13 +12,13 @@
       "key": "CLERK_SECRET_KEY",
       "required": true,
       "enforcement": "build",
-      "purpose": "Server-side Clerk API authentication. Clerk dashboard → API Keys → Secret keys (sk_test_/sk_live_). Tagged 'build' because the middleware reads this at module init; a missing value crashes every request through the middleware."
+      "purpose": "Server-side Clerk API authentication. Clerk dashboard → API Keys → Secret keys (sk_test_/sk_live_). Tagged 'build' because auth is non-functional without it. The middleware key-gates itself: missing/placeholder keys degrade to open routes (NextResponse.next()) instead of crashing every request."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
       "required": true,
       "enforcement": "build",
-      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because <ClerkProvider> throws synchronously on mount when missing, black-screening the whole app."
+      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because auth is non-functional without it. ClerkProviderShell validates the key structurally and renders an 'Auth not configured' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",

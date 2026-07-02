@@ -176,6 +176,40 @@ function toPosixPath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
+/**
+ * True when the file opens with a `"use client"` directive (allowing leading
+ * comments/blank lines). Used to keep server-only modules out of client
+ * components (BB#291): a stray TS2304 on e.g. `auth` in a client component
+ * must NOT pull in `@clerk/nextjs/server` — that import is illegal in the
+ * client bundle and trades one build error for another. Server pages,
+ * middleware and route handlers (no directive) still resolve normally.
+ *
+ * Tolerates the directive variants Next.js accepts (Codex P2, PR #351):
+ * a trailing `//`/`/* … *​/` comment after the directive, and full multi-line
+ * block comments before it (tracked statefully — an inner block-comment line
+ * does not have to start with `*`).
+ */
+function hasUseClientDirective(code: string): boolean {
+  let inBlockComment = false;
+  for (const line of code.split("\n")) {
+    const trimmed = line.trim();
+    if (inBlockComment) {
+      if (trimmed.includes("*/")) inBlockComment = false;
+      continue;
+    }
+    if (!trimmed || trimmed.startsWith("//")) continue;
+    if (trimmed.startsWith("/*")) {
+      if (!trimmed.includes("*/")) inBlockComment = true;
+      continue;
+    }
+    return /^["']use client["']\s*;?\s*(?:\/\/.*|\/\*.*?\*\/\s*)?$/.test(trimmed);
+  }
+  return false;
+}
+
+/** Modules that must never be imported inside a `"use client"` file. */
+const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe"]);
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -254,6 +288,7 @@ function addKnownImportsToFile(
   const alreadyImported = collectImportedNames(code);
   const namedByModule = new Map<string, string[]>();
   const defaultImports: Array<{ name: string; module: string }> = [];
+  const isClientFile = hasUseClientDirective(code);
 
   for (const name of missingNames) {
     if (alreadyImported.has(name)) continue;
@@ -263,6 +298,11 @@ function addKnownImportsToFile(
     if (fileDeclaresSymbol(code, name)) continue;
     const resolved = resolveKnownImport(name, filePath, allowTier3);
     if (!resolved) continue;
+    // BB#291: never inject a server-only module into a "use client" file.
+    // Content-gated (not path-gated) so server components, middleware.ts and
+    // route handlers keep resolving while client components leave the name
+    // residual for the LLM fixer.
+    if (isClientFile && SERVER_ONLY_MODULES.has(resolved.module)) continue;
     // Never import from a module that resolves to this same file (e.g. adding
     // `import { cn } from "@/lib/utils"` into lib/utils.ts → self-import). #201
     if (moduleMatchesFile(resolved.module, filePath)) continue;

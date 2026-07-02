@@ -32,6 +32,7 @@ import {
 import { fixFontImport } from "./rules/font-import-fixer";
 import { fixTier3SdkImports } from "./rules/tier3-sdk-guard-fixer";
 import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
+import { fixLeakedMediaAliases } from "./rules/media-alias-fixer";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { runJsxChecker } from "./jsx-checker";
 import { fixDomBuiltinJsxTags } from "./rules/dom-builtin-jsx-fixer";
@@ -475,6 +476,29 @@ async function runAutoFixSinglePass(
     } catch (err) {
       allWarnings.push(
         `[${file.path}] escape-leakage-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // 0b. media-alias-fixer — replace leaked `{{MEDIA_n}}`/`{{URL_n}}`
+    // URL-compression aliases with a safe placeholder URL (M#oc1). LLM
+    // repair passes after the single finalize-time `expandUrls` can
+    // re-introduce aliases from prompt context; a leaked alias crashes
+    // `next/image` src parsing at build/SSG. Runs on every language —
+    // aliases appear in tsx/ts as well as css/json metadata.
+    try {
+      const mediaAliasResult = fixLeakedMediaAliases(currentCode);
+      if (mediaAliasResult.count > 0) {
+        currentCode = mediaAliasResult.code;
+        allFixes.push({
+          fixer: "media-alias-fixer",
+          category: "mechanical",
+          description: `Replaced ${mediaAliasResult.count} leaked URL-compression alias(es) with placeholder URLs: ${mediaAliasResult.aliases.join(", ")}`,
+          file: file.path,
+        });
+      }
+    } catch (err) {
+      allWarnings.push(
+        `[${file.path}] media-alias-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 

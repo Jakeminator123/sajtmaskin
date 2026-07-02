@@ -12,12 +12,30 @@ export interface ClerkProviderShellProps {
 }
 
 /**
+ * A real Clerk publishable key is `pk_(test|live)_<base64>` where the base64
+ * payload decodes to the instance's frontend API host followed by `$`.
+ * Placeholder values (e.g. `pk_test_placeholder`) fail that check and make
+ * `<ClerkProvider>` throw "Publishable key not valid" on mount.
+ */
+function isLikelyValidClerkPublishableKey(key: string | undefined): key is string {
+  if (!key) return false;
+  const match = /^pk_(test|live)_([A-Za-z0-9+/=]+)$/.exec(key);
+  if (!match) return false;
+  try {
+    return atob(match[2]).endsWith("$");
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Wrapper around Clerk's provider that degrades gracefully when keys are
- * missing. When NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is unset, we render the
- * children without the provider plus a small banner — this prevents
+ * missing or are placeholders. When NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is
+ * unset — or holds a preview placeholder like `pk_test_placeholder` — we
+ * render the children without the provider plus a small banner. This prevents
  * `<ClerkProvider>` from throwing synchronously on mount, which would
  * black-screen the entire app in dev/preview environments where the
- * operator hasn't pasted the keys yet.
+ * operator hasn't pasted real keys yet.
  */
 export function ClerkProviderShell({
   children,
@@ -26,7 +44,7 @@ export function ClerkProviderShell({
 }: ClerkProviderShellProps) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-  if (!publishableKey) {
+  if (!isLikelyValidClerkPublishableKey(publishableKey)) {
     return (
       <>
         <div

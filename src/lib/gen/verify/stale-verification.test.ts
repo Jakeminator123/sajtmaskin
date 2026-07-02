@@ -71,9 +71,30 @@ describe("reconcileTerminalDbState", () => {
     expect(out.phase).toBe("failed");
   });
 
-  it("never upgrades a failed bus via DB passed", () => {
+  it("never upgrades a failed bus via DB passed alone (not promoted)", () => {
     const failed = makeStatus({ phase: "failed" });
     expect(reconcileTerminalDbState(failed, "passed")).toBe(failed);
+    expect(reconcileTerminalDbState(failed, "passed", "draft")).toBe(failed);
+  });
+
+  it("upgrades a terminal failed bus when DB says promoted+passed (M#flap1)", () => {
+    // gate-fail → repair → accept-repair → promoted leaves a stale terminal
+    // `failed` on the bus. The authoritative store says promoted/passed —
+    // the status surface must agree instead of pinning a false-red.
+    const failed = makeStatus({ phase: "failed" });
+    const out = reconcileTerminalDbState(failed, "passed", "promoted");
+    expect(out.phase).toBe("done");
+    expect(out.done).toBe(true);
+  });
+
+  it("preserves degradations when promoting a stale failed bus (no solid green lie)", () => {
+    const failed = makeStatus({
+      phase: "failed",
+      degradations: [{ kind: "product_postcheck_skipped", message: "skip", meta: null }],
+    });
+    const out = reconcileTerminalDbState(failed, "passed", "promoted");
+    expect(out.phase).toBe("done");
+    expect(out.degradations).toHaveLength(1);
   });
 
   it("leaves a done bus untouched when the DB is not failed", () => {

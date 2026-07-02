@@ -1270,10 +1270,30 @@ export function useBuilderPageController() {
     setExternalProjectId(null);
   }, [chatId, setSelectedVersionId, setExternalProjectId]);
 
+  // M#sel1: fast-edit (quick edit) persists a NEW minor version and selects it
+  // BEFORE the `mutateVersions()` refetch has landed — so the freshly created
+  // id is not yet in `versionIdSet` and the guard below used to clear the
+  // selection back to the old version. Track the freshly created id and give
+  // it a grace window until the refetch catches up.
+  const pendingCreatedVersionRef = useRef<{ id: string; ts: number } | null>(null);
+  const FRESH_VERSION_GRACE_MS = 15_000;
+
   useEffect(() => {
     if (!selectedVersionId) return;
     if (!derived.versionIdSet.has(selectedVersionId)) {
+      const pending = pendingCreatedVersionRef.current;
+      if (
+        pending &&
+        pending.id === selectedVersionId &&
+        Date.now() - pending.ts < FRESH_VERSION_GRACE_MS
+      ) {
+        // Freshly created version — versions refetch in flight; don't bounce.
+        return;
+      }
       setSelectedVersionId(null);
+    } else if (pendingCreatedVersionRef.current?.id === selectedVersionId) {
+      // The refetch landed; the id is now canonical.
+      pendingCreatedVersionRef.current = null;
     }
   }, [selectedVersionId, derived.versionIdSet, setSelectedVersionId]);
 
@@ -1543,6 +1563,9 @@ export function useBuilderPageController() {
       // follow-ups build on the patched version (avoids a stale-base reject) and
       // refresh the version list so the new v.x row appears.
       if (info?.versionId) {
+        // M#sel1: register the fresh id BEFORE selecting, so the versionIdSet
+        // guard tolerates it while the mutateVersions refetch is in flight.
+        pendingCreatedVersionRef.current = { id: info.versionId, ts: Date.now() };
         setSelectedVersionId(info.versionId);
         void mutateVersions();
         // If the live preview was patched in place (same preview session, new

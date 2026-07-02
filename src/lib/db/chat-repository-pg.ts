@@ -765,11 +765,18 @@ export async function acceptRepair(
     // fresh `preflight_passed` signal when the repair passed its gate, so a
     // legitimate repair is allowed; a still-failing latest signal (e.g. the
     // stamp never landed, or telemetry was re-flagged) blocks promotion instead
-    // of leaking a verifier-rejected row to `promoted`/`passed`.
-    const guard = await assertPromoteAllowed(versionId);
+    // of leaking a verifier-rejected row to `promoted`/`passed`. A READ ERROR
+    // fails closed-but-retryable (M#pg1 / B08 follow-up) — returning null keeps
+    // the pending repair intact so a later accept can retry; only a no-telemetry
+    // row (signal === null) keeps the historic fail-open.
+    const guard = await assertPromoteAllowed(versionId, undefined, {
+      onReadError: "indeterminate",
+    });
     if (!guard.allowed) {
       console.warn(
-        `[promote-guard] Refusing to accept repair for version ${versionId}: ${guard.reason}`,
+        "indeterminate" in guard && guard.indeterminate
+          ? `[promote-guard] Repair-accept signal unavailable for version ${versionId} (retryable): ${guard.reason}`
+          : `[promote-guard] Refusing to accept repair for version ${versionId}: ${guard.reason}`,
       );
       return null;
     }
@@ -881,7 +888,11 @@ export async function updateVersionPreviewUrl(
 // active (status='running') lease owns every mutation of that engine_versions
 // row. See docs/plans/avklarat/2026-06-27-server-verify-distributed-lock.md.
 
-export type VersionJobKind = "server_verify" | "build_error_repair" | "manual_repair";
+export type VersionJobKind =
+  | "server_verify"
+  | "build_error_repair"
+  | "manual_repair"
+  | "quick_edit";
 
 /**
  * Lease TTL in seconds. Generous (verify+repair can run several LLM passes);
@@ -1111,11 +1122,20 @@ export async function promoteVersion(
   // promote path consults `assertPromoteAllowed`: this function (quality-gate
   // route, server-verify, createAndPromoteDraftVersion) and `acceptRepair` (the
   // repair-accept/auto-accept path, which reads the repaired-pass signal
-  // stamped by `saveRepairedFiles`). Fail-open when no signal exists (see guard).
-  const guard = await assertPromoteAllowed(versionId);
+  // stamped by `saveRepairedFiles`). Fail-open when NO SIGNAL exists (legacy /
+  // template-import / rollback rows without telemetry) — but a READ ERROR now
+  // fails closed-but-retryable (M#pg1 / B08 follow-up): a transient DB hiccup
+  // must not be able to false-green a `verifier_failed` row into `promoted`.
+  // Returning null here never terminal-fails the version; callers treat it as
+  // "not promoted" and the flow retries.
+  const guard = await assertPromoteAllowed(versionId, undefined, {
+    onReadError: "indeterminate",
+  });
   if (!guard.allowed) {
     console.warn(
-      `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
+      "indeterminate" in guard && guard.indeterminate
+        ? `[promote-guard] Promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
+        : `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
     );
     return null;
   }

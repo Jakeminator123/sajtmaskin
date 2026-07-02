@@ -313,6 +313,96 @@ export default clerkMiddleware((auth, req) => {
     expect(result.code).toBe(clerkMiddlewareContent);
   });
 
+  it("never injects @clerk/nextjs/server into a 'use client' file (BB#291)", () => {
+    // A TS2304 on `auth` in a CLIENT component must stay residual for the LLM
+    // fixer — the server entrypoint is illegal in the client bundle and would
+    // trade one build error for another.
+    const clientFile = "components/user-badge.tsx";
+    const content = project(
+      clientFile,
+      `"use client";
+
+export function UserBadge() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: clientFile, message: "Cannot find name 'auth'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+    expect(result.code).not.toContain("@clerk/nextjs/server");
+  });
+
+  it("detects a 'use client' directive with trailing comment or after a block comment (Codex P2)", () => {
+    // `"use client"; // hooks` and a directive preceded by a multi-line block
+    // comment are valid Next.js client files — the server-only skip must
+    // still apply to them.
+    const trailing = "components/trailing-comment.tsx";
+    const trailingContent = project(
+      trailing,
+      `"use client"; // needs hooks
+
+export function A() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+    const blockComment = "components/block-comment.tsx";
+    const blockCommentContent = project(
+      blockComment,
+      `/*
+Header comment that does not
+prefix every line with a star
+*/
+"use client";
+
+export function B() {
+  const session = auth();
+  return <span>{String(session)}</span>;
+}`,
+    );
+
+    for (const [file, content] of [
+      [trailing, trailingContent],
+      [blockComment, blockCommentContent],
+    ] as const) {
+      const result = fixKnownTs2304Imports(
+        content,
+        [{ file, message: "Cannot find name 'auth'." }],
+        { allowTier3: true },
+      );
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    }
+  });
+
+  it("still resolves Clerk server helpers in a server component without a directive (BB#291)", () => {
+    const serverPage = "app/dashboard/page.tsx";
+    const content = project(
+      serverPage,
+      `export default async function DashboardPage() {
+  const { userId } = await auth();
+  return <main>{userId}</main>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: serverPage, message: "Cannot find name 'auth'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([
+      { file: serverPage, name: "auth", module: "@clerk/nextjs/server" },
+    ]);
+  });
+
   const STRIPE_ROUTE = "app/api/checkout-session/route.ts";
   const stripeRouteContent = project(
     STRIPE_ROUTE,

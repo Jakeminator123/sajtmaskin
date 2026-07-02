@@ -529,3 +529,189 @@ export default function Page() {
     expect(file?.content).not.toContain('from "lucide-react"');
   });
 });
+
+describe("repairGeneratedFiles — type-only lucide imports used as icon values (M#cr1)", () => {
+  it("converts a single-spec `import type` line to a value import", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/type-import.tsx",
+        language: "tsx",
+        content: `import type { PawPrint } from "lucide-react";
+
+const MOTIFS = [{ label: "Trail", icon: PawPrint }];
+
+export default function Page() {
+  return <span>{MOTIFS.length}</span>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/type-import.tsx");
+
+    expect(file?.content).toContain('import { PawPrint } from "lucide-react"');
+    expect(file?.content).not.toMatch(/import\s+type\s+\{\s*PawPrint/);
+    // Exactly one lucide import line — conversion, not duplication (TS2300).
+    expect((file?.content.match(/from "lucide-react"/g) ?? []).length).toBe(1);
+  });
+
+  it("strips an inline `type` specifier inside a value import line", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/inline-type.tsx",
+        language: "tsx",
+        content: `import { Menu, type PawPrint } from "lucide-react";
+
+const MOTIFS = [{ label: "Trail", icon: PawPrint }];
+
+export default function Page() {
+  return <Menu />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/inline-type.tsx");
+
+    expect(file?.content).toContain('import { Menu, PawPrint } from "lucide-react"');
+    expect((file?.content.match(/from "lucide-react"/g) ?? []).length).toBe(1);
+  });
+
+  it("splits the icon out of a multi-spec `import type` line and adds a value import", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/multi-type.tsx",
+        language: "tsx",
+        content: `import type { LucideIcon, PawPrint } from "lucide-react";
+
+const MOTIFS: Array<{ label: string; icon: LucideIcon }> = [
+  { label: "Trail", icon: PawPrint },
+];
+
+export default function Page() {
+  return <span>{MOTIFS.length}</span>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/multi-type.tsx");
+
+    // LucideIcon stays type-only; PawPrint becomes a value import.
+    expect(file?.content).toContain('import type { LucideIcon } from "lucide-react"');
+    expect(file?.content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+    expect(file?.content).not.toMatch(/import\s+type\s+\{[^}]*\bPawPrint\b/);
+  });
+
+  it("leaves a type import from a NON-lucide module alone (different symbol)", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/foreign-type.tsx",
+        language: "tsx",
+        content: `import type { PawPrint } from "@/lib/motifs";
+
+const MOTIFS = [{ label: "Trail", icon: PawPrint }];
+
+export default function Page() {
+  return <span>{MOTIFS.length}</span>;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/foreign-type.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+    expect(file?.content).toContain('import type { PawPrint } from "@/lib/motifs"');
+  });
+});
+
+describe("repairGeneratedFiles — destructured names matching icon names (M#cr2/BB#296)", () => {
+  it("does NOT import an icon name bound via const-destructuring", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/destructured.tsx",
+        language: "tsx",
+        content: `const item = { icon: () => null };
+const { icon: PawPrint } = item;
+
+export default function Page() {
+  return <FeatureCard icon={PawPrint} />;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/destructured.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+  });
+
+  it("does NOT import an icon name bound as a function parameter", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/param-bound.tsx",
+        language: "tsx",
+        content: `function Card({ icon: PawPrint }) {
+  return <Child icon={PawPrint} />;
+}
+
+export default Card;
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/param-bound.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+  });
+
+  it("does NOT import an icon name bound in an arrow-component parameter", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/arrow-param.tsx",
+        language: "tsx",
+        content: `const Card = ({ icon: PawPrint }) => <Child icon={PawPrint} />;
+
+export default Card;
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/arrow-param.tsx");
+
+    expect(file?.content).not.toContain('from "lucide-react"');
+  });
+
+  it("still imports the icon when a call site passes it as an object-literal argument", () => {
+    // `fn({ icon: PawPrint })` is a CALL, not a parameter binding — the icon is
+    // genuinely used as a value and must still get its import.
+    const files: CodeFile[] = [
+      {
+        path: "components/call-arg.tsx",
+        language: "tsx",
+        content: `export default function Page() {
+  registerCard({ icon: PawPrint });
+  return null;
+}
+`,
+      },
+    ];
+
+    const repaired = repairGeneratedFiles(files);
+    const file = repaired.files.find((f) => f.path === "components/call-arg.tsx");
+
+    expect(file?.content).toMatch(
+      /import\s*\{[^}]*\bPawPrint\b[^}]*\}\s*from\s*["']lucide-react["']/,
+    );
+  });
+});

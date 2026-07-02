@@ -137,6 +137,67 @@ describe("post-checks-results", () => {
     );
   });
 
+  it("does NOT queue client autofix for degenerate output (M#dgc)", () => {
+    const artifacts = buildPostCheckArtifacts({
+      currentFileCount: 2,
+      versionId: "ver_test",
+      changes: null,
+      warnings: [],
+      preflight: {
+        previewBlocked: true,
+        verificationBlocked: true,
+        previewBlockingReason:
+          "Degenerate output blocked: file components/credential-deck.tsx exceeds 768KB",
+        previewStart: {
+          canStartPreview: false,
+          primaryPreviewTarget: "none",
+          shimBlocked: false,
+          requiresEnvConfig: false,
+          hasCriticalInstallRisk: false,
+          hasCriticalCodeFailure: true,
+          compatibilityPreviewAllowed: false,
+          issueCounts: {
+            code_structure_failure: 1,
+            dependency_install_failure: 0,
+            env_config_missing: 0,
+            shim_preview_failure: 0,
+            non_blocking_quality_warning: 0,
+          },
+          blockingCategories: ["code_structure_failure"],
+        },
+      },
+      previousVersionId: null,
+      streamQuality: undefined,
+      missingRoutes: [],
+      missingPlannedRoutes: [],
+      lucideLinkMisuse: [],
+      suspiciousUseCalls: [],
+      designTokens: null,
+      seoReview: emptySeoReview,
+      analyticsReview: emptyAnalyticsReview,
+      editorialReview: { packs: [], signals: { hasBlogCollection: false, hasContactFlow: false } },
+      businessWorkflowReview: {
+        packs: [],
+        signals: { hasLeadCapture: false, hasBookingFlow: false, hasCrmSync: false },
+      },
+      sanityIssues: [],
+      sanityErrors: [],
+      sanityWarnings: [],
+      imageValidation: null,
+      resolvedDemoUrl: null,
+    });
+
+    // The failure is still reported truthfully…
+    expect(artifacts.readinessPassed).toBe(false);
+    expect(artifacts.readinessFailures.length).toBeGreaterThan(0);
+    // …but no client autofix is queued: the degeneracy guard terminally failed
+    // the version server-side and a retry just re-enters the same guard.
+    expect(artifacts.autoFixReasons).toEqual([]);
+    expect(artifacts.autoFixQueued).toBe(false);
+    // Not marked verify-pending either — the version is terminally failed.
+    expect(artifacts.verifyPending).toBe(false);
+  });
+
   it("keeps scaffold retry and planned routes as warnings when preview already exists", () => {
     const artifacts = buildPostCheckArtifacts({
       currentFileCount: 4,

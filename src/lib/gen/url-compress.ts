@@ -52,6 +52,10 @@ export function compressUrls(prompt: string): CompressResult {
 /**
  * Replace {{MEDIA_N}} aliases with original URLs.
  * Used for post-stream expansion if any aliases remain.
+ *
+ * Tolerant matching (M#oc1): LLM output drifts in formatting, so we also
+ * accept whitespace inside the braces (`{{ MEDIA_1 }}`) and `-` as separator
+ * (`{{MEDIA-1}}`), normalizing the key before the urlMap lookup.
  */
 export function expandUrls(
   content: string,
@@ -61,12 +65,13 @@ export function expandUrls(
     return content;
   }
 
-  const aliasRe = /\{\{((?:MEDIA|URL)_\d+)\}\}/g;
+  const aliasRe = /\{\{\s*((?:MEDIA|URL)[_-]\d+)\s*\}\}/g;
   return content.replace(aliasRe, (full, key: string) => {
-    const resolved = urlMap[key];
+    const normalizedKey = key.replace(/-/g, "_");
+    const resolved = urlMap[normalizedKey];
     if (resolved) return resolved;
     console.warn(`[url-compress] Unresolved alias ${full} — replacing with placeholder`);
-    return `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(key)}`;
+    return `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(normalizedKey)}`;
   });
 }
 

@@ -157,6 +157,10 @@ export interface BriefSummarySnapshot {
   toneKeywords?: string[];
   qualityBar?: string;
   motionLevel?: string;
+  /** Primary CTA from the init brief (M#818-1 — persisted since day one, but never rehydrated before). */
+  primaryCTA?: string;
+  /** Seasonal/campaign hints from the init brief (M#818-1). */
+  seasonalHints?: string[];
   colorPalette?: {
     primary?: string;
     secondary?: string;
@@ -219,8 +223,10 @@ export function extractBriefSummaryFromSnapshot(
     typeof s.brandName === "string" ||
     typeof s.qualityBar === "string" ||
     typeof s.motionLevel === "string" ||
+    typeof s.primaryCTA === "string" ||
     (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
     (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
+    (Array.isArray(s.seasonalHints) && s.seasonalHints.length > 0) ||
     Boolean(colorPalette) ||
     Boolean(typography) ||
     (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0) ||
@@ -233,6 +239,8 @@ export function extractBriefSummaryFromSnapshot(
     toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
     qualityBar: typeof s.qualityBar === "string" ? s.qualityBar : undefined,
     motionLevel: typeof s.motionLevel === "string" ? s.motionLevel : undefined,
+    primaryCTA: typeof s.primaryCTA === "string" ? s.primaryCTA : undefined,
+    seasonalHints: Array.isArray(s.seasonalHints) ? (s.seasonalHints as string[]) : undefined,
     colorPalette,
     typography,
     requestedCapabilities: Array.isArray(s.requestedCapabilities)
@@ -302,6 +310,17 @@ export function buildFollowUpBriefFromSnapshot(
   }
   if (summary.qualityBar) out.qualityBar = summary.qualityBar;
   if (summary.motionLevel) out.motionLevel = summary.motionLevel;
+  // M#818-1 (818-svärm 2026-07-02): the snapshot persisted `primaryCTA` from
+  // day one but never rehydrated it, and `seasonalHints` was never persisted —
+  // so follow-ups silently lost the init brief's primary CTA and seasonal/
+  // campaign signals. Map back under the exact keys system-prompt consumers
+  // read (`brief.primaryCallToAction`, `brief.seasonalHints`). Note: brief
+  // `pages[]` is deliberately NOT snapshotted/rehydrated — follow-up IA comes
+  // from the base version's files via the route freeze (fresher truth).
+  if (summary.primaryCTA) out.primaryCallToAction = summary.primaryCTA;
+  if (summary.seasonalHints && summary.seasonalHints.length > 0) {
+    out.seasonalHints = summary.seasonalHints;
+  }
   // Returning an empty object is worse than null — downstream guards
   // expect either a populated brief or no brief at all.
   if (Object.keys(out).length === 0) return null;

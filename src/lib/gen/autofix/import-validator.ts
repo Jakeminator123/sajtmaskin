@@ -290,6 +290,13 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
 
       let changed = false;
       const fixedSpecs = specifiers.flatMap((raw) => {
+        // M#cr1 side-fix: inline type specifiers (`type PawPrint`) must be
+        // left untouched. Running them through parseSpecifier/findNearestIcon
+        // treated the whole string "type PawPrint" as an icon name and
+        // fuzzy-corrupted the import into `Type as type PawPrint` (parse
+        // error). Type-only bindings are erased at build — never fuzzy-match
+        // or remove them here.
+        if (/^type\s+/.test(raw)) return [raw];
         const { imported, local } = parseSpecifier(raw);
 
         if (isLucideTypeOnlyExport(imported) || isLucideTypeOnlyExport(local)) {
@@ -317,6 +324,7 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
 
       const replacedNames = specifiers
         .filter((raw) => {
+          if (/^type\s+/.test(raw)) return false;
           const { imported } = parseSpecifier(raw);
           return !LUCIDE_ICONS.has(imported) && findNearestIcon(imported) !== null;
         })
@@ -753,24 +761,95 @@ const ICON_PROPERTY_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*:\s*([A-Z][A-Za-z0-9]*)\b/g
  */
 const ICON_PROPERTY_JSX_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*=\s*\{\s*([A-Z][A-Za-z0-9]*)\s*\}/g;
 
-/** Names bound by any import statement (default, named/aliased, namespace). */
-function collectImportedBindings(code: string): Set<string> {
-  const names = new Set<string>();
+/**
+ * Names bound by import statements, split into VALUE bindings and TYPE-ONLY
+ * bindings (M#cr1). `import type { PawPrint }` (or an inline `type PawPrint`
+ * specifier) is erased at build — a bare `icon: PawPrint` value usage still
+ * ships a TS1361/`ReferenceError` unless the binding is converted to a value
+ * import. Treating both kinds as "already imported" (the old single-Set
+ * behaviour) silently skipped exactly the file that needed fixing.
+ */
+function collectImportedBindings(code: string): {
+  value: Set<string>;
+  typeOnly: Set<string>;
+} {
+  const value = new Set<string>();
+  const typeOnly = new Set<string>();
   for (const line of code.split("\n")) {
-    const named = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}/);
+    const named = line.match(/^\s*import\s+(type\s+)?\{([^}]+)\}/);
     if (named) {
-      for (const spec of named[1].split(",")) {
-        const aliased = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
-        const bound = aliased ? aliased[2] : spec.trim();
-        if (bound) names.add(bound);
+      const lineIsTypeOnly = Boolean(named[1]);
+      for (const rawSpec of named[2].split(",")) {
+        let spec = rawSpec.trim();
+        if (!spec) continue;
+        const specIsTypeOnly = /^type\s+/.test(spec);
+        if (specIsTypeOnly) spec = spec.replace(/^type\s+/, "");
+        const aliased = spec.match(/(\w+)\s+as\s+(\w+)/);
+        const bound = aliased ? aliased[2] : spec;
+        if (!bound) continue;
+        if (lineIsTypeOnly || specIsTypeOnly) typeOnly.add(bound);
+        else value.add(bound);
       }
     }
     const def = line.match(/^\s*import\s+([A-Za-z_$][\w$]*)\s*(?:,|from)\s/);
-    if (def) names.add(def[1]);
+    if (def) value.add(def[1]);
     const ns = line.match(/^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)/);
-    if (ns) names.add(ns[1]);
+    if (ns) value.add(ns[1]);
   }
-  return names;
+  return { value, typeOnly };
+}
+
+/**
+ * Convert a type-only lucide binding into a value binding (M#cr1). Handles:
+ *  - inline spec in a value import: `import { type PawPrint, Menu } from
+ *    "lucide-react"` → strip the `type` keyword (done — no further add needed);
+ *  - whole-line `import type { PawPrint } from "lucide-react"` with a single
+ *    spec → flip the line to a value import (done);
+ *  - whole-line with multiple specs → remove the name from the type line and
+ *    report `needsValueImport: true` so the caller adds the value import.
+ *
+ * Only lucide-react imports are converted — a type binding from any other
+ * module is a different symbol and is left for the LLM fixer (returns null).
+ */
+function convertLucideTypeImportToValue(
+  code: string,
+  name: string,
+): { code: string; needsValueImport: boolean } | null {
+  const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const lines = code.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.includes("lucide-react")) continue;
+
+    // Inline `type Name` spec inside a VALUE import line.
+    if (/^\s*import\s+\{/.test(line) && !/^\s*import\s+type\s/.test(line)) {
+      const inlineRe = new RegExp(`(\\{[^}]*?)\\btype\\s+(${n})\\b`);
+      if (inlineRe.test(line)) {
+        lines[i] = line.replace(inlineRe, "$1$2");
+        return { code: lines.join("\n"), needsValueImport: false };
+      }
+      continue;
+    }
+
+    // Whole-line `import type { … } from "lucide-react"`.
+    const whole = line.match(
+      /^(\s*import\s+)type\s+\{([^}]*)\}(\s*from\s+["']lucide-react["'].*)$/,
+    );
+    if (!whole) continue;
+    const specs = whole[2]
+      .split(",")
+      .map((spec) => spec.trim())
+      .filter(Boolean);
+    if (!specs.includes(name)) continue;
+    if (specs.length === 1) {
+      lines[i] = `${whole[1]}{ ${name} }${whole[3]}`;
+      return { code: lines.join("\n"), needsValueImport: false };
+    }
+    const remaining = specs.filter((spec) => spec !== name);
+    lines[i] = `${whole[1]}type { ${remaining.join(", ")} }${whole[3]}`;
+    return { code: lines.join("\n"), needsValueImport: true };
+  }
+  return null;
 }
 
 /**
@@ -793,6 +872,26 @@ function fileDeclaresSymbolLocally(code: string, name: string): boolean {
       `|(?:^|\\n)\\s*(?:async\\s+)?${kw}\\s+${n}\\b`,
   );
   if (declaration.test(code)) return true;
+  // M#cr2 / BB#296: destructuring and parameter bindings also declare the
+  // name locally. Without these, `const { icon: PawPrint } = x` or
+  // `function Card({ icon: PawPrint })` matched the icon-value regexes above
+  // and got a DUPLICATE lucide import injected (TS2440 — semantic, not a
+  // parse error, so the guarded wrapper does not revert it on the
+  // export/preview path).
+  //  - variable destructuring: `const { icon: PawPrint } = …` / `const { PawPrint } = …`
+  const destructuring = new RegExp(
+    `(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s*\\{[^}]*\\b(?:\\w+\\s*:\\s*)?${n}\\b[^}]*\\}\\s*=`,
+  );
+  if (destructuring.test(code)) return true;
+  //  - parameter destructuring: `function Card({ icon: PawPrint, … })` and
+  //    arrow components `const Card = ({ icon: PawPrint }) => …`. A CALL with
+  //    an object literal (`fn({ icon: PawPrint })`) deliberately does NOT match:
+  //    there the `(` follows an identifier, not `function name` or `=`.
+  const paramDestructuring = new RegExp(
+    `function\\s+[A-Za-z_$][\\w$]*\\s*\\(\\s*\\{[^)]*\\b(?:\\w+\\s*:\\s*)?${n}\\b` +
+      `|=\\s*(?:async\\s*)?\\(\\s*\\{[^)]*\\b(?:\\w+\\s*:\\s*)?${n}\\b`,
+  );
+  if (paramDestructuring.test(code)) return true;
   return new RegExp(`export\\s*\\{[^}]*\\b${n}\\b[^}]*\\}`).test(code);
 }
 
@@ -821,17 +920,36 @@ function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFi
 
   const imported = collectImportedBindings(code);
   const toAdd: string[] = [];
+  let working = code;
   for (const name of candidates) {
     if (!LUCIDE_ICONS.has(name)) continue; // must be a real lucide icon
     if (NEXT_AUTO_IMPORTS[name]) continue; // Image/Link/Metadata → next/*, not lucide
     if (name in SHADCN_COMPONENTS) continue; // avoid shadcn-component collision
-    if (imported.has(name)) continue; // already imported (incl. JSX fixer above)
+    if (imported.value.has(name)) continue; // already value-imported (incl. JSX fixer above)
     if (fileDeclaresSymbolLocally(code, name)) continue; // local symbol, not lucide
+    if (imported.typeOnly.has(name)) {
+      // M#cr1: `import type { PawPrint }` + `icon: PawPrint` — the type
+      // binding is erased at build, so convert it to a value import instead
+      // of adding a duplicate binding (TS2300/TS2440).
+      const converted = convertLucideTypeImportToValue(working, name);
+      if (!converted) continue; // type-imported from a non-lucide module — leave for the LLM
+      working = converted.code;
+      if (!converted.needsValueImport) {
+        fixes.push({
+          fixer: "import-validator",
+          description: `Converted type-only lucide import to value import for icon property: ${name}`,
+          line: 0,
+        });
+        continue;
+      }
+      // Name removed from the multi-spec type line — fall through to add the
+      // value import below.
+    }
     if (!toAdd.includes(name)) toAdd.push(name);
   }
-  if (toAdd.length === 0) return { code, fixes };
+  if (toAdd.length === 0) return { code: working, fixes };
 
-  const lines = code.split("\n");
+  const lines = working.split("\n");
   // Merge ONLY into a value named import, never `import type { … }` (that would
   // make the icon type-only and re-break the value usage with TS1361).
   const existingIdx = lines.findIndex(

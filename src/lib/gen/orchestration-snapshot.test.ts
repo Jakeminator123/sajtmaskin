@@ -225,13 +225,22 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
 
   it("returns null when briefSummary has no usable fields", () => {
     expect(
-      buildFollowUpBriefFromSnapshot({ briefSummary: { primaryCTA: "Boka" } }),
-    ).toBeNull();
-    expect(
       buildFollowUpBriefFromSnapshot({
         briefSummary: { colorPalette: {}, typography: {}, domainProfile: {} },
       }),
     ).toBeNull();
+  });
+
+  it("rehydrates primaryCTA + seasonalHints under consumer keys (M#818-1)", () => {
+    // The snapshot persisted `primaryCTA` from day one but never read it back,
+    // and `seasonalHints` was never persisted — follow-ups silently lost both.
+    const brief = buildFollowUpBriefFromSnapshot({
+      briefSummary: { primaryCTA: "Boka nu", seasonalHints: ["jul", "vinterkampanj"] },
+    });
+    expect(brief).toEqual({
+      primaryCallToAction: "Boka nu",
+      seasonalHints: ["jul", "vinterkampanj"],
+    });
   });
 
   it("hydrates requestedCapabilities + domainProfile so dossier-pick works on follow-up", () => {

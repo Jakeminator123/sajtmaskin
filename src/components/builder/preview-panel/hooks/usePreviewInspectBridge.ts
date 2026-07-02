@@ -33,6 +33,8 @@ type BridgeElement = {
   nearestHeading?: string | null;
   rect?: BridgeRect;
   viewport?: { w: number; h: number };
+  /** Faktisk klickpunkt i viewport-koordinater (B-fix #164/#197). */
+  click?: { x?: number; y?: number };
 };
 
 function originForUrl(url: string | null): string | null {
@@ -67,6 +69,14 @@ export function usePreviewInspectBridge(options: {
   setLastCodeMatch: Dispatch<SetStateAction<RegistryMatch | null>>;
   /** Tie-in: anropas med kod-träffen (om någon) när ett element valts. */
   onPick?: (match: RegistryMatch | null) => void;
+  /**
+   * A-fix (#164/#197): anropas när bridge-scriptet inte annonserat `ready`
+   * inom timeouten efter att inspektionsläget slagits på — previewn saknar
+   * injektionen (gammal session, icke-injicerbar HTML, blockerat script).
+   * Callern förväntas falla tillbaka till map/ai-motorn i stället för att
+   * lämna inspektorn inert.
+   */
+  onBridgeUnavailable?: () => void;
 }) {
   const {
     enabled,
@@ -79,6 +89,7 @@ export function usePreviewInspectBridge(options: {
     setInspectStatus,
     setLastCodeMatch,
     onPick,
+    onBridgeUnavailable,
   } = options;
 
   const childReadyRef = useRef(false);
@@ -120,6 +131,25 @@ export function usePreviewInspectBridge(options: {
   useEffect(() => {
     if (enabled && active && inspectMode) void fetchFilesForRegistry();
   }, [enabled, active, inspectMode, fetchFilesForRegistry]);
+
+  // A-fix (#164/#197): ready-timeout. Utan denna blev inspektorn tyst inert
+  // när `ready` aldrig kom (preview utan injektion). Efter timeouten meddelas
+  // callern som kan växla till map/ai-motorn.
+  const onBridgeUnavailableRef = useRef(onBridgeUnavailable);
+  useEffect(() => {
+    onBridgeUnavailableRef.current = onBridgeUnavailable;
+  }, [onBridgeUnavailable]);
+  useEffect(() => {
+    if (!enabled || !active || !inspectMode) return;
+    if (childReadyRef.current) return;
+    const READY_TIMEOUT_MS = 5000;
+    const timer = setTimeout(() => {
+      if (childReadyRef.current) return;
+      setInspectStatus("Inspector-bron svarade inte — växlar till kartläge.");
+      onBridgeUnavailableRef.current?.();
+    }, READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [enabled, active, inspectMode, previewUrl, setInspectStatus]);
 
   useEffect(() => {
     if (!enabled || !active) return;
@@ -180,8 +210,13 @@ export function usePreviewInspectBridge(options: {
         const rect = el.rect;
         const vw = el.viewport?.w || rect?.width || 1;
         const vh = el.viewport?.h || rect?.height || 1;
-        const cx = rect ? rect.x + rect.width / 2 : 0;
-        const cy = rect ? rect.y + rect.height / 2 : 0;
+        // B-fix (#164/#197): föredra den faktiska klickpunkten från bridge-
+        // scriptet; elementets mittpunkt är bara fallback (äldre script utan
+        // click-fält). Mittpunkten pekar fel för stora element (hero/sektion).
+        const cx =
+          typeof el.click?.x === "number" ? el.click.x : rect ? rect.x + rect.width / 2 : 0;
+        const cy =
+          typeof el.click?.y === "number" ? el.click.y : rect ? rect.y + rect.height / 2 : 0;
         const xPercent = Number(((cx / vw) * 100).toFixed(2));
         const yPercent = Number(((cy / vh) * 100).toFixed(2));
         const matchHint = match ? ` → ${match.item.filePath}:${match.item.lineNumber}` : "";

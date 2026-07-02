@@ -1,9 +1,12 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import {
+  acquireVersionLease,
   addAssistantMessageAndCreateDraftVersion,
+  releaseVersionLease,
   updateVersionPreviewUrl,
   type Version,
 } from "@/lib/db/chat-repository-pg";
+import { warnLog } from "@/lib/utils/debug";
 import {
   startPreviewSession,
   tryPatchPreviewSession,
@@ -86,17 +89,55 @@ export async function runQuickEdit(params: {
   // design-stage minor version.
   const lifecycleStage: "design" | "integrations" = "design";
 
+  // M#qe1: take the per-version lease on the BASE version around the persist,
+  // so a minor is never created from a base that a concurrent server-verify /
+  // repair job is mutating (same lease the verify/repair paths hold). An owned
+  // lease → decline retryable; a lease-infra error (missing table, DB hiccup)
+  // degrades to the legacy unlocked path — same fail-safe as repair/route.ts.
+  let leaseRunId: string | null = null;
+  try {
+    const lease = await acquireVersionLease(baseVersion.id, "quick_edit");
+    if (!lease) {
+      return {
+        ok: false,
+        reason: "base_busy",
+        message:
+          "Base version is busy (a verify/repair job holds the lock). Try again shortly.",
+      };
+    }
+    leaseRunId = lease.runId;
+  } catch (err) {
+    warnLog("engine", "[quick-edit] version lease acquire failed; continuing unlocked", {
+      chatId: params.chatId,
+      baseVersionId: baseVersion.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  let persisted: Awaited<ReturnType<typeof addAssistantMessageAndCreateDraftVersion>>;
   const filesJson = JSON.stringify(applied.files);
-  const persisted = await addAssistantMessageAndCreateDraftVersion(
-    params.chatId,
-    summarizeChange(applied.changedPaths, params.summary),
-    filesJson,
-    {
-      editKind: "quick_edit",
-      parentVersionId,
-      lifecycleStage,
-    },
-  );
+  try {
+    persisted = await addAssistantMessageAndCreateDraftVersion(
+      params.chatId,
+      summarizeChange(applied.changedPaths, params.summary),
+      filesJson,
+      {
+        editKind: "quick_edit",
+        parentVersionId,
+        lifecycleStage,
+      },
+    );
+  } finally {
+    if (leaseRunId) {
+      await releaseVersionLease(baseVersion.id, leaseRunId).catch((err) => {
+        warnLog("engine", "[quick-edit] version lease release failed", {
+          chatId: params.chatId,
+          baseVersionId: baseVersion.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+  }
 
   const newVersionId = persisted.version.id;
   const structuralChange = applied.changedPaths.some(isStructuralQuickEditPath);
@@ -153,7 +194,16 @@ export async function runQuickEdit(params: {
   }
 
   if (previewUrl && previewUrl.trim()) {
-    await updateVersionPreviewUrl(newVersionId, previewUrl).catch(() => null);
+    // M#qe2: best-effort persist, but never silently — a failed write means a
+    // reload loses the preview URL (VM bootstrap recreates it, with a restart).
+    await updateVersionPreviewUrl(newVersionId, previewUrl).catch((err) => {
+      warnLog("engine", "[quick-edit] Failed to persist previewUrl", {
+        chatId: params.chatId,
+        versionId: newVersionId,
+        previewUrl,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   return {

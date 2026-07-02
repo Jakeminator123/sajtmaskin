@@ -108,6 +108,8 @@ import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
@@ -385,6 +387,110 @@ export async function handleMessageStreamRequest(
                 { status: 409 },
               ),
             );
+          }
+        }
+        // M#818-2: F3 env-readiness gate. `/finalize-design` is the intended F3
+        // entry point and refuses to hand out `lifecycleStage: "integrations"`
+        // stream-meta until every required real env key is present (412) — but
+        // this route trusted the meta blindly, so a client that skipped
+        // finalize-design started F3 codegen with placeholder keys and burned
+        // credits on a generation whose build gate was guaranteed to fail.
+        // Re-check the same shared gate here (server-authoritative), scoped to
+        // the parent F2 version being forked (fall back to the chat's preferred
+        // version when the meta omits it). Gate errors fail open with a log —
+        // the F3 quality gate (build+lint) still catches a broken build.
+        if (parsedMeta.lifecycleStage === "integrations" && !metaPlanMode) {
+          // Codex P1 (PR #351): the readiness gate must inspect the version the
+          // generation will ACTUALLY build from — `engineBaseVersionId` drives
+          // the file context (`resolveFollowUpPreviousFiles`), while
+          // `parentVersionId` is only persisted as lineage. A caller that sends
+          // both with different ids could point `parentVersionId` at a
+          // no-integration version to sneak past the gate, so a mismatched pair
+          // is refused outright (the legit F3 trigger sends them equal —
+          // BuilderShellContent.tsx).
+          if (
+            metaEngineBaseVersionId &&
+            parsedMeta.parentVersionId &&
+            metaEngineBaseVersionId !== parsedMeta.parentVersionId
+          ) {
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error: "f3_base_mismatch",
+                  message:
+                    "F3-start kräver att engineBaseVersionId och parentVersionId pekar på samma F2-version.",
+                  engineBaseVersionId: metaEngineBaseVersionId,
+                  parentVersionId: parsedMeta.parentVersionId,
+                },
+                { status: 409 },
+              ),
+            );
+          }
+          try {
+            // Chat-scope the client-supplied id (mirrors
+            // `resolveFollowUpPreviousFiles`): an id that does not belong to
+            // this chat falls back to the chat's preferred version — the same
+            // base the generation itself would fall back to.
+            const requestedGateVersionId =
+              metaEngineBaseVersionId ?? parsedMeta.parentVersionId ?? null;
+            let gateVersionId: string | null = null;
+            if (requestedGateVersionId) {
+              const gateVersion = await chatRepo.getVersionById(requestedGateVersionId);
+              gateVersionId =
+                gateVersion && gateVersion.chat_id === engineChat.id
+                  ? gateVersion.id
+                  : null;
+            }
+            gateVersionId =
+              gateVersionId ?? (await resolveChatPreferredVersionId(engineChat.id));
+            if (gateVersionId) {
+              const gate = await checkTier3ReadinessForVersion({
+                versionId: gateVersionId,
+                selectedDossiers: resolveSelectedDossiersFromSnapshot(
+                  engineChat.orchestration_snapshot,
+                ),
+                projectId: engineChat.project_id ?? null,
+              });
+              if (!gate.ok && gate.reason === "missing_env") {
+                debugLog("orchestration", "F3 stream gated on env readiness (412)", {
+                  chatId,
+                  versionId: gateVersionId,
+                  missingByIntegration: gate.readiness.missingByIntegration,
+                });
+                return attachSessionCookie(
+                  NextResponse.json(
+                    {
+                      error: "tier3_env_not_ready",
+                      ready: false,
+                      parentVersionId: gateVersionId,
+                      missingByIntegration: gate.readiness.missingByIntegration,
+                      message:
+                        "Tunga integrationer kräver riktiga env-variabler innan F3 kan köras. Kör 'Bygg integrationer' via finalize-design.",
+                    },
+                    { status: 412 },
+                  ),
+                );
+              }
+              if (!gate.ok) {
+                return attachSessionCookie(
+                  NextResponse.json(
+                    {
+                      error: "version_files_unavailable",
+                      ready: false,
+                      parentVersionId: gateVersionId,
+                      message:
+                        "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+                    },
+                    { status: 409 },
+                  ),
+                );
+              }
+            }
+          } catch (gateErr) {
+            debugLog("orchestration", "F3 stream readiness gate errored — failing open", {
+              chatId,
+              error: gateErr instanceof Error ? gateErr.message : String(gateErr),
+            });
           }
         }
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`

@@ -107,7 +107,13 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     if (!enabled) return;
     e.preventDefault(); e.stopPropagation();
     var el = pickAt(e.clientX, e.clientY); if (!el) return;
-    post(T.pick, describe(el));
+    // Inspect-kluster B (#164/#197): skicka den faktiska KLICKPUNKTEN med i
+    // payloaden. Parent räknade tidigare fram elementets mittpunkt från rect,
+    // vilket pekar fel för stora element (hero/sektioner) — användaren
+    // klickade t.ex. på en knapp i kanten men punkten hamnade i mitten.
+    var d = describe(el);
+    if (d) d.click = { x: Math.round(e.clientX), y: Math.round(e.clientY) };
+    post(T.pick, d);
   }
   function setEnabled(v) {
     enabled = !!v;
