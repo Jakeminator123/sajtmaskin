@@ -61,6 +61,13 @@ export async function persistTelemetryRecord(params: {
   buildSpec?: BuildSpec | null;
   resolvedTier?: CanonicalModelId;
   orchestrationStreamMeta: Record<string, unknown> | null | undefined;
+  /**
+   * Fas 0 telemetri-hygien: id:n för de dossiers som faktiskt valdes för
+   * denna generation. Persisteras i `meta.selectedDossierIds` (ingen ny
+   * kolumn — `control-stats.mjs` läser redan `meta->...`). En tom lista
+   * skrivs INTE så meta hålls rent och historiska rader förblir jämförbara.
+   */
+  selectedDossierIds?: string[] | null;
 }): Promise<string | null> {
   const {
     chatId,
@@ -95,6 +102,7 @@ export async function persistTelemetryRecord(params: {
     buildSpec,
     resolvedTier,
     orchestrationStreamMeta,
+    selectedDossierIds,
   } = params;
   try {
     const telemetryMeta: Record<string, unknown> = {
@@ -136,6 +144,13 @@ export async function persistTelemetryRecord(params: {
     const tls = orchestrationStreamMeta?.templateLibrarySearch;
     if (tls && typeof tls === "object") {
       telemetryMeta.templateLibrarySearch = tls;
+    }
+
+    // Fas 0 telemetri-hygien: dossier-val. Skriv bara när något valdes så
+    // att `meta` inte fylls med tomma arrayer (historiska rader utan nyckeln
+    // ska förbli jämförbara med "ingen dossier").
+    if (selectedDossierIds && selectedDossierIds.length > 0) {
+      telemetryMeta.selectedDossierIds = selectedDossierIds;
     }
 
     const scaffoldSelectionMethod =
