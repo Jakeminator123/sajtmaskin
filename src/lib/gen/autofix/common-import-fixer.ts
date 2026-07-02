@@ -101,7 +101,7 @@ function findLastImportIndex(lines: string[]): number {
   return last;
 }
 
-function insertImportAfterDirectives(code: string, importLine: string): string {
+export function insertImportAfterDirectives(code: string, importLine: string): string {
   const directiveMatch = USE_CLIENT_DIRECTIVE_RE.exec(code);
   if (directiveMatch) {
     const end = directiveMatch[0].length;
@@ -246,7 +246,7 @@ function isEligibleSharedSymbol(name: string): boolean {
  *                           canonical sources; they exist to satisfy the
  *                           resolver until the real file arrives
  */
-function isIndexableSharedFile(path: string): boolean {
+export function isIndexableSharedFile(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
   if (/(^|\/)node_modules\//.test(normalized)) return false;
   if (/(^|\/)app\//.test(normalized)) return false;
@@ -254,7 +254,7 @@ function isIndexableSharedFile(path: string): boolean {
   return /(^|\/)(hooks|components|lib|data|utils)\//.test(normalized);
 }
 
-function toAliasImportPath(path: string): string {
+export function toAliasImportPath(path: string): string {
   let normalized = path.replace(/\\/g, "/").replace(/\.(tsx?|jsx?)$/i, "");
   if (normalized.startsWith("src/")) normalized = normalized.slice(4);
   if (normalized.endsWith("/index")) normalized = normalized.slice(0, -"/index".length);

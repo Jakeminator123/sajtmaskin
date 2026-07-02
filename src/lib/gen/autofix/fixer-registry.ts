@@ -68,6 +68,13 @@ export interface FixerRegistryEntry {
   triggers: string[];
   status: FixerStatus;
   ownerPhase: FixerOwnerPhase;
+  /**
+   * Additional lifecycle phases that ALSO run this fixer. `ownerPhase` stays
+   * the primary/grouping phase; multi-phase fixers (e.g. the diagnostic-driven
+   * import repair that runs in both finalize normalize and server-repair) list
+   * their secondary phases here.
+   */
+  additionalOwnerPhases?: FixerOwnerPhase[];
   /** Prometheus/dev metric counter name (when wired). */
   telemetryCounter?: string;
   /** Free text — design decisions, links to plans, deprecation notes. */
@@ -350,20 +357,44 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     targetFailureMode:
       "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK)",
     triggers: [
-      "quality-gate tsc `Cannot find name 'X'` where X resolves to a known module",
+      "warm-tsc / quality-gate tsc `Cannot find name 'X'` where X resolves to a known module",
     ],
     status: "active",
-    ownerPhase: "server-repair",
+    ownerPhase: "post-syntax",
+    additionalOwnerPhases: ["server-repair"],
     notes:
-      "Diagnostic-driven (consumes the gate's tsc output) rather than a JSX scan, " +
-      "so it also catches non-JSX value usages. Invoked from the repair-loop " +
-      "deterministic import-repair pre-pass (repair-loop/deterministic-import-repair.ts) " +
-      "BEFORE the LLM fixer. shadcn∩lucide collision names (Badge, Calendar, Table, …) " +
-      "are resolved usage-aware (M#badge1): children/variant/asChild → shadcn, " +
-      "icon-ish self-closing → lucide, unclear → left for the LLM. Stripe resolves " +
-      "only in API route / route-handler files. Tier-3 backend SDKs (Clerk-server, " +
-      "Stripe) are only (re)introduced in F3 (fidelity3); in F2 they stay residual " +
-      "so the F2 SDK guard is never undone.",
+      "Diagnostic-driven (consumes tsc output) rather than a JSX scan, so it " +
+      "also catches non-JSX value usages. Runs in the shared deterministic " +
+      "import-repair (autofix/deterministic-import-repair.ts) BEFORE any LLM " +
+      "fixer, from BOTH entrypoints: the finalize normalize pass on warm-tsc " +
+      "failure (validate-and-fix.ts) and the server repair-loop pre-pass " +
+      "(verify/repair-loop.ts). shadcn∩lucide collision names (Badge, Calendar, " +
+      "Table, …) are resolved usage-aware (M#badge1): children/variant/asChild → " +
+      "shadcn, icon-ish self-closing → lucide, unclear → left for the LLM. Stripe " +
+      "resolves only in API route / route-handler files. Tier-3 backend SDKs " +
+      "(Clerk-server, Stripe) are only (re)introduced in F3 (fidelity3); in F2 " +
+      "they stay residual so the F2 SDK guard is never undone.",
+  },
+  {
+    id: "own-component-import-fixer",
+    category: "mechanical-import",
+    sourcePath: "src/lib/gen/autofix/deterministic-import-repair.ts",
+    targetFailureMode:
+      "TS2304 missing import for a component/symbol the version's OWN files export (e.g. `Reveal` in components/reveal.tsx) — not a library name",
+    triggers: [
+      "warm-tsc / quality-gate tsc `Cannot find name 'X'` where X is NOT a known-library name and exactly one own project file exports it",
+    ],
+    status: "active",
+    ownerPhase: "post-syntax",
+    additionalOwnerPhases: ["server-repair"],
+    notes:
+      "Fas 1 kontrollflöde: closes the own-component TS2304 class (prod 14d: " +
+      "Reveal 14 hits). Classification only — known library vs own file vs " +
+      "unknown; no component registry. Named exports reuse the unique-candidate " +
+      "injector (fixMissingLocalSymbolImports); default exports resolve when " +
+      "exactly one shared own file default-exports the name. Unknown names keep " +
+      "existing behaviour (cross-file-checker/stub downstream) — normalize never " +
+      "creates new silent stubs.",
   },
   {
     id: "metadata-import-fixer",

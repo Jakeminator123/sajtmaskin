@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runDeterministicImportRepair } from "./deterministic-import-repair";
-import type { ParsedRepairDiagnostic } from "./diagnostics-parser";
+import type { DeterministicImportRepairDiagnostic } from "./deterministic-import-repair";
 
 function file(path: string, content: string): string {
   return `\`\`\`tsx file="${path}"\n${content}\n\`\`\``;
@@ -10,8 +10,8 @@ function project(...files: string[]): string {
   return files.join("\n\n");
 }
 
-function diag(filePath: string, message: string): ParsedRepairDiagnostic {
-  return { file: filePath, line: 1, column: 1, message, source: "typecheck" };
+function diag(filePath: string, message: string): DeterministicImportRepairDiagnostic {
+  return { file: filePath, message };
 }
 
 describe("runDeterministicImportRepair", () => {
@@ -332,6 +332,169 @@ export const list = [{ icon: Sparkles }];`,
     expect(result.handledCodes).toContain("TS1361");
     expect(result.content).toContain('import { Card } from "@/components/ui/card"');
     expect(result.content).toContain('import { Sparkles } from "lucide-react"');
+  });
+
+  it("smörsajt regression: overlapping react imports consolidate into ONE value import (TS2300)", () => {
+    // The repair paths themselves used to create this state: a file with an
+    // existing react import where a repair pass injected a second/third
+    // `import ... from "react"` line re-declaring useEffect/useState/ReactNode.
+    // The generic duplicate-binding pruner keeps the FIRST declaration, which
+    // for the type/value pair would keep `import type { ReactNode }` and
+    // re-break the value usage — consolidation must win instead.
+    const f = "components/three-canvas-shell.tsx";
+    const content = file(
+      f,
+      `"use client";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
+
+export function ThreeCanvasShell({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  return <div>{ready ? children : null}</div>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "Duplicate identifier 'ReactNode'."),
+      diag(f, "Duplicate identifier 'useEffect'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2300");
+    const reactImportLines = result.content
+      .split("\n")
+      .filter((line) => /from "react"/.test(line));
+    expect(reactImportLines).toHaveLength(1);
+    expect(reactImportLines[0]).toContain("useEffect");
+    expect(reactImportLines[0]).toContain("useState");
+    expect(reactImportLines[0]).toContain("ReactNode");
+    // Value usage requires a VALUE import — no type-only react import left.
+    expect(reactImportLines[0]).not.toMatch(/import\s+type/);
+  });
+
+  it("consolidates a doubled default React import (webpack-crash class)", () => {
+    const f = "components/three-canvas-shell.tsx";
+    const content = file(
+      f,
+      `"use client";
+import React from "react";
+import React from "react";
+
+export function Shell() {
+  return <React.Fragment>ok</React.Fragment>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "Duplicate identifier 'React'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2300");
+    const reactImportLines = result.content
+      .split("\n")
+      .filter((line) => /from "react"/.test(line));
+    expect(reactImportLines).toHaveLength(1);
+  });
+
+  it("resolves a TS2304 for an own component with a NAMED export (Reveal class)", () => {
+    const page = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Reveal delay={0.2}>Hello</Reveal>;
+}`,
+    );
+    const reveal = file(
+      "components/reveal.tsx",
+      `"use client";
+
+export function Reveal({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}`,
+    );
+    const result = runDeterministicImportRepair(project(page, reveal), [
+      diag("app/page.tsx", "Cannot find name 'Reveal'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2304");
+    expect(result.fixes.some((fix) => fix.fixer === "own-component-import-fixer")).toBe(
+      true,
+    );
+    expect(result.content).toContain('import { Reveal } from "@/components/reveal"');
+    // The component file itself is untouched.
+    expect(result.content).toContain("export function Reveal");
+  });
+
+  it("resolves a TS2304 for an own component with a DEFAULT export", () => {
+    const page = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Reveal>Hello</Reveal>;
+}`,
+    );
+    const reveal = file(
+      "components/reveal.tsx",
+      `"use client";
+
+export default function Reveal({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}`,
+    );
+    const result = runDeterministicImportRepair(project(page, reveal), [
+      diag("app/page.tsx", "Cannot find name 'Reveal'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2304");
+    expect(result.content).toContain('import Reveal from "@/components/reveal"');
+  });
+
+  it("leaves an unknown name with NO matching own file untouched (no silent stub)", () => {
+    const page = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Reveal>Hello</Reveal>;
+}`,
+    );
+    const other = file(
+      "components/hero.tsx",
+      `export function Hero() {
+  return <div>hero</div>;
+}`,
+    );
+    const content = project(page, other);
+    const result = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Reveal'."),
+    ]);
+
+    expect(result.fixed).toBe(false);
+    expect(result.handledCodes).toEqual([]);
+    expect(result.content).toBe(content);
+  });
+
+  it("does not import an own file when TWO own files export the same name (ambiguous)", () => {
+    const page = file(
+      "app/page.tsx",
+      `export default function Page() {
+  return <Reveal>Hello</Reveal>;
+}`,
+    );
+    const a = file(
+      "components/reveal.tsx",
+      `export function Reveal() { return <div>a</div>; }`,
+    );
+    const b = file(
+      "components/effects/reveal.tsx",
+      `export function Reveal() { return <div>b</div>; }`,
+    );
+    const content = project(page, a, b);
+    const result = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Reveal'."),
+    ]);
+
+    expect(result.fixed).toBe(false);
+    expect(result.content).toBe(content);
   });
 
   it("is idempotent — a second run makes no further change", () => {
