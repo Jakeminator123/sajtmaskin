@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -512,6 +513,26 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // (the VM typecheck did not pass) plus `designAdvisory` + `advisoryChecks`
         // so no consumer reads this as a solid-green build.
         if (f2TypecheckAdvisory) {
+          // Surface the advisory on the version-status projection (Codex #345
+          // P1): without a degradation the status token reads solid green even
+          // though the VM typecheck failed. `version.degraded` maps a `done`
+          // phase to `degraded` ("klar med varningar") in
+          // `mapVersionStatusToDisplay`; the DURABLE record is the promoted
+          // row's `verification_summary` (advisory text) + the warning row in
+          // `engine_version_error_logs` persisted above.
+          try {
+            emitBusEvent({
+              t: "version.degraded",
+              versionId: internalVersionId,
+              chatId,
+              kind: "typecheck_advisory",
+              message:
+                "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+              meta: { advisoryChecks: advisoryCheckNames },
+            });
+          } catch {
+            // Telemetry only — never block the response on a bus failure.
+          }
           return NextResponse.json({
             ...gateResult,
             passed: true,

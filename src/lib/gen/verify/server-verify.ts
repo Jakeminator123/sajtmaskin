@@ -316,6 +316,20 @@ export async function triggerServerVerification(params: {
             .filter((r) => !r.passed)
             .map((r) => ({ id: r.check, detail: r.output?.slice(0, 200) ?? "" })),
     });
+    if (advisoryPromoted) {
+      // Advisory promotion must not read as SOLID green on the status
+      // projection: mark the run degraded ("klar med varningar") — mirrors the
+      // quality-gate route's advisory emit so both paths surface identically.
+      emitBusEvent({
+        t: "version.degraded",
+        versionId,
+        chatId,
+        kind: "typecheck_advisory",
+        message:
+          "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+        meta: { advisoryChecks: ["typecheck"] },
+      });
+    }
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,

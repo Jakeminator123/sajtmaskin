@@ -275,6 +275,12 @@ export type QualityGateCheckInfo = {
 export type QualityGatePanelProps = {
   variant: "full" | "compact";
   passed: boolean;
+  /**
+   * F2 render-first (#330): the gate "passed" only in the advisory sense —
+   * the version was promoted although the VM typecheck failed. Render the
+   * headline as an amber warning, never solid green.
+   */
+  designAdvisory?: boolean;
   skipped: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
@@ -321,8 +327,20 @@ function QualityGateFull(props: QualityGatePanelProps) {
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
       <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
       <div className="space-y-1">
-        <div className={props.passed ? "text-emerald-400" : "text-rose-400"}>
-          {props.passed ? "Godkänd" : "Underkänd"}
+        <div
+          className={
+            props.passed
+              ? props.designAdvisory
+                ? "text-amber-300"
+                : "text-emerald-400"
+              : "text-rose-400"
+          }
+        >
+          {props.passed
+            ? props.designAdvisory
+              ? "Godkänd med varningar (typecheck advisory)"
+              : "Godkänd"
+            : "Underkänd"}
         </div>
         {props.checks.map((check) => {
           const checkDuration = formatDurationMsShort(check.durationMs);
@@ -397,8 +415,21 @@ function QualityGateCompact(props: QualityGatePanelProps) {
 
   return (
     <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-      <p className={props.passed ? "text-emerald-300" : "text-rose-300"}>
-        Verifiering: {props.passed ? "Godkänd" : "Underkänd"}
+      <p
+        className={
+          props.passed
+            ? props.designAdvisory
+              ? "text-amber-300"
+              : "text-emerald-300"
+            : "text-rose-300"
+        }
+      >
+        Verifiering:{" "}
+        {props.passed
+          ? props.designAdvisory
+            ? "Godkänd med varningar (typecheck advisory)"
+            : "Godkänd"
+          : "Underkänd"}
       </p>
       {props.checks.length > 0 && (
         <p className="text-muted-foreground mt-1 wrap-break-word">

@@ -65,9 +65,9 @@ För F2-rader (`lifecycle_stage !== "integrations"`) leder ett **typecheck-only*
 - `POST .../quality-gate` promotar (fortfarande via `assertPromoteAllowed`) och svarar `{ passed: true, vmGatePassed: false, designAdvisory: true }`; ingen auto-repair triggas.
 - Bakgrunds-`server-verify` speglar regeln och försöker promota **före** `version.verifier.done`-emitten; en promote-no-op (lease/guard/DB) emitterar **ingen** terminal bus-händelse (terminal bus-`failed` är sticky i `reconcileTerminalDbState` och skulle annars pinna en falsk röd status) — bussen lämnas snurrande så DB-`passed`/watchdog resolvar.
 
-`verification_state` blir alltså `passed`/`promoted` med en `warning`-logg (`quality-gate:typecheck-advisory`), inte `failed`.
+`verification_state` blir alltså `passed`/`promoted` med en `warning`-logg (`quality-gate:typecheck-advisory`), inte `failed`. Båda vägarna emitterar dessutom `version.degraded {typecheck_advisory}` så status-projektionen visar "klar med varningar" (degraded), aldrig solid grön.
 
-Oförändrat hårt (→ `failed`/repair som förr): F3 (`integrations`), samt varje F2-fel där `build` eller `lint` failar (inkl. build-origin `forceBuildCheck`). Verifier/promote-guard-block ger fortfarande `failed`; `diagnosticOnly`-läget advisory-promotar aldrig. Render-säkerheten (att sidan renderar) gate:as uppströms i finalize-preflight, inte här.
+Oförändrat hårt (→ `failed`/repair som förr): F3 (`integrations`), varje F2-fel där `build` eller `lint` failar (inkl. build-origin `forceBuildCheck`), samt typecheck-fel med **render-risk-diagnostik** (trasig modul-/export-resolution, `RENDER_RISK_TS_CODES` i `quality-gate-checks.ts` — bryter `next dev` också) eller oparsebar tsc-output (fail-closed). Verifier/promote-guard-block ger fortfarande `failed`; `diagnosticOnly`-läget advisory-promotar aldrig. Render-säkerheten (att sidan renderar) gate:as uppströms i finalize-preflight, inte här.
 
 Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 

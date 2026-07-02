@@ -137,13 +137,23 @@ predikat så de aldrig är oense:
 - Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
 - Bara när **varje** failande check är `typecheck`. Ett `build`- eller
   `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) failar hårt som förr.
+- **Bara advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
+  resolution (TS2304/TS2305/TS2307/TS2552/TS2613/TS2614/TS1361/TS2300/TS2440 —
+  `RENDER_RISK_TS_CODES`) bryter även `next dev` i runtime och failar hårt.
+  Oparsebar tsc-output (inga TS-koder) failar också hårt (fail-closed).
+  Advisory gäller alltså bara semantiska typfel (TS2322, TS2339, TS7006, …)
+  som `next dev` bevisligen renderar igenom.
 - `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande —
   `diagnosticOnly`-läget i server-verify advisory-promotar aldrig.
 - Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
   (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
   når aldrig advisory-promote.
 - `vmGatePassed: false` bevaras så ingen konsument läser advisory som
-  solid-grön build.
+  solid-grön build, och båda vägarna emitterar `version.degraded
+  {typecheck_advisory}` så status-projektionen visar "klar med varningar"
+  (aldrig solid grön). Chat-panelen visar "Godkänd med varningar (typecheck
+  advisory)" i amber. Durabelt: promotade radens `verification_summary` bär
+  advisory-texten + `warning`-raden i `engine_version_error_logs`.
 
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden

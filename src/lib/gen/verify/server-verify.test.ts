@@ -23,10 +23,17 @@ import {
 } from "./repair-loop";
 
 describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-verify rule)", () => {
-  const fail = (check: string) => ({ check, passed: false });
-  const pass = (check: string) => ({ check, passed: true });
+  // Semantic prop-type mismatch — renders under `next dev` (advisory-safe).
+  const SEMANTIC_TSC_OUTPUT =
+    "app/page.tsx(12,9): error TS2322: Type 'string' is not assignable to type 'number'.";
+  const fail = (check: string, output: string = SEMANTIC_TSC_OUTPUT) => ({
+    check,
+    passed: false,
+    output,
+  });
+  const pass = (check: string) => ({ check, passed: true, output: "" });
 
-  it("is advisory when F2 and the only failing check is typecheck", () => {
+  it("is advisory when F2 and the only failing check is typecheck with semantic-only diagnostics", () => {
     expect(
       isTypecheckOnlyAdvisory({
         isDesignPreview: true,
@@ -54,7 +61,7 @@ describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-
         isDesignPreview: true,
         gatePassed: false,
         buildOriginated: false,
-        results: [pass("typecheck"), fail("build")],
+        results: [pass("typecheck"), fail("build", "build error")],
       }),
     ).toBe(false);
   });
@@ -84,12 +91,46 @@ describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-
   it("is NOT advisory when there are no failing checks", () => {
     expect(
       isTypecheckOnlyAdvisory({
-        isDesignPreview: true,
+        isDesignPreview: false,
         gatePassed: false,
         buildOriginated: false,
         results: [pass("typecheck")],
       }),
     ).toBe(false);
+  });
+
+  it("is NOT advisory for render-risk module/export-resolution codes (Codex #345 P1)", () => {
+    // TS2307 (cannot find module) / TS2305 (no exported member) also break
+    // `next dev` at runtime — a dead preview must never be advisory-promoted.
+    for (const output of [
+      "app/page.tsx(2,24): error TS2307: Cannot find module '@/components/hero'.",
+      "app/page.tsx(3,10): error TS2305: Module '\"@/lib/data\"' has no exported member 'items'.",
+      "app/page.tsx(5,3): error TS2304: Cannot find name 'HeroSection'.",
+      // Mixed: one safe + one render-risk → still hard.
+      `${SEMANTIC_TSC_OUTPUT}\napp/page.tsx(2,24): error TS2307: Cannot find module './x'.`,
+    ]) {
+      expect(
+        isTypecheckOnlyAdvisory({
+          isDesignPreview: true,
+          gatePassed: false,
+          buildOriginated: false,
+          results: [fail("typecheck", output)],
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it("is NOT advisory when tsc output is unparseable (fail-closed)", () => {
+    for (const output of ["", "npm exited with a weird error", undefined]) {
+      expect(
+        isTypecheckOnlyAdvisory({
+          isDesignPreview: true,
+          gatePassed: false,
+          buildOriginated: false,
+          results: [{ check: "typecheck", passed: false, output }],
+        }),
+      ).toBe(false);
+    }
   });
 });
 
