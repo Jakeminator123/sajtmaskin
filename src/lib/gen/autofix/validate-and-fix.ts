@@ -1,5 +1,6 @@
 import { RepairLedger, resolveLlmRepairConfig, runLlmRepairGate } from "./llm-repair-gate";
 import { runAutoFix } from "./pipeline";
+import { runDeterministicImportRepair } from "./deterministic-import-repair";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -238,13 +239,83 @@ async function runWarmTscPass(
       errorCount: result.diagnostics.length,
     });
 
-    const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
     let mechanicalFixesAdded = 0;
     let llmFixesAdded = 0;
+    let workingContent = contentForVersion;
+    let residualDiagnostics = result.diagnostics;
+
+    // Deterministic, diagnostic-driven import repair BEFORE the LLM (Fas 1
+    // kontrollflöde). The dominant warm-tsc failures are import-only
+    // (TS2304/TS2552 known imports, own components, TS2300 duplicate react
+    // imports, TS1361, TS2440) and the tsc diagnostics name the exact
+    // symbol + file — resolve them mechanically, re-run warm-tsc ONCE
+    // (bounded: no loop, max one extra pass per call), and only hand the
+    // genuine residue to `runLlmRepairGate`.
     try {
-      const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
+      const importRepair = runDeterministicImportRepair(
+        workingContent,
+        result.diagnostics.map((d) => ({ file: d.filePath, message: d.message })),
+        { previewPolicy: opts.previewPolicy },
+      );
+      if (importRepair.fixed) {
+        workingContent = importRepair.content;
+        mechanicalFixesAdded += importRepair.fixes.length;
+        devLogAppend("in-progress", {
+          type: "validate.tsc.import-repair",
+          chatId: opts.chatId,
+          handledCodes: importRepair.handledCodes,
+          fixCount: importRepair.fixes.length,
+          fixers: countByFixer(importRepair.fixes),
+        });
+        if (!isBudgetExceeded(opts.budgetDeadline)) {
+          const recheck = await runPreVmTypecheck({
+            scaffoldId: opts.resolvedScaffold?.id ?? null,
+            files: parseCodeProject(workingContent).files,
+            force: opts.forceTsc === true,
+          });
+          if (!recheck.skipped && recheck.ok) {
+            // Proof signal for prod analysis: warm-tsc passed after the
+            // deterministic import repair — the LLM fixer was skipped.
+            devLogAppend("in-progress", {
+              type: "validate.tsc.import-repair.resolved",
+              chatId: opts.chatId,
+              handledCodes: importRepair.handledCodes,
+              llmSkippedBecauseResolved: true,
+            });
+            opts.onProgress?.({ pass: opts.pass, phase: "tsc-passed", errorCount: 0 });
+            return {
+              content: workingContent,
+              tsc: {
+                ran: true,
+                diagnosticCount: result.diagnostics.length,
+                repaired: true,
+                durationMs: Date.now() - startedAt,
+              },
+              mechanicalFixesAdded,
+              llmFixesAdded: 0,
+            };
+          }
+          if (!recheck.skipped) {
+            residualDiagnostics = recheck.diagnostics;
+          }
+        }
+      }
+    } catch (importRepairErr) {
+      devLogAppend("in-progress", {
+        type: "validate.tsc.import-repair-error",
+        chatId: opts.chatId,
+        message:
+          importRepairErr instanceof Error
+            ? importRepairErr.message
+            : String(importRepairErr),
+      });
+    }
+
+    const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
+    try {
+      const errors = formatTypecheckDiagnosticsForRepair(residualDiagnostics);
       const repairGate = await runLlmRepairGate({
-        content: contentForVersion,
+        content: workingContent,
         errors,
         chatId: opts.chatId,
         timeoutMs: Math.min(TSC_REPAIR_TIMEOUT_MS, remainingBudgetMs),
@@ -282,8 +353,10 @@ async function runWarmTscPass(
       });
     }
 
+    // Keep the deterministic import fixes even when residue remains — they are
+    // idempotent and strictly reduce the diagnostic set for the next gate.
     return {
-      content: contentForVersion,
+      content: workingContent,
       tsc: {
         ran: true,
         diagnosticCount: result.diagnostics.length,
@@ -663,6 +736,7 @@ async function validateAndFixInner(
               pass,
               budgetDeadline,
               repairLedger,
+              repairScopeId: opts.repairScopeId,
             });
         currentContent = tscResult.content;
         totalMechanicalFixes += tscResult.mechanicalFixesAdded;
@@ -687,6 +761,7 @@ async function validateAndFixInner(
               pass,
               budgetDeadline,
               repairLedger,
+              repairScopeId: opts.repairScopeId,
             })
           : null;
         if (eslintResult) {
@@ -906,6 +981,7 @@ async function validateAndFixInner(
                 pass,
                 budgetDeadline,
                 repairLedger,
+                repairScopeId: opts.repairScopeId,
               });
           currentContent = tscResult.content;
           totalMechanicalFixes += tscResult.mechanicalFixesAdded;
@@ -926,6 +1002,7 @@ async function validateAndFixInner(
                 pass,
                 budgetDeadline,
                 repairLedger,
+                repairScopeId: opts.repairScopeId,
               })
             : null;
           if (eslintResult) {
