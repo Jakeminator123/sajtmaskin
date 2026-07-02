@@ -142,7 +142,10 @@ describe("mapVersionStatusToDisplay — promoted derivation", () => {
 
 describe("mapVersionStatusToDisplay — false-green guard (degraded ≠ success)", () => {
   const degradations = [
-    { kind: "verifier_skipped_heavy_load" as const, message: "Verifier skipped under heavy load." },
+    {
+      kind: "verifier_skipped_safe_fixes_only" as const,
+      message: "Verifier skipped after safe autofix only.",
+    },
   ];
 
   it("never maps a degraded done to a clean ready", () => {

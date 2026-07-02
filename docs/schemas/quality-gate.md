@@ -48,6 +48,48 @@ Quality gate är alltså inte samma sak som:
   LLM-passet och matar eventuella blocking findings in i fixern
 - live-previewns `npm run dev`
 
+## Verifier-pass policy after mekanisk autofix
+
+Verifier-pass (hybrid: deterministiska guards + LLM-audit) styrs fortfarande
+först av `resolveVerifierPassPolicy()`:
+
+- light/fast follow-up och repair-pass kan fortfarande hoppa över verifiern
+- env-/feature-flaggen `isVerifierPassEnabled()` respekteras
+- `strict`, högre quality target, app-intent, heavy context och riskabla
+  BuildSpec-scope kan fortfarande välja att köra verifiern
+
+Efter det grundbeslutet används **riskklassad mekanisk autofix** i stället för
+den tidigare volymtröskeln:
+
+| Autofix-resultat | Verifier-beslut när grundpolicyn säger `run` |
+|---|---|
+| `safeFixCount > 0` och `riskyFixCount === 0` | Verifiern får hoppas över med reason `safe_fixes_only`. |
+| `riskyFixCount > 0` | Verifiern körs med trigger/reason `risky_fixes`. |
+| 3D-signal (`BuildSpec.capabilityFlags.signals` innehåller `needs3D`/`needsPhysics`, eller orchestration-capability `visual-3d`/`physics-3d`) | Verifiern körs; safe-only-skip används inte. |
+| Grundpolicyn säger `run: false` | Oförändrat: Fas 2 tvingar inte på verifiern på nya vägar. |
+
+`FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
+behandlas konservativt som `risky`.
+
+### Autofix risk telemetry
+
+Nya writers skriver `engine_version_error_logs` med category `autofix` och
+`meta.event = "autofix_risk"`:
+
+```json
+{
+  "event": "autofix_risk",
+  "fixCount": 4,
+  "safeFixCount": 3,
+  "riskyFixCount": 1,
+  "riskyFixerIds": ["local-symbol-import-fixer"]
+}
+```
+
+`generation_telemetry.meta.autofix` bär samma riskfält. Historiska
+`autofix_heavy_load`-rader skrivs inte längre, men läsare som
+`scripts/db/control-stats.mjs` mappar dem som legacy-historik i äldre fönster.
+
 ## Preview-lane vs verify-lane
 
 | Lane | Syfte | Typisk körning |

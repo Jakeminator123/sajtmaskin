@@ -694,20 +694,20 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     }
     return rows;
   },
-  "autofix.heavy_load": (e) => ({
+  "autofix.risk": (e) => ({
     ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Autofix",
-    severity: "warning",
+    severity: (readNumber(e.data.riskyFixCount) ?? 0) > 0 ? "warning" : "info",
     createdBy: "deterministic-autofix",
     fixedBy: "-",
     modelTier: "-",
-    problem: `Mycket fixar (${readNumber(e.data.fixCount) ?? "?"})`,
-    action: "Notering: instabilitet i generering",
+    problem: `Riskprofil: ${readNumber(e.data.safeFixCount) ?? 0} säkra, ${readNumber(e.data.riskyFixCount) ?? 0} riskabla fixar`,
+    action: "Notering: riskklassad deterministisk autofix",
     model: "-",
     provider: "-",
     pass: "-",
-    outcome: "Varning",
+    outcome: (readNumber(e.data.riskyFixCount) ?? 0) > 0 ? "Varning" : "OK",
     chatId: "-",
     versionId: "-",
     lineageHash: "-",

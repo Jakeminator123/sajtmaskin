@@ -55,11 +55,18 @@ export type FixerOwnerPhase =
   | "server-repair";
 
 export type FixerStatus = "active" | "deprecated" | "experimental";
+export type FixerRisk = "safe" | "risky";
 
 export interface FixerRegistryEntry {
   /** Stable id. MUST match the string emitted in `FixEntry.fixer`. */
   id: string;
   category: FixerCategory;
+  /**
+   * Risk class for verifier-policy decisions. `safe` fixers are narrow,
+   * deterministic hygiene changes; `risky` fixers can alter structure,
+   * cross-file contracts, dependencies, or LLM-generated content.
+   */
+  risk: FixerRisk;
   /** Path relative to repo root. */
   sourcePath: string;
   /** What kind of model/runtime fault this fixer addresses. */
@@ -90,6 +97,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "escape-leakage-fixer",
     category: "mechanical-syntax",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/escape-leakage-fixer.ts",
     targetFailureMode: "JSON-double-encoded file content (literal \\n, \\\")",
     triggers: ["literal `\\n` in source", "outer quotes wrapping file content"],
@@ -99,6 +107,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "media-alias-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/media-alias-fixer.ts",
     targetFailureMode:
       "Leaked `{{MEDIA_n}}`/`{{URL_n}}` URL-compression aliases persisting past finalize (next/image src parse crash at build/SSG)",
@@ -117,6 +126,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "use-client-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Missing `\"use client\"` directive on client components",
     triggers: ["client hooks", "event handlers", "browser APIs", "framer-motion import"],
@@ -126,6 +136,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tier3-sdk-guard-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/tier3-sdk-guard-fixer.ts",
     targetFailureMode: "Backend SDK imports leaking into F2 design phase",
     triggers: ["import from tier-3 SDK in F2"],
@@ -136,6 +147,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "import-validator",
     category: "mechanical-shadcn",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/import-validator.ts",
     targetFailureMode: "Wrong shadcn import paths",
     triggers: ["@/components/ui/* import path mismatch"],
@@ -145,6 +157,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "react-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode: "Missing `import React`",
     triggers: ["React reference without import"],
@@ -158,6 +171,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "react-hook-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode:
       "Missing named React hook imports (useState etc.); also TS2300 from duplicate `react` imports",
@@ -177,6 +191,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "nextjs-navigation-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode: "Missing next/navigation hook imports (usePathname etc.)",
     triggers: ["next/navigation hook call without import"],
@@ -187,6 +202,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "react-type-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Missing common React type imports (ReactNode etc.)",
     triggers: ["ReactNode type usage without import"],
@@ -196,6 +212,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "import-alias-type-syntax-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/import-alias-type-syntax-fixer.ts",
     targetFailureMode: "Invalid `X as type Y` hybrid specifier rejected by SWC",
     triggers: ["`<Ident> as type <Ident>` inside import specifier list"],
@@ -207,6 +224,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "type-only-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/type-only-import-fixer.ts",
     targetFailureMode: "TS2749 — value-import of type-only binding",
     triggers: ["import {X} where X is only used as a type"],
@@ -217,6 +235,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "value-used-from-type-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/value-used-from-type-import-fixer.ts",
     targetFailureMode: "TS1361 — type-only import used as runtime value (JSX, call, new, member)",
     triggers: [
@@ -230,6 +249,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "dom-builtin-jsx-fixer",
     category: "mechanical-jsx",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/dom-builtin-jsx-fixer.ts",
     targetFailureMode:
       "DOM interface names (HTMLFormElement, HTMLInputElement, …) used as JSX tags",
@@ -242,6 +262,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "duplicate-import-local-type-collision-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath:
       "src/lib/gen/autofix/rules/duplicate-import-local-type-collision-fixer.ts",
     targetFailureMode:
@@ -258,6 +279,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "type-only-module-default-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath:
       "src/lib/gen/autofix/rules/type-only-module-default-import-fixer.ts",
     targetFailureMode:
@@ -273,6 +295,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "next-image-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Missing `next/image` import",
     triggers: ["<Image /> JSX without import"],
@@ -282,6 +305,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "next-og-image-response-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Missing `ImageResponse` from `next/og`",
     triggers: ["ImageResponse usage in /opengraph-image"],
@@ -291,6 +315,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "local-symbol-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Missing import for shared local config/data symbols",
     triggers: ["uniquely exported local symbol referenced without import"],
@@ -300,6 +325,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "local-named-import-default-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Local named-import for a default export",
     triggers: ["import {X} for module exporting default X"],
@@ -309,6 +335,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "local-default-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Local default-import for a named export",
     triggers: ["import X from local module exporting only named X"],
@@ -318,6 +345,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "import-declaration-conflict-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",
     targetFailureMode: "Imports shadowing local declarations",
     triggers: ["import binding identical to local const/function"],
@@ -327,6 +355,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "global-shadow-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/global-shadow-import-fixer.ts",
     targetFailureMode:
       "Local import binding shadows a JS/Web global (e.g. `import Date from \"@/components/date\"`), breaking `new Date()` at runtime + tsc",
@@ -344,6 +373,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "duplicate-import-binding-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/duplicate-import-binding-fixer.ts",
     targetFailureMode: "Same identifier imported from two sources",
     triggers: ["duplicate import bindings across statements"],
@@ -353,6 +383,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "ts2304-known-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/ts2304-known-import-fixer.ts",
     targetFailureMode:
       "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK)",
@@ -378,6 +409,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "own-component-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/deterministic-import-repair.ts",
     targetFailureMode:
       "TS2304 missing import for a component/symbol the version's OWN files export (e.g. `Reveal` in components/reveal.tsx) — not a library name",
@@ -399,6 +431,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "metadata-import-fixer",
     category: "mechanical-meta",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/metadata-import-fixer.ts",
     targetFailureMode: "Missing `Metadata` type import in page/layout",
     triggers: ["export const metadata: Metadata without import"],
@@ -408,6 +441,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "metadata-route-import-fixer",
     category: "mechanical-meta",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/metadata-import-fixer.ts",
     targetFailureMode: "Missing `MetadataRoute` import",
     triggers: ["sitemap/robots route without MetadataRoute type"],
@@ -417,6 +451,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "cn-import-conflict-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/metadata-import-fixer.ts",
     targetFailureMode: "Conflicting local cn import",
     triggers: ["local function named cn shadowing @/lib/utils cn"],
@@ -426,6 +461,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "cn-import-fixer",
     category: "mechanical-import",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/metadata-import-fixer.ts",
     targetFailureMode: "Missing `cn` import from @/lib/utils",
     triggers: ["cn() call without import"],
@@ -435,6 +471,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "lucide-image-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/lucide-misuse-fixer.ts",
     targetFailureMode: "Image imported from lucide-react when next/image meant",
     triggers: ["lucide-react Image used as component"],
@@ -444,6 +481,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "lucide-link-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/lucide-misuse-fixer.ts",
     targetFailureMode: "Link imported from lucide-react when next/link meant",
     triggers: ["lucide-react Link used as component"],
@@ -453,6 +491,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "lucide-shadcn-collision-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/lucide-misuse-fixer.ts",
     targetFailureMode:
       "shadcn∩lucide name (Badge, Calendar, Command, Form, Sheet, Sidebar, Table) " +
@@ -472,6 +511,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tailwind-font-arbitrary-fixer",
     category: "mechanical-tailwind",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Unsupported font-[family-name:var(--x)] arbitrary class",
     triggers: ["font-[family-name:var(--…)] in className"],
@@ -481,6 +521,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "font-import-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/font-import-fixer.ts",
     targetFailureMode: "Layout font imports missing/incorrect",
     triggers: ["next/font import in app/layout.tsx"],
@@ -490,6 +531,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "metadata-client-conflict-fixer",
     category: "mechanical-meta",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: '"use client" + static metadata export — invalid in App Router',
     triggers: ['both "use client" directive and metadata export present'],
@@ -499,6 +541,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "icon-component-value-fixer",
     category: "mechanical-jsx",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Raw icon component values used as keys/render values",
     triggers: ["key={x.icon}", "{x.icon} as JSX child"],
@@ -508,6 +551,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "as-const-boolean-keys",
     category: "mechanical-syntax",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/as-const-boolean-keys.ts",
     targetFailureMode: "Nav arrays needing `as const` for TS literal inference",
     triggers: ["array literal with boolean discriminant inferred wide"],
@@ -517,6 +561,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "r3f-vector-tuple-fixer",
     category: "mechanical-r3f",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/r3f-vector-tuple-fixer.ts",
     targetFailureMode: "TS2322 on R3F position/scale/rotation/args (number[] vs tuple)",
     triggers: ["3-number array literal in R3F prop"],
@@ -527,6 +572,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "scroll-smooth-html-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "scroll-smooth className on <html> incompatible with Next.js 16",
     triggers: ["<html className=…scroll-smooth…>"],
@@ -536,6 +582,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "scroll-smooth-css-fixer",
     category: "mechanical-misc",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "scroll-behavior: smooth in CSS breaking preview/HMR",
     triggers: ["scroll-behavior: smooth in *.css"],
@@ -545,6 +592,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tier2-preview-basepath-next-config",
     category: "mechanical-next-config",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "next.config missing basePath for preview-host URLs",
     triggers: ["next.config without SAJTMASKIN_PREVIEW_BASE_PATH handling"],
@@ -554,6 +602,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tailwind-apply-component-fixer",
     category: "mechanical-tailwind",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/rules/tailwind-apply-component-fixer.ts",
     targetFailureMode: "Tailwind v4 @apply of @layer components classes (build break)",
     triggers: ["@apply of component-layer class in *.css"],
@@ -563,6 +612,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "next-config-remote-patterns",
     category: "mechanical-next-config",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/repair-generated-files.ts",
     targetFailureMode: "next.config images.remotePatterns missing required hosts",
     triggers: ["external image hosts referenced without remotePatterns entry"],
@@ -572,6 +622,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "duplicate-default-export-fixer",
     category: "mechanical-jsx",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/repair-generated-files.ts",
     targetFailureMode: "Two `export default` statements in the same file",
     triggers: ["duplicate export default"],
@@ -581,6 +632,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "layout-provider-fixer",
     category: "mechanical-jsx",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/layout-provider-fixer.ts",
     targetFailureMode: "Missing required provider in layout (Theme/Auth/etc.)",
     triggers: ["provider hook usage in tree without layout-level provider"],
@@ -591,6 +643,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "syntax-validator",
     category: "validator-syntax",
+    risk: "safe",
     sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Esbuild transform errors per file",
     triggers: ["esbuild transform fail"],
@@ -601,6 +654,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "jsx-checker",
     category: "validator-jsx",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/jsx-checker.ts",
     targetFailureMode: "JSX tag mismatch / missing default export",
     triggers: ["unbalanced JSX tags", "missing default export in route file"],
@@ -617,6 +671,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "dep-completer",
     category: "validator-dep",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/dep-completer.ts",
     targetFailureMode: "Third-party deps used in code but missing from package.json",
     triggers: ["import from non-builtin without package.json entry"],
@@ -626,6 +681,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "dep-version-validator",
     category: "validator-dep",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/dep-version-validator.ts",
     targetFailureMode: "Invalid dep versions causing npm install ENOENT",
     triggers: ["dep version not satisfiable on npm registry"],
@@ -637,6 +693,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-syntax-fixer",
     category: "llm-syntax",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/llm-fixer.ts",
     targetFailureMode: "Syntax/typecheck errors after mechanical autofix",
     triggers: ["validateAndFix() escalates to LLM after mechanical pass"],
@@ -648,6 +705,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-verifier-fixer",
     category: "llm-verifier",
+    risk: "risky",
     sourcePath: "src/lib/gen/stream/finalize-version/verifier-phase.ts",
     targetFailureMode: "Verifier-blocking findings (SEO, a11y, semantics)",
     triggers: ["verifier blocking findings > 0"],
@@ -661,6 +719,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-partial-file-repair",
     category: "llm-partial-file",
+    risk: "risky",
     sourcePath: "src/lib/gen/stream/finalize-version/partial-file.ts",
     targetFailureMode: "Truncated/partial file content from generation stream",
     triggers: ["preflight detects partial-file artefact"],
@@ -672,6 +731,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-server-repair",
     category: "llm-server-repair",
+    risk: "risky",
     sourcePath: "src/lib/gen/verify/repair-loop.ts",
     targetFailureMode: "Quality-gate / server-verify failures (build-time)",
     triggers: ["server-verify or quality-gate fails"],
@@ -684,6 +744,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "verifier-pass",
     category: "verifier-pass",
+    risk: "safe",
     sourcePath: "src/lib/gen/verify/verifier-pass.ts",
     targetFailureMode: "Read-only LLM check for blocking + quality findings",
     triggers: ["verifier policy says 'run' for this version"],
@@ -703,6 +764,10 @@ const REGISTRY_BY_ID = new Map<string, FixerRegistryEntry>(
 
 export function getFixerById(id: string): FixerRegistryEntry | undefined {
   return REGISTRY_BY_ID.get(id);
+}
+
+export function getFixerRiskById(id: string): FixerRisk | undefined {
+  return getFixerById(id)?.risk;
 }
 
 export function listFixersByCategory(): Record<FixerCategory, FixerRegistryEntry[]> {

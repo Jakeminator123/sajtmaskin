@@ -30,7 +30,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "finalize.pipeline",
   "autofix.result",
   "autofix.mechanical-residual",
-  "autofix.heavy_load",
+  "autofix.risk",
   "syntax-validation.pass",
   "syntax-validation.fixer.start",
   "syntax-validation.fixer.result",
@@ -242,9 +242,9 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
       if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
       break;
-    case "autofix.heavy_load":
-      if (readNumber(entry, "fixCount") !== null) details.push(`fixes=${readNumber(entry, "fixCount")}`);
-      if (readNumber(entry, "threshold") !== null) details.push(`threshold=${readNumber(entry, "threshold")}`);
+    case "autofix.risk":
+      if (readNumber(entry, "safeFixCount") !== null) details.push(`safe=${readNumber(entry, "safeFixCount")}`);
+      if (readNumber(entry, "riskyFixCount") !== null) details.push(`risky=${readNumber(entry, "riskyFixCount")}`);
       break;
     case "autofix.mechanical-residual":
       if (readNumber(entry, "mechanicalFixCount") !== null) details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);

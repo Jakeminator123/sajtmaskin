@@ -273,8 +273,8 @@ export function buildDynamicContext(
   // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
   // right after the route plan so the LLM has scaffold + route context
   // in mind when it reads which components are about to be in play.
-  // Stops `autofix.heavy_load` from being triggered by forgotten imports
-  // of components the model demonstrably knows how to use.
+  // Reduces safe autofix churn from forgotten imports of components the model
+  // demonstrably knows how to use.
   parts.push(
     ...renderRequiredImportsChecklistBlock({
       routePlan,

@@ -26,6 +26,8 @@ const createGenerationTelemetryRecord = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
+const emitBusEvent = vi.hoisted(() => vi.fn());
+const subscribeEventBus = vi.hoisted(() => vi.fn());
 
 // Mock the FEATURES gate so optional dossier RAG / recurring-patterns
 // blocks stay deterministic in tests. The repair-pass / verifier-rerun /
@@ -131,6 +133,11 @@ vi.mock("@/lib/gen/retry/validate-syntax", () => ({
   validateGeneratedCode,
 }));
 
+vi.mock("@/lib/logging/event-bus", () => ({
+  emit: emitBusEvent,
+  subscribe: subscribeEventBus,
+}));
+
 const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -156,6 +163,39 @@ vi.mock("@/lib/gen/validation/seo-preflight", () => ({
 }));
 
 import { finalizeAndSaveVersion } from "./finalize-version";
+import type { BuildSpec } from "@/lib/gen/build-spec";
+
+const BASIC_GENERATED_CONTENT =
+  '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
+
+function baseBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
+  return {
+    buildIntent: "website",
+    generationMode: "init",
+    changeScope: "redesign",
+    scaffoldId: null,
+    routePlanSummary: "prompt:one-page:/",
+    stylePack: "brand-led",
+    qualityTarget: "premium",
+    previewPolicy: "fidelity2",
+    verificationPolicy: "standard",
+    contextPolicy: "normal",
+    referenceCategories: ["marketing-sites"],
+    forbiddenPatterns: ["leave_bracket_placeholders"],
+    tokenBudgets: {
+      scaffoldChars: 36_000,
+      refsChars: 12_000,
+      systemContextChars: 48_000,
+    },
+    routeRealization: {
+      mode: "full",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: [],
+    },
+    ...overrides,
+  };
+}
 
 describe("finalizeAndSaveVersion", () => {
   beforeEach(() => {
@@ -186,6 +226,8 @@ describe("finalizeAndSaveVersion", () => {
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
+    emitBusEvent.mockReset();
+    subscribeEventBus.mockReset();
 
     runAutoFix.mockResolvedValue({
       fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
@@ -469,6 +511,275 @@ describe("finalizeAndSaveVersion", () => {
       event: "autofix",
       data: expect.objectContaining({ phase: "done", fixes: 0, warnings: 0 }),
     });
+  });
+
+  it("skips verifier for safe-only autofix and records safe_fixes_only", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: Array.from({ length: 24 }, (_, index) => ({
+        fixer: "use-client-fixer",
+        category: "mechanical",
+        description: `safe fixture ${index + 1}`,
+        file: "src/app/page.tsx",
+      })),
+      warnings: [],
+      dependencies: {},
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec(),
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(runVerifierPass).not.toHaveBeenCalled();
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        kind: "verifier_skipped_safe_fixes_only",
+        message: expect.stringContaining("säkra hygienfixar"),
+        meta: expect.objectContaining({
+          safeFixCount: 24,
+          riskyFixCount: 0,
+          riskyFixerIds: [],
+        }),
+      }),
+    );
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          autofix: expect.objectContaining({
+            safeFixCount: 24,
+            riskyFixCount: 0,
+            riskyFixerIds: [],
+          }),
+          postStreamSteps: expect.objectContaining({
+            verifier: expect.objectContaining({
+              status: "skipped",
+              reason: "safe_fixes_only",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("runs verifier for risky autofix and records risky_fixes trigger", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: [
+        {
+          fixer: "use-client-fixer",
+          category: "mechanical",
+          description: "safe fixture 1",
+          file: "src/app/page.tsx",
+        },
+        {
+          fixer: "react-import-fixer",
+          category: "mechanical",
+          description: "safe fixture 2",
+          file: "src/app/page.tsx",
+        },
+        {
+          fixer: "metadata-import-fixer",
+          category: "mechanical",
+          description: "safe fixture 3",
+          file: "src/app/page.tsx",
+        },
+        {
+          fixer: "local-symbol-import-fixer",
+          category: "mechanical",
+          description: "risky cross-file fixture",
+          file: "src/app/page.tsx",
+        },
+      ],
+      warnings: [],
+      dependencies: {},
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec(),
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(runVerifierPass).toHaveBeenCalled();
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          autofix: expect.objectContaining({
+            safeFixCount: 3,
+            riskyFixCount: 1,
+            riskyFixerIds: ["local-symbol-import-fixer"],
+          }),
+          postStreamSteps: expect.objectContaining({
+            verifier: expect.objectContaining({
+              status: "done",
+              trigger: "risky_fixes",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("keeps verifier enabled for 3D capability even when autofix is safe-only", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: [
+        {
+          fixer: "use-client-fixer",
+          category: "mechanical",
+          description: "safe fixture",
+          file: "src/app/page.tsx",
+        },
+      ],
+      warnings: [],
+      dependencies: {},
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec({
+        capabilityFlags: { heavy: true, signals: ["needs3D"] },
+      }),
+      orchestrationStreamMeta: { requestedCapabilities: ["visual-3d"] },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(runVerifierPass).toHaveBeenCalled();
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          postStreamSteps: expect.objectContaining({
+            verifier: expect.objectContaining({
+              status: "done",
+              trigger: "high_quality_target",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("does not force verifier onto light path even when risky autofix ran", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: [
+        {
+          fixer: "local-symbol-import-fixer",
+          category: "mechanical",
+          description: "risky cross-file fixture",
+          file: "src/app/page.tsx",
+        },
+      ],
+      warnings: [],
+      dependencies: {},
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec({
+        generationMode: "followUp",
+        changeScope: "copy",
+        qualityTarget: "standard",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+      }),
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(runVerifierPass).not.toHaveBeenCalled();
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          postStreamSteps: expect.objectContaining({
+            verifier: expect.objectContaining({
+              status: "skipped",
+              reason: "light_followup_fast_policy",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("persists autofix_risk event shape without writing legacy heavy-load event", async () => {
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: BASIC_GENERATED_CONTENT,
+      fixes: [
+        {
+          fixer: "use-client-fixer",
+          category: "mechanical",
+          description: "safe fixture",
+          file: "src/app/page.tsx",
+        },
+        {
+          fixer: "local-symbol-import-fixer",
+          category: "mechanical",
+          description: "risky fixture",
+          file: "src/app/page.tsx",
+        },
+      ],
+      warnings: ["warn"],
+      dependencies: { "lucide-react": "0.469.0" },
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: baseBuildSpec(),
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    const persistedLogs = createEngineVersionErrorLogs.mock.calls[0]?.[0] ?? [];
+    expect(persistedLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "autofix",
+          level: "warning",
+          meta: expect.objectContaining({
+            event: "autofix_risk",
+            fixCount: 2,
+            safeFixCount: 1,
+            riskyFixCount: 1,
+            riskyFixerIds: ["local-symbol-import-fixer"],
+            warningCount: 1,
+            dependencyCount: 1,
+          }),
+        }),
+      ]),
+    );
+    expect(
+      persistedLogs.some(
+        (log: { meta?: Record<string, unknown> }) =>
+          log.meta?.event === ["autofix", "heavy", "load"].join("_"),
+      ),
+    ).toBe(false);
   });
 
   it("skips warm-tsc when downstream quality-gate will run typecheck AND qualityGatePlanned is true (R2 guard)", async () => {
