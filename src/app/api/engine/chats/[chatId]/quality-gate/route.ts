@@ -449,7 +449,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             promotionBlocked = true;
             await failVersionVerification(
               internalVersionId,
-              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+              // Advisory case: don't claim "build checks passed" — typecheck failed
+              // (advisory), and the finalize verifier is what blocked promotion.
+              f2TypecheckAdvisory
+                ? "Typecheck advisory noted, but the finalize verifier flagged blocking findings; promotion was blocked."
+                : "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
               qgRunId,
             ).catch((err) => {
               console.warn(

@@ -107,12 +107,26 @@ du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
 I F2 (`lifecycle_stage !== "integrations"`) failar ett **typecheck-only**-fel
 inte längre versionen. `next dev` kör JS oavsett TS-typfel, så previewn
-renderar — därför behandlas typfelet som **advisory**:
+renderar — därför behandlas typfelet som **advisory**.
 
-- `POST .../quality-gate` promotar versionen (fortfarande via
+**Regelägare (single source of truth):** `isTypecheckOnlyAdvisory()` i
+`src/lib/gen/verify/quality-gate-checks.ts`. Båda gate-vägarna använder samma
+predikat så de aldrig är oense:
+
+- **Klientvägen** `POST .../quality-gate` promotar versionen (fortfarande via
   `assertPromoteAllowed`) och svarar
   `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }`
-  i stället för `failVersionVerification`.
+  i stället för `failVersionVerification`. Vid transient promote-fel
+  (`promoteError`/`promoteGuardUnavailable`) följer `designAdvisory` med i
+  svaret så klienten inte auto-reparerar en advisory ändå.
+- **Bakgrundsvägen** `triggerServerVerification` (`server-verify.ts`) speglar
+  regeln: advisory → `promoteVersion` FÖRSÖKS FÖRE terminal-emit, och
+  `version.verifier.done`-utfallet härleds från om promotionen faktiskt tog
+  (`advisoryPromoted`). En promote-no-op (lease-takeover/guard/DB) emitterar
+  INGEN terminal bus-händelse — terminal bus-`failed` är sticky i
+  `reconcileTerminalDbState`, så en förhastad `failed` skulle pinna en falsk
+  röd status även efter att versionen promotats någon annanstans. Bussen
+  lämnas snurrande; DB-`passed` uppgraderar den, watchdog är backstop.
 - `post-checks.ts` kör **ingen** auto-repair-loop (`passed: true` +
   explicit `!data.designAdvisory`-grind).
 - Diagnostiken bevaras: summary-loggen blir `warning` (ej `error`) och
@@ -122,8 +136,9 @@ renderar — därför behandlas typfelet som **advisory**:
 
 - Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
 - Bara när **varje** failande check är `typecheck`. Ett `build`- eller
-  `lint`-fel (t.ex. build-origin-repair) failar hårt som förr.
-- `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande.
+  `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) failar hårt som förr.
+- `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande —
+  `diagnosticOnly`-läget i server-verify advisory-promotar aldrig.
 - Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
   (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
   når aldrig advisory-promote.

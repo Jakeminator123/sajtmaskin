@@ -1420,7 +1420,7 @@ export function useBuilderPageController() {
         setPreviewPending(false);
       }
     }
-  }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
+  }, [derived.activeVersionId, derived.latestVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(
     () =>
