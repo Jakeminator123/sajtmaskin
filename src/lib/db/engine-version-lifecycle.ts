@@ -263,17 +263,18 @@ export function sortEngineVersionsNewestFirst<T extends EngineVersionLifecycleLi
  * signal (used by deploy via `selectDeployTargetEngineVersion`), NOT a
  * version-selection signal — otherwise a newer draft is silently ignored
  * and follow-ups merge against stale files.
+ *
+ * Returns `undefined` when there are no versions OR when every version is
+ * failed — a failed version is never a valid "preferred" target, so callers
+ * (via `getPreferredVersion`, which maps this to `null`) fall back explicitly
+ * rather than silently treating a failed row as usable.
  */
 export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLike>(
   versions: T[],
 ): T | undefined {
   const sorted = sortEngineVersionsNewestFirst(versions);
-  if (sorted.length === 0) {
-    return undefined;
-  }
-
-  return (
-    sorted.find((version) => resolveEngineVersionLifecycleStatus(version) !== "failed") ?? sorted[0]
+  return sorted.find(
+    (version) => resolveEngineVersionLifecycleStatus(version) !== "failed",
   );
 }
 

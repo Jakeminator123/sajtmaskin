@@ -229,11 +229,21 @@ export async function getLocalV0TemplateSourceById(
   };
 }
 
-function normalizeImportedPath(rawPath: string): string | null {
+/**
+ * Env files (`.env`, `.env.local`, `.env.production`, …) may carry secrets and
+ * must never be copied from a template archive into a generated project.
+ */
+function isBlockedEnvBasename(basename: string): boolean {
+  return basename === ".env" || basename.startsWith(".env.");
+}
+
+export function normalizeImportedPath(rawPath: string): string | null {
   const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized || normalized.includes("\0")) return null;
   if (normalized.split("/").some((segment) => segment === "..")) return null;
   if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
+  const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
+  if (isBlockedEnvBasename(basename)) return null;
   return normalized;
 }
 

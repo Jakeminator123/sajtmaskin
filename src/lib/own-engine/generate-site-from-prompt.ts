@@ -45,6 +45,14 @@ export type GenerateOwnEngineSiteFromPromptResult = {
   files: Array<{ path: string; content: string }>;
   contentForVersion: string;
   model: string;
+  /**
+   * True when the version/files were finalized and saved but the preview
+   * session failed to start. The generation is still a partial success — the
+   * saved `versionId`/`files` are returned instead of being discarded.
+   */
+  previewStartFailed?: boolean;
+  /** Human-readable reason the preview did not start (set only on failure). */
+  previewError?: string | null;
 };
 
 function getContentText(data: unknown): string {
@@ -286,14 +294,21 @@ export async function generateOwnEngineSiteFromPrompt(
       skipProjectScaffold: true,
     },
   );
-  if (!previewSessionStarted.ok) {
-    throw new Error(
-      `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
-    );
+  // Preview is best-effort: the version/files are already finalized and saved.
+  // A preview-start failure must NOT discard a completed generation — return
+  // the saved version/files with a preview-failure flag instead of throwing.
+  let previewSessionId: string | undefined;
+  let previewStartFailed = false;
+  let previewError: string | null = null;
+  if (previewSessionStarted.ok) {
+    runtimeUrl = previewSessionStarted.result.previewUrl;
+    previewSessionId = previewSessionStarted.result.previewSessionId;
+    await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
+  } else {
+    previewStartFailed = true;
+    previewError = `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`;
+    console.warn("[own-engine] Preview session did not start; returning saved version:", previewError);
   }
-  runtimeUrl = previewSessionStarted.result.previewUrl;
-  const previewSessionId = previewSessionStarted.result.previewSessionId;
-  await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
 
   return {
     projectId,
@@ -313,5 +328,7 @@ export async function generateOwnEngineSiteFromPrompt(
     files,
     contentForVersion: finalized.contentForVersion,
     model: String(generatorModel),
+    previewStartFailed,
+    previewError,
   };
 }

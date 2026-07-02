@@ -23,6 +23,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 export const maxDuration = 15;
 
 const VERCEL_CNAME_TARGET = "cname.vercel-dns.com";
+const VERCEL_A_TARGET = "76.76.21.21";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:link", async () => {
@@ -83,15 +84,24 @@ export async function POST(req: NextRequest) {
       if (isSwedish && isLoopiaConfigured()) {
         try {
           const baseDomain = domain;
-          const result = await addZoneRecord(baseDomain, "@", {
+          // Apex (@) must be an A/ALIAS record — a CNAME on the root is invalid
+          // DNS. Mirror the manual fallback below: A on @, CNAME only on www.
+          const apexResult = await addZoneRecord(baseDomain, "@", {
+            type: "A",
+            data: VERCEL_A_TARGET,
+            ttl: 3600,
+          });
+          const wwwResult = await addZoneRecord(baseDomain, "www", {
             type: "CNAME",
             data: VERCEL_CNAME_TARGET,
             ttl: 3600,
           });
+          const failure =
+            apexResult !== "OK" ? apexResult : wwwResult !== "OK" ? wwwResult : null;
           dnsSetup = {
-            success: result === "OK",
+            success: failure === null,
             method: "loopia",
-            error: result !== "OK" ? result : undefined,
+            error: failure ?? undefined,
           };
         } catch (err) {
           console.error("[domains/link] Loopia DNS setup error:", err);
@@ -116,7 +126,7 @@ export async function POST(req: NextRequest) {
               {
                 type: "A",
                 host: "@",
-                value: "76.76.21.21",
+                value: VERCEL_A_TARGET,
                 ttl: 3600,
               },
             ],

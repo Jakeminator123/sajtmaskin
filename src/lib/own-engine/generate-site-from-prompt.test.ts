@@ -286,4 +286,26 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
 
     expect(updateChatOrchestrationSnapshotMock).toHaveBeenCalled();
   }, 30_000);
+
+  it("returns the saved version as a partial success when preview start fails (#40)", async () => {
+    startPreviewSessionMock.mockResolvedValue({
+      ok: false,
+      error: { stage: "boot", message: "preview host unreachable" },
+    });
+
+    const result = await generateOwnEngineSiteFromPrompt({
+      prompt: "Bygg en hemsida för en advokatbyrå",
+      projectId: "proj_1",
+      buildIntent: "website",
+    });
+
+    // The finalized version/files must NOT be discarded on preview failure.
+    expect(result.versionId).toBe(VERSION_ID);
+    expect(result.filesCount).toBeGreaterThan(0);
+    expect(result.files.length).toBeGreaterThan(0);
+    expect(result.previewStartFailed).toBe(true);
+    expect(result.previewError).toContain("preview host unreachable");
+    // The failed preview URL is never persisted.
+    expect(updateVersionPreviewUrlMock).not.toHaveBeenCalled();
+  }, 30_000);
 });

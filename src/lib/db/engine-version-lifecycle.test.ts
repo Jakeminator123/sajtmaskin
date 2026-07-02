@@ -185,4 +185,16 @@ describe("selectPreferredEngineVersion", () => {
     const preferred = selectPreferredEngineVersion(versions);
     expect(preferred?.versionNumber).toBe(2);
   });
+
+  it("returns undefined when every version is failed (no failed fallback)", () => {
+    const versions = [
+      { versionNumber: 1, verificationState: "failed" },
+      { versionNumber: 2, verificationState: "failed" },
+    ];
+    expect(selectPreferredEngineVersion(versions)).toBeUndefined();
+  });
+
+  it("returns undefined for an empty list", () => {
+    expect(selectPreferredEngineVersion([])).toBeUndefined();
+  });
 });

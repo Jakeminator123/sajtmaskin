@@ -214,6 +214,8 @@ function normalizeImportedPath(rawPath: string): string | null {
   if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
   const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
   if (SKIPPED_IMPORT_FILENAMES.has(basename)) return null;
+  // Env files (`.env`, `.env.local`, …) may carry secrets — never import them.
+  if (basename === ".env" || basename.startsWith(".env.")) return null;
   return normalized;
 }
 

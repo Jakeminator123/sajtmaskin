@@ -65,4 +65,40 @@ describe("POST /api/domains/link", () => {
     expect(res.status).toBe(200);
     expect(addDomainToProject).toHaveBeenCalledWith("allowed_project", "site.example", undefined);
   });
+
+  it("auto-sets an A record on the apex and CNAME only on www for .se domains (#32)", async () => {
+    isLoopiaConfigured.mockReturnValue(true);
+    addDomainToProject.mockResolvedValue({ name: "site.se", verified: false });
+    addZoneRecord.mockResolvedValue("OK");
+
+    const req = new Request("http://localhost/api/domains/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain: "site.se" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    // Apex (@) must be an A record — a CNAME on the root is invalid DNS.
+    expect(addZoneRecord).toHaveBeenCalledWith("site.se", "@", {
+      type: "A",
+      data: "76.76.21.21",
+      ttl: 3600,
+    });
+    // CNAME belongs only on the www subdomain.
+    expect(addZoneRecord).toHaveBeenCalledWith("site.se", "www", {
+      type: "CNAME",
+      data: "cname.vercel-dns.com",
+      ttl: 3600,
+    });
+    // Regression guard: never write a CNAME on the apex.
+    expect(addZoneRecord).not.toHaveBeenCalledWith(
+      "site.se",
+      "@",
+      expect.objectContaining({ type: "CNAME" }),
+    );
+    expect(json.dnsSetup).toEqual({ success: true, method: "loopia", error: undefined });
+  });
 });
