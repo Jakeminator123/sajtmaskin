@@ -11,7 +11,7 @@ import {
 } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createProject } from "@/lib/project-client"
+import { createProject, deleteProject } from "@/lib/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import {
   categories,
@@ -181,29 +181,39 @@ export function useLandingController({
         }
 
         if (prompt.length > 0) {
-          const response = await fetch("/api/prompts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt,
-              source: routeTarget.source ?? routeTarget.buildMethod,
-              projectId: project.id,
-            }),
-          })
+          // The prompt save requires the projectId, so the project must be
+          // created first. If saving the prompt fails, roll back the
+          // just-created project to avoid leaving an orphan row in the DB.
+          try {
+            const response = await fetch("/api/prompts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt,
+                source: routeTarget.source ?? routeTarget.buildMethod,
+                projectId: project.id,
+              }),
+            })
 
-          const data = (await response.json().catch(() => null)) as
-            | {
-                success?: boolean
-                promptId?: string
-                error?: string
-              }
-            | null
+            const data = (await response.json().catch(() => null)) as
+              | {
+                  success?: boolean
+                  promptId?: string
+                  error?: string
+                }
+              | null
 
-          if (!response.ok || !data?.promptId) {
-            throw new Error(data?.error || "Kunde inte spara prompten")
+            if (!response.ok || !data?.promptId) {
+              throw new Error(data?.error || "Kunde inte spara prompten")
+            }
+
+            params.set("promptId", data.promptId)
+          } catch (promptError) {
+            await deleteProject(project.id).catch((cleanupError) => {
+              console.error("[LandingV2] Failed to roll back orphan project:", cleanupError)
+            })
+            throw promptError
           }
-
-          params.set("promptId", data.promptId)
         }
 
         router.push(`/builder?${params.toString()}`)

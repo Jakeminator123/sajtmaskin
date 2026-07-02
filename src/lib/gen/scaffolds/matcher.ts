@@ -358,6 +358,22 @@ const GAME_SYNC_PATTERN =
 const GAME_SYNC_VETO_PATTERN =
   /(?<![\p{L}\p{N}_])(?:tv-?spel\s+butik|spel[-\s]?butik|game[-\s]?store|gaming[-\s]?news|gaming[-\s]?blog|e-?sport(?:[-\s]?nyheter)?|esport[-\s]?site)(?![\p{L}\p{N}_])/iu;
 
+/**
+ * Manifest `allowedBuildIntents` gate. When a build intent is known, a
+ * scaffold may only be selected if its manifest lists that intent. This
+ * stops the keyword matcher from handing an app-only scaffold (dashboard /
+ * app-shell) to a website/template build, or a website/template-only
+ * scaffold (ecommerce/content) to an app build. Unknown intent or an
+ * unresolvable id → treated as allowed, so selection never regresses to
+ * null and existing fallbacks stay intact.
+ */
+function scaffoldAllowsIntent(id: string, buildIntent?: BuildIntent | null): boolean {
+  if (!buildIntent) return true;
+  const manifest = getScaffoldById(id);
+  if (!manifest) return true;
+  return manifest.allowedBuildIntents.includes(buildIntent);
+}
+
 export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
@@ -391,7 +407,7 @@ export function matchScaffold(
     if (hospitalityScore > 0 && strongEcommerceScore === 0) {
       // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
       // are false positives. Fall through to landing-page matching.
-    } else {
+    } else if (scaffoldAllowsIntent("ecommerce", buildIntent)) {
       return getScaffoldById("ecommerce");
     }
   }
@@ -407,11 +423,20 @@ export function matchScaffold(
 
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  if (appScore >= MIN_SCORE || dashboardScore >= MIN_SCORE) {
-    if (dashboardScore >= appScore) {
+  // dashboard/app-shell are app-only scaffolds; only reachable here for
+  // non-app intents. Skip them when the build intent forbids app scaffolds
+  // (website/template) so a website build never lands on an app scaffold.
+  const appScaffoldsAllowed =
+    scaffoldAllowsIntent("dashboard", buildIntent) ||
+    scaffoldAllowsIntent("app-shell", buildIntent);
+  if (appScaffoldsAllowed && (appScore >= MIN_SCORE || dashboardScore >= MIN_SCORE)) {
+    if (dashboardScore >= appScore && scaffoldAllowsIntent("dashboard", buildIntent)) {
       return getScaffoldById("dashboard");
     }
-    return getScaffoldById("app-shell");
+    if (scaffoldAllowsIntent("app-shell", buildIntent)) {
+      return getScaffoldById("app-shell");
+    }
+    return getScaffoldById("dashboard");
   }
 
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);

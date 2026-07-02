@@ -26,7 +26,9 @@ import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
+import { partitionEnvKeysByTier } from "@/lib/integrations/placeholder-harmless";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
+import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
 
@@ -153,6 +155,14 @@ const TRACKING_PROVIDER_KEYS = new Set([
   "vercel-analytics",
 ]);
 
+/**
+ * Detected-integration buckets the canonical finalize-design gate never
+ * treats as build-blocking: `custom-env` is dropped by
+ * `buildContractsFromDetectedIntegrations`, and `custom-email` (invented
+ * recipient/sender keys) is classified `feature-runtime` by the detector.
+ */
+const NON_BLOCKING_INTEGRATION_KEYS = new Set(["custom-env", "custom-email"]);
+
 const SYNTHETIC_PROJECT_PREFIXES = ["chat:", "registry:"];
 function isSyntheticProjectId(id: string): boolean {
   return SYNTHETIC_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
@@ -208,6 +218,14 @@ export function ProjectEnvVarsPanel({
   const [detectedIntegrationsError, setDetectedIntegrationsError] = useState<string | null>(null);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  // Canonical F3-readiness (shares the SWR cache with LaunchReadinessCard).
+  // `readiness.info.buildBlockingKeys` is the exact blocking set the
+  // finalize-design gate enforces — server-resolved with the version's
+  // selected dossiers + per-key `envEnforcement`. We prefer it over the
+  // panel's local heuristic so the "att konfigurera" count agrees with the
+  // gate the user must actually pass. See `.cursor/rules/env-flow-f2-mute.mdc`.
+  const { readiness } = useChatReadiness(chatId, activeVersionId);
 
   const envVarCount = envVars.length;
   const hasRealExternalProject = Boolean(
@@ -733,14 +751,58 @@ export function ProjectEnvVarsPanel({
       })),
     [businessPackItems]
   );
+  // Blocking-key set aligned with the canonical finalize-design gate
+  // (`deriveTier3BuildSpec` → `requiredRealEnvKeys` → `validateTier3Readiness`).
+  // Mirrors the client-safe parts of that pipeline: only detected code
+  // integrations contribute (business packs are recommendations the gate
+  // ignores), the `custom-env`/`custom-email` buckets never block, and
+  // placeholder-harmless keys are dropped via `partitionEnvKeysByTier`. Any
+  // per-key `feature-runtime`/`warn-only` enforcement present on the detected
+  // integration is treated as non-blocking too. The remaining server-only
+  // pieces (selectedDossiers enforcement overlay + dossier-backing clamp) are
+  // NOT reproduced here, so this stays a conservative superset of the gate —
+  // it never hides a real blocker, only stops over-counting harmless/custom
+  // keys and pack recommendations. It is a fallback only: `missingRequiredEnvKeys`
+  // below prefers the server-computed `buildBlockingKeys` (via `useChatReadiness`),
+  // which reaches full parity with the finalize-design gate.
+  const blockingRequiredEnvKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const integration of siteIntegrations) {
+      if (NON_BLOCKING_INTEGRATION_KEYS.has(integration.key)) continue;
+      const { tier3 } = partitionEnvKeysByTier(integration.envVars);
+      const enforcement = integration.envEnforcement;
+      for (const key of tier3) {
+        const classification = enforcement?.[key];
+        if (classification === "feature-runtime" || classification === "warn-only") {
+          continue;
+        }
+        keys.push(key);
+      }
+    }
+    return dedupeStrings(keys);
+  }, [siteIntegrations]);
   const configuredRequiredEnvKeys = useMemo(
     () => likelyRequiredEnvKeys.filter((key) => configuredEnvKeys.has(key)),
     [configuredEnvKeys, likelyRequiredEnvKeys],
   );
-  const missingRequiredEnvKeys = useMemo(
-    () => likelyRequiredEnvKeys.filter((key) => !configuredEnvKeys.has(key)),
-    [configuredEnvKeys, likelyRequiredEnvKeys],
-  );
+  // Prefer the server-authoritative blocking set from the shared readiness
+  // resolver (`buildBlockingKeys`, computed with the active version's selected
+  // dossiers + per-key `envEnforcement`) so the panel exactly matches the
+  // finalize-design (F3) gate the user must pass. Fall back to the conservative
+  // client approximation above only until readiness data resolves, or on legacy
+  // responses that predate the narrowed list. The server lists are already
+  // unconfigured-only, so they are used as-is (no extra config filter).
+  const missingRequiredEnvKeys = useMemo(() => {
+    const info = readiness?.info;
+    // Only trust the server set when it was computed for the exact version this
+    // panel is showing; otherwise fall back to the local approximation so a
+    // stale/latest-version readiness can't drive the wrong count.
+    if (info && activeVersionId && info.versionId === activeVersionId) {
+      if (info.buildBlockingKeys) return info.buildBlockingKeys;
+      if (info.missingEnvKeys) return info.missingEnvKeys;
+    }
+    return blockingRequiredEnvKeys.filter((key) => !configuredEnvKeys.has(key));
+  }, [readiness, activeVersionId, configuredEnvKeys, blockingRequiredEnvKeys]);
   /** Endast projektets saknade nycklar — inte Sajtmaskin-serverns plattformsstatus. */
   const totalIssues = missingRequiredEnvKeys.length;
 

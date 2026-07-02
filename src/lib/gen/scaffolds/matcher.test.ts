@@ -150,6 +150,48 @@ describe("matchScaffold", () => {
     expect(result?.id).not.toBe("app-shell");
   });
 
+  it("does not select an app-only scaffold for website intent even with strong app keywords", () => {
+    // admin + verktyg + sidebar + användare + inställningar → high appScore,
+    // but dashboard/app-shell are allowedBuildIntents=["app"] only, so a
+    // website build must fall back to a website-compatible scaffold.
+    const prompt =
+      "Bygg ett admin-verktyg med sidebar, användare, inställningar och hantera konton.";
+
+    const result = matchScaffold(prompt, "website");
+    expect(result?.id).not.toBe("app-shell");
+    expect(result?.id).not.toBe("dashboard");
+    expect(result?.allowedBuildIntents).toContain("website");
+  });
+
+  it("does not select an app-only dashboard scaffold for template intent", () => {
+    const prompt =
+      "Bygg en instrumentpanel med analys, statistik, diagram och rapporter.";
+
+    const result = matchScaffold(prompt, "template");
+    expect(result?.id).not.toBe("dashboard");
+    expect(result?.id).not.toBe("app-shell");
+    expect(result?.allowedBuildIntents).toContain("template");
+  });
+
+  it("does not select ecommerce for app intent (ecommerce is website/template-only)", () => {
+    // Strong ecommerce signal but app intent — ecommerce.allowedBuildIntents
+    // excludes "app", so the app build must land on an app-compatible scaffold.
+    const prompt =
+      "Bygg en app med webshop, varukorg och checkout för mina produkter.";
+
+    const result = matchScaffold(prompt, "app");
+    expect(result?.id).not.toBe("ecommerce");
+    expect(result?.allowedBuildIntents).toContain("app");
+  });
+
+  it("still allows app-only scaffolds when intent is unknown (no regression)", () => {
+    const prompt =
+      "Bygg ett admin-verktyg med sidebar, användare, inställningar och hantera konton.";
+
+    const result = matchScaffold(prompt);
+    expect(result?.id).toBe("app-shell");
+  });
+
   it("lowers confidence when semantic fallback is unavailable for a generic default", async () => {
     mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
       results: [],

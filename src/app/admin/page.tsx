@@ -43,10 +43,29 @@ const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   frontlogs: "Frontloggar",
 };
 
+/**
+ * Client-side admin-email check (UX gate only). The authoritative check is
+ * server-side via `requireAdminAccess` on every admin API route; this mirrors
+ * the same allowlist so the UI doesn't render admin chrome for a logged-in
+ * non-admin. Compared against the real session user from `/api/auth/me`.
+ */
+function isConfiguredAdminEmail(email: string | null | undefined): boolean {
+  const adminEmails = (
+    process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
+    ""
+  )
+    .split(",")
+    .map((mail: string) => mail.trim().toLowerCase())
+    .filter(Boolean);
+  return adminEmails.includes((email ?? "").toLowerCase());
+}
+
 export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
@@ -120,7 +139,6 @@ export default function AdminPage() {
       if (!data.success) {
         if (response.status === 401) {
           setIsAuthenticated(false);
-          localStorage.removeItem("admin-auth");
           setError("Ingen åtkomst");
         } else {
           setError(data.error || "Kunde inte hämta statistik");
@@ -268,11 +286,31 @@ export default function AdminPage() {
     }
   };
 
+  // Derive admin auth from the real server session (cookie/JWT) via
+  // `/api/auth/me` instead of a client-controlled `localStorage` flag. The UI
+  // only unlocks when the logged-in session user is a configured admin — the
+  // same source the admin API routes enforce with `requireAdminAccess`.
   useEffect(() => {
-    const stored = localStorage.getItem("admin-auth");
-    if (stored === "true") {
-      setIsAuthenticated(true);
-    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        const data = (await response.json().catch(() => null)) as
+          | { authenticated?: boolean; user?: { email?: string | null } | null }
+          | null;
+        if (cancelled) return;
+        setIsAuthenticated(
+          Boolean(data?.authenticated) && isConfiguredAdminEmail(data?.user?.email),
+        );
+      } catch {
+        if (!cancelled) setIsAuthenticated(false);
+      } finally {
+        if (!cancelled) setAuthChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -333,16 +371,7 @@ export default function AdminPage() {
         return;
       }
 
-      const adminEmails = (
-        process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
-        process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
-        ""
-      )
-        .split(",")
-        .map((mail: string) => mail.trim().toLowerCase())
-        .filter(Boolean);
-
-      if (!adminEmails.includes((data.user?.email ?? "").toLowerCase())) {
+      if (!isConfiguredAdminEmail(data.user?.email)) {
         setError("Du har inte admin-behörighet");
         await fetch("/api/auth/logout", { method: "POST" });
         setIsLoading(false);
@@ -350,7 +379,6 @@ export default function AdminPage() {
       }
 
       setIsAuthenticated(true);
-      localStorage.setItem("admin-auth", "true");
     } catch {
       setError("Kunde inte ansluta till servern");
     } finally {
@@ -367,7 +395,6 @@ export default function AdminPage() {
     setDbStats(null);
     setFrontlogs(null);
     setTemplateSyncStatus(null);
-    localStorage.removeItem("admin-auth");
   };
 
   const handleClearTable = async (table: string) => {
@@ -493,6 +520,18 @@ export default function AdminPage() {
       setConfirmVercelProjectId(null);
     }
   };
+
+  if (authChecking) {
+    return (
+      <div className="bg-background flex min-h-screen items-center justify-center p-4">
+        <ShaderBackground theme="blue" speed={0.2} />
+        <div className="relative z-10 flex items-center gap-2 text-gray-400">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Kontrollerar behörighet...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
