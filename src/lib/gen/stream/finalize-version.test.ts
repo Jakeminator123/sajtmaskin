@@ -26,6 +26,8 @@ const createGenerationTelemetryRecord = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
+const emitBusEvent = vi.hoisted(() => vi.fn());
+const subscribeEventBus = vi.hoisted(() => vi.fn());
 
 // Mock the FEATURES gate so optional dossier RAG / recurring-patterns
 // blocks stay deterministic in tests. The repair-pass / verifier-rerun /
@@ -131,6 +133,11 @@ vi.mock("@/lib/gen/retry/validate-syntax", () => ({
   validateGeneratedCode,
 }));
 
+vi.mock("@/lib/logging/event-bus", () => ({
+  emit: emitBusEvent,
+  subscribe: subscribeEventBus,
+}));
+
 const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -219,6 +226,8 @@ describe("finalizeAndSaveVersion", () => {
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
+    emitBusEvent.mockReset();
+    subscribeEventBus.mockReset();
 
     runAutoFix.mockResolvedValue({
       fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
@@ -529,6 +538,18 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(runVerifierPass).not.toHaveBeenCalled();
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        kind: "verifier_skipped_safe_fixes_only",
+        message: expect.stringContaining("säkra hygienfixar"),
+        meta: expect.objectContaining({
+          safeFixCount: 24,
+          riskyFixCount: 0,
+          riskyFixerIds: [],
+        }),
+      }),
+    );
     expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         meta: expect.objectContaining({
