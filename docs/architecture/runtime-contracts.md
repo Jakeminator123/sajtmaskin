@@ -60,20 +60,25 @@ Invariants:
 - Follow-up ska normalt behålla scaffold och variant.
 - Scaffold-inventarie ska genereras från kod, inte hållas manuellt i architecture-docs.
 
-## Quality gate
+## RenderGate / ReleaseGate
 
-Quality gate ska vara binär för blockerande fel och explicit degraderad för “works but not solid green”.
+RenderGate och ReleaseGate ska vara binära för Blocker-fel och explicit
+degraderade för "works but not solid green".
 
 Ägs av: `src/lib/gen/verify/quality-gate-checks.ts`.
 
 Invariants:
 
-- F2/designPreview är lättare än F3/integrationsBuild.
+- RenderGate (kod: `designPreview`) är F2-gaten: preview ska boota/rendera.
+- ReleaseGate (kod: `integrationsBuild`) är F3-gaten: typecheck, build, lint
+  och env-krav är strikta.
 - F3 ska alltid gatea integration/build hårdare än F2.
-- Advisory-safe F2 typecheck får inte bli false-green; status ska visa varning/degradation.
+- Advisory-safe F2 typecheck får inte bli false-green; status ska visa
+  Advisory/degradation.
+- Render-risk-koder, build/lint-fel och promote-guard-fel är Blocker.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
-## Repair-port (RepairGate)
+## RepairGate
 
 All LLM-repair går genom EN port. Detalj: `docs/schemas/quality-gate.md` § "En repair-port".
 
@@ -89,7 +94,7 @@ Invariants:
   gaten, aldrig direkt.
 - En repair är bara lyckad när SAMMA signal som failade passerar igen
   (`resolveSameSignalGateChecks` unionerar ursprungets failade checks in i
-  post-repair-gaten). Syntax-ren men gate-röd ⇒ `syntax_clean_gate_failed`,
+  post-repair-gaten). Syntax-ren men RenderGate/ReleaseGate-röd ⇒ `syntax_clean_gate_failed`,
   aldrig success.
 - `RepairLedger`-dedupe gäller över lanes inom samma körning (finalize →
   server-verify via `FinalizeResult.repairLedger`/`repairScopeId`). Nyckeln
@@ -113,7 +118,7 @@ Invariants:
 
 - EngineEvent är append-only.
 - VersionStatus är en projektion av events plus terminal DB-reconciliation där det behövs.
-- Degradations är förstaklassignal, inte loggbrus.
+- Degradations är förstaklassignal (Advisory), inte loggbrus.
 - Dead verify/repair-rundor ska settle:as av lease/stale-watchdog och aldrig fastna permanent i “verifying”.
 
 ## Previewkontrakt
