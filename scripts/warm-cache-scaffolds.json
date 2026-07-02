@@ -1,0 +1,14 @@
+{
+  "$comment": "Kanonisk lista över scaffolds som warm-cachen (pre-VM typecheck/eslint) provisioneras för. Ägs av scripts/provision-warm-cache.ts och läses även av scripts/dev/check-warm-cache.mjs. Symlink-strategin gör kostnaden per scaffold ~0 (se docs/howto/warm-cache-setup.md).",
+  "scaffoldIds": [
+    "app-shell",
+    "auth-pages",
+    "base-nextjs",
+    "blog",
+    "dashboard",
+    "ecommerce",
+    "landing-page",
+    "portfolio",
+    "saas-landing"
+  ]
+}

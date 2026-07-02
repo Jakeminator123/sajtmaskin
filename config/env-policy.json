@@ -511,7 +511,7 @@
         "preview",
         "production"
       ],
-      "notes": "Feature flag for the blocking eslint pass in `validateAndFix` (src/lib/gen/preview/warm-eslint.ts). Off by default — lint still runs in background verify-lane. When on, eslint runs after warm-tsc passes and feeds errors into the LLM fixer, closing SAJ-28. F3 generations force-run regardless. Fails open on cache-cold / eslint-unavailable."
+      "notes": "Feature flag for the blocking eslint pass in `validateAndFix` (src/lib/gen/preview/warm-eslint.ts). Off by default. NOTE: F2's VM quality-gate + background server-verify use the typecheck-only designPreview lane, so lint in F2 runs ONLY via this warm-eslint pass — and only when (1) this flag is truthy or F3-force applies, AND (2) the warm cache is provisioned for the selected scaffold; otherwise lint skips fail-open (`cache_cold`). F3 (integrationsBuild lane) always runs lint on the VM. When on, eslint runs after warm-tsc passes and feeds errors into the LLM fixer, closing SAJ-28."
     },
     {
       "key": "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",

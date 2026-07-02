@@ -217,6 +217,7 @@ export async function runFinalizeFastPath(params: {
     errorsAfter: syntaxResult.errorsAfter,
     result: syntaxResult.status,
     tsc: syntaxResult.tsc ?? null,
+    eslint: syntaxResult.eslint ?? null,
   });
   stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
     fixerUsed: syntaxResult.fixerUsed,
@@ -226,6 +227,7 @@ export async function runFinalizeFastPath(params: {
     earlyStopReason: syntaxResult.earlyStopReason,
     result: syntaxResult.status,
     tsc: syntaxResult.tsc ?? null,
+    eslint: syntaxResult.eslint ?? null,
   });
 
   if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {

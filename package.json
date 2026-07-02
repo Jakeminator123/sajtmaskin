@@ -124,7 +124,8 @@
     "faults:matrix:prod": "node scripts/observability/fault-matrix.mjs --prod",
     "observability:rebuild-all": "npm run rag:error-log:reindex:force && npm run fixers:dump",
     "provision:warm-cache": "npx tsx scripts/provision-warm-cache.ts",
-    "provision:warm-cache:force": "npx tsx scripts/provision-warm-cache.ts --force"
+    "provision:warm-cache:force": "npx tsx scripts/provision-warm-cache.ts --force",
+    "warm-cache:smoke": "node scripts/dev/check-warm-cache.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

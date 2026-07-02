@@ -15,9 +15,10 @@
  * a TS1361 in it (2026-04-23) and only got caught after the VM had tried
  * to build it — a 118s detour.
  *
- * Scope: start with `landing-page` only (the scaffold that matches most
- * real prompts). Expand via the `SCAFFOLD_IDS` list below once disk cost
- * and latency are measured.
+ * Scope: all active scaffolds (see `scripts/warm-cache-scaffolds.json`,
+ * shared with `scripts/dev/check-warm-cache.mjs`). The symlink strategy
+ * makes per-scaffold cost ~0, so provisioning everything avoids the
+ * "F2 picked a non-provisioned scaffold → silent cache_cold skip" gap.
  *
  * Strategy: the repo already has all the dependencies the generated
  * project needs (they are a superset; the scaffold's package.json is
@@ -43,7 +44,12 @@ const REPO_TSCONFIG = join(REPO_ROOT, "tsconfig.json");
 const REPO_ESLINT_CONFIG = join(REPO_ROOT, "eslint.config.mjs");
 const REPO_ESLINT_RC_SUPPORT = join(REPO_ROOT, ".eslintignore"); // optional
 
-const SCAFFOLD_IDS = ["landing-page"];
+// Canonical scaffold list shared with scripts/dev/check-warm-cache.mjs.
+const SCAFFOLD_IDS: string[] = (
+  JSON.parse(
+    readFileSync(join(REPO_ROOT, "scripts", "warm-cache-scaffolds.json"), "utf8"),
+  ) as { scaffoldIds: string[] }
+).scaffoldIds;
 
 const CACHE_ROOT_OVERRIDE = process.env.SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT;
 const CACHE_ROOT = CACHE_ROOT_OVERRIDE
@@ -199,6 +205,5 @@ function main(): void {
 
 // Guard against accidental import: this is a CLI script only.
 void readdirSync;
-void readFileSync;
 void statSync;
 main();

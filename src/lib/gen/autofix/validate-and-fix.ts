@@ -189,6 +189,21 @@ async function runWarmTscPass(
     });
     if (result.skipped) {
       opts.onProgress?.({ pass: opts.pass, phase: "tsc-skipped", errorCount: 0 });
+      devLogAppend("in-progress", {
+        type: "validate.tsc.skipped",
+        chatId: opts.chatId,
+        reason: result.skipped,
+        scaffoldId: opts.resolvedScaffold?.id ?? null,
+        pass: opts.pass,
+      });
+      // `cache_cold` only happens AFTER the feature flag / F3-force passed —
+      // the operator asked for a blocking typecheck but the warm cache isn't
+      // provisioned. Warn loudly so this never reads as "typecheck ran".
+      if (result.skipped === "cache_cold") {
+        console.warn(
+          `[warm-typecheck] SAJTMASKIN_PRE_VM_TYPECHECK/F3-force is active but the warm cache is COLD for scaffold "${opts.resolvedScaffold?.id ?? "unknown"}" — the blocking typecheck was skipped (fail-open). Run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+        );
+      }
       return {
         content: contentForVersion,
         tsc: { ran: false, skipped: result.skipped, durationMs: result.durationMs },
@@ -362,8 +377,16 @@ async function runWarmEslintPass(
         type: "validate.eslint.skipped",
         chatId: opts.chatId,
         reason: result.skipped,
+        scaffoldId: opts.resolvedScaffold?.id ?? null,
         pass: opts.pass,
       });
+      // Same false-safety guard as warm-tsc: `cache_cold` means the blocking
+      // eslint pass was requested (flag or F3-force) but couldn't run.
+      if (result.skipped === "cache_cold") {
+        console.warn(
+          `[warm-eslint] SAJTMASKIN_BLOCKING_ESLINT/F3-force is active but the warm cache is COLD for scaffold "${opts.resolvedScaffold?.id ?? "unknown"}" — the blocking eslint pass was skipped (fail-open). Run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+        );
+      }
       return {
         content: contentForVersion,
         eslint: { ran: false, skipped: result.skipped, durationMs: result.durationMs },
