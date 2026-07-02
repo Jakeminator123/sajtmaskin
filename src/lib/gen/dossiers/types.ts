@@ -141,19 +141,32 @@ export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): Co
 }
 
 /**
- * Canonical F2/F3 signal: does this dossier require F3 (a real integration with
- * a build-blocking secret)? This is the SINGLE source of truth for "needs F3" —
- * derived from the dossier's own env contract, not a hardcoded capability list.
- * A dossier with an `enforcement: "build"` env var (the default when
- * `enforcement` is omitted, per `DossierEnvVarEnforcement`) needs a real value
- * before the F3 build can succeed; F2 renders a placeholder-safe version.
+ * Canonical F2/F3 signal: does this dossier require F3 (a real integration)?
+ * This is the SINGLE source of truth for "needs F3" — derived from the
+ * dossier's own contract, not a hardcoded capability list. Two rules:
  *
- * `envVars: []` (soft/self-contained dossiers, e.g. `interactive-game-loop`)
- * => fully F2-usable. Extend the rule HERE if a future dossier needs a server
- * step without a classic build-env secret (internal DB / server action) —
- * never re-derive the boundary in a separate hardcoded list:
- *   `|| entry.runtime?.requiresServer === true`
+ * 1. **Env contract:** any `enforcement: "build"` env var (the default when
+ *    `enforcement` is omitted, per `DossierEnvVarEnforcement`) needs a real
+ *    value before the F3 build can succeed.
+ * 2. **Server surface:** any `files[].role === "server"` file. A dossier that
+ *    ships backend wiring (API route, middleware, server config) is real
+ *    integration glue that F2 must not emit — F2 is the visual-mockup stage,
+ *    and those server files typically import tier-3 SDKs that the F2 deny-list
+ *    (`config/integrations/tier3-sdk-deny.json`) strips, which would break the
+ *    verbatim route. Example: `resend-contact-form`'s `/api/contact` route —
+ *    all its env keys are `feature-runtime` (rule 1 is false), yet the
+ *    integration itself belongs in F3; F2 renders the form as a mockup.
+ *
+ * `envVars: []` + client-only files (soft/self-contained dossiers, e.g.
+ * `interactive-game-loop`, `three-fiber-canvas`) => fully F2-usable.
+ * Extend the rule HERE if a future case needs it — never re-derive the
+ * boundary in a separate hardcoded list.
  */
-export function dossierRequiresF3(entry: Pick<DossierEntry, "envVars">): boolean {
-  return (entry.envVars ?? []).some((env) => (env.enforcement ?? "build") === "build");
+export function dossierRequiresF3(
+  entry: Pick<DossierEntry, "envVars" | "files">,
+): boolean {
+  if ((entry.envVars ?? []).some((env) => (env.enforcement ?? "build") === "build")) {
+    return true;
+  }
+  return (entry.files ?? []).some((file) => file.role === "server");
 }

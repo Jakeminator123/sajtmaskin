@@ -232,10 +232,12 @@ export function getDossierExposesByImportPath(importPath: string): DossierExpose
 
 /**
  * Capabilities whose (real) dossier requires F3 — i.e. carries a build-enforced
- * env secret (see {@link dossierRequiresF3}). Data-driven: the F2/F3 boundary
- * for secret-backed integrations is read from each dossier's env contract, not
- * a hardcoded capability list. Today this resolves to `{payments, auth,
- * ai-chat}` (Stripe / Clerk / OpenAI). Cheap — `getAllDossiers()` is cached.
+ * env secret OR ships server-file wiring (see {@link dossierRequiresF3}).
+ * Data-driven: the F2/F3 boundary is read from each dossier's own contract,
+ * not a hardcoded capability list. Today this resolves to `{payments, auth,
+ * ai-chat}` (Stripe / Clerk / OpenAI — build secrets) plus `{contact-form,
+ * newsletter-subscribe, error-tracking}` (Resend / Mailchimp / Sentry —
+ * server-file surface). Cheap — `getAllDossiers()` is cached.
  */
 export function getF3RequiredCapabilities(): Set<string> {
   const caps = new Set<string>();

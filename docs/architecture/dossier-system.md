@@ -22,14 +22,19 @@ data/dossiers/
 | `hard` | The dossier needs `process.env` secrets to run (API keys, DB URLs). | Selection runs a preflight check on `envVars[].required`. If anything is missing, the dossier is still injected but the codegen LLM is told to render an "unconfigured" placeholder UI. |
 | `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
 
-### F2/F3-gräns: `envVars` är signalen (kanonisk)
+### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
 
-- **F2 (design)** renderar en klient-/demo-/placeholder-safe version.
+- **F2 (design)** renderar en klient-/demo-/placeholder-safe version (visuell mockup).
 - **F3 (integrations)** aktiverar den riktiga integrationen (riktiga env-värden krävs).
 
-**Kanonisk signal i dagens kod** för "kräver F3" är dossierns egen env-kontrakt: en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) är enda källan; [`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med en liten policy-residual för icke-secret-integrationer som analytics/error-tracking, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver ett serversteg utan klassisk build-secret — inte via en ny per-dossier-flagga.
+**Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
+
+1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas) — Stripe/Clerk/OpenAI-klassen.
+2. **Server-yta:** en `files[]`-post med `role: "server"` — dossiers som skeppar backend-wiring (API-route, middleware, server-config) hör till F3 även utan build-secret. Exempel: `resend-contact-form` (alla nycklar `feature-runtime`, men `/api/contact`-routen importerar `resend` som F2:s SDK-deny-lista strippar) och `mailchimp-newsletter`. I F2 renderas formuläret som visuell mockup enligt F2-kontraktet i `session-contracts.ts`; mejl/prenumeration aktiveras först i F3 ("Bygg integrationer").
+
+[`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med policy-residualen `{analytics}` — icke-secret, server-fri integration som ändå ska F2-mutas, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` och enbart klientfiler (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver det — inte via en ny per-dossier-flagga eller separat hårdkodad lista.
 
 ## Two code-fidelities (per-dossier default + per-file override)
 

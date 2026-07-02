@@ -101,10 +101,12 @@ describe("5-5 capabilities can-only-grow — enforceFollowUpCapabilityFloor (uni
 });
 
 describe("5-5 capabilities can-only-grow — filter + floor (proves the bug fix deterministically)", () => {
-  it("restores a base contact-form that filterDossierCapabilitiesForPrompt drops on a neutral F2 follow-up", () => {
-    // Drop-väg 1: init asked for a contact-form; the neutral follow-up only
-    // says "change the color" → the F2 filter strips contact-form because the
-    // current message doesn't request contact delivery.
+  it("parks a base contact-form in F2 (integration-mute) and restores it in F3", () => {
+    // contact-form (resend) is an F3 integration via the server-file rule in
+    // `dossierRequiresF3`: the F2 filter drops it regardless of prompt wording,
+    // and the floor must NOT re-inject it into an F2 follow-up (it stays
+    // parked in the contract). Lifting the project to F3 restores it — so
+    // can-only-grow still holds across the lifecycle.
     const filtered = filterDossierCapabilitiesForPrompt({
       capabilities: ["contact-form"],
       prompt: "Byt knappfärgen till blå.",
@@ -112,13 +114,23 @@ describe("5-5 capabilities can-only-grow — filter + floor (proves the bug fix 
     });
     expect(filtered).not.toContain("contact-form"); // proves the filter drops it
 
-    const decision = enforceFollowUpCapabilityFloor({
+    const f2Decision = enforceFollowUpCapabilityFloor({
       resolvedMode: "followUp",
       resolvedCapabilities: filtered,
       contractCapabilities: ["contact-form"],
+      previewPolicy: "fidelity2",
     });
-    expect(decision.capabilities).toContain("contact-form"); // floor restores it
-    expect(decision.floorApplied).toBe(true);
+    expect(f2Decision.capabilities).not.toContain("contact-form"); // parked in F2
+    expect(f2Decision.floorApplied).toBe(false);
+
+    const f3Decision = enforceFollowUpCapabilityFloor({
+      resolvedMode: "followUp",
+      resolvedCapabilities: [],
+      contractCapabilities: ["contact-form"],
+      previewPolicy: "fidelity3",
+    });
+    expect(f3Decision.capabilities).toContain("contact-form"); // restored in F3
+    expect(f3Decision.floorApplied).toBe(true);
   });
 
   it("restores an F3-only base integration the F2 filter strips on a neutral follow-up", () => {
