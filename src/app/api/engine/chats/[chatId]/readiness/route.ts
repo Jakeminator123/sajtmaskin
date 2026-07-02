@@ -85,18 +85,24 @@ function buildLifecycleBlocker(
     };
   }
 
+  // F3/integrations genuinely waits on server-verify/repair, so an active
+  // verify/repair must BLOCK publish (canDeploy=false) — mirrors the shared
+  // `resolveDeployBlock` used by the deploy API so readiness and deploy agree.
+  // F2 (`design`) and an unknown/null stage stay non-blocking: design is
+  // launchable as-is (it never runs server-verify), and an unknown stage keeps
+  // a warning so a possibly-real F3 verify is never silently hidden.
+  const isIntegrationsStage = stage === "integrations";
   if (status === "verifying") {
     // F2 (`design`) intentionally skips the F3 server-verify lane, so a design
     // version rests at `verifying` with nothing actually running. Surfacing it
     // as a standing "verification in progress" warning is a false signal — a
-    // design preview is launchable as-is. Only F3/integrations genuinely waits
-    // on verification. Mirrors `env-flow-f2-mute.mdc`.
+    // design preview is launchable as-is. Mirrors `env-flow-f2-mute.mdc`.
     if (isDesignStage) return null;
     return {
       id: "version-verifying",
       title: "Verifiering pågår fortfarande.",
       detail: summary || "Quality gate och efterkontroller körs i bakgrunden. Preview är tillgänglig under tiden.",
-      severity: "warning",
+      severity: isIntegrationsStage ? "blocker" : "warning",
       action: "versions",
     };
   }
@@ -108,7 +114,7 @@ function buildLifecycleBlocker(
       detail:
         summary ||
         "Reparations-loopen försöker laga verifieringsblockerande fynd. Vänta tills den är klar innan du publicerar.",
-      severity: "warning",
+      severity: isIntegrationsStage ? "blocker" : "warning",
       action: "versions",
     };
   }
@@ -373,6 +379,36 @@ async function buildEngineReadiness(
     const previewMeta = readPreviewDiagnosticMeta(latestPreviewSignal.meta);
     warnings.push(buildPreviewWarning(latestPreviewSignal.message, previewMeta.previewCode));
   }
+
+  // Product-postcheck blocker: the F2 DOM postcheck can run, render fine, and
+  // pass the build gate while still finding blocking product defects (dead
+  // mobile menu, 2+ broken in-page anchors, runtime crash) — surfaced as a
+  // `product_postcheck.summary` log with `meta.productBlocked === true`
+  // (emitted by `src/lib/hooks/chat/post-checks.ts`; the server route emits a
+  // matching `product_postcheck_blocked` degradation). The preview-signal find
+  // above ignores `product_postcheck.*`, so without this a product-blocked
+  // version reads green in readiness. Treat it as a publish blocker so the
+  // readiness card and deploy stay honest. Mirrors the client detection in
+  // `PreviewPanelF3Trigger.hasBlockingProductPostcheck`.
+  const productPostcheckBlocked = errorLogs.some((log) => {
+    if (log.category !== "product_postcheck.summary") return false;
+    const meta =
+      log.meta && typeof log.meta === "object"
+        ? (log.meta as Record<string, unknown>)
+        : null;
+    return meta?.productBlocked === true;
+  });
+  if (productPostcheckBlocked) {
+    blockers.push({
+      id: "product-postcheck-blocked",
+      title: "Produktkontrollen hittade blockerande fel.",
+      detail:
+        "F2-produktkontrollen (mobilmeny / in-page-länkar) rapporterade blockerande fel. Åtgärda dem innan du publicerar.",
+      severity: "blocker",
+      action: "preview",
+    });
+  }
+
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
   if (latestSeoWarning && hasCriticalSeoIssues(latestSeoWarning.meta)) {
       blockers.push({

@@ -30,11 +30,18 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
+import {
+  resolveDeployBlock,
+  resolveEngineVersionLifecycleStage,
+  resolveEngineVersionLifecycleStatus,
+} from "@/lib/db/engine-version-lifecycle";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { getProjectData } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
@@ -431,19 +438,27 @@ export async function POST(req: Request) {
       if (engineVersion.chat_id !== chatId) {
         return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
       }
-      // A version that failed the quality gate (typecheck/build) must not be
-      // publishable. The readiness UI surfaces this as a blocker; enforce it
-      // server-side too so the deploy API can't be called directly with a
-      // failed version (preview is unaffected — this is the publish path).
-      if (engineVersion.verification_state === "failed") {
-        return NextResponse.json(
-          {
-            error:
-              "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
-            code: "DEPLOY_VERSION_FAILED",
-          },
-          { status: 409 },
-        );
+      // A version in a non-publishable lifecycle state must not be deployable.
+      // The readiness UI surfaces these as blockers; enforce the SAME decision
+      // server-side via the shared `resolveDeployBlock` so the publish path
+      // can't be called directly to ship a draft / F3-verifying / F3-repairing
+      // / repair-pending / failed version (preview is unaffected — this is the
+      // publish path). F2 design verifying/repairing and promoted stay allowed.
+      // `precheckOnly` is a non-publishing diagnostic and still returns its
+      // readiness report below, so the hard block only fires on real deploys.
+      const versionLifecycleStatus = resolveEngineVersionLifecycleStatus(engineVersion);
+      const versionLifecycleStage = resolveEngineVersionLifecycleStage(engineVersion);
+      if (!precheckOnly) {
+        const deployBlock = resolveDeployBlock({
+          lifecycleStatus: versionLifecycleStatus,
+          lifecycleStage: versionLifecycleStage,
+        });
+        if (deployBlock) {
+          return NextResponse.json(
+            { error: deployBlock.message, code: deployBlock.code },
+            { status: 409 },
+          );
+        }
       }
       const [engineChat, codeFiles] = await Promise.all([
         getChat(engineVersion.chat_id),
@@ -502,9 +517,28 @@ export async function POST(req: Request) {
         textFiles,
         skipPreDeployAutoFix,
       );
+      // Publish env-gate must match readiness/finalize-design: resolve the SAME
+      // context (lifecycle stage, selected dossiers, F3 placeholder opt-in) so a
+      // deploy can't apply a weaker, design-defaulted env gate than the
+      // readiness card the user already passed. Mirrors
+      // `app/api/engine/chats/[chatId]/readiness/route.ts`. Called WITHOUT this
+      // context the resolver defaults to `design` and includes tier-3 stub
+      // placeholders, hiding real missing F3 keys.
+      const deployEnvGateActive = versionLifecycleStage === "integrations";
+      const deployAllowPlaceholdersInF3 = deployEnvGateActive
+        ? await readAllowPlaceholdersInF3(engineProjectId)
+        : false;
+      const deploySelectedDossiers = resolveSelectedDossiersFromSnapshot(
+        engineChat.orchestration_snapshot ?? null,
+      );
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
+        {
+          lifecycleStage: deployEnvGateActive ? "integrations" : "design",
+          allowPlaceholdersInF3: deployAllowPlaceholdersInF3,
+          selectedDossiers: deploySelectedDossiers,
+        },
       );
       // Only keys missing from BOTH user config AND preview placeholders block
       // the deploy. Keys that are decorative or covered by harmless/tier-3 stub
@@ -668,11 +702,17 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl ?? null,
         });
 
+        let creditCommitFailed = false;
         try {
           if (creditCheck) {
             await creditCheck.commit();
           }
         } catch (error) {
+          // The Vercel deploy already succeeded — do NOT roll it back. Surface
+          // the failed debit as an explicit warning field on the 200 so the
+          // caller/telemetry can reconcile the un-charged credits instead of it
+          // being silently swallowed while deploy reports success.
+          creditCommitFailed = true;
           console.error("[credits] Failed to charge deploy:", error);
         }
 
@@ -681,6 +721,7 @@ export async function POST(req: Request) {
             chatId,
             versionId,
             status: mapped.status,
+            creditCommitFailed,
             vercelDeploymentId: created.vercelDeploymentId,
             vercelProjectId: created.vercelProjectId,
             url: created.url,

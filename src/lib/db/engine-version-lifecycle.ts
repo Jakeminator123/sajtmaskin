@@ -131,6 +131,89 @@ export function resolveEngineVersionLifecycleStatus(
   return "draft";
 }
 
+export type DeployBlockCode =
+  | "DEPLOY_VERSION_DRAFT"
+  | "DEPLOY_VERSION_VERIFYING"
+  | "DEPLOY_VERSION_REPAIRING"
+  | "DEPLOY_VERSION_REPAIR_PENDING"
+  | "DEPLOY_VERSION_FAILED";
+
+export type DeployBlock = {
+  code: DeployBlockCode;
+  status: EngineVersionLifecycleStatus;
+  /** Swedish, user-facing copy for the deploy 409 / readiness blocker. */
+  message: string;
+};
+
+/**
+ * Single source of truth for "may a version in this lifecycle status be
+ * published (deployed)?". Shared by the deploy API (hard server-side guard in
+ * `POST /api/v0/deployments`) and the readiness route (severity of the
+ * lifecycle item) so the publish gate and the readiness UI can never disagree.
+ *
+ * Publishable (returns `null`):
+ *  - `promoted` — verified/promoted, the normal deploy target.
+ *  - design-stage (F2) `verifying`/`repairing` — a design preview rests at
+ *    `verifying` with nothing actually running and is launchable as-is; it
+ *    never runs server-verify (see `env-flow-f2-mute.mdc`).
+ *
+ * Blocked (returns a reason):
+ *  - `draft`, `repair_available`, `failed` (any stage).
+ *  - integrations-stage (F3) `verifying`/`repairing` — F3 genuinely waits on
+ *    server-verify/repair, so an active run must not be published.
+ */
+export function resolveDeployBlock(params: {
+  lifecycleStatus: EngineVersionLifecycleStatus;
+  lifecycleStage: EngineVersionLifecycleStage;
+}): DeployBlock | null {
+  const { lifecycleStatus, lifecycleStage } = params;
+  const isIntegrations = lifecycleStage === "integrations";
+  switch (lifecycleStatus) {
+    case "promoted":
+      return null;
+    case "draft":
+      return {
+        code: "DEPLOY_VERSION_DRAFT",
+        status: lifecycleStatus,
+        message:
+          "Versionen är fortfarande ett draft-utkast och kan inte publiceras. Kör verifieringen först.",
+      };
+    case "verifying":
+      // F2 design rests at `verifying` with nothing running — launchable as-is.
+      if (!isIntegrations) return null;
+      return {
+        code: "DEPLOY_VERSION_VERIFYING",
+        status: lifecycleStatus,
+        message:
+          "Verifiering pågår fortfarande för integrationsversionen. Vänta tills den är klar innan du publicerar.",
+      };
+    case "repairing":
+      if (!isIntegrations) return null;
+      return {
+        code: "DEPLOY_VERSION_REPAIRING",
+        status: lifecycleStatus,
+        message:
+          "Server-side repair pågår för integrationsversionen. Vänta tills den är klar innan du publicerar.",
+      };
+    case "repair_available":
+      return {
+        code: "DEPLOY_VERSION_REPAIR_PENDING",
+        status: lifecycleStatus,
+        message:
+          "En serverreparation väntar på godkännande. Acceptera eller avvisa den i versionspanelen innan du publicerar.",
+      };
+    case "failed":
+      return {
+        code: "DEPLOY_VERSION_FAILED",
+        status: lifecycleStatus,
+        message:
+          "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
+      };
+    default:
+      return null;
+  }
+}
+
 export function resolveEngineVersionVerificationSurfaceStatus(
   version: EngineVersionLifecycleLike | null | undefined,
 ): EngineVersionVerificationSurfaceStatus {

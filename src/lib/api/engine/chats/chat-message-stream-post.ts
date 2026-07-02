@@ -397,8 +397,9 @@ export async function handleMessageStreamRequest(
         // credits on a generation whose build gate was guaranteed to fail.
         // Re-check the same shared gate here (server-authoritative), scoped to
         // the parent F2 version being forked (fall back to the chat's preferred
-        // version when the meta omits it). Gate errors fail open with a log —
-        // the F3 quality gate (build+lint) still catches a broken build.
+        // version when the meta omits it). Gate errors now FAIL CLOSED with a
+        // 409 ("cannot determine readiness") — starting F3 blind burns credits
+        // on a generation whose env gate we could not verify.
         if (parsedMeta.lifecycleStage === "integrations" && !metaPlanMode) {
           // Codex P1 (PR #351): the readiness gate must inspect the version the
           // generation will ACTUALLY build from — `engineBaseVersionId` drives
@@ -426,6 +427,9 @@ export async function handleMessageStreamRequest(
               ),
             );
           }
+          // Hoisted out of the try so the fail-closed catch below can report
+          // which version it was gating (best-effort; may still be null).
+          let gateVersionId: string | null = null;
           try {
             // Chat-scope the client-supplied id (mirrors
             // `resolveFollowUpPreviousFiles`): an id that does not belong to
@@ -440,7 +444,6 @@ export async function handleMessageStreamRequest(
             // from preferred/latest in that case) — the same
             // gate-vs-build-base split the mismatch 409 above refuses.
             const requestedGateVersionId = metaEngineBaseVersionId ?? null;
-            let gateVersionId: string | null = null;
             if (requestedGateVersionId) {
               const gateVersion = await chatRepo.getVersionById(requestedGateVersionId);
               gateVersionId =
@@ -511,10 +514,27 @@ export async function handleMessageStreamRequest(
               }
             }
           } catch (gateErr) {
-            debugLog("orchestration", "F3 stream readiness gate errored — failing open", {
+            // FAIL CLOSED: a crash while determining F3 readiness must not
+            // silently start an integrations stream — that burns credits on a
+            // build whose env gate we could not verify. Mirror the sibling
+            // `version_files_unavailable` 409 not-ready branch above: refuse
+            // and let the client reload/retry.
+            debugLog("orchestration", "F3 stream readiness gate errored — failing closed (409)", {
               chatId,
               error: gateErr instanceof Error ? gateErr.message : String(gateErr),
             });
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error: "f3_readiness_unavailable",
+                  ready: false,
+                  parentVersionId: gateVersionId,
+                  message:
+                    "Kunde inte avgöra F3-readiness just nu (internt fel). Ladda om och försök igen.",
+                },
+                { status: 409 },
+              ),
+            );
           }
         }
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`

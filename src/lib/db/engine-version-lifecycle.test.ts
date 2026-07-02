@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isServerVerifyExpectedForLifecycle,
+  resolveDeployBlock,
   resolveEngineVersionLifecycleStatus,
   resolveEngineVersionVerificationSurfaceStatus,
   canExposeEnginePreview,
@@ -65,6 +66,49 @@ describe("resolveEngineVersionLifecycleStatus", () => {
     expect(
       resolveEngineVersionLifecycleStatus({ releaseState: "promoted", verificationState: "repairing" }),
     ).toBe("promoted");
+  });
+});
+
+describe("resolveDeployBlock", () => {
+  it("allows publishing a promoted version (any stage)", () => {
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "promoted", lifecycleStage: "design" }),
+    ).toBeNull();
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "promoted", lifecycleStage: "integrations" }),
+    ).toBeNull();
+  });
+
+  it("blocks draft / repair_available / failed regardless of stage", () => {
+    for (const lifecycleStage of ["design", "integrations"] as const) {
+      expect(
+        resolveDeployBlock({ lifecycleStatus: "draft", lifecycleStage })?.code,
+      ).toBe("DEPLOY_VERSION_DRAFT");
+      expect(
+        resolveDeployBlock({ lifecycleStatus: "repair_available", lifecycleStage })?.code,
+      ).toBe("DEPLOY_VERSION_REPAIR_PENDING");
+      expect(
+        resolveDeployBlock({ lifecycleStatus: "failed", lifecycleStage })?.code,
+      ).toBe("DEPLOY_VERSION_FAILED");
+    }
+  });
+
+  it("keeps F2 design verifying/repairing publishable (launchable preview)", () => {
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "verifying", lifecycleStage: "design" }),
+    ).toBeNull();
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "repairing", lifecycleStage: "design" }),
+    ).toBeNull();
+  });
+
+  it("blocks F3 integrations verifying/repairing (active verify/repair)", () => {
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "verifying", lifecycleStage: "integrations" })?.code,
+    ).toBe("DEPLOY_VERSION_VERIFYING");
+    expect(
+      resolveDeployBlock({ lifecycleStatus: "repairing", lifecycleStage: "integrations" })?.code,
+    ).toBe("DEPLOY_VERSION_REPAIRING");
   });
 });
 
