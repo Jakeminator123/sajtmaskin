@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { buildProductPostcheckLogItems, persistVersionErrorLogs } from "./post-checks";
+import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 /**
  * Resume of the browser-driven F2 verify lane for stranded draft versions.
@@ -22,12 +24,16 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
  *
  * This hook closes the gap without moving ownership: the browser still drives
  * F2 verification, but ANY later builder visit resumes a stranded lane. The
- * resume mirrors the tail of the normal lane (Codex P1 on #353): first
- * `POST /product-postcheck` (which emits `version.degraded` server-side for
- * skipped/blocked DOM checks — the false-green guard), then
- * `POST /quality-gate`. A `productBlocked` result skips the gate entirely,
- * matching the normal lane which routes blocked versions to autofix instead
- * of verify+promote.
+ * resume mirrors the tail of the normal lane (Codex P1+P2 rounds on #353):
+ * `POST /validate-images` (auto-replacement of broken image URLs) →
+ * `POST /product-postcheck` (emits `version.degraded` server-side for
+ * skipped/blocked DOM checks AND its result is persisted to `/error-log` as
+ * `product_postcheck.summary` — the row `PreviewPanelF3Trigger` reads to
+ * block F3) → `POST /quality-gate`. A `productBlocked` result does NOT stop
+ * the gate: normal-lane parity records it as a warning and still verifies,
+ * so the row settles (promoted-with-degradation or failed) instead of
+ * staying pending forever — the F3 block is enforced via the persisted
+ * summary log, not by leaving the version unverified.
  *
  * Safety properties:
  *
@@ -155,12 +161,36 @@ export function findResumablePendingVersion(
 }
 
 /**
+ * Best-effort mirror of the normal lane's image-validation step (broken
+ * external image URLs get auto-replaced + persisted server-side via
+ * `autoFix: true` before the version is promoted). Transport failures are
+ * swallowed — the normal lane also proceeds when `validateImages` yields
+ * null (Codex P2 round 2 on #353).
+ */
+async function runResumeImageValidation(params: {
+  chatId: string;
+  versionId: string;
+}): Promise<void> {
+  try {
+    await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId: params.versionId, autoFix: true }),
+    });
+  } catch {
+    // Best-effort parity step only.
+  }
+}
+
+/**
  * Best-effort mirror of the normal lane's product-postcheck step. Returns
  * `{ productBlocked }`; a network/parse failure returns `productBlocked:false`
  * (same as the normal lane, which continues to the verify lane when
- * `runProductPostcheckApi` yields null). The route itself emits the
- * `version.degraded` bus events (skipped/blocked/runtime_error), so status
- * honesty does not depend on this return value.
+ * `runProductPostcheckApi` yields null). Two truth surfaces are fed here
+ * (Codex P1 round 2 on #353): the route emits `version.degraded` bus events,
+ * and the full result is persisted to `/error-log` — including the
+ * `product_postcheck.summary` row whose `meta.productBlocked` is what
+ * `PreviewPanelF3Trigger` reads to block "Bygg integrationer" (F3).
  */
 async function runResumeProductPostcheck(params: {
   chatId: string;
@@ -174,7 +204,17 @@ async function runResumeProductPostcheck(params: {
       body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
     });
     if (!res.ok) return { productBlocked: false };
-    const data = (await res.json().catch(() => null)) as { productBlocked?: boolean } | null;
+    const data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
+    if (data) {
+      // Normal-lane parity: persist the postcheck result as error-log rows.
+      // Without the summary row, a product-blocked resume would be liftable
+      // to F3 after reload (the F3 trigger reads /error-log, not the bus).
+      await persistVersionErrorLogs({
+        chatId: params.chatId,
+        versionId: params.versionId,
+        logs: buildProductPostcheckLogItems(data),
+      });
+    }
     return { productBlocked: data?.productBlocked === true };
   } catch {
     return { productBlocked: false };
@@ -206,25 +246,32 @@ export function useResumePendingVerification(params: {
 
     void (async () => {
       try {
-        // Step 1 — product-postcheck, mirroring the normal lane order. The
-        // route emits `version.degraded` server-side for skipped/blocked DOM
-        // checks so a resumed promotion can never read as solid green without
-        // DOM verification (Codex P1).
+        // Step 1 — image validation (broken external image URLs get
+        // auto-replaced + persisted before promote), normal-lane parity
+        // (Codex P2 round 2).
+        await runResumeImageValidation({ chatId, versionId });
+        if (cancelled) return;
+
+        // Step 2 — product-postcheck, mirroring the normal lane order. The
+        // route emits `version.degraded` server-side AND the result is
+        // persisted as `/error-log` rows (incl. `product_postcheck.summary`,
+        // the row the F3 trigger enforces) so a resumed promotion can never
+        // read as solid green without DOM verification (Codex P1 rounds 1+2).
         const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
         if (cancelled) return;
         if (postcheck.productBlocked) {
-          // Normal-lane parity: a product-blocked version goes to autofix, not
-          // verify+promote. The resume lane has no autofix machinery, so leave
-          // the row pending (degradation is already on the bus) and inform.
-          await Promise.resolve(mutateVersions?.());
+          // Normal-lane parity (Codex P2 round 2): the normal post-check path
+          // records productBlocked as a warning and STILL runs the verify
+          // lane, so the row settles (promoted-with-degradation or failed)
+          // instead of staying draft/pending forever — the F3 lift is blocked
+          // by the persisted summary row, not by leaving the row unverified.
           toast.message("Produktkontrollen hittade blockerande fel", {
             description:
-              "Versionen promotades inte. Öppna diagnostik-dialogen eller kör en ny förfining.",
+              "Fynden loggades och blockerar 'Bygg integrationer' (F3). Verifieringen körs ändå klart.",
           });
-          return;
         }
 
-        // Step 2 — quality gate (verify + promote).
+        // Step 3 — quality gate (verify + promote).
         const res = await fetch(`${engineChatBaseUrl(chatId)}/quality-gate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

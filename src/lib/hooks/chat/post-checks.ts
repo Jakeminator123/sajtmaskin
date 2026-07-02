@@ -30,7 +30,13 @@ import type {
 } from "./types";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
-async function persistVersionErrorLogs(params: {
+/**
+ * Exported for the resume-verify lane (`useResumePendingVerification`), which
+ * mirrors this lane's tail and must persist the SAME log rows — notably the
+ * `product_postcheck.summary` row that `PreviewPanelF3Trigger` reads to block
+ * F3 on product-blocked versions (Codex P1 on #353).
+ */
+export async function persistVersionErrorLogs(params: {
   chatId: string;
   versionId: string;
   logs: VersionErrorLogPayload[];
@@ -98,7 +104,8 @@ async function runProductPostcheckApi(params: {
   }
 }
 
-function buildProductPostcheckLogItems(
+/** Exported for the resume-verify lane — see `persistVersionErrorLogs`. */
+export function buildProductPostcheckLogItems(
   result: ProductPostcheckResult | null,
 ): VersionErrorLogPayload[] {
   if (!result) return [];

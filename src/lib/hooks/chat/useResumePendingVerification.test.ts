@@ -136,6 +136,9 @@ describe("useResumePendingVerification", () => {
             params.postcheck?.body ?? { skipped: false, productBlocked: false },
         };
       }
+      if (String(url).includes("/validate-images") || String(url).includes("/error-log")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
       return {
         ok: params.qualityGate?.ok ?? true,
         status: params.qualityGate?.status ?? 200,
@@ -161,7 +164,7 @@ describe("useResumePendingVerification", () => {
     vi.clearAllMocks();
   });
 
-  it("runs product-postcheck first, then posts /quality-gate exactly once", async () => {
+  it("runs image-validation, then product-postcheck, then /quality-gate exactly once", async () => {
     const mutateVersions = vi.fn();
     const { rerender } = renderHook(
       (props: { versions: unknown[] }) =>
@@ -182,11 +185,26 @@ describe("useResumePendingVerification", () => {
       versionId: "ver_pending",
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     });
-    // Order: postcheck before gate (normal-lane parity).
+    // Order: image validation → postcheck → gate (normal-lane parity).
     const order = fetchMock.mock.calls.map(([url]) => String(url));
-    expect(order.findIndex((u) => u.includes("/product-postcheck"))).toBeLessThan(
-      order.findIndex((u) => u.includes("/quality-gate")),
-    );
+    const imageIdx = order.findIndex((u) => u.includes("/validate-images"));
+    const postcheckIdx = order.findIndex((u) => u.includes("/product-postcheck"));
+    const gateIdx = order.findIndex((u) => u.includes("/quality-gate"));
+    expect(imageIdx).toBeGreaterThanOrEqual(0);
+    expect(imageIdx).toBeLessThan(postcheckIdx);
+    expect(postcheckIdx).toBeLessThan(gateIdx);
+    expect(JSON.parse(String(callsTo("/validate-images")[0][1].body))).toEqual({
+      versionId: "ver_pending",
+      autoFix: true,
+    });
+    // The postcheck result is persisted as error-log rows (incl. the
+    // `product_postcheck.summary` row the F3 trigger reads).
+    const errorLogCalls = callsTo("/error-log");
+    expect(errorLogCalls).toHaveLength(1);
+    const persisted = JSON.parse(String(errorLogCalls[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { productBlocked?: boolean } }>;
+    };
+    expect(persisted.logs.some((l) => l.category === "product_postcheck.summary")).toBe(true);
     expect(JSON.parse(String(callsTo("/quality-gate")[0][1].body))).toEqual({
       versionId: "ver_pending",
     });
@@ -198,8 +216,17 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(1);
   });
 
-  it("skips the quality gate when product-postcheck reports productBlocked", async () => {
-    mockRoutes({ postcheck: { body: { skipped: false, productBlocked: true } } });
+  it("still runs the gate on productBlocked and persists the blocking summary row", async () => {
+    mockRoutes({
+      postcheck: {
+        body: {
+          skipped: false,
+          productBlocked: true,
+          warnings: [{ code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" }],
+          warningCount: 1,
+        },
+      },
+    });
     const mutateVersions = vi.fn();
     renderHook(() =>
       useResumePendingVerification({
@@ -210,9 +237,19 @@ describe("useResumePendingVerification", () => {
       }),
     );
 
-    await waitFor(() => expect(mutateVersions).toHaveBeenCalled());
+    // Normal-lane parity (Codex P2 round 2): productBlocked is a warning, the
+    // verify lane STILL runs so the row settles instead of staying pending.
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
     expect(callsTo("/product-postcheck")).toHaveLength(1);
-    expect(callsTo("/quality-gate")).toHaveLength(0);
+    // The F3 lift is blocked via the persisted summary row (Codex P1 round 2):
+    // `PreviewPanelF3Trigger` reads `product_postcheck.summary` from /error-log.
+    const errorLogCalls = callsTo("/error-log");
+    expect(errorLogCalls).toHaveLength(1);
+    const persisted = JSON.parse(String(errorLogCalls[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { productBlocked?: boolean } }>;
+    };
+    const summary = persisted.logs.find((l) => l.category === "product_postcheck.summary");
+    expect(summary?.meta?.productBlocked).toBe(true);
   });
 
   it("continues to the gate when product-postcheck fails transport-level (normal-lane parity)", async () => {
