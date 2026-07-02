@@ -1547,6 +1547,63 @@ export function useBuilderPageController() {
     ],
   );
 
+  // OpenClaw prompt-driven edit (flag-gated feature, OPENCLAW_EDIT_AGENT): the
+  // Sajtagenten widget lives outside the builder React tree, so after a
+  // successful edit it dispatches a window event carrying the new version +
+  // preview meta. Adopt it through the SAME tested handleFilesSaved path the
+  // normal quick-edit save uses (select the version, refresh the list, keep the
+  // hot patch) so the edit actually shows in the builder. The event name is kept
+  // as a matching string literal (see OPENCLAW_EDIT_APPLIED_EVENT in
+  // components/openclaw/useOpenClawEdit.ts) so removing the feature never breaks
+  // this file's import graph — delete this effect (and the stale-event effect
+  // below) as part of that removal. Both events carry an optional `chatId`;
+  // ignore any event tagged for a different chat so a widget edit never lands in
+  // the wrong builder session.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | {
+            chatId?: string | null;
+            versionId?: string;
+            previewUrl?: string | null;
+            previewSessionId?: string | null;
+            previewMode?: string | null;
+          }
+        | undefined;
+      if (detail?.chatId && detail.chatId !== chatId) return;
+      if (!detail?.versionId) return;
+      handleFilesSaved(detail);
+    };
+    window.addEventListener("sajtmaskin:openclaw-edit-applied", handler as EventListener);
+    return () =>
+      window.removeEventListener("sajtmaskin:openclaw-edit-applied", handler as EventListener);
+  }, [handleFilesSaved, chatId]);
+
+  // Companion to the applied-event effect above (same reversibility contract):
+  // when a widget edit is rejected as stale (409), re-sync the builder to the
+  // server's preferred version so the next edit builds on the live version. The
+  // event name is kept as a matching string literal (OPENCLAW_EDIT_STALE_EVENT).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { chatId?: string | null; serverPreferredVersionId?: string | null }
+        | undefined;
+      if (detail?.chatId && detail.chatId !== chatId) return;
+      void mutateVersions();
+      if (
+        typeof detail?.serverPreferredVersionId === "string" &&
+        detail.serverPreferredVersionId
+      ) {
+        setSelectedVersionId(detail.serverPreferredVersionId);
+      }
+    };
+    window.addEventListener("sajtmaskin:openclaw-edit-stale", handler as EventListener);
+    return () =>
+      window.removeEventListener("sajtmaskin:openclaw-edit-stale", handler as EventListener);
+  }, [chatId, mutateVersions, setSelectedVersionId]);
+
   // Auto-start generation for prompt-handoff flows from landing page.
   // Triggers when user submitted a prompt on `/` and was navigated to /builder
   // with a promptId in the URL — both `kostnadsfri` and `freeform` are valid handoffs.

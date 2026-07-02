@@ -20,6 +20,7 @@ import {
   Trash2,
   Video,
   VideoOff,
+  Wand2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ import {
   truncateForSpeech,
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
+import { useOpenClawEdit } from "./useOpenClawEdit";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
@@ -110,9 +112,17 @@ export function OpenClawChatPanel({
   isOpen?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
-  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate } = useOpenClawStore();
+  const { sendEdit, stopEdit } = useOpenClawEdit();
+  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate, scopeKey } =
+    useOpenClawStore();
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
+  // Prompt-driven edit agent (flag-gated). `editAgentAvailable` mirrors the
+  // server OPENCLAW_EDIT_AGENT flag (from /api/openclaw/health); `editMode` is
+  // the user's per-session toggle. When both are true, sends edit the project
+  // instead of chatting.
+  const [editMode, setEditMode] = useState(false);
+  const [editAgentAvailable, setEditAgentAvailable] = useState(false);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
   const [listening, setListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -142,17 +152,31 @@ export function OpenClawChatPanel({
       try {
         const res = await fetch("/api/openclaw/health");
         const data = (await res.json().catch(() => null)) as
-          | { debugEnabled?: boolean }
+          | { debugEnabled?: boolean; editAgentEnabled?: boolean; status?: string }
           | null;
-        if (!cancelled) setDebugEnabled(data?.debugEnabled === true);
+        if (!cancelled) {
+          setDebugEnabled(data?.debugEnabled === true);
+          // Only offer the edit toggle when the flag is on AND the gateway is
+          // healthy — otherwise the wand would appear but every edit would fail.
+          setEditAgentAvailable(data?.editAgentEnabled === true && data?.status === "ok");
+        }
       } catch {
-        if (!cancelled) setDebugEnabled(false);
+        if (!cancelled) {
+          setDebugEnabled(false);
+          setEditAgentAvailable(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [setDebugEnabled]);
+
+  // Edit-mode is a per-session toggle; reset it when the builder scope changes
+  // (chat/site switch) so it never silently leaks into a different site.
+  useEffect(() => {
+    setEditMode(false);
+  }, [scopeKey]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -184,11 +208,30 @@ export function OpenClawChatPanel({
     };
   }, []);
 
+  // Route a message to the edit agent when edit-mode is active (and the server
+  // flag is on); otherwise the normal Sajtagenten chat. Single choke point so
+  // typed sends, starter prompts and speech all honor the mode.
+  const editActive = editMode && editAgentAvailable;
+  const dispatchSend = useCallback(
+    (text: string) => {
+      if (editMode && editAgentAvailable) void sendEdit(text);
+      else void send(text);
+    },
+    [editMode, editAgentAvailable, sendEdit, send],
+  );
+
   const handleSend = useCallback(() => {
     if (!input.trim() || isStreaming) return;
-    void send(input);
+    dispatchSend(input);
     setInput("");
-  }, [input, isStreaming, send]);
+  }, [input, isStreaming, dispatchSend]);
+
+  // Stop must cancel BOTH lanes: the chat stream and any in-flight prompt edit,
+  // since either could be the source of the current streaming state.
+  const handleStop = useCallback(() => {
+    stop();
+    stopEdit();
+  }, [stop, stopEdit]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -199,6 +242,9 @@ export function OpenClawChatPanel({
 
   const handleStarterPrompt = (prompt: string) => {
     if (isStreaming) return;
+    // Starter prompts are canned questions, never edit instructions — always
+    // route them to the Sajtagenten chat regardless of edit-mode so they can't
+    // trigger an accidental site edit.
     void send(prompt);
     setInput("");
   };
@@ -225,7 +271,7 @@ export function OpenClawChatPanel({
       const text = result?.[0]?.transcript ?? "";
       setInterimTranscript(text);
       if (result?.[0]?.isFinal && text.trim()) {
-        void send(text.trim());
+        dispatchSend(text.trim());
         setInterimTranscript("");
       }
     };
@@ -240,7 +286,7 @@ export function OpenClawChatPanel({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isStreaming, send]);
+  }, [isStreaming, dispatchSend]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.abort?.();
@@ -355,7 +401,9 @@ export function OpenClawChatPanel({
             <p
               className={cn(
                 "truncate text-[10px]",
-                isMandateActive(armedMandate) ? "text-fuchsia-300" : "text-slate-300",
+                isMandateActive(armedMandate) || editActive
+                  ? "text-fuchsia-300"
+                  : "text-slate-300",
               )}
             >
               {isMandateActive(armedMandate)
@@ -367,8 +415,12 @@ export function OpenClawChatPanel({
                     : avatar.connectionState === "connecting"
                       ? "Ansluter avatar..."
                       : isStreaming
-                        ? "Skriver..."
-                        : content.idleStatus}
+                        ? editActive
+                          ? "Redigerar sajten..."
+                          : "Skriver..."
+                        : editActive
+                          ? "Redigeringsläge — dina meddelanden ändrar sajten"
+                          : content.idleStatus}
             </p>
           </div>
         </div>
@@ -401,6 +453,27 @@ export function OpenClawChatPanel({
               aria-label={avatarMode ? "Stäng av avatar" : "Aktivera avatar"}
             >
               {avatarMode ? <VideoOff className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+            </button>
+          ) : null}
+          {editAgentAvailable ? (
+            <button
+              type="button"
+              onClick={() => setEditMode((v) => !v)}
+              className={cn(
+                "rounded-md p-1.5 transition-colors",
+                editMode
+                  ? "text-fuchsia-200 hover:text-fuchsia-100"
+                  : "text-slate-300 hover:text-white",
+              )}
+              aria-label={editMode ? "Stäng redigeringsläge" : "Aktivera redigeringsläge"}
+              aria-pressed={editMode}
+              title={
+                editMode
+                  ? "Redigeringsläge på — dina meddelanden ändrar sajten"
+                  : "Redigeringsläge: låt Sajtagenten ändra sajten från en prompt"
+              }
+            >
+              <Wand2 className="h-3.5 w-3.5" />
             </button>
           ) : null}
           {messages.length > 0 ? (
@@ -523,7 +596,13 @@ export function OpenClawChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={listening ? "Lyssnar — prata på svenska..." : content.inputPlaceholder}
+            placeholder={
+              listening
+                ? "Lyssnar — prata på svenska..."
+                : editActive
+                  ? 'Beskriv ändringen, t.ex. "gör färgen blå istället för rosa"...'
+                  : content.inputPlaceholder
+            }
             rows={1}
             disabled={listening}
             className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400 disabled:opacity-60"
@@ -549,7 +628,7 @@ export function OpenClawChatPanel({
           {isStreaming ? (
             <button
               type="button"
-              onClick={stop}
+              onClick={handleStop}
               className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
               aria-label="Stoppa"
             >

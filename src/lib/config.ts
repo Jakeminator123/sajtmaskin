@@ -334,6 +334,17 @@ export const OPENCLAW = {
     return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
   /**
+   * Master flag for the prompt-driven OpenClaw edit agent (POST /api/openclaw/edit).
+   * When affirmative, OpenClaw can turn a chat prompt into deterministic quick-edit
+   * ops applied to the latest version of the user's project. Default OFF — the route
+   * 404s when this is not set, so the entire feature is reversible by removing the env
+   * value (no migrations, no core-pipeline changes). Independent of the surface/debug
+   * gates: the route additionally requires the gateway to be configured to produce ops.
+   */
+  get editAgentEnabled(): boolean {
+    return isAffirmativeEnvValue(env.OPENCLAW_EDIT_AGENT);
+  },
+  /**
    * Debug-mode gate. When affirmative (OC_DEBUG or OC_DEBUGG), OpenClaw gets
    * privileged debug context (full code + findings + repo-context) and may run
    * the armed bug-hunt autonomy. Hard production safeguard: never active in

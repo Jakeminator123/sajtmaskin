@@ -114,6 +114,11 @@ export const serverSchema = z.object({
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
+  /** Master flag for the prompt-driven OpenClaw edit agent (POST /api/openclaw/edit).
+   * Affirmative (1/true/yes/y/on) lets OpenClaw turn a chat prompt into deterministic
+   * quick-edit ops on the latest version. Default off — the route 404s when unset, so
+   * the whole feature is reversible by removing the value. Read via OPENCLAW.editAgentEnabled. */
+  OPENCLAW_EDIT_AGENT: z.string().optional(),
   /** OpenClaw debug-mode gate. Affirmative (1/true/yes/y/on) unlocks privileged
    * debug context + armed bug-hunt autonomy. Default off; blocked in production
    * unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled. */

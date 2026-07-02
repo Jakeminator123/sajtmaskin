@@ -157,6 +157,7 @@
     "OC_DEBUG_RUN_TOKEN",
     "OC_REPO_READ_TOKEN",
     "OC_REPO_SLUG",
+    "OPENCLAW_EDIT_AGENT",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_REVIEW_REASONING_EFFORT",
@@ -829,6 +830,15 @@
         "production"
       ],
       "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
+    },
+    {
+      "key": "OPENCLAW_EDIT_AGENT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Master flag for the prompt-driven OpenClaw edit agent (POST /api/openclaw/edit). Affirmative (1/true/yes/y/on) lets OpenClaw turn a chat prompt into deterministic quick-edit ops applied to the latest version. Route 404s when off (default). Test/preview-only; do not enable in production without intent. Read via OPENCLAW.editAgentEnabled (src/lib/config.ts)."
     },
     {
       "key": "OC_DEBUG",

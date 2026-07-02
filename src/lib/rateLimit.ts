@@ -40,6 +40,11 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
+  // Prompt-driven edit agent (flag-gated): each call hits the gateway for ops
+  // and creates a new version, so a tight bucket caps cost/load. Matches the
+  // expensive engine:* buckets. Falls back to `default` if this entry is
+  // removed with the feature.
+  "openclaw:edit": { maxRequests: 12, windowMs: 60 * 1000 },
   // OC_DEBUG Mode B bug-hunt: each call drives real generation/repair for up to
   // maxDuration, so a tight bucket caps runaway cost/load even if the operator
   // token leaks. Without an explicit entry it would inherit the 90/min default.
