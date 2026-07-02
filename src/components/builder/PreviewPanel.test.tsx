@@ -130,7 +130,7 @@ describe("PreviewPanel", () => {
     });
 
     const overlay = screen.getByTestId("version-mismatch-overlay");
-    expect(within(overlay).getByText("Preview startar om")).toBeTruthy();
+    expect(within(overlay).getByText("Preview visar fel version")).toBeTruthy();
     expect(within(overlay).getByText("expected")).toBeTruthy();
     expect(within(overlay).getByText("current_")).toBeTruthy();
 
