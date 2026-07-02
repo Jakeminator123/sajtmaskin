@@ -1,4 +1,4 @@
-"""Autofix & Kvalitet — central överblick + manifest-baserad konfig."""
+"""Normalize / RepairGate & Kvalitet — central överblick + manifest-baserad konfig."""
 
 from __future__ import annotations
 
@@ -30,9 +30,9 @@ from backoffice.shared import (
 
 
 def render(ctx: BackofficeContext) -> None:
-    st.header("Autofix & Kvalitet")
+    st.header("Normalize / RepairGate & Kvalitet")
     st.caption(
-        "Central överblick för mekaniska fixar, LLM-fixar och kvalitetspass. Den här sidan speglar samma `config/ai_models/manifest.json` som config-dashboarden använder."
+        "Central överblick för Normalize (kod: autofix), RepairGate (kod: LLM-fixer) och kvalitetspass. Den här sidan speglar samma `config/ai_models/manifest.json` som config-dashboarden använder."
     )
 
     manifest = read_json(ctx.manifest_json) if ctx.manifest_json.exists() else None
@@ -44,22 +44,22 @@ def render(ctx: BackofficeContext) -> None:
 ```
 LLM-generering
      |
-[Mekanisk autofix]  ← repairPolicies.deterministicAutofixPasses
+[Normalize]  ← repairPolicies.deterministicAutofixPasses
      |
 [Syntax validate/fix]  ← repairPolicies.syntaxFixPasses
      |
 [Bildmaterialisering + Verifier]  ← endast finalizePath=full
-     |                                (verifier blocking = advisory)
+     |                                (verifier Blocker i F2 kan vara Advisory)
      |
 [Preflight]  ← server, före DB-sparning
      |
 === SPARAS I DATABAS ===
      |
-[Post-checks]  ← klient, efter DB-sparning
-     |                  (kan trigga LLM autofix)
-[Quality gate] ← VM, npx tsc --noEmit
-     |                  (kan trigga server repair → LLM autofix)
-[Server repair pass]  ← delad runRepairLoop()
+[Post-checks / CapabilitySmoke]  ← klient, efter DB-sparning
+     |                  (kan trigga RepairGate)
+[RenderGate / ReleaseGate] ← VM, npx tsc --noEmit (+ build/lint i F3)
+     |                  (kan trigga server repair → RepairGate)
+[Server repair pass]  ← delad runRepairLoop() via RepairGate
      |
 [repair_available]    ← repaired_files_json + repair_available_at
      |
@@ -70,14 +70,14 @@ LLM-generering
 """
     )
     st.caption(
-        "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är hybrid (deterministiska guards som `undefined-jsx-symbol` + LLM-audit) — blocking findings matas in i fixern men stoppar inte persist. Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
+        "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är hybrid (deterministiska guards som `undefined-jsx-symbol` + LLM-audit) — Blocker-fynd matas in i RepairGate men stoppar inte persist om de inte är render-/build-breaking. Post-checks/CapabilitySmoke och RenderGate/ReleaseGate körs efter att versionen har sparats. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
     )
 
     st.divider()
-    st.subheader("Runtime-gränser för LLM-autofix")
+    st.subheader("Runtime-gränser för RepairGate")
     rc1, rc2 = st.columns(2)
     rc1.metric(
-        "Max autofix per chatt",
+        "Max RepairGate/autofix per chatt",
         runtime_cfg.get("maxAutofixPerChat")
         if runtime_cfg.get("maxAutofixPerChat") is not None
         else "okänd",
@@ -90,7 +90,7 @@ LLM-generering
     )
     soft_only = runtime_cfg.get("softOnlyReasons") or []
     if soft_only:
-        st.caption("Soft-only-orsaker som aldrig triggar LLM-autofix av sig själva:")
+        st.caption("Soft-only-orsaker som aldrig triggar RepairGate/autofix av sig själva:")
         st.code(" | ".join(soft_only), language=None)
 
     st.divider()
@@ -144,7 +144,7 @@ def _render_fix_statistics(ctx: BackofficeContext) -> None:
         fix_df["scaffold_id"] = scaffold_col[autofix_mask].values
 
     if fix_df.empty:
-        st.info("Inga autofix-/repair-rader hittades i CSV-loggen ännu.")
+        st.info("Inga Normalize-/RepairGate-rader hittades i CSV-loggen ännu.")
         return
 
     fix_df["fix_kind"] = fix_df["fixed_by"].apply(
@@ -172,8 +172,8 @@ def _render_fix_statistics(ctx: BackofficeContext) -> None:
 
     s1, s2, s3, s4 = st.columns(4)
     s1.metric("Fix-rader", len(fix_df))
-    s2.metric("Mekaniska", int((fix_df["fix_kind"] == "Mekanisk").sum()))
-    s3.metric("LLM-fixar", int((fix_df["fix_kind"] == "LLM").sum()))
+    s2.metric("Normalize", int((fix_df["fix_kind"] == "Mekanisk").sum()))
+    s3.metric("RepairGate", int((fix_df["fix_kind"] == "LLM").sum()))
     s4.metric(
         "Unika fixers",
         int(fixer_df["fixer"].nunique()) if not fixer_df.empty else 0,
@@ -235,7 +235,7 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
     routing = phase_routing_defaults(manifest)
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Mekaniska pass", int(rp.get("deterministicAutofixPasses", 2)))
+    c1.metric("Normalize-pass", int(rp.get("deterministicAutofixPasses", 2)))
     c2.metric("Syntax-pass", int(rp.get("syntaxFixPasses", 3)))
     c3.metric("Server repair-pass", int(rp.get("serverRepairPasses", 2)))
     c4.metric("Manual repair-pass", int(rp.get("manualRepairRouteLlmPasses", 2)))
@@ -245,7 +245,7 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
     with left:
         st.markdown("### Repair-pass")
         deterministic_passes = st.number_input(
-            "Mekaniska fix-pass före LLM",
+            "Normalize-pass före RepairGate",
             value=int(rp.get("deterministicAutofixPasses", 2)),
             min_value=1,
             max_value=10,
@@ -295,7 +295,7 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
             key="bo_tb_engine",
         )
         autofix_tokens = st.number_input(
-            "Autofix / fixer max output tokens",
+            "Normalize / RepairGate max output tokens",
             value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
             step=512,
             key="bo_tb_autofix",
@@ -393,7 +393,7 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
                     "reasoningEffort": effort_value,
                 }
 
-    if st.button("Spara Autofix & Kvalitet", type="primary"):
+    if st.button("Spara Normalize / RepairGate & Kvalitet", type="primary"):
         tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
         tb.setdefault("autofixMaxOutputTokens", {})["default"] = int(autofix_tokens)
         pgp.setdefault("verifierMaxOutputTokens", {})["default"] = int(verifier_tokens)
@@ -423,7 +423,7 @@ def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) 
         try:
             write_json(ctx.manifest_json, manifest)
             st.success(
-                "Sparade Autofix & Kvalitet-inställningar till config/ai_models/manifest.json."
+                "Sparade Normalize / RepairGate & Kvalitet-inställningar till config/ai_models/manifest.json."
             )
             st.rerun()
         except Exception:

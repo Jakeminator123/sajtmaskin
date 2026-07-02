@@ -61,21 +61,38 @@ Kodankare:
 
 Efter codegen ska output bli en körbar version.
 
-Typisk ordning:
+Typisk ordning i runtime:
 
-1. parse/extract files
-2. merge mot scaffold eller tidigare version
-3. skydda scaffold-owned paths
-4. apply dossier verbatim policy
-5. mekanisk autofix
-6. deterministisk diagnostikdriven import-repair vid warm-tsc-fail
+1. codegen-output samlas till kandidat-innehåll.
+2. Normalize (kod: url-expand + autofix) expanderar media-URL:er och kör
+   deterministiska fixers före LLM.
+3. syntax/esbuild körs; när syntax är ren körs warm-tsc och vid behov warm-eslint.
+4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,
-   React/same-module-dedupe + re-check) — före LLM
-7. LLM-fix endast när mekanik + deterministisk import-repair inte räcker
-8. preflight och quality gate
-9. persist version
-10. starta eller patcha preview
-11. emit events/status
+   React/same-module-dedupe + re-check) körs före LLM på warm-tsc-residual.
+5. RepairGate (kod: `runLlmRepairGate` + `RepairLedger`) används endast för
+   residual som Normalize och statiska kontroller inte löste. Samma ledger
+   dedupe:ar syntax-, warm-tsc-, warm-eslint-, verifier- och preflight-repair
+   inom en finalize-run.
+6. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
+   grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
+   behåller verifier-täckning.
+7. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
+   follow-up-bevarande mot tidigare version.
+8. preflight kontrollerar preview-/verification-blockers före persist.
+9. persist sparar assistant-rad, version, snapshot, preflight-loggar,
+   telemetry och event/status-underlag.
+10. preview startas, patchas eller resyncas mot den persistade versionen.
+11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
+    typecheck är Advisory utom render-risk-koder.
+12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 strikt
+    typecheck + build + lint + env-krav när användaren explicit går till F3.
+13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
+    gate-resultat och promote-guard.
+
+Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
+VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
+sparade versionen.
 
 Kodankare:
 
@@ -102,8 +119,8 @@ Undantag: clear-redesign och explicita borttagningar.
 
 | Läge | Syfte | Gate |
 |---|---|---|
-| F2 / `design` / `fidelity2` | Design-preview och snabb iteration | designPreview |
-| F3 / `integrations` / `fidelity3` | Integrationer, build, deploybarhet | integrationsBuild |
+| F2 / `design` / `fidelity2` | Design-preview och snabb iteration | RenderGate (kod: `designPreview`) |
+| F3 / `integrations` / `fidelity3` | Integrationer, build, deploybarhet | ReleaseGate (kod: `integrationsBuild`) |
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 

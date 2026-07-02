@@ -7,7 +7,7 @@ renderar resultatet.
 
 Två lager:
   1. Senaste genereringar (lista) — en rad per `generation_telemetry`-post med
-     scaffold, model, retry/autofix, preflight, quality gate och preview-utfall.
+     scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate och preview-utfall.
   2. Drilldown per chatt — versioner (F2/F3 lifecycle), telemetri, fel-loggar
      (`engine_version_error_logs`) och generation-loggar.
 
@@ -223,7 +223,7 @@ def render(ctx: BackofficeContext) -> None:
     st.title("Generation History")
     st.caption(
         "Tidigare genereringar av användarsidor + vad varje steg gjorde "
-        "(scaffold, model, retry/autofix, preflight, quality gate, preview-utfall). "
+        "(scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate, preview-utfall). "
         "Read-only mot DB:n som `.env.local` pekar på. Källor: `generation_telemetry`, "
         "`engine_versions`, `engine_version_error_logs`, `engine_generation_logs`."
     )
