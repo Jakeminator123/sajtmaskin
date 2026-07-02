@@ -251,15 +251,21 @@ async function runWarmTscPass(
     // symbol + file — resolve them mechanically, re-run warm-tsc ONCE
     // (bounded: no loop, max one extra pass per call), and only hand the
     // genuine residue to `runLlmRepairGate`.
+    //
+    // Sync invariant (Bugbot #363): the LLM must never see repaired content
+    // paired with pre-repair diagnostics. The deterministic result is kept
+    // ONLY when the warm-tsc re-check actually ran and produced the matching
+    // residual set (or passed outright). If the re-check is budget-blocked,
+    // skipped, or throws, fall back to the original content + original
+    // diagnostics — the fixes are idempotent and are re-applied at the next
+    // gate entry (e.g. the server repair-loop pre-pass).
     try {
       const importRepair = runDeterministicImportRepair(
-        workingContent,
+        contentForVersion,
         result.diagnostics.map((d) => ({ file: d.filePath, message: d.message })),
         { previewPolicy: opts.previewPolicy },
       );
       if (importRepair.fixed) {
-        workingContent = importRepair.content;
-        mechanicalFixesAdded += importRepair.fixes.length;
         devLogAppend("in-progress", {
           type: "validate.tsc.import-repair",
           chatId: opts.chatId,
@@ -267,10 +273,11 @@ async function runWarmTscPass(
           fixCount: importRepair.fixes.length,
           fixers: countByFixer(importRepair.fixes),
         });
+        let residualConfirmed = false;
         if (!isBudgetExceeded(opts.budgetDeadline)) {
           const recheck = await runPreVmTypecheck({
             scaffoldId: opts.resolvedScaffold?.id ?? null,
-            files: parseCodeProject(workingContent).files,
+            files: parseCodeProject(importRepair.content).files,
             force: opts.forceTsc === true,
           });
           if (!recheck.skipped && recheck.ok) {
@@ -284,23 +291,37 @@ async function runWarmTscPass(
             });
             opts.onProgress?.({ pass: opts.pass, phase: "tsc-passed", errorCount: 0 });
             return {
-              content: workingContent,
+              content: importRepair.content,
               tsc: {
                 ran: true,
                 diagnosticCount: result.diagnostics.length,
                 repaired: true,
                 durationMs: Date.now() - startedAt,
               },
-              mechanicalFixesAdded,
+              mechanicalFixesAdded: mechanicalFixesAdded + importRepair.fixes.length,
               llmFixesAdded: 0,
             };
           }
           if (!recheck.skipped) {
+            workingContent = importRepair.content;
             residualDiagnostics = recheck.diagnostics;
+            mechanicalFixesAdded += importRepair.fixes.length;
+            residualConfirmed = true;
           }
+        }
+        if (!residualConfirmed) {
+          devLogAppend("in-progress", {
+            type: "validate.tsc.import-repair.unverified",
+            chatId: opts.chatId,
+            handledCodes: importRepair.handledCodes,
+            reason: "recheck_unavailable",
+          });
         }
       }
     } catch (importRepairErr) {
+      // Any failure inside the deterministic pass (including a throwing
+      // re-check) leaves workingContent/residualDiagnostics at their original
+      // values — content and diagnostics stay in sync for the LLM gate.
       devLogAppend("in-progress", {
         type: "validate.tsc.import-repair-error",
         chatId: opts.chatId,

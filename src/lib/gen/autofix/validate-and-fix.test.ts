@@ -443,6 +443,76 @@ describe("validateAndFix", () => {
     );
   });
 
+  it("drops unverified deterministic fixes when the warm-tsc re-check is unavailable (content/diagnostics stay in sync)", async () => {
+    // Bugbot #363: if the re-check after the deterministic repair is skipped
+    // (cache cold / budget), the LLM must NOT see repaired content paired
+    // with pre-repair diagnostics — both fall back to the originals.
+    const cleanContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    const repairedContent =
+      '```tsx file="app/page.tsx"\nimport { Badge } from "@/components/ui/badge"\nexport default function P(){return <main/>}\n```';
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+    runPreVmTypecheck
+      .mockResolvedValueOnce({
+        ok: false,
+        diagnostics: [
+          {
+            filePath: "app/page.tsx",
+            line: 1,
+            column: 1,
+            code: "TS2304",
+            message: "Cannot find name 'Badge'.",
+          },
+        ],
+        durationMs: 10,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        skipped: "cache_cold",
+        diagnostics: [],
+        durationMs: 0,
+      });
+    runDeterministicImportRepair.mockReturnValueOnce({
+      content: repairedContent,
+      fixed: true,
+      fixes: [
+        {
+          fixer: "ts2304-known-import-fixer",
+          category: "mechanical",
+          description: "Added known import(s) for Badge (@/components/ui/badge)",
+          file: "app/page.tsx",
+        },
+      ],
+      handledCodes: ["TS2304"],
+    });
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: "",
+      fixedFiles: [],
+      missingFiles: [],
+      partial: false,
+      success: false,
+      durationMs: 5,
+    });
+
+    const result = await validateAndFix(cleanContent, {
+      chatId: "chat_det_unverified",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      resolvedScaffold: { id: "scaffold_x", files: [] } as never,
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    const [llmContent, llmErrors] = runLlmFixer.mock.calls[0];
+    expect(llmContent).toBe(cleanContent);
+    expect(llmErrors.join("\n")).toContain("Badge");
+    // Unverified deterministic output is dropped entirely.
+    expect(result.content).toBe(cleanContent);
+    expect(result.mechanicalFixCount).toBe(0);
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: true, repaired: false, diagnosticCount: 1 }),
+    );
+  });
+
   it("threads repairScopeId into the warm-tsc repair gate", async () => {
     const cleanContent =
       '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
