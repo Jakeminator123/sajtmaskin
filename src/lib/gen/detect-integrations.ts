@@ -288,6 +288,54 @@ function runDetectionPipeline(code: string): DetectedIntegration[] {
   return results;
 }
 
+/**
+ * Email recipient/sender config keys (e.g. `BOOKING_TO_EMAIL`,
+ * `CONTACT_EMAIL_TO`, `EMAIL_FROM`, `SUPPORT_EMAIL`). The model frequently
+ * invents project-specific names for a contact/booking-form email instead of
+ * the canonical `resend-contact-form` dossier keys (`RESEND_API_KEY` /
+ * `EMAIL_FROM` / `CONTACT_EMAIL_TO`). Those invented names miss every registry
+ * pattern and used to land in the anonymous `custom-env` ("Miljövariabler")
+ * bucket, which defaults to build-BLOCKING enforcement — a false F3 blocker,
+ * since a missing recipient only disables the mail feature (the dossier route
+ * returns 503) and never crashes the build. We recognise them by shape and
+ * classify them as `feature-runtime` under a dedicated email group instead.
+ *
+ * Shape = the key mentions e-mail (`EMAIL`/`MAIL`) AND a routing/role token
+ * (`TO`/`FROM`/`CONTACT`/`BOOKING`/…). Split on non-alphanumerics so tokens are
+ * matched exactly — avoids false positives like `MAILCHIMP_API_KEY` (no `MAIL`
+ * token) or `NEXT_PUBLIC_EMAILJS_KEY` (no role token).
+ */
+export function isEmailRecipientEnvKey(key: string): boolean {
+  const tokens = key.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  if (!tokens.some((t) => t === "EMAIL" || t === "EMAILS" || t === "MAIL")) {
+    return false;
+  }
+  const ROLE_TOKENS = new Set([
+    "TO",
+    "FROM",
+    "CONTACT",
+    "RECIPIENT",
+    "RECIPIENTS",
+    "SENDER",
+    "NOTIFY",
+    "NOTIFICATION",
+    "NOTIFICATIONS",
+    "REPLY",
+    "REPLYTO",
+    "BOOKING",
+    "INBOX",
+    "DEST",
+    "DESTINATION",
+    "SUPPORT",
+    "ADMIN",
+    "OWNER",
+    "ORDER",
+    "ENQUIRY",
+    "INQUIRY",
+  ]);
+  return tokens.some((t) => ROLE_TOKENS.has(t));
+}
+
 function appendCustomEnvIntegrations(
   code: string,
   results: DetectedIntegration[],
@@ -309,16 +357,34 @@ function appendCustomEnvIntegrations(
     return results;
   }
 
-  return [
-    ...results,
-    {
+  const emailKeys = uncovered.filter(isEmailRecipientEnvKey);
+  const otherKeys = uncovered.filter((v) => !isEmailRecipientEnvKey(v));
+
+  const extra: DetectedIntegration[] = [];
+  if (emailKeys.length > 0) {
+    // Grouped + labelled as email config so the env.example doc and the F3 env
+    // panel present these under a clear heading instead of "Miljövariabler".
+    // Enforcement is classified as `feature-runtime` in `applyEnforcementOverlay`.
+    extra.push({
+      key: "custom-email",
+      name: "E-post (kontakt-/bokningsformulär)",
+      provider: "email",
+      intent: "env_vars",
+      envVars: emailKeys,
+      status: "Kräver konfiguration",
+    });
+  }
+  if (otherKeys.length > 0) {
+    extra.push({
       key: "custom-env",
       name: "Miljövariabler",
       intent: "env_vars",
-      envVars: uncovered,
+      envVars: otherKeys,
       status: "Kräver konfiguration",
-    },
-  ];
+    });
+  }
+
+  return [...results, ...extra];
 }
 
 type DossierEnforcementCluster = {
@@ -424,11 +490,22 @@ function applyEnforcementOverlay(
     // no way to classify. Cluster-matched siblings without an explicit
     // enforcement entry still default to "build" — the dossier accepts
     // responsibility for keys it ships.
+    // `custom-email` holds email recipient/sender config the model invented
+    // (BOOKING_TO_EMAIL, CONTACT_EMAIL_TO, …). A missing value only disables the
+    // mail feature (the contact-form route returns 503) — it never crashes the
+    // build — so it must never be build-blocking. Mirror the resend-contact-form
+    // dossier, which marks its own email keys `feature-runtime`.
+    const isCustomEmail = integration.key === "custom-email";
     const integrationHasNoBacking =
-      selectedDossiersProvided && !cluster && integration.key !== "custom-env";
-    const unbackedFallback: DossierEnvVarEnforcement = integrationHasNoBacking
-      ? "warn-only"
-      : "build";
+      selectedDossiersProvided &&
+      !cluster &&
+      integration.key !== "custom-env" &&
+      !isCustomEmail;
+    const unbackedFallback: DossierEnvVarEnforcement = isCustomEmail
+      ? "feature-runtime"
+      : integrationHasNoBacking
+        ? "warn-only"
+        : "build";
 
     const envEnforcement: Record<string, DossierEnvVarEnforcement> = {
       ...(integration.envEnforcement ?? {}),
