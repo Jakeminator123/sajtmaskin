@@ -296,10 +296,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ? `Rolled back to snapshot from version ${versionToRestore.version_number}.`
         : `Restored snapshot from version ${versionToRestore.version_number}.`,
     );
+    // Provenance marker: restore/rollback drafts are intentional user drafts,
+    // not stranded generation output — the browser resume-verify lane must not
+    // auto-promote them (they follow the manual verify/publish flow). Same
+    // nullable edit_kind column as "quick_edit"/"imported_repo".
     const restoredVersion = await createDraftVersion(
       engineChat.id,
       assistantMessage.id,
       versionToRestore.files_json,
+      undefined,
+      { editKind: "restore" },
     );
     return NextResponse.json({
       success: true,

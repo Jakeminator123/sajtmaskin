@@ -26,8 +26,12 @@ import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
 // Shared with the stream route's F3 gate (M#818-2) — single owner for the
-// file-based spec derivation, see tier3-readiness-gate.ts.
-import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
+// file-based spec derivation AND the Product Postcheck block (Codex P1
+// rounds 3+5 on #353), see tier3-readiness-gate.ts.
+import {
+  deriveTier3BuildSpecForVersion,
+  isProductPostcheckBlocked,
+} from "@/lib/integrations/tier3-readiness-gate";
 
 export const runtime = "nodejs";
 
@@ -99,6 +103,24 @@ export async function POST(
           reason: "already_integrations",
           message:
             "Den här versionen är redan en F3-integrationsversion. Välj F2-designversionen att forka från.",
+        },
+        { status: 409 },
+      );
+    }
+
+    // Codex P1 rounds 3+5 (#353): enforce the Product Postcheck block
+    // server-side (shared owner in tier3-readiness-gate.ts — the stream
+    // route's F3 gate enforces the same block). The client button's cached
+    // `productBlocked` can be stale when the summary row was written after
+    // mount (resume-verify lane).
+    if (await isProductPostcheckBlocked(baseVersion.id)) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "product_postcheck_blocked",
+          parentVersionId: baseVersion.id,
+          message:
+            "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
         },
         { status: 409 },
       );

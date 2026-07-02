@@ -134,6 +134,8 @@ describe("POST /api/engine/chats/init", () => {
       "chat_import",
       "msg_assistant",
       expect.stringContaining('"path":"pnpm-lock.yaml"'),
+      undefined,
+      { editKind: "imported_repo" },
     );
     expect(saveProjectData).toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();

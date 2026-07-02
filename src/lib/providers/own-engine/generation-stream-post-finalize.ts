@@ -412,14 +412,23 @@ export async function runOwnEngineStreamPostFinalize(params: {
           ),
         );
         if (sr.previewUrl.trim()) {
-          chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.previewUrl).catch((error) => {
+          // Awaited on purpose: this used to be fire-and-forget, but on
+          // serverless the function freezes right after the stream closes and
+          // the un-awaited write silently died — versions ended up with
+          // `preview_url = NULL` in prod despite a successful `preview-ready`
+          // (chat 4314362f, 2026-07-02). The write is a single UPDATE and the
+          // preview-ready SSE is already enqueued above, so awaiting costs
+          // nothing user-visible.
+          try {
+            await chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.previewUrl);
+          } catch (error) {
             warnLog("engine", "Failed to persist previewUrl after preview-ready", {
               chatId,
               versionId: finalized.version.id,
               previewUrl: sr.previewUrl,
               message: error instanceof Error ? error.message : "Unknown error",
             });
-          });
+          }
         }
       } else {
         logPreviewLifecycleTelemetry({

@@ -267,6 +267,118 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
   });
 
+  // Regression (prod chat 4314362f, 2026-07-02): the previewUrl persist used
+  // to be fire-and-forget, and on serverless the function froze right after
+  // the stream closed — the un-awaited UPDATE died and the version row kept
+  // `preview_url = NULL` despite a successful preview-ready. The write must
+  // complete before runOwnEngineStreamPostFinalize resolves.
+  it("awaits previewUrl persistence before resolving (serverless freeze safety)", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "resumed",
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+    let persisted = false;
+    updateVersionPreviewUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            persisted = true;
+            resolve(true);
+          }, 20);
+        }),
+    );
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+    });
+
+    expect(persisted).toBe(true);
+  });
+
+  it("does not throw when previewUrl persistence fails", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "resumed",
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+    updateVersionPreviewUrl.mockRejectedValue(new Error("db down"));
+
+    await expect(
+      runOwnEngineStreamPostFinalize({
+        sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+        chatId: "chat_1",
+        finalized: finalized as never,
+        accumulatedContent: "prefix",
+        toolSignaledProviders: new Set(),
+        engineStartedAt: Date.now(),
+        commitCredits: async () => {},
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("F2-mute layer 4: drops detected-integrations SSE in fidelity2 (design)", async () => {
     const helpers = await import("@/lib/gen/stream/shared-own-engine-helpers");
     const mockedDetect = vi.mocked(helpers.getUnsignaledDetectedIntegrations);
