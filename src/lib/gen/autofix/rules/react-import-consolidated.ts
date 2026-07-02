@@ -304,8 +304,14 @@ function formatReactSpecifier(spec: ReactSpec): string {
  * local collides with a namespace binding is dropped so we never re-declare it.
  * Bails on any specifier it cannot confidently parse, so it can never emit
  * broken syntax. Returns the de-duplicated local names for telemetry.
+ *
+ * Exported (Fas 1 kontrollflöde): besides running first inside
+ * `fixReactAndNavigationImports` (the `runAutoFix` mechanical lane), this is
+ * the mandatory post-injection dedupe step of the deterministic import-repair
+ * (`autofix/deterministic-import-repair.ts`) — the repair paths used to leave
+ * two overlapping `react` imports behind (TS2300 → webpack crash → preview 500).
  */
-function consolidateReactImports(code: string): { code: string; deduped: string[] } {
+export function consolidateReactImports(code: string): { code: string; deduped: string[] } {
   const lines = code.split("\n");
   const reactIdx: number[] = [];
   const parsed: ParsedReactImport[] = [];

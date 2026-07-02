@@ -10,6 +10,7 @@ import {
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
+  resolveServerRepairOutcome,
 } from "./server-verify-log-meta";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
@@ -638,6 +639,7 @@ describe("buildServerRepairOutcomeMeta", () => {
       method: "llm",
       llmPasses: 2,
       repaired: false,
+      outcome: "syntax_errors_remain",
       remainingErrors: 3,
       earlyStopReason: "no_improvement",
       durationMs: 3200,
@@ -664,6 +666,7 @@ describe("buildServerRepairOutcomeMeta", () => {
       method: "deterministic",
       llmPasses: 0,
       repaired: true,
+      outcome: "repaired",
       remainingErrors: undefined,
       earlyStopReason: undefined,
       durationMs: 0,
@@ -673,6 +676,68 @@ describe("buildServerRepairOutcomeMeta", () => {
       jobFinishedAt: null,
       serverOwned: true,
     });
+  });
+});
+
+describe("resolveServerRepairOutcome (Fas 0 kanonisk taxonomi)", () => {
+  it("mappar repaired → repaired", () => {
+    const r = resolveServerRepairOutcome({ method: "llm", repaired: true, remainingErrors: 0 });
+    expect(r.outcome).toBe("repaired");
+    expect(r.message).toBe("Server repair succeeded (llm).");
+  });
+
+  it("explicit syntaxCleanGateFailed → syntax_clean_gate_failed", () => {
+    const r = resolveServerRepairOutcome({
+      method: "llm",
+      repaired: false,
+      remainingErrors: 0,
+      syntaxCleanGateFailed: true,
+    });
+    expect(r.outcome).toBe("syntax_clean_gate_failed");
+    expect(r.message).toContain("syntax clean but quality gate still failing");
+  });
+
+  it("remainingErrors === 0 utan explicit flagga → syntax_clean_gate_failed (fix för '0 errors remain')", () => {
+    const r = resolveServerRepairOutcome({ method: "llm", repaired: false, remainingErrors: 0 });
+    expect(r.outcome).toBe("syntax_clean_gate_failed");
+    // Aldrig det vilseledande "0 errors remain".
+    expect(r.message).not.toContain("0 esbuild");
+  });
+
+  it("remainingErrors > 0 → syntax_errors_remain", () => {
+    const r = resolveServerRepairOutcome({ method: "llm", repaired: false, remainingErrors: 4 });
+    expect(r.outcome).toBe("syntax_errors_remain");
+    expect(r.message).toContain("4 esbuild syntax error(s) remain");
+  });
+
+  it("time_budget_exceeded prioriteras över kvarvarande syntaxfel", () => {
+    const r = resolveServerRepairOutcome({
+      method: "llm",
+      repaired: false,
+      remainingErrors: 2,
+      earlyStopReason: "time_budget_exceeded",
+    });
+    expect(r.outcome).toBe("time_budget_exceeded");
+    expect(r.message).toContain("time budget exceeded");
+  });
+
+  it("noContext → no_context", () => {
+    const r = resolveServerRepairOutcome({ method: "deterministic", repaired: false, noContext: true });
+    expect(r.outcome).toBe("no_context");
+  });
+
+  it("fixer_noop earlyStopReason utan felräkning → fixer_noop", () => {
+    const r = resolveServerRepairOutcome({
+      method: "llm",
+      repaired: false,
+      earlyStopReason: "fixer_noop",
+    });
+    expect(r.outcome).toBe("fixer_noop");
+  });
+
+  it("icke-promoterad utan känd orsak → no_improvement (aldrig tyst)", () => {
+    const r = resolveServerRepairOutcome({ method: "llm", repaired: false });
+    expect(r.outcome).toBe("no_improvement");
   });
 });
 

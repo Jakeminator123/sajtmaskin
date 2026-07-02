@@ -252,25 +252,44 @@ den också som exakt felkälla för repair-lanen:
 
 ### Deterministisk import-repair före LLM
 
-Källa: `src/lib/gen/verify/repair-loop/deterministic-import-repair.ts`
-(anropas överst i `runRepairLoop()`).
+Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
+implementation, två entrypoints:
 
-Bakgrund (prod-telemetri 2026-06): av de versioner vars quality gate failade på
-`tsc --noEmit` blev **noll** promotade. De dominerande felen är import-only och
-har redan mekaniska ägare som körs blint i `runAutoFix()` — men de når ändå
-gate:n eftersom de blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger
-exakt symbol + fil, vilket tar bort tvetydigheten. Pre-passen konsumerar
-diagnostiken och dirigerar varje fall till rätt **befintlig** fixer:
+- **server-repair:** anropas överst i `runRepairLoop()` på quality gate-
+  diagnostiken (som tidigare)
+- **finalize normalize (Fas 1 kontrollflöde):** anropas i `validateAndFix()`
+  (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
+  warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
+  vidare till `runLlmRepairGate` (phase `warm-tsc`)
+
+Bakgrund (prod-telemetri 2026-06/07): av de versioner vars quality gate failade
+på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är
+importhantering. De dominerande felen är import-only och har redan mekaniska
+ägare som körs blint i `runAutoFix()` — men de når ändå gate:n eftersom de
+blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger exakt symbol + fil,
+vilket tar bort tvetydigheten. Pre-passen konsumerar diagnostiken och dirigerar
+varje fall till rätt **befintlig** fixer:
 
 | Kod | Felklass | Återanvänd fixer |
 |---|---|---|
 | TS2304 / TS2552 | saknad import (shadcn, Clerk-server, Stripe, lucide, Next) | `ts2304-known-import-fixer` |
+| TS2304 (residual) | egen komponent/symbol som versionens egna filer exporterar (t.ex. `Reveal`) | `own-component-import-fixer` (named: unik-kandidat-injektorn; default: exakt en egen fil) |
 | TS1361 | `import type { X }` använd som värde | `value-used-from-type-import-fixer` (med bekräftade symboler) |
 | TS2440 | import krockar med lokal deklaration (self-import) | `fixImportedDeclarationConflicts` (path-medveten) |
-| TS2300 | duplicerad identifierare | `duplicate-import-binding-fixer` + `duplicate-import-local-type-collision-fixer` |
+| TS2300 | duplicerad identifierare | `consolidateReactImports` (react-överlapp, value-wins) → `duplicate-import-binding-fixer` → `duplicate-import-local-type-collision-fixer` |
 
-Konservativ: bara dessa fem import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-krocknamn
+Obligatoriskt eftersteg per fil som fick import-injektioner: react/same-module-
+dedupe + kvitto — `consolidateReactImports`, sedan dubbelbindnings-pruning, och
+om filen fortfarande bär **introducerade** dubbelbindningar eller nya parse-fel
+revertas filens ändringar (diagnostiken förblir synlig för LLM-fixern). Ingen
+fixer får lämna ifrån sig två import-statements som re-deklarerar samma lokala
+bindning (stänger "smörsajt"-klassen: dubbel React-import → TS2300 →
+webpack-krasch → preview-500).
+
+Konservativ: bara dessa import-koder rörs. Logik-/typfel (TS2554, TS7006,
+TS7009, generiska mismatchar) lämnas till LLM. Okända namn utan matchande egen
+fil lämnas orörda (befintlig cross-file-checker/stub-hantering nedströms —
+normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
 (`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
 children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
 användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till LLM.
@@ -432,12 +451,75 @@ producerar `repair-outcome`-loggar med följande fält:
 | `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från (Wave 5) |
 | `syntaxCleanGateFailed` | `boolean` | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
 | `earlyStopReason` | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| null` | Varför loopen bröts |
+| `outcome` | `ServerRepairOutcome` | **Kanonisk outcome-enum (Fas 0)** — se nedan |
 
 **Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
 som typecheck failade. Det beror på att `remainingErrors` läses från
 `validateGeneratedCode` (esbuild parse), inte från quality-gaten. Wave 5
 lade till `remainingErrorsSource` + `syntaxCleanGateFailed` så UI/loggar
 kan disambigueras: "0 syntaxfel (esbuild) — men quality gate failar fortfarande".
+
+### Kanonisk repair-outcome-taxonomi (Fas 0)
+
+`resolveServerRepairOutcome` (`src/lib/gen/verify/server-verify-log-meta.ts`) är
+**en enda ägare** för både `meta.outcome` och loggmeddelandet. Både
+`server-verify.ts` (`logRepairOutcome`) och `repair/route.ts` (`logRepair`)
+bygger meddelandet härifrån — inga egna fritext-ternärer. `control-stats.mjs`
+grupperar på `meta->>'outcome'` (query `serverRepairOutcomes`).
+
+| `outcome` | Betyder |
+|---|---|
+| `repaired` | Gate passerade efter repair |
+| `syntax_clean_gate_failed` | esbuild rent, men typecheck/build failar |
+| `syntax_errors_remain` | esbuild-syntaxfel kvar efter alla pass |
+| `time_budget_exceeded` | Loopen bröts på wall-clock-budget |
+| `no_improvement` | Loopen förbättrade inget (icke-tyst fallback) |
+| `fixer_noop` | Fixern producerade ingen ändring |
+| `no_context` | Ingen actionable felkontext att repair:a |
+
+**Gammal→ny-mappning** (fritext ersatt, inte parallellt namn):
+
+| Gammal fritext | Ny `outcome` |
+|---|---|
+| `Server repair succeeded (…).` | `repaired` |
+| `…syntax clean but quality gate still failing…` | `syntax_clean_gate_failed` |
+| `…N esbuild syntax errors remain…` | `syntax_errors_remain` |
+| `…time budget exceeded…` | `time_budget_exceeded` |
+| `…0 errors remain…` (route-loggen, gate failade ändå) | `syntax_clean_gate_failed` (**bugfix**) |
+
+Historiska rader saknar `meta.outcome`; läsare (`control-stats`, backoffice)
+bucketar dem som `(historisk/utan-outcome)`.
+
+## Telemetri-fält: dossier-val & deploy-utfall (Fas 0)
+
+`generation_telemetry` skrivs av `persist-telemetry.ts` + deploy-flödet:
+
+| Fält / plats | Skrivs av | Läses av |
+|---|---|---|
+| `meta.selectedDossierIds` (`string[]`) | `persistTelemetryRecord` (endast när ≥1 dossier valdes) | `control-stats` (`dossierUsage`) |
+| `deploy_result` (kolumn, t.ex. `production:ready` / `preview:queued` / `production:error`) | `recordDeployResultForVersion` från `POST /api/v0/deployments` (best-effort, senaste telemetri-raden för versionId) | `control-stats` (`deployOutcomes`), backoffice generation-history |
+
+Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
+befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
+utan nyckeln = "ingen dossier".
+
+## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
+
+Fryst referens för Fas 6-mätningen. 14-dagarsfönster t.o.m. 2026-07-02
+(115 genereringar, 41 chattar). **OBS:** fönstret ligger mestadels *före*
+render-first-bytet och dagens punktfixar (#346/#354/#356) — effekten mäts om
+per våg, inte rakt mot dessa tal.
+
+| Mätvärde | Baslinje | Mål (efter Fas 1–4) |
+|---|---|---|
+| Quality gate pass | 84 % | 90–93 % |
+| Typecheck som first failure | 99 % av gate-fails | < 60 % |
+| Importrelaterade TS-fel | 84 % av felträffar | < 35 % |
+| Verifier skippad | 69 % (volymstyrd) | riskbaserad |
+| Gate-failade räddade av repair | 1/28 (3,6 %) | > 25 % |
+| Versioner som slutar failed | 38 % | < 25 % |
+
+Källa: `scripts/db/control-stats.mjs` (14 d) + kodverifiering mot master 2026-07-02.
 
 ## LLM-fixer incomplete-files-skydd (Wave 5 hot-fix #5)
 

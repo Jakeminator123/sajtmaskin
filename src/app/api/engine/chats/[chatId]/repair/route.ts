@@ -50,6 +50,7 @@ import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   compactVisualQAForQualityGateLog,
+  resolveServerRepairOutcome,
 } from "@/lib/gen/verify/server-verify-log-meta";
 import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 
@@ -781,15 +782,23 @@ function logRepair(
   errorManifest?: import("@/lib/gen/verify/repair-loop").RepairErrorManifest | null,
 ) {
   if (!dbConfigured) return;
+  // Fas 0: kanonisk taxonomi. Ersätter den tidigare fritext-ternären som
+  // loggade "0 errors remain" även när gaten failade på ren syntax (nu
+  // korrekt `syntax_clean_gate_failed`). Meddelande + `meta.outcome` kommer
+  // från samma resolver.
+  const { message } = resolveServerRepairOutcome({
+    method,
+    repaired,
+    remainingErrors,
+    earlyStopReason,
+  });
   createEngineVersionErrorLogs([
     {
       chatId,
       versionId,
       level: repaired ? ("info" as const) : ("warning" as const),
       category: "server-repair",
-      message: repaired
-        ? `Server repair succeeded (${method}).`
-        : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
+      message,
       meta: buildServerRepairOutcomeMeta({
         method,
         llmPasses,

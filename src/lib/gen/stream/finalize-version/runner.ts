@@ -283,6 +283,13 @@ export async function finalizeAndSaveVersion(
     previewBlockingWarnings,
   } = autofixPhase;
 
+  // Wave 6 verbatim-restore + Fas 0 telemetri: resolve the dossiers selected
+  // by orchestration ONCE, so the exact same set drives both the verbatim
+  // merge-policy (fast path) and the telemetry record (`meta.selectedDossierIds`).
+  const selectedDossiers = resolveSelectedDossiersFromStreamMeta(
+    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+  );
+
   // 3–4. Fast path: validate syntax → materialize images → verifier →
   // parse/merge/preflight (with scaffold-retry + partial-file repair).
   const {
@@ -327,9 +334,7 @@ export async function finalizeAndSaveVersion(
     // Wave 6 verbatim-restore — tråda in faktiska valda dossiers så
     // applyDossierVerbatimPolicy kan skydda Stripe/Clerk/Sentry-glue
     // från tyst korruption när LLM omformar verbatim-filer.
-    selectedDossiers: resolveSelectedDossiersFromStreamMeta(
-      orchestrationStreamMeta as Record<string, unknown> | null | undefined,
-    ),
+    selectedDossiers,
     repairScopeId,
   });
   contentForVersion = fastPathContent;
@@ -635,6 +640,10 @@ export async function finalizeAndSaveVersion(
     buildSpec,
     resolvedTier,
     orchestrationStreamMeta,
+    // Fas 0 telemetri-hygien: persistera vilka dossiers som faktiskt valdes
+    // för denna generation så control-stats/backoffice kan korrelera
+    // fel/pass mot dossier-användning. Tom lista skrivs inte (se persist).
+    selectedDossierIds: selectedDossiers.map((d) => d.id),
   });
 
   // 7. Log generation
