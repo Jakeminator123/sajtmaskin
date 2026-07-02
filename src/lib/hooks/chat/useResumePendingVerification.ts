@@ -52,8 +52,20 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  *    superseded rows instead of mutating stale heads.
  *  - F3 (`integrations`) rows are excluded — server-verify owns those and the
  *    watchdog already settles them.
- *  - One attempt per versionId per mount; a hard gate fail settles the row
- *    terminally server-side, so there is no retry loop to cap.
+ *  - Preview precondition: a row without a persisted `previewUrl` gets a
+ *    `POST /preview-session` rehydration first (also persists the URL); an
+ *    unbootable preview HOLDS the resume — the normal lane never verifies a
+ *    version without a live preview (Codex P1 round 4).
+ *  - Fail-closed blocker persistence: a `productBlocked` result whose
+ *    `/error-log` write cannot be verified holds the resume — the summary row
+ *    is the surface both the F3 button and `/finalize-design` enforce.
+ *  - Bounded retries ({@link RESUME_VERIFY_MAX_ATTEMPTS}): transient holds
+ *    (stale lease 409, verify lane 5xx, unbootable preview, blocker-persist
+ *    failure) leave the remaining slots open for later poll ticks; a
+ *    completed gate or 404 consumes all slots. A hard gate fail settles the
+ *    row terminally server-side — the resume lane deliberately does NOT open
+ *    a new server-repair entry point (repair-gate rule); repair stays in the
+ *    normal diagnostics/repair UI.
  */
 
 /**
@@ -70,6 +82,16 @@ export const RESUME_VERIFY_MIN_AGE_MS = 3 * 60_000;
  * retroactively gate-promoted long after the fact.
  */
 export const RESUME_VERIFY_MAX_AGE_MS = 24 * 60 * 60_000;
+
+/**
+ * Attempts per version per builder session (Codex P2 round 4): a transient
+ * hold — stale lease 409, verify lane 503, blocker-persist failure, missing
+ * preview that could not be rehydrated — leaves the attempt slot open so a
+ * later `versions` poll tick retries, instead of stranding the row until a
+ * manual reload. Terminal outcomes (gate completed, 404 scope mismatch)
+ * consume all slots. Retries are naturally ~60 s apart (the /versions poll).
+ */
+export const RESUME_VERIFY_MAX_ATTEMPTS = 3;
 
 type ResumableVersionRow = {
   id?: string | null;
@@ -183,41 +205,76 @@ async function runResumeImageValidation(params: {
 }
 
 /**
- * Best-effort mirror of the normal lane's product-postcheck step. Returns
- * `{ productBlocked }`; a network/parse failure returns `productBlocked:false`
- * (same as the normal lane, which continues to the verify lane when
- * `runProductPostcheckApi` yields null). Two truth surfaces are fed here
- * (Codex P1 round 2 on #353): the route emits `version.degraded` bus events,
- * and the full result is persisted to `/error-log` — including the
- * `product_postcheck.summary` row whose `meta.productBlocked` is what
- * `PreviewPanelF3Trigger` reads to block "Bygg integrationer" (F3).
+ * Rehydrate a live preview for a stranded row that has no persisted
+ * `previewUrl` (e.g. historical rows from the fire-and-forget persist
+ * incident). The normal lane never gates a version without a preview
+ * (missing preview = readiness failure), so the resume lane must not either
+ * (Codex P1 round 4) — `POST /preview-session` boots/resumes the VM for the
+ * version AND persists the preview URL server-side. Returns the live URL or
+ * null (→ caller holds the resume as retryable).
+ */
+async function rehydratePreviewUrl(params: {
+  chatId: string;
+  versionId: string;
+}): Promise<string | null> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId: params.versionId }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { previewUrl?: unknown } | null;
+    return typeof data?.previewUrl === "string" && data.previewUrl.trim()
+      ? data.previewUrl.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Best-effort mirror of the normal lane's product-postcheck step. A
+ * network/parse failure returns `productBlocked:false` (same as the normal
+ * lane, which continues to the verify lane when `runProductPostcheckApi`
+ * yields null). Two truth surfaces are fed here (Codex P1 round 2 on #353):
+ * the route emits `version.degraded` bus events, and the full result is
+ * persisted to `/error-log` — including the `product_postcheck.summary` row
+ * whose `meta.productBlocked` is what `PreviewPanelF3Trigger` reads (and
+ * `/finalize-design` enforces server-side) to block F3. `blockerPersistFailed`
+ * is true when the result was productBlocked but the log write could not be
+ * verified — the caller must then HOLD the resume instead of promoting a
+ * version whose blocker never reached the enforcement surface (Codex P1
+ * round 4).
  */
 async function runResumeProductPostcheck(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
-}): Promise<{ productBlocked: boolean }> {
+}): Promise<{ productBlocked: boolean; blockerPersistFailed: boolean }> {
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
     });
-    if (!res.ok) return { productBlocked: false };
+    if (!res.ok) return { productBlocked: false, blockerPersistFailed: false };
     const data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
+    let persisted = true;
     if (data) {
       // Normal-lane parity: persist the postcheck result as error-log rows.
       // Without the summary row, a product-blocked resume would be liftable
       // to F3 after reload (the F3 trigger reads /error-log, not the bus).
-      await persistVersionErrorLogs({
+      persisted = await persistVersionErrorLogs({
         chatId: params.chatId,
         versionId: params.versionId,
         logs: buildProductPostcheckLogItems(data),
       });
     }
-    return { productBlocked: data?.productBlocked === true };
+    const productBlocked = data?.productBlocked === true;
+    return { productBlocked, blockerPersistFailed: productBlocked && !persisted };
   } catch {
-    return { productBlocked: false };
+    return { productBlocked: false, blockerPersistFailed: false };
   }
 }
 
@@ -236,28 +293,40 @@ export function useResumePendingVerification(params: {
   onVersionStatusRefresh?: () => void;
 }) {
   const { chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh } = params;
-  const attemptedRef = useRef<Set<string>>(new Set());
+  // versionId → attempts used. A run in flight always holds a slot; retryable
+  // holds leave remaining slots open for a later /versions poll tick, terminal
+  // outcomes consume all slots (Codex P2 round 4).
+  const attemptsRef = useRef<Map<string, number>>(new Map());
+  const inFlightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!chatId || isStreaming) return;
     const candidate = findResumablePendingVersion(versions, Date.now());
-    if (!candidate || attemptedRef.current.has(candidate.versionId)) return;
-    attemptedRef.current.add(candidate.versionId);
-    const { versionId, previewUrl } = candidate;
+    if (!candidate) return;
+    const { versionId } = candidate;
+    if (inFlightRef.current.has(versionId)) return;
+    const attemptsUsed = attemptsRef.current.get(versionId) ?? 0;
+    if (attemptsUsed >= RESUME_VERIFY_MAX_ATTEMPTS) return;
+    attemptsRef.current.set(versionId, attemptsUsed + 1);
+    inFlightRef.current.add(versionId);
+    const consumeAllAttempts = () =>
+      attemptsRef.current.set(versionId, RESUME_VERIFY_MAX_ATTEMPTS);
 
-    toast.message("Återupptar verifiering", {
-      description:
-        "Senaste versionen blev aldrig färdigverifierad — kör verifieringen igen i bakgrunden.",
-    });
+    if (attemptsUsed === 0) {
+      toast.message("Återupptar verifiering", {
+        description:
+          "Senaste versionen blev aldrig färdigverifierad — kör verifieringen igen i bakgrunden.",
+      });
+    }
 
     // Deliberately NO cancellation (Bugbot HIGH on #353): this effect re-runs
     // on every `versions` identity change (SWR idle-polls /versions every
     // 60 s), so a cleanup-driven `cancelled` flag would abort the lane
-    // mid-chain on the first poll tick while `attemptedRef` blocks any retry
-    // for the rest of the session — stranding the row again. Every step below
-    // is safe to run to completion past unmount/re-render: the POSTs are
-    // idempotent + lease-protected server-side, `toast` is app-global, and
-    // SWR's `mutateVersions` is cache-scoped, not component-scoped.
+    // mid-chain on the first poll tick while the attempt bookkeeping blocks a
+    // retry — stranding the row again. Every step below is safe to run to
+    // completion past unmount/re-render: the POSTs are idempotent +
+    // lease-protected server-side, `toast` is app-global, and SWR's
+    // `mutateVersions` is cache-scoped, not component-scoped.
     void (async () => {
       try {
         // Step 1 — image validation (broken external image URLs get
@@ -265,12 +334,31 @@ export function useResumePendingVerification(params: {
         // (Codex P2 round 2).
         await runResumeImageValidation({ chatId, versionId });
 
-        // Step 2 — product-postcheck, mirroring the normal lane order. The
+        // Step 2 — a gate target needs a live preview. The normal lane never
+        // verifies a version without one (missing preview = readiness
+        // failure), so a stranded row without a persisted previewUrl gets a
+        // preview-session boot first — which also persists the URL
+        // server-side. Unbootable → hold as retryable (Codex P1 round 4).
+        let previewUrl = candidate.previewUrl;
+        if (!previewUrl) {
+          previewUrl = await rehydratePreviewUrl({ chatId, versionId });
+          if (!previewUrl) return; // retryable hold — slot stays open
+        }
+
+        // Step 3 — product-postcheck, mirroring the normal lane order. The
         // route emits `version.degraded` server-side AND the result is
         // persisted as `/error-log` rows (incl. `product_postcheck.summary`,
-        // the row the F3 trigger enforces) so a resumed promotion can never
-        // read as solid green without DOM verification (Codex P1 rounds 1+2).
+        // the row the F3 trigger + /finalize-design enforce) so a resumed
+        // promotion can never read as solid green without DOM verification
+        // (Codex P1 rounds 1+2).
         const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
+        if (postcheck.blockerPersistFailed) {
+          // Fail closed (Codex P1 round 4): the blocker row never reached the
+          // /error-log enforcement surface — promoting now could let the
+          // version be lifted to F3 without its product block. Hold the
+          // resume; a later poll tick retries the whole (idempotent) chain.
+          return;
+        }
         if (postcheck.productBlocked) {
           // Normal-lane parity (Codex P2 round 2): the normal post-check path
           // records productBlocked as a warning and STILL runs the verify
@@ -283,7 +371,7 @@ export function useResumePendingVerification(params: {
           });
         }
 
-        // Step 3 — quality gate (verify + promote).
+        // Step 4 — quality gate (verify + promote).
         const res = await fetch(`${engineChatBaseUrl(chatId)}/quality-gate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -304,11 +392,16 @@ export function useResumePendingVerification(params: {
         // the nonce bump — the badge's poll may have idled before the resume.
         onVersionStatusRefresh?.();
 
-        // Non-200s are all non-actionable here: 409 = another job holds the
-        // lease (it will finish the work), 501/503 = verify lane not
-        // configured/unreachable, 404 = version/chat scope mismatch. Stay
-        // quiet; the version list refetch above keeps the UI honest.
-        if (!res.ok || !data || data.superseded) return;
+        if (!res.ok) {
+          // 409 (stale lease from the killed tab) and 5xx (verify lane
+          // briefly down/unconfigured) are retryable holds — a later poll
+          // tick gets another slot. 404 (scope mismatch) is terminal.
+          if (res.status === 404) consumeAllAttempts();
+          return;
+        }
+        // Gate completed — terminal for this session regardless of verdict.
+        consumeAllAttempts();
+        if (!data || data.superseded) return;
 
         if (data.passed) {
           toast.success(
@@ -322,17 +415,23 @@ export function useResumePendingVerification(params: {
               "Byggkontrollerna kördes men versionen kunde inte publiceras. Öppna diagnostik-dialogen för detaljer.",
           });
         } else {
+          // Deliberate scope-out (Codex P2 round 4, repair-gate rule): the
+          // resume lane does NOT open a new server-repair entry point. The
+          // row is now truthfully failed; repair stays available through the
+          // normal diagnostics/repair UI.
           toast.message("Verifieringen hittade fel", {
             description:
               "Versionen markerades som ej godkänd. Öppna diagnostik-dialogen för detaljer.",
           });
         }
       } catch {
-        // Best-effort resume: network failures leave the row pending and a
-        // later builder visit gets a fresh attempt (new mount → new ref set).
+        // Best-effort resume: network failures are a retryable hold — the
+        // slot bookkeeping above already charged one attempt.
+      } finally {
+        inFlightRef.current.delete(versionId);
       }
     })();
-    // Callback deps are safe: attemptedRef dedupes per versionId, so an
-    // identity change can never re-POST for the same version.
+    // Callback deps are safe: the attempt bookkeeping dedupes per versionId,
+    // so an identity change can never start a duplicate in-flight run.
   }, [chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh]);
 }

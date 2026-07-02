@@ -35,16 +35,20 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  * mirrors this lane's tail and must persist the SAME log rows — notably the
  * `product_postcheck.summary` row that `PreviewPanelF3Trigger` reads to block
  * F3 on product-blocked versions (Codex P1 on #353).
+ *
+ * Returns whether the write verifiably succeeded (2xx). The normal lane
+ * stays fire-and-forget, but the resume lane must fail closed when a
+ * product-BLOCKER row could not be persisted (Codex P1 round 4).
  */
 export async function persistVersionErrorLogs(params: {
   chatId: string;
   versionId: string;
   logs: VersionErrorLogPayload[];
-}) {
+}): Promise<boolean> {
   const { chatId, versionId, logs } = params;
-  if (!logs.length) return;
+  if (!logs.length) return true;
   try {
-    await fetch(
+    const res = await fetch(
       `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       {
         method: "POST",
@@ -52,8 +56,10 @@ export async function persistVersionErrorLogs(params: {
         body: JSON.stringify({ logs }),
       },
     );
+    return res.ok;
   } catch {
     // Best-effort only
+    return false;
   }
 }
 

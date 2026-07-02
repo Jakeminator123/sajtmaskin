@@ -126,9 +126,12 @@ describe("useResumePendingVerification", () => {
   function mockRoutes(params: {
     postcheck?: { ok?: boolean; body?: unknown };
     qualityGate?: { ok?: boolean; status?: number; body?: unknown };
+    errorLog?: { ok?: boolean };
+    previewSession?: { ok?: boolean; body?: unknown };
   }) {
     fetchMock.mockImplementation(async (url: string) => {
-      if (String(url).includes("/product-postcheck")) {
+      const u = String(url);
+      if (u.includes("/product-postcheck")) {
         return {
           ok: params.postcheck?.ok ?? true,
           status: (params.postcheck?.ok ?? true) ? 200 : 500,
@@ -136,7 +139,21 @@ describe("useResumePendingVerification", () => {
             params.postcheck?.body ?? { skipped: false, productBlocked: false },
         };
       }
-      if (String(url).includes("/validate-images") || String(url).includes("/error-log")) {
+      if (u.includes("/preview-session")) {
+        return {
+          ok: params.previewSession?.ok ?? true,
+          status: (params.previewSession?.ok ?? true) ? 200 : 503,
+          json: async () =>
+            params.previewSession?.body ?? {
+              previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            },
+        };
+      }
+      if (u.includes("/error-log")) {
+        const ok = params.errorLog?.ok ?? true;
+        return { ok, status: ok ? 200 : 500, json: async () => ({ ok }) };
+      }
+      if (u.includes("/validate-images")) {
         return { ok: true, status: 200, json: async () => ({ ok: true }) };
       }
       return {
@@ -353,5 +370,107 @@ describe("useResumePendingVerification", () => {
     );
     await waitFor(() => expect(mutateVersions).toHaveBeenCalled());
     expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("retries after a transient 409 on the next poll tick, capped at max attempts", async () => {
+    // Codex P2 round 4: a stale lease from the killed tab must not strand the
+    // row for the session — the next /versions identity change retries.
+    mockRoutes({
+      qualityGate: { ok: false, status: 409, body: { code: "version_busy" } },
+    });
+    const { rerender } = renderHook(
+      (props: { versions: unknown[] }) =>
+        useResumePendingVerification({
+          chatId: "chat_1",
+          versions: props.versions,
+          isStreaming: false,
+        }),
+      { initialProps: { versions: [pendingRow()] } },
+    );
+
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    rerender({ versions: [pendingRow()] });
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(2));
+    rerender({ versions: [pendingRow()] });
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(3));
+    // Attempts exhausted — further ticks do nothing.
+    rerender({ versions: [pendingRow()] });
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(3);
+  });
+
+  it("does NOT retry after a completed gate (terminal consumes all attempts)", async () => {
+    mockRoutes({ qualityGate: { body: { passed: false } } });
+    const { rerender } = renderHook(
+      (props: { versions: unknown[] }) =>
+        useResumePendingVerification({
+          chatId: "chat_1",
+          versions: props.versions,
+          isStreaming: false,
+        }),
+      { initialProps: { versions: [pendingRow()] } },
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    rerender({ versions: [pendingRow()] });
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+  });
+
+  it("rehydrates a missing preview via /preview-session before the gate (Codex P1 r4)", async () => {
+    mockRoutes({});
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ previewUrl: null })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/preview-session")).toHaveLength(1);
+    // The rehydrated URL feeds product-postcheck (not null).
+    const postcheckBody = JSON.parse(String(callsTo("/product-postcheck")[0][1].body)) as {
+      previewUrl: string | null;
+    };
+    expect(postcheckBody.previewUrl).toBe("https://vm-fly-jakem.fly.dev/chat_1");
+  });
+
+  it("holds the resume (no gate) when the preview cannot be rehydrated", async () => {
+    mockRoutes({ previewSession: { ok: false } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ previewUrl: null })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-session")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("fails closed when a productBlocked summary cannot be persisted (Codex P1 r4)", async () => {
+    mockRoutes({
+      postcheck: {
+        body: {
+          skipped: false,
+          productBlocked: true,
+          warnings: [{ code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" }],
+          warningCount: 1,
+        },
+      },
+      errorLog: { ok: false },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    await Promise.resolve();
+    // The blocker never reached the enforcement surface — do not promote.
+    expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 });
