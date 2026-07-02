@@ -15,15 +15,28 @@ import type { RepairErrorManifest } from "./repair-loop";
  *   - "…time budget exceeded…"                               → `time_budget_exceeded`
  *   - "…0 errors remain…" (gate failade ändå)                → `syntax_clean_gate_failed` (fix)
  *   - no-context-skip                                        → `no_context`
+ *
+ * Fas 3 (base-aware tidig abort): `superseded_by_newer_version` — loopen
+ * avbröts tidigt för att versionen hann bli inaktuell (nyare version, eller
+ * `files_json` avancerade förbi repair-basen) i stället för att jobba klart
+ * och få resultatet kastat av den bas-bundna saven.
  */
 export type ServerRepairOutcome =
   | "repaired"
   | "syntax_clean_gate_failed"
   | "syntax_errors_remain"
   | "time_budget_exceeded"
+  | "superseded_by_newer_version"
   | "no_improvement"
   | "fixer_noop"
   | "no_context";
+
+/** Loop-nivåns early-stop-orsaker som outcome-resolvern förstår. */
+export type ServerRepairEarlyStop =
+  | "fixer_noop"
+  | "no_improvement"
+  | "time_budget_exceeded"
+  | "superseded";
 
 type ResolveServerRepairOutcomeParams = {
   method: "deterministic" | "llm";
@@ -35,7 +48,7 @@ type ResolveServerRepairOutcomeParams = {
    * en gate-only-fail aldrig loggas som ett vilseledande "0 errors remain".
    */
   syntaxCleanGateFailed?: boolean;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
+  earlyStopReason?: ServerRepairEarlyStop | null;
   /** Repair-loopen hade ingen actionable felkontext att jobba med. */
   noContext?: boolean;
 };
@@ -57,6 +70,14 @@ export function resolveServerRepairOutcome(
 
   if (repaired) {
     return { outcome: "repaired", message: `Server repair succeeded (${method}).` };
+  }
+  // Fas 3: tidig abort för inaktuell version. Prioriteras över syntax-/gate-
+  // klassningen — kvarvarande fel på en superseded bas är inte utfallet.
+  if (earlyStopReason === "superseded") {
+    return {
+      outcome: "superseded_by_newer_version",
+      message: `Server repair aborted (${method}, superseded by a newer version/edit — result would be discarded).`,
+    };
   }
   if (noContext) {
     return {
@@ -244,7 +265,7 @@ type BuildServerRepairOutcomeMetaParams = {
   remainingErrorsSource?: "esbuild_syntax" | "quality_gate";
   /** True when esbuild syntax is clean but typecheck/build still failed. */
   syntaxCleanGateFailed?: boolean;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
+  earlyStopReason?: ServerRepairEarlyStop | null;
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
   jobStartedAt: string | null;

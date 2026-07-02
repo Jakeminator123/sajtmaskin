@@ -44,7 +44,12 @@ import {
 // below reaches both the legacy surfaces and the UI projection.
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
-import { isTypecheckOnlyAdvisory, resolvePostRepairGateChecks } from "./quality-gate-checks";
+import {
+  isTypecheckOnlyAdvisory,
+  resolvePostRepairGateChecks,
+  resolveSameSignalGateChecks,
+} from "./quality-gate-checks";
+import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -71,6 +76,7 @@ import {
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
   resolveServerRepairOutcome,
+  type ServerRepairEarlyStop,
   type ServerVerifyFailedOutput,
 } from "./server-verify-log-meta";
 import { resolvePostRepairFinalize } from "./server-repair-policy";
@@ -147,13 +153,30 @@ export async function triggerServerVerification(params: {
    * a Next build failure still lingers. Defaults to off for the normal F2 path.
    */
   forceBuildCheck?: boolean;
+  /**
+   * Fas 3 (RepairGate): finalize's `RepairLedger`, handed over so a repair in
+   * THIS lane dedupes against content+diagnostics already LLM-repaired during
+   * finalize (same process — server-verify is fired from post-finalize).
+   * Omitted (manual re-verify, watchdog) → a fresh per-run ledger.
+   */
+  repairLedger?: RepairLedger;
+  /** Fas 3: finalize's `repairScopeId` — must accompany `repairLedger` so ledger keys collide across lanes. */
+  repairScopeId?: string;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
 }): Promise<void> {
-  const { chatId, versionId, onRepairAvailable, diagnosticOnly = false, forceBuildCheck = false } = params;
+  const {
+    chatId,
+    versionId,
+    onRepairAvailable,
+    diagnosticOnly = false,
+    forceBuildCheck = false,
+    repairLedger,
+    repairScopeId,
+  } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
   const lease = await acquireVerifyLease(versionId, "server_verify");
@@ -448,6 +471,8 @@ export async function triggerServerVerification(params: {
       // #260 Codex P2 (forced build gate): a build-originated re-verify keeps
       // `build` in the post-repair gate even if this round only re-fails tsc.
       forceBuildGate: forceBuildCheck,
+      repairLedger,
+      repairScopeId,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
@@ -494,6 +519,11 @@ export async function triggerServerVerification(params: {
       onRepairAvailable,
       diagnosticOnly,
       forceBuildCheck: reverifyForceBuildCheck,
+      // Fas 3: keep the run's ledger across the re-verify — the current files
+      // (B) differ from the repaired base, so legitimate retries are not
+      // blocked (contentHash differs), while an identical re-attempt dedupes.
+      repairLedger,
+      repairScopeId,
     });
   }
 }
@@ -548,6 +578,9 @@ export async function triggerBuildErrorRepair(params: {
     message: string;
     failureCode?: string | null;
   };
+  /** Fas 3 (RepairGate): finalize's ledger + scope — see triggerServerVerification. */
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
@@ -555,7 +588,7 @@ export async function triggerBuildErrorRepair(params: {
   }) => void;
 }): Promise<void> {
   if (!isAutoRepairBuildErrorEnabled()) return;
-  const { chatId, versionId, buildError, onRepairAvailable } = params;
+  const { chatId, versionId, buildError, onRepairAvailable, repairLedger, repairScopeId } = params;
   if (!isServerVerifyEligible(versionId)) return;
   // OMTAG-06 / Codex P2: surface the preview-VM build error as a first-class bus
   // event BEFORE acquiring the lease, so the signal (and its error-log
@@ -622,6 +655,8 @@ export async function triggerBuildErrorRepair(params: {
       runId,
       // #260 Codex P2 (forced build gate): this path is always build-originated.
       forceBuildGate: true,
+      repairLedger,
+      repairScopeId,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
@@ -654,6 +689,8 @@ export async function triggerBuildErrorRepair(params: {
       versionId,
       onRepairAvailable,
       forceBuildCheck: reverifyForceBuildCheck,
+      repairLedger,
+      repairScopeId,
     });
   }
 }
@@ -711,6 +748,9 @@ async function tryServerRepairLoop(params: {
    * build. `triggerBuildErrorRepair` always passes `true`.
    */
   forceBuildGate?: boolean;
+  /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }): Promise<ServerRepairLoopOutcome> {
   const {
     chatId,
@@ -727,6 +767,11 @@ async function tryServerRepairLoop(params: {
     previewPolicy,
     forceBuildGate = false,
   } = params;
+  // Fas 3: without a finalize handover, use a fresh per-run ledger + a
+  // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
+  // loop still dedupes identical retries within this repair run.
+  const repairLedger = params.repairLedger ?? new RepairLedger();
+  const repairScopeId = params.repairScopeId ?? `${versionId}:server-repair`;
   const verifyContext = {
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -821,13 +866,15 @@ async function tryServerRepairLoop(params: {
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
-      // #260 Codex P2 (build-origin false-green): a build/preview-start repair
-      // must not re-gate with the typecheck-only design-preview lane — tsc can
-      // pass while `next build` is still broken.
-      // #291 Codex P1 (keep F3 repairs on the integrations gate): an F3 repair
-      // is always re-gated on the full integrations lane so a preserved/re-added
-      // backend SDK import is not promoted after tsc-only.
-      checks: resolvePostRepairGateChecks(buildOriginated, previewPolicy),
+      // Fas 3 same-signal-kontrakt: the post-repair gate must re-run every
+      // check that originally failed — a repair is only "repaired" when the
+      // SAME signal passes again. Union of the base lane (#260 build-origin
+      // escalation, #291 F3 integrations lane) and the origin failed checks.
+      checks: resolveSameSignalGateChecks({
+        originFailedChecks: failedOutputs.map((output) => output.check),
+        buildOriginated,
+        previewPolicy,
+      }),
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -936,6 +983,28 @@ async function tryServerRepairLoop(params: {
     errorManifest: repairLogContext.errorManifest,
   };
 
+  // Fas 3 (base-aware tidig abort): checked by the loop at every pass start
+  // and before the final gate. Detects BOTH superseded flavors:
+  //   - a NEWER VERSION row exists (repair target is no longer the latest) —
+  //     the existing promote path would mark it superseded AFTER doing all the
+  //     work; abort early instead;
+  //   - `files_json` advanced past the base snapshot (concurrent user edit) —
+  //     the base-bound save would no-op (`stale_base`) after the work is done.
+  let supersededKind: "newer_version" | "files_advanced" | null = null;
+  const shouldAbortSuperseded = async (): Promise<boolean> => {
+    if (supersededKind) return true;
+    if (!(await isLatestVersionForChat(chatId, versionId))) {
+      supersededKind = "newer_version";
+      return true;
+    }
+    const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+    if (current && current.filesJson !== baseFilesJson) {
+      supersededKind = "files_advanced";
+      return true;
+    }
+    return false;
+  };
+
   const loopResult = await runRepairLoop({
     initialContent,
     chatId,
@@ -950,6 +1019,9 @@ async function tryServerRepairLoop(params: {
     fixerReasoningEffort: fixerThinking?.reasoningEffort,
     recurringPatterns: readRecurringPatternsForChat(chatId),
     hasActionableErrorContext: hadQualityGateFailures,
+    repairLedger,
+    repairScopeId,
+    shouldAbortSuperseded,
     onBeforePass: async () => {
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },
@@ -972,6 +1044,43 @@ async function tryServerRepairLoop(params: {
       loopResult.errorManifest,
     );
     return { supersededByUserEdit: false, buildOriginated };
+  }
+
+  // Fas 3 (base-aware tidig abort): the loop stopped because the version got
+  // superseded mid-repair. Resolve per flavor:
+  //  - newer_version: mark the row superseded (the same terminal state the
+  //    promote path would have reached AFTER wasting the remaining budget) and
+  //    log the canonical `superseded_by_newer_version` outcome. No re-verify —
+  //    the newer version owns its own verify lifecycle.
+  //  - files_advanced: identical semantics to a stale-base no-op — fall through
+  //    via `staleBaseNoOp` so the caller re-verifies the CURRENT files (B).
+  if (!loopResult.promoted && loopResult.earlyStopReason === "superseded") {
+    if (supersededKind === "newer_version") {
+      await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "warning",
+        category: "server-verify:superseded",
+        message:
+          "Server repair aborted early: a newer version exists, so the repair result would be discarded.",
+        meta: { serverOwned: true, supersededKind },
+      }]).catch(() => null);
+      logRepairOutcome(
+        chatId,
+        versionId,
+        "llm",
+        false,
+        loopResult.llmPasses,
+        loopResult.remainingErrors,
+        loopResult.earlyStopReason,
+        verifyContext,
+        fixerModel,
+        loopResult.errorManifest,
+      );
+      return { supersededByUserEdit: false, buildOriginated };
+    }
+    staleBaseNoOp = true;
   }
 
   // #260 Codex P2 (stale-base before fail): a non-promoted repair never reached
@@ -1076,7 +1185,7 @@ function logRepairOutcome(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
-  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null,
+  earlyStopReason?: ServerRepairEarlyStop | null,
   verifyContext?: {
     verifyLaneDurationMs: number;
     firstFailureCheck: string | null;

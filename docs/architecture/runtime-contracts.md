@@ -73,6 +73,32 @@ Invariants:
 - Advisory-safe F2 typecheck får inte bli false-green; status ska visa varning/degradation.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
+## Repair-port (RepairGate)
+
+All LLM-repair går genom EN port. Detalj: `docs/schemas/quality-gate.md` § "En repair-port".
+
+Ägs av: `src/lib/gen/autofix/llm-repair-gate.ts` (porten + `RepairLedger`),
+`src/lib/gen/verify/repair-loop.ts` (loopen), `resolveSameSignalGateChecks` i
+`quality-gate-checks.ts` (samma-signal-mappningen), `resolveServerRepairOutcome`
+i `server-verify-log-meta.ts` (outcome-strängar).
+
+Invariants:
+
+- `runLlmFixer` har exakt en produktions-callsite: inuti `runLlmRepairGate`.
+  Vaktad av `llm-fixer-callsite-guard.test.ts` — ny LLM-fix-ingång routas via
+  gaten, aldrig direkt.
+- En repair är bara lyckad när SAMMA signal som failade passerar igen
+  (`resolveSameSignalGateChecks` unionerar ursprungets failade checks in i
+  post-repair-gaten). Syntax-ren men gate-röd ⇒ `syntax_clean_gate_failed`,
+  aldrig success.
+- `RepairLedger`-dedupe gäller över lanes inom samma körning (finalize →
+  server-verify via `FinalizeResult.repairLedger`/`repairScopeId`). Nyckeln
+  innehåller `contentHash`: nytt innehåll blockeras aldrig.
+- Superseded version (nyare version / `files_json` avancerade) ⇒ tidig abort
+  med outcome `superseded_by_newer_version`, inte jobba-klart-och-kastas.
+  Lease släpps alltid.
+- `resolveServerRepairOutcome` är enda ägaren av repair-outcome-strängar.
+
 ## Versionstatus och event-bus
 
 Event-bus är runtime-livscykel. FaultEvent är historik-/RAG-läsmodell och ska inte blandas ihop med EngineEvent.

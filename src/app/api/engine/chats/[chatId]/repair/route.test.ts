@@ -72,6 +72,12 @@ vi.mock("@/lib/gen/verify/repair-loop", () => ({
   buildGroupedRepairErrorContext: () => ({ errorManifest: [], contextLines: [] }),
   buildRepairErrorContextLines: () => [],
 }));
+// Fas 3: the route instantiates a per-run RepairLedger. Stub the gate module so
+// the test never loads the real llm-fixer chain (whose module scope needs the
+// full models catalog, which is minimally mocked here).
+vi.mock("@/lib/gen/autofix/llm-repair-gate", () => ({
+  RepairLedger: class RepairLedgerStub {},
+}));
 vi.mock("@/lib/gen/parser", () => ({
   parseCodeProject: () => ({
     files: [{ path: "app/page.tsx", content: "x", language: "tsx" }],
@@ -650,6 +656,94 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     // No concurrent edit -> the crash legitimately fails the version.
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
+  });
+});
+
+describe("POST repair — Fas 3 base-aware early abort (superseded mid-loop)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    // Initial snapshot = base A; every later read (the shouldAbortSuperseded
+    // callback) sees the user's newer edit B — files_json advanced mid-loop.
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: [{ path: "app/page.tsx", content: "A" }],
+        filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+      })
+      .mockResolvedValue({
+        files: [{ path: "app/page.tsx", content: "B" }],
+        filesJson: '[{"path":"app/page.tsx","content":"B"}]',
+      });
+    // The loop honors the route's callback exactly like the real
+    // implementation: superseded at pass start → early abort, no LLM pass.
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        shouldAbortSuperseded?: () => Promise<boolean> | boolean;
+      }) => {
+        const superseded = await opts.shouldAbortSuperseded?.();
+        return {
+          promoted: false,
+          remainingErrors: 0,
+          llmPasses: 0,
+          method: "llm",
+          payload: { newVersionId: null },
+          earlyStopReason: superseded ? "superseded" : null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("aborts with status superseded, never fails B, releases the lease and re-verifies B", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    // The route threads the Fas 3 RepairGate params into the loop.
+    const loopArgs = runRepairLoop.mock.calls[0]?.[0] as {
+      repairLedger?: unknown;
+      repairScopeId?: string;
+      shouldAbortSuperseded?: unknown;
+    };
+    expect(loopArgs.repairLedger).toBeTruthy();
+    expect(loopArgs.repairScopeId).toBe("ver-1:manual-repair");
+    expect(typeof loopArgs.shouldAbortSuperseded).toBe("function");
+
+    // Early abort: no save was attempted, B is never failed from the stale
+    // repair, and the outcome surfaces as superseded.
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.status).toBe("superseded");
+    expect(body.earlyStopReason).toBe("superseded");
+    // Lease released in finally (early abort must not leak the lease).
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+    // The current files (B) are re-verified on a fresh lease via after().
+    expect(afterCallbacks.value).toHaveLength(1);
+    triggerServerVerification.mockResolvedValue(undefined);
+    await afterCallbacks.value[0]?.();
+    expect(triggerServerVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
+    );
   });
 });
 

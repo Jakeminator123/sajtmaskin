@@ -5,6 +5,7 @@ import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-rout
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/devLog";
 import type { ReasoningEffort } from "../engine";
+import type { RecurringFailurePattern } from "./fixer-prompt";
 import { runLlmFixer, type FixerResult } from "./llm-fixer";
 
 export interface LlmRepairConfig {
@@ -75,6 +76,13 @@ export class RepairLedger {
     if (existing) {
       existing.attempts += 1;
       existing.lastSeenAt = now;
+      // An aborted attempt (timeout/AbortSignal) produced no output, so the
+      // caller's immediate retry with a reduced budget is a legitimate
+      // continuation — not a duplicate repair of already-fixed content. Only a
+      // COMPLETED attempt (success/failed/partial/error) dedupe-blocks.
+      if (existing.lastOutcome === "aborted") {
+        return { allowed: true, record: existing };
+      }
       return { allowed: false, record: existing };
     }
     const record: RepairLedgerRecord = {
@@ -154,10 +162,23 @@ export async function runLlmRepairGate(params: {
   requiredFiles?: string[];
   resolvedTier?: CanonicalModelId;
   config?: LlmRepairConfig;
+  /** Max output tokens for the fixer call. Omitted → fixer default. */
+  maxTokens?: number;
+  /**
+   * Recurring failure patterns to feed the fixer prompt. When provided
+   * (even as `[]`) this overrides the default per-chat read — used by the
+   * repair loop, whose callers already resolved the patterns themselves.
+   */
+  recurringPatterns?: RecurringFailurePattern[];
   phase?: string;
   scopeId?: string;
   ledger?: RepairLedger;
-}): Promise<{ result: Awaited<ReturnType<typeof runLlmFixer>>; fixerModel: string }> {
+}): Promise<{
+  result: Awaited<ReturnType<typeof runLlmFixer>>;
+  fixerModel: string;
+  /** True when the ledger dedupe-skipped this attempt (no LLM call made). */
+  deduped: boolean;
+}> {
   const config = params.config ?? resolveLlmRepairConfig(params.resolvedTier);
   const ledger = params.ledger;
   const scopeId = params.scopeId ?? params.chatId;
@@ -187,7 +208,7 @@ export async function runLlmRepairGate(params: {
     } catch {
       // devLog is best-effort; dedupe behavior should not fail repair.
     }
-    return { result: skippedResult(params.content), fixerModel: config.fixerModel };
+    return { result: skippedResult(params.content), fixerModel: config.fixerModel, deduped: true };
   }
   const ledgerKey = ledgerStart?.record.key ?? null;
 
@@ -198,12 +219,14 @@ export async function runLlmRepairGate(params: {
       model: config.fixerModel,
       thinking: config.thinking,
       reasoningEffort: config.reasoningEffort,
+      maxTokens: params.maxTokens,
       requiredFiles: params.requiredFiles,
-      recurringPatterns: readRecurringPatternsForChat(params.chatId),
+      recurringPatterns:
+        params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId),
       abortSignal: abort.signal,
     });
     if (ledger && ledgerKey) ledger.complete(ledgerKey, result);
-    return { result, fixerModel: config.fixerModel };
+    return { result, fixerModel: config.fixerModel, deduped: false };
   } catch (err) {
     if (ledger && ledgerKey) ledger.markError(ledgerKey);
     throw err;

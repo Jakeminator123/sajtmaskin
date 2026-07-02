@@ -810,8 +810,13 @@ type ServerRepairResult = {
   newVersionId?: string | null;
   remainingErrors?: number;
   improvedSyntax?: boolean;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
-  status?: "completed" | "repair_available" | "skipped" | "request_failed";
+  earlyStopReason?:
+    | "fixer_noop"
+    | "no_improvement"
+    | "time_budget_exceeded"
+    | "superseded"
+    | null;
+  status?: "completed" | "repair_available" | "skipped" | "request_failed" | "superseded";
   reason?: string | null;
 };
 

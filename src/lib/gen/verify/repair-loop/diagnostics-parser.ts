@@ -96,6 +96,47 @@ export function parseDiagnosticsFromFailure(
   return diagnostics;
 }
 
+const TSC_PRIMARY_LINE_RE =
+  /^(?<file>(?:[A-Za-z]:)?[^:\n\r()]+\.(?:[tj]sx?|jsx?|mjs|cjs))\((?<line>\d+),(?<column>\d+)\):\s*(?<rest>(?:error|warning)\s+TS\d+:\s*.+)$/i;
+
+/**
+ * Format the ORIGINATING gate failures (tsc/build/lint output) as structured
+ * `file:line:col message` lines — the shape `buildFixerUserPrompt` promotes to
+ * "Primary blocking diagnostics". Fas 3 same-signal targeting: when the repair
+ * was entered for a tsc failure, the fixer must optimize against the tsc
+ * diagnostics (INCLUDING the `TSxxxx` code, which the generic parser strips),
+ * not only against esbuild syntax output. Raw tsc lines
+ * (`file(l,c): error TS2322: msg`) are rewritten to `file:l:c error TS2322: msg`;
+ * other checks fall back to the parsed diagnostics tagged with their source.
+ */
+export function buildStructuredOriginDiagnostics(
+  failedOutputs: RepairFailedOutput[],
+): string[] {
+  const lines: string[] = [];
+  for (const failure of failedOutputs) {
+    let structuredTscLines = 0;
+    for (const rawLine of failure.output.split("\n")) {
+      const line = rawLine.replace(BRACKET_PREFIX_RE, "").trim();
+      const match = line.match(TSC_PRIMARY_LINE_RE);
+      if (!match?.groups) continue;
+      const file = normalizeDiagnosticFile(match.groups.file);
+      if (!file) continue;
+      lines.push(`${file}:${match.groups.line}:${match.groups.column} ${match.groups.rest}`);
+      structuredTscLines++;
+    }
+    if (structuredTscLines > 0) continue;
+    for (const diagnostic of parseDiagnosticsFromFailure(failure)) {
+      if (diagnostic.line === null) continue;
+      const location =
+        diagnostic.column !== null
+          ? `${diagnostic.file}:${diagnostic.line}:${diagnostic.column}`
+          : `${diagnostic.file}:${diagnostic.line}`;
+      lines.push(`${location} [${diagnostic.source}] ${diagnostic.message}`);
+    }
+  }
+  return lines;
+}
+
 export function parseFilesFromErrorLines(lines: string[]): string[] {
   const files = new Set<string>();
   for (const line of lines) {

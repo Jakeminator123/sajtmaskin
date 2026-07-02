@@ -97,6 +97,43 @@ export function resolvePostRepairGateChecks(
 }
 
 /**
+ * Same-signal-kontraktet (Fas 3, RepairGate): en repair får bara kallas lyckad
+ * när SAMMA signal som failade passerar igen. Den här funktionen är den
+ * explicita mappningen ursprungsfel → verifieringskrav för post-repair-gaten:
+ *
+ * | Ursprungssignal          | Verifieringskrav innan "lyckad"                    |
+ * |--------------------------|----------------------------------------------------|
+ * | parse-/esbuild-fel       | esbuild-pass i repair-loopen (körs före gaten)     |
+ * | tsc-fel (`typecheck`)    | `typecheck` i post-repair-gaten (bas-lanen)        |
+ * | build-fel (`build`)      | `build` i post-repair-gaten                        |
+ * | lint-fel (`lint`)        | `lint` i post-repair-gaten                         |
+ * | verifier-blocking        | verifier-rerun (finalize) + promote-guard — ägs av |
+ * |                          | `verifier-phase.ts` / `assertPromoteAllowed`       |
+ *
+ * Implementationen är en UNION: bas-lanen från `resolvePostRepairGateChecks`
+ * (F2 design / F3 integrations / build-origin-eskalering) + varje check som
+ * faktiskt failade i den ursprungliga gaten. Strikt additiv — den kan aldrig
+ * droppa en check ur bas-lanen, bara lägga till (t.ex. ett lint-ursprung i F2
+ * re-verifierar lint i stället för att false-greena på typecheck-only).
+ */
+export function resolveSameSignalGateChecks(params: {
+  /** Check-id:n som failade i den gate-körning som startade repairen. */
+  originFailedChecks: readonly string[];
+  /** Build-origin-signal (preview-VM build-error, forceBuildCheck, …). */
+  buildOriginated: boolean;
+  previewPolicy?: BuildSpecPreviewPolicy;
+}): readonly QualityGateCheck[] {
+  const buildOriginated =
+    params.buildOriginated || params.originFailedChecks.includes("build");
+  const base = resolvePostRepairGateChecks(buildOriginated, params.previewPolicy);
+  const origin = params.originFailedChecks.filter(
+    (check): check is QualityGateCheck =>
+      QUALITY_GATE_CHECK_SET.has(check as QualityGateCheck),
+  );
+  return [...new Set<QualityGateCheck>([...base, ...origin])];
+}
+
+/**
  * tsc diagnostic codes that mean MODULE/EXPORT RESOLUTION is broken — the class
  * of "type errors" that also breaks `next dev` at runtime (missing named export
  * → ESM eval throw or `undefined` component → "Element type is invalid" → dead

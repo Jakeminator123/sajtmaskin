@@ -25,7 +25,8 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({ runLlmFixer }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend }));
 vi.mock("@/lib/gen/retry/validate-syntax", () => ({ validateGeneratedCode }));
 
-import { runRepairLoop } from "./repair-loop";
+import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
+import { runRepairLoop, type RepairMethod } from "./repair-loop";
 
 function file(path: string, content: string): string {
   return `\`\`\`tsx file="${path}"\n${content}\n\`\`\``;
@@ -112,5 +113,153 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     expect(result.promoted).toBe(true);
     expect(result.method).toBe("llm");
     expect(result.earlyStopReason).toBeNull();
+  });
+});
+
+describe("runRepairLoop — tsc origin diagnostics reach the fixer as PRIMARY structured lines (Fas 3)", () => {
+  beforeEach(() => {
+    runLlmFixer.mockReset();
+    devLogAppend.mockReset();
+    validateGeneratedCode.mockClear();
+  });
+
+  it("feeds the tsc diagnostic (with its TS code) in file:line:col form", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 1,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    const errorsArg = runLlmFixer.mock.calls[0]?.[1] as string[];
+    // `file:line:col message` is the structured shape buildFixerUserPrompt
+    // promotes to "Primary blocking diagnostics" — and the TSxxxx code must
+    // survive (the generic diagnostics parser strips it).
+    expect(errorsArg).toContain(
+      "app/page.tsx:2:10 error TS2322: Type 'number' is not assignable to type 'string'.",
+    );
+  });
+});
+
+describe("runRepairLoop — cross-lane ledger dedupe (Fas 3 RepairGate)", () => {
+  beforeEach(() => {
+    runLlmFixer.mockReset();
+    devLogAppend.mockReset();
+    validateGeneratedCode.mockClear();
+  });
+
+  const loopParams = (ledger: RepairLedger, initialContent: string) => ({
+    initialContent,
+    failedOutputs: [gateFailure],
+    contextLines: [],
+    maxLlmPasses: 2,
+    llmTimeoutMs: 1_000,
+    enableTargetedRepair: false,
+    repairLedger: ledger,
+    repairScopeId: "ver_1:root",
+    onAttemptPromotion: async () => ({ promoted: false }),
+  });
+
+  it("skips the LLM when the shared ledger already holds the same content+diagnostics (deduped → fixer_noop)", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const ledger = new RepairLedger();
+
+    // "Finalize lane": first run records the repair attempt in the ledger.
+    const first = await runRepairLoop(loopParams(ledger, validPage));
+    expect(first.promoted).toBe(false);
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+
+    // "Server-repair lane": identical content + identical diagnostics with the
+    // SAME shared ledger + scope → the gate dedupes; no second LLM call.
+    const second = await runRepairLoop(loopParams(ledger, validPage));
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(second.promoted).toBe(false);
+    expect(second.earlyStopReason).toBe("fixer_noop");
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "llm_repair_gate.deduped", scopeId: "ver_1:root" }),
+    );
+  });
+
+  it("allows a legitimate retry on NEW content (contentHash differs)", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const ledger = new RepairLedger();
+
+    await runRepairLoop(loopParams(ledger, validPage));
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+
+    // Same diagnostics but the project content changed → new ledger key.
+    await runRepairLoop(loopParams(ledger, validPageEdited));
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("runRepairLoop — base-aware early abort (Fas 3 superseded)", () => {
+  beforeEach(() => {
+    runLlmFixer.mockReset();
+    devLogAppend.mockReset();
+    validateGeneratedCode.mockClear();
+  });
+
+  it("aborts BEFORE the first LLM pass when the version is already superseded", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const promotionAttempts: RepairMethod[] = [];
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      shouldAbortSuperseded: async () => true,
+      onAttemptPromotion: async (_content, method) => {
+        promotionAttempts.push(method);
+        return { promoted: false };
+      },
+    });
+
+    expect(result.promoted).toBe(false);
+    expect(result.earlyStopReason).toBe("superseded");
+    // No LLM pass was spent on a version whose result would be discarded.
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    // The FINAL verify gate is also skipped: only the early deterministic
+    // attempt ran (it precedes the superseded check by design — its save is
+    // base-bound anyway); no "llm" promotion attempt.
+    expect(promotionAttempts).not.toContain("llm");
+  });
+
+  it("aborts between the last pass and the final verify gate when superseded mid-repair", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const promotionAttempts: RepairMethod[] = [];
+    let checks = 0;
+    // Pass-start check (1st call) → not superseded; pre-final-gate check
+    // (2nd call) → superseded (a newer version landed while the LLM ran).
+    const shouldAbortSuperseded = async () => ++checks > 1;
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      shouldAbortSuperseded,
+      onAttemptPromotion: async (_content, method) => {
+        promotionAttempts.push(method);
+        return { promoted: false };
+      },
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(result.promoted).toBe(false);
+    expect(result.earlyStopReason).toBe("superseded");
+    expect(promotionAttempts).not.toContain("llm");
   });
 });

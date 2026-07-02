@@ -23,7 +23,8 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
-import { resolvePostRepairGateChecks } from "@/lib/gen/verify/quality-gate-checks";
+import { resolveSameSignalGateChecks } from "@/lib/gen/verify/quality-gate-checks";
+import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
@@ -51,6 +52,7 @@ import {
   buildServerVerifyRepairContextLines,
   compactVisualQAForQualityGateLog,
   resolveServerRepairOutcome,
+  type ServerRepairEarlyStop,
 } from "@/lib/gen/verify/server-verify-log-meta";
 import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 
@@ -344,18 +346,21 @@ async function handlePOST(
       // expire the lease before the renew-before-save below.
       if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       const exportable = await buildExportableProject(repairedFiles);
-      // #260 Codex P2 (build-origin false-green): if the failure that triggered
-      // this manual repair was a build/preview-start error, the post-repair gate
-      // must keep `build` — degrading to typecheck-only would false-green a
-      // still-broken build into repair_available. Reuses the hoisted
-      // `reverifyForceBuildCheck` (same build-origin signal) so the post-repair
-      // gate and the finally after() re-verify stay in lockstep.
+      // Fas 3 same-signal-kontrakt: the post-repair gate re-runs every check
+      // that originally failed (union with the base lane) — a repair is only
+      // "repaired" when the SAME signal passes again. Build-origin escalation
+      // (#260, hoisted `reverifyForceBuildCheck`) and the F3 integrations lane
+      // (#291) are preserved inside the resolver.
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: resolvePostRepairGateChecks(reverifyForceBuildCheck, previewPolicy),
+        checks: resolveSameSignalGateChecks({
+          originFailedChecks: gateFailures.map((failure) => failure.check),
+          buildOriginated: reverifyForceBuildCheck,
+          previewPolicy,
+        }),
         verifyDeadlineEpochMs,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
@@ -472,11 +477,23 @@ async function handlePOST(
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,
       recurringPatterns: readRecurringPatternsForChat(chatId),
-      hasActionableErrorContext:
-        gateFailures.length > 0 ||
-        currentVersionErrors.length > 0 ||
-        previousVersionErrors.length > 0 ||
-        visualQaLines.length > 0,
+      // Fas 3 (RepairGate): the manual route is a separate HTTP invocation, so
+      // it gets a fresh per-run ledger (no in-memory finalize ledger to reuse)
+      // — dedupe still protects identical retries within this run's passes.
+      repairLedger: new RepairLedger(),
+      repairScopeId: `${currentVersionId}:manual-repair`,
+      // Fas 3 (base-aware tidig abort): stop LLM passes as soon as a
+      // concurrent edit advances files_json past this repair's base — the
+      // base-bound save would no-op (`stale_base`) after the work anyway.
+      shouldAbortSuperseded: async () => {
+        if (staleBaseNoOp) return true;
+        const current = await getVersionFilesSnapshot(currentVersionId).catch(() => null);
+        if (current && current.filesJson !== baseFilesJson) {
+          staleBaseNoOp = true;
+          return true;
+        }
+        return false;
+      },
       onBeforePass: async () => {
         if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
       },
@@ -772,7 +789,7 @@ function logRepair(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
-  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null,
+  earlyStopReason?: ServerRepairEarlyStop | null,
   qualityGateMeta?: {
     verifyLaneDurationMs?: number | null;
     firstFailureCheck?: string | null;

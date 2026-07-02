@@ -140,4 +140,88 @@ describe("runLlmRepairGate ledger", () => {
       }),
     );
   });
+
+  it("allows the reduced-budget retry after an ABORTED attempt on the same key (Fas 3)", async () => {
+    // The repair loop retries a timed-out fixer call with a smaller budget.
+    // An aborted attempt produced no output, so the identical retry must NOT
+    // be dedupe-blocked — only completed attempts block.
+    const ledger = new RepairLedger();
+    runLlmFixer
+      .mockResolvedValueOnce({
+        fixedContent: "broken",
+        fixedFiles: [],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: false,
+        aborted: true,
+        durationMs: 1,
+      })
+      .mockResolvedValueOnce({
+        fixedContent: "fixed",
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 1,
+      });
+
+    const params = {
+      content: "broken",
+      errors: ["app/page.tsx:1:1 Unexpected token"],
+      chatId: "chat_1",
+      timeoutMs: 1_000,
+      phase: "repair-loop",
+      scopeId: "ver_1:server-repair",
+      ledger,
+    };
+
+    const first = await runLlmRepairGate(params);
+    const second = await runLlmRepairGate(params);
+
+    expect(first.result.aborted).toBe(true);
+    expect(second.deduped).toBe(false);
+    expect(second.result.success).toBe(true);
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+
+    // A COMPLETED attempt still dedupe-blocks the next identical call.
+    const third = await runLlmRepairGate(params);
+    expect(third.deduped).toBe(true);
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+  });
+
+  it("threads maxTokens and explicit recurringPatterns through to the fixer (Fas 3)", async () => {
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: "fixed",
+      fixedFiles: [],
+      missingFiles: [],
+      incompleteFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 1,
+    });
+    const recurringPatterns = [
+      { pattern: "TS2322 mismatch", occurrences: 3 },
+    ];
+
+    await runLlmRepairGate({
+      content: "broken",
+      errors: ["app/page.tsx:1:1 boom"],
+      chatId: "chat_1",
+      timeoutMs: 1_000,
+      maxTokens: 4_096,
+      recurringPatterns,
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledWith(
+      "broken",
+      ["app/page.tsx:1:1 boom"],
+      expect.objectContaining({
+        maxTokens: 4_096,
+        recurringPatterns,
+      }),
+    );
+  });
 });

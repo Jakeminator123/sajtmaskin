@@ -17,6 +17,7 @@ import {
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
   isTypecheckOnlyAdvisory,
   resolvePostRepairGateChecks,
+  resolveSameSignalGateChecks,
 } from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
@@ -430,6 +431,78 @@ describe("resolvePostRepairGateChecks (#260 P2 — build-origin false-green)", (
   });
 });
 
+describe("resolveSameSignalGateChecks (Fas 3 samma-signal-kontrakt)", () => {
+  it("tsc-origin in F2 re-gates on the base design lane (typecheck included)", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["typecheck"],
+      buildOriginated: false,
+      previewPolicy: "fidelity2",
+    });
+    expect(checks).toContain("typecheck");
+  });
+
+  it("build-origin (via originFailedChecks) escalates the gate to include build", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["typecheck", "build"],
+      buildOriginated: false,
+      previewPolicy: "fidelity2",
+    });
+    expect(checks).toContain("build");
+    expect(checks).toContain("typecheck");
+  });
+
+  it("build-origin via the forced flag (preview-VM build error) also keeps build", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: [],
+      buildOriginated: true,
+      previewPolicy: "fidelity2",
+    });
+    expect(checks).toContain("build");
+  });
+
+  it("lint-origin in F2 re-runs lint instead of false-greening on typecheck-only", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["lint"],
+      buildOriginated: false,
+      previewPolicy: "fidelity2",
+    });
+    expect(checks).toContain("lint");
+    expect(checks).toContain("typecheck");
+  });
+
+  it("is strictly additive: never drops a base-lane check", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["lint"],
+      buildOriginated: true,
+      previewPolicy: "fidelity2",
+    });
+    for (const base of resolvePostRepairGateChecks(true, "fidelity2")) {
+      expect(checks).toContain(base);
+    }
+  });
+
+  it("F3 always re-gates on the full integrations lane", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["typecheck"],
+      buildOriginated: false,
+      previewPolicy: "fidelity3",
+    });
+    expect([...checks].sort()).toEqual(
+      [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS].sort(),
+    );
+  });
+
+  it("filters non-canonical origin check names (install info-signals etc.)", () => {
+    const checks = resolveSameSignalGateChecks({
+      originFailedChecks: ["install-cache-share", "typecheck"],
+      buildOriginated: false,
+      previewPolicy: "fidelity2",
+    });
+    expect(checks).not.toContain("install-cache-share");
+    expect(checks).toContain("typecheck");
+  });
+});
+
 describe("buildServerVerifyQualityGateMeta", () => {
   it("includes verify-lane timing and per-check duration metadata", () => {
     expect(
@@ -738,6 +811,52 @@ describe("resolveServerRepairOutcome (Fas 0 kanonisk taxonomi)", () => {
   it("icke-promoterad utan känd orsak → no_improvement (aldrig tyst)", () => {
     const r = resolveServerRepairOutcome({ method: "llm", repaired: false });
     expect(r.outcome).toBe("no_improvement");
+  });
+
+  it("Fas 3: superseded tidig abort → superseded_by_newer_version", () => {
+    const r = resolveServerRepairOutcome({
+      method: "llm",
+      repaired: false,
+      earlyStopReason: "superseded",
+    });
+    expect(r.outcome).toBe("superseded_by_newer_version");
+    expect(r.message).toContain("superseded");
+  });
+
+  it("Fas 3: superseded prioriteras över kvarvarande fel/syntax-clean-klassning", () => {
+    // Kvarvarande fel på en superseded bas är inte utfallet — aborten är.
+    expect(
+      resolveServerRepairOutcome({
+        method: "llm",
+        repaired: false,
+        remainingErrors: 0,
+        earlyStopReason: "superseded",
+      }).outcome,
+    ).toBe("superseded_by_newer_version");
+    expect(
+      resolveServerRepairOutcome({
+        method: "llm",
+        repaired: false,
+        remainingErrors: 3,
+        earlyStopReason: "superseded",
+      }).outcome,
+    ).toBe("superseded_by_newer_version");
+  });
+
+  it("Fas 3: meta.outcome i buildServerRepairOutcomeMeta följer superseded-aborten", () => {
+    const meta = buildServerRepairOutcomeMeta({
+      method: "llm",
+      llmPasses: 0,
+      repaired: false,
+      remainingErrors: 0,
+      earlyStopReason: "superseded",
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+    expect(meta.outcome).toBe("superseded_by_newer_version");
+    expect(meta.earlyStopReason).toBe("superseded");
   });
 });
 
