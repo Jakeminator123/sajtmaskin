@@ -481,7 +481,7 @@
         "preview",
         "production"
       ],
-      "notes": "Fail fast when required generated template-library or scaffold-research artifacts are missing or empty. Default is strict outside tests."
+      "notes": "Fail fast when required generated scaffold artifacts (scaffold-research.generated.json / scaffold-embeddings.json) are missing or empty. Default is strict outside tests."
     },
     {
       "key": "SAJTMASKIN_PRE_VM_TYPECHECK",

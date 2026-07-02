@@ -3,7 +3,7 @@
 **Senast uppdaterad:** 2026-07-01.
 **Syfte:** **norra stjärna** för hur Sajtmaskins LLM-flöde *bör* se ut, separat från hur det faktiskt är just nu. När docs och kod beskriver "vad som finns idag", beskriver den här filen "vad vi siktar mot" så vi kan mäta gap.
 
-> **Den här filen är inte source of truth för runtime.** Det är `src/lib/gen/`, `docs/architecture/fas{1,2,3}-*.md` och `glossary.md`. Den här filen är en **referensvision** att jämföra emot.
+> **Den här filen är inte source of truth för runtime.** Det är `src/lib/gen/`, `docs/architecture/llm-pipeline.md` och `glossary.md`. Den här filen är en **referensvision** att jämföra emot.
 
 För **vad som faktiskt finns idag**, läs:
 - [`llm-pipeline.md`](./llm-pipeline.md) — kanoniskt körflöde FAS 1→2→3 (prompt → streamstart → orchestrate → finalize → preview → deploy)

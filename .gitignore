@@ -82,10 +82,12 @@ data/observability/
 output/generations/
 
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
+# OBS: scaffold-embeddings.json + scaffold-research.generated.json är för närvarande
+# committade (prebuild-gaten `scaffolds:embeddings:check` kräver dem i Vercel-build där
+# ingen OPENAI_API_KEY finns). De hålls ur Cursor-index via .cursorignore. Raderna nedan
+# är inerta för redan spårade filer men hindrar oavsiktlig re-add efter en lokal radering.
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
 # LLM-flow canvas JSON-sidecar: lokal runtime-artefakt (regenereras vid backoffice-start
 # och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
 docs/canvases/llm-flow.canvas.json
@@ -143,6 +145,10 @@ google-services.json
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/swarms/*
 !.cursor/swarms/README.md
+# Lokal notis-yta via /logg-internet (live prod-browser-sessioner, per-maskin).
+# README:n committas så konventionen är synlig för agenter på andra maskiner.
+.cursor/logg-internet/*
+!.cursor/logg-internet/README.md
 
 # Logs
 *.log
@@ -175,6 +181,10 @@ _env.development
 # Avoid accidentally committing a nested clone/repo
 sajtgen
 _template_refs/
+
+# Local v0-template intake (maintainer workstation only; blob är prod-källa).
+# `out/` täcks redan ovan; `downloads/` gjorde det inte — ignorera hela trädet.
+templates_v0/
 
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
@@ -226,7 +236,6 @@ playwright-report/
 
 
 test-results/
-_scaffold_discovery/
 
 
 .env*.local
@@ -267,3 +276,7 @@ data/runs/
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 # (.vercel is ignored once near the top under "# Vercel".)
+
+.vercel
+
+.vercel

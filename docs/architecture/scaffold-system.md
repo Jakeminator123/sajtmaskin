@@ -311,7 +311,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Variant-skript | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts` | Signature patterns + embeddings |
 | Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
 | Embeddings | `src/lib/gen/scaffolds/scaffold-embeddings.json` | Regenereras via `npm run scaffolds:embeddings` |
-| Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `research.py` | Kontroller, sidolist |
+| Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `scaffold_performance.py` | Kontroller, sidolist |
 | Dokumentation | denna fil + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/repository-and-platform.md` | Tabeller, distinktioner |
 | Cursor-regler | `.cursor/rules/scaffold-rules.mdc`, `.cursor/skills/sajtmaskin-context/SKILL.md` | Lista vid sammanslagning |
 | Tester | `src/lib/gen/scaffolds/matcher.test.ts`, `src/lib/gen/orchestration-snapshot.test.ts`, build-spec, eval-prompts | Asserter på scaffold-id |

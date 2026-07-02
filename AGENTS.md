@@ -33,6 +33,15 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
 
+## Vercel-åtkomst (CLI + MCP) — inloggat läge
+
+Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
+
+- **CLI:** `vercel whoami` → `jakeminator0`. Repot är länkat via `vercel link --yes` → `.vercel/repo.json` (gitignored) med projekt `sajtmaskin` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`, team `jakeminator123s-projects`). Länka om med `npm run vercel:link` om `.vercel/` saknas.
+- **Loggar via CLI:** `vercel logs <deployment-url|dpl_id>` (runtime, live), `vercel inspect <dpl> --logs` (build). Prod-env: `npm run env:pull:prod-snapshot`.
+- **MCP:** `.cursor/mcp.json` har projekt-scopad server `vercel` (`https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin`) — engångs-OAuth via "Needs login" i Cursor. Fungerar även: user-nivå `user-vercel`. **Obs:** plugin-varianten (`plugin-vercel-vercel`) kan ge 403 — byt server i stället för att felsöka.
+- **Samlad logg-hämtning:** `/logg` (senaste prod-sajten, alla källor) · `node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl` (kvantitativ kontroll-statistik) · `node scripts/db/dump-logs.mjs` (rå export).
+
 ## Review guidelines (PR author owns the bug post-check)
 
 **Codex review is disabled (out of credits as of 2026-07-02).** Do not wait for `chatgpt-codex-connector`, do not treat its absence as a gap, and do not spin retrying it. The **PR-authoring agent** is responsible for the bug post-check instead. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).

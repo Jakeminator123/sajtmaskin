@@ -17,7 +17,7 @@ Hämtar **allt** som säger hur den senaste genererade användarsajten i **produ
 1. **Env:** säkra prod-snapshot (`npm run env:pull:prod-snapshot` om `.env.vercel.production.pulled` saknas). Lös upp Vercel `teamId`/`projectId` (`.vercel/project.json` eller env) + Fly-åtkomst.
 2. **Hitta senaste sajten:** `npm run db:latest -- --prod` → `chatId`, `versionId`, `projectId`, `previewUrl`, `created_at`, telemetri.
 3. **Alla prod-DB-loggar:** `node scripts/db/dump-logs.mjs --json --env=.env.vercel.production.pulled --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys --chat=<chatId> --limit=100 --allow-insecure-ssl`.
-4. **Vercel (MCP `plugin-vercel-vercel`):** `get_runtime_errors` + `get_runtime_logs` för appen kring körningsfönstret; `get_deployment_build_logs` + `get_runtime_logs` för sajtens egen deploy (om `deploys` gav en rad).
+4. **Vercel (MCP-server `vercel` projekt-scopad, eller `user-vercel`; `plugin-vercel-vercel` kan ge 403):** `get_runtime_errors` + `get_runtime_logs` för appen kring körningsfönstret; `get_deployment_build_logs` + `get_runtime_logs` för sajtens egen deploy (om `deploys` gav en rad). CLI-alternativ: `vercel logs <dpl>`.
 5. **Fly:** `fly logs -a vm-fly-jakem --no-tail` + preview-host-loggar för sajtens `previewSessionId` (store-fil eller `/preview/logs/:id`).
 6. **Syntes:** en svensk rapport — kort bedögning (lyckad/delvis/misslyckad) först, sedan fas-tabell + "ej tillgängligt" + säkerhets-%.
 

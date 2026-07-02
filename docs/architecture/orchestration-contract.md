@@ -193,20 +193,20 @@ Tests can opt out via `__resetSubscribersForTests()` /
   consume from multiple readers without locking.
 - **Single writer.** Callers must not write `preflight.summary`,
   `server_verify_result`-equivalents, or `engine_version_error_logs`
-  rows outside of the bus path. The grep acceptance in
-  `OMTAG/06-unified-status-eventbus.md` enforces this.
+  rows outside of the bus path. A grep-based acceptance gate
+  enforces this (parent plan `OMTAG-06`, arkiverad — se git-historik).
 - **No DB migration.** Persistence is filesystem-only under
   `data/runs/`. Existing DB tables remain owned by their existing
   code paths but are reached via bus subscribers.
 - **No env toggles.** The migration is a cut-over — there is no
-  shadow mode and no fallback path. See OMTAG-06 "Får INTE göras".
+  shadow mode and no fallback path.
 - **Autofix stats pass through unchanged.** Autofix statistics are
   their own struct and traverse the bus (via
   `version.autofix.result`) without restructuring.
 
 ## References
 
-- `OMTAG/06-unified-status-eventbus.md` — the parent plan doc
+- Unified status event-bus plan (`OMTAG-06`) — parent plan, arkiverad (git-historik)
 - `docs/schemas/orchestration-signal-contract.md` — upstream signal
   layers (prompt assist, scaffold match, route plan, BuildSpec, …)
 - `docs/architecture/llm-signal-flow.md` — narrative of the full

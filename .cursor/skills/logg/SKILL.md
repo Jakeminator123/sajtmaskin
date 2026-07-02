@@ -58,7 +58,7 @@ if (-not (Test-Path .env.vercel.production.pulled)) { npm run env:pull:prod-snap
    **Sajtmaskin-appen**:
    - Läs `.vercel/project.json` → `projectId` + `orgId` (orgId = teamId), eller
    - Läs `VERCEL_PROJECT_ID` / `VERCEL_TEAM_ID` från `.env.local` / `.env.vercel.production.pulled`, eller
-   - MCP `list_teams` → `list_projects` (server `plugin-vercel-vercel`).
+   - MCP `list_teams` → `list_projects` (server `vercel` projekt-scopad, eller `user-vercel`).
 3. **Fly-åtkomst** (för preview-loggar): `fly` CLI inloggad (app `vm-fly-jakem`), **eller**
    `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_PREVIEW_HOST_API_KEY`.
 
@@ -100,7 +100,10 @@ Detta ger telemetri, fel, OpenClaw bug-hunt-fynd (`oc`), RAG-events (`ragevents`
 deploy-raden (`deploys`) i ett svep. Notera från `deploys`: `vercel_deployment_id`,
 `vercel_project_id`, `url`, `status` — de behövs i steg 3.
 
-### 3. Vercel-loggar (MCP `plugin-vercel-vercel`)
+### 3. Vercel-loggar (MCP-server `vercel` — projekt-scopad, eller `user-vercel`)
+
+> Servern `vercel` i `.cursor/mcp.json` är projekt-scopad (`mcp.vercel.com/jakeminator123s-projects/sajtmaskin`).
+> `plugin-vercel-vercel` kan ge 403 — byt då server. CLI-alternativ: `vercel logs <dpl>` (repot är länkat, `.vercel/repo.json`).
 
 **a) Sajtmaskin-appen** (server-side under själva genereringen) — använd appens
 `projectId` + `teamId`, tidsfönster kring `created_at`:

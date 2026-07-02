@@ -13,7 +13,7 @@
       "Per-request custom instructions from the builder UI",
       "Build-intent bullet lists (template / website / app)",
       "Full scaffold JSON or serialized scaffold body",
-      "Route plan, pre-generation contracts, template-library matches",
+      "Route plan, pre-generation contracts, dossier/scaffold matches",
       "Structured brief fields from deep brief (unless you intentionally duplicate — avoid)",
       "Visual rules that vary per domain/tone (those should ride brief or scaffold-variant data)"
     ],

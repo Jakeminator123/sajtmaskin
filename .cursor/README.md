@@ -78,6 +78,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter, valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
+- `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
 
 ## Backoffice
 
