@@ -24,11 +24,13 @@ Each entry has the shape:
 interface FixerRegistryEntry {
   id: string;                    // matches FixEntry.fixer
   category: FixerCategory;
+  risk: "safe" | "risky";        // verifier-policy risk class
   sourcePath: string;
   targetFailureMode: string;
   triggers: string[];
   status: "active" | "deprecated" | "experimental";
-  ownerPhase: FixerOwnerPhase;
+  ownerPhase: FixerOwnerPhase;             // primary/grouping phase
+  additionalOwnerPhases?: FixerOwnerPhase[]; // secondary phases (multi-phase fixers)
   telemetryCounter?: string;
   notes?: string;
 }
@@ -37,6 +39,18 @@ interface FixerRegistryEntry {
 `FixEntry` (runtime output from autofix/preflight) now also carries `lane` for
 telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense`,
 `post_merge`, `server_repair`). Canonical lane contracts: see the **Lane contracts** section below.
+
+## Risk classes
+
+`risk` is the verifier-policy signal for an executed fixer:
+
+| Risk | Meaning |
+|---|---|
+| `safe` | Narrow deterministic hygiene: directives, escaping/quotes, known library imports, same-module dedupe, URL/asset expansion, metadata/font/config small fixes, and read-only validators. |
+| `risky` | Structure or contract mutation: JSX tag/default-export rewrites, cross-file import/provider decisions, dependency additions/version bumps, regex import surgery, LLM rewrites, and server-repair passes. Unknown fixer ids are treated as `risky` at runtime. |
+
+Many `safe` fixes are normal flow. One `risky` fix is a signal to keep verifier
+coverage when the base verifier policy says it should run.
 
 See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 
@@ -72,6 +86,35 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 | `preflight` | During finalize-preflight (partial-file-repair) |
 | `post-merge` | After follow-up merge against previous version |
 | `server-repair` | Server-side after quality-gate failures |
+
+A fixer can run in more than one phase: `ownerPhase` is the primary/grouping
+phase, `additionalOwnerPhases` lists the rest. Example: the diagnostic-driven
+import fixers (`ts2304-known-import-fixer`, `own-component-import-fixer`) run in
+the shared deterministic import-repair (`autofix/deterministic-import-repair.ts`)
+from BOTH the finalize normalize pass on warm-tsc failure (`post-syntax`, before
+`runLlmRepairGate`) and the server repair-loop pre-pass (`server-repair`, before
+the LLM passes).
+
+## Deterministic import-repair order (normalize + server-repair)
+
+When tsc diagnostics exist (warm-tsc fail in finalize, or quality-gate fail in
+server-repair), the deterministic import-repair runs BEFORE any LLM fixer, in
+this order:
+
+1. `ts2304-known-import-fixer` — TS2304/TS2552 names resolvable to a known
+   library module (diagnostic-driven, whole project)
+2. `own-component-import-fixer` — residual TS2304 names that are NOT library
+   names but are exported by exactly one own project file (named or default)
+3. TS1361 / TS2440 / TS2300 per-file fixers (`value-used-from-type-import-fixer`,
+   `import-declaration-conflict-fixer`, react-import consolidation,
+   `duplicate-import-binding-fixer`, `duplicate-import-local-type-collision-fixer`)
+4. Mandatory post-injection dedupe + receipt per touched file:
+   `consolidateReactImports` → duplicate-binding pruning → revert the file if it
+   still carries *introduced* duplicate bindings or new parse errors. No fixer
+   may hand over two import statements re-declaring the same local binding.
+
+In finalize, warm-tsc is then re-run ONCE (no loop, cost cap) and only the
+residual diagnostics reach `runLlmRepairGate`.
 
 ## Lane contracts
 

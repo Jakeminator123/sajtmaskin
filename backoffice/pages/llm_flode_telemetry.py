@@ -670,7 +670,7 @@ def _render_degradations(run_dirs: list[Path]) -> None:
     )
 
     kinds = [
-        "verifier_skipped_heavy_load",
+        "verifier_skipped_safe_fixes_only",
         "verifier_skipped_by_policy",
         "product_postcheck_skipped",
         "product_postcheck_blocked",

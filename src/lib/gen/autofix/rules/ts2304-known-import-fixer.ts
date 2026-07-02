@@ -186,6 +186,27 @@ function extractMissingName(message: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * True when `name` exists in ANY of the known-library registries this fixer
+ * resolves from (Next defaults, Stripe, Clerk server, diagnostic-only package
+ * imports, KNOWN_MODULE_SPECIFIERS, shadcn, lucide) — regardless of whether it
+ * would actually resolve for a given file (tier-3 gating, shadcn∩lucide
+ * ambiguity, path gating). Used by the deterministic import-repair to
+ * classify a residual TS2304 name: known library (stays with this fixer /
+ * the LLM) vs own project file vs unknown.
+ */
+export function isKnownLibraryImportName(name: string): boolean {
+  if (DEFAULT_IMPORT_NAMES[name]) return true;
+  if (name === "Stripe") return true;
+  if (CLERK_SERVER_IMPORTS.has(name)) return true;
+  if (NAMED_PACKAGE_IMPORTS[name]) return true;
+  for (const names of Object.values(KNOWN_MODULE_SPECIFIERS)) {
+    if (names.includes(name)) return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, name)) return true;
+  return LUCIDE_ICONS.has(name);
+}
+
 function toPosixPath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
@@ -258,7 +279,7 @@ function nameAppearsInFile(code: string, name: string): boolean {
  * `import { cn } from "@/lib/utils"` into `lib/utils.ts` itself (#201), and more
  * generally against a registry import shadowing a local declaration.
  */
-function fileDeclaresSymbol(code: string, name: string): boolean {
+export function fileDeclaresSymbol(code: string, name: string): boolean {
   const n = escapeRegExp(name);
   const declaration = new RegExp(
     `(?:^|\\n)\\s*export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|class)\\s+${n}\\b` +

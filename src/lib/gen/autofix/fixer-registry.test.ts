@@ -3,6 +3,7 @@ import {
   FIXER_REGISTRY,
   FIXER_REGISTRY_SIZE,
   getFixerById,
+  getFixerRiskById,
   getMechanicalFixerIds,
   listFixersByCategory,
   listFixersByPhase,
@@ -23,10 +24,17 @@ describe("fixer-registry", () => {
     const reactImport = getFixerById("react-import-fixer");
     expect(reactImport).toBeDefined();
     expect(reactImport?.category).toBe("mechanical-import");
+    expect(reactImport?.risk).toBe("safe");
   });
 
   it("getFixerById returns undefined for unknown id", () => {
     expect(getFixerById("not-a-real-fixer")).toBeUndefined();
+  });
+
+  it("getFixerRiskById returns the risk classification", () => {
+    expect(getFixerRiskById("react-import-fixer")).toBe("safe");
+    expect(getFixerRiskById("jsx-checker")).toBe("risky");
+    expect(getFixerRiskById("not-a-real-fixer")).toBeUndefined();
   });
 
   it("listFixersByCategory groups all entries", () => {
@@ -61,6 +69,39 @@ describe("fixer-registry", () => {
       expect(entry.sourcePath.length).toBeGreaterThan(5);
       expect(entry.targetFailureMode.length).toBeGreaterThan(3);
       expect(entry.triggers.length).toBeGreaterThan(0);
+      expect(["safe", "risky"]).toContain(entry.risk);
+    }
+  });
+
+  it("classifies structure/cross-file/dependency mutators as risky", () => {
+    const riskyIds = new Set(
+      FIXER_REGISTRY.filter((entry) => entry.risk === "risky").map((entry) => entry.id),
+    );
+    for (const expected of [
+      "jsx-checker",
+      "local-symbol-import-fixer",
+      "local-named-import-default-fixer",
+      "local-default-import-fixer",
+      "dep-version-validator",
+      "llm-server-repair",
+    ]) {
+      expect(riskyIds.has(expected), `${expected} should be risky`).toBe(true);
+    }
+  });
+
+  it("classifies narrow import/directive/metadata hygiene fixers as safe", () => {
+    const safeIds = new Set(
+      FIXER_REGISTRY.filter((entry) => entry.risk === "safe").map((entry) => entry.id),
+    );
+    for (const expected of [
+      "use-client-fixer",
+      "react-import-fixer",
+      "metadata-import-fixer",
+      "font-import-fixer",
+      "r3f-vector-tuple-fixer",
+      "verifier-pass",
+    ]) {
+      expect(safeIds.has(expected), `${expected} should be safe`).toBe(true);
     }
   });
 

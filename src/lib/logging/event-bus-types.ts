@@ -73,7 +73,9 @@ export interface VersionAutofixResultEvent extends EngineEventBase {
   warnings: number;
   dependencies?: number;
   outcome?: "done" | "skipped" | "error";
-  heavyLoad?: boolean;
+  safeFixCount?: number;
+  riskyFixCount?: number;
+  riskyFixerIds?: string[];
   previewBlockingWarnings?: number;
   fixers?: Array<{
     fixer: string;
@@ -169,8 +171,8 @@ export interface VersionDoneEvent extends EngineEventBase {
  * concrete UX consumer. Random log strings should NOT become event kinds.
  */
 export type VersionDegradationKind =
-  /** Verifier-pass was skipped because autofix reported heavy load. */
-  | "verifier_skipped_heavy_load"
+  /** Verifier-pass was skipped because autofix only applied safe hygiene fixes. */
+  | "verifier_skipped_safe_fixes_only"
   /** Verifier-pass was skipped by policy (design-only, fast-path, etc.). */
   | "verifier_skipped_by_policy"
   /** F2 product-postcheck (Playwright DOM snapshot) was skipped — usually

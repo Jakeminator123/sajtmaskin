@@ -48,6 +48,48 @@ Quality gate är alltså inte samma sak som:
   LLM-passet och matar eventuella blocking findings in i fixern
 - live-previewns `npm run dev`
 
+## Verifier-pass policy after mekanisk autofix
+
+Verifier-pass (hybrid: deterministiska guards + LLM-audit) styrs fortfarande
+först av `resolveVerifierPassPolicy()`:
+
+- light/fast follow-up och repair-pass kan fortfarande hoppa över verifiern
+- env-/feature-flaggen `isVerifierPassEnabled()` respekteras
+- `strict`, högre quality target, app-intent, heavy context och riskabla
+  BuildSpec-scope kan fortfarande välja att köra verifiern
+
+Efter det grundbeslutet används **riskklassad mekanisk autofix** i stället för
+den tidigare volymtröskeln:
+
+| Autofix-resultat | Verifier-beslut när grundpolicyn säger `run` |
+|---|---|
+| `safeFixCount > 0` och `riskyFixCount === 0` | Verifiern får hoppas över med reason `safe_fixes_only`. |
+| `riskyFixCount > 0` | Verifiern körs med trigger/reason `risky_fixes`. |
+| 3D-signal (`BuildSpec.capabilityFlags.signals` innehåller `needs3D`/`needsPhysics`, eller orchestration-capability `visual-3d`/`physics-3d`) | Verifiern körs; safe-only-skip används inte. |
+| Grundpolicyn säger `run: false` | Oförändrat: Fas 2 tvingar inte på verifiern på nya vägar. |
+
+`FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
+behandlas konservativt som `risky`.
+
+### Autofix risk telemetry
+
+Nya writers skriver `engine_version_error_logs` med category `autofix` och
+`meta.event = "autofix_risk"`:
+
+```json
+{
+  "event": "autofix_risk",
+  "fixCount": 4,
+  "safeFixCount": 3,
+  "riskyFixCount": 1,
+  "riskyFixerIds": ["local-symbol-import-fixer"]
+}
+```
+
+`generation_telemetry.meta.autofix` bär samma riskfält. Historiska
+`autofix_heavy_load`-rader skrivs inte längre, men läsare som
+`scripts/db/control-stats.mjs` mappar dem som legacy-historik i äldre fönster.
+
 ## Preview-lane vs verify-lane
 
 | Lane | Syfte | Typisk körning |
@@ -218,25 +260,44 @@ den också som exakt felkälla för repair-lanen:
 
 ### Deterministisk import-repair före LLM
 
-Källa: `src/lib/gen/verify/repair-loop/deterministic-import-repair.ts`
-(anropas överst i `runRepairLoop()`).
+Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
+implementation, två entrypoints:
 
-Bakgrund (prod-telemetri 2026-06): av de versioner vars quality gate failade på
-`tsc --noEmit` blev **noll** promotade. De dominerande felen är import-only och
-har redan mekaniska ägare som körs blint i `runAutoFix()` — men de når ändå
-gate:n eftersom de blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger
-exakt symbol + fil, vilket tar bort tvetydigheten. Pre-passen konsumerar
-diagnostiken och dirigerar varje fall till rätt **befintlig** fixer:
+- **server-repair:** anropas överst i `runRepairLoop()` på quality gate-
+  diagnostiken (som tidigare)
+- **finalize normalize (Fas 1 kontrollflöde):** anropas i `validateAndFix()`
+  (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
+  warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
+  vidare till `runLlmRepairGate` (phase `warm-tsc`)
+
+Bakgrund (prod-telemetri 2026-06/07): av de versioner vars quality gate failade
+på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är
+importhantering. De dominerande felen är import-only och har redan mekaniska
+ägare som körs blint i `runAutoFix()` — men de når ändå gate:n eftersom de
+blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger exakt symbol + fil,
+vilket tar bort tvetydigheten. Pre-passen konsumerar diagnostiken och dirigerar
+varje fall till rätt **befintlig** fixer:
 
 | Kod | Felklass | Återanvänd fixer |
 |---|---|---|
 | TS2304 / TS2552 | saknad import (shadcn, Clerk-server, Stripe, lucide, Next) | `ts2304-known-import-fixer` |
+| TS2304 (residual) | egen komponent/symbol som versionens egna filer exporterar (t.ex. `Reveal`) | `own-component-import-fixer` (named: unik-kandidat-injektorn; default: exakt en egen fil) |
 | TS1361 | `import type { X }` använd som värde | `value-used-from-type-import-fixer` (med bekräftade symboler) |
 | TS2440 | import krockar med lokal deklaration (self-import) | `fixImportedDeclarationConflicts` (path-medveten) |
-| TS2300 | duplicerad identifierare | `duplicate-import-binding-fixer` + `duplicate-import-local-type-collision-fixer` |
+| TS2300 | duplicerad identifierare | `consolidateReactImports` (react-överlapp, value-wins) → `duplicate-import-binding-fixer` → `duplicate-import-local-type-collision-fixer` |
 
-Konservativ: bara dessa fem import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-krocknamn
+Obligatoriskt eftersteg per fil som fick import-injektioner: react/same-module-
+dedupe + kvitto — `consolidateReactImports`, sedan dubbelbindnings-pruning, och
+om filen fortfarande bär **introducerade** dubbelbindningar eller nya parse-fel
+revertas filens ändringar (diagnostiken förblir synlig för LLM-fixern). Ingen
+fixer får lämna ifrån sig två import-statements som re-deklarerar samma lokala
+bindning (stänger "smörsajt"-klassen: dubbel React-import → TS2300 →
+webpack-krasch → preview-500).
+
+Konservativ: bara dessa import-koder rörs. Logik-/typfel (TS2554, TS7006,
+TS7009, generiska mismatchar) lämnas till LLM. Okända namn utan matchande egen
+fil lämnas orörda (befintlig cross-file-checker/stub-hantering nedströms —
+normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
 (`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
 children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
 användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till LLM.

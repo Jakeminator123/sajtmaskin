@@ -141,10 +141,15 @@ describe("resolveVersionHistorySummary", () => {
     const degraded = display("degraded", {
       degraded: true,
       degradations: [
-        { kind: "verifier_skipped_heavy_load", message: "Verifier skipped under heavy load." },
+        {
+          kind: "verifier_skipped_safe_fixes_only",
+          message: "Verifier skipped after safe autofix only.",
+        },
       ],
     });
-    expect(resolveVersionHistorySummary(degraded, null)).toBe("Verifier skipped under heavy load.");
+    expect(resolveVersionHistorySummary(degraded, null)).toBe(
+      "Verifier skipped after safe autofix only.",
+    );
   });
 
   it("falls back to generic degraded copy when no message is available", () => {

@@ -210,11 +210,19 @@ def render(ctx: BackofficeContext) -> None:
 
     by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_phase: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    by_risk: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for e in entries:
         by_category[e.get("category", "?")].append(e)
         by_phase[e.get("ownerPhase", "?")].append(e)
+        by_risk[e.get("risk", "?")].append(e)
 
-    tab_cat, tab_phase, tab_table = st.tabs(["Per kategori", "Per fas", "Komplett tabell"])
+    risk_cols = st.columns(2)
+    risk_cols[0].metric("Safe fixers", len(by_risk.get("safe", [])))
+    risk_cols[1].metric("Risky fixers", len(by_risk.get("risky", [])))
+
+    tab_cat, tab_phase, tab_risk, tab_table = st.tabs(
+        ["Per kategori", "Per fas", "Per risk", "Komplett tabell"]
+    )
 
     with tab_cat:
         for category in sorted(by_category):
@@ -230,6 +238,7 @@ def render(ctx: BackofficeContext) -> None:
                     st.markdown(
                         f"**Phase:** `{entry.get('ownerPhase', '?')}` &nbsp;&nbsp; "
                         f"**Lane:** {lane_badge} &nbsp;&nbsp; "
+                        f"**Risk:** `{entry.get('risk', 'unknown')}` &nbsp;&nbsp; "
                         f"**Status:** `{entry.get('status', 'unknown')}` &nbsp;&nbsp; "
                         f"**Source:** `{entry.get('sourcePath', '?')}`",
                         unsafe_allow_html=True,
@@ -252,6 +261,12 @@ def render(ctx: BackofficeContext) -> None:
             ids = [f"`{e['id']}`" for e in by_phase[phase]]
             st.markdown(", ".join(ids))
 
+    with tab_risk:
+        for risk in ["risky", "safe"]:
+            st.markdown(f"### `{risk}` ({len(by_risk.get(risk, []))})")
+            ids = [f"`{e['id']}`" for e in by_risk.get(risk, [])]
+            st.markdown(", ".join(ids) if ids else "—")
+
     with tab_table:
         rows = []
         for e in entries:
@@ -259,6 +274,7 @@ def render(ctx: BackofficeContext) -> None:
                 {
                     "id": e.get("id"),
                     "category": e.get("category"),
+                    "risk": e.get("risk"),
                     "lane": e.get("lane"),
                     "phase": e.get("ownerPhase"),
                     "status": e.get("status"),

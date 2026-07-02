@@ -126,15 +126,27 @@ try {
      GROUP BY 1 ORDER BY failed DESC, total DESC`,
   );
 
-  // 4) Deterministisk autofix: hur tung (fixCount ur autofix_heavy_load-events).
-  out.autofixLoad = await safe(
-    "autofixLoad",
-    `SELECT COUNT(*)::int AS heavy_events,
-            AVG((meta->>'fixCount')::numeric)::numeric(10,1) AS avg_fix_count,
-            MAX((meta->>'fixCount')::int) AS max_fix_count,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY (meta->>'fixCount')::numeric) AS median_fix_count
+  // 4) Deterministisk autofix: riskprofil. Nya writers använder
+  // `autofix_risk`; historiska `autofix_heavy_load`-rader räknas som legacy.
+  out.autofixRisk = await safe(
+    "autofixRisk",
+    `SELECT COUNT(*) FILTER (WHERE meta->>'event' = 'autofix_risk')::int AS risk_events,
+            COUNT(*) FILTER (WHERE meta->>'event' = 'autofix_heavy_load')::int AS legacy_heavy_events,
+            SUM(COALESCE((meta->>'safeFixCount')::int, 0))::int AS safe_fix_count,
+            SUM(COALESCE((meta->>'riskyFixCount')::int, 0))::int AS risky_fix_count,
+            COUNT(DISTINCT version_id) FILTER (WHERE COALESCE((meta->>'riskyFixCount')::int, 0) > 0)::int AS versions_with_risky_fixes,
+            AVG(COALESCE((meta->>'fixCount')::numeric, (meta->>'safeFixCount')::numeric + (meta->>'riskyFixCount')::numeric))::numeric(10,1) AS avg_fix_count,
+            MAX(COALESCE((meta->>'fixCount')::int, (meta->>'safeFixCount')::int + (meta->>'riskyFixCount')::int)) AS max_fix_count,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY COALESCE((meta->>'fixCount')::numeric, (meta->>'safeFixCount')::numeric + (meta->>'riskyFixCount')::numeric)
+            ) AS median_fix_count
      FROM engine_version_error_logs
-     WHERE category = 'autofix' AND meta ? 'fixCount' AND created_at > ${W}`,
+     WHERE category = 'autofix'
+       AND created_at > ${W}
+       AND (
+         meta->>'event' IN ('autofix_risk', 'autofix_heavy_load')
+         OR meta ? 'fixCount'
+       )`,
   );
 
   // 5) Preflight-issues per kategori (vilken typ av kodfel preflighten hittar).

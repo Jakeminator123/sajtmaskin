@@ -8,7 +8,7 @@ import {
 } from "@/lib/gen/autofix/llm-repair-gate";
 import { countByFixer } from "@/lib/gen/autofix/types";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { runDeterministicImportRepair } from "./repair-loop/deterministic-import-repair";
+import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
@@ -503,7 +503,8 @@ export async function runRepairLoop<TPayload = unknown>(
   // import/local conflict, TS2300 duplicate identifier). Resolve those
   // mechanically and instantly so the deterministic promotion below can pass the
   // gate without a slow (~90s) LLM round-trip. Ambiguous / logic errors are left
-  // for the LLM fixer. See ./repair-loop/deterministic-import-repair.ts.
+  // for the LLM fixer. Shared implementation with the finalize warm-tsc
+  // normalize pass: @/lib/gen/autofix/deterministic-import-repair.ts.
   const importRepair = runDeterministicImportRepair(
     content,
     params.failedOutputs.flatMap(parseDiagnosticsFromFailure),

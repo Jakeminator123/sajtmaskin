@@ -44,6 +44,32 @@ import type {
   FinalizeProgressCallback,
   FinalizeStepTelemetryMap,
 } from "./types";
+import type { AutofixRiskSummary } from "./pre-phases";
+
+const EMPTY_AUTOFIX_RISK: AutofixRiskSummary = {
+  safeFixCount: 0,
+  riskyFixCount: 0,
+  riskyFixerIds: [],
+};
+
+function buildSpecOrCapabilitiesIndicate3D(params: {
+  buildSpec?: BuildSpec | null;
+  requestedCapabilities?: string[];
+}): boolean {
+  const buildSpecSignals = params.buildSpec?.capabilityFlags?.signals ?? [];
+  if (buildSpecSignals.includes("needs3D") || buildSpecSignals.includes("needsPhysics")) {
+    return true;
+  }
+  return (params.requestedCapabilities ?? []).some((capability) => {
+    const normalized = capability.trim().toLowerCase();
+    return (
+      normalized === "visual-3d" ||
+      normalized === "physics-3d" ||
+      normalized === "needs3d" ||
+      normalized === "needsphysics"
+    );
+  });
+}
 
 /**
  * Mirror of `isFeatureFlagEnabled` in
@@ -84,12 +110,17 @@ export async function runFinalizeFastPath(params: {
    */
   alreadyMechanicallyFixed: boolean;
   /**
-   * Deterministic autofix had to rewrite many issues before this phase.
-   * Treat this as an upstream-instability signal: skip read-only verifier
-   * work for this pass and let syntax/preflight/recovery produce the
-   * actionable blocker first.
+   * Risk summary for the deterministic autofix pass that already ran before
+   * this phase. Safe-only runs may skip the read-only verifier; risky fixers
+   * keep verifier coverage when the base policy says it should run.
    */
-  autoFixHeavyLoad?: boolean;
+  autoFixRisk?: AutofixRiskSummary;
+  /**
+   * Canonical or legacy capability ids from orchestration stream metadata.
+   * Used only to prevent the safe-only skip from disabling verifier coverage
+   * for 3D/canvas flows.
+   */
+  requestedCapabilities?: string[];
   /**
    * True when a later quality-gate lane (client and/or async) is expected
    * to run for this generation. Heuristik — ensam INTE tillräcklig för
@@ -138,7 +169,8 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed,
-    autoFixHeavyLoad = false,
+    autoFixRisk = EMPTY_AUTOFIX_RISK,
+    requestedCapabilities,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck,
     qualityGatePlanned,
@@ -299,18 +331,32 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
   });
-  const verifierSkippedByHeavyLoad = autoFixHeavyLoad && verifierPolicy.run;
-  if (verifierSkippedByHeavyLoad) {
+  const has3DSignal = buildSpecOrCapabilitiesIndicate3D({
+    buildSpec,
+    requestedCapabilities,
+  });
+  const hasSafeOnlyFixes =
+    autoFixRisk.safeFixCount > 0 && autoFixRisk.riskyFixCount === 0;
+  const hasRiskyFixes = autoFixRisk.riskyFixCount > 0;
+  const verifierSkippedBySafeFixesOnly =
+    verifierPolicy.run && hasSafeOnlyFixes && !has3DSignal;
+  const verifierReason = verifierSkippedBySafeFixesOnly
+    ? "safe_fixes_only"
+    : verifierPolicy.run && hasRiskyFixes
+      ? "risky_fixes"
+      : verifierPolicy.reason;
+  if (verifierSkippedBySafeFixesOnly) {
     devLogAppend("in-progress", {
       type: "verifier.skipped",
       chatId,
-      reason: "autofix_heavy_load",
+      reason: "safe_fixes_only",
       repairPassIndex,
+      ...autoFixRisk,
     });
   }
   const verifierOutcome = await runVerifierPhase({
-    enabled: verifierPolicy.run && !verifierSkippedByHeavyLoad,
-    reason: verifierSkippedByHeavyLoad ? "autofix_heavy_load" : verifierPolicy.reason,
+    enabled: verifierPolicy.run && !verifierSkippedBySafeFixesOnly,
+    reason: verifierReason,
     chatId,
     model,
     resolvedTier,

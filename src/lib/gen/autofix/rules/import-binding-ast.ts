@@ -129,6 +129,45 @@ export type ImportBindingRow = {
 };
 
 /**
+ * Local binding names declared by 2+ import statements in the file (TS2300
+ * "Duplicate identifier" territory — regardless of whether the statements
+ * point at the same module or different ones). AST-based so multi-line /
+ * type-only import declarations are counted too. Files that don't parse
+ * return an empty list (the parse-error guard owns that failure mode).
+ */
+export function collectDuplicateImportBindingNames(
+  code: string,
+  filePath: string,
+): string[] {
+  const rows = collectImportBindingRows(createTsxSourceFile(filePath, code));
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    counts.set(row.name, (counts.get(row.name) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([name]) => name)
+    .sort();
+}
+
+/**
+ * Duplicate import-binding names present in `after` but NOT in `before` —
+ * i.e. duplicates a fixer *introduced*. Used as a cheap post-check so an
+ * import-injecting fixer can never leave behind two import statements that
+ * re-declare the same local name (webpack/tsc TS2300).
+ */
+export function findIntroducedDuplicateImportBindings(
+  before: string,
+  after: string,
+  filePath: string,
+): string[] {
+  const beforeDupes = new Set(collectDuplicateImportBindingNames(before, filePath));
+  return collectDuplicateImportBindingNames(after, filePath).filter(
+    (name) => !beforeDupes.has(name),
+  );
+}
+
+/**
  * Collects every local binding introduced by import declarations (default, namespace, named).
  */
 export function collectImportBindingRows(sf: ts.SourceFile): ImportBindingRow[] {

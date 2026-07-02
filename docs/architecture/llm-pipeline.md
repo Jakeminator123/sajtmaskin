@@ -68,11 +68,14 @@ Typisk ordning:
 3. skydda scaffold-owned paths
 4. apply dossier verbatim policy
 5. mekanisk autofix
-6. LLM-fix endast när mekanik inte räcker
-7. preflight och quality gate
-8. persist version
-9. starta eller patcha preview
-10. emit events/status
+6. deterministisk diagnostikdriven import-repair vid warm-tsc-fail
+   (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,
+   React/same-module-dedupe + re-check) — före LLM
+7. LLM-fix endast när mekanik + deterministisk import-repair inte räcker
+8. preflight och quality gate
+9. persist version
+10. starta eller patcha preview
+11. emit events/status
 
 Kodankare:
 

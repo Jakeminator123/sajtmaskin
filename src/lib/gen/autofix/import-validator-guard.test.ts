@@ -98,6 +98,72 @@ export default function Page() { return <Button>Hi</Button>; }
     expect(result.code).toContain('import { X } from "y"');
   });
 
+  // ---- Fas 1 kontrollflöde: introduced duplicate import bindings ----------
+  describe("duplicate import-binding post-check (Fas 1)", () => {
+    it("REVERTS when the (injected) runner introduces a duplicate binding from the same module", () => {
+      // Parse-clean output, but the fixer re-declared `Menu` — the exact
+      // corruption class the old parse-only guard let through (TS2300 at the
+      // gate / webpack crash in preview).
+      const validInput = `import {
+  Menu,
+} from "lucide-react";
+
+export default function Page() {
+  return <Menu />;
+}
+`;
+      const duplicatingRunner = (c: string) => ({
+        code: `import { Menu } from "lucide-react"\n${c}`,
+        fixes: [{ fixer: "import-validator", description: "added missing lucide import" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(validInput, "app/page.tsx", duplicatingRunner);
+      expect(result.reverted).toBe(true);
+      expect(result.code).toBe(validInput);
+      expect(result.fixes).toHaveLength(0);
+      expect(
+        result.warnings.some((w) => w.includes("duplicate import binding")),
+      ).toBe(true);
+    });
+
+    it("REVERTS when the runner re-declares a binding from a DIFFERENT module", () => {
+      const validInput = `import { Badge } from "@/components/ui/badge";
+export default function Page() {
+  return <Badge>x</Badge>;
+}
+`;
+      const duplicatingRunner = (c: string) => ({
+        code: `import { Badge } from "lucide-react"\n${c}`,
+        fixes: [{ fixer: "import-validator", description: "bogus lucide add" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(validInput, "app/page.tsx", duplicatingRunner);
+      expect(result.reverted).toBe(true);
+      expect(result.code).toBe(validInput);
+    });
+
+    it("does NOT revert when the input ALREADY had the duplicate binding (upstream breakage stays visible)", () => {
+      const alreadyDuplicated = `import { Menu } from "lucide-react";
+import { Menu } from "@/components/menu";
+export default function Page() {
+  return <Menu />;
+}
+`;
+      const passthroughRunner = (c: string) => ({
+        code: `${c}// touched\n`,
+        fixes: [{ fixer: "import-validator", description: "noop-ish" }],
+        warnings: [],
+      });
+      const result = runImportValidatorGuarded(
+        alreadyDuplicated,
+        "app/page.tsx",
+        passthroughRunner,
+      );
+      expect(result.reverted).toBe(false);
+      expect(result.code).toContain("// touched");
+    });
+  });
+
   // ---- Codex P2 finding 1: `.jsx` script kind ----------------------------
   describe(".jsx is parsed with JSX support (Codex finding 1)", () => {
     const VALID_JSX = `import { Button } from "./button";
