@@ -249,6 +249,7 @@ export function PreviewPanel({
     chatId,
     versionId,
     isOwnEnginePreview,
+    previewLifecycle,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
     iframeRef,

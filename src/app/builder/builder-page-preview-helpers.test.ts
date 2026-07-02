@@ -37,6 +37,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
         activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: false,
       }),
     ).toBe(true);
   });
@@ -50,6 +51,22 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
         activeVersionIsFreshOrLatest: false,
+        activeVersionFailed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT retain when the latest version FAILED and has no own preview", () => {
+    // False-green fix: a failed latest with no own preview must surface its true
+    // (blank/error) state, not the previous version's green frame — even though
+    // it is the fresh/latest version.
+    expect(
+      shouldRetainLastGoodPreviewOnVersionChange({
+        didChangeVersion: true,
+        nextDemoUrl: null,
+        currentPreviewUrl: liveUrl,
+        activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: true,
       }),
     ).toBe(false);
   });
@@ -61,6 +78,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: "https://vm-fly-jakem.fly.dev/chat-456",
         currentPreviewUrl: liveUrl,
         activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: false,
       }),
     ).toBe(false);
   });
@@ -72,6 +90,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: null,
         currentPreviewUrl: null,
         activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: false,
       }),
     ).toBe(false);
   });
@@ -83,6 +102,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: null,
         currentPreviewUrl: liveUrl,
         activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: false,
       }),
     ).toBe(false);
   });
@@ -94,6 +114,7 @@ describe("shouldRetainLastGoodPreviewOnVersionChange", () => {
         nextDemoUrl: null,
         currentPreviewUrl: "https://app.example/api/preview-render?id=1",
         activeVersionIsFreshOrLatest: true,
+        activeVersionFailed: false,
       }),
     ).toBe(false);
   });

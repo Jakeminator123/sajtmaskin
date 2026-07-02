@@ -81,8 +81,15 @@ export function usePreviewHeartbeat(params: {
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
+    // Keep the session alive during boot too: a long VM cold-boot (up to ~10 min)
+    // spends its time in "bootstrapping"/"recovering", and skipping the heartbeat
+    // there let the preview-session TTL expire mid-boot — the VM finished booting
+    // into a session that had already been reaped. Only "failed"/"idle" stop the
+    // heartbeat. (`undefined` = lifecycle not derived yet; fall back to the URL.)
     const allowHeartbeat =
       previewLifecycle === "live" ||
+      previewLifecycle === "bootstrapping" ||
+      previewLifecycle === "recovering" ||
       (previewLifecycle === undefined && isTier2LivePreviewUrl(previewUrl));
     if (!allowHeartbeat) return;
 

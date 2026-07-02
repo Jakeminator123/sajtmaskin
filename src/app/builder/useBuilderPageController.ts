@@ -13,7 +13,10 @@ import {
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import {
+  canExposeEnginePreview,
+  resolveEngineVersionLifecycleStatus,
+} from "@/lib/db/engine-version-lifecycle";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -707,6 +710,11 @@ export function useBuilderPageController() {
     pendingBriefRef.current = null;
 
     if (shouldResetChatState) {
+      // Abort any in-flight stream first — the same guard `handleGoHome` and
+      // `confirmTemplateSwitchDialog` use. Without this the old chat's stream
+      // keeps running (writing tokens / preview URLs) against state we are
+      // about to blow away, racing the fresh entry.
+      cancelActiveGeneration();
       setChatId(null);
       setMessages([]);
       setCurrentPreviewUrl(null);
@@ -728,6 +736,7 @@ export function useBuilderPageController() {
     promptParam,
     pendingBriefRef,
     promptFetchDoneRef,
+    cancelActiveGeneration,
     setChatId,
     setMessages,
     setCurrentPreviewUrl,
@@ -1438,6 +1447,19 @@ export function useBuilderPageController() {
             !activeVersionMatch ||
             (Boolean(derived.activeVersionId) &&
               derived.activeVersionId === derived.latestVersionId),
+          // A FAILED active/latest version with no own preview must show its
+          // true state, not the previous green frame. Prefer the loaded row;
+          // fall back to the chat's latestVersion only when it is the same
+          // version (covers the just-finalized-failed window before the row
+          // arrives from the refetch).
+          activeVersionFailed: activeVersionMatch
+            ? resolveEngineVersionLifecycleStatus(activeVersionMatch) === "failed"
+            : Boolean(
+                chatLatest &&
+                  (chatLatest.versionId === derived.activeVersionId ||
+                    chatLatest.id === derived.activeVersionId) &&
+                  resolveEngineVersionLifecycleStatus(chatLatest) === "failed",
+              ),
         })
       ) {
         return;

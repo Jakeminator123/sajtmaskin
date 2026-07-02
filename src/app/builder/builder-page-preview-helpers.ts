@@ -68,15 +68,29 @@ export function versionSummaryHasPreview(
  * never retain. The "not yet in the list" arm covers exactly that window.
  *
  * A shim/compat or missing current URL is also never retained.
+ *
+ * `activeVersionFailed` closes the false-green the JSDoc above describes: a
+ * FAILED latest version with no own preview must surface its true (blank/error)
+ * state, never the previous version's green frame. Without this gate a failed
+ * follow-up (whose `nextDemoUrl` is null precisely because it failed) would be
+ * indistinguishable from a not-yet-ready follow-up and wrongly retain.
  */
 export function shouldRetainLastGoodPreviewOnVersionChange(params: {
   didChangeVersion: boolean;
   nextDemoUrl: string | null;
   currentPreviewUrl: string | null;
   activeVersionIsFreshOrLatest: boolean;
+  activeVersionFailed: boolean;
 }): boolean {
-  const { didChangeVersion, nextDemoUrl, currentPreviewUrl, activeVersionIsFreshOrLatest } = params;
+  const {
+    didChangeVersion,
+    nextDemoUrl,
+    currentPreviewUrl,
+    activeVersionIsFreshOrLatest,
+    activeVersionFailed,
+  } = params;
   if (!didChangeVersion) return false;
+  if (activeVersionFailed) return false;
   if (!activeVersionIsFreshOrLatest) return false;
   if (nextDemoUrl) return false;
   if (!currentPreviewUrl) return false;
