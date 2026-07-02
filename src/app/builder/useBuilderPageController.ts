@@ -1612,13 +1612,16 @@ export function useBuilderPageController() {
     ],
   );
 
-  // Auto-start generation for prompt-handoff flows from landing page.
-  // Triggers when user submitted a prompt on `/` and was navigated to /builder
-  // with a promptId in the URL — both `kostnadsfri` and `freeform` are valid handoffs.
+  // Auto-start generation for the packaged `kostnadsfri` handoff from the
+  // landing page. `freeform` (fritext) deliberately does NOT auto-start
+  // (user decision 2026-07-02): the prompt is only prefilled into the chat
+  // input (ChatInterface `initialPrompt`, same as the audit flow) so the user
+  // can pick Modell/Inställningar before the explicit send — auto-send also
+  // used to force-reset the model tier below, discarding any prior choice.
   useEffect(() => {
     if (!isAuthenticated) return;
     if (templateId) return;
-    if (buildMethod !== "kostnadsfri" && buildMethod !== "freeform") return;
+    if (buildMethod !== "kostnadsfri") return;
     if (!resolvedPrompt) return;
     if (chatId) return;
     if (autoGenerateTriggeredRef.current) return;

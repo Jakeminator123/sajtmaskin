@@ -348,7 +348,12 @@ export async function runPostGenerationChecks(params: {
       }),
     );
 
-    if (artifacts.autoFixReasons.length === 0) {
+    // Verify-lane only runs when the version is actually verify-pending.
+    // `autoFixReasons === []` alone is NOT enough: degenerate output (M#dgc)
+    // clears the autofix queue while the version is terminally failed
+    // server-side (`verifyPending === false`) — running the VM verify lane
+    // there just burns work on a version the degeneracy guard already failed.
+    if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
       void runTier2VerifyLane({
         chatId,
         versionId,
@@ -365,8 +370,10 @@ export async function runPostGenerationChecks(params: {
         state: "output-available",
         output: {
           skipped: true,
-          reason: "Autofix köad från post-check — verify-lane körs efter fix.",
-          autoFixQueued: true,
+          reason: artifacts.autoFixQueued
+            ? "Autofix köad från post-check — verify-lane körs efter fix."
+            : "Versionen är terminalt failad (degenererad output) — verify-lane hoppas över.",
+          autoFixQueued: artifacts.autoFixQueued,
         },
       } as UiMessagePart);
     }

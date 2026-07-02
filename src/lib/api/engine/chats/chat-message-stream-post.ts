@@ -431,8 +431,15 @@ export async function handleMessageStreamRequest(
             // `resolveFollowUpPreviousFiles`): an id that does not belong to
             // this chat falls back to the chat's preferred version — the same
             // base the generation itself would fall back to.
-            const requestedGateVersionId =
-              metaEngineBaseVersionId ?? parsedMeta.parentVersionId ?? null;
+            //
+            // Post-#351 hardening: the gate id derives from
+            // `engineBaseVersionId` ONLY. `parentVersionId` is persisted
+            // lineage and never feeds `resolveFollowUpPreviousFiles`, so a
+            // caller sending only `parentVersionId` would previously be gated
+            // against a version the generation does not build from (it builds
+            // from preferred/latest in that case) — the same
+            // gate-vs-build-base split the mismatch 409 above refuses.
+            const requestedGateVersionId = metaEngineBaseVersionId ?? null;
             let gateVersionId: string | null = null;
             if (requestedGateVersionId) {
               const gateVersion = await chatRepo.getVersionById(requestedGateVersionId);

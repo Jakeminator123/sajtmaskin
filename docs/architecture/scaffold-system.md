@@ -31,7 +31,7 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 
 Per scaffold finns en eller flera variants med design-axes (label, description, keywords, fontPairings, signatureMotif, themeTokens, promptHints, colorMode, default).
 
-**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla 21 variant-JSON-filer. Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
+**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla variant-JSON-filer (då 21, idag 28). Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
 
 **Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser. Övriga har bra design-axes men kan ha generiska sourceTemplateIds.
 
@@ -55,7 +55,7 @@ det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
 
 ### 2.3 `auth-pages` som egen scaffold?
 
-**Fakta:** Endast 2 varianter (`clean-auth`, `glass-modern`). `recommendedScaffoldIds` på Clerk-dossiern är `["auth-pages", "dashboard", "app-shell"]` — auth-sidor är nästan alltid del av en app.
+**Fakta:** Endast 2 varianter (`clean-auth`, `glass-modern`). Auth-sidor är nästan alltid del av en app (jfr `dashboard`/`app-shell`). Fältet `recommendedScaffoldIds`, som tidigare kodade den kopplingen på Clerk-dossiern, är borttaget ur dossier-manifesten.
 
 **Rekommendation:** Behåll som scaffold för "skapa bara login-flödet"-use-case, men säkerställ att den inte automatiskt väljs för bredare prompts.
 
