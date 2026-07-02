@@ -15,6 +15,7 @@ import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
+import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import type { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import type * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { runFinalizePreflight, FinalizePreflightIssue } from "../finalize-preflight";
@@ -178,6 +179,15 @@ export interface FinalizeResult {
    * verifier ran clean or was skipped.
    */
   verifierBlockingFindings?: Array<{ id: string; detail: string }>;
+  /**
+   * Fas 3 (RepairGate): the run's `RepairLedger`, carried out of finalize so
+   * post-finalize lanes (server-verify / build-error repair — same process)
+   * dedupe against LLM repairs already attempted during finalize. In-memory
+   * only; never serialize.
+   */
+  repairLedger?: RepairLedger;
+  /** Fas 3: the finalize run's repair scope id — must accompany `repairLedger`. */
+  repairScopeId?: string;
 }
 
 export interface FinalizePathPolicy {
@@ -230,6 +240,8 @@ export interface FinalizeFastPathResult {
     dossierId?: string;
     capability?: string;
   }>;
+  /** See `FinalizeResult.repairLedger` (Fas 3 cross-lane dedupe handover). */
+  repairLedger: RepairLedger;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 

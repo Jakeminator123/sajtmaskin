@@ -306,6 +306,7 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks,
     rejectedStructural,
     crossFileStubs,
+    repairLedger,
     stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
@@ -736,6 +737,10 @@ export async function finalizeAndSaveVersion(
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
     verifierBlockingFindings: effectiveVerifierBlockingFindings ?? [],
+    // Fas 3 (RepairGate): hand the run's ledger + scope to post-finalize so
+    // server-verify/build-error repair dedupe against finalize's LLM repairs.
+    repairLedger,
+    repairScopeId,
     warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...buildWarmPassTelemetry({
       tsc: syntaxResult.tsc,

@@ -203,10 +203,18 @@ den också som exakt felkälla för repair-lanen:
 4. om gate:n passerar efter den deterministiska fixen promotas versionen utan
    ett enda LLM-anrop (`method: "deterministic"`, `llmPasses: 0`)
 5. annars kör delad `runRepairLoop()` LLM-fix på **residuet** med samma policy
-   för både `server-verify` och manuell `/repair`
+   för både `server-verify` och manuell `/repair`. Loopens LLM-anrop går via
+   `runLlmRepairGate()` (Fas 3, se "En repair-port" nedan) med
+   ursprungsdiagnostiken (tsc-output inkl. TS-koder) som primära structured
+   errors + prior-patch-noter vid pass > 0
 6. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
    LLM-fixern när felmängden är lokal
-7. quality gate re-körs för att avgöra om reparerad version blir `repair_available`
+7. quality gate re-körs enligt **samma-signal-kontraktet**
+   (`resolveSameSignalGateChecks`): varje check som failade i ursprungsgaten
+   måste passera igen (union med baslanen) innan versionen blir
+   `repair_available`. Ett pass som lagar syntax men inte når
+   ursprungssignalens pass rapporteras aldrig som lyckat
+   (`syntax_clean_gate_failed`)
 
 ### Deterministisk import-repair före LLM
 
@@ -255,13 +263,43 @@ Det betyder att quality gate i nuläget är både:
 - verifieringslager
 - källa till repair-kontext
 
-Finalize-pipeline använder dessutom `runLlmRepairGate()` med en per-finalize
-`RepairLedger` för syntax/warm-tsc/warm-eslint, verifier, preflight,
-home-route recovery och partial-file repair. Ledger dedupe:ar samma
-`contentHash + diagnosticFingerprint + requiredFiles` inom samma finalize
-scope även när felet dyker upp i en annan phase. `phase` loggas men ingår inte
-i dedupe-nyckeln. Post-finalize `runRepairLoop()` för server-verify/manuell
-repair ligger fortfarande utanför denna ledger och är ett separat hardening-spår.
+### En repair-port: RepairGate (Fas 3)
+
+**All LLM-repair går genom EN port:** `runLlmRepairGate()`
+(`src/lib/gen/autofix/llm-repair-gate.ts`). `runLlmFixer` har exakt EN
+produktions-callsite (inuti gaten) — vaktad av
+`src/lib/gen/autofix/llm-fixer-callsite-guard.test.ts`. Det gäller både
+finalize-lanes (syntax/warm-tsc/warm-eslint, verifier, preflight, home-route
+recovery, partial-file, merged-syntax) och post-finalize `runRepairLoop()`
+(server-verify, build-error-repair, manuell `/repair`).
+
+`RepairLedger` dedupe:ar på
+`scopeId:chatId:contentHash:diagnosticFingerprint:requiredFiles`:
+
+- **Inom finalize:** en ledger per finalize-run (`repairScopeId` =
+  `{targetVersionId|lineageHash|chatId}:{root|repair-N}`), samma fel i annan
+  phase dedupe:as (`phase` loggas men ingår inte i nyckeln).
+- **Över lanes (Fas 3):** finalize lämnar över sin ledger + scope via
+  `FinalizeResult.repairLedger`/`repairScopeId` →
+  `triggerServerVerification`/`triggerBuildErrorRepair` → `runRepairLoop`.
+  Samma innehåll + samma diagnostik som redan LLM-lagats i finalize lagas inte
+  igen i server-repair. Nyckeln innehåller `contentHash`, så legitima retries
+  på NYTT innehåll blockeras aldrig.
+- **Manuell `/repair`:** egen HTTP-invokation → fresh per-run ledger med scope
+  `{versionId}:manual-repair` (dedupe skyddar identiska retries inom körningen).
+- **Aborted-undantag:** ett avbrutet (timeout) försök blockerar inte den
+  omedelbara reducerade-budget-retryn — bara fullbordade försök dedupe:ar.
+
+### Base-aware tidig abort (Fas 3)
+
+`runRepairLoop` tar `shouldAbortSuperseded` och kollar vid varje pass-start och
+före slutverifieringen om versionen hunnit bli inaktuell (nyare version finns,
+eller `files_json` avancerade förbi repair-basen). Om ja avbryts loopen med
+`earlyStopReason: "superseded"` → outcome `superseded_by_newer_version`, i
+stället för att jobba klart och få resultatet kastat av den bas-bundna saven.
+Server-verify markerar då raden superseded (nyare version) eller re-verifierar
+aktuella filer (files-advanced, samma väg som stale-base-no-op); leasen släpps
+alltid via `finally`.
 
 ## Repair-accept (ingen tyst filersättning)
 
@@ -389,7 +427,7 @@ producerar `repair-outcome`-loggar med följande fält:
 | `remainingErrors` | `number?` | Antal kvarvarande **esbuild-syntax**-fel — ej tsc/build |
 | `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från (Wave 5) |
 | `syntaxCleanGateFailed` | `boolean` | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
-| `earlyStopReason` | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| null` | Varför loopen bröts |
+| `earlyStopReason` | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| "superseded" \| null` | Varför loopen bröts |
 | `outcome` | `ServerRepairOutcome` | **Kanonisk outcome-enum (Fas 0)** — se nedan |
 
 **Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
@@ -408,12 +446,13 @@ grupperar på `meta->>'outcome'` (query `serverRepairOutcomes`).
 
 | `outcome` | Betyder |
 |---|---|
-| `repaired` | Gate passerade efter repair |
+| `repaired` | Gate passerade efter repair (samma-signal-kontraktet uppfyllt) |
 | `syntax_clean_gate_failed` | esbuild rent, men typecheck/build failar |
 | `syntax_errors_remain` | esbuild-syntaxfel kvar efter alla pass |
 | `time_budget_exceeded` | Loopen bröts på wall-clock-budget |
+| `superseded_by_newer_version` | Fas 3: tidig abort — versionen blev inaktuell under repairen (nyare version / `files_json` avancerade) |
 | `no_improvement` | Loopen förbättrade inget (icke-tyst fallback) |
-| `fixer_noop` | Fixern producerade ingen ändring |
+| `fixer_noop` | Fixern producerade ingen ändring (inkl. ledger-dedupad attempt) |
 | `no_context` | Ingen actionable felkontext att repair:a |
 
 **Gammal→ny-mappning** (fritext ersatt, inte parallellt namn):

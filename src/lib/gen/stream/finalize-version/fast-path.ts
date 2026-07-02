@@ -362,6 +362,10 @@ export async function runFinalizeFastPath(params: {
     rejectedShrinks: preflightOutcome.rejectedShrinks,
     rejectedStructural: preflightOutcome.rejectedStructural,
     crossFileStubs: preflightOutcome.crossFileStubs,
+    // Fas 3 (RepairGate): hand the run's ledger out so post-finalize repair
+    // lanes (server-verify / build-error repair) dedupe against LLM repairs
+    // already attempted in finalize.
+    repairLedger,
     stepTelemetry: {
       ...stepTelemetry,
       parse_merge_preflight: preflightOutcome.stepTelemetry,

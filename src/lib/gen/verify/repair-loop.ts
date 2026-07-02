@@ -1,6 +1,11 @@
 import path from "node:path";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import type { FixerResult } from "@/lib/gen/autofix/llm-fixer";
+import {
+  runLlmRepairGate,
+  type LlmRepairConfig,
+  type RepairLedger,
+} from "@/lib/gen/autofix/llm-repair-gate";
 import { countByFixer } from "@/lib/gen/autofix/types";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { runDeterministicImportRepair } from "./repair-loop/deterministic-import-repair";
@@ -26,11 +31,13 @@ export type RepairEarlyStopReason =
   | "fixer_noop"
   | "no_improvement"
   | "time_budget_exceeded"
+  | "superseded"
   | null;
 
 export type { RepairFailedOutput } from "./repair-loop/diagnostics-parser";
 import type { RepairFailedOutput } from "./repair-loop/diagnostics-parser";
 import {
+  buildStructuredOriginDiagnostics,
   parseDiagnosticsFromFailure,
   parseFilesFromErrorLines,
   toPosixPath,
@@ -128,6 +135,29 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * (#284 follow-up). Undefined = no wall-clock bound (back-compat).
    */
   repairDeadlineEpochMs?: number;
+  /**
+   * Fas 3 (RepairGate): shared `RepairLedger` so the loop's fixer calls dedupe
+   * against LLM repairs already attempted in other lanes of the same run
+   * (finalize warm-tsc/syntax/verifier). Omitted → no dedupe (a fresh ledger
+   * per call would be a no-op since every pass mutates content).
+   */
+  repairLedger?: RepairLedger;
+  /**
+   * Fas 3 (RepairGate): stable scope for ledger keys. Must MATCH the finalize
+   * run's `repairScopeId` when the ledger is handed over from finalize, so
+   * identical content+diagnostics collide across lanes. Falls back to chatId
+   * inside the gate when omitted.
+   */
+  repairScopeId?: string;
+  /**
+   * Fas 3 (base-aware tidig abort): checked at the start of every LLM pass and
+   * again before the final verify gate. Return `true` when the version being
+   * repaired is superseded (a newer version exists, or its `files_json`
+   * advanced past the snapshot this repair is based on) — the loop then stops
+   * with `earlyStopReason: "superseded"` instead of finishing work whose
+   * result would be discarded by the base-bound save anyway.
+   */
+  shouldAbortSuperseded?: () => Promise<boolean> | boolean;
 };
 
 type TargetedRepairBundle = {
@@ -558,6 +588,29 @@ export async function runRepairLoop<TPayload = unknown>(
   let llmPasses = 0;
   let earlyStopReason: RepairEarlyStopReason = null;
 
+  // Fas 3 (bättre mål för repair-LLM:en): the ORIGINATING gate diagnostics
+  // (tsc/build/lint) as structured `file:line:col` primary lines with the
+  // TSxxxx codes preserved. Without these, a tsc-origin repair fed the model
+  // only esbuild syntax output + secondary context — the model optimized
+  // against the wrong signal ("0 errors remain" → gate failed anyway).
+  const originPrimaryDiagnostics = buildStructuredOriginDiagnostics(
+    params.failedOutputs,
+  );
+  // Fas 3: notes about previous failed passes so pass > 0 does not repeat the
+  // exact patch that already failed. Bounded to the most recent 2 passes.
+  const priorAttemptNotes: string[] = [];
+
+  // Fixer routing config for the repair gate. When the caller resolved a
+  // fixer model (both production callers do), pass it through unchanged;
+  // otherwise the gate resolves the default-tier fixer phase model.
+  const gateConfig: LlmRepairConfig | undefined = params.fixerModel
+    ? {
+        fixerModel: params.fixerModel,
+        thinking: params.fixerThinking,
+        reasoningEffort: params.fixerReasoningEffort,
+      }
+    : undefined;
+
   const filesFromGateOutput = parseFilesFromErrorLines(repairContextLines);
   for (let pass = 0; pass < params.maxLlmPasses; pass++) {
     // Wall-clock graceful stop (#284 follow-up): never START a new LLM fixer
@@ -577,6 +630,15 @@ export async function runRepairLoop<TPayload = unknown>(
       earlyStopReason = "time_budget_exceeded";
       break;
     }
+    // Fas 3 (base-aware tidig abort): a superseded version (newer version, or
+    // files_json advanced past the repair's base snapshot) makes the rest of
+    // the loop dead work — the base-bound save would discard it anyway. Abort
+    // before spending an LLM pass. Checked BEFORE onBeforePass so the lease is
+    // not renewed for work that won't happen.
+    if (await params.shouldAbortSuperseded?.()) {
+      earlyStopReason = "superseded";
+      break;
+    }
     // Renew the distributed lease before the slow fixer call (Codex P2: a
     // multi-pass repair can exceed the lease TTL; renewing per pass keeps
     // ownership so the final lease-conditioned save isn't silently dropped).
@@ -591,6 +653,8 @@ export async function runRepairLoop<TPayload = unknown>(
         ...syntaxResult.errors.map(
           (error) => `${error.file}:${error.line}:${error.column} ${error.message}`,
         ),
+        ...originPrimaryDiagnostics,
+        ...priorAttemptNotes,
         ...repairContextLines,
       ],
       50,
@@ -615,34 +679,34 @@ export async function runRepairLoop<TPayload = unknown>(
     const contentBeforePass = content;
     const originalMaxTokens = params.fixerMaxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS;
     const reducedMaxTokens = Math.max(1, Math.floor(originalMaxTokens * 0.5));
-    let timedOut = false;
     let fixerAttemptCount = 0;
+    // Fas 3 (RepairGate): the loop's LLM calls go through the SAME
+    // `runLlmRepairGate` as every finalize repair lane — one port, one
+    // ledger. A shared ledger (threaded from finalize via the caller)
+    // dedupes content+diagnostics already LLM-repaired in another lane.
     const runFixerAttempt = async (
       attemptErrors: string[],
       maxTokens: number,
       timeoutMs: number,
-    ): Promise<Awaited<ReturnType<typeof runLlmFixer>>> => {
-      const fixerAbort = new AbortController();
-      const timeoutHandle = setTimeout(
-        () => fixerAbort.abort(),
-        Math.max(1_000, timeoutMs),
-      );
-      fixerAttemptCount++;
-      try {
-        const result = await runLlmFixer(fixerInput, attemptErrors, {
-          model: params.fixerModel,
-          thinking: params.fixerThinking,
-          reasoningEffort: params.fixerReasoningEffort,
-          maxTokens,
-          requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
-          recurringPatterns: params.recurringPatterns,
-          abortSignal: fixerAbort.signal,
-        });
-        timedOut = fixerAbort.signal.aborted;
-        return result;
-      } finally {
-        clearTimeout(timeoutHandle);
-      }
+    ): Promise<FixerResult> => {
+      const gate = await runLlmRepairGate({
+        content: fixerInput,
+        errors: attemptErrors,
+        chatId: params.chatId ?? "",
+        timeoutMs,
+        maxTokens,
+        requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+        config: gateConfig,
+        recurringPatterns: params.recurringPatterns ?? [],
+        phase: "repair-loop",
+        scopeId: params.repairScopeId,
+        ledger: params.repairLedger,
+      });
+      // A deduped attempt made no LLM call; keep llmPasses an honest count of
+      // actual fixer invocations. A deduped result flows on as a no-op
+      // (`success:false`, `partial:false`) → `fixer_noop` early stop.
+      if (!gate.deduped) fixerAttemptCount++;
+      return gate.result;
     };
 
     let fixerResult = await runFixerAttempt(errorSummary, originalMaxTokens, params.llmTimeoutMs);
@@ -654,6 +718,7 @@ export async function runRepairLoop<TPayload = unknown>(
         params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
       );
     }
+    const timedOut = fixerResult.aborted === true;
     llmPasses += fixerAttemptCount;
 
     if (!fixerResult.success && !fixerResult.partial) {
@@ -708,6 +773,17 @@ export async function runRepairLoop<TPayload = unknown>(
       break;
     }
     if (syntaxResult.valid) break;
+    // Fas 3 (bättre mål): tell the next pass what the previous one changed and
+    // that the originating failure has not passed yet, so the model tries a
+    // DIFFERENT approach instead of re-emitting the same patch.
+    priorAttemptNotes.push(
+      `[prior-attempt] pass ${pass + 1} edited ${
+        fixerResult.fixedFiles.length > 0
+          ? fixerResult.fixedFiles.slice(0, 6).join(", ")
+          : "no files"
+      } but the original failure is still unresolved (${syntaxResult.errors.length} syntax error(s) remain). Do not repeat that patch — try a different fix.`,
+    );
+    if (priorAttemptNotes.length > 2) priorAttemptNotes.shift();
   }
 
   const finalSyntaxResult =
@@ -733,7 +809,19 @@ export async function runRepairLoop<TPayload = unknown>(
   //     the route's maxDuration even after async prep, and
   //     `finally { releaseVersionLease }` always runs (Codex P1). The fetch-site
   //     clamp keeps the timeout under the static verify cap (route-budget invariant).
-  if (syntaxClean) {
+  // Fas 3 (base-aware tidig abort): re-check right before the final verify.
+  // A pass may have taken minutes; if the version got superseded meanwhile,
+  // skip the (expensive) final gate — the base-bound save would discard the
+  // result anyway. `earlyStopReason` may already be "superseded" from the
+  // per-pass check above.
+  if (
+    syntaxClean &&
+    earlyStopReason !== "superseded" &&
+    (await params.shouldAbortSuperseded?.())
+  ) {
+    earlyStopReason = "superseded";
+  }
+  if (syntaxClean && earlyStopReason !== "superseded") {
     const finalGate = resolveFinalGateVerifyBudget({
       deadlineEpochMs: params.repairDeadlineEpochMs,
       nowMs: Date.now(),

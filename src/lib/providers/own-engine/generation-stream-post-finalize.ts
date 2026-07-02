@@ -466,6 +466,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
             message: previewSessionResult.error.message,
             failureCode: previewSessionResult.error.failureCode ?? null,
           },
+          // Fas 3 (RepairGate): finalize's ledger — dedupes a server-repair of
+          // content+diagnostics already LLM-repaired during finalize.
+          repairLedger: finalized.repairLedger,
+          repairScopeId: finalized.repairScopeId,
           onRepairAvailable: (payload) => {
             safeEnqueue(
               enc.encode(
@@ -518,6 +522,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
           stage: "preview-start",
           message,
         },
+        repairLedger: finalized.repairLedger,
+        repairScopeId: finalized.repairScopeId,
         onRepairAvailable: (payload) => {
           safeEnqueue(
             enc.encode(
@@ -601,6 +607,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
       chatId,
       versionId: finalized.version.id,
       diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
+      // Fas 3 (RepairGate): finalize's ledger + scope so the server-repair
+      // lane dedupes against LLM repairs already attempted in finalize.
+      repairLedger: finalized.repairLedger,
+      repairScopeId: finalized.repairScopeId,
       onRepairAvailable: (payload) => {
         safeEnqueue(
           enc.encode(
