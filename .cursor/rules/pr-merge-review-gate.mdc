@@ -10,14 +10,15 @@ Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 ## Steg
 
 1. `gh pr checks <n>` — relevanta checks ska passera.
-2. Läs reviews/kommentarer:
+2. Verifiera att PR-författarens bugg-efterkontroll är dokumenterad i PR:en (se sektionen nedan). Saknas den: be författaragenten komplettera, eller kör passet själv om författaren inte är tillgänglig.
+3. Läs reviews/kommentarer:
    - `gh pr view <n> --json reviews,comments`
    - `gh api repos/<owner>/<repo>/pulls/<n>/comments`
-3. Triagera botar: Cursor Bugbot, Codex (P1/P2), Vercel/VADE, GitGuardian.
-4. P1/High/security/cross-tenant = blockera merge tills åtgärdat.
-5. P2/Medium = fixa, **eller** logga i [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) med fil-ankare/repro. Lämna aldrig tyst.
-6. Low/nit = fixa eller kort notis.
-7. Efter fix: pusha och låt botar/checks köra om innan merge.
+4. Triagera kvarvarande bot-fynd: Cursor Bugbot, Vercel/VADE, GitGuardian (Codex är avstängd — se nedan).
+5. P1/High/security/cross-tenant = blockera merge tills åtgärdat.
+6. P2/Medium = fixa, **eller** logga i [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) med fil-ankare/repro. Lämna aldrig tyst.
+7. Low/nit = fixa eller kort notis.
+8. Efter fix: pusha och låt botar/checks köra om innan merge.
 
 ## Spårningskrav (varje fynd, inget tappas)
 
@@ -31,23 +32,26 @@ Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
 
 Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrott — även om CI är grön och PR:n redan mergats. Gäller särskilt funktions-/säkerhetsfynd (de "ser-grönt-men-går-sönder").
 
-## Codex rate-limitad → kör Cursor Bugbot
+## Bugg-efterkontroll: PR-författaren äger den (Codex avstängd)
 
-Om Codex-review (`chatgpt-codex-connector`) inte producerar en review (usage-/rate-limit, "reached your Codex usage limits", eller helt saknas) räknas PR:en **inte** som bot-granskad bara för att CI är grön. Kör då en Cursor Bugbot-pass **före merge**:
+**Codex-review (`chatgpt-codex-connector`) är avstängd — credits slut sedan 2026-07-02.** Vänta aldrig på den och räkna inte dess frånvaro som ett gap. I stället är det **agenten som skapade PR:en** som kör bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
 
-- Använd `review-bugbot`-skillen, eller `bugbot`-subagenten direkt (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`).
-- Triagera Bugbot-fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat).
+- Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) eller använd `review-bugbot`-skillen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
+- Är Bugbot otillgänglig: gör en strukturerad manuell diff-granskning + repo-verifieringar och dokumentera fynd med fil-/radreferenser.
+- Triagera fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat) och **dokumentera i PR:en** vilken väg som användes (`bugbot` eller `manual local bug review`).
 - P1/High/säkerhet blockerar merge; P2 fixas eller loggas i `BUG-SWARM-BACKLOG.md`.
 
-Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät — då finns Bugbot-täckning oavsett Codex-kvot.
+Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät.
+
+Dyker en Codex-review ändå upp (t.ex. om credits fylls på senare): behandla den som bonussignal och triagera fynden på samma sätt — men blockera aldrig på att den saknas.
 
 ## Author-is-merger (blind-spot-regel)
 
-Codex-review är **rekommenderad, inte en hård merge-blocker** — men om den uteblir får flödet inte fastna OCH självgranskning räcker inte när författaren själv mergar.
+Självgranskning räcker inte när författaren själv mergar:
 
-- Är agenten som mergar **samma** agent som skapade PR:en, räknas inte "jag läste min egen diff igen" som granskning.
-- Saknas Codex-review: kör en **oberoende** pass innan merge — `bugbot`-subagenten (separat agent) eller människa. Gäller särskilt protected paths.
-- Dokumentera vald väg i slutrapporten: `codex-review`, `bugbot` (Cursor-subagent) eller `manual local bug review`.
+- Är agenten som mergar **samma** agent som skapade PR:en, räknas inte "jag läste min egen diff igen" som granskning — `bugbot`-subagent-passet är minimum, särskilt på protected paths.
+- Mergar en **annan** agent: kör inte om författarens efterkontroll — verifiera att den är dokumenterad i PR:en, att checks är gröna och att inga P0/P1 står öppna.
+- Dokumentera vald väg i slutrapporten: `bugbot` (Cursor-subagent) eller `manual local bug review`.
 - Full guide: [`AGENTS.md`](../../AGENTS.md) → "Review guidelines".
 
 ## Princip

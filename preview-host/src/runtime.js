@@ -22,6 +22,17 @@ const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
 // pågående HTTP-svar hinna klart innan processen tvångsdödas (mildrar
 // "socket hang up"/PU02 vid restart). Reversibelt via env.
 const RUNTIME_DRAIN_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_DRAIN_MS ?? "5000", 10);
+// Idle-reaper (M#fly1): en dev-runtime utan preview-trafik (HTTP eller öppen
+// WebSocket från en iframe) stoppas efter detta fönster och sessionen markeras
+// `hibernated`. Nästa besök bootar om den via den vanliga startsidan. Detta är
+// VM-sidans skyddsnät — klientens hibernate-anrop (pagehide / dold tab) är
+// best-effort och når inte alltid fram, och utan reapern levde varje dev-server
+// kvar till sessions-TTL:en (2 h på Fly) och trängde ut `npm install` (OOM).
+// 0 eller negativt värde stänger av reapern.
+const RUNTIME_IDLE_STOP_MS = parseInt(
+  process.env.PREVIEW_HOST_RUNTIME_IDLE_STOP_MS ?? `${10 * 60 * 1000}`,
+  10,
+);
 // Observability (README handoff #5): behåll en liten ringbuffert av senaste
 // stdout/stderr-rader per runtime så att en tail kan ytliggöras i runtime-loggen
 // vid onormal exit (i stället för att tystas helt).
@@ -57,6 +68,40 @@ const inflightBootByChat = new Map();
 const activeVerifyChatKeys = new Set();
 const inflightVerifyByKey = new Map();
 let verifyQueue = Promise.resolve();
+// Global install-kö (M#fly1): npm/pnpm/yarn install är den minnestyngsta fasen
+// på VM:en. Verify-jobb är redan serialiserade sinsemellan (verifyQueue), men
+// live-boot-installs för OLIKA chattar kunde köra parallellt med varandra och
+// med verify-lanens install — Fly-loggarna 2026-07-02 visar `npm install`
+// OOM-dödad två gånger under exakt det mönstret. Alla installs (boot + verify)
+// går nu genom en gemensam kö med concurrency 1; fingerprint-oförändrade boots
+// rör aldrig kön (de skippar install helt).
+let installQueue = Promise.resolve();
+// Öppna preview-sockets (proxied HMR-WS eller host-hållna stubbar) per chat.
+// En öppen socket ≈ en öppen iframe — idle-reapern stoppar aldrig en runtime
+// som fortfarande har en betraktare, även om sidan inte genererar HTTP-trafik.
+const activePreviewSocketsByChat = new Map();
+
+function registerPreviewSocket(chatId, socket) {
+  if (!chatId || !socket) return;
+  let set = activePreviewSocketsByChat.get(chatId);
+  if (!set) {
+    set = new Set();
+    activePreviewSocketsByChat.set(chatId, set);
+  }
+  set.add(socket);
+  socket.once("close", () => {
+    const current = activePreviewSocketsByChat.get(chatId);
+    if (!current) return;
+    current.delete(socket);
+    if (current.size === 0) {
+      activePreviewSocketsByChat.delete(chatId);
+    }
+  });
+}
+
+function activePreviewSocketCount(chatId) {
+  return activePreviewSocketsByChat.get(chatId)?.size ?? 0;
+}
 
 const proxy = httpProxy.createProxyServer({
   xfwd: true,
@@ -289,28 +334,94 @@ function spawnNpm(args, options) {
   return spawn("npm", args, options);
 }
 
+function killShellCommandTree(child, useProcessGroup) {
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      return;
+    }
+    if (useProcessGroup) {
+      // Negative pid = kill the whole process group (sh + npm + its children).
+      // Killing only the sh wrapper would orphan the actual npm process.
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    }
+    child.kill("SIGKILL");
+  } catch {
+    /* already exited */
+  }
+}
+
+/**
+ * Run a shell command. `options.timeoutMs` (opt-in) hard-kills the whole
+ * process tree after the deadline and resolves with `timedOut: true` and a
+ * non-zero exit code — the promise ALWAYS settles. Without it, a hung child
+ * (e.g. a generated `preinstall` script that never exits) would hold its
+ * caller forever; with the global install queue that would wedge every later
+ * boot/verify install VM-wide (VADE/Codex P1 on PR #357).
+ */
 function runShellCommand(command, options) {
+  const { timeoutMs, timeoutLabel, ...spawnOptions } = options ?? {};
+  const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0;
+  // A process group lets the timeout kill sh AND its descendants on unix.
+  const useProcessGroup = hasTimeout && process.platform !== "win32";
   return new Promise((resolve, reject) => {
     const child =
       process.platform === "win32"
-        ? spawn("cmd.exe", ["/d", "/s", "/c", command], options)
-        : spawn("sh", ["-lc", command], options);
+        ? spawn("cmd.exe", ["/d", "/s", "/c", command], spawnOptions)
+        : spawn("sh", ["-lc", command], {
+            ...spawnOptions,
+            ...(useProcessGroup ? { detached: true } : {}),
+          });
     let output = "";
+    let timedOut = false;
+    let timer = null;
+    if (hasTimeout) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        killShellCommandTree(child, useProcessGroup);
+      }, timeoutMs);
+      timer.unref?.();
+    }
     child.stdout.on("data", (chunk) => {
       output += String(chunk);
     });
     child.stderr.on("data", (chunk) => {
       output += String(chunk);
     });
-    child.once("error", reject);
+    child.once("error", (err) => {
+      if (timer) clearTimeout(timer);
+      reject(err);
+    });
     child.once("close", (code) => {
+      if (timer) clearTimeout(timer);
+      if (timedOut) {
+        resolve({
+          exitCode: 124,
+          output:
+            `${output}\n[preview-host] ${timeoutLabel ?? "Command"} timed out after ` +
+            `${Math.round(timeoutMs / 1000)}s and was killed (fail-fast so the install queue advances).`,
+          timedOut: true,
+        });
+        return;
+      }
       resolve({
         exitCode: typeof code === "number" ? code : 1,
         output,
+        timedOut: false,
       });
     });
   });
 }
+
+// Hård tidsgräns per install-försök (M#fly1-härdning): med den globala
+// install-kön får ett enda hängt `npm install` (t.ex. ett genererat
+// preinstall-script som aldrig avslutas) INTE kila fast alla senare
+// boots/verifies — utan timeout vore enda utvägen VM-omstart. 0 = av.
+const INSTALL_TIMEOUT_MS = parseInt(
+  process.env.PREVIEW_HOST_INSTALL_TIMEOUT_MS ?? `${10 * 60 * 1000}`,
+  10,
+);
 
 function resolveInstallCommand(filesJson) {
   const hasPnpmLock =
@@ -368,6 +479,18 @@ function isPeerDependencyInstallFailure(output) {
 }
 
 async function runInstallCommandWithFallback(workspaceDir, install) {
+  // Serialisera ALLA installs (live-boot + verify) genom en global kö så att
+  // två tunga `npm install` aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret
+  // i Fly-loggarna 2026-07-02). Kön håller inga andra lås medan den väntar,
+  // så den kan inte deadlocka mot verifyQueue (som bara väntar på den härifrån).
+  const task = installQueue
+    .catch(() => undefined)
+    .then(() => runInstallCommandWithFallbackUnqueued(workspaceDir, install));
+  installQueue = task.catch(() => undefined);
+  return task;
+}
+
+async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   const env = sanitizedEnv();
   const runAttempt = async (command) => {
     const startedAt = Date.now();
@@ -375,6 +498,10 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
       env,
+      // Fail-fast: en hängd install får inte blockera den globala install-kön
+      // (alla senare boots/verifies) tills VM-omstart.
+      timeoutMs: INSTALL_TIMEOUT_MS > 0 ? INSTALL_TIMEOUT_MS : undefined,
+      timeoutLabel: `Install (${command})`,
     });
     return {
       ...result,
@@ -1332,6 +1459,9 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     workspaceDir,
     chatId,
     previewSessionId: session.previewSessionId,
+    // Idle-reaper: stämplas om vid varje proxad request/WS-upgrade. Boot räknas
+    // som aktivitet så en nystartad runtime inte reapas innan iframen hunnit in.
+    lastActivityAt: Date.now(),
     // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
     // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
     // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
@@ -1720,6 +1850,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   const state = getRuntimeStateForChat(info.chatId);
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
+    const trackedForActivity = runtimeChildren.get(state.session.sessionId);
+    if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
     const inspectTag = inspectInjectionTag(search);
     // C: den genererade appen får aldrig se `?inspect=1` — parametern
     // konsumeras här (injektionsbeslutet) och strippas ALLTID från
@@ -1755,6 +1887,9 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     // See `acceptAndHoldWebSocket` JSDoc for the full rationale (replaces
     // the earlier 404-stub which triggered the HMR client's retry loop).
     if (acceptAndHoldWebSocket(req, socket)) {
+      // Även en host-hållen stub-socket betyder "en iframe är öppen" — räkna
+      // den så idle-reapern inte stoppar en runtime någon tittar på.
+      registerPreviewSocket(info.chatId, socket);
       return true;
     }
     // Malformed upgrade request (no Sec-WebSocket-Key); close the socket.
@@ -1780,13 +1915,19 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     }
     if (!state.running) {
       if (!state.booting) queueRuntimeBoot(info.chatId);
-      if (acceptAndHoldWebSocket(req, socket)) return true;
+      if (acceptAndHoldWebSocket(req, socket)) {
+        registerPreviewSocket(info.chatId, socket);
+        return true;
+      }
       try { socket.destroy(); } catch { /* already closed */ }
       return true;
     }
   }
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
+  const trackedForActivity = runtimeChildren.get(runtime.session.sessionId);
+  if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
+  registerPreviewSocket(info.chatId, socket);
   rewriteRequestUrl(req, info.chatId, info.restPath, search);
   // Next 16 dev (`blockCrossSiteDEV`) avvisar WS-upgrades till interna paths
   // (`/_next/*`, `/__nextjs*`) vars `Origin` inte matchar dev-serverns hostname
@@ -1810,6 +1951,59 @@ async function hibernateChatRuntime(chatId) {
   if (!session) return null;
   await stopRuntimeForSession(session);
   return session;
+}
+
+/**
+ * Idle-reaper (M#fly1): stoppa dev-runtimes som varken fått proxytrafik eller
+ * har en öppen preview-socket (≈ öppen iframe) på RUNTIME_IDLE_STOP_MS.
+ * Sessionen markeras `hibernated` — samma vilotillstånd som klientens
+ * hibernate-anrop — så att status-pollningen INTE auto-bootar om den; nästa
+ * riktiga preview-besök väcker den via den vanliga startsidan i proxyn.
+ */
+async function sweepIdleRuntimes(nowMs = Date.now()) {
+  if (!(RUNTIME_IDLE_STOP_MS > 0)) return { stoppedRuntimes: 0 };
+  let stoppedRuntimes = 0;
+  for (const [sessionId, tracked] of [...runtimeChildren.entries()]) {
+    const chatId = typeof tracked.chatId === "string" ? tracked.chatId : "";
+    if (chatId && inflightBootByChat.has(chatId)) continue;
+    if (chatId && activeVerifyChatKeys.has(safeChatKey(chatId))) continue;
+    if (chatId && activePreviewSocketCount(chatId) > 0) continue;
+    const lastActivityAt = Number.isFinite(tracked.lastActivityAt)
+      ? tracked.lastActivityAt
+      : 0;
+    if (nowMs - lastActivityAt < RUNTIME_IDLE_STOP_MS) continue;
+
+    const previewSessionId =
+      typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()
+        ? tracked.previewSessionId.trim()
+        : null;
+    // Markera `hibernated` FÖRE stoppet (Codex P2): stopTrackedRuntime tar
+    // bort runtimen ur runtimeChildren och drainar upp till RUNTIME_DRAIN_MS —
+    // i det fönstret skulle en status-poll annars se running=false med status
+    // `warm_project` och auto-boota om runtimen, vilket besegrar reapern.
+    // Status-routen auto-bootar aldrig `hibernated`-sessioner.
+    // Saknas session-posten (städad store) är runtimen en orphan — stoppa den
+    // ändå; status-skrivningen är bara relevant när posten finns.
+    await updateSessionById(sessionId, (stored) => {
+      stored.status = "hibernated";
+      stored.lastAction = "idle_stop";
+      stored.updatedAt = nowIso();
+    }).catch(() => null);
+    const stopped = await stopTrackedRuntime(sessionId, null).catch(() => false);
+    if (!stopped) {
+      // Runtimen försvann samtidigt (annan stop-väg). `hibernated` är ändå
+      // rätt vilotillstånd för en idle runtime utan process, så lämna kvar.
+      continue;
+    }
+    stoppedRuntimes += 1;
+    if (previewSessionId) {
+      await appendRuntimeLog(
+        previewSessionId,
+        `Runtime idle-stopped after ${Math.round(RUNTIME_IDLE_STOP_MS / 60000)} min without preview traffic; next visit boots it again.`,
+      ).catch(() => {});
+    }
+  }
+  return { stoppedRuntimes };
 }
 
 async function destroyChatWorkspace(chatId) {
@@ -2114,6 +2308,7 @@ module.exports = {
   runVerifyJob,
   runIdResolverFromSession,
   stopRuntimeForSession,
+  sweepIdleRuntimes,
   cleanupPreviewHostStorage,
   __testing: {
     patchNextConfigViaAst,
@@ -2123,5 +2318,8 @@ module.exports = {
     findConfigObjectExpression,
     patchTouchesStructuralPath,
     patchWorkspaceFiles,
+    runShellCommand,
+    registerPreviewSocket,
+    activePreviewSocketCount,
   },
 };

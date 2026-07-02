@@ -27,6 +27,7 @@ const {
   queueRuntimeBoot,
   runQueuedVerifyJob,
   stopRuntimeForSession,
+  sweepIdleRuntimes,
 } = require("./runtime.js");
 const {
   validateStartPayload,
@@ -47,6 +48,10 @@ const OPPORTUNISTIC_CLEANUP_INTERVAL_MS =
   Number.parseInt(process.env.PREVIEW_HOST_OPPORTUNISTIC_CLEANUP_INTERVAL_MS ?? `${5 * 60 * 1000}`, 10);
 const BACKGROUND_CLEANUP_INTERVAL_MS =
   Number.parseInt(process.env.PREVIEW_HOST_BACKGROUND_CLEANUP_INTERVAL_MS ?? `${10 * 60 * 1000}`, 10);
+// Hur ofta idle-reapern letar efter runtimes utan trafik/öppna iframes.
+// Själva idle-fönstret styrs av PREVIEW_HOST_RUNTIME_IDLE_STOP_MS (runtime.js).
+const RUNTIME_IDLE_SWEEP_INTERVAL_MS =
+  Number.parseInt(process.env.PREVIEW_HOST_RUNTIME_IDLE_SWEEP_INTERVAL_MS ?? `${60 * 1000}`, 10);
 let lastOpportunisticCleanupAt = 0;
 
 async function maybeRunOpportunisticCleanup() {
@@ -876,6 +881,10 @@ if (require.main === module) {
     void cleanupPreviewHostStorage().catch(() => null);
   }, BACKGROUND_CLEANUP_INTERVAL_MS);
   cleanupTimer.unref?.();
+  const idleSweepTimer = setInterval(() => {
+    void sweepIdleRuntimes().catch(() => null);
+  }, RUNTIME_IDLE_SWEEP_INTERVAL_MS);
+  idleSweepTimer.unref?.();
 }
 
 module.exports = {
