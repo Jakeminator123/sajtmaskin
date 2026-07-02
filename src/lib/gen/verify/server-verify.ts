@@ -243,9 +243,6 @@ export async function triggerServerVerification(params: {
       results: gateResult.results,
     });
     const advisoryPromote = f2TypecheckAdvisory && !diagnosticOnly;
-    // A version that will be advisory-promoted is NOT a blocking failure for the
-    // outcome bus signal / summary log, even though the raw VM gate did not pass.
-    const outcomeIsGreen = passed || advisoryPromote;
 
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable,
@@ -254,6 +251,27 @@ export async function triggerServerVerification(params: {
         console.warn("[server-verify] Visual QA error (non-fatal):", vqaErr);
       },
     });
+
+    // For the advisory case, ATTEMPT the promotion before emitting the outcome
+    // so the bus signal reflects reality. `promoteVersion` is lease-conditioned:
+    // a no-op (null) means a takeover/lease-loss or a guard/DB refusal, in which
+    // case we must NOT emit a green "passed" the row never actually reached.
+    // A lease no-op is expected (the owning run resolves terminal state); we do
+    // not fail here — the stale-verification watchdog is the backstop and
+    // `reconcileTerminalDbState` uses the authoritative DB state either way.
+    const advisoryPromoted = advisoryPromote
+      ? Boolean(
+          await promoteVersion(
+            versionId,
+            "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+            runId,
+          ).catch(() => null),
+        )
+      : false;
+    // Green for the outcome bus signal / summary log when the VM gate passed OR
+    // the advisory promotion actually took — never on an advisory promote that
+    // no-op'd (that would be a false-green).
+    const outcomeIsGreen = passed || advisoryPromoted;
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
@@ -283,30 +301,25 @@ export async function triggerServerVerification(params: {
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
-      level: passed ? "info" : advisoryPromote ? "warning" : "error",
-      category: advisoryPromote ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
+      level: passed ? "info" : advisoryPromoted ? "warning" : "error",
+      category: advisoryPromoted ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
       message: passed
         ? "Server verify passed."
-        : advisoryPromote
-          ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotar utan repair."
+        : advisoryPromoted
+          ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
           : "Server verify failed.",
-      meta: advisoryPromote
+      meta: advisoryPromoted
         ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }
         : qualityGateMeta,
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
 
-    // F2 render-first advisory promotion (see `advisoryPromote` above). Runs
-    // before the failure/repair paths so a background server-verify never undoes
-    // the route's advisory promotion. `diagnosticOnly` (verifier blockers) is
-    // already excluded, so this never promotes a verifier-blocked version.
+    // Advisory path already attempted promotion above (before the emit). Return
+    // regardless of whether it took: a lease no-op means another run owns the
+    // version, and the watchdog resolves any residual `verifying` — failing here
+    // would clobber the owning run.
     if (advisoryPromote) {
-      await promoteVersion(
-        versionId,
-        "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
-        runId,
-      ).catch(() => null);
       return;
     }
 

@@ -350,6 +350,11 @@ export function VersionHistory({
       setSyncingElapsed(false);
       return;
     }
+    // Restart the grace window on entering an empty state. This also clears a
+    // stale `true` carried over from a previous chat (chatId is a dep), so a
+    // freshly opened chat with an in-flight empty fetch shows "Synkar..." /
+    // the last-known fallback instead of jumping straight to "Inga versioner".
+    setSyncingElapsed(false);
     const timer = setTimeout(() => setSyncingElapsed(true), 5000);
     return () => clearTimeout(timer);
   }, [chatId, rawVersionList.length]);
