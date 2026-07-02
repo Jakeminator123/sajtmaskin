@@ -455,4 +455,47 @@ describe("useAutoFix", () => {
       expect(sendMessage).toHaveBeenCalledTimes(1);
     });
   });
+
+  // A post-check runs async: the user may navigate to another chat before it
+  // resolves and fires onAutoFix. `sendMessage` closes over the CURRENT chatId,
+  // so a payload whose chatId no longer matches must be skipped, not streamed
+  // into the wrong chat.
+  describe("wrong-chat guard (currentChatId)", () => {
+    it("skips the fix when the active chat changed since the post-check started", async () => {
+      const sendMessage = vi.fn(async () => undefined);
+      // User is now on chat_2, but the post-check payload targets chat_1.
+      const { result } = renderHook(() => useAutoFix(sendMessage, "chat_2"));
+
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: ["build failed"],
+        });
+      });
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(sendMessage).not.toHaveBeenCalled();
+    });
+
+    it("still fires when the payload chat matches the active chat", async () => {
+      const sendMessage = vi.fn(async () => undefined);
+      const { result } = renderHook(() => useAutoFix(sendMessage, "chat_1"));
+
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: ["build failed"],
+        });
+      });
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
+  });
 });

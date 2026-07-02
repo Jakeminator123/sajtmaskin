@@ -1,6 +1,7 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { debugLog } from "@/lib/utils/debug";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import {
   describePreviewDiagnosticCode,
@@ -475,6 +476,16 @@ async function isVersionUnderServerRepair(chatId: string, versionId: string): Pr
 
 export function useAutoFix(
   sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>,
+  /**
+   * The chat currently active in the builder. A post-check runs async, so by
+   * the time it resolves and fires `onAutoFix` the user may have navigated to a
+   * different chat. `sendMessage` closes over the CURRENT chatId, so applying a
+   * payload whose `chatId` no longer matches would stream the fix into the
+   * wrong chat. When this is a known chatId that differs from the payload's, we
+   * skip. Left optional/undefined → fail-open (no guard), preserving the old
+   * behaviour for callers that don't wire it (e.g. unit tests).
+   */
+  currentChatId?: string | null,
 ) {
   const autoFixAttemptsRef = useRef<Record<string, AttemptEntry>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
@@ -484,6 +495,22 @@ export function useAutoFix(
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
+      // Wrong-chat guard: only fire when the active chat still matches the chat
+      // captured when the post-check started (carried on `payload.chatId`).
+      // Fail-open when the current chat is unknown so a legit fix is never
+      // dropped during the create-chat window where state hasn't settled yet.
+      if (
+        typeof currentChatId === "string" &&
+        currentChatId.length > 0 &&
+        payload.chatId !== currentChatId
+      ) {
+        debugLog("AI", "Autofix skipped: active chat changed since post-check started", {
+          payloadChatId: payload.chatId,
+          currentChatId,
+          versionId: payload.versionId,
+        });
+        return;
+      }
       if (!readAutofixClientPreference()) {
         notifyAutofixSkipped(payload.reasons);
         return;
@@ -611,7 +638,7 @@ export function useAutoFix(
         }
       })();
     },
-    [sendMessage],
+    [sendMessage, currentChatId],
   );
 
   useEffect(() => {

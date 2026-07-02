@@ -9,6 +9,14 @@ interface Props {
   fallback?: ReactNode;
   chatId?: string | null;
   versionId?: string | null;
+  /**
+   * When this value changes, a previously caught error is cleared so the
+   * boundary re-renders its children instead of staying latched on the
+   * fallback. The builder threads its `chatId` here so navigating to another
+   * chat recovers a boundary that caught a render error in a previous chat
+   * (without this, one render error locks the whole builder until reload).
+   */
+  resetKey?: unknown;
 }
 
 interface State {
@@ -48,6 +56,17 @@ export class ErrorBoundary extends Component<Props, State> {
     ).catch(() => {
       // Best-effort only
     });
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    // Recover on navigation: once `getDerivedStateFromError` latches `hasError`,
+    // nothing else clears it, so a single render error would keep the fallback
+    // mounted forever. When the caller-provided `resetKey` changes (the builder
+    // passes `chatId`), drop the error so the new children render. No-op when
+    // the key is unchanged, so same-chat behavior stays identical.
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   render() {
