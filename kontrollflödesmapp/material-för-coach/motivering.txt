@@ -1,0 +1,19 @@
+Klart — avhandlingen är levererad i två nya canvases plus dataunderlaget. Öppna dem bredvid chatten:
+
+typecheck-autofix-djupdykning — statistikbladet: vilka fel, vilka fixar, varför LLM:en misslyckas
+kontrollarkitektur-avhandling — hela kontrollkartan, historiken, what-if och rekommendationerna
+Svaren på dina fyra frågor i kortform
+1. Vilka typecheck-fel failar det på? Jag regexp-aggregerade tsc-outputen ur alla gate-failures: 84 % är importhantering. TS2304 "Cannot find name" dominerar (60 träffar — Badge 20, Button 16, Reveal 14, Link 6...), följt av TS2300 "Duplicate identifier" (18 — useEffect/useState/ReactNode, exakt smörsajt-mönstret). Resten är småklasser (TS2440, TS1361, Stripe-apiVersion).
+
+2. Vilka deterministiska fixar förstör koden? Kodkartläggningen (54 fixers) pekar ut: import-validator (regex-importkirurgi, kodkommentaren kallar den själv "highest-corruption-risk mechanical step"), och framförallt repair-lanens import-injektion som saknar React-dedupe — consolidateReactImports körs aldrig i server-repair, så TS2300-klassen skapas av systemet självt. Därtill: merge-steget producerar egna syntaxfel ("Unexpected ';'", 12 preview-blocks) och cross-file-stubs som renderar tomt. Skyddet guardFixerSyntax fångar bara parse-fel, inte dubbeldeklarationer.
+
+3. Varför räddar inte LLM:en det i slutet? Trattanalysen: av 28 versioner med gate-fel nådde 1 promoted. Fyra strukturella orsaker: (a) repair-LLM:en optimerar mot syntaxdiagnostik och klassar sig klar vid "0 errors remain" fast gaten mäter tsc (12+4 fall), (b) max 2 pass + no_improvement-fail-fast → ger upp tidigt, (c) kapplöpningar — nyare version/användar-edit kastar repair-resultatet (4 fall, jfr din restore), (d) de mekaniska fixarna återinför felen LLM:en jagar.
+
+4. Historiken + what-if: Kontrollerna kom i tre vågor — april 2026 (F2/F3, gate-profiler, verifier), juni (grandmaster: false-green, distribuerat lås, repair-härdning), juli (render-first: typecheck-only är numera advisory i F2 sedan 2/7 — dina senaste ändringar). What-if-tabellen i canvasen går igenom sju scenarier; kärnan: ta inte bort kontroller, utan flytta fixarna uppströms och slå ihop de tre repair-vägarna till en (L1-planen som ligger parkerad).
+
+Tesen i en mening
+Sajtmaskin har inte för många kontroller — den har tre överlappande reparationsvägar och en verifier som stängs av av sin egen heavy-load-tröskel, medan de två största felklasserna (saknad känd import, fixer-skapad dubbelimport) är mekaniskt lösbara före gaten. De två P0-åtgärderna med störst mätbar effekt: kör ts2304-known-import-fixer i finalize (eliminerar ~60 % av felträffarna) och lägg React-dedupe i repair-lanen (eliminerar TS2300-klassen).
+
+Temp-analysscriptet är raderat; control-stats.mjs finns kvar för omkörning — kör den om en vecka så syns effekten av render-first-policybytet i siffrorna.
+
+Säkerhet: ~90 %. Statistiken är live-aggregerad ur prod; fixer-attributionen för TS2300 bygger på kodläsning (dedupe-gapet är verifierat i kod, men jag har inte spårat en enskild körning fixer-för-fixer). Vill du ha det sista beviset kan jag spåra smörsajtens repair-pass i detalj.

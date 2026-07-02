@@ -1,0 +1,60 @@
+Summering av alla fynd (rakt i chatten)
+Huvudslutsats
+Din känsla stämde: en kontroll ser ut att stå för nästan alla fel — typecheck i quality gate (99 % av gate-failures). Men djupdykningen visar att typecheck bara är platsen där felen upptäcks. Den verkliga källan är importhantering (~84 % av felträffarna), i två klasser som båda är mekaniskt lösbara — och ett systemfel där tung autofix stänger av LLM-verifiern så att typecheck blir sista muren.
+
+Siffrorna (prod-DB, 14 dagar, 115 genereringar)
+Fynd	Värde
+Quality gate-failures som faller först på typecheck
+68 av 69 (99 %)
+Typecheck-fel som är import-relaterade (TS2304 + TS2300 + TS2440)
+84 av 100 träffar
+TS2304 "Cannot find name" — saknade kända imports (Badge 20, Button 16, Reveal 14, Link 6, toast…)
+60 träffar
+TS2300 "Duplicate identifier" — dubbelimport skapad av fixarna själva (useEffect/useState/ReactNode)
+18 träffar
+Deterministisk autofix ingriper
+114 av 115 körningar; 58 över heavy-tröskeln (median 18 fixar, max 77 — tröskeln är 5)
+LLM-verifiern skippas
+69 % av körningar (41 pga autofix_heavy_load)
+Gate-failade versioner som räddas till promoted av repair
+1 av 28 (3,6 %)
+Lint-check i F2-gaten
+finns inte (P34 parkerad)
+Follow-up vs init
+follow-ups failar 3× oftare på typecheck
+Kedjan som skapar mönstret
+Generatorn lämnar kod som kräver tung autofix i hälften av körningarna.
+fixCount > 5 (heavy load) stänger av LLM-verifiern — den enda kontrollen som fångar 3D/JSX-strukturfel före gaten. Tröskeln mäter normalbeteende (median 18), inte anomali.
+Det som ingen ser fångas först av typecheck i gaten — sist i kedjan.
+Repair-LLM:en räddar sedan nästan inget, av fyra skäl: den optimerar mot syntaxdiagnostik, inte tsc ("0 errors remain" men gate failar — 16 fall); max 2 pass + no_improvement-fail-fast; kapplöpningar där nyare version kastar repair-resultatet (din smörsajt-restore); och repair-lanens egen import-injektion saknar React-dedupe och återinför TS2300-felen.
+Konkreta buggar bevisade under sessionen (smörsajten)
+Autofix/repair skapade dubbel React-import i three-canvas-shell.tsx → webpack-krasch → preview-500.
+Restore synkar inte om preview-workspacen — live-telemetrin visade version_mismatch (v3 aktiv, preview körde trasiga v2).
+Repair fortsatte jobba på superseded version.
+DB-lås-timeouts (SELECT … FOR UPDATE statement timeout) under quality gate i samma fönster.
+Rekommendationer (prioriterade)
+Prio	Åtgärd	Effekt
+P0
+Kör ts2304-known-import-fixer i finalize, före gaten (den bor idag i repair-lanen som körs efter fail)
+Eliminerar ~60 % av typecheck-felträffarna
+P0
+React/same-module-dedupe i repair-lanen (consolidateReactImports körs aldrig där)
+Eliminerar hela TS2300-klassen + smörsajt-scenariot
+P0
+Preview-resync vid restore
+Fixar version_mismatch-fällan
+P1
+Vikta om heavy-load: skippa verifiern bara vid strukturella fixar, inte import-fixar
+Verifiern återaktiveras där den behövs (3D/JSX)
+P1
+Konsolidera 3 repair-lanes → 1 repair-gate (parkerade L1-planen); ge repair-LLM:en tsc-output som mål
+Tar bort races + "0 errors remain"-glappet
+P2
+Mätluckor: persistera dossier-val, deploy_result, ärlig repair-taxonomi; RAG:en har bara 16 rader
+Gör nästa analys skarpare (dossier-frågan kan inte besvaras idag)
+Historisk kontext
+Kontrollerna kom i tre vågor: april 2026 (F2/F3, gate-profiler, verifier, product postcheck), juni (grandmaster: false-green, distribuerat lås, repair-härdning), juli (render-first: typecheck-only är advisory i F2 sedan 2/7). Statistiken täcker mest tiden före policybytet — kör om node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=7 --allow-insecure-ssl om en vecka för att se effekten.
+
+Allt detaljmaterial ligger i de tre canvasarna: kontrollstatistik-prod, typecheck-autofix-djupdykning och kontrollarkitektur-avhandling.
+
+Säkerhet: ~90 %. Statistiken är live-aggregerad ur prod; fixer-attributionen för TS2300 är kodverifierad (dedupe-gapet finns) men inte spårad körning-för-körning.

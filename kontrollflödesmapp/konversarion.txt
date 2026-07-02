@@ -1,0 +1,514 @@
+"Hejsan, först och främst vill jag att du uppdaterar ditt minne om hur sitemaskin ser ut idag, mer än för de veckor sedan jag senast uppdaterade dig med information, eftersom det har ändrats lite. Nu till det viktiga. Jag har bifogat en zip med tre HTML-sidor. Om du öppnar dem kommer du att få fram bilder, och kanske kan jag också skicka dig bilder på hur statistiken ser ut här. Allt detta försöker beskriva hur LLM-flödet fungerar idag och när allt skickas, både init och follow-ups, samt varför de inte fungerar och går sönder. Om du tittar på våra konversationer de senaste veckorna har vi ändrat mycket vad gäller F2 och F3. Vi har haft olika kontrollord, som alla elis, som kontrollerar eller fixar. Jag har alltid upplevt att vi har för många typer av ord för samma sak, vilket gör det till en djungel att få till det på ett bra sätt. Att ta bort något leder ofta till att något annat blir fel. Hur som helst, nu kommer jag med rådata. Jag vill att du ska se hur systemet ser ut idag och sedan skapa en grundstruktur för hur det borde se ut. När sajterna väl går igenom blir de väldigt bra. Finns det vissa av dessa kontrollcheckar som kan tas bort? Är det saker som borde läggas till eller göras annorlunda? Borde LM-fixarna bli fler, parallella, få mer tokens eller längre tid? Borde saker slås ihop? Jag vill ha en tydlig linje för hur ett nästan världsklassaktigt LLM-flow skulle se ut i detta skede. När det kommer till kodgenereringen ser det bra ut, men i stegen med hjälpsamma fixar snarare skälper än hjälper. Utgå från att jag kommer att ge detta till en avancerad LLM i Cursor som kommer att fortsätta arbeta med ett riktmärke från vad du bestämmer. DETTA ÄR MYCKET VIKTIGT"
+Letar efter tillgängliga verktyg"
+
+
+--
+
+
+"Tänkte i 6m 12s
+
+According to a document from 2026-07-02, min max-bedömning är: Sajtmaskin har inte för många kontroller. Sajtmaskin har för många överlappande reparationsvägar, för otydlig ownership (ägarskap) mellan F2/F3, och för mycket import-kirurgi sent i kedjan.
+
+1. Kort dom
+
+Gör inte fler LLM-fixare nu.
+Gör färre reparationsvägar, bättre mekanisk import-normalisering och tydligare F2/F3-kontrakt.
+
+Din data säger:
+
+Signal	Vad det betyder
+99% first failures = typecheck	Typecheck är platsen där felet syns, inte grundorsaken
+78–84% importrelaterat	Import/exports är P0, inte “modellkvalitet”
+114/115 körningar får autofix	Autofix är normalflöde, inte undantag
+Heavy autofix stänger av verifier	Fel policy: risk borde öka verifiering
+1 av 28 gate-failade räddas	Post-repair är nästan värdelös i nuvarande form
+Follow-ups failar mer	Delta-kontraktet är bra men repair/merge/import är svagt
+
+Slutsats: bygg ett system där koden går igenom en tydlig normaliseringsport före gate. Låt typecheck bli kvitto, inte första riktiga skyddet.
+
+2. Uppdaterad mental modell av Sajtmaskin idag
+
+Kärnflödet i master är redan ganska rätt: FAS 1 är prompt/intent, FAS 2 är orchestration/codegen/finalize/persist, FAS 3 är preview/quality gate/deploy. Repo-dokumentationen beskriver flödet som prompt → orchestratePromptMessage → brief, sedan resolveOrchestrationBase → streamText → finalizeAndSaveVersion, sedan startPreviewSession → quality-gate → finalize-design → deploy. Viktigt: autofix, syntax-fix och verifier kör före done, alltså före preview som FAS 2, inte FAS 3.
+
+Nuvarande finalize-kedja är ungefär:
+
+url_expand
+→ autofix
+→ validate_syntax + warm tsc/eslint + LLM repair
+→ materialize_images
+→ verifier
+→ parse_merge_preflight
+→ persist
+
+Detta bekräftas i llm-pipeline.md, där pipeline-ordningen är URL-expand, autofix, validate_syntax med runLlmRepairGate, materialize_images, verifier, parse/merge/preflight och persist.
+
+F2/F3 är också rätt i princip: F2 design-preview kör typecheck, F3 integrations-build kör typecheck + build + lint. F2 är default för init/follow-up, medan F3 triggas explicit via finalize-design, och tier-3 SDKs stripas i F2 men krävs i F3.
+
+Det som är fel är inte arkitekturen i stort. Det är repair-lagret.
+
+3. Den tydliga målbilden
+
+Jag skulle låsa målbilden till sex kontrakt:
+
+IntentContract
+→ GenerationContract
+→ NormalizeContract
+→ RepairContract
+→ RenderContract
+→ ReleaseContract
+Kontrakt	Svenskt namn	Ansvar
+IntentContract (avsiktskontrakt)	Vad ska byggas?	init/follow-up, scaffold, variant, routes, dossiers
+GenerationContract (genereringskontrakt)	Hur ska modellen skriva?	fullständiga filer, inga diff-snuttar
+NormalizeContract (normaliseringskontrakt)	Gör output körbar mekaniskt	imports, deps, use client, React-dedupe
+RepairContract (reparationskontrakt)	En enda LLM-repair-port	syntax, imports, coherence efter mekaniska pass
+RenderContract (renderkontrakt)	F2	preview bootar, sidan renderar, ingen fatal crash
+ReleaseContract (releasekontrakt)	F3	typecheck + build + lint + integration/env checks
+
+Repo-målbilden går redan åt detta håll: världsklassflödet ska ha fem single sources of truth, inklusive en enda sanning för repair-kontraktet och tydlig skillnad mellan F2 och F3. Den beskriver också exakt målformen för repair: mekaniska buckets internt, men en enda extern RepairGate (samlad reparationsport).
+
+4. Vad ska tas bort?
+Sak	Beslut	Kommentar
+F2 hård build/lint	Ta bort / håll borta	F2 ska visa design, inte release-certifiera
+F2 auto-repair på safe type errors	Ta bort	Safe type errors ska vara advisory
+Flera runLlmFixer callsites (anropsplatser)	Slå ihop	En RepairGate, inte många små vägar
+Partial-file repair (delfilsreparation)	Fasa ut	Modellerna ska skriva hela filer; diff-lagning skapar edge cases
+Regex-importkirurgi	Begränsa hårt	Import-fixar måste vara AST-/parser-säkra där möjligt
+Heavy-load ⇒ skip verifier	Vänd policy	Heavy-load betyder risk, inte “hoppa över kontroll”
+Lint i F2-gate	Inte nu	Ger fler röda utan att höja preview-kvalitet mycket
+Product postcheck som hård gate	Inte ännu	Behåll advisory tills signalen är stabil
+
+Det enda jag skulle “ta bort” aggressivt är alltså inte kontroller, utan dubblerad repair och sena, farliga mutationer.
+
+5. Vad ska behållas?
+Sak	Beslut	Varför
+F2/F3 split	Behåll	Detta är rätt produktmodell
+F2 typecheck advisory	Behåll	Men bara för safe diagnostics
+Render-risk TS-koder som hard fail	Behåll	TS2304/TS2300/TS2307/TS2440 kan krascha runtime
+Promote guard	Behåll	Skyddar mot false-green
+FollowUpContract	Behåll/stärk	Follow-up ska vara delta, inte ny init
+Dossier/capability-system	Behåll	Rätt struktur, men mät bättre
+Mekanisk autofix	Behåll	Men dela i safe/risky classes
+
+F2 render-first är redan kodmässigt införd: F2 typecheck-only kan promotas som advisory/degraded i stället för att faila hårt. Quality-gate-routen gör detta explicit: F2 typecheck-only blir advisory och ska inte auto-repairas, men F3 och build/lint förblir hårda.
+
+Samtidigt är false-green-skyddet korrekt: render-risk TS-koder som TS2300, TS2304, TS2307 och TS2440 är inte advisory-safe.
+
+6. Den stora policyändringen: fixCount mäter fel sak
+
+Din statistik visar att heavy autofix ofta betyder normalflöde, särskilt landing-page/3D/follow-up. Därför är detta fel:
+
+många mekaniska fixar → verifier skippas
+
+Rätt policy:
+
+många mekaniska fixar → högre risk → kör rätt verifiering
+
+Ny policy:
+
+Fix-typ	Risk	Ska påverka verifier?
+use client (client-komponent-markering)	Låg	Nej
+safe import add	Låg/medium	Bara tsc-smoke
+React import dedupe	Låg	Nej
+JSX tag mutation	Hög	Ja, parser + verifier
+cross-file stub	Hög	Ja, render-smoke
+merge rewrite	Hög	Ja, parser + tsc
+dep version bump	Medium/hög	Ja, build i F3
+
+Byt från “fixCount > 5” till “riskScore (riskpoäng) per fixer”.
+
+Exempel:
+
+safeFixCount = 24
+riskyFixCount = 0
+→ verifier kan skippas i F2
+
+safeFixCount = 3
+riskyFixCount = 1 cross-file stub
+→ verifier måste köras
+7. P0: import-normalisering före gate
+
+Det största konkreta felet är att systemet redan har logik för vissa TS2304/importproblem, men de kommer för sent. Din export pekar ut Badge, Button, Reveal, Link, LucideIcon, toast/createRouteMatcher. Det ska inte lösas efter gate. Det ska lösas i NormalizeContract (normaliseringskontraktet).
+
+Ny importkedja
+collectUsedSymbols
+→ classifySymbols
+→ resolveKnownImports
+→ applyImports
+→ consolidateSameModuleImports
+→ validateNoDuplicateBindings
+→ warmTscTargeted
+Steg	Vad
+collectUsedSymbols (samla använda symboler)	Hitta JSX-komponenter och identifierare
+classifySymbols (klassificera symboler)	shadcn, lucide, next/link, sonner, lokala komponenter
+resolveKnownImports (lös kända imports)	Badge → "@/components/ui/badge", Link → "next/link"
+applyImports (lägg imports)	En enda importmutator
+consolidateSameModuleImports (slå ihop samma modul)	Stoppar dubbel React-import
+validateNoDuplicateBindings (validera dubbletter)	Stoppar TS2300 före gate
+warmTscTargeted (snabb tsc på ändrade filer)	Kvitto innan preview
+
+Viktig regel: ingen annan fixer får själv skriva imports direkt. Den ska lämna en ImportIntent (importavsikt) till ImportNormalizer.
+
+8. P0: en enda repair-gate
+
+Nuvarande problem är att repair sker i flera semantiska nivåer: syntax-fixer, verifier-fixer, server-repair, manual repair, partial-file repair. Även om RepairLedger finns, är mental modell fortfarande splittrad.
+
+Mål:
+
+MechanicalNormalize
+→ DiagnosticsBundle
+→ RepairGate
+→ Re-normalize
+→ Re-check
+Bucket	Exempel	Mekaniskt först	LLM sen?
+imports/assets	TS2304, TS2300, TS2440	Ja	Bara om kvar
+syntax/schema	parse error, unterminated string	Ja	Ja
+coherence	route mismatch, missing page, 3D mismatch	Delvis	Ja
+runtime	preview crash, invalid element type	Delvis	Ja
+F3 build	env, SDK, Next build	Delvis	Ja, strict
+
+Repo-målbilden säger redan att Single repair gate är ett kvarvarande gap: idag finns flera callsites, målet är en RepairGate med tre interna buckets.
+
+9. Ska LLM-fixarna bli fler?
+
+Nej, inte som standard.
+
+Fråga	Mitt svar
+Fler LLM-fixare?	Nej
+Parallella LLM-fixare?	Bara som fallback vid dyra blockerare
+Mer tokens?	Ja, men bara för RepairGate när diagnostics är komplett
+Längre tid?	Ja för F3, nej för vanlig F2
+Fler pass?	Inte generellt; max 2–3 med bättre target
+Ska LLM få mer kontext?	Ja: tsc-output + changed files + import graph + prior failed patch
+
+Det viktiga är inte “mer LLM”, utan rätt mål. Din data visar att repair-LLM ofta tror att det är klart när syntax är ren, men gaten mäter tsc. Då spelar mer tokens liten roll.
+
+Ny regel:
+
+Repair success = samma gate som failade måste passera
+Ursprungligt fel	Repair måste verifieras mot
+parse/esbuild	parser + esbuild
+TS2304/TS2300	targeted tsc
+preview runtime	render-smoke
+F2 advisory-safe type	ingen repair
+F3 build	typecheck + build + lint
+verifier blocking	verifier finding closed + promote guard
+10. F2/F3: den slutliga linjen
+Område	F2 Design Preview	F3 Integration Build
+Syfte	Visa design snabbt	Release/build-kvalitet
+Trigger	init/follow-up	explicit finalize-design
+Typecheck	advisory om safe	hard
+TS2304/TS2300/TS2307/TS2440	hard	hard
+Build	nej	hard
+Lint	nej	hard
+Tier-3 SDK	mock/placeholder	riktiga env keys
+Product postcheck	advisory	kan bli hard senare
+Repair	bara blocker/render-risk	strikt
+
+Quality-gate-routen tvingar dessutom F3 server-side: även om klienten postar F2-checks så ersätts checks med full INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS när lifecycle_stage === "integrations". Det är exakt rätt. Behåll.
+
+11. Follow-up: stärk, men bygg inte om
+
+Follow-up ska inte behandlas som init. Nuvarande docs säger att follow-up använder generationMode: "followUp", intent-classifier, snapshot-brief, frysta scaffold/variant/routes och continuity-wrapper. FollowUpContract innehåller baseVersionId, snapshotBrief, scaffoldId, variantId, routePlan, capabilities, qualityTarget och previewSessionId; freeze-funktionerna låser scaffold, variant, routes och capability floor.
+
+Detta är bra.
+
+Det som saknas är inte mer planning. Det som saknas är:
+
+Sak	Varför
+Import graph från föregående version	Hindrar Badge/Button/Link-missar
+Component registry per version	Vet vilka egna komponenter som faktiskt emitterats
+Delta-risk-score	“Liten copy edit” vs “3D/JSX/dep-risk”
+Restore/preview resync	Stoppar trasig preview efter återställning
+Base-aware repair	Kasta repair om base ändrats
+12. Term-komprimering: använd bara dessa ord
+
+Du har rätt i att orden blivit en djungel. Jag skulle standardisera till detta:
+
+Term	Betyder	Ersätter/absorberar
+Normalize (normalisera)	mekanisk kodstädning före LLM	autofix, pre-fix, import-fix
+RepairGate (reparationsport)	enda LLM-repair-vägen	syntax-fixer, verifier-fixer, server-repair
+RenderGate (renderport)	F2: boot/render/no fatal	quality gate i designläge
+ReleaseGate (releaseport)	F3: typecheck/build/lint/env	build gate, deploy readiness
+Advisory (varning)	synligt men ej blockerande	warnings, soft fail
+Blocker (stoppfel)	stoppar promotion/preview	hard fail
+CapabilitySmoke (capability-test)	3D/auth/payment-specifik smoke	product postcheck, integration smoke
+
+Förbjud i produkttext: “verify lane”, “server verify”, “repair lane”, “quality gate”, “postcheck” som användarbegrepp.
+Tillåt i kod: men mappa dem till ovanstående.
+
+13. Prioriterad roadmap
+P0 — gör direkt
+Åtgärd	Effekt
+Flytta TS2304-kända imports till finalize-normalisering	Mycket hög
+Samla all importskrivning i ImportNormalizer	Mycket hög
+Kör React/same-module dedupe efter varje import-injektion	Hög
+Byt fixCount > 5 mot riskScore	Hög
+RepairGate får alltid tsc-output när tsc failade	Hög
+Stoppa auto-repair för F2 advisory-safe type errors	Medium/hög
+Gör TS2304/TS2300/TS2307/TS2440 hard i F2	Redan rätt, behåll
+P1 — strukturellt
+Åtgärd	Effekt
+Konsolidera repair-vägar till en RepairGate	Mycket hög
+Fasa ut partial-file repair	Hög
+Component registry per version	Hög
+Dossier-val till telemetry	Medium/hög
+3D/WebGL render smoke vid needs3D	Medium/hög
+Product postcheck som advisory med bättre taxonomi	Medium
+P2 — mätning och kvalitet
+Åtgärd	Effekt
+Persist deploy_result	Medium
+Persist before/after diagnostics per fixer	Hög för debugging
+Repair outcome-taxonomi	Medium
+RAG-lärande först efter mer data	Senare
+Eval-set för 20 kända failure-prompts	Hög
+14. Förväntad effekt om du gör rätt P0
+Mätvärde	Nu	Rimligt mål efter P0
+Quality gate pass	84%	90–93%
+Preview OK	95%	96–98%
+Typecheck first failures	99% av gate-fails	40–60%
+Importrelaterade TS-fel	78–84%	20–35%
+Server-repair success	1/28	25–40% av verkliga repair-fall
+Verifier skipped	69%	35–50%, men riskbaserat
+Failed versions	38%	15–25%
+
+Inte genom “mer LLM”, utan genom att sluta skapa egna importfel.
+
+15. Cursor-prompt: ge denna till agenten
+Du arbetar i Jakeminator123/sajtmaskin på master.
+
+Mål:
+Förenkla Sajtmaskins LLM-flow utan att sänka säkerhet. Problemet är inte för få kontroller, utan för många överlappande repair-vägar och sen/farlig import-kirurgi.
+
+Målarkitektur:
+IntentContract → GenerationContract → NormalizeContract → RepairContract → RenderContract → ReleaseContract
+
+Definitioner:
+- NormalizeContract = mekaniska fixar före LLM: imports, deps, use-client, React/same-module dedupe.
+- RepairContract = en enda LLM-repair-port efter diagnostics.
+- RenderContract = F2: preview bootar, sidan renderar, ingen fatal runtime.
+- ReleaseContract = F3: typecheck + build + lint + integration/env checks.
+
+P0-uppgifter:
+1. Bygg eller konsolidera en `ImportNormalizer` som är enda vägen för importskrivning.
+2. Flytta kända TS2304-importfixar till finalize-normalisering före quality gate.
+3. Lägg same-module/React-dedupe efter varje import-injektion, inklusive repair-lanen.
+4. Inför `riskScore` per fixer i stället för bara `fixCount > 5`.
+5. Ändra policy: heavy safe autofix får inte automatiskt skippa verifier; risky fix ska trigga verifier.
+6. RepairGate måste verifiera mot samma signal som failade: tsc-fel kräver tsc-pass, build-fel kräver build-pass.
+7. Lägg inte till nya `runLlmFixer` callsites. Samla, flytta eller wrap:a befintliga.
+8. F2 safe typecheck-fel får vara advisory. Render-risk-koder som TS2304, TS2300, TS2307, TS2440 ska vara hard.
+9. F3 ska alltid vara strict: typecheck + build + lint + readiness/env.
+10. Lägg telemetry: before/after diagnostics, fixer-risk, dossier-val, repair outcome, gate-origin.
+
+Stop-regler:
+- Ta inte bort F3-strikthet.
+- Ta inte bort promote guard.
+- Gör inte lint hard i F2.
+- Bygg inte en fjärde repair-lane.
+- Ingen ny regex-importkirurgi utan parser/tsc-kvitto.
+16. Min slutrekommendation
+
+Sätt detta som produktlinje:
+
+F2 ska vara snabb, render-first och ärlig med advisory.
+F3 ska vara långsammare, strict och release-säker.
+All import/React/deps-normalisering ska ske före gate.
+All LLM-repair ska gå genom en port.
+Ingen kontroll ska både laga, verifiera och promota.
+
+Den nuvarande master-riktningen är bra: F2 render-first är infört via PR #345, senaste PR:erna adresserar preview-host, Badge/import-fel, warm-tsc-observability och JSX false positives.
+
+Men det stora strukturella steget återstår: en RepairGate + en ImportNormalizer.
+
+Säkerhet: 91%. Jag är mycket säker på huvudlinjen och P0/P1-prioriteringen. Lägre säkerhet på exakta effektprocenter, eftersom din 14-dagarsstatistik blandar perioden före och efter F2 render-first-bytet 2026-07-02."
+
+
+---
+
+
+Jag: "Hejsan igen. Jag har nu hört efter med GPT i Pro Mode som har insyn i GitHub. Den ligger lite efter eftersom jag har försökt att rengöra reposit. Därför har jag gjort en liten appendix i slutet av en konversation som jag kommer bifoga. Konversationen ligger i en mapp som också innehåller de historiska HTML-dokument som canvasdokumenten egentligen är. Jag skulle vilja att du tittar igenom förslagen som GPT-agenten föreslår för att få ordning på allt som har med LLM-flödet att göra när det gäller de olika kontrollinstanserna. 
+
+Utifrån det ska din uppgift vara att skriva en plan. Planen ska vara ett flödesschema i nivå 1. I nivå 2 ska flödesschemat delas in i olika dokument, kanske två till tio dokument. Jag har ingen aning om hur många det blir, men ungefär så mycket som en agent skulle kunna klara av i ett plan mode. Sen ska du skriva prompts till respektive etapp i dessa nivå 2. Vi ska sedan granska tillsammans, och framförallt du, hur implementeringen av de byggande agenterna går till, baserat på GPT-agentens riktning. Det är viktigt att varje etapp inkluderar en del för att rensa, städa och dokumentera, så att den sopar framför sin egen dörr. Om ett schema ändras måste det tidigare schemat tas bort. Om ett nytt schema introduceras, ska inget mer göras. Men om en hel kontrollinstans tas bort, måste även schemat tas bort för att undvika död kod eller onödiga filer."
+
+---
+
+GPT agent: "Ja. Efter att ha tittat på nyaste master-koden skulle jag lägga till ett appendix och justera min tidigare rekommendation lite.
+
+Jag gjorde också en bild/canvas här:
+
+Öppna canvas som PNG
+Öppna canvas som SVG
+
+Appendix till mitt förra svar
+1. Master är längre fram än statistiken visar
+
+Min tidigare rekommendation “bygg en ImportNormalizer” ska justeras till:
+
+Ni har redan början på en ImportNormalizer. Gör den till en tydlig gate, inte ännu en fixer.
+
+I master finns redan mycket bra:
+
+react-import-consolidated samlar React/default/hooks/next-navigation i en implementation.
+import-validator körs numera guarded, alltså revertas om den gör parsebar kod oparsebar.
+post-merge repairGeneratedFiles speglar många mekaniska fixar, inklusive guarded import-validator.
+Follow-up-kontraktet är mycket starkare än jag först beskrev: scaffold, variant, routes och capabilities fryses/ärvs via followUpContract.
+
+Så appendix-raden blir: bygg inte nytt lager från noll. Promota befintliga importfixar till en kanonisk ImportNormalizeGate.
+
+2. P0 är fortfarande: flytta diagnostic import repair tidigare
+
+Master har redan en mycket bra runDeterministicImportRepair (diagnostikstyrd import-repair). Den hanterar TS2304/TS2552, TS1361, TS2440 och TS2300 före LLM i server-repair.
+
+Men den ligger fortfarande för sent: server repair efter gate.
+
+I warm-tsc finns redan tsc-diagnostik, men där går flödet direkt till runLlmRepairGate när tsc failar.
+
+Ny P0-formulering:
+
+warm-tsc fail
+→ runDeterministicImportRepair
+→ runAutoFix
+→ warm-tsc igen
+→ bara om kvar: runLlmRepairGate
+
+Det här är den viktigaste ändringen. Det tar TS2304/TS2300-klassen före quality gate, inte efter.
+
+3. Heavy autofix skippar fortfarande verifier
+
+Det här är den största kvarvarande policyrisken i master.
+
+I fast-path.ts finns fortfarande:
+
+autoFixHeavyLoad && verifierPolicy.run
+→ verifierSkippedByHeavyLoad
+
+och verifier körs då inte.
+
+Jag skulle ändra detta till:
+
+Nu	Bör bli
+fixCount > 5 ⇒ skip verifier	riskScore styr verifier
+många safe fixar ⇒ heavy	många safe fixar är OK
+risky fixer ⇒ kanske skip	risky fixer ⇒ verifier måste köras
+
+Exempel:
+
+24 safe import/use-client-fixar
+→ verifier kan skippas i F2
+
+1 merge rewrite eller jsx/tagg-fix
+→ verifier måste köras
+4. RepairGate är inte helt samlad ännu
+
+Master har runLlmRepairGate och RepairLedger, vilket är bra. RepairLedger dedupar på scopeId, chatId, content hash, diagnostics fingerprint och required files.
+
+Men server-repair använder fortfarande direkt runLlmFixer, inte runLlmRepairGate. Själva loopens LLM-pass kör också runLlmFixer direkt.
+
+Appendix-beslut: min tidigare “en enda RepairGate” gäller fortfarande, men mer exakt:
+
+validateAndFix: nästan där
+server-repair-loop: måste in under RepairGate
+manual repair: måste använda samma gate
+post-repair verify: måste verifiera samma signal som failade
+5. Liten koddetalj jag skulle fixa
+
+validateAndFix tar emot repairScopeId, men när runWarmTscPass och runWarmEslintPass anropas verkar repairScopeId inte trådas vidare i flera brancher. Exempel: clean syntax → warm-tsc-anropet skickar repairLedger, men inte repairScopeId. Samma sak syns efter LLM syntax-fix.
+
+Eftersom runLlmRepairGate defaultar scopeId till chatId om inget skickas, kan dedupe bli grövre än tänkt.
+
+Fix: skicka alltid:
+
+repairScopeId: opts.repairScopeId
+
+till warm-tsc/warm-eslint-pass.
+
+Min uppdaterade målbild
+Init
+Ny prompt
+→ init entry
+→ brief / simple path
+→ scaffold + variant
+→ orchestration
+→ codegen
+→ URL-expand
+→ mechanical normalize
+→ syntax + warm-tsc
+→ deterministic import repair
+→ LLM RepairGate bara om kvar
+→ verifier/preflight
+→ persist
+→ F2 RenderGate
+→ preview/promote
+Follow-up
+Ny follow-up
+→ hämta base version + previousFiles
+→ stale-base/versionless gate
+→ intent: neutral / redesign / capability / QA
+→ FollowUpContract
+→ fryst scaffold/variant/routes/capability floor
+→ codegen delta
+→ samma normalize/repair/finalize
+→ F2 RenderGate eller F3 ReleaseGate
+→ ny version/promote
+Enkel karta
+                    ┌──────────────────────┐
+                    │  USER MESSAGE         │
+                    └──────────┬───────────┘
+                               │
+        ┌──────────────────────┴──────────────────────┐
+        │                                             │
+        ▼                                             ▼
+┌─────────────────┐                         ┌─────────────────┐
+│ INIT             │                         │ FOLLOW-UP        │
+│ ny graph         │                         │ delta på graph   │
+└───────┬─────────┘                         └───────┬─────────┘
+        │                                           │
+        ▼                                           ▼
+┌─────────────────┐                         ┌─────────────────┐
+│ Brief/scaffold   │                         │ Base + snapshot  │
+│ variant/routes   │                         │ previousFiles    │
+└───────┬─────────┘                         └───────┬─────────┘
+        │                                           │
+        ▼                                           ▼
+┌─────────────────┐                         ┌─────────────────┐
+│ Orchestration    │                         │ FollowUpContract│
+│ BuildSpec/F2     │                         │ freeze/floor     │
+└───────┬─────────┘                         └───────┬─────────┘
+        │                                           │
+        └──────────────────────┬────────────────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │ CODEGEN              │
+                    │ fullständiga filer   │
+                    └──────────┬───────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │ NormalizeGate        │
+                    │ imports/deps/client  │
+                    └──────────┬───────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │ RepairGate           │
+                    │ bara om diagnostics  │
+                    │ finns kvar           │
+                    └──────────┬───────────┘
+                               ▼
+              ┌────────────────┴────────────────┐
+              ▼                                 ▼
+     ┌─────────────────┐               ┌─────────────────┐
+     │ F2 RenderGate    │               │ F3 ReleaseGate   │
+     │ preview/render   │               │ typecheck/build  │
+     │ advisory ok      │               │ lint/env strict  │
+     └─────────────────┘               └─────────────────┘
+Kort slutappendix
+
+Jag skulle alltså inte ändra huvudlinjen, men jag skulle precisera den:
+
+Punkt	Uppdaterad rekommendation
+ImportNormalizer	Finns delvis redan. Gör den till ImportNormalizeGate.
+TS2304-fixer	Finns redan. Flytta tidigare: warm-tsc före LLM.
+RepairGate	Finns delvis. Server-repair ska också gå via den.
+Heavy autofix	Ska inte skippa verifier per automatik. Byt till risk-score.
+Follow-up	Är starkare i master än i min första text. Behåll och bygg vidare.
+
+Säkerhet: 93%. Kodläsningen stärker huvudslutsatsen, men gör rekommendationen mer precis: mindre “bygg nytt”, mer “flytta rätt logik tidigare och samla gates”."

@@ -6,11 +6,15 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ---
 
+## Aktiv drivlinje: Kontrollflöde-konsolidering (start 2026-07-02)
+
+Färre, tidigare, mätbara kontroller i LLM-flödet: import-normalisering uppströms, riskScore i stället för `fixCount>5`, en repair-port (RepairGate/L1), preview-resync vid restore, terminologi + mätning. 7 faser i 4 vågor, en PR per fas → [`kontrollflode/00-master-plan.md`](kontrollflode/00-master-plan.md). Underlag: `kontrollflödesmapp/` (prod-statistik 14 d + coach-analys, kodverifierad 2026-07-02).
+
 ## Status: Grandmaster-plan AVKLARAD (arkiverad 2026-06-22)
 
 Stabiliserings-/kontrakts-/städplanen (8 områden nivå 1–3 + bug-swarm-drive) är **levererad och arkiverad** → [`../avklarat/grandmaster/`](../avklarat/grandmaster/) (master-plan, områdesdokument, aktiviteter, `_backlog-deferrad.md`). Closing-handoff + loggbok: git-historik. Tag/backup: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
 
-**Ingen aktiv drivlinje just nu.** Nästa fas = pivot "härda → bygga" mot [`../../architecture/README.md`](../../architecture/README.md). Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
 
 ## Kvarvarande efter grandmaster (live backlog)
 
