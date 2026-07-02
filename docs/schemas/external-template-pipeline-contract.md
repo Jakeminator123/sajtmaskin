@@ -41,12 +41,18 @@ Mutable pipeline data lives under:
 - `data/external-template-pipeline/reference-library/`
 - `data/external-template-pipeline/reports/`
 
-Runtime/build-time generated artifacts consumed by code live under:
+Historical runtime/build-time generated artifacts lived under:
 
 - `src/lib/gen/template-library/template-library.generated.json`
 - `src/lib/gen/template-library/template-library-embeddings.json`
 - `src/lib/gen/scaffolds/scaffold-research.generated.json`
 - `src/lib/gen/scaffolds/scaffold-embeddings.json`
+
+The `src/lib/gen/template-library/*` files and the old
+`scripts/template-library/*` rebuild path were removed in the 2026-04-17
+cleanup. Do not recreate these paths for current work; current runtime guidance
+uses `src/lib/gen/dossiers/`, `data/dossiers/{hard|soft}/`, and scaffold
+manifests under `src/lib/gen/scaffolds/`.
 
 ## Canonical command flow
 
@@ -137,16 +143,21 @@ Important fields:
 - Embedding-vs-keyword retrieval strategy is an intentional search policy, not a hidden path fallback.
 - `SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=false` can relax these guards temporarily, but the default policy is strict outside tests.
 
-## Production boundary
+## Historical production boundary
 
-Production/runtime code should rely on the generated artifacts under `src/lib/gen/`
-and internal scaffold manifests under `src/lib/gen/scaffolds/`.
+At the time of this legacy pipeline, production/runtime code relied on generated
+artifacts under `src/lib/gen/` and internal scaffold manifests under
+`src/lib/gen/scaffolds/`.
 
-The runtime does **not** read dossiers directly. Dossiers are first condensed
-into:
+That old runtime did **not** read dossiers directly. Dossiers were first
+condensed into:
 
 - `src/lib/gen/template-library/template-library.generated.json`
 - `src/lib/gen/scaffolds/scaffold-research.generated.json`
+
+Current code no longer has the generated `template-library` catalog. Active
+dossier architecture is documented in
+[`docs/architecture/dossier-system.md`](../architecture/dossier-system.md).
 
 It must **not** depend on:
 

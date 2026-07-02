@@ -182,9 +182,8 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
 
 - Add ONLY packages the dossier source files import. Do not list `react` or
   `next` (they are always present).
-- Prefer libraries already in the project (search [`package.json` of any
-  recent generated version](../../scripts/debug/dump-version-file.ts) before
-  adding a new one).
+- Prefer libraries already in the project (check the `package.json` of a
+  recent generated version before adding a new one).
 - Use bare names for paraphrasable deps; pin with `^x.y.z` only when API
   surface is sensitive (e.g. `stripe@^14.0.0`).
 

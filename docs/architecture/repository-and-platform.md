@@ -27,7 +27,7 @@ Detalj: [`.cursor/rules/repo-router.mdc`](../../.cursor/rules/repo-router.mdc) (
 
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
 - Äldre helperreferenser under `tools/` (t.ex. `doc-browser`) är historiska; nuvarande repo har ingen aktiv `tools/`-mapp i trädet.
-- **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
+- **Dossier-/scaffold-skript** ligger under `scripts/dossiers/`, `scripts/scaffolds/`, `scripts/embeddings/` och `scripts/v0-templates/`. Den gamla `scripts/template-library/`-ytan finns inte längre i trädet — äldre recept finns bara i git-historiken. Se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 - **Prompt-dump-status** delas via `backoffice/shared.py`.
@@ -35,15 +35,15 @@ Detalj: [`.cursor/rules/repo-router.mdc`](../../.cursor/rules/repo-router.mdc) (
 ### Tre separata mallspår
 
 1. **`v0-mallar` / builderns Mallar-tab**
-   - källa: `templates_v0/*`
-   - genererade runtimefiler: `src/lib/templates/*`
+   - källa/runtimekatalog: `src/lib/templates/*`
+   - sync/refresh-skript: `scripts/v0-templates/*`
    - används i builderns mallkatalog och mallsök
    - embeddings: `src/lib/templates/template-embeddings.json`
 
 2. **Vercel-mallar / externa referenser**
    - dossier-system v2: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) och `data/dossiers/_index/capability-map.json`
    - input till AI-kuration: `data/template-references/{repos,_metadata}/` (gitignored, klonade Vercel-template-repos)
-   - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
+   - inga runtime-embeddings; urvalet är capability-drivet via dossier-manifesten
 
 3. **Scaffolds**
    - källa: interna `manifest.ts`-filer under `src/lib/gen/scaffolds/*`
@@ -60,7 +60,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 1. **API-versionering** — `/api/v0/...` är Sajtmaskins HTTP-API v0, inte leverantören V0.
 2. **Naming debt** — symboler som `v0ChatId`, `v0EnrichmentContext`, `v0Stream.ts` m.fl. kvarstår historiskt; interna namn rensas löpande, payload-/DB-nycklar bryts inte utan migrationsplan.
-3. **Template-källa** — builderns `v0-mallar` läser genererad katalog i `src/lib/templates/`; `scripts/v0-templates/sync-v0-templates.mjs` läser enbart lokala `templates_v0/out`-manifest (ingen online-hämtning). `templates_v0/` innehåller lokalt nedladdade ZIP-arkiv, bilder och metadata för alla mallar. När en lokal ZIP finns i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från repo-filerna i arkivet; detta är separat från Vercel-mallar / externa referenser.
+3. **Template-källa** — builderns `v0-mallar` läser den committade katalogen i `src/lib/templates/`. Sync-/refresh-logik ligger i `scripts/v0-templates/`; det finns ingen aktiv `templates_v0/`-mapp i dagens träd. Detta är separat från Vercel-mallar / externa referenser.
 
 ## Vercel Templates / extern intake (legacy — borttagen)
 

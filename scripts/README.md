@@ -72,7 +72,7 @@ npm run shadcn:sync:write
 
 ## Tre separata spår
 
-1. **`v0-mallar`** — Builderns Mallar-tab. Källa: `templates_v0/*` eller Blob-manifest från `downloads/<kategori>/<slug>__<id>/`. Runtimefiler: `src/lib/templates/*`.
+1. **`v0-mallar`** — Builderns Mallar-tab. Runtimefiler: `src/lib/templates/*`. Källor vid manuell refresh är antingen en valfri lokal, gitignored `templates_v0/`-intake eller ett Blob-manifest från en redan nedladdad `downloads/<kategori>/<slug>__<id>/`-struktur.
 
 2. **Dossiers (legoklossar)** — Återanvändbara byggblock injicerade i codegen-prompten. Källa: `data/dossiers/{hard|soft}/*/manifest.json`. Curation: `npm run dossiers:curate` från en klonad referens i `data/template-references/repos/`. Schema: `docs/schemas/strict/dossier.schema.json`. Arkitektur: `docs/architecture/dossier-system.md`.
 
@@ -91,7 +91,7 @@ npm run scaffolds:variant-patterns:dry
 
 Den interna runtime-scaffold-registryn ligger i `src/lib/gen/scaffolds/`.
 
-## Lokala v0-mallar (`templates_v0/`)
+## Lokala v0-mallar (`templates_v0/`, valfri intake)
 
 Detta spår är till för **builderns Mallar-tab / `v0-mallar`**, inte för `template-library`, Vercel-mallar eller scaffolds. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
 
@@ -100,7 +100,12 @@ Detta spår är till för **builderns Mallar-tab / `v0-mallar`**, inte för `tem
 
 ### Mappstruktur
 
-Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstruktur. Kort:
+`templates_v0/` är inte en committad repo-katalog. Den är en valfri, lokal
+intake som gamla Playwright-/v0-insamlare kan skriva till. Repo:t håller bara
+sync-/runtime-koden; de genererade runtime-artefakterna ligger i
+`src/lib/templates/*`.
+
+Förväntad lokal struktur när intake finns:
 
 - `templates_v0/scripts/` — Python-skript (Playwright) som skrapar v0.app interaktivt.
 - `templates_v0/out/` — Lokal manifestdata, metadata-JSON per mall, loggar (gitignorerat).
@@ -219,4 +224,3 @@ Nuvarande eval-checkar inkluderar också:
 ## Synk med `package.json`
 
 Alla `npm run …`-namn och deras exakta kommandon ligger i **rot [`package.json`](../package.json)** (`scripts`-fältet). Den här README:n är tematisk; vid avvikelse gäller `package.json`.
-

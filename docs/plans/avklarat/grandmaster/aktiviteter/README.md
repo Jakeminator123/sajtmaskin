@@ -2,7 +2,7 @@
 
 Just-in-time-aktiviteter (nivå 3) för de första körordnings-områdena. Varje fil är
 **byggar-agent-körbar** med smal `owner_files` (parallellt = distinkta filer,
-sekventiellt = `blocked_by`). Mall + livscykel: [`plan-lifecycle.mdc`](../../../../.cursor/rules/plan-lifecycle.mdc).
+sekventiellt = `blocked_by`). Mall + livscykel: [`plan-lifecycle.mdc`](../../../../../.cursor/rules/plan-lifecycle.mdc).
 
 | ID | Aktivitet | Område | blocked_by | Status |
 |---|---|---|---|---|
@@ -34,4 +34,4 @@ Yt-karta: [`llm-callsite-matrix.md`](../../../../architecture/llm-callsite-matri
 
 Körordning (master-plan §6): branch-hygien → **stabilitetstester (S\*)** → docs (D2) → kontrakt (C1/C2) → event-bus UI → FollowUpContract → false-green.
 
-**Städ-pass:** varje nivå-2-område avslutas med en scoped `Z-städ`-aktivitet (radera oanvänt, omorganisera områdets mappyta, konsolidera) — se master-plan §5 + [`plan-lifecycle.mdc`](../../../../.cursor/rules/plan-lifecycle.mdc). Skapas just-in-time per område.
+**Städ-pass:** varje nivå-2-område avslutas med en scoped `Z-städ`-aktivitet (radera oanvänt, omorganisera områdets mappyta, konsolidera) — se master-plan §5 + [`plan-lifecycle.mdc`](../../../../../.cursor/rules/plan-lifecycle.mdc). Skapas just-in-time per område.

@@ -12,7 +12,7 @@
 
 ```
 Användarprompt
-  → Prompt assist (polish / deep brief, direkt mot OpenAI/Anthropic)
+  → Deep Brief / kvarvarande prompt-assist-fallbacks (direkt mot OpenAI/Anthropic)
   → Orkestrering: scaffold, route-plan, kontrakt, systemprompt
   → Generering (build profile: fast / pro / max / codex m.fl.)
   → Post: URL-expansion, autofix, esbuild, filparsning, scaffold-merge

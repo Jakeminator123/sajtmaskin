@@ -61,7 +61,7 @@ Defaults från `config/ai_models/manifest.json` (env-overrides via `SAJTMASKIN_M
 | Workload | Default-modell | Env-nyckel |
 |----------|----------------|------------|
 | Prompt assist (Förbättra) | `openai/gpt-5.5` | `SAJTMASKIN_ASSIST_MODEL` |
-| Polish | `openai/gpt-5.3-codex` | `SAJTMASKIN_POLISH_MODEL` |
+| Polish (legacy/config) | `openai/gpt-5.3-codex` | `SAJTMASKIN_POLISH_MODEL` |
 | Deep Brief (`/api/ai/brief`) | `openai/gpt-5.5` | `SAJTMASKIN_BRIEF_MODEL` |
 | Server auto-brief (OpenAI) | `openai/gpt-5.5` | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI` |
 | Server auto-brief (Anthropic) | `anthropic/claude-opus-4.8` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |

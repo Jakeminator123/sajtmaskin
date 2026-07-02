@@ -1,6 +1,6 @@
 # Version-status state machine
 
-Denna fil dokumenterar DB-state-maskinen för `engine_versions` (`release_state`, `verification_state`) och vilken kod som skriver respektive state. Skrevs ursprungligen 2026-04-23 som del av showcase-bug-rotorsaksfixen — se [`docs/devlogs/2026-04-23-showcase-bug-rootfix.md`](../devlogs/2026-04-23-showcase-bug-rootfix.md).
+Denna fil dokumenterar DB-state-maskinen för `engine_versions` (`release_state`, `verification_state`) och vilken kod som skriver respektive state. Skrevs ursprungligen 2026-04-23 som del av showcase-bug-rotorsaksfixen (devloggen är borttagen; git-historiken är källan).
 
 ## States
 

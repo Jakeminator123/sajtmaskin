@@ -70,7 +70,7 @@ export function validateReferenceTemplateIds(
   const examples = missingRefs.slice(0, 6).join(", ");
   const more = missingRefs.length > 6 ? ` (+${missingRefs.length - 6} more)` : "";
   throw new Error(
-    `[scaffolds] scaffold-research.generated.json references template ids not present in template-library.generated.json: ${examples}${more}. Rebuild template-library artifacts.`,
+    `[scaffolds] scaffold-research.generated.json references template ids not present in the provided template resolver: ${examples}${more}. Rebuild or update the legacy scaffold research snapshot.`,
   );
 }
 
@@ -79,4 +79,3 @@ export function getScaffoldResearchOverrides(
 ): Pick<ScaffoldManifest, "qualityChecklist" | "research"> {
   return loadScaffoldResearch().scaffolds[scaffoldId] ?? {};
 }
-

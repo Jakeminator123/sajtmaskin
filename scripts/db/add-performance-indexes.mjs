@@ -27,8 +27,8 @@
  * `getChat()` (läser engine_messages WHERE chat_id = ?) gör då sequential
  * scans. Med dessa index blir samma query O(log N).
  *
- * Källa: docs/architecture/data-layer-overview.md §"Indexstrategi"
- *        lineage/2026-04-24-långbänk-databas-redis-observability.md
+ * Källa: docs/architecture/data-layer-overview.md §"Indexstrategi".
+ * Tidigare lineage-anteckning finns bara i git-historik.
  */
 import { Pool } from "pg";
 import { config } from "dotenv";

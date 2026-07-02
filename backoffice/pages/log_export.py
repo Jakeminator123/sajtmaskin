@@ -41,6 +41,9 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
     "telemetry": ("Telemetri (generation_telemetry)", "Scaffold, retry, autofix, preflight, quality gate, preview."),
     "errors": ("Fel/warnings (engine_version_error_logs)", "Per-version fel- och varningsrader."),
     "chats": ("Chattar (engine_chats)", "Chatt/projekt-metadata."),
+    "oc": ("OpenClaw-fynd (oc_debug_findings)", "Bug-hunt (Mode B): severity, build_result, repair_outcome."),
+    "ragevents": ("RAG-events (error_log_events)", "Durabel fault/fix-telemetri: fault, fix_text, result."),
+    "deploys": ("Deploys (deployments)", "Vercel-deploy per sajt: deployment/project-id, url, status."),
 }
 _DEFAULT_KINDS = ["prompts", "generations", "versions", "telemetry", "errors"]
 

@@ -8,8 +8,13 @@
  * Usage:
  *   node scripts/db/dump-logs.mjs --json \
  *     --env=.env.local \
- *     --kinds=prompts,generations,versions,telemetry,errors,chats \
+ *     --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys \
  *     --limit=50 [--chat=<chatId>]
+ *
+ * Kinds: prompts, generations, versions, telemetry, errors, chats,
+ *   oc        -> oc_debug_findings   (OpenClaw bug-hunt Mode B findings)
+ *   ragevents -> error_log_events    (durable fault/fix RAG telemetry)
+ *   deploys   -> deployments         (Vercel deploy row: ids + url + status)
  *
  * Env source: pass `--env=<path>` to choose which dotenv file to load. For
  * production logs, pull the prod env first:
@@ -118,6 +123,31 @@ const KIND_SPECS = {
     chatColumn: "id",
     columns: ["id", "title", "model", "scaffold_id", "project_id", "created_at", "updated_at"],
   },
+  oc: {
+    table: "oc_debug_findings",
+    chatColumn: "chat_id",
+    columns: [
+      "id", "run_id", "chat_id", "version_id", "scenario", "severity", "category",
+      "file", "line", "message", "build_result", "repair_outcome", "created_at",
+    ],
+  },
+  ragevents: {
+    table: "error_log_events",
+    chatColumn: "chat_id",
+    columns: [
+      "id", "phase", "subphase", "severity", "fault", "fault_text", "fix_text",
+      "model", "model_tier", "result", "chat_id", "version_id", "scaffold_id",
+      "generation_mode", "created_at",
+    ],
+  },
+  deploys: {
+    table: "deployments",
+    chatColumn: "chat_id",
+    columns: [
+      "id", "chat_id", "version_id", "vercel_deployment_id", "vercel_project_id",
+      "inspector_url", "url", "domain", "status", "created_at", "updated_at",
+    ],
+  },
 };
 
 const kinds = kindsArg.filter((k) => k in KIND_SPECS);
@@ -157,6 +187,7 @@ try {
   await client.connect();
   const data = {};
   const counts = {};
+  const skipped = {};
   for (const kind of kinds) {
     const spec = KIND_SPECS[kind];
     const cols = spec.columns.join(", ");
@@ -169,9 +200,18 @@ try {
       sql = `SELECT ${cols} FROM ${spec.table} ORDER BY created_at DESC LIMIT $1`;
       params = [limit];
     }
-    const res = await client.query(sql, params);
-    data[kind] = res.rows;
-    counts[kind] = res.rows.length;
+    // Per-kind resilience: a missing table (e.g. this kind not present in the
+    // target DB) or a bad column should skip that kind, not abort the whole
+    // dump. Matters for multi-kind pulls (e.g. /logg) that span optional tables.
+    try {
+      const res = await client.query(sql, params);
+      data[kind] = res.rows;
+      counts[kind] = res.rows.length;
+    } catch (kindErr) {
+      data[kind] = [];
+      counts[kind] = 0;
+      skipped[kind] = kindErr instanceof Error ? kindErr.message : String(kindErr);
+    }
   }
 
   const payload = {
@@ -184,12 +224,16 @@ try {
     chatId: chatId || null,
     kinds,
     counts,
+    skipped,
     data,
   };
   if (wantJson) process.stdout.write(JSON.stringify(payload));
   else {
     console.log(`Target ${targetLabel}${inspection.isProdLike ? " (PROD-LIKE)" : ""} — limit ${limit}`);
-    for (const kind of kinds) console.log(`  ${kind}: ${counts[kind]} rader`);
+    for (const kind of kinds) {
+      const note = skipped[kind] ? ` (skipped: ${skipped[kind]})` : "";
+      console.log(`  ${kind}: ${counts[kind]} rader${note}`);
+    }
   }
   process.exit(0);
 } catch (err) {

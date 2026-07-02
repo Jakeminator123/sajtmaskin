@@ -2,10 +2,18 @@
 
 Skrapar och laddar ner alla gratis community templates fran [v0.app](https://v0.app/templates) — inklusive ZIP-kod, metadata, forhandsbilder och detaljbilder.
 
-## Snabbstart
+## Status i detta repo
+
+Den har mappen ar en lokal test-/sync-yta for `templates:blob:sync`, inte den
+kanoniska runtime-katalogen. Appen laser den genererade katalogen i
+`src/lib/templates/*`. Om du har en separat v0-intake kan den ligga i
+`templates_v0/` i repo-root, men den katalogen ar gitignored och behover inte
+finnas i en normal checkout.
+
+## Snabbstart for separat v0-intake
 
 ```powershell
-cd C:\Users\jakem\Desktop\templates_v0
+cd <repo>\templates_v0
 pip install -r requirements.txt
 python -m playwright install chromium
 python scripts\v0_sync_templates.py

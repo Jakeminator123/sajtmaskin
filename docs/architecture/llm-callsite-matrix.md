@@ -30,7 +30,7 @@ Samma lane driver även preview-panelens **+/- sidhantering** (route-tabs): `rep
 
 ```
 config/ai_models/manifest.json
-  → src/lib/ai-models/load-manifest.ts        (Zod-parse, cache; perTier* finns i JSON men EJ i schemat → ignoreras)
+  → src/lib/ai-models/load-manifest.ts        (Zod-parse, cache; perTier* valideras men är declared-only)
   → buildProfiles → src/lib/models/catalog.ts  (env SAJTMASKIN_MODEL_* vinner)
   → phaseRouting → src/lib/models/phase-routing.ts  (resolvePhaseModel(tier, phase); "selected_build_model" = tierns build-modell)
   → src/lib/models/selection.ts                (request → tier)
@@ -97,7 +97,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 | **F2** | **Stale `baseVersionId` saknar gate i follow-up-strömmen.** Explicit `engineBaseVersionId` accepteras tyst (`version-manager.ts:82-107`; test `stream/route.test.ts:785-815`). `finalize-design` (F3) returnerar däremot 409 (`finalize-design/route.ts:126-143`). | agent E + asymmetri-koll | **Åtgärdad #166 (5-2):** stale-`baseVersionId` → 409 i follow-up-strömmen (speglar `finalize-design`); S1–S5 i CI | Område 5 (5-2) ✅ |
 | **F3** | **Åtgärdad i denna PR.** Död funktion `classifyFollowUpIntentWithLlmFallback` (`follow-up-clarification.ts`) borttagen — anropades aldrig i runtime; routes använder bara regex `classifyFollowUpIntent` (`chat-message-stream-post.ts`). Doc-drift som påstod LLM-fallback ≥80 ord rättad i `llm-chain-flowchart.md`. | agent A+B (grep: 0 runtime-callers) | Doc-drift + död kod (löst) | Z-städ / docs |
 | **F4** | **Åtgärdad i denna PR.** Finalize-runner emit:ar nu de tidigare dokumenterade bus-events: `version.autofix.result` (inkl. kompakt fixer-summary), `version.syntax.pass`, `version.saved` samt `version.degraded { kind: "verifier_skipped_heavy_load" }` när verifiern hoppades över p.g.a. tung mekanisk autofix. Live-fasen före persist visas fortsatt via SSE `progress.*`, eftersom `versionId` finns först när versionen sparats. | agent C | Observability-gap löst utan ny signalägare; builder-UI visar slutstegen i expanderbar Agentlogg/status | Område 6-svans ✅ |
-| **F5** | **Manifest↔kod-drift:** `perTier*` (briefing/repair/timeouts) finns i `manifest.json:273-337` men EJ i Zod-schemat (`load-manifest.ts`) → backoffice visar tier-värden som inte styr runtime. `deploy-assistant`-fasen har ingen runtime-konsument. Flera routes hårdkodar modeller förbi manifestet (se kluster D). `embeddingModels.templateLibrary` pekar på borttagen katalog. | agent D | Falsk bild i backoffice + manifest "single source" delvis osann | Z-städ / backlog |
+| **F5** | **Manifest↔runtime-status (delvis kvar):** `perTierTimeouts` / `perTierRepairPolicies` / `perTierBriefing` finns i manifestet och valideras av `load-manifest.ts`, men är **declared-only** enligt control-plane och påverkar inte runtime ännu (global `routeTimeouts` / `repairPolicies` / `briefing` gäller). `deploy-assistant`-fasen har ingen runtime-konsument. Flera routes ligger fortfarande utanför phase-routing eller använder workload-defaults (se kluster D). `embeddingModels.templateIndex` pekar nu på aktiv `src/lib/templates/template-embeddings-core.ts`; den gamla `templateLibrary`-nyckeln/katalogen är borta. | agent D + docs-audit 2026-07-02 | Manifestet är validerat, men "single source" betyder inte att varje deklarerad fragment är runtime-wired | Z-städ / backlog |
 
 ## Doc-drift mot befintliga kartor — rättad i 5-Z (2026-06-21)
 | Påstående (före) | Var | Kod-faktum | Status |
@@ -107,7 +107,7 @@ Kolumner: Fas · Syfte · Ägar-fil:rad · Route/trigger · Modellkälla · API-
 | `domain-inference.ts` under `src/lib/gen/` | (ingen kvarvarande doc-referens) | Ligger i `src/lib/builder/domain-inference.ts`; ingen aktuell doc hävdar gen-path | ✅ ej aktuell |
 | Follow-up = "ingen LLM" generellt | `llm-flow-end-to-end.md:18` | Vanlig follow-up = ingen LLM; `clear-redesign` kör delta-brief-LLM (når orchestrate sedan #169) | ✅ rättad |
 
-> **Kvarvarande kod-findings (backlog, ej docs):** F4 (4 odefinierade bus-emits) + F5 (manifest `perTier*` ej i Zod-schema + hårdkodade modeller i kluster D) + vestigial `scaffoldNomination`/`variantNomination`-typ & drift-kod i `orchestrate.ts`/`system-prompt/types.ts` (alltid `null` sedan schemat slutade emittera dem). Egna kod-pass; rör ej docs.
+> **Kvarvarande kod-findings (backlog, ej docs):** F5-runtime-wiring (`perTier*` är validerade men declared-only, vissa routes/workloads ligger utanför phase-routing) + vestigial `scaffoldNomination`/`variantNomination`-typ & drift-kod i `orchestrate.ts`/`system-prompt/types.ts` (alltid `null` sedan schemat slutade emittera dem). Egna kod-pass; rör ej docs.
 
 ## Föreslagen modul-karta (MÅLBILD — flytta ingen kod i denna fas)
 Aspirationell läsbar gruppering om/när koden konsolideras (små adapter/barrel-PR:er, aldrig stor flytt — jfr master-plan §8):

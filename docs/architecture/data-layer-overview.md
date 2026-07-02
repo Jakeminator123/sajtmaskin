@@ -3,9 +3,8 @@
 > **Skriven för icke-tekniska läsare.** Hur Sajtmaskin lagrar data, var saker
 > ligger, vad det kostar, och hur du själv kan kolla att allt är OK.
 >
-> Långbänk 2026-04-24 — se `lineage/2026-04-24-långbänk-databas-redis-observability.md`
-> för körlogg. Uppföljning samma dag (auto-update + röd knapp + bug-fix) i
-> `lineage/2026-04-24-langbank-perf-indexes-auto-och-knapp.md`.
+> Långbänk 2026-04-24. De gamla lineage-loggarna finns inte längre som filer i
+> trädet; använd git-historiken om du behöver den exakta körloggen.
 
 ## ⚠️ Läs detta först (om du är osäker på databaser)
 
@@ -278,4 +277,4 @@ leverantörsbyte ligger på dig.
 - `src/lib/data/redis.ts` — ioredis-klient + cache-funktioner
 - `src/lib/rateLimit.ts` — `@upstash/redis` HTTP-klient
 - `src/lib/redis-pubsub.ts` — pub/sub för deploy-status
-- `lineage/2026-04-24-långbänk-databas-redis-observability.md` — körlogg för denna runda
+- Git-historik för tidigare lineage-loggar från 2026-04-24

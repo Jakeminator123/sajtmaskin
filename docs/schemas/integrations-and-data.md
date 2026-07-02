@@ -2,7 +2,8 @@
 
 **Terminology:** Integration *types* in the builder UI are described in product
 docs and `.cursor/rules/terminology.mdc` where they overlap naming; this file
-focuses on **DB tables**, **validation**, and **template-library** shapes.
+focuses on **DB tables**, **validation**, and current template/dossier data
+surfaces.
 
 ## Scope
 
@@ -14,8 +15,9 @@ Primary code sources:
 - `src/lib/db/schema.ts`
 - `scripts/db/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
-- `src/lib/gen/template-library/types.ts`
-- `data/external-template-pipeline/reference-library/schema.template-manifest.json`
+- `src/lib/templates/template-data.ts`
+- `src/lib/gen/dossiers/types.ts`
+- `docs/schemas/strict/dossier.schema.json`
 
 ## Database
 
@@ -107,28 +109,28 @@ This file defines:
 - deployment identifier payload validation
 - attachment payload validation
 
-## External reference schema
+## Template and dossier data
 
-Curated external template data is documented by:
+Builder gallery templates (`v0-mallar`) are documented and loaded by:
 
-- `src/lib/gen/template-library/types.ts`
-- `data/external-template-pipeline/reference-library/schema.template-manifest.json`
+- `src/lib/templates/template-data.ts`
+- `src/lib/templates/templates.json`
+- `src/lib/templates/template-categories.json`
+- `src/lib/templates/template-blob-manifest.json` when Blob ZIP/media metadata
+  exists
 
-Important boundary:
+Dossier runtime guidance is documented and validated by:
 
-- `TemplateLibraryEntry` is the full runtime/generated TypeScript shape.
-- `schema.template-manifest.json` documents the per-dossier manifest and minimal
-  schema surface used in the curated reference library. It should not be treated
-  as a complete JSON schema for every field on `TemplateLibraryEntry`.
+- `src/lib/gen/dossiers/types.ts`
+- `data/dossiers/{hard|soft}/<id>/manifest.json`
+- `docs/schemas/strict/dossier.schema.json`
 
 Key concepts:
 
-- `TemplateLibraryEntry`
-- `TemplateLibraryCatalogFile`
-- `TemplateLibraryRepoInfo`
-- `TemplateLibrarySignals`
-- per-dossier `manifest.json` files in
-  `data/external-template-pipeline/reference-library/dossiers/*`
+- `Template` / `V0_CATEGORIES` for the builder gallery catalog
+- `DossierEntry`
+- `DossierSelectionResult`
+- per-dossier `manifest.json` files in `data/dossiers/{hard|soft}/*`
 
 ## Production boundary
 
