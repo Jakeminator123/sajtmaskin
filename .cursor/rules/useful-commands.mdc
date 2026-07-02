@@ -19,7 +19,7 @@ alwaysApply: false
 | `npm run backoffice` | starta Streamlit-backoffice |
 | `npm run scaffolds:validate` | validera scaffold-manifests |
 | `npm run dossiers:validate-all` | validera dossiers |
-| `npm run dossiers:capability-map:check` | capability-map i synk |
+| `npm run dossiers:capability-map:write` | regenerera capability-map (genererad vy, ej CI-tvingad) |
 | `npm run plans:archive` | dry-run planarkiv |
 | `npm run plans:archive:apply` | flytta klara planer |
 | `npm run env:status` | env-status |

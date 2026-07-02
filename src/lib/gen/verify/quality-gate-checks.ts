@@ -95,3 +95,74 @@ export function resolvePostRepairGateChecks(
   if (!buildOriginated) return DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
   return [...new Set<QualityGateCheck>([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS, "build"])];
 }
+
+/**
+ * tsc diagnostic codes that mean MODULE/EXPORT RESOLUTION is broken — the class
+ * of "type errors" that also breaks `next dev` at runtime (missing named export
+ * → ESM eval throw or `undefined` component → "Element type is invalid" → dead
+ * preview). These must NEVER be advisory-promoted: "renders despite type
+ * errors" only holds for semantic type mismatches (TS2322, TS2339, TS7006, …),
+ * not for unresolved symbols/modules. (Codex #345 P1 / Vercel Agent finding.)
+ */
+const RENDER_RISK_TS_CODES = new Set([
+  "TS1361", // 'X' cannot be used as a value because it was imported using 'import type'
+  "TS2300", // duplicate identifier
+  "TS2304", // cannot find name
+  "TS2305", // module has no exported member
+  "TS2307", // cannot find module
+  "TS2440", // import declaration conflicts with local declaration
+  "TS2552", // cannot find name, did you mean
+  "TS2613", // module has no default export
+  "TS2614", // module has no exported member (did you mean to use 'import X from' instead?)
+]);
+
+const TS_CODE_RE = /\bTS(\d{4,5})\b/g;
+
+/**
+ * True when a failing typecheck output contains ONLY advisory-safe diagnostics
+ * (no module/export-resolution codes, and at least one parseable TS code).
+ * Fail-closed: unparseable output (no TS codes found) is NOT advisory-safe —
+ * we cannot prove the failure class, so the gate stays hard as before.
+ */
+export function isAdvisorySafeTypecheckOutput(output: string): boolean {
+  const codes = [...output.matchAll(TS_CODE_RE)].map((match) => `TS${match[1]}`);
+  if (codes.length === 0) return false;
+  return codes.every((code) => !RENDER_RISK_TS_CODES.has(code));
+}
+
+/**
+ * F2 render-first (#330): should a FAILED quality gate be treated as an
+ * ADVISORY (promote, no auto-repair) instead of a hard failure?
+ *
+ * True only for a design-preview (F2) version whose ONLY failing check is
+ * `typecheck` AND whose diagnostics are advisory-safe — `next dev` renders JS
+ * despite semantic type errors (TS2322 prop mismatch, TS2339, implicit any, …),
+ * so the live preview is usable and the type error is advisory, not a blocker.
+ *
+ * SINGLE SOURCE OF TRUTH shared by the client-triggered `quality-gate` route AND
+ * the background `server-verify`, so the two gate paths never disagree (one
+ * advisory-promoting while the other repairs/fails the same result). The
+ * false-green protection lives here:
+ *  - the gate passed → false (not applicable),
+ *  - not a design-preview (F2) version → false (F3 stays hard),
+ *  - build-originated re-verify → false (a build failure must stay hard),
+ *  - any non-`typecheck` failing check (build/lint) → false,
+ *  - any render-risk diagnostic ({@link RENDER_RISK_TS_CODES}: unresolved
+ *    module/name/export — breaks `next dev` too) → false,
+ *  - unparseable tsc output (no TS codes) → false (fail-closed).
+ * Verifier / promote-guard blocks are enforced separately by the callers.
+ */
+export function isTypecheckOnlyAdvisory(params: {
+  isDesignPreview: boolean;
+  gatePassed: boolean;
+  buildOriginated: boolean;
+  results: ReadonlyArray<{ check: string; passed: boolean; output?: string }>;
+}): boolean {
+  if (params.gatePassed) return false;
+  if (!params.isDesignPreview) return false;
+  if (params.buildOriginated) return false;
+  const failing = params.results.filter((result) => !result.passed);
+  if (failing.length === 0) return false;
+  if (!failing.every((result) => result.check === "typecheck")) return false;
+  return failing.every((result) => isAdvisorySafeTypecheckOutput(result.output ?? ""));
+}

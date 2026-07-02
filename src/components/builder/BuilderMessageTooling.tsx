@@ -186,6 +186,8 @@ type QualityGateCheckInfo = {
 
 type QualityGateSummary = {
   passed: boolean;
+  /** F2 render-first: promoted with typecheck warnings (advisory) — amber, not green. */
+  designAdvisory?: boolean;
   skipped: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
@@ -1644,6 +1646,7 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
   if (checks.length === 0) return null;
   return {
     passed: Boolean(obj.passed),
+    designAdvisory: obj.designAdvisory === true,
     skipped: false,
     checks,
     verifyLaneDurationMs:

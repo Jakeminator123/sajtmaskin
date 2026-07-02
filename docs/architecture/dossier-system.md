@@ -22,6 +22,15 @@ data/dossiers/
 | `hard` | The dossier needs `process.env` secrets to run (API keys, DB URLs). | Selection runs a preflight check on `envVars[].required`. If anything is missing, the dossier is still injected but the codegen LLM is told to render an "unconfigured" placeholder UI. |
 | `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
 
+### F2/F3-gräns: `envVars` är signalen (kanonisk)
+
+Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
+
+- **F2 (design)** renderar en klient-/demo-/placeholder-safe version.
+- **F3 (integrations)** aktiverar den riktiga integrationen (riktiga env-värden krävs).
+
+**Kanonisk signal i dagens kod** för "kräver F3" är dossierns egen env-kontrakt: en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) är enda källan; [`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med en liten policy-residual för icke-secret-integrationer som analytics/error-tracking, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver ett serversteg utan klassisk build-secret — inte via en ny per-dossier-flagga.
+
 ## Two code-fidelities (per-dossier default + per-file override)
 
 | Fidelity | When | Effect on prompt |
@@ -133,6 +142,32 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 5. Bump `lastVerified` and remove the `notes` field once you've validated the dossier against a real preview build.
 
 The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
+
+## Validation (canonical validator + capability-map status)
+
+The **canonical** manifest validator is the Node/AJV `validateDossierManifest()`
+in [`src/lib/gen/dossiers/validate-manifest.ts`](../../src/lib/gen/dossiers/validate-manifest.ts)
+(strict `docs/schemas/strict/dossier.schema.json`). It runs in three places:
+
+- **Runtime** — `registry.ts` excludes any manifest that fails it from the pool.
+- **CI** — `npm run dossiers:validate-all` (blocking) plus exposes/import-closure,
+  `defaultForCapability` uniqueness, instructions headings and SDK version pins.
+- **Curation** — `dossiers:curate` validates the AI draft with the same function.
+
+**Documented divergence:** the backoffice save path (`backoffice/pages/dossiers.py`,
+`_validate_manifest`) does a lighter Python pre-check (required fields + enum
+values) so the editor can give instant feedback without a Node round-trip. It is
+intentionally a *subset* — a manifest can pass the Python pre-check and still be
+rejected by the canonical Node/AJV validator in CI. Treat the Node validator as
+source of truth; always run `npm run dossiers:validate-all` after editing a
+manifest in the backoffice.
+
+**Capability map:** `data/dossiers/_index/capability-map.json` is a **generated
+view only** (backoffice + curation tooling); the runtime registry walks
+`data/dossiers/{hard,soft}/` directly and never reads it. It is **not** CI-enforced
+(the former `dossiers:capability-map:check` drift-gate was removed as maintenance
+tax). Regenerate on demand with `npm run dossiers:capability-map:write` or the
+backoffice "Bygg om" tab when curating.
 
 ## Disabling the pipeline
 

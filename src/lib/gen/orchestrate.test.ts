@@ -6,6 +6,8 @@ import {
   resolveBuildIntentPromotion,
   type BuildIntentPromotionInput,
 } from "./orchestrate";
+import { dossierRequiresF3, getF3RequiredCapabilities } from "./dossiers";
+import type { DossierEnvVar } from "./dossiers";
 import type { BuildSpec, BuildSpecQualityTarget } from "./build-spec";
 
 function makeBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
@@ -214,5 +216,82 @@ describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () =>
       previewPolicy: "fidelity2",
     });
     expect(result).toEqual(["parallax-scroll", "command-search"]);
+  });
+});
+
+describe("dossierRequiresF3 (B-lite: envVars is the single F3 signal)", () => {
+  const envVar = (
+    key: string,
+    enforcement?: DossierEnvVar["enforcement"],
+  ): DossierEnvVar => ({ key, required: true, purpose: "test", enforcement });
+
+  it("is true when any env var is build-enforced", () => {
+    expect(dossierRequiresF3({ envVars: [envVar("STRIPE_SECRET_KEY", "build")] })).toBe(true);
+  });
+
+  it("defaults a missing enforcement to build (requires F3)", () => {
+    expect(dossierRequiresF3({ envVars: [envVar("SOME_KEY")] })).toBe(true);
+  });
+
+  it("is false for a self-contained dossier (no env vars) — e.g. a snake game", () => {
+    expect(dossierRequiresF3({ envVars: [] })).toBe(false);
+    expect(dossierRequiresF3({})).toBe(false);
+  });
+
+  it("is false when every env var is warn-only / feature-runtime (no build secret)", () => {
+    expect(
+      dossierRequiresF3({
+        envVars: [envVar("SENTRY_DSN", "warn-only"), envVar("PLAUSIBLE_DOMAIN", "feature-runtime")],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("getF3RequiredCapabilities (derived from the real dossier env contract)", () => {
+  it("derives secret-backed integrations from envVars, not a hardcoded list", () => {
+    const caps = getF3RequiredCapabilities();
+    // Build-enforced secrets (Stripe / Clerk / OpenAI).
+    expect(caps.has("payments")).toBe(true);
+    expect(caps.has("auth")).toBe(true);
+    expect(caps.has("ai-chat")).toBe(true);
+    // Analytics + error-tracking have NO build-enforced env → not secret-derived
+    // (they are muted in F2 by policy, not by this signal).
+    expect(caps.has("analytics")).toBe(false);
+    expect(caps.has("error-tracking")).toBe(false);
+  });
+});
+
+describe("F2/F3 integration mute (envVars-derived + policy residual)", () => {
+  const integrationCaps = ["payments", "auth", "ai-chat", "analytics", "error-tracking"];
+
+  it("mutes all integration capabilities in F2 (design)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: integrationCaps,
+      prompt: "a bakery site with a checkout, login, analytics and a chatbot",
+      previewPolicy: "fidelity2",
+    });
+    for (const cap of integrationCaps) {
+      expect(result).not.toContain(cap);
+    }
+  });
+
+  it("keeps integration capabilities in F3 (integrations)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: integrationCaps,
+      prompt: "a bakery site with a checkout, login, analytics and a chatbot",
+      previewPolicy: "fidelity3",
+    });
+    for (const cap of integrationCaps) {
+      expect(result).toContain(cap);
+    }
+  });
+
+  it("does NOT mute a self-contained game capability in F2 (no env → fully F2)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["interactive-game"],
+      prompt: "a landing page with a snake game about beer barrels",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).toContain("interactive-game");
   });
 });

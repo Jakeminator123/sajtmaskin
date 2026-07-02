@@ -103,6 +103,58 @@ Revert: sätt `qualityGateTiers.designPreview` till
 `["typecheck", "build", "lint"]` i `config/ai_models/manifest.json` om
 du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
+### F2 render-first: typecheck-only är advisory (#330, 2026-07-02)
+
+I F2 (`lifecycle_stage !== "integrations"`) failar ett **typecheck-only**-fel
+inte längre versionen. `next dev` kör JS oavsett TS-typfel, så previewn
+renderar — därför behandlas typfelet som **advisory**.
+
+**Regelägare (single source of truth):** `isTypecheckOnlyAdvisory()` i
+`src/lib/gen/verify/quality-gate-checks.ts`. Båda gate-vägarna använder samma
+predikat så de aldrig är oense:
+
+- **Klientvägen** `POST .../quality-gate` promotar versionen (fortfarande via
+  `assertPromoteAllowed`) och svarar
+  `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }`
+  i stället för `failVersionVerification`. Vid transient promote-fel
+  (`promoteError`/`promoteGuardUnavailable`) följer `designAdvisory` med i
+  svaret så klienten inte auto-reparerar en advisory ändå.
+- **Bakgrundsvägen** `triggerServerVerification` (`server-verify.ts`) speglar
+  regeln: advisory → `promoteVersion` FÖRSÖKS FÖRE terminal-emit, och
+  `version.verifier.done`-utfallet härleds från om promotionen faktiskt tog
+  (`advisoryPromoted`). En promote-no-op (lease-takeover/guard/DB) emitterar
+  INGEN terminal bus-händelse — terminal bus-`failed` är sticky i
+  `reconcileTerminalDbState`, så en förhastad `failed` skulle pinna en falsk
+  röd status även efter att versionen promotats någon annanstans. Bussen
+  lämnas snurrande; DB-`passed` uppgraderar den, watchdog är backstop.
+- `post-checks.ts` kör **ingen** auto-repair-loop (`passed: true` +
+  explicit `!data.designAdvisory`-grind).
+- Diagnostiken bevaras: summary-loggen blir `warning` (ej `error`) och
+  typecheck-raden loggas under `quality-gate:typecheck-advisory`.
+
+**Falsk-grön-skydd** (varför detta inte blir tyst grön):
+
+- Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
+- Bara när **varje** failande check är `typecheck`. Ett `build`- eller
+  `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) failar hårt som förr.
+- **Bara advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
+  resolution (TS2304/TS2305/TS2307/TS2552/TS2613/TS2614/TS1361/TS2300/TS2440 —
+  `RENDER_RISK_TS_CODES`) bryter även `next dev` i runtime och failar hårt.
+  Oparsebar tsc-output (inga TS-koder) failar också hårt (fail-closed).
+  Advisory gäller alltså bara semantiska typfel (TS2322, TS2339, TS7006, …)
+  som `next dev` bevisligen renderar igenom.
+- `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande —
+  `diagnosticOnly`-läget i server-verify advisory-promotar aldrig.
+- Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
+  (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
+  når aldrig advisory-promote.
+- `vmGatePassed: false` bevaras så ingen konsument läser advisory som
+  solid-grön build, och båda vägarna emitterar `version.degraded
+  {typecheck_advisory}` så status-projektionen visar "klar med varningar"
+  (aldrig solid grön). Chat-panelen visar "Godkänd med varningar (typecheck
+  advisory)" i amber. Durabelt: promotade radens `verification_summary` bär
+  advisory-texten + `warning`-raden i `engine_version_error_logs`.
+
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
 togs bort från background-verify tillfälligt (tysta lint-fail blockerade
@@ -294,7 +346,8 @@ flowchart TD
     persist --> preview[PreviewStart]
     preview --> qualityGate[QualityGate]
     qualityGate -->|pass| promoted[PromoteVersion]
-    qualityGate -->|fail| repair[ServerRepair]
+    qualityGate -->|"F2 typecheck-only (advisory)"| promoted
+    qualityGate -->|"fail (F3, or F2 build/lint)"| repair[ServerRepair]
     repair --> qualityGate
     qualityGate -->|repair pass| repairAvailable[RepairAvailable]
     repairAvailable --> acceptRepair[AcceptRepair]

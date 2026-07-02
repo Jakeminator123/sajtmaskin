@@ -60,8 +60,12 @@ jobs:
       - name: Validate dossier manifests
         run: npm run dossiers:validate-all
 
-      - name: Verify dossier capability map
-        run: npm run dossiers:capability-map:check
+      # NOTE: the dossier capability-map (data/dossiers/_index/capability-map.json)
+      # is a GENERATED tooling view, never read at runtime (the registry walks
+      # data/dossiers/{hard,soft}/ directly). Its former drift-check
+      # (`dossiers:capability-map:check`) was pure maintenance tax and was
+      # removed. Regenerate on demand with `npm run dossiers:capability-map:write`
+      # (or the backoffice "Bygg om" tab) when curating.
 
       - name: Validate control-plane registries
         run: npm run control-plane:check

@@ -44,7 +44,7 @@ import {
 // below reaches both the legacy surfaces and the UI projection.
 import "@/lib/logging/event-bus-subscribers";
 import "@/lib/logging/event-bus-error-log-sink";
-import { resolvePostRepairGateChecks } from "./quality-gate-checks";
+import { isTypecheckOnlyAdvisory, resolvePostRepairGateChecks } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -224,6 +224,26 @@ export async function triggerServerVerification(params: {
     }
 
     const passed = qualityGateAllPassed(gateResult.results);
+
+    // F2 render-first (#330): a design-preview (F2) version whose ONLY failing
+    // check is `typecheck` is advisory (see `isTypecheckOnlyAdvisory`) — `next
+    // dev` renders despite TS type errors, so promote instead of repairing.
+    // Computed BEFORE the `version.verifier.done` emit + summary log so an
+    // advisory promotion never first emits a `failed`/`blocked` verifier event
+    // or an error-level log: that stale terminal-`failed` bus signal would
+    // survive `reconcileTerminalDbState` as a false-red "Ej verifierad" even
+    // after the row is promoted to `passed`. Mirrors the client quality-gate
+    // route so the two gate paths never disagree. NEVER in `diagnosticOnly`
+    // mode (verifier blockers still forbid promotion → falls through to the
+    // diagnostic fail branch below).
+    const f2TypecheckAdvisory = isTypecheckOnlyAdvisory({
+      isDesignPreview: previewPolicy === "fidelity2",
+      gatePassed: passed,
+      buildOriginated: forceBuildCheck,
+      results: gateResult.results,
+    });
+    const advisoryPromote = f2TypecheckAdvisory && !diagnosticOnly;
+
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable,
       results: gateResult.results,
@@ -231,6 +251,45 @@ export async function triggerServerVerification(params: {
         console.warn("[server-verify] Visual QA error (non-fatal):", vqaErr);
       },
     });
+
+    // For the advisory case, ATTEMPT the promotion before emitting the outcome
+    // so the bus signal reflects reality. `promoteVersion` is lease-conditioned:
+    // a no-op (null) means a takeover/lease-loss or a guard/DB refusal.
+    const advisoryPromoted = advisoryPromote
+      ? Boolean(
+          await promoteVersion(
+            versionId,
+            "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+            runId,
+          ).catch(() => null),
+        )
+      : false;
+
+    // Advisory promote that did NOT take (lease takeover / guard / transient DB
+    // write). Emit NO terminal bus event: a terminal bus `failed` is sticky in
+    // `reconcileTerminalDbState` (a later DB `passed` from the client
+    // quality-gate route or a takeover run cannot upgrade a bus already
+    // `failed`), so a `failed` here would pin a false-red even after the version
+    // is promoted elsewhere. Leaving the bus spinning lets the authoritative DB
+    // `passed` upgrade it to `done`, and the stale-verification watchdog is the
+    // backstop if nothing promotes. Failing the row here would also clobber the
+    // owning run on a lease takeover.
+    if (advisoryPromote && !advisoryPromoted) {
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "info",
+        category: "quality-gate:typecheck-advisory",
+        message:
+          "F2 render-first: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
+        meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
+      }]).catch(() => null);
+      return;
+    }
+
+    // Green for the outcome bus signal / summary log when the VM gate passed OR
+    // the advisory promotion actually took.
+    const outcomeIsGreen = passed || advisoryPromoted;
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
@@ -249,24 +308,49 @@ export async function triggerServerVerification(params: {
       t: "version.verifier.done",
       versionId,
       chatId,
-      outcome: passed ? "passed" : "failed",
-      blocked: !passed,
-      findings: passed
+      outcome: outcomeIsGreen ? "passed" : "failed",
+      blocked: !outcomeIsGreen,
+      findings: outcomeIsGreen
         ? []
         : gateResult.results
             .filter((r) => !r.passed)
             .map((r) => ({ id: r.check, detail: r.output?.slice(0, 200) ?? "" })),
     });
+    if (advisoryPromoted) {
+      // Advisory promotion must not read as SOLID green on the status
+      // projection: mark the run degraded ("klar med varningar") — mirrors the
+      // quality-gate route's advisory emit so both paths surface identically.
+      emitBusEvent({
+        t: "version.degraded",
+        versionId,
+        chatId,
+        kind: "typecheck_advisory",
+        message:
+          "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+        meta: { advisoryChecks: ["typecheck"] },
+      });
+    }
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
-      level: passed ? "info" : "error",
-      category: "preflight:quality-gate",
-      message: passed ? "Server verify passed." : "Server verify failed.",
-      meta: qualityGateMeta,
+      level: passed ? "info" : advisoryPromoted ? "warning" : "error",
+      category: advisoryPromoted ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
+      message: passed
+        ? "Server verify passed."
+        : advisoryPromoted
+          ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
+          : "Server verify failed.",
+      meta: advisoryPromoted
+        ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }
+        : qualityGateMeta,
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
+
+    // Advisory promotion succeeded (the no-op case returned above); done.
+    if (advisoryPromoted) {
+      return;
+    }
 
     if (passed) {
       if (diagnosticOnly) {

@@ -31,6 +31,6 @@ Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGE
 
 - Flytta inte runtime dossiers till template-reference-mappar.
 - Behandla `capability-map.json` som genererad vy; bygg om från manifests (`npm run dossiers:capability-map:write`).
-- Efter manifeständring: kör `npm run dossiers:validate-all` och vid behov `npm run dossiers:capability-map:check`.
+- Efter manifeständring: kör `npm run dossiers:validate-all`. Capability-map är en genererad vy (läses ej i runtime, ej CI-tvingad) — regenerera vid behov med `npm run dossiers:capability-map:write`.
 - `sourceTemplateIds` är bara en proveniens-etikett — bygg ingen runtime-logik som slår upp `catalog.json` (legacy).
 - Vid radering av en dossier: kontrollera capability, defaultForCapability, envVars, dependencies och `capability-map`.

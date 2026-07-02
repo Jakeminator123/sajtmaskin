@@ -58,6 +58,17 @@ stateDiagram-v2
 3. Server-verify i `diagnosticOnly: true` **resolverar** terminalt via `failVersionVerification` både vid gate-pass (verifier-LLM och tsc oeniga) och gate-fail (båda eniga om fel). Detta säkrar att versionen aldrig fastnar i `pending` utan att någon sätter slutstatus.
 4. `triggerBuildErrorRepair` (VM build-error SSE) kan fortfarande override:a vilket state som helst genom `saveRepairedFiles` → `repair_available`.
 
+## 2026-07-02 — F2 render-first (typecheck advisory, #330)
+
+För F2-rader (`lifecycle_stage !== "integrations"`) leder ett **typecheck-only**-gate-fel numera till `verifying → promoted` (advisory), **inte** `verifying → failed`. Regelägare: `isTypecheckOnlyAdvisory()` i `quality-gate-checks.ts`, delad av **båda** gate-vägarna:
+
+- `POST .../quality-gate` promotar (fortfarande via `assertPromoteAllowed`) och svarar `{ passed: true, vmGatePassed: false, designAdvisory: true }`; ingen auto-repair triggas.
+- Bakgrunds-`server-verify` speglar regeln och försöker promota **före** `version.verifier.done`-emitten; en promote-no-op (lease/guard/DB) emitterar **ingen** terminal bus-händelse (terminal bus-`failed` är sticky i `reconcileTerminalDbState` och skulle annars pinna en falsk röd status) — bussen lämnas snurrande så DB-`passed`/watchdog resolvar.
+
+`verification_state` blir alltså `passed`/`promoted` med en `warning`-logg (`quality-gate:typecheck-advisory`), inte `failed`. Båda vägarna emitterar dessutom `version.degraded {typecheck_advisory}` så status-projektionen visar "klar med varningar" (degraded), aldrig solid grön.
+
+Oförändrat hårt (→ `failed`/repair som förr): F3 (`integrations`), varje F2-fel där `build` eller `lint` failar (inkl. build-origin `forceBuildCheck`), samt typecheck-fel med **render-risk-diagnostik** (trasig modul-/export-resolution, `RENDER_RISK_TS_CODES` i `quality-gate-checks.ts` — bryter `next dev` också) eller oparsebar tsc-output (fail-closed). Verifier/promote-guard-block ger fortfarande `failed`; `diagnosticOnly`-läget advisory-promotar aldrig. Render-säkerheten (att sidan renderar) gate:as uppströms i finalize-preflight, inte här.
+
 Koden: se `runner.ts:389-410` och `server-verify.ts:175-245`.
 
 ## Uppföljningsspår

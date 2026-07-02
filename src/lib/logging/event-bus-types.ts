@@ -183,7 +183,14 @@ export type VersionDegradationKind =
    *  build passed, but a core interaction is broken, so the version must
    *  not read as solid green. Distinct from `product_postcheck_skipped`:
    *  here the DOM check produced a *failing* verdict, it did not skip. */
-  | "product_postcheck_blocked";
+  | "product_postcheck_blocked"
+  /** F2 render-first (#330): the version was PROMOTED although the VM
+   *  typecheck failed (typecheck-only, advisory-safe diagnostics). The
+   *  preview renders, but type warnings remain — the status projection
+   *  must show "klar med varningar", never solid green. Emitted by both
+   *  the quality-gate route and background server-verify on advisory
+   *  promotion. */
+  | "typecheck_advisory";
 
 export interface VersionDegradedEvent extends EngineEventBase {
   t: "version.degraded";

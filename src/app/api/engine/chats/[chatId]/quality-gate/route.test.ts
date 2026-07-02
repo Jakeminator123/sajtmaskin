@@ -33,6 +33,13 @@ const QualityGateUnavailableError = vi.hoisted(
     },
 );
 
+// Pass-through the rate limiter so the suite is deterministic regardless of how
+// many requests the tests fire (the real in-memory limiter otherwise starts
+// returning 429 after ~a dozen calls in a single run).
+vi.mock("@/lib/rateLimit", () => ({
+  withRateLimit: (_req: unknown, _key: unknown, fn: () => unknown) => fn(),
+}));
+
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
 }));
@@ -601,5 +608,145 @@ describe("POST quality-gate", () => {
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     const f2Checks = runQualityGateChecks.mock.calls[0][0].checks;
     expect(f2Checks).toEqual([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]);
+  });
+
+  it("F2 render-first: a typecheck-only failure is advisory — promotes (not failed), no auto-repair (#330)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Typecheck failed, but `next dev` renders JS despite TS type errors.
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: false, exitCode: 2, output: "TS2339", durationMs: 12 }],
+      verifyLaneDurationMs: 12,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.012Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+    promoteVersion.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // Advisory: promote instead of fail; client sees passed:true so no repair,
+    // but vmGatePassed:false + designAdvisory keep it from reading solid-green.
+    expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String), "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(true);
+    expect(body.vmGatePassed).toBe(false);
+    expect(body.designAdvisory).toBe(true);
+    expect(body.advisoryChecks).toEqual(["typecheck"]);
+  });
+
+  it("F2: a build failure stays HARD (not advisory) — no false-green", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // A build failure is never advisory, even in F2.
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 },
+        { check: "build", passed: false, exitCode: 1, output: "build error", durationMs: 40 },
+      ],
+      verifyLaneDurationMs: 50,
+      firstFailureCheck: "build",
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.050Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck", "build"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(failVersionVerification).toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.designAdvisory).toBeUndefined();
+  });
+
+  it("F3: a typecheck failure stays HARD (never advisory)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "integrations" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: false, exitCode: 2, output: "TS2339", durationMs: 12 }],
+      verifyLaneDurationMs: 12,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.012Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(failVersionVerification).toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.designAdvisory).toBeUndefined();
   });
 });

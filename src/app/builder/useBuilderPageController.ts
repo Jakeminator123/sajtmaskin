@@ -55,6 +55,7 @@ import {
   asRecord,
   parsePreviewOverride,
   pickVersionPreviewUrl,
+  shouldRetainLastGoodPreviewOnVersionChange,
   versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
 
@@ -1380,6 +1381,33 @@ export function useBuilderPageController() {
     }
 
     if (!nextDemoUrl && didChangeVersion && currentPreviewUrl) {
+      // Keep the last-good live (tier-2/VM) preview visible while the newly
+      // active version is still spinning up its own preview (no previewUrl in
+      // the versions list yet). Blanking here was the "white preview" flash on
+      // follow-up completion: the client auto-selects the freshly generated
+      // draft the instant the stream ends — seconds before its VM preview is
+      // running. VM bootstrap + preview-session polling replace this URL once
+      // the new preview is ready, and the version_mismatch / "startar preview"
+      // overlays render on top of the retained frame instead of a white panel.
+      if (
+        shouldRetainLastGoodPreviewOnVersionChange({
+          didChangeVersion,
+          nextDemoUrl,
+          currentPreviewUrl,
+          // Retain only for a just-generated follow-up version: either its row
+          // hasn't arrived from the `/versions` refetch yet (`!activeVersionMatch`
+          // — true on the first render after `done`, before `latestVersionId`
+          // catches up) OR it is the newest non-failed version. A manually
+          // selected OLDER version already in the list is neither, so we never
+          // pin the previous frame over a different, user-chosen version.
+          activeVersionIsFreshOrLatest:
+            !activeVersionMatch ||
+            (Boolean(derived.activeVersionId) &&
+              derived.activeVersionId === derived.latestVersionId),
+        })
+      ) {
+        return;
+      }
       setCurrentPreviewUrl(null);
       setPreviewRefreshToken(Date.now());
       return;
@@ -1392,7 +1420,7 @@ export function useBuilderPageController() {
         setPreviewPending(false);
       }
     }
-  }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
+  }, [derived.activeVersionId, derived.latestVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(
     () =>

@@ -139,3 +139,21 @@ export interface DossierSelectionResult {
 export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): CodeFidelity {
   return file.injectionMode ?? entry.codeFidelity;
 }
+
+/**
+ * Canonical F2/F3 signal: does this dossier require F3 (a real integration with
+ * a build-blocking secret)? This is the SINGLE source of truth for "needs F3" —
+ * derived from the dossier's own env contract, not a hardcoded capability list.
+ * A dossier with an `enforcement: "build"` env var (the default when
+ * `enforcement` is omitted, per `DossierEnvVarEnforcement`) needs a real value
+ * before the F3 build can succeed; F2 renders a placeholder-safe version.
+ *
+ * `envVars: []` (soft/self-contained dossiers, e.g. `interactive-game-loop`)
+ * => fully F2-usable. Extend the rule HERE if a future dossier needs a server
+ * step without a classic build-env secret (internal DB / server action) —
+ * never re-derive the boundary in a separate hardcoded list:
+ *   `|| entry.runtime?.requiresServer === true`
+ */
+export function dossierRequiresF3(entry: Pick<DossierEntry, "envVars">): boolean {
+  return (entry.envVars ?? []).some((env) => (env.enforcement ?? "build") === "build");
+}

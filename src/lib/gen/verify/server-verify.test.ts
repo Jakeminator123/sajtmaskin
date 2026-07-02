@@ -14,12 +14,125 @@ import {
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+  isTypecheckOnlyAdvisory,
   resolvePostRepairGateChecks,
 } from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
 } from "./repair-loop";
+
+describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-verify rule)", () => {
+  // Semantic prop-type mismatch — renders under `next dev` (advisory-safe).
+  const SEMANTIC_TSC_OUTPUT =
+    "app/page.tsx(12,9): error TS2322: Type 'string' is not assignable to type 'number'.";
+  const fail = (check: string, output: string = SEMANTIC_TSC_OUTPUT) => ({
+    check,
+    passed: false,
+    output,
+  });
+  const pass = (check: string) => ({ check, passed: true, output: "" });
+
+  it("is advisory when F2 and the only failing check is typecheck with semantic-only diagnostics", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(true);
+  });
+
+  it("is NOT advisory for F3 (integrations) — stays hard", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: false,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when a build/lint check also fails", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [pass("typecheck"), fail("build", "build error")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory for a build-originated re-verify (build must stay hard)", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: false,
+        buildOriginated: true,
+        results: [fail("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when the gate actually passed (not applicable)", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: true,
+        gatePassed: true,
+        buildOriginated: false,
+        results: [pass("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory when there are no failing checks", () => {
+    expect(
+      isTypecheckOnlyAdvisory({
+        isDesignPreview: false,
+        gatePassed: false,
+        buildOriginated: false,
+        results: [pass("typecheck")],
+      }),
+    ).toBe(false);
+  });
+
+  it("is NOT advisory for render-risk module/export-resolution codes (Codex #345 P1)", () => {
+    // TS2307 (cannot find module) / TS2305 (no exported member) also break
+    // `next dev` at runtime — a dead preview must never be advisory-promoted.
+    for (const output of [
+      "app/page.tsx(2,24): error TS2307: Cannot find module '@/components/hero'.",
+      "app/page.tsx(3,10): error TS2305: Module '\"@/lib/data\"' has no exported member 'items'.",
+      "app/page.tsx(5,3): error TS2304: Cannot find name 'HeroSection'.",
+      // Mixed: one safe + one render-risk → still hard.
+      `${SEMANTIC_TSC_OUTPUT}\napp/page.tsx(2,24): error TS2307: Cannot find module './x'.`,
+    ]) {
+      expect(
+        isTypecheckOnlyAdvisory({
+          isDesignPreview: true,
+          gatePassed: false,
+          buildOriginated: false,
+          results: [fail("typecheck", output)],
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it("is NOT advisory when tsc output is unparseable (fail-closed)", () => {
+    for (const output of ["", "npm exited with a weird error", undefined]) {
+      expect(
+        isTypecheckOnlyAdvisory({
+          isDesignPreview: true,
+          gatePassed: false,
+          buildOriginated: false,
+          results: [{ check: "typecheck", passed: false, output }],
+        }),
+      ).toBe(false);
+    }
+  });
+});
 
 describe("resolveServerRepairEarlyStopReason", () => {
   it("stops when the fixer produced no output", () => {

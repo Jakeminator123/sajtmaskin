@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -21,6 +22,7 @@ import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
   QUALITY_GATE_CHECK_VALUES,
+  isTypecheckOnlyAdvisory,
 } from "@/lib/gen/verify/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
 import {
@@ -76,6 +78,14 @@ function buildQualityGateSummaryLog(params: {
   jobStartedAt: string | null;
   jobFinishedAt: string | null;
   visualQA?: VisualQAResult;
+  /**
+   * F2 render-first advisory: the VM gate did not pass but the only failure is
+   * `typecheck` on a design-preview (F2) version. `next dev` renders JS despite
+   * TS type errors, so the preview is usable — log a WARNING (not an error) and
+   * let the version promote instead of failing + auto-repairing. F3 and any
+   * build/lint failure never take this path.
+   */
+  advisory?: boolean;
 }) {
   const {
     checkResults,
@@ -84,6 +94,7 @@ function buildQualityGateSummaryLog(params: {
     jobStartedAt,
     jobFinishedAt,
     visualQA,
+    advisory = false,
   } = params;
   const passed = qualityGateAllPassed(checkResults);
   const visualQAMeta =
@@ -93,10 +104,21 @@ function buildQualityGateSummaryLog(params: {
       ? compactVisualQAForQualityGateLog(visualQA)
       : undefined;
 
+  const level: "info" | "warning" | "error" = passed
+    ? "info"
+    : advisory
+      ? "warning"
+      : "error";
+  const message = passed
+    ? "Automatic quality gate passed."
+    : advisory
+      ? "F2 render-first: typecheck-varning (advisory) — previewen renderar, versionen promotas."
+      : "Automatic quality gate failed.";
+
   return {
-    level: passed ? ("info" as const) : ("error" as const),
+    level,
     category: "preflight:quality-gate" as const,
-    message: passed ? "Automatic quality gate passed." : "Automatic quality gate failed.",
+    message,
     meta: buildServerVerifyQualityGateMeta({
       passed,
       results: checkResults,
@@ -239,6 +261,34 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         };
 
         const verificationSummary = buildVerificationSummary(results);
+
+        // F2 render-first (#330): a design-preview (F2) version whose ONLY gate
+        // failure is `typecheck` is NOT failed/auto-repaired. `next dev` runs the
+        // JS regardless of TS type errors, so the live preview renders — a type
+        // error is advisory, not a blocker. The version is promoted (still
+        // subject to the finalize promote-guard below) and a warning is surfaced.
+        // False-green protection: only F2, only when EVERY failing check is
+        // `typecheck` (any build/lint failure stays hard), and F3 (`integrations`)
+        // is never advisory. Render-safety itself is enforced upstream in
+        // finalize-preflight (buildPreviewHtml + home-route gate), so a version
+        // that cannot render never reaches this promote path.
+        const f2TypecheckAdvisory = isTypecheckOnlyAdvisory({
+          isDesignPreview: scopedVersion.version.lifecycle_stage !== "integrations",
+          gatePassed: gateResult.passed,
+          // The client-triggered route has no build-origin re-verify concept; a
+          // build/lint failure is already excluded by the typecheck-only check.
+          buildOriginated: false,
+          results,
+        });
+        const advisoryCheckNames = f2TypecheckAdvisory
+          ? Array.from(new Set(results.filter((r) => !r.passed).map((r) => r.check)))
+          : [];
+        // Carried into the retryable (non-promoted) response branches too, so a
+        // transient promote failure on an advisory version does not make the
+        // client treat the typecheck-only failure as hard and auto-repair it.
+        const advisoryResponseFields = f2TypecheckAdvisory
+          ? { designAdvisory: true as const, advisoryChecks: advisoryCheckNames }
+          : {};
         // Check superseded BEFORE persisting the regular logs so we don't
         // pile error rows on a version that no longer represents the
         // chat's head; the superseded path persists its own scoped log.
@@ -279,17 +329,26 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               jobStartedAt,
               jobFinishedAt,
               visualQA,
+              advisory: f2TypecheckAdvisory,
             }),
           },
           ...results
             .filter((r) => !r.passed)
             .map((r) => {
+              // In the F2 advisory case the typecheck failure is non-blocking:
+              // log it as a warning under a distinct category so it stays visible
+              // in diagnostics without reading as a hard "failed" verdict.
+              const advisoryEntry = f2TypecheckAdvisory && r.check === "typecheck";
               return {
                 chatId,
                 versionId: internalVersionId,
-                level: "error" as const,
-                category: `quality-gate:${r.check}`,
-                message: `${r.check} failed (exit ${r.exitCode})`,
+                level: advisoryEntry ? ("warning" as const) : ("error" as const),
+                category: advisoryEntry
+                  ? "quality-gate:typecheck-advisory"
+                  : `quality-gate:${r.check}`,
+                message: advisoryEntry
+                  ? `${r.check} advisory (exit ${r.exitCode}) — previewen renderar; ej blockerande i F2`
+                  : `${r.check} failed (exit ${r.exitCode})`,
                 meta: {
                   stage: r.check,
                   command: QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
@@ -297,6 +356,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
                   durationMs: r.durationMs ?? null,
+                  advisory: advisoryEntry,
                   serverOwned: false,
                 },
               };
@@ -310,7 +370,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         let promotionBlocked = false;
         let promoteError = false;
         let promoteGuardUnavailable = false;
-        if (gateResult.passed) {
+        // Promote when the gate passed OR when it is an F2 typecheck-only
+        // advisory (render-first). Both still pay the finalize promote-guard
+        // below, so a verifier-blocked version is never advisory-promoted.
+        const promoteSummary = f2TypecheckAdvisory
+          ? "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande)."
+          : verificationSummary;
+        if (gateResult.passed || f2TypecheckAdvisory) {
           // Check the false-green guard *explicitly* before promoting so we can
           // tell three cases apart: (1) an explicit verifier block, (2) a guard
           // that could not READ the finalize signal (DB error), and (3) a clean
@@ -332,7 +398,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             };
           });
           if (guard.allowed) {
-            const promoted = await promoteVersion(internalVersionId, verificationSummary, qgRunId).catch(
+            const promoted = await promoteVersion(internalVersionId, promoteSummary, qgRunId).catch(
               (err) => {
                 console.warn("[quality-gate] Failed to promote version:", err);
                 return null;
@@ -384,7 +450,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             promotionBlocked = true;
             await failVersionVerification(
               internalVersionId,
-              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+              // Advisory case: don't claim "build checks passed" — typecheck failed
+              // (advisory), and the finalize verifier is what blocked promotion.
+              f2TypecheckAdvisory
+                ? "Typecheck advisory noted, but the finalize verifier flagged blocking findings; promotion was blocked."
+                : "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
               qgRunId,
             ).catch((err) => {
               console.warn(
@@ -407,7 +477,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            // Reflect the true VM-gate status: false in the advisory case where
+            // typecheck failed but the finalize verifier then blocked promotion.
+            vmGatePassed: gateResult.passed,
             promotionBlocked: true,
             promotionBlockedReason: "finalize_quality_gate_failed",
           });
@@ -420,9 +492,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            vmGatePassed: gateResult.passed,
             promoteError: true,
             promoteGuardUnavailable: true,
+            ...advisoryResponseFields,
           });
         }
         // Transient promote failure: not green, but not a verifier block either.
@@ -430,8 +503,42 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            vmGatePassed: gateResult.passed,
             promoteError: true,
+            ...advisoryResponseFields,
+          });
+        }
+        // F2 render-first advisory promotion: report `passed:true` so the client
+        // does not auto-repair, but keep the honest signal — `vmGatePassed:false`
+        // (the VM typecheck did not pass) plus `designAdvisory` + `advisoryChecks`
+        // so no consumer reads this as a solid-green build.
+        if (f2TypecheckAdvisory) {
+          // Surface the advisory on the version-status projection (Codex #345
+          // P1): without a degradation the status token reads solid green even
+          // though the VM typecheck failed. `version.degraded` maps a `done`
+          // phase to `degraded` ("klar med varningar") in
+          // `mapVersionStatusToDisplay`; the DURABLE record is the promoted
+          // row's `verification_summary` (advisory text) + the warning row in
+          // `engine_version_error_logs` persisted above.
+          try {
+            emitBusEvent({
+              t: "version.degraded",
+              versionId: internalVersionId,
+              chatId,
+              kind: "typecheck_advisory",
+              message:
+                "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+              meta: { advisoryChecks: advisoryCheckNames },
+            });
+          } catch {
+            // Telemetry only — never block the response on a bus failure.
+          }
+          return NextResponse.json({
+            ...gateResult,
+            passed: true,
+            vmGatePassed: false,
+            designAdvisory: true,
+            advisoryChecks: advisoryCheckNames,
           });
         }
         return NextResponse.json(gateResult);

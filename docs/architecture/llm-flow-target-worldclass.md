@@ -129,7 +129,7 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
 
 **Detta är implementerat.** UI-text mellan `verifying`/`repairing`/`repair_available`/`promoted` glider fortfarande ihop — se status-bus nedan.
 
-> **Kvarvarande F2-friktion (kod-sanning 2026-07-01):** F2:s quality gate är `["typecheck"]` men **fortfarande en hård promotion-gate** — `POST .../quality-gate` kör `failVersionVerification` när `gateResult.passed === false` (`quality-gate/route.ts:396-400`). Ett F2-typecheck-fel failar alltså versionen och triggar repair även om previewn redan renderar. Det är **inte** "render räcker". PR #330 ("F2 render is enough" → typecheck advisory när preview renderar) är **stängd, ej mergad** (`state: CLOSED`, `draft`), så den friktionen finns kvar i master. Målbilden ovan (F2 = "preview bootar, renderar, ingen fatal") är alltså aspiration, inte nuläge.
+> **F2 render-first (kod-sanning 2026-07-02, #330-idén levererad):** F2:s quality gate är `["typecheck"]` och ett typecheck-*only*-fel är nu **advisory**, inte en hård promotion-gate. `POST .../quality-gate` promotar versionen och returnerar `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }` i stället för `failVersionVerification` när previewn renderar (`quality-gate/route.ts`), och `post-checks.ts` kör ingen auto-repair-loop på advisory. Falsk-grön-skydd: bara F2, bara när *enda* failande check är `typecheck` (build/lint/verifier/promote-guard förblir hårda), och F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt. Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight (`buildPreviewHtml` + home-route-gate), så en version som inte kan rendera når aldrig advisory-promote.
 
 ### Single status truth
 
@@ -193,7 +193,7 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 | Gap | Idag | Mål | Plan / status |
 |---|---|---|---|
 | **Single repair gate** | 5 callsites till `runLlmFixer` | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
-| **F2 = render räcker** | F2 quality gate `["typecheck"]` failar versionen hårt vid typfel även när preview renderar | F2-typecheck advisory när preview renderar; hårt först i F3 | PR #330 **stängd, ej mergad** — friktionen finns kvar |
+| **F2 = render räcker** | ~~F2 quality gate failar hårt vid typfel~~ | F2-typecheck advisory när preview renderar; hårt först i F3 | **Levererat 2026-07-02** (#330-idén): typecheck-only-fel i F2 promotas som advisory (`quality-gate/route.ts`), ingen auto-repair; F3 + build/lint förblir hårda |
 | **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief; fallback-addendum finns kvar som degraderad helper, inte som init-chat-wrapper | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
 | **Follow-up som strikt delta** | rätt i praktiken, men spritt över helpers | `FollowUpContract`-typ som samlar inheritance | (ingen aktiv plan) |
 | **Verifier-pass placering** | Inline i finalize, men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
