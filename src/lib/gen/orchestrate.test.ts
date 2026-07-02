@@ -219,7 +219,7 @@ describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () =>
   });
 });
 
-describe("dossierRequiresF3 (B-lite: envVars is the single F3 signal)", () => {
+describe("dossierRequiresF3 (single F3 signal: build envVars OR server-file surface)", () => {
   const envVar = (
     key: string,
     enforcement?: DossierEnvVar["enforcement"],
@@ -238,31 +238,63 @@ describe("dossierRequiresF3 (B-lite: envVars is the single F3 signal)", () => {
     expect(dossierRequiresF3({})).toBe(false);
   });
 
-  it("is false when every env var is warn-only / feature-runtime (no build secret)", () => {
+  it("is false when every env var is warn-only / feature-runtime AND all files are client-side", () => {
     expect(
       dossierRequiresF3({
         envVars: [envVar("SENTRY_DSN", "warn-only"), envVar("PLAUSIBLE_DOMAIN", "feature-runtime")],
+        files: [{ path: "components/widget.tsx", role: "client" }],
       }),
     ).toBe(false);
   });
+
+  it("is true when the dossier ships a server-role file even without build secrets (resend-contact-form pattern)", () => {
+    expect(
+      dossierRequiresF3({
+        envVars: [
+          envVar("RESEND_API_KEY", "feature-runtime"),
+          envVar("EMAIL_FROM", "feature-runtime"),
+          envVar("CONTACT_EMAIL_TO", "feature-runtime"),
+        ],
+        files: [
+          { path: "components/contact-form.tsx", role: "client" },
+          { path: "components/api/contact/route.ts", role: "server" },
+        ],
+      }),
+    ).toBe(true);
+  });
 });
 
-describe("getF3RequiredCapabilities (derived from the real dossier env contract)", () => {
+describe("getF3RequiredCapabilities (derived from the real dossier contract)", () => {
   it("derives secret-backed integrations from envVars, not a hardcoded list", () => {
     const caps = getF3RequiredCapabilities();
     // Build-enforced secrets (Stripe / Clerk / OpenAI).
     expect(caps.has("payments")).toBe(true);
     expect(caps.has("auth")).toBe(true);
     expect(caps.has("ai-chat")).toBe(true);
-    // Analytics + error-tracking have NO build-enforced env → not secret-derived
-    // (they are muted in F2 by policy, not by this signal).
+  });
+
+  it("derives server-file integrations (resend/mailchimp/sentry) via the server-file rule", () => {
+    const caps = getF3RequiredCapabilities();
+    // No build secrets, but real server wiring → F3.
+    expect(caps.has("contact-form")).toBe(true);
+    expect(caps.has("newsletter-subscribe")).toBe(true);
+    expect(caps.has("error-tracking")).toBe(true);
+    // Analytics has neither a build-enforced env nor a server file → stays a
+    // pure F2-mute POLICY residual, not derived from the dossier contract.
     expect(caps.has("analytics")).toBe(false);
-    expect(caps.has("error-tracking")).toBe(false);
   });
 });
 
-describe("F2/F3 integration mute (envVars-derived + policy residual)", () => {
-  const integrationCaps = ["payments", "auth", "ai-chat", "analytics", "error-tracking"];
+describe("F2/F3 integration mute (contract-derived + policy residual)", () => {
+  const integrationCaps = [
+    "payments",
+    "auth",
+    "ai-chat",
+    "analytics",
+    "error-tracking",
+    "contact-form",
+    "newsletter-subscribe",
+  ];
 
   it("mutes all integration capabilities in F2 (design)", () => {
     const result = filterDossierCapabilitiesForPrompt({
@@ -293,5 +325,20 @@ describe("F2/F3 integration mute (envVars-derived + policy residual)", () => {
       previewPolicy: "fidelity2",
     });
     expect(result).toContain("interactive-game");
+  });
+
+  it("mutes contact-form in F2 even when the prompt explicitly asks to send email", () => {
+    // The former `explicitlyRequestsContactDelivery` escape hatch injected the
+    // resend dossier into F2 whenever the prompt mentioned sending email —
+    // contradicting the F2 SDK deny-list (`resend` is a forbidden F2 import),
+    // whose guard then stripped the import from the verbatim `/api/contact`
+    // route and shipped a broken endpoint. Email delivery is strictly F3 now;
+    // F2 renders the form as a visual mockup per the F2 contract.
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["contact-form"],
+      prompt: "Skapa en kontaktsida som skickar mejl till oss med Resend",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).not.toContain("contact-form");
   });
 });

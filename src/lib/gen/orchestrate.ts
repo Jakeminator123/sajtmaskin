@@ -313,10 +313,6 @@ export interface OrchestrationInput {
   followUpContract?: FollowUpContract;
 }
 
-function explicitlyRequestsContactDelivery(prompt: string): boolean {
-  return /\b(resend|smtp|webhook|server action|backend|api route|send(?:a)? email|email delivery|mail delivery|skicka mejl|skicka mail|skicka e-?post|mejlutskick|mailutskick)\b/i.test(prompt);
-}
-
 function explicitlyRequestsCarousel(prompt: string): boolean {
   return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildkarusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
 }
@@ -324,23 +320,25 @@ function explicitlyRequestsCarousel(prompt: string): boolean {
 /**
  * Non-secret integration capabilities that F2 mutes by POLICY
  * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
- * build-enforced env secret — e.g. analytics (`<Analytics/>` needs no build
- * key) and Sentry error-tracking (all `warn-only`). These are integration
- * WIRING that the F2 design pass should not emit. The secret-requiring
- * capabilities (payments / auth / ai-chat) are NOT listed here — they are
- * derived from each dossier's env contract via `getF3RequiredCapabilities()`
- * (see `dossierRequiresF3`). Keep this residual minimal; prefer expressing
- * "needs F3" through a dossier's `envVars` enforcement.
+ * build-enforced env secret AND no server-file surface — today only
+ * analytics (`<Analytics/>` needs no build key and ships no server file).
+ * Everything else is derived from each dossier's own contract via
+ * `getF3RequiredCapabilities()` (see `dossierRequiresF3`: build-enforced
+ * env var OR a `files[].role === "server"` file — the latter now covers
+ * contact-form/resend, newsletter-subscribe/mailchimp and
+ * error-tracking/sentry). Keep this residual minimal; prefer expressing
+ * "needs F3" through the dossier manifest.
  */
-const F2_MUTE_POLICY_ONLY_CAPABILITIES = new Set(["analytics", "error-tracking"]);
+const F2_MUTE_POLICY_ONLY_CAPABILITIES = new Set(["analytics"]);
 
 /**
  * Integration capabilities muted from the F2 dossier prompt injection.
- * Canonical F3 signal = `dossierRequiresF3` (envVars/`enforcement: "build"`),
- * enumerated as capabilities by `getF3RequiredCapabilities()`, unioned with the
- * small non-secret policy residual above. Replaces the former hardcoded
- * `F3_ONLY_DOSSIER_CAPABILITIES` list so the boundary tracks the dossier env
- * contract instead of a duplicated constant.
+ * Canonical F3 signal = `dossierRequiresF3` (build-enforced envVars OR
+ * server-file surface), enumerated as capabilities by
+ * `getF3RequiredCapabilities()`, unioned with the small non-secret policy
+ * residual above. Replaces the former hardcoded `F3_ONLY_DOSSIER_CAPABILITIES`
+ * list so the boundary tracks the dossier contract instead of a duplicated
+ * constant.
  */
 function getF2MutedIntegrationCapabilities(): Set<string> {
   const caps = new Set<string>(getF3RequiredCapabilities());
@@ -355,16 +353,19 @@ export function filterDossierCapabilitiesForPrompt(params: {
 }): string[] {
   const f2MutedIntegrationCapabilities = getF2MutedIntegrationCapabilities();
   const filtered = params.capabilities.filter((capability) => {
+    // F2 integration-mute. Note: `contact-form` (resend) and
+    // `newsletter-subscribe` (mailchimp) are covered by the derived set via
+    // the server-file rule in `dossierRequiresF3` — the former per-prompt
+    // escape hatch (`explicitlyRequestsContactDelivery`) is removed: it used
+    // to inject the resend dossier into F2 whenever the prompt mentioned
+    // sending email, contradicting the F2 SDK deny-list (`resend` is a
+    // forbidden F2 import) so the guard stripped the import out of the
+    // verbatim route and shipped a broken `/api/contact`. Email delivery is
+    // now strictly F3; F2 renders the form as a visual mockup (see the F2
+    // contract's Forms guidance in `session-contracts.ts`).
     if (
       params.previewPolicy !== "fidelity3" &&
       f2MutedIntegrationCapabilities.has(capability)
-    ) {
-      return false;
-    }
-    if (
-      capability === "contact-form" &&
-      params.previewPolicy !== "fidelity3" &&
-      !explicitlyRequestsContactDelivery(params.prompt)
     ) {
       return false;
     }
