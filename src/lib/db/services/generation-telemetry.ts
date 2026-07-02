@@ -95,6 +95,34 @@ export async function updateTelemetryRecord(
   return rows[0];
 }
 
+/**
+ * Fas 0 telemetri-hygien: stamp the deploy outcome onto the latest telemetry
+ * row for a version. Mirrors the `feedback/route.ts` pattern
+ * (`getTelemetryForVersion` → `updateTelemetryRecord`).
+ *
+ * Best-effort by contract: a deploy must never fail because telemetry could
+ * not be written, so this swallows all errors and no-ops when the version has
+ * no telemetry row (e.g. eval/synthetic versions). Takes the newest row for
+ * the version — same "latest wins" semantics as the user-feedback writer.
+ *
+ * `result` is a short outcome tag, e.g. `"production:ready"` / `"preview:queued"`
+ * / `"error"` — queried by `scripts/db/control-stats.mjs`.
+ */
+export async function recordDeployResultForVersion(
+  versionId: string,
+  result: string,
+): Promise<void> {
+  try {
+    if (!versionId) return;
+    const rows = await getTelemetryForVersion(versionId);
+    const latest = rows[0];
+    if (!latest) return;
+    await updateTelemetryRecord(latest.id, { deployResult: result });
+  } catch (err) {
+    console.warn("[telemetry] Failed to record deploy result:", err);
+  }
+}
+
 export async function getTelemetryForVersion(versionId: string) {
   assertDbConfigured();
   return db

@@ -30,6 +30,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
+import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
@@ -654,6 +655,10 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
 
+        // Fas 0 telemetri-hygien: stämpla deploy-utfallet på versionens
+        // senaste telemetri-rad. Best-effort — får aldrig fälla deploy.
+        await recordDeployResultForVersion(versionId, `${deployTarget}:${mapped.status}`);
+
         devLogAppend("latest", {
             type: "site.deploy.done",
             chatId,
@@ -707,6 +712,9 @@ export async function POST(req: Request) {
         });
       } catch (deployErr) {
         await updateDeploymentStatus(deploymentId, "error");
+        // Fas 0 telemetri-hygien: registrera deploy-fel på versionens
+        // telemetri-rad innan felet bubblar upp (best-effort).
+        await recordDeployResultForVersion(versionId, `${deployTarget}:error`);
         throw deployErr;
       }
     } catch (err) {
