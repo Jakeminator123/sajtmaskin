@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
@@ -58,10 +58,10 @@ export function VersionMismatchOverlay({
   onForceRestart,
 }: VersionMismatchOverlayProps) {
   const sessionIsNewer = payload.mismatchDirection === "session_newer";
-  const title = sessionIsNewer ? "Preview kör en nyare version" : "Preview startar om";
+  const title = sessionIsNewer ? "Preview kör en nyare version" : "Preview visar fel version";
   const description = sessionIsNewer
-    ? "VM:en är redan bunden till en nyare version än den du försöker visa. Byt till senaste version eller starta om den valda versionen explicit."
-    : "VM:en kör fortfarande en tidigare version. De nya filerna installeras och servern startar om — vanligtvis 5–10 sekunder.";
+    ? "VM:en är redan bunden till en nyare version än den du försöker visa. Byt till senaste version eller tvinga en omstart av den valda versionen."
+    : "VM:en kör fortfarande en tidigare version än den du valt. En automatisk omstart har redan försökts utan att lösa det.";
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
@@ -87,30 +87,26 @@ export function VersionMismatchOverlay({
               <dt>Tid sedan</dt>
               <dd>{formatElapsed(payload.msSinceMismatch)}</dd>
             </dl>
-            {onForceRestart ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-300" />
-                <span className="text-[11px] text-amber-200/80">
-                  Försök tar normalt ~10 sekunder. Tryck om det dröjer mer än 30s.
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto h-7 border-amber-400/40 bg-amber-900/40 text-[11px] text-amber-50 hover:bg-amber-800/60"
-                  onClick={onForceRestart}
-                >
-                  Försök igen
-                </Button>
-              </div>
-            ) : (
-              <div className="mt-3 flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-300" />
-                <span className="text-[11px] text-amber-200/80">
-                  Vänta tills omstarten är klar — preview uppdateras automatiskt.
-                </span>
-              </div>
-            )}
+            {/*
+             * Fas 4: preview auto-resyncar EN gång automatiskt vid mismatch.
+             * Den här overlayn visas först NÄR det automatiska försöket redan
+             * gjorts och versionen fortfarande divergerar — därför är den alltid
+             * en manuell åtgärdsyta ("Försök igen" tvingar en ny omstart).
+             */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-amber-200/80">
+                Automatisk omstart räckte inte. Tryck för att tvinga en ny omstart av previewn.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 border-amber-400/40 bg-amber-900/40 text-[11px] text-amber-50 hover:bg-amber-800/60"
+                onClick={onForceRestart}
+              >
+                Försök igen
+              </Button>
+            </div>
           </div>
         </div>
       </div>

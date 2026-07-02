@@ -981,6 +981,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
+              onForcePreviewResync={() => vm.forcePreviewResync()}
               versionMismatchPayload={vm.versionMismatchPayload}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentPreviewUrl(url);
@@ -1047,6 +1048,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               selectedVersionId={vm.activeVersionId}
               activePreviewSessionId={vm.activePreviewSessionId}
               onVersionSelect={handleVersionSelect}
+              onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
               isCollapsed={vm.isVersionPanelCollapsed}
               onToggleCollapse={vm.handleToggleVersionPanel}
               versions={vm.effectiveVersionsList}

@@ -123,6 +123,7 @@ export function PreviewPanel({
   activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
   onPreviewSessionSuspect,
+  onForcePreviewResync,
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -1252,7 +1253,7 @@ export function PreviewPanel({
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
               versionMismatchPayload={versionMismatchPayload}
-              onForceRestart={onPreviewSessionSuspect}
+              onForceRestart={onForcePreviewResync ?? onPreviewSessionSuspect}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay
