@@ -472,7 +472,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             passed: false,
-            vmGatePassed: true,
+            // Reflect the true VM-gate status: false in the advisory case where
+            // typecheck failed but the finalize verifier then blocked promotion.
+            vmGatePassed: gateResult.passed,
             promotionBlocked: true,
             promotionBlockedReason: "finalize_quality_gate_failed",
           });

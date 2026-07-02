@@ -224,6 +224,29 @@ export async function triggerServerVerification(params: {
     }
 
     const passed = qualityGateAllPassed(gateResult.results);
+
+    // F2 render-first (#330): a design-preview (F2) version whose ONLY failing
+    // check is `typecheck` is advisory (see `isTypecheckOnlyAdvisory`) — `next
+    // dev` renders despite TS type errors, so promote instead of repairing.
+    // Computed BEFORE the `version.verifier.done` emit + summary log so an
+    // advisory promotion never first emits a `failed`/`blocked` verifier event
+    // or an error-level log: that stale terminal-`failed` bus signal would
+    // survive `reconcileTerminalDbState` as a false-red "Ej verifierad" even
+    // after the row is promoted to `passed`. Mirrors the client quality-gate
+    // route so the two gate paths never disagree. NEVER in `diagnosticOnly`
+    // mode (verifier blockers still forbid promotion → falls through to the
+    // diagnostic fail branch below).
+    const f2TypecheckAdvisory = isTypecheckOnlyAdvisory({
+      isDesignPreview: previewPolicy === "fidelity2",
+      gatePassed: passed,
+      buildOriginated: forceBuildCheck,
+      results: gateResult.results,
+    });
+    const advisoryPromote = f2TypecheckAdvisory && !diagnosticOnly;
+    // A version that will be advisory-promoted is NOT a blocking failure for the
+    // outcome bus signal / summary log, even though the raw VM gate did not pass.
+    const outcomeIsGreen = passed || advisoryPromote;
+
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable,
       results: gateResult.results,
@@ -249,9 +272,9 @@ export async function triggerServerVerification(params: {
       t: "version.verifier.done",
       versionId,
       chatId,
-      outcome: passed ? "passed" : "failed",
-      blocked: !passed,
-      findings: passed
+      outcome: outcomeIsGreen ? "passed" : "failed",
+      blocked: !outcomeIsGreen,
+      findings: outcomeIsGreen
         ? []
         : gateResult.results
             .filter((r) => !r.passed)
@@ -260,13 +283,32 @@ export async function triggerServerVerification(params: {
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
-      level: passed ? "info" : "error",
-      category: "preflight:quality-gate",
-      message: passed ? "Server verify passed." : "Server verify failed.",
-      meta: qualityGateMeta,
+      level: passed ? "info" : advisoryPromote ? "warning" : "error",
+      category: advisoryPromote ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
+      message: passed
+        ? "Server verify passed."
+        : advisoryPromote
+          ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotar utan repair."
+          : "Server verify failed.",
+      meta: advisoryPromote
+        ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }
+        : qualityGateMeta,
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
+
+    // F2 render-first advisory promotion (see `advisoryPromote` above). Runs
+    // before the failure/repair paths so a background server-verify never undoes
+    // the route's advisory promotion. `diagnosticOnly` (verifier blockers) is
+    // already excluded, so this never promotes a verifier-blocked version.
+    if (advisoryPromote) {
+      await promoteVersion(
+        versionId,
+        "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+        runId,
+      ).catch(() => null);
+      return;
+    }
 
     if (passed) {
       if (diagnosticOnly) {
@@ -297,39 +339,6 @@ export async function triggerServerVerification(params: {
         return;
       }
       await promoteVersion(versionId, "Automatic server verification passed.", runId).catch(() => null);
-      return;
-    }
-
-    // F2 render-first (#330): mirror the quality-gate route so a BACKGROUND
-    // server-verify never hard-fails (or repairs) what the route promoted as
-    // advisory — otherwise the two gate paths race/undo each other. A
-    // design-preview (F2) version whose ONLY failing check is `typecheck` is
-    // advisory: `next dev` renders despite TS type errors, so promote instead of
-    // repairing. False-green protection matches the route: only F2, only when
-    // every failing check is `typecheck`, never build-originated
-    // (`forceBuildCheck`), and NEVER in `diagnosticOnly` mode (verifier blockers
-    // still forbid promotion → falls through to the diagnostic fail branch).
-    const isF2TypecheckOnlyAdvisory = isTypecheckOnlyAdvisory({
-      isDesignPreview: previewPolicy === "fidelity2",
-      gatePassed: passed,
-      buildOriginated: forceBuildCheck,
-      results: gateResult.results,
-    });
-    if (isF2TypecheckOnlyAdvisory && !diagnosticOnly) {
-      await createEngineVersionErrorLogs([{
-        chatId,
-        versionId,
-        level: "warning",
-        category: "quality-gate:typecheck-advisory",
-        message:
-          "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotar utan repair.",
-        meta: { serverOwned: true, advisory: true, failedChecks: ["typecheck"] },
-      }]).catch(() => null);
-      await promoteVersion(
-        versionId,
-        "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
-        runId,
-      ).catch(() => null);
       return;
     }
 
