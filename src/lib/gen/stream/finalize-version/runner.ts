@@ -278,7 +278,7 @@ export async function finalizeAndSaveVersion(
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
-    autoFixHeavyLoad,
+    autoFixRisk,
     autoFixFixers,
     previewBlockingWarnings,
   } = autofixPhase;
@@ -316,7 +316,8 @@ export async function finalizeAndSaveVersion(
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed: autofixSucceeded,
-    autoFixHeavyLoad,
+    autoFixRisk,
+    requestedCapabilities,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck:
       willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
@@ -419,7 +420,9 @@ export async function finalizeAndSaveVersion(
     warnings: autoFixWarningCount,
     dependencies: autoFixDependencyCount,
     outcome: autoFixOutcome,
-    heavyLoad: autoFixHeavyLoad,
+    safeFixCount: autoFixRisk.safeFixCount,
+    riskyFixCount: autoFixRisk.riskyFixCount,
+    riskyFixerIds: autoFixRisk.riskyFixerIds,
     previewBlockingWarnings: previewBlockingWarnings.length,
     fixers: autoFixFixers,
   });
@@ -479,7 +482,7 @@ export async function finalizeAndSaveVersion(
     verifierBlockingFindings: effectiveVerifierBlockingFindings,
     repairPassIndex,
     lineageHash,
-    autoFixHeavyLoad,
+    autoFixRisk,
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
@@ -548,18 +551,19 @@ export async function finalizeAndSaveVersion(
     verificationBlocked: hasVerificationBlockingErrors,
     messageId: assistantMsg.id,
   });
-  if (finalizeStepTelemetry.verifier?.reason === "autofix_heavy_load") {
+  if (finalizeStepTelemetry.verifier?.reason === "safe_fixes_only") {
     emitBusEvent({
       t: "version.degraded",
       versionId: version.id,
       chatId,
       runId: finalizeRunId,
-      kind: "verifier_skipped_heavy_load",
+      kind: "verifier_skipped_safe_fixes_only",
       message:
-        "Verifiering hoppades över eftersom mekanisk autofix behövde göra ovanligt många ändringar.",
+        "Verifiering hoppades över eftersom mekanisk autofix bara gjorde säkra hygienfixar.",
       meta: {
-        fixCount: autoFixFixCount,
-        threshold: 5,
+        safeFixCount: autoFixRisk.safeFixCount,
+        riskyFixCount: autoFixRisk.riskyFixCount,
+        riskyFixerIds: autoFixRisk.riskyFixerIds,
         repairPassIndex,
       },
     });
@@ -622,7 +626,7 @@ export async function finalizeAndSaveVersion(
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
-    autoFixHeavyLoad,
+    autoFixRisk,
     verifierBlocked,
     verifierBlockingFindings: effectiveVerifierBlockingFindings,
     preflightIssueCount: preflightIssues.length,

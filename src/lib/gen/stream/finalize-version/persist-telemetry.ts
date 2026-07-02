@@ -18,6 +18,7 @@ import type {
   FinalizeStepTelemetryMap,
   FinalizeSyntaxResult,
 } from "./types";
+import type { AutofixRiskSummary } from "./pre-phases";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
@@ -52,7 +53,7 @@ export async function persistTelemetryRecord(params: {
   autoFixFixCount: number;
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
-  autoFixHeavyLoad: boolean;
+  autoFixRisk: AutofixRiskSummary;
   verifierBlocked: boolean;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   preflightIssueCount: number;
@@ -86,7 +87,7 @@ export async function persistTelemetryRecord(params: {
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
-    autoFixHeavyLoad,
+    autoFixRisk,
     verifierBlocked,
     verifierBlockingFindings,
     preflightIssueCount,
@@ -106,7 +107,9 @@ export async function persistTelemetryRecord(params: {
         fixCount: autoFixFixCount,
         warningCount: autoFixWarningCount,
         dependencyCount: autoFixDependencyCount,
-        heavyLoad: autoFixHeavyLoad,
+        safeFixCount: autoFixRisk.safeFixCount,
+        riskyFixCount: autoFixRisk.riskyFixCount,
+        riskyFixerIds: autoFixRisk.riskyFixerIds,
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,

@@ -24,6 +24,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | F3 / fidelity3 | Integration/build/deploybarhetsläge. Explicit steg. |
 | Preview / VM / preview_host | Live-runtime för iteration. Inte samma sak som deploy. |
 | Mekanisk autofix | Deterministiska fixers. |
+| Safe/risky autofix | Riskklass för mekaniska fixar: `safe` = smal hygienfix, `risky` = struktur-, cross-file-, dependency- eller LLM-mutation som behåller verifier-behov. |
 | LLM-fix | Modellbaserad reparation när mekanik inte räcker. |
 | Finalize | Steget som gör LLM-output körbar, reparerad, verifierbar och sparbar. |
 | Preflight | Teknisk kontroll före preview/persist/promote. |

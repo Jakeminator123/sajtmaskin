@@ -11,6 +11,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import type { FixEntry } from "@/lib/gen/autofix/types";
+import { getFixerRiskById } from "@/lib/gen/autofix/fixer-registry";
 import { expandUrls } from "@/lib/gen/url-compress";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
@@ -44,9 +45,15 @@ export interface AutofixPhaseResult {
   autoFixFixCount: number;
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
-  autoFixHeavyLoad: boolean;
+  autoFixRisk: AutofixRiskSummary;
   autoFixFixers: AutofixFixerSummary[];
   previewBlockingWarnings: string[];
+}
+
+export interface AutofixRiskSummary {
+  safeFixCount: number;
+  riskyFixCount: number;
+  riskyFixerIds: string[];
 }
 
 export interface AutofixFixerSummary {
@@ -62,6 +69,11 @@ const MAX_FIXER_GROUPS = 12;
 const MAX_FIXER_FILES = 3;
 const MAX_FIXER_EXAMPLES = 2;
 const MAX_EXAMPLE_CHARS = 140;
+const EMPTY_AUTOFIX_RISK: AutofixRiskSummary = {
+  safeFixCount: 0,
+  riskyFixCount: 0,
+  riskyFixerIds: [],
+};
 
 function compactString(value: string, maxChars = MAX_EXAMPLE_CHARS): string {
   const normalized = value.replace(/\s+/g, " ").trim();
@@ -115,6 +127,33 @@ export function summarizeAutofixFixers(fixes: FixEntry[]): AutofixFixerSummary[]
     .slice(0, MAX_FIXER_GROUPS);
 }
 
+export function summarizeAutofixRisk(fixes: FixEntry[]): AutofixRiskSummary {
+  if (fixes.length === 0) return { ...EMPTY_AUTOFIX_RISK };
+
+  let safeFixCount = 0;
+  let riskyFixCount = 0;
+  const riskyFixerIds: string[] = [];
+  const seenRiskyFixers = new Set<string>();
+
+  for (const fix of fixes) {
+    const fixer = fix.fixer.trim() || "unknown-fixer";
+    // Fail closed: a fixer missing from the registry can mutate generated code
+    // but has no audited classification, so treat it as risky.
+    const risk = getFixerRiskById(fixer) ?? "risky";
+    if (risk === "safe") {
+      safeFixCount += 1;
+      continue;
+    }
+    riskyFixCount += 1;
+    if (!seenRiskyFixers.has(fixer)) {
+      seenRiskyFixers.add(fixer);
+      riskyFixerIds.push(fixer);
+    }
+  }
+
+  return { safeFixCount, riskyFixCount, riskyFixerIds };
+}
+
 export async function runAutofixPrePhase(params: {
   runAutofix: boolean;
   contentForVersion: string;
@@ -150,7 +189,7 @@ export async function runAutofixPrePhase(params: {
   let autoFixFixCount = 0;
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
-  let autoFixHeavyLoad = false;
+  let autoFixRisk: AutofixRiskSummary = { ...EMPTY_AUTOFIX_RISK };
   let autoFixOutcome: AutofixPhaseResult["autoFixOutcome"] = "skipped";
   let autoFixFixers: AutofixFixerSummary[] = [];
   let previewBlockingWarnings: string[] = [];
@@ -167,7 +206,7 @@ export async function runAutofixPrePhase(params: {
       autoFixFixCount,
       autoFixWarningCount,
       autoFixDependencyCount,
-      autoFixHeavyLoad,
+      autoFixRisk,
       autoFixFixers,
       previewBlockingWarnings,
     };
@@ -190,7 +229,7 @@ export async function runAutofixPrePhase(params: {
     autoFixFixCount = autoFixResult.fixes.length;
     autoFixWarningCount = autoFixResult.warnings.length;
     autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
-    autoFixHeavyLoad = autoFixFixCount > 5;
+    autoFixRisk = summarizeAutofixRisk(autoFixResult.fixes);
     autoFixFixers = summarizeAutofixFixers(autoFixResult.fixes);
     previewBlockingWarnings = autoFixResult.warnings.filter((warning) =>
       warning.includes("preview-blocking:"),
@@ -207,14 +246,13 @@ export async function runAutofixPrePhase(params: {
         resolvedTier: resolvedTier ?? null,
       });
     }
-    if (autoFixHeavyLoad) {
+    if (autoFixResult.fixes.length > 0) {
       devLogAppend("in-progress", {
-        type: "autofix.heavy_load",
+        type: "autofix.risk",
         chatId,
-        fixCount: autoFixFixCount,
-        threshold: 5,
-        warning:
-          "Deterministic autofix had to repair many issues. This usually indicates instability earlier in generation.",
+        safeFixCount: autoFixRisk.safeFixCount,
+        riskyFixCount: autoFixRisk.riskyFixCount,
+        riskyFixerIds: autoFixRisk.riskyFixerIds,
         scaffoldId: resolvedScaffold?.id ?? null,
       });
     }
@@ -226,12 +264,15 @@ export async function runAutofixPrePhase(params: {
       dependencies: Object.keys(autoFixResult.dependencies).length,
       fixers: autoFixFixers,
       previewBlockingWarnings: previewBlockingWarnings.length,
-      heavyLoad: autoFixHeavyLoad,
+      safeFixCount: autoFixRisk.safeFixCount,
+      riskyFixCount: autoFixRisk.riskyFixCount,
+      riskyFixerIds: autoFixRisk.riskyFixerIds,
     });
     stepTelemetry.autofix = createFinalizeStepTelemetry(autoFixStartedAt, "done", {
       fixCount: autoFixResult.fixes.length,
       warningCount: autoFixResult.warnings.length,
       dependencyCount: Object.keys(autoFixResult.dependencies).length,
+      ...autoFixRisk,
     });
   } catch (autofixErr) {
     console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
@@ -247,7 +288,7 @@ export async function runAutofixPrePhase(params: {
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
-    autoFixHeavyLoad,
+    autoFixRisk,
     autoFixFixers,
     previewBlockingWarnings,
   };

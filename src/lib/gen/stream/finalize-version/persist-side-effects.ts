@@ -31,6 +31,7 @@ import type {
   FinalizePreflightResult,
   FinalizeSyntaxResult,
 } from "./types";
+import type { AutofixRiskSummary } from "./pre-phases";
 
 export async function persistOrchestrationSnapshot(params: {
   chatId: string;
@@ -97,7 +98,7 @@ export interface PreflightLogPersistParams {
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   repairPassIndex: number;
   lineageHash: string | null | undefined;
-  autoFixHeavyLoad: boolean;
+  autoFixRisk: AutofixRiskSummary;
   autoFixFixCount: number;
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
@@ -130,7 +131,7 @@ export async function buildAndPersistPreflightLogs(
     verifierBlockingFindings,
     repairPassIndex,
     lineageHash,
-    autoFixHeavyLoad,
+    autoFixRisk,
     autoFixFixCount,
     autoFixWarningCount,
     autoFixDependencyCount,
@@ -187,26 +188,28 @@ export async function buildAndPersistPreflightLogs(
   if (verifierFailureLogs.length > 0) {
     preflightLogs.push(...verifierFailureLogs);
   }
-  if (autoFixHeavyLoad) {
-    preflightLogs.push({
-      chatId,
-      versionId,
-      level: "warning",
-      category: "autofix",
-      message:
-        "Deterministic autofix applied many repairs; generation quality may be unstable upstream.",
-      meta: {
-        event: "autofix_heavy_load",
-        fixCount: autoFixFixCount,
-        threshold: 5,
-        warningCount: autoFixWarningCount,
-        dependencyCount: autoFixDependencyCount,
-        logPassId,
-        repairPassIndex,
-        lineageHash: lineageHash ?? null,
-      },
-    });
-  }
+  preflightLogs.push({
+    chatId,
+    versionId,
+    level: autoFixRisk.riskyFixCount > 0 ? "warning" : "info",
+    category: "autofix",
+    message:
+      autoFixRisk.riskyFixCount > 0
+        ? "Deterministic autofix applied risky repairs; verifier coverage should stay enabled when policy runs."
+        : "Deterministic autofix risk summary recorded.",
+    meta: {
+      event: "autofix_risk",
+      fixCount: autoFixFixCount,
+      safeFixCount: autoFixRisk.safeFixCount,
+      riskyFixCount: autoFixRisk.riskyFixCount,
+      riskyFixerIds: autoFixRisk.riskyFixerIds,
+      warningCount: autoFixWarningCount,
+      dependencyCount: autoFixDependencyCount,
+      logPassId,
+      repairPassIndex,
+      lineageHash: lineageHash ?? null,
+    },
+  });
 
   try {
     await createEngineVersionErrorLogs(preflightLogs);

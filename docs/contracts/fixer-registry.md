@@ -24,6 +24,7 @@ Each entry has the shape:
 interface FixerRegistryEntry {
   id: string;                    // matches FixEntry.fixer
   category: FixerCategory;
+  risk: "safe" | "risky";        // verifier-policy risk class
   sourcePath: string;
   targetFailureMode: string;
   triggers: string[];
@@ -37,6 +38,18 @@ interface FixerRegistryEntry {
 `FixEntry` (runtime output from autofix/preflight) now also carries `lane` for
 telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense`,
 `post_merge`, `server_repair`). Canonical lane contracts: see the **Lane contracts** section below.
+
+## Risk classes
+
+`risk` is the verifier-policy signal for an executed fixer:
+
+| Risk | Meaning |
+|---|---|
+| `safe` | Narrow deterministic hygiene: directives, escaping/quotes, known library imports, same-module dedupe, URL/asset expansion, metadata/font/config small fixes, and read-only validators. |
+| `risky` | Structure or contract mutation: JSX tag/default-export rewrites, cross-file import/provider decisions, dependency additions/version bumps, regex import surgery, LLM rewrites, and server-repair passes. Unknown fixer ids are treated as `risky` at runtime. |
+
+Many `safe` fixes are normal flow. One `risky` fix is a signal to keep verifier
+coverage when the base verifier policy says it should run.
 
 See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 

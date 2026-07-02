@@ -60,8 +60,8 @@ const TUPLE_FIELD_RE =
  *
  * Returns the number of replacements made via `fixes`. The caller decides how
  * to surface them (one entry per file is what `pipeline.ts` does for similar
- * rules). We emit a single `FixEntry` summarizing the count to keep
- * `autofix_heavy_load` thresholds meaningful.
+ * rules). We emit a single `FixEntry` summarizing the count so risk telemetry
+ * records this as one narrow, safe fixer instead of noisy per-tuple volume.
  */
 export function fixR3FVectorTuples(code: string, filePath: string): R3FFixResult {
   if (!R3F_IMPORT_RE.test(code)) {
