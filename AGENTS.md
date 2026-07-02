@@ -33,9 +33,9 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
 
-## Review guidelines (Codex/GitHub-review + fallback)
+## Review guidelines (PR author owns the bug post-check)
 
-External Codex review (`chatgpt-codex-connector`) is **recommended, not a hard merge blocker**. If it can't run (out of credits/quota/outage) the PR/merge flow must **not** stall — fall back to an independent local review. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
+**Codex review is disabled (out of credits as of 2026-07-02).** Do not wait for `chatgpt-codex-connector`, do not treat its absence as a gap, and do not spin retrying it. The **PR-authoring agent** is responsible for the bug post-check instead. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
 
 **A review prioritizes P0/P1:** runtime regressions; false-green (a gate that turns green without real verification — verify / quality-gate / server-verify / promote / lifecycle / status); preview/VM failures; DB/schema drift; env/secret leaks; security/cross-tenant risk; broken LLM-pipeline contracts.
 
@@ -43,18 +43,19 @@ External Codex review (`chatgpt-codex-connector`) is **recommended, not a hard m
 - Flag **missing tests as P1** when the change touches pipeline, preview, DB, autofix, dependency handling, or any runtime contract.
 - Ignore taste/style unless it is a real UX/runtime/maintainability risk. Keep comments to concrete, merge-blocking problems.
 
-**Fallback when Codex review can't run** (missing / errors / "out of credits") — do **not** wait or spin:
+**Bug post-check (run by the PR author, before or right after opening the PR):**
 
-1. Run an independent Cursor Bugbot pass — the `review-bugbot` skill or the `bugbot` subagent (`subagent_type: "bugbot"`, `readonly: true`). There is **no** `bugbot run` CLI in this repo.
+1. Spawn a Cursor Bugbot pass — the `review-bugbot` skill or the `bugbot` subagent (`subagent_type: "bugbot"`, `readonly: true`). The subagent is a separate agent instance, so this satisfies the independent-eyes requirement even though the author drives it. There is **no** `bugbot run` CLI in this repo.
 2. If Bugbot is unavailable, do a structured manual review of the diff: read `git diff`, identify changed owners/files, hunt for regressions / missing tests / env-DB-preview risk / false-green / broken contracts, run the repo verifications (`npm run typecheck`, targeted `npx vitest run`, `npm run lint`, `npm run db:schema-drift`, …), and summarize findings with file/line refs.
+3. Document the outcome in the PR (which path was used + finding triage) so the merging agent does not redo the pass — the merger's job is to verify the post-check is documented, checks are green, and no P0/P1 is open.
 
-**Author-is-merger rule:** when the agent merging a PR is the **same** agent that authored it, re-reading your own diff is **not** review. If external Codex review is absent, the author-merger MUST get an *independent* pass — spawn the `bugbot` subagent (a separate agent) or a human — before merging, especially on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't route around the Cursor PR Auto-Merger's `NEEDS_HUMAN` with a self-approval.
+**Author-is-merger rule:** re-reading your own diff is never review. The `bugbot` subagent pass (a separate agent) is the minimum on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't route around the Cursor PR Auto-Merger's `NEEDS_HUMAN` with a self-approval.
 
 **Merge-ready criteria:**
 
-- Codex ran, no P0/P1, verification passed → merge-ready.
-- Codex couldn't run (credits/quota) **but** an *independent* review passed with no P0/P1 **and** verification passed → merge-ready. "Independent" = the reviewer is **not** the PR author: the `bugbot` subagent or a human. A `manual local bug review` qualifies **only** when done by a non-author merger reviewing someone else's PR; an **author-merger must use the `bugbot` subagent or a human** (per the Author-is-merger rule above) — re-reading your own diff never makes a PR merge-ready.
-- Always state in the final report which review path was used: `codex-review`, `bugbot` (Cursor subagent), or `manual local bug review`.
+- The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed → merge-ready.
+- If an external Codex review happens to exist (e.g. credits restored later), treat it as bonus signal and triage its findings the same way — but never block on it.
+- Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 
 ## Source-of-truth-regel
