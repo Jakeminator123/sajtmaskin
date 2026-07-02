@@ -334,28 +334,94 @@ function spawnNpm(args, options) {
   return spawn("npm", args, options);
 }
 
+function killShellCommandTree(child, useProcessGroup) {
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      return;
+    }
+    if (useProcessGroup) {
+      // Negative pid = kill the whole process group (sh + npm + its children).
+      // Killing only the sh wrapper would orphan the actual npm process.
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    }
+    child.kill("SIGKILL");
+  } catch {
+    /* already exited */
+  }
+}
+
+/**
+ * Run a shell command. `options.timeoutMs` (opt-in) hard-kills the whole
+ * process tree after the deadline and resolves with `timedOut: true` and a
+ * non-zero exit code — the promise ALWAYS settles. Without it, a hung child
+ * (e.g. a generated `preinstall` script that never exits) would hold its
+ * caller forever; with the global install queue that would wedge every later
+ * boot/verify install VM-wide (VADE/Codex P1 on PR #357).
+ */
 function runShellCommand(command, options) {
+  const { timeoutMs, timeoutLabel, ...spawnOptions } = options ?? {};
+  const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0;
+  // A process group lets the timeout kill sh AND its descendants on unix.
+  const useProcessGroup = hasTimeout && process.platform !== "win32";
   return new Promise((resolve, reject) => {
     const child =
       process.platform === "win32"
-        ? spawn("cmd.exe", ["/d", "/s", "/c", command], options)
-        : spawn("sh", ["-lc", command], options);
+        ? spawn("cmd.exe", ["/d", "/s", "/c", command], spawnOptions)
+        : spawn("sh", ["-lc", command], {
+            ...spawnOptions,
+            ...(useProcessGroup ? { detached: true } : {}),
+          });
     let output = "";
+    let timedOut = false;
+    let timer = null;
+    if (hasTimeout) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        killShellCommandTree(child, useProcessGroup);
+      }, timeoutMs);
+      timer.unref?.();
+    }
     child.stdout.on("data", (chunk) => {
       output += String(chunk);
     });
     child.stderr.on("data", (chunk) => {
       output += String(chunk);
     });
-    child.once("error", reject);
+    child.once("error", (err) => {
+      if (timer) clearTimeout(timer);
+      reject(err);
+    });
     child.once("close", (code) => {
+      if (timer) clearTimeout(timer);
+      if (timedOut) {
+        resolve({
+          exitCode: 124,
+          output:
+            `${output}\n[preview-host] ${timeoutLabel ?? "Command"} timed out after ` +
+            `${Math.round(timeoutMs / 1000)}s and was killed (fail-fast so the install queue advances).`,
+          timedOut: true,
+        });
+        return;
+      }
       resolve({
         exitCode: typeof code === "number" ? code : 1,
         output,
+        timedOut: false,
       });
     });
   });
 }
+
+// Hård tidsgräns per install-försök (M#fly1-härdning): med den globala
+// install-kön får ett enda hängt `npm install` (t.ex. ett genererat
+// preinstall-script som aldrig avslutas) INTE kila fast alla senare
+// boots/verifies — utan timeout vore enda utvägen VM-omstart. 0 = av.
+const INSTALL_TIMEOUT_MS = parseInt(
+  process.env.PREVIEW_HOST_INSTALL_TIMEOUT_MS ?? `${10 * 60 * 1000}`,
+  10,
+);
 
 function resolveInstallCommand(filesJson) {
   const hasPnpmLock =
@@ -432,6 +498,10 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
       env,
+      // Fail-fast: en hängd install får inte blockera den globala install-kön
+      // (alla senare boots/verifies) tills VM-omstart.
+      timeoutMs: INSTALL_TIMEOUT_MS > 0 ? INSTALL_TIMEOUT_MS : undefined,
+      timeoutLabel: `Install (${command})`,
     });
     return {
       ...result,
@@ -1907,14 +1977,25 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
       typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()
         ? tracked.previewSessionId.trim()
         : null;
-    const stopped = await stopTrackedRuntime(sessionId, null).catch(() => false);
-    if (!stopped) continue;
-    stoppedRuntimes += 1;
+    // Markera `hibernated` FÖRE stoppet (Codex P2): stopTrackedRuntime tar
+    // bort runtimen ur runtimeChildren och drainar upp till RUNTIME_DRAIN_MS —
+    // i det fönstret skulle en status-poll annars se running=false med status
+    // `warm_project` och auto-boota om runtimen, vilket besegrar reapern.
+    // Status-routen auto-bootar aldrig `hibernated`-sessioner.
+    // Saknas session-posten (städad store) är runtimen en orphan — stoppa den
+    // ändå; status-skrivningen är bara relevant när posten finns.
     await updateSessionById(sessionId, (stored) => {
       stored.status = "hibernated";
       stored.lastAction = "idle_stop";
       stored.updatedAt = nowIso();
     }).catch(() => null);
+    const stopped = await stopTrackedRuntime(sessionId, null).catch(() => false);
+    if (!stopped) {
+      // Runtimen försvann samtidigt (annan stop-väg). `hibernated` är ändå
+      // rätt vilotillstånd för en idle runtime utan process, så lämna kvar.
+      continue;
+    }
+    stoppedRuntimes += 1;
     if (previewSessionId) {
       await appendRuntimeLog(
         previewSessionId,
@@ -2237,5 +2318,8 @@ module.exports = {
     findConfigObjectExpression,
     patchTouchesStructuralPath,
     patchWorkspaceFiles,
+    runShellCommand,
+    registerPreviewSocket,
+    activePreviewSocketCount,
   },
 };

@@ -39,7 +39,7 @@ I praktiken betyder det:
 - `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
 - sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida
 - cleanup stoppar nu stale runtime-processer innan utgangna sessioner, loggar och workspace-mappar tas bort
-- **minnestryck (M#fly1, 2026-07-02):** alla installs (live-boot + verify) serialiseras genom en global `installQueue` (concurrency 1) sa att tva tunga `npm install` aldrig kor samtidigt; `fly.toml` har `swap_size_mb = 2048` som stotdampare
+- **minnestryck (M#fly1, 2026-07-02):** alla installs (live-boot + verify) serialiseras genom en global `installQueue` (concurrency 1) sa att tva tunga `npm install` aldrig kor samtidigt; `fly.toml` har `swap_size_mb = 2048` som stotdampare. Varje install-forsok har en hard timeout (`PREVIEW_HOST_INSTALL_TIMEOUT_MS`, default 10 min; 0 = av) som dodar hela processtradet och later kon ga vidare — annars skulle en hangd install (t.ex. ett genererat `preinstall`-script) kila fast alla senare boots/verifies tills VM-omstart. Riktade guard-tester: `npm run test:guards`
 - **idle-reaper:** en dev-runtime utan proxytrafik och utan oppen preview-WebSocket (≈ ingen oppen iframe) stoppas efter `PREVIEW_HOST_RUNTIME_IDLE_STOP_MS` (default 10 min; 0 = av) och sessionen markeras `hibernated` — nasta besok bootar om den via vantesidan. Svepintervall: `PREVIEW_HOST_RUNTIME_IDLE_SWEEP_INTERVAL_MS` (default 60 s). Klientens hibernate (pagehide/dold tab) ar fortfarande forsta forsvarslinjen; reapern ar VM-sidans skyddsnat nar det anropet inte nar fram
 
 ### Vad som inte fungerar annu
