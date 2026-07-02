@@ -252,6 +252,49 @@ describe("useResumePendingVerification", () => {
     expect(summary?.meta?.productBlocked).toBe(true);
   });
 
+  it("survives a versions poll tick mid-chain (Bugbot HIGH: no cancellation)", async () => {
+    // SWR idle-polls /versions every 60 s; each poll gives the hook a new
+    // array identity and re-runs the effect. The in-flight chain must run to
+    // completion — a cleanup-driven abort here would strand the row for the
+    // whole session since attemptedRef blocks a retry.
+    let resolvePostcheck!: () => void;
+    const postcheckGate = new Promise<void>((resolve) => {
+      resolvePostcheck = resolve;
+    });
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/product-postcheck")) {
+        await postcheckGate;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ skipped: false, productBlocked: false }),
+        };
+      }
+      if (u.includes("/validate-images") || u.includes("/error-log")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ passed: true }) };
+    });
+
+    const { rerender } = renderHook(
+      (props: { versions: unknown[] }) =>
+        useResumePendingVerification({
+          chatId: "chat_1",
+          versions: props.versions,
+          isStreaming: false,
+        }),
+      { initialProps: { versions: [pendingRow()] } },
+    );
+
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    // Poll tick lands while product-postcheck is still in flight.
+    rerender({ versions: [pendingRow()] });
+    resolvePostcheck();
+
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+  });
+
   it("continues to the gate when product-postcheck fails transport-level (normal-lane parity)", async () => {
     mockRoutes({ postcheck: { ok: false } });
     renderHook(() =>

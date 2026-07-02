@@ -238,19 +238,25 @@ export function useResumePendingVerification(params: {
     attemptedRef.current.add(candidate.versionId);
     const { versionId, previewUrl } = candidate;
 
-    let cancelled = false;
     toast.message("Återupptar verifiering", {
       description:
         "Senaste versionen blev aldrig färdigverifierad — kör verifieringen igen i bakgrunden.",
     });
 
+    // Deliberately NO cancellation (Bugbot HIGH on #353): this effect re-runs
+    // on every `versions` identity change (SWR idle-polls /versions every
+    // 60 s), so a cleanup-driven `cancelled` flag would abort the lane
+    // mid-chain on the first poll tick while `attemptedRef` blocks any retry
+    // for the rest of the session — stranding the row again. Every step below
+    // is safe to run to completion past unmount/re-render: the POSTs are
+    // idempotent + lease-protected server-side, `toast` is app-global, and
+    // SWR's `mutateVersions` is cache-scoped, not component-scoped.
     void (async () => {
       try {
         // Step 1 — image validation (broken external image URLs get
         // auto-replaced + persisted before promote), normal-lane parity
         // (Codex P2 round 2).
         await runResumeImageValidation({ chatId, versionId });
-        if (cancelled) return;
 
         // Step 2 — product-postcheck, mirroring the normal lane order. The
         // route emits `version.degraded` server-side AND the result is
@@ -258,7 +264,6 @@ export function useResumePendingVerification(params: {
         // the row the F3 trigger enforces) so a resumed promotion can never
         // read as solid green without DOM verification (Codex P1 rounds 1+2).
         const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
-        if (cancelled) return;
         if (postcheck.productBlocked) {
           // Normal-lane parity (Codex P2 round 2): the normal post-check path
           // records productBlocked as a warning and STILL runs the verify
@@ -286,7 +291,6 @@ export function useResumePendingVerification(params: {
           promoteError?: boolean;
           promotionBlocked?: boolean;
         } | null;
-        if (cancelled) return;
         await Promise.resolve(mutateVersions?.());
 
         // Non-200s are all non-actionable here: 409 = another job holds the
@@ -317,10 +321,6 @@ export function useResumePendingVerification(params: {
         // later builder visit gets a fresh attempt (new mount → new ref set).
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
     // `mutateVersions` in deps is safe: attemptedRef dedupes per versionId,
     // so an identity change can never re-POST for the same version.
   }, [chatId, versions, isStreaming, mutateVersions]);
