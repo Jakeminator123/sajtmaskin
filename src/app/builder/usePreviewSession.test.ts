@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import { usePreviewSession } from "./usePreviewSession";
 
 vi.mock("@/lib/builder/preview-session/api", () => ({
@@ -13,15 +13,15 @@ vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
 
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 
-const TIER2_URL = "https://vm-fly-jakem.fly.dev/preview";
+const TIER2_URL = "https://chat-1.fly.dev/preview";
 
 function harness(overrides?: { now?: () => number }) {
-  return renderHook(() => {
-    const [, setRecovering] = useState(false);
-    const [, setForceKey] = useState<string | null>(null);
-    const [, setRetryNonce] = useState(0);
-    const bootstrapDone = useRef<Set<string>>(new Set());
-    const session = usePreviewSession({
+  const setRecovering = vi.fn();
+  const setForceKey = vi.fn();
+  const setRetryNonce = vi.fn();
+  const bootstrapDone = { current: new Set<string>() } as MutableRefObject<Set<string>>;
+  const rendered = renderHook(() =>
+    usePreviewSession({
       chatId: "chat_1",
       activeVersionId: "ver_2",
       currentPreviewUrl: TIER2_URL,
@@ -33,12 +33,24 @@ function harness(overrides?: { now?: () => number }) {
       setForcedPreviewRestartKey: setForceKey,
       setPreviewBootstrapRetryNonce: setRetryNonce,
       now: overrides?.now,
-    });
-    return { session };
-  });
+    }),
+  );
+  return { rendered, setRecovering, setForceKey, setRetryNonce, bootstrapDone };
 }
 
-describe("usePreviewSession — version mismatch detection", () => {
+const mismatch = (previewSessionId: string, versionId: string, direction: "session_newer" | "session_older" | "unknown") =>
+  ({
+    ok: true as const,
+    status: "version_mismatch" as const,
+    previewSessionId,
+    previewUrl: TIER2_URL,
+    versionId,
+    sessionExpiresAt: null,
+    reason: "session_bound_to_other_version",
+    mismatchDirection: direction,
+  });
+
+describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () => {
   beforeEach(() => {
     vi.mocked(fetchPreviewStatus).mockReset();
   });
@@ -46,59 +58,108 @@ describe("usePreviewSession — version mismatch detection", () => {
     vi.restoreAllMocks();
   });
 
-  it("emits VersionMismatchOverlayPayload when status is version_mismatch", async () => {
+  it("auto-resyncar EN gång vid första mismatch (ingen overlay), sedan overlay vid fortsatt mismatch", async () => {
     let clock = 1_000_000;
-    vi.mocked(fetchPreviewStatus).mockResolvedValue({
-      ok: true,
-      status: "version_mismatch",
-      previewSessionId: "sbx_1",
-      previewUrl: TIER2_URL,
-      versionId: "ver_1",
-      sessionExpiresAt: null,
-      reason: "session_bound_to_other_version",
-      mismatchDirection: "session_older",
-    });
+    vi.mocked(fetchPreviewStatus).mockResolvedValue(mismatch("sbx_1", "ver_1", "session_older"));
 
-    const { result } = harness({ now: () => clock });
+    const h = harness({ now: () => clock });
 
-    expect(result.current.session.versionMismatchPayload).toBeNull();
-
+    // Första observationen → auto-resync (forced restart), ingen overlay.
     await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
+      await h.rendered.result.current.handlePreviewSessionSuspect();
     });
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_2");
+    expect(h.setRecovering).toHaveBeenCalledWith(true);
+    expect(h.setRetryNonce).toHaveBeenCalledTimes(1);
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
 
-    const payload = result.current.session.versionMismatchPayload;
-    expect(payload).not.toBeNull();
-    expect(payload?.chatId).toBe("chat_1");
-    expect(payload?.expectedVersionId).toBe("ver_2");
-    expect(payload?.currentVersionId).toBe("ver_1");
-    expect(payload?.mismatchDirection).toBe("session_older");
-    expect(payload?.msSinceMismatch).toBe(0);
-
-    // Andra observation efter 12s+4s: anchor pinnas vid första observationen,
-    // msSinceMismatch växer. Bypass-debounce kräver minst 12_000ms.
-    clock += 16_001;
-
+    // Andra observationen (samma stale-session sbx_1) efter 12s-debounce →
+    // loop-skydd: ingen ny restart, overlay visas i stället.
+    clock += 12_001;
+    h.setForceKey.mockClear();
+    h.setRetryNonce.mockClear();
     await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
+      await h.rendered.result.current.handlePreviewSessionSuspect();
     });
-
-    const payload2 = result.current.session.versionMismatchPayload;
-    expect(payload2?.msSinceMismatch).toBeGreaterThanOrEqual(16_001);
+    expect(h.rendered.result.current.versionMismatchPayload).not.toBeNull();
+    expect(h.rendered.result.current.versionMismatchPayload?.mismatchDirection).toBe("session_older");
+    expect(h.setForceKey).not.toHaveBeenCalled();
+    expect(h.setRetryNonce).not.toHaveBeenCalled();
   });
 
-  it("clears payload when status returns to running with the expected versionId", async () => {
+  it("tillåter en ny auto-resync när preview-sessionen (session id) är en annan efter första omstarten", async () => {
+    let clock = 2_000_000;
     vi.mocked(fetchPreviewStatus)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: "version_mismatch",
-        previewSessionId: "sbx_1",
-        previewUrl: TIER2_URL,
-        versionId: "ver_1",
-        sessionExpiresAt: null,
-        reason: "session_bound_to_other_version",
-        mismatchDirection: "session_older",
-      })
+      .mockResolvedValueOnce(mismatch("sbx_1", "ver_1", "session_older"))
+      .mockResolvedValueOnce(mismatch("sbx_2", "ver_1", "session_older"));
+
+    const h = harness({ now: () => clock });
+
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    expect(h.setForceKey).toHaveBeenCalledTimes(1);
+
+    // Ny stale-session (sbx_2) → per-session-nyckeln tillåter ett nytt försök.
+    clock += 12_001;
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    expect(h.setForceKey).toHaveBeenCalledTimes(2);
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
+  });
+
+  it("forcePreviewResync tvingar alltid en omstart och rensar overlay (bypassar loop-skyddet)", async () => {
+    let clock = 3_000_000;
+    vi.mocked(fetchPreviewStatus).mockResolvedValue(mismatch("sbx_1", "ver_1", "session_older"));
+
+    const h = harness({ now: () => clock });
+
+    // Bygg upp overlay: auto-resync + andra mismatch.
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    clock += 12_001;
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    expect(h.rendered.result.current.versionMismatchPayload).not.toBeNull();
+
+    // Manuell resync tvingar omstart trots att auto-försöket redan förbrukats.
+    h.setForceKey.mockClear();
+    h.setRetryNonce.mockClear();
+    act(() => {
+      h.rendered.result.current.forcePreviewResync();
+    });
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_2");
+    expect(h.setRetryNonce).toHaveBeenCalledTimes(1);
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
+
+    // Efter manuell resync är loop-skyddet nollställt för versionen → nästa
+    // mismatch (samma sessions-id) tillåts auto-resynca igen.
+    clock += 12_001;
+    h.setForceKey.mockClear();
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_2");
+  });
+
+  it("forcePreviewResync med explicit versionId (restore-vägen) tvingar omstart mot den versionen", () => {
+    const h = harness();
+    act(() => {
+      h.rendered.result.current.forcePreviewResync("ver_restored");
+    });
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_restored");
+    expect(h.setRecovering).toHaveBeenCalledWith(true);
+    expect(h.setRetryNonce).toHaveBeenCalledTimes(1);
+  });
+
+  it("rensar overlay-payload när status blir running mot förväntad version", async () => {
+    let clock = 5_000_000;
+    vi.mocked(fetchPreviewStatus)
+      .mockResolvedValueOnce(mismatch("sbx_1", "ver_1", "session_older"))
+      .mockResolvedValueOnce(mismatch("sbx_1", "ver_1", "session_older"))
       .mockResolvedValueOnce({
         ok: true,
         status: "running",
@@ -108,26 +169,29 @@ describe("usePreviewSession — version mismatch detection", () => {
         sessionExpiresAt: null,
       });
 
-    let clock = 5_000_000;
-    const { result } = harness({ now: () => clock });
+    const h = harness({ now: () => clock });
 
+    // 1: auto-resync, 2: overlay
     await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
+      await h.rendered.result.current.handlePreviewSessionSuspect();
     });
-    expect(result.current.session.versionMismatchPayload).not.toBeNull();
-
     clock += 12_001;
-
     await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
+      await h.rendered.result.current.handlePreviewSessionSuspect();
     });
+    expect(h.rendered.result.current.versionMismatchPayload).not.toBeNull();
 
+    // 3: running mot ver_2 → overlay rensas.
+    clock += 12_001;
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
     await waitFor(() => {
-      expect(result.current.session.versionMismatchPayload).toBeNull();
+      expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
     });
   });
 
-  it("does NOT emit payload when status is running on first observation", async () => {
+  it("visar ingen payload och auto-resyncar inte när status är running direkt", async () => {
     vi.mocked(fetchPreviewStatus).mockResolvedValue({
       ok: true,
       status: "running",
@@ -137,37 +201,13 @@ describe("usePreviewSession — version mismatch detection", () => {
       sessionExpiresAt: null,
     });
 
-    const { result } = harness();
+    const h = harness();
 
     await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
+      await h.rendered.result.current.handlePreviewSessionSuspect();
     });
 
-    expect(result.current.session.versionMismatchPayload).toBeNull();
-  });
-
-  it("keeps newer-session mismatch direction so UI can avoid restart-only copy", async () => {
-    vi.mocked(fetchPreviewStatus).mockResolvedValue({
-      ok: true,
-      status: "version_mismatch",
-      previewSessionId: "sbx_1",
-      previewUrl: TIER2_URL,
-      versionId: "ver_4",
-      sessionExpiresAt: null,
-      reason: "session_bound_to_other_version",
-      mismatchDirection: "session_newer",
-    });
-
-    const { result } = harness();
-
-    await act(async () => {
-      await result.current.session.handlePreviewSessionSuspect();
-    });
-
-    expect(result.current.session.versionMismatchPayload).toMatchObject({
-      expectedVersionId: "ver_2",
-      currentVersionId: "ver_4",
-      mismatchDirection: "session_newer",
-    });
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
+    expect(h.setForceKey).not.toHaveBeenCalled();
   });
 });
