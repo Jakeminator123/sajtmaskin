@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  RESUME_VERIFY_MAX_AGE_MS,
   RESUME_VERIFY_MIN_AGE_MS,
   findResumablePendingVersion,
   useResumePendingVerification,
@@ -19,6 +20,7 @@ vi.mock("sonner", () => ({
 const NOW = Date.now();
 const OLD_ENOUGH = new Date(NOW - RESUME_VERIFY_MIN_AGE_MS - 60_000).toISOString();
 const TOO_FRESH = new Date(NOW - 30_000).toISOString();
+const TOO_OLD = new Date(NOW - RESUME_VERIFY_MAX_AGE_MS - 60_000).toISOString();
 
 function pendingRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -30,6 +32,7 @@ function pendingRow(overrides: Record<string, unknown> = {}) {
     editKind: null,
     createdAt: OLD_ENOUGH,
     versionNumber: 2,
+    previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     ...overrides,
   };
 }
@@ -48,10 +51,17 @@ function promotedRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("findResumablePendingVersion", () => {
-  it("returns the latest stranded F2 draft", () => {
-    expect(findResumablePendingVersion([pendingRow(), promotedRow()], NOW)).toBe(
-      "ver_pending",
-    );
+  it("returns the latest stranded F2 draft with its persisted previewUrl", () => {
+    expect(findResumablePendingVersion([pendingRow(), promotedRow()], NOW)).toEqual({
+      versionId: "ver_pending",
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+  });
+
+  it("returns null previewUrl when the row has none persisted", () => {
+    expect(
+      findResumablePendingVersion([pendingRow({ previewUrl: null })], NOW),
+    ).toEqual({ versionId: "ver_pending", previewUrl: null });
   });
 
   it("returns null when the latest row is promoted (older pending rows are history)", () => {
@@ -66,16 +76,24 @@ describe("findResumablePendingVersion", () => {
     ).toBeNull();
   });
 
+  it("returns null for rows older than the max resume age (stale history)", () => {
+    expect(
+      findResumablePendingVersion([pendingRow({ createdAt: TOO_OLD })], NOW),
+    ).toBeNull();
+  });
+
   it("returns null for F3 integrations rows (server-verify owns them)", () => {
     expect(
       findResumablePendingVersion([pendingRow({ lifecycleStage: "integrations" })], NOW),
     ).toBeNull();
   });
 
-  it("returns null for quick_edit minor versions", () => {
-    expect(
-      findResumablePendingVersion([pendingRow({ editKind: "quick_edit" })], NOW),
-    ).toBeNull();
+  it("returns null for every non-null editKind provenance (quick_edit/import/restore)", () => {
+    for (const editKind of ["quick_edit", "imported_repo", "restore", "anything_future"]) {
+      expect(
+        findResumablePendingVersion([pendingRow({ editKind })], NOW),
+      ).toBeNull();
+    }
   });
 
   it("returns null for legacy rows without releaseState", () => {
@@ -105,13 +123,36 @@ describe("findResumablePendingVersion", () => {
 describe("useResumePendingVerification", () => {
   const fetchMock = vi.fn();
 
+  function mockRoutes(params: {
+    postcheck?: { ok?: boolean; body?: unknown };
+    qualityGate?: { ok?: boolean; status?: number; body?: unknown };
+  }) {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/product-postcheck")) {
+        return {
+          ok: params.postcheck?.ok ?? true,
+          status: (params.postcheck?.ok ?? true) ? 200 : 500,
+          json: async () =>
+            params.postcheck?.body ?? { skipped: false, productBlocked: false },
+        };
+      }
+      return {
+        ok: params.qualityGate?.ok ?? true,
+        status: params.qualityGate?.status ?? 200,
+        json: async () => params.qualityGate?.body ?? { passed: true },
+      };
+    });
+  }
+
+  function callsTo(pathFragment: string): Array<[string, RequestInit]> {
+    return fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes(pathFragment),
+    ) as Array<[string, RequestInit]>;
+  }
+
   beforeEach(() => {
     fetchMock.mockReset();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ passed: true }),
-    });
+    mockRoutes({});
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -120,7 +161,7 @@ describe("useResumePendingVerification", () => {
     vi.clearAllMocks();
   });
 
-  it("posts /quality-gate exactly once for a stranded version", async () => {
+  it("runs product-postcheck first, then posts /quality-gate exactly once", async () => {
     const mutateVersions = vi.fn();
     const { rerender } = renderHook(
       (props: { versions: unknown[] }) =>
@@ -133,16 +174,57 @@ describe("useResumePendingVerification", () => {
       { initialProps: { versions: [pendingRow(), promotedRow()] } },
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain("/quality-gate");
-    expect(JSON.parse(String(init.body))).toEqual({ versionId: "ver_pending" });
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+
+    const postcheckCalls = callsTo("/product-postcheck");
+    expect(postcheckCalls).toHaveLength(1);
+    expect(JSON.parse(String(postcheckCalls[0][1].body))).toEqual({
+      versionId: "ver_pending",
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+    // Order: postcheck before gate (normal-lane parity).
+    const order = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(order.findIndex((u) => u.includes("/product-postcheck"))).toBeLessThan(
+      order.findIndex((u) => u.includes("/quality-gate")),
+    );
+    expect(JSON.parse(String(callsTo("/quality-gate")[0][1].body))).toEqual({
+      versionId: "ver_pending",
+    });
 
     // Re-render with a fresh array identity (poll tick) — the attempted-set
-    // must prevent a second POST for the same versionId.
+    // must prevent a second run for the same versionId.
     rerender({ versions: [pendingRow(), promotedRow()] });
     await waitFor(() => expect(mutateVersions).toHaveBeenCalled());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+  });
+
+  it("skips the quality gate when product-postcheck reports productBlocked", async () => {
+    mockRoutes({ postcheck: { body: { skipped: false, productBlocked: true } } });
+    const mutateVersions = vi.fn();
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+        mutateVersions,
+      }),
+    );
+
+    await waitFor(() => expect(mutateVersions).toHaveBeenCalled());
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("continues to the gate when product-postcheck fails transport-level (normal-lane parity)", async () => {
+    mockRoutes({ postcheck: { ok: false } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
   });
 
   it("does nothing while streaming", async () => {
@@ -169,13 +251,11 @@ describe("useResumePendingVerification", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("stays quiet on non-200 (busy/unconfigured) but still refetches versions", async () => {
+  it("stays quiet on non-200 quality gate (busy/unconfigured) but still refetches versions", async () => {
     const { toast } = await import("sonner");
     vi.mocked(toast.success).mockClear();
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 409,
-      json: async () => ({ code: "version_busy" }),
+    mockRoutes({
+      qualityGate: { ok: false, status: 409, body: { code: "version_busy" } },
     });
     const mutateVersions = vi.fn();
     renderHook(() =>

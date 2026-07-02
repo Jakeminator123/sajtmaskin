@@ -21,19 +21,31 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
  * 2026-07-02).
  *
  * This hook closes the gap without moving ownership: the browser still drives
- * F2 verification, but ANY later builder visit resumes a stranded lane by
- * re-posting `/quality-gate` for the latest resumable row. Safety properties:
+ * F2 verification, but ANY later builder visit resumes a stranded lane. The
+ * resume mirrors the tail of the normal lane (Codex P1 on #353): first
+ * `POST /product-postcheck` (which emits `version.degraded` server-side for
+ * skipped/blocked DOM checks — the false-green guard), then
+ * `POST /quality-gate`. A `productBlocked` result skips the gate entirely,
+ * matching the normal lane which routes blocked versions to autofix instead
+ * of verify+promote.
+ *
+ * Safety properties:
  *
  *  - Age gate ({@link RESUME_VERIFY_MIN_AGE_MS}): a row younger than this is
  *    assumed to have its original post-stream lane still running — we never
- *    race it.
+ *    race it. {@link RESUME_VERIFY_MAX_AGE_MS} bounds the other end so old
+ *    historical drafts (from before provenance markers existed) are never
+ *    retroactively promoted on a random builder visit (Codex P2 on #353).
+ *  - Provenance gate: only rows with `editKind == null` (normal generated
+ *    versions) are resumable. `quick_edit`, `imported_repo` (template/ZIP/
+ *    GitHub imports) and `restore` rows never had a browser post-check lane
+ *    and must not be gate-promoted or false-red:ed by one.
  *  - The route's per-version lease makes a duplicate POST harmless (409
  *    `version_busy`), so two tabs can't double-verify.
  *  - Only the LATEST engine row is considered; the route itself marks
  *    superseded rows instead of mutating stale heads.
  *  - F3 (`integrations`) rows are excluded — server-verify owns those and the
- *    watchdog already settles them. `quick_edit` minor versions are excluded
- *    (deterministic edits, not gate-promoted).
+ *    watchdog already settles them.
  *  - One attempt per versionId per mount; a hard gate fail settles the row
  *    terminally server-side, so there is no retry loop to cap.
  */
@@ -45,6 +57,14 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
  */
 export const RESUME_VERIFY_MIN_AGE_MS = 3 * 60_000;
 
+/**
+ * Upper bound for resumability. Rows older than this are stale history —
+ * auto-promoting them has no UX value, and rows created before the
+ * import/restore provenance markers existed (editKind null) must not be
+ * retroactively gate-promoted long after the fact.
+ */
+export const RESUME_VERIFY_MAX_AGE_MS = 24 * 60 * 60_000;
+
 type ResumableVersionRow = {
   id?: string | null;
   versionId?: string | null;
@@ -54,6 +74,13 @@ type ResumableVersionRow = {
   editKind?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
+  previewUrl?: string | null;
+};
+
+export type ResumablePendingVersion = {
+  versionId: string;
+  /** Persisted live-preview URL for the row (feeds product-postcheck), if any. */
+  previewUrl: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -78,13 +105,13 @@ function rowVersionId(row: ResumableVersionRow): string | null {
 }
 
 /**
- * Pure selector: the versionId of a stranded F2 draft to resume, or null.
+ * Pure selector: the stranded F2 draft to resume, or null.
  * Exported separately so the trigger conditions are unit-testable without DOM.
  */
 export function findResumablePendingVersion(
   versions: unknown,
   nowMs: number,
-): string | null {
+): ResumablePendingVersion | null {
   if (!Array.isArray(versions) || versions.length === 0) return null;
   const rows = versions.filter(isRecord) as ResumableVersionRow[];
   if (rows.length === 0) return null;
@@ -103,7 +130,10 @@ export function findResumablePendingVersion(
   // F3 rows are server-verify-owned (watchdog settles them); missing stage
   // defaults to design, matching `resolveEngineVersionLifecycleStage`.
   if (latest.lifecycleStage === "integrations") return null;
-  if (latest.editKind === "quick_edit") return null;
+  // Provenance gate (Codex P2): only normal generated rows (editKind null)
+  // ever had a browser post-check lane. quick_edit / imported_repo / restore
+  // rows must not be gate-promoted or false-red:ed by a resume.
+  if (latest.editKind != null) return null;
 
   if (!latest.createdAt) return null;
   const createdMs =
@@ -111,9 +141,44 @@ export function findResumablePendingVersion(
       ? latest.createdAt.getTime()
       : Date.parse(String(latest.createdAt));
   if (!Number.isFinite(createdMs)) return null;
-  if (nowMs - createdMs < RESUME_VERIFY_MIN_AGE_MS) return null;
+  const ageMs = nowMs - createdMs;
+  if (ageMs < RESUME_VERIFY_MIN_AGE_MS) return null;
+  if (ageMs > RESUME_VERIFY_MAX_AGE_MS) return null;
 
-  return versionId;
+  return {
+    versionId,
+    previewUrl:
+      typeof latest.previewUrl === "string" && latest.previewUrl.trim()
+        ? latest.previewUrl.trim()
+        : null,
+  };
+}
+
+/**
+ * Best-effort mirror of the normal lane's product-postcheck step. Returns
+ * `{ productBlocked }`; a network/parse failure returns `productBlocked:false`
+ * (same as the normal lane, which continues to the verify lane when
+ * `runProductPostcheckApi` yields null). The route itself emits the
+ * `version.degraded` bus events (skipped/blocked/runtime_error), so status
+ * honesty does not depend on this return value.
+ */
+async function runResumeProductPostcheck(params: {
+  chatId: string;
+  versionId: string;
+  previewUrl: string | null;
+}): Promise<{ productBlocked: boolean }> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
+    });
+    if (!res.ok) return { productBlocked: false };
+    const data = (await res.json().catch(() => null)) as { productBlocked?: boolean } | null;
+    return { productBlocked: data?.productBlocked === true };
+  } catch {
+    return { productBlocked: false };
+  }
 }
 
 export function useResumePendingVerification(params: {
@@ -128,9 +193,10 @@ export function useResumePendingVerification(params: {
 
   useEffect(() => {
     if (!chatId || isStreaming) return;
-    const versionId = findResumablePendingVersion(versions, Date.now());
-    if (!versionId || attemptedRef.current.has(versionId)) return;
-    attemptedRef.current.add(versionId);
+    const candidate = findResumablePendingVersion(versions, Date.now());
+    if (!candidate || attemptedRef.current.has(candidate.versionId)) return;
+    attemptedRef.current.add(candidate.versionId);
+    const { versionId, previewUrl } = candidate;
 
     let cancelled = false;
     toast.message("Återupptar verifiering", {
@@ -140,6 +206,25 @@ export function useResumePendingVerification(params: {
 
     void (async () => {
       try {
+        // Step 1 — product-postcheck, mirroring the normal lane order. The
+        // route emits `version.degraded` server-side for skipped/blocked DOM
+        // checks so a resumed promotion can never read as solid green without
+        // DOM verification (Codex P1).
+        const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
+        if (cancelled) return;
+        if (postcheck.productBlocked) {
+          // Normal-lane parity: a product-blocked version goes to autofix, not
+          // verify+promote. The resume lane has no autofix machinery, so leave
+          // the row pending (degradation is already on the bus) and inform.
+          await Promise.resolve(mutateVersions?.());
+          toast.message("Produktkontrollen hittade blockerande fel", {
+            description:
+              "Versionen promotades inte. Öppna diagnostik-dialogen eller kör en ny förfining.",
+          });
+          return;
+        }
+
+        // Step 2 — quality gate (verify + promote).
         const res = await fetch(`${engineChatBaseUrl(chatId)}/quality-gate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
