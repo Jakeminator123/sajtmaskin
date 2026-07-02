@@ -1,6 +1,6 @@
 # Runbook: vit preview, tom iframe och shim vs preview-host
 
-**Senast uppdaterad:** 2026-04-02  
+**Senast uppdaterad:** 2026-07-02  
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. `preview_host` / VM är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
 **Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
@@ -39,6 +39,15 @@
 
 - Shim fångat **compile**, **validation** eller **runtime** (`script-builder.ts`, `shims.ts`).
 - Då ska **inte** vit tom yta råda; om den gör det, kan overlay-policy i `PreviewPanel` behöva ses över (se backlog).
+
+### E. Preview visar fel/gammal version efter restore eller följdgenerering (`version_mismatch`)
+
+- **Symptom:** DB har en nyare/annan aktiv version än den preview-VM:en kör (prod-fall: v3 aktiv, VM körde trasiga v2). Tidigare fastnade användaren på fel preview tills manuell reload.
+- **Nytt beteende (fas 4, klient-drivet — ingen ny polling-loop):**
+  1. **Restore/rollback:** när `VersionHistory.performRestore` skapat den nya draftversionen triggar klienten en explicit **forced re-push** av preview-sessionen mot den återställda versionen (`forcePreviewResync(versionId)` → samma forced-restart-primitiv som `missing`/`stopped`/env-restart). Servern river den gamla VM-sessionen (`forceRestart: true`) och bootar en fräsch bunden till rätt version.
+  2. **`version_mismatch` (heartbeat/iframe upptäcker drift):** `usePreviewSession` gör **ETT** automatiskt forced-restart-försök per unik `${versionId}:${previewSessionId}` (loop-skydd + befintlig 12s-debounce ⇒ ingen restart-storm). Under det automatiska försöket visas preview-lifecyclens "recovering"-tillstånd, inte mismatch-overlayn.
+  3. **Fallback:** om versionen fortfarande divergerar efter det automatiska försöket visas `VersionMismatchOverlay` med en manuell **"Försök igen"** (`onForcePreviewResync`) som alltid tvingar en ny omstart (bypassar loop-skyddet).
+- **Var du bekräftar:** `logPreviewLifecycleTelemetry` `kind: "recover"`, `phase: "started"` med `detail: "version_mismatch_auto_resync"` (auto) resp. `"manual_force_resync"` (knapp); serverns `/api/engine/chats/{chatId}/preview-status` returnerar `status: "version_mismatch"` med `mismatchDirection`.
 
 ### D. Preview-host startar aldrig
 
