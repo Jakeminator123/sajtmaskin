@@ -166,6 +166,7 @@ describe("useResumePendingVerification", () => {
 
   it("runs image-validation, then product-postcheck, then /quality-gate exactly once", async () => {
     const mutateVersions = vi.fn();
+    const onVersionStatusRefresh = vi.fn();
     const { rerender } = renderHook(
       (props: { versions: unknown[] }) =>
         useResumePendingVerification({
@@ -173,11 +174,15 @@ describe("useResumePendingVerification", () => {
           versions: props.versions,
           isStreaming: false,
           mutateVersions,
+          onVersionStatusRefresh,
         }),
       { initialProps: { versions: [pendingRow(), promotedRow()] } },
     );
 
     await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    // Both status surfaces refresh after the gate (Codex P2 round 3): the
+    // versions list AND the active preview badge's /version-status nonce.
+    await waitFor(() => expect(onVersionStatusRefresh).toHaveBeenCalled());
 
     const postcheckCalls = callsTo("/product-postcheck");
     expect(postcheckCalls).toHaveLength(1);

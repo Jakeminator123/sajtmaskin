@@ -28,6 +28,32 @@ import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
 // Shared with the stream route's F3 gate (M#818-2) — single owner for the
 // file-based spec derivation, see tier3-readiness-gate.ts.
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+
+/**
+ * Server-side Product Postcheck block (Codex P1 round 3 on #353). The F3
+ * trigger button reads `product_postcheck.summary` from `/error-log` once on
+ * mount, so a summary row written AFTER mount (e.g. by the resume-verify
+ * lane) is invisible to its cached `productBlocked` state. Enforce the block
+ * where it cannot be raced: the newest summary row wins (a later passing
+ * postcheck unblocks). Read failures fail open with a log — this gate is
+ * defense-in-depth on top of the client button, and a telemetry hiccup must
+ * not brick the legit F3 flow.
+ */
+async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
+  try {
+    const logs = await getLatestEngineVersionErrorLogs(versionId, 200);
+    const summary = logs.find((log) => log.category === "product_postcheck.summary");
+    const meta =
+      summary?.meta && typeof summary.meta === "object"
+        ? (summary.meta as Record<string, unknown>)
+        : null;
+    return meta?.productBlocked === true;
+  } catch (err) {
+    console.warn("[finalize-design] product-postcheck block read failed (fail-open):", err);
+    return false;
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -99,6 +125,22 @@ export async function POST(
           reason: "already_integrations",
           message:
             "Den här versionen är redan en F3-integrationsversion. Välj F2-designversionen att forka från.",
+        },
+        { status: 409 },
+      );
+    }
+
+    // Codex P1 round 3 (#353): enforce the Product Postcheck block server-side
+    // — the client button's cached `productBlocked` can be stale when the
+    // summary row was written after mount (resume-verify lane).
+    if (await isProductPostcheckBlocked(baseVersion.id)) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "product_postcheck_blocked",
+          parentVersionId: baseVersion.id,
+          message:
+            "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
         },
         { status: 409 },
       );

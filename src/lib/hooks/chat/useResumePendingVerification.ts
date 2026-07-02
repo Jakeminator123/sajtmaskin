@@ -227,8 +227,15 @@ export function useResumePendingVerification(params: {
   /** True while any message in this tab is streaming — never resume mid-run. */
   isStreaming: boolean;
   mutateVersions?: () => void | Promise<unknown>;
+  /**
+   * Bumps `useVersionStatus`'s refreshNonce after the resumed gate settles —
+   * normal-lane parity (Codex P2 round 3 on #353): `/versions` refetch alone
+   * updates VersionHistory but the active preview badge polls `/version-status`
+   * and may have gone idle on a bus-settled `done` before the resume ran.
+   */
+  onVersionStatusRefresh?: () => void;
 }) {
-  const { chatId, versions, isStreaming, mutateVersions } = params;
+  const { chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh } = params;
   const attemptedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -292,6 +299,10 @@ export function useResumePendingVerification(params: {
           promotionBlocked?: boolean;
         } | null;
         await Promise.resolve(mutateVersions?.());
+        // Both status surfaces, normal-lane parity: `/versions` (history) via
+        // mutateVersions above, `/version-status` (active preview badge) via
+        // the nonce bump — the badge's poll may have idled before the resume.
+        onVersionStatusRefresh?.();
 
         // Non-200s are all non-actionable here: 409 = another job holds the
         // lease (it will finish the work), 501/503 = verify lane not
@@ -321,7 +332,7 @@ export function useResumePendingVerification(params: {
         // later builder visit gets a fresh attempt (new mount → new ref set).
       }
     })();
-    // `mutateVersions` in deps is safe: attemptedRef dedupes per versionId,
-    // so an identity change can never re-POST for the same version.
-  }, [chatId, versions, isStreaming, mutateVersions]);
+    // Callback deps are safe: attemptedRef dedupes per versionId, so an
+    // identity change can never re-POST for the same version.
+  }, [chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh]);
 }

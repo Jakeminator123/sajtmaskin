@@ -188,6 +188,7 @@ export function useBuilderPageController() {
     versions,
     isStreaming: isAnyStreamingEarly,
     mutateVersions,
+    onVersionStatusRefresh: bumpVersionStatusRefresh,
   });
 
   // ── Derived / memoized state ─────────────────────────────────────────
