@@ -7,6 +7,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
+import { getCreditCost } from "@/lib/credits/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -159,15 +160,43 @@ function BuyCreditsContent() {
   });
   const [formSubmitted, setFormSubmitted] = useState(false);
 
-  // Check URL params for success/cancel
+  // Purchase confirmation. Credits are granted server-side by the Stripe
+  // webhook (/api/stripe/webhook), which can land a moment after Stripe
+  // redirects back here. We deliberately do NOT treat the URL params as proof
+  // of a completed purchase — there is no session-status endpoint to verify
+  // against — so we show a "confirming" state and poll the balance a few times
+  // so the credits chip updates once the webhook has processed the payment.
   useEffect(() => {
     const success = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
-    if (success === "true" && sessionId) {
-      setSuccessMessage("Tack för ditt köp! Credits har lagts till på ditt konto.");
-      fetchUser();
-    }
+    if (success !== "true" || !sessionId) return;
 
+    setSuccessMessage(
+      "Tack! Vi bekräftar ditt köp – dina credits läggs till så snart betalningen har bekräftats.",
+    );
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const maxAttempts = 6;
+    const poll = () => {
+      if (cancelled) return;
+      attempts += 1;
+      void fetchUser();
+      if (attempts < maxAttempts) {
+        timer = setTimeout(poll, 2500);
+      }
+    };
+    poll();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fetchUser, searchParams]);
+
+  // Check URL params for auth flow (login / verification) feedback.
+  useEffect(() => {
     const login = searchParams.get("login");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
@@ -207,7 +236,7 @@ function BuyCreditsContent() {
     nextParams.delete("reason");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
-  }, [fetchUser, pathname, router, searchParams]);
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     fetchUser();
@@ -439,39 +468,73 @@ function BuyCreditsContent() {
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2 max-w-2xl mx-auto">
                   {[
-                    { label: "Generering (Mini)", cost: "5", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Pro)", cost: "7", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Max)", cost: "10", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Förfining (Mini)", cost: "3", icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Pro)", cost: "4", icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Max)", cost: "6", icon: Zap, color: "text-brand-amber" },
+                    // Costs are derived from canonical pricing (src/lib/credits/pricing.ts)
+                    // so this table can never drift from what the server actually charges.
+                    // The "Mini/Pro/Max" labels map to the fast/pro/max model tiers.
+                    {
+                      label: "Generering (Mini)",
+                      cost: getCreditCost("prompt.create", { modelId: "fast" }),
+                      icon: Wand2,
+                      color: "text-brand-teal",
+                    },
+                    {
+                      label: "Generering (Pro)",
+                      cost: getCreditCost("prompt.create", { modelId: "pro" }),
+                      icon: Wand2,
+                      color: "text-brand-teal",
+                    },
+                    {
+                      label: "Generering (Max)",
+                      cost: getCreditCost("prompt.create", { modelId: "max" }),
+                      icon: Wand2,
+                      color: "text-brand-teal",
+                    },
+                    {
+                      label: "Förfining (Mini)",
+                      cost: getCreditCost("prompt.refine", { modelId: "fast" }),
+                      icon: Zap,
+                      color: "text-brand-amber",
+                    },
+                    {
+                      label: "Förfining (Pro)",
+                      cost: getCreditCost("prompt.refine", { modelId: "pro" }),
+                      icon: Zap,
+                      color: "text-brand-amber",
+                    },
+                    {
+                      label: "Förfining (Max)",
+                      cost: getCreditCost("prompt.refine", { modelId: "max" }),
+                      icon: Zap,
+                      color: "text-brand-amber",
+                    },
                     {
                       label: "Wizard-läge",
-                      cost: "11",
+                      cost: getCreditCost("wizard.enrich"),
                       icon: Sparkles,
                       color: "text-brand-blue",
                     },
                     {
                       label: "Audit (Basic)",
-                      cost: "15",
+                      cost: getCreditCost("audit.basic"),
                       icon: Globe,
                       color: "text-brand-warm",
                     },
                     {
                       label: "Audit (Advanced)",
-                      cost: "25",
+                      cost: getCreditCost("audit.advanced"),
                       icon: Globe,
                       color: "text-brand-warm",
                     },
                     {
                       label: "Publicering",
-                      cost: "20",
+                      cost: getCreditCost("deploy.production"),
                       icon: ArrowRight,
                       color: "text-muted-foreground",
                     },
                     {
+                      // No canonical pricing entry for hosting yet — kept as a literal.
                       label: "Hosting (per månad)",
-                      cost: "10",
+                      cost: 10,
                       icon: Globe,
                       color: "text-muted-foreground",
                     },

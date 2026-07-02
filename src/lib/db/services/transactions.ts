@@ -5,6 +5,23 @@ import { transactions, users } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { Transaction } from "./shared";
 
+/**
+ * Thrown when a debit (negative amount) cannot be applied because the
+ * freshly-locked balance does not cover it. Callers can catch this to surface
+ * a "not enough credits" state instead of writing a negative balance.
+ */
+export class InsufficientCreditsError extends Error {
+  readonly code = "INSUFFICIENT_CREDITS";
+  readonly balance: number;
+  readonly required: number;
+  constructor(balance: number, amount: number) {
+    super(`Insufficient credits: balance ${balance}, attempted debit ${-amount}`);
+    this.name = "InsufficientCreditsError";
+    this.balance = balance;
+    this.required = -amount;
+  }
+}
+
 export async function createTransaction(
   userId: string,
   type: string,
@@ -31,7 +48,18 @@ export async function createTransaction(
       throw new Error("User not found");
     }
 
-    const newBalance = (lockedUser.diamonds || 0) + amount;
+    const currentBalance = lockedUser.diamonds || 0;
+    const newBalance = currentBalance + amount;
+
+    // Authoritative debit guard. The pre-check in evaluateCredits() reads the
+    // balance without a lock, so two parallel debits can both pass it. Here we
+    // hold the row lock, so only one debit can win: reject any debit that would
+    // drive the locked balance negative instead of stomping it below zero.
+    // Credits/refunds (amount >= 0) are never blocked.
+    if (amount < 0 && newBalance < 0) {
+      throw new InsufficientCreditsError(currentBalance, amount);
+    }
+
     const now = new Date();
 
     await tx
