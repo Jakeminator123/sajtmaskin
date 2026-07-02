@@ -10,7 +10,7 @@ CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
         "terminology.mdc — produkt, builder, lanes (Cursor-regel)",
     ),
     (
-        "docs/architecture/repository-and-platform.md",
+        "docs/architecture/code-map.md",
         "repository-and-platform.md — mappar, integrationer, repo (översikt)",
     ),
 )

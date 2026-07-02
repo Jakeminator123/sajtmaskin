@@ -83,7 +83,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 | `summary` | ✓ | 1-3 sentences. Used in prompt + backoffice. |
 | `lastVerified` | ✓ | ISO date YYYY-MM-DD when a human last validated the dossier. |
 | `defaultForCapability` | optional (default `false`) | Tie-breaker when two dossiers share the same capability. |
-| `envVars` | optional | External secrets needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — required for F3 build), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value). See [glossary § EnvVar enforcement](./glossary.md#envvar-enforcement-p31). |
+| `envVars` | optional | External secrets needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — required for F3 build), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value). See [glossary](../architecture/glossary.md). |
 | `dependencies` | optional | npm packages added to `package.json`. |
 | `files` | optional | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`. |
 | `exposes` | optional | Symbols the codegen LLM may import. |

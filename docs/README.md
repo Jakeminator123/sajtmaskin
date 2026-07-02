@@ -6,9 +6,9 @@
 
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md) |
+| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/code-map.md`](architecture/code-map.md) · [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md) |
 | **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
-| **Arkiv** | Avklarade planer + icke-plan-historik (`archive/`); scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) |
+| **Arkiv** | Avklarade planer + icke-plan-historik (`archive/`); scratch-policy: [`documentation-lifecycle.md`](documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) |
 
 ## Terminology (two layers — do not duplicate)
 
@@ -16,16 +16,16 @@
 |------------------|-------------------|----------------|
 | **Snabb förväxlingstabell (product/code names)** | `.cursor/rules/terminology.mdc` | Vanliga förväxlingar; pekar till glossaryn. |
 | **Kanonisk ordlista (alla begrepp, LLM-pipeline, scaffold, preview, legacy)** | [`docs/architecture/glossary.md`](architecture/glossary.md) | Enda fullständiga terminologikällan: ~100 termer, livscykelstatus, namnskuggor, fasindelning, uppdateringspolicy. |
-| **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Mappar, skript, integrationer; mermaid där det behövs. |
-| **Dokumentationspolicy (var saker ska ligga)** | `docs/architecture/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
+| **Repo layout & research pipeline** | `docs/architecture/code-map.md` | Mappar, skript, integrationer; mermaid där det behövs. |
+| **Dokumentationspolicy (var saker ska ligga)** | `docs/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
 
-**Rule:** Nya begrepp → registrera i `docs/architecture/glossary.md`. Vanliga förväxlingar → `terminology.mdc` (kort). Mapp-/pipeline-detaljer → `repository-and-platform.md`. Länka; duplicera inte.
+**Rule:** Nya begrepp → registrera i `docs/architecture/glossary.md`. Vanliga förväxlingar → `terminology.mdc` (kort). Mapp-/pipeline-detaljer → `code-map.md`. Länka; duplicera inte.
 
 ## Quick path (when `docs/` feels heavy)
 
 1. This file → **Key navigation** table below.
-2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 (operativt kördokument). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+2. [`docs/architecture/code-map.md`](architecture/code-map.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
+3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 (operativt kördokument). **Vit preview / tom iframe:** [`docs/runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
@@ -34,9 +34,9 @@
 
 Everything else is deep reference, history, or architecture.
 
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
+**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) · [`architecture/code-map.md`](architecture/code-map.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md). Doc-policy: [`documentation-lifecycle.md`](documentation-lifecycle.md).
 
-**För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/README.md`](plans/README.md) → [`architecture/glossary.md`](architecture/glossary.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
+**För agenter (orientering):** [`architecture/code-map.md`](architecture/code-map.md) → [`plans/README.md`](plans/README.md) → [`architecture/glossary.md`](architecture/glossary.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 
 ## Source of truth policy
 
@@ -99,15 +99,15 @@ Not runtime dependencies:
 
 | What you need | Where to look |
 |---|---|
-| **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) |
+| **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/code-map.md`](architecture/code-map.md) |
 | **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
-| **LLM-flöde målbild** (vart vi siktar) | [`docs/architecture/llm-flow-target-worldclass.md`](architecture/llm-flow-target-worldclass.md) |
-| LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/llm-signal-flow.md`](architecture/llm-signal-flow.md) |
+| **LLM-flöde målbild** (vart vi siktar) | [`docs/architecture/README.md`](architecture/README.md) |
+| LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
 | Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
 | Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 |
-| Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
+| Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/code-map.md`](architecture/code-map.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |
 | **Delivery-bias** (förmåga före dokumentation) | [`docs/delivery-bias.md`](delivery-bias.md) |
@@ -115,7 +115,7 @@ Not runtime dependencies:
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
-| Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) |
+| Kodkarta (mappar + kodytor) | [`code-map.md`](architecture/code-map.md) |
 | Vercel Templates discovery + Playwright + scaffolds | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md), [`docs/schemas/external-template-pipeline-contract.md`](schemas/external-template-pipeline-contract.md) |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |

@@ -7,7 +7,7 @@ alwaysApply: true
 
 Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommittade filer.
 
-**Startordning:** `README.md` → `AGENTS.md` → `docs/architecture/repo-tree.md` → relevant kod/doc.
+**Startordning:** `README.md` → `AGENTS.md` → `docs/architecture/code-map.md` → relevant kod/doc.
 
 ## Huvudytor
 
@@ -18,7 +18,7 @@ Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommi
 | Builder UI/chat | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
 | Deploy | `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/` |
 | Env/config | `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`, `config/ai_models/` |
-| Scaffolds | `src/lib/gen/scaffolds/`, `scripts/scaffolds/`, `docs/architecture/scaffold-system.md` |
+| Scaffolds | `src/lib/gen/scaffolds/`, `scripts/scaffolds/`, `docs/contracts/scaffold-system.md` |
 | Variants | `config/scaffold-variants/<scaffold>/<variant>.json` |
 | Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` |
 | Dossier tooling/index | `data/dossiers/_index/capability-map.json`, `scripts/dossiers/`, `backoffice/pages/dossiers.py` |

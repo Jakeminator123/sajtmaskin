@@ -48,7 +48,7 @@ Pipeline behavior is documented in
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 
 For signal flow and how these layers interact in init/follow-up/repair, also
-read `docs/architecture/llm-signal-flow.md`.
+read `docs/architecture/runtime-contracts.md`.
 
 ## Code Sources Of Truth
 

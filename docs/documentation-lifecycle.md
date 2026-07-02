@@ -1,10 +1,10 @@
 # Dokumentationslivscykel
 
-**Varför den här filen ligger i `docs/architecture/` (inte i `.cursor/rules/`):** Den beskriver **vad som får ligga var i `docs/`** och hur planfiler åldras. Det är **innehållspolicy** för dokumentationen. Projektregler i `.cursor/rules/` ska **länka hit** — inte duplicera samma policy ordagrant (en sanning, ett ställe).
+**Varför den här filen ligger i `docs/` (inte i `.cursor/rules/`):** Den beskriver **vad som får ligga var i `docs/`** och hur planfiler åldras. Det är **innehållspolicy** för dokumentationen. Projektregler i `.cursor/rules/` ska **länka hit** — inte duplicera samma policy ordagrant (en sanning, ett ställe).
 
-**Översikt över hur hela projektet hänger ihop (hög nivå):** [`docs/architecture/README.md`](./README.md) och [`system-overview.md`](./system-overview.md). Uppdatera dem vid **strukturella eller stora beteendeändringar** — inte för varje liten bugfix. Små ändringar hör hemma i commit/PR och kod; skapa inte nya översiktsfiler för kosmetik.
+**Översikt över hur hela projektet hänger ihop (hög nivå):** [`architecture/README.md`](./architecture/README.md) och [`architecture/system-overview.md`](./architecture/system-overview.md). Uppdatera dem vid **strukturella eller stora beteendeändringar** — inte för varje liten bugfix. Små ändringar hör hemma i commit/PR och kod; skapa inte nya översiktsfiler för kosmetik.
 
-**Nav:** [`docs/README.md`](../README.md) · planer: [`docs/plans/README.md`](../plans/README.md) · rot-träd: [`repo-tree.md`](./repo-tree.md).
+**Nav:** [`docs/README.md`](./README.md) · planer: [`docs/plans/README.md`](./plans/README.md) · kodkarta: [`architecture/code-map.md`](./architecture/code-map.md).
 
 ## Status för planfiler
 
@@ -19,17 +19,19 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 
 | Område | Här hör | Hit hör inte |
 |--------|---------|--------------|
-| `docs/architecture/` | Kanoniska översikter + glossary + denna fil | Tillfälliga scratch |
+| `docs/architecture/` | Tunna kanoniska översikter: README, system-overview, llm-pipeline, runtime-contracts, code-map, glossary | Tillfälliga scratch; inventarier; fil:rad-matriser; historik (allt sådant → kod/schema/script/git) |
+| `docs/contracts/` | Kod-/schemanära kontrakts- och policydokument (env-flow, data-layer, scaffold-/dossier-system, fixer-registry, `policy/`) | Nya parallella arkitekturberättelser |
+| `docs/runbooks/` | Operativa felsökningsrunbooks (t.ex. preview-white-screen) | Arkitektur-index |
 | `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (kod är sanning) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | `docs/plans/archived/` | Reverterade eller inaktuella planer som behålls som referens | Aktiva planer |
-| `docs/archive/` | Avslutad **icke-plan**-historik (t.ex. `status/` ögonblicksbilder) — se [`README.md`](../archive/README.md) | Aktivt arbete; genererade CI-artefakter (`docs/canvases/`) |
+| `docs/archive/` | Avslutad **icke-plan**-historik (t.ex. `status/` ögonblicksbilder) — se [`archive/README.md`](./archive/README.md) | Aktivt arbete; genererade CI-artefakter (`docs/canvases/`) |
 | `docs/operating/` | Operativa driftdokument: cheatsheets + `incidents/` (postmortems) | Planarbete |
-| `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
+| `docs/old/` | [`old/README.md`](./old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
 
 **Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
 
-**Plan-flöde:** nya planer i `active/` → när klart eller ersatt, flytta till `avklarat/` eller lita på git-historik. Uppdatera [`docs/plans/README.md`](../plans/README.md) vid större ändring.
+**Plan-flöde:** nya planer i `active/` → när klart eller ersatt, flytta till `avklarat/` eller lita på git-historik. Uppdatera [`docs/plans/README.md`](./plans/README.md) vid större ändring.
 
 **Rensa:** när du uppdaterar en kanonisk fil, ta bort **föråldrat** innehåll i samma fil i stället för att lägga parallella «nya sanningar».
 

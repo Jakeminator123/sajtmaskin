@@ -253,7 +253,7 @@ sajtmaskin.zip
 
 # --- Template references (input till AI-kuration, dossiers:curate) ---
 # Klonade upstream-repos och GitHub-metadata. Stora filer; läses bara av
-# kuration on demand. Se docs/architecture/dossier-system.md.
+# kuration on demand. Se docs/contracts/dossier-system.md.
 data/template-references/repos/
 data/template-references/_metadata/
 

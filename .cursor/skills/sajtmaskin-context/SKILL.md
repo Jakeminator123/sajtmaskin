@@ -9,7 +9,7 @@ description: Quick domain/context skill for Sajtmaskin. Use when working on buil
 
 1. `docs/architecture/glossary.md` — canonical glossary (slim, ~100 termer)
 2. `.cursor/rules/terminology.mdc` — confusion table + signal ownership
-3. `docs/architecture/llm-flow-target-worldclass.md` — **målbild** för LLM-flödet (3-fasmodell, single repair gate, init/follow-up som distinkta operationer)
+3. `docs/architecture/README.md` — **arkitekturprinciper/målbild** för LLM-flödet (init/follow-up som distinkta operationer, F2/F3, single repair gate)
 4. `docs/README.md` — doc navigation
 5. `docs/plans/active/README.md` — aktiva planer + aktuella öppna punkter (koncentrat)
 

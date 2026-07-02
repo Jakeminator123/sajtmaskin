@@ -12,7 +12,7 @@ alwaysApply: false
 
 # Scaffold-regler
 
-Arkitektur: `docs/architecture/scaffold-system.md`.
+Arkitektur: `docs/contracts/scaffold-system.md`.
 
 ## Canonical paths
 

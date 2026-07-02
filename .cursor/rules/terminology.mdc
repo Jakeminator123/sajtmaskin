@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Terminology snapshot
 
-Full ordlista: `docs/architecture/glossary.md`. Målbild: `docs/architecture/llm-flow-target-worldclass.md`. Signalägare: `docs/architecture/llm-signal-flow.md`.
+Full ordlista: `docs/architecture/glossary.md`. Arkitekturprinciper/målbild: `docs/architecture/README.md`. Signalägare/runtime-kontrakt: `docs/architecture/runtime-contracts.md`.
 
 ## Grundregel
 

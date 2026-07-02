@@ -157,7 +157,7 @@ condensed into:
 
 Current code no longer has the generated `template-library` catalog. Active
 dossier architecture is documented in
-[`docs/architecture/dossier-system.md`](../architecture/dossier-system.md).
+[`docs/contracts/dossier-system.md`](../contracts/dossier-system.md).
 
 It must **not** depend on:
 

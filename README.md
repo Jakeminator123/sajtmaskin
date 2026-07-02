@@ -9,7 +9,7 @@ Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orie
 ## Borja har
 
 1. Denna fil — snabb repo-router.
-2. [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md) — kanonisk rotkarta.
+2. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kanonisk rotkarta.
 3. [`docs/README.md`](docs/README.md) — dokumentationsnav.
 4. [`.cursor/README.md`](.cursor/README.md) — Cursor-regler, slash-kommandon och arbetsflode.
 5. Valj sedan en domanspecifik ingang nedan.
@@ -35,7 +35,7 @@ Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orie
 
 Borja i denna ordning:
 
-1. [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md)
+1. [`docs/architecture/code-map.md`](docs/architecture/code-map.md)
 2. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
 3. `src/lib/gen/`
 4. `src/lib/providers/own-engine/`
@@ -99,7 +99,7 @@ Borja i denna ordning:
 - Kod gar fore docs om de skiljer sig.
 - Denna fil ar en **router**, inte en fullstandig arkitekturbeskrivning.
 - Om en lokal README finns i det omrade du ror, las den innan du andrar strukturen.
-- Anvand `docs/architecture/repo-tree.md` som kanonisk rotkarta.
+- Anvand `docs/architecture/code-map.md` som kanonisk rotkarta.
 - Behandla kvarvarande `v0`-namn (t.ex. `scripts/v0-templates/`, `src/app/api/v0/`) som **legacy eller naming debt** tills kod visar annat.
 
 ## Rekommenderad Cursor-ingang
@@ -115,7 +115,7 @@ For Cursor/agentarbete:
 ## Fordjupning
 
 - Dokumentationsnav: [`docs/README.md`](docs/README.md)
-- Repo-trad: [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md)
+- Repo-trad: [`docs/architecture/code-map.md`](docs/architecture/code-map.md)
 - Arkitekturindex: [`docs/architecture/README.md`](docs/architecture/README.md)
 - Cursor-nav: [`.cursor/README.md`](.cursor/README.md)
 - Agentpekare: [`AGENTS.md`](AGENTS.md)

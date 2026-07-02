@@ -5,7 +5,7 @@ Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 ## Läs i denna ordning innan du börjar
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsnav
-2. [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md) — repokarta
+2. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
 3. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista (~100 begrepp)
 4. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
 5. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell

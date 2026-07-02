@@ -4,7 +4,7 @@
   "repoSiblings": {
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
-    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
+    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara code-map.md.",
     ".cursor": "Cursor-projektregler (`.cursor/rules/*.mdc`) och skills. Komplett, aktuellt regelindex med kategorier: `.cursor/README.md` (source of truth — räkna/lista inte reglerna här, det driftar). Slash-kommandon: `/avslutning`, `/buggrapport`."
   },
   "pages": {
@@ -20,7 +20,7 @@
         "config/user_degraded_env.txt"
       ],
       "docsPaths": [
-        "docs/architecture/repository-and-platform.md",
+        "docs/architecture/code-map.md",
         "config/dashboard/domain-map.json",
         "docs/architecture/README.md",
         "docs/architecture/llm-pipeline.md"
@@ -142,7 +142,7 @@
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/architecture/scaffold-system.md",
+        "docs/contracts/scaffold-system.md",
         "docs/architecture/llm-pipeline.md"
       ],
       "codeReaders": [
@@ -168,7 +168,7 @@
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/architecture/dossier-system.md",
+        "docs/contracts/dossier-system.md",
         ".cursor/rules/scaffold-rules.mdc"
       ],
       "codeReaders": [
@@ -236,7 +236,7 @@
         "scripts/control-plane/check-registry.mjs"
       ],
       "docsPaths": [
-        "docs/architecture/schema-policy-map.md"
+        "config/control-plane/README.md"
       ],
       "strictSchemaPaths": [
         "docs/schemas/strict/control-plane-registry.schema.json"
@@ -256,7 +256,7 @@
         "backoffice/pages/env_readiness.py"
       ],
       "docsPaths": [
-        "docs/architecture/env-flow-map.md",
+        "docs/contracts/env-flow.md",
         "docs/ENV.md"
       ],
       "codeReaders": [
@@ -281,9 +281,9 @@
         "src/lib/logging/generation-log-writer.ts"
       ],
       "docsPaths": [
-        "docs/architecture/llm-signal-flow.md",
+        "docs/architecture/runtime-contracts.md",
         "docs/llm/dossier-selection-flow.md",
-        "docs/architecture/scaffold-system.md"
+        "docs/contracts/scaffold-system.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/orchestration-signal-contract.md"
@@ -318,7 +318,7 @@
         "src/lib/db/schema.ts"
       ],
       "docsPaths": [
-        "docs/architecture/data-layer-overview.md"
+        "docs/contracts/data-layer.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/integrations-and-data.md"
@@ -343,7 +343,7 @@
         "src/lib/rateLimit.ts"
       ],
       "docsPaths": [
-        "docs/architecture/data-layer-overview.md"
+        "docs/contracts/data-layer.md"
       ],
       "humanSchemaPaths": [],
       "strictSchemaPaths": [
@@ -436,7 +436,7 @@
         ".cursor/rules/useful-commands.mdc",
         ".cursor/rules/unicode-regex.mdc",
         ".cursor/rules/workflow.mdc",
-        "docs/architecture/repository-and-platform.md"
+        "docs/architecture/code-map.md"
       ],
       "docsPaths": [
         ".cursor/README.md",

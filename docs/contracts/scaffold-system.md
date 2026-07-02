@@ -141,7 +141,7 @@ Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `Rout
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
 ### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
-`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](./llm-pipeline.md) § FAS 2 för token-budget-tabellen.
+`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för token-budget-tabellen.
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
 Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRoute, generationToValidate }`.
@@ -184,7 +184,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 LLM tar emot system prompt + user turn + bilagor. Producerar `CodeFile[]`.
 
 ### STEG 12 — Post-generation
-Se [llm-pipeline.md](./llm-pipeline.md) § FAS 2 för finalize-pipeline. Scaffold-aware retry: `inferScaffoldRetrySuggestion()` föreslår scaffold-pivot vid misslyckad generation.
+Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för finalize-pipeline. Scaffold-aware retry: `inferScaffoldRetrySuggestion()` föreslår scaffold-pivot vid misslyckad generation.
 
 ---
 
@@ -312,7 +312,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
 | Embeddings | `src/lib/gen/scaffolds/scaffold-embeddings.json` | Regenereras via `npm run scaffolds:embeddings` |
 | Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `scaffold_performance.py` | Kontroller, sidolist |
-| Dokumentation | denna fil + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/repository-and-platform.md` | Tabeller, distinktioner |
+| Dokumentation | denna fil (`docs/contracts/scaffold-system.md`) + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/code-map.md` | Tabeller, distinktioner |
 | Cursor-regler | `.cursor/rules/scaffold-rules.mdc`, `.cursor/skills/sajtmaskin-context/SKILL.md` | Lista vid sammanslagning |
 | Tester | `src/lib/gen/scaffolds/matcher.test.ts`, `src/lib/gen/orchestration-snapshot.test.ts`, build-spec, eval-prompts | Asserter på scaffold-id |
 | Snapshot-data | `data/scaffold-eval/prompts.json` | Scaffold-id i förväntade resultat |
@@ -356,9 +356,9 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ## 12. Hänvisningar
 
-- [Glossary](./glossary.md)
-- [LLM-fasen — kanoniskt körflöde](./llm-pipeline.md)
-- [LLM Signal Flow](./llm-signal-flow.md)
+- [Glossary](../architecture/glossary.md)
+- [LLM-fasen — kanoniskt körflöde](../architecture/llm-pipeline.md)
+- [Runtime contracts](../architecture/runtime-contracts.md)
 - Variant-typ: `src/lib/gen/scaffold-variants/types.ts`
 - Variant-skript: `scripts/scaffolds/auto-curate-variant-patterns.ts`
 - Backoffice: `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`

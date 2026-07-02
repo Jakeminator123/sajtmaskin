@@ -16,4 +16,4 @@ Avslutade, icke-aktiva dokument som behålls som referens men **inte** styr påg
 - Avklarade **planer** → [`docs/plans/avklarat/`](../plans/avklarat/).
 - Genererade artefakter som driver CI (t.ex. `docs/canvases/`) — de är **inte** arkiv.
 
-**Nav:** [`docs/README.md`](../README.md) · [`documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).
+**Nav:** [`docs/README.md`](../README.md) · [`documentation-lifecycle.md`](../documentation-lifecycle.md).

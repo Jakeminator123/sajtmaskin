@@ -9,11 +9,11 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`master`
 > - **Dossier-pipeline v1** togs bort 2026-04-20 — gamla 16-pipelinens scripts ligger i `archive/dossiers-legacy-2026-04-20/`. Aktiv dossier-pipe är **`npm run dossiers:curate`** som anropar `scripts/dossiers/curate-from-reference.ts`.
 > - **`scaffold_cli.py`-meta-CLI** är borttagen — aktiva scaffold-script är bara `scaffolds:variant-embeddings`, `scaffolds:variant-patterns`, `scaffolds:variant-patterns:dry`, `scaffolds:validate`.
 >
-> Arkitekturreferens för borttagningarna: [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md) § Borttaget/legacy.
+> Arkitekturreferens för borttagningarna: [`docs/architecture/code-map.md`](../docs/architecture/code-map.md) § Borttaget/legacy.
 
 ## Översikt och inventering
 
-- **Nav:** denna fil + `package.json` — se även [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
+- **Nav:** denna fil + `package.json` — se även [`docs/architecture/code-map.md`](../docs/architecture/code-map.md).
 
 ### Overhead-ytor
 
@@ -74,7 +74,7 @@ npm run shadcn:sync:write
 
 1. **`v0-mallar`** — Builderns Mallar-tab. Runtimefiler: `src/lib/templates/*`. Källor vid manuell refresh är antingen en valfri lokal, gitignored `templates_v0/`-intake eller ett Blob-manifest från en redan nedladdad `downloads/<kategori>/<slug>__<id>/`-struktur.
 
-2. **Dossiers (legoklossar)** — Återanvändbara byggblock injicerade i codegen-prompten. Källa: `data/dossiers/{hard|soft}/*/manifest.json`. Curation: `npm run dossiers:curate` från en klonad referens i `data/template-references/repos/`. Schema: `docs/schemas/strict/dossier.schema.json`. Arkitektur: `docs/architecture/dossier-system.md`.
+2. **Dossiers (legoklossar)** — Återanvändbara byggblock injicerade i codegen-prompten. Källa: `data/dossiers/{hard|soft}/*/manifest.json`. Curation: `npm run dossiers:curate` från en klonad referens i `data/template-references/repos/`. Schema: `docs/schemas/strict/dossier.schema.json`. Arkitektur: `docs/contracts/dossier-system.md`.
 
 3. **Scaffolds** — Interna runtime-startpunkter i `src/lib/gen/scaffolds/*` som own-engine använder vid codegen.
 

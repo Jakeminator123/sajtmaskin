@@ -1,6 +1,6 @@
 # Dossier cheatsheet
 
-Snabbreferens för dossier-systemet (v2). Full spec: `docs/architecture/dossier-system.md`.
+Snabbreferens för dossier-systemet (v2). Full spec: `docs/contracts/dossier-system.md`.
 
 ## Embeddings — finns det några?
 

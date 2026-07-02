@@ -2,7 +2,7 @@
 
 ## Agent: var börja?
 
-Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/repo-tree.md` → `docs/plans/README.md` → `rules/terminology.mdc`.
+Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/code-map.md` → `docs/plans/README.md` → `rules/terminology.mdc`.
 
 ## Workspace (en rot, samma verktygsinställningar)
 

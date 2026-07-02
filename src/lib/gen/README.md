@@ -1,6 +1,6 @@
 # gen/ — Code Generation Module
 
-**Product terms (builderns Mallar-tab vs runtime `template-library` vs Vercel-mall, own-engine, buildern):** [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc). **Repo map:** [`docs/architecture/repo-tree.md`](../../../docs/architecture/repo-tree.md). **Static prompts / manifest:** [`config/README.md`](../../../config/README.md).
+**Product terms (builderns Mallar-tab vs runtime `template-library` vs Vercel-mall, own-engine, buildern):** [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc). **Repo map:** [`docs/architecture/code-map.md`](../../../docs/architecture/code-map.md). **Static prompts / manifest:** [`config/README.md`](../../../config/README.md).
 
 Human architecture overview: [`docs/architecture/README.md`](../../../docs/architecture/README.md) · [`llm-pipeline.md`](../../../docs/architecture/llm-pipeline.md) (FAS 1→2→3).
 
@@ -111,7 +111,7 @@ Guidelines:
   forbidding access. Read them directly when a task actually depends on their
   structure or contents.
 - When you only need orientation, prefer this README plus
-  `docs/architecture/repository-and-platform.md` over opening the full JSON artifacts.
+  `docs/architecture/code-map.md` over opening the full JSON artifacts.
 
 Common regeneration entry points (verify against `package.json` "scripts" — `template-library:*` is gone):
 

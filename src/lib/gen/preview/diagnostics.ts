@@ -139,12 +139,12 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
 
 /**
  * Korta åtgärdsrader för preview-overlay och runbook — visas i UI när iframe-fel inträffar.
- * Full operativ text: `docs/architecture/preview-white-screen-runbook.md`.
+ * Full operativ text: `docs/runbooks/preview-white-screen.md`.
  */
 export function previewRunbookLinesForCode(code: string | null | undefined): string[] {
   const c = (code ?? "").trim();
   const docHint =
-    "Utvecklare: full runbook finns i repot under docs/architecture/preview-white-screen-runbook.md.";
+    "Utvecklare: full runbook finns i repot under docs/runbooks/preview-white-screen.md.";
   switch (c) {
     case "preview_ready_timeout":
       return [

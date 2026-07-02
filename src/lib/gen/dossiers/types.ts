@@ -3,7 +3,7 @@
  *
  * Source-of-truth: data/dossiers/{hard|soft}/<id>/manifest.json
  * Schema:          docs/schemas/strict/dossier.schema.json
- * Architecture:    docs/architecture/dossier-system.md
+ * Architecture:    docs/contracts/dossier-system.md
  *
  * Two classes (encoded in folder path):
  *   - hard: needs external secrets (Stripe, Auth.js, OpenAI). Preflight checks envVars.

@@ -13,7 +13,7 @@ Lets you:
   at a time, not batch).
 - Rebuild capability-map.json from the manifests.
 
-Source-of-truth for the format: docs/architecture/dossier-system.md
+Source-of-truth for the format: docs/contracts/dossier-system.md
 """
 from __future__ import annotations
 

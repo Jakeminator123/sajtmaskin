@@ -33,7 +33,7 @@ Respektera fem single sources of truth:
 4. repair gate
 5. F2/F3-skillnad
 
-Se `docs/architecture/llm-flow-target-worldclass.md`.
+Se `docs/architecture/README.md` (arkitekturprinciper) och `docs/architecture/runtime-contracts.md`.
 
 ## Paket efter OMTAG
 

@@ -10,7 +10,7 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 Stabiliserings-/kontrakts-/städplanen (8 områden nivå 1–3 + bug-swarm-drive) är **levererad och arkiverad** → [`../avklarat/grandmaster/`](../avklarat/grandmaster/) (master-plan, områdesdokument, aktiviteter, `_backlog-deferrad.md`). Closing-handoff + loggbok: git-historik. Tag/backup: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
 
-**Ingen aktiv drivlinje just nu.** Nästa fas = pivot "härda → bygga" mot [`../../architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md). Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+**Ingen aktiv drivlinje just nu.** Nästa fas = pivot "härda → bygga" mot [`../../architecture/README.md`](../../architecture/README.md). Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
 
 ## Kvarvarande efter grandmaster (live backlog)
 
@@ -46,7 +46,7 @@ Detalj: [`../avklarat/grandmaster/_backlog-deferrad.md`](../avklarat/grandmaster
 
 | ID | Spår (nästa steg) | Källa |
 |---|---|---|
-| O | LLM-masterplan startlinje (init/follow-up-konsistens, latency, prompt-kvalitet) — superseded | [`../../architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md) + [`llm-pipeline.md`](../../architecture/llm-pipeline.md) |
+| O | LLM-masterplan startlinje (init/follow-up-konsistens, latency, prompt-kvalitet) — superseded | [`../../architecture/README.md`](../../architecture/README.md) + [`llm-pipeline.md`](../../architecture/llm-pipeline.md) |
 | R | Builder follow-up/preview-incident (kvar: E UX-copy + e2e) | [`2026-05-02-builder-followup-preview-incident.md`](../archived/2026-05-02-builder-followup-preview-incident.md) |
 | P | Prompt-slim (Core Rules <35k, follow-up <45k) | [`prompt-slim-systemprompt.md`](../archived/prompt-slim-systemprompt.md) |
 | A | P34 blocking lint (Fas C–E) | [`P34-blocking-lint-in-validate-and-fix.md`](../archived/P34-blocking-lint-in-validate-and-fix.md) |

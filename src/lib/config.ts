@@ -405,7 +405,7 @@ export const FEATURES = {
    * On by default in runtime environments. Set
    * `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) to opt out explicitly.
    * Tests keep it off by default for deterministic unit-import latency.
-   * See docs/architecture/dossier-system.md.
+   * See docs/contracts/dossier-system.md.
    */
   useDossierPipeline:
     env.NODE_ENV !== "test" &&

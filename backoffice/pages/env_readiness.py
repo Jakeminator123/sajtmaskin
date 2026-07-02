@@ -15,7 +15,7 @@ or logs an env VALUE. It shows the key NAME, its classification, a boolean
 booleans. The placeholder `.txt` files only ever yield KEY names here; their
 values are discarded on parse. READ-ONLY by design — no save/edit buttons.
 
-Human-readable companion: `docs/architecture/env-flow-map.md`.
+Human-readable companion: `docs/contracts/env-flow.md`.
 """
 
 from __future__ import annotations
@@ -256,7 +256,7 @@ def render(ctx: BackofficeContext) -> None:
         "`config/ai_models/`, mergeordning i `src/lib/gen/preview/env-local.ts` "
         "där `generated` vinner). Samma nyckelnamn kan finnas i båda — det är inte "
         "dubbletter utan olika miljöer. Mänsklig karta: "
-        "`docs/architecture/env-flow-map.md`."
+        "`docs/contracts/env-flow.md`."
     )
 
     env_policy_path = ctx.config_dir / "env-policy.json"
@@ -383,5 +383,5 @@ def render(ctx: BackofficeContext) -> None:
         "klassning `src/lib/integrations/placeholder-harmless.ts` · "
         "preview-mergeordning `src/lib/gen/preview/env-local.ts` · värden/"
         "deploy-status `docs/ENV.md`. Mänsklig karta: "
-        "`docs/architecture/env-flow-map.md`."
+        "`docs/contracts/env-flow.md`."
     )

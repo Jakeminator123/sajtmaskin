@@ -248,7 +248,7 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     st.caption(
-        "Human-läsbar karta: `docs/architecture/schema-policy-map.md`. "
+        "Human-läsbar karta: `config/control-plane/README.md`. "
         "Strict-schema för registren själva: "
         "`docs/schemas/strict/control-plane-registry.schema.json`. "
         "CI-kontroll: `npm run control-plane:check`."

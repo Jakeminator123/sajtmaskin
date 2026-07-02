@@ -2,7 +2,7 @@
 
 **Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** `docs/operating/dossier-cheatsheet.md`. **Uppdaterad:** 2026-04-21.
 
-Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../architecture/dossier-system.md) som beskriver **vad** systemet är.
+Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../contracts/dossier-system.md) som beskriver **vad** systemet är.
 
 ## Översikt
 

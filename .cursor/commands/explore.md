@@ -12,7 +12,7 @@ Read-only kodbasutforskning. Använd när du vill få en tabell, karta, scorecar
 2. Läs relevanta repo-router-filer först vid osäkerhet:
    - `docs/README.md`
    - `AGENTS.md`
-   - `docs/architecture/repo-tree.md`
+   - `docs/architecture/code-map.md`
    - `docs/architecture/glossary.md`
    - `docs/plans/active/README.md`
 3. Sök i kod, inte bara docs. Kod är source of truth.

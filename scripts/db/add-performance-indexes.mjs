@@ -27,7 +27,7 @@
  * `getChat()` (läser engine_messages WHERE chat_id = ?) gör då sequential
  * scans. Med dessa index blir samma query O(log N).
  *
- * Källa: docs/architecture/data-layer-overview.md §"Indexstrategi".
+ * Källa: docs/contracts/data-layer.md (§ Hot-path-tabeller).
  * Tidigare lineage-anteckning finns bara i git-historik.
  */
 import { Pool } from "pg";

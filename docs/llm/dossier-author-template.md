@@ -14,7 +14,7 @@ prompt when a brief asks for the matching capability. One dossier maps to
 Source-of-truth files:
 
 - Schema: [`docs/schemas/strict/dossier.schema.json`](../schemas/strict/dossier.schema.json)
-- Architecture: [`docs/architecture/dossier-system.md`](../architecture/dossier-system.md)
+- Architecture: [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md)
 - Existing examples: [`data/dossiers/soft/three-fiber-canvas/`](../../data/dossiers/soft/three-fiber-canvas/), [`data/dossiers/soft/scroll-parallax/`](../../data/dossiers/soft/scroll-parallax/), [`data/dossiers/hard/stripe-checkout/`](../../data/dossiers/hard/stripe-checkout/)
 
 ## Class decision (`hard` vs `soft`)
