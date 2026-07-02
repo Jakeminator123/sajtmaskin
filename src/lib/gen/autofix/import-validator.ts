@@ -5,7 +5,11 @@ import {
   isLucideTypeOnlyExport,
   parseSpecifier,
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
-import { countParseErrors, isGuardablePath } from "./rules/import-binding-ast";
+import {
+  countParseErrors,
+  findIntroducedDuplicateImportBindings,
+  isGuardablePath,
+} from "./rules/import-binding-ast";
 import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
@@ -1133,11 +1137,18 @@ export function runImportValidator(code: string): {
  * found it.
  *
  * This wrapper re-checks the result with the synchronous TypeScript parser and
- * **reverts** the import-validator output when it turned parseable input into
- * unparseable output — keeping the pre-fixer content and recording a warning.
- * It deliberately does NOT revert when the input was already unparseable: that
- * upstream model/stream breakage must stay visible to the syntax-validator /
- * preflight gate rather than be masked here.
+ * **reverts** the import-validator output when it either
+ *
+ *   1. turned parseable input into unparseable output, or
+ *   2. INTRODUCED duplicate import bindings — the same local name declared by
+ *      2+ import statements (TS2300; e.g. a JSX-scan injection duplicating a
+ *      binding that already exists in a multi-line import the line-based scan
+ *      could not see). Cheap parser-based post-check per file.
+ *
+ * — keeping the pre-fixer content and recording a warning in both cases.
+ * It deliberately does NOT revert when the input was already unparseable /
+ * already duplicated: that upstream model/stream breakage must stay visible to
+ * the syntax-validator / preflight gate rather than be masked here.
  *
  * Runtime callers MUST use this instead of `runImportValidator` directly so the
  * fixer can never run unguarded. (`runImportValidator` stays exported only for
@@ -1171,7 +1182,29 @@ export function runImportValidatorGuarded(
 
   const errorsAfter = countParseErrors(result.code, filePath);
   if (errorsAfter === 0) {
-    return { ...result, reverted: false };
+    // Parse-clean output can still be semantically broken: an injection branch
+    // may have re-declared a binding that already existed in an import shape
+    // its line-based scan cannot see (multi-line import). Revert when the
+    // fixer INTRODUCED duplicate import bindings; pre-existing duplicates are
+    // left alone (upstream breakage stays visible downstream).
+    const introducedDuplicates = findIntroducedDuplicateImportBindings(
+      code,
+      result.code,
+      filePath,
+    );
+    if (introducedDuplicates.length === 0) {
+      return { ...result, reverted: false };
+    }
+    return {
+      code,
+      fixes: [],
+      warnings: [
+        ...result.warnings,
+        `import-validator reverted: it introduced duplicate import binding(s) ` +
+          `(${introducedDuplicates.join(", ")}) — kept pre-fixer content`,
+      ],
+      reverted: true,
+    };
   }
 
   const errorsBefore = countParseErrors(code, filePath);

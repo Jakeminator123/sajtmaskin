@@ -210,25 +210,44 @@ den också som exakt felkälla för repair-lanen:
 
 ### Deterministisk import-repair före LLM
 
-Källa: `src/lib/gen/verify/repair-loop/deterministic-import-repair.ts`
-(anropas överst i `runRepairLoop()`).
+Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
+implementation, två entrypoints:
 
-Bakgrund (prod-telemetri 2026-06): av de versioner vars quality gate failade på
-`tsc --noEmit` blev **noll** promotade. De dominerande felen är import-only och
-har redan mekaniska ägare som körs blint i `runAutoFix()` — men de når ändå
-gate:n eftersom de blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger
-exakt symbol + fil, vilket tar bort tvetydigheten. Pre-passen konsumerar
-diagnostiken och dirigerar varje fall till rätt **befintlig** fixer:
+- **server-repair:** anropas överst i `runRepairLoop()` på quality gate-
+  diagnostiken (som tidigare)
+- **finalize normalize (Fas 1 kontrollflöde):** anropas i `validateAndFix()`
+  (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
+  warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
+  vidare till `runLlmRepairGate` (phase `warm-tsc`)
+
+Bakgrund (prod-telemetri 2026-06/07): av de versioner vars quality gate failade
+på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är
+importhantering. De dominerande felen är import-only och har redan mekaniska
+ägare som körs blint i `runAutoFix()` — men de når ändå gate:n eftersom de
+blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger exakt symbol + fil,
+vilket tar bort tvetydigheten. Pre-passen konsumerar diagnostiken och dirigerar
+varje fall till rätt **befintlig** fixer:
 
 | Kod | Felklass | Återanvänd fixer |
 |---|---|---|
 | TS2304 / TS2552 | saknad import (shadcn, Clerk-server, Stripe, lucide, Next) | `ts2304-known-import-fixer` |
+| TS2304 (residual) | egen komponent/symbol som versionens egna filer exporterar (t.ex. `Reveal`) | `own-component-import-fixer` (named: unik-kandidat-injektorn; default: exakt en egen fil) |
 | TS1361 | `import type { X }` använd som värde | `value-used-from-type-import-fixer` (med bekräftade symboler) |
 | TS2440 | import krockar med lokal deklaration (self-import) | `fixImportedDeclarationConflicts` (path-medveten) |
-| TS2300 | duplicerad identifierare | `duplicate-import-binding-fixer` + `duplicate-import-local-type-collision-fixer` |
+| TS2300 | duplicerad identifierare | `consolidateReactImports` (react-överlapp, value-wins) → `duplicate-import-binding-fixer` → `duplicate-import-local-type-collision-fixer` |
 
-Konservativ: bara dessa fem import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till LLM. shadcn∩lucide-krocknamn
+Obligatoriskt eftersteg per fil som fick import-injektioner: react/same-module-
+dedupe + kvitto — `consolidateReactImports`, sedan dubbelbindnings-pruning, och
+om filen fortfarande bär **introducerade** dubbelbindningar eller nya parse-fel
+revertas filens ändringar (diagnostiken förblir synlig för LLM-fixern). Ingen
+fixer får lämna ifrån sig två import-statements som re-deklarerar samma lokala
+bindning (stänger "smörsajt"-klassen: dubbel React-import → TS2300 →
+webpack-krasch → preview-500).
+
+Konservativ: bara dessa import-koder rörs. Logik-/typfel (TS2554, TS7006,
+TS7009, generiska mismatchar) lämnas till LLM. Okända namn utan matchande egen
+fil lämnas orörda (befintlig cross-file-checker/stub-hantering nedströms —
+normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
 (`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
 children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
 användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till LLM.
