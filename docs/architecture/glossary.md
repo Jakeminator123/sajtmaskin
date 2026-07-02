@@ -68,6 +68,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | shadcn primitive | Lokal `src/components/ui/*`-komponent som importeras från `@/components/ui/<subpath>`. Synkas/guardas via `SHADCN_COMPONENTS` + `npm run shadcn:sync`; ingår i `## Your Toolkit`. |
 | UI Recipe | Request-specifik shadcn registry-referens från `shadcn-ui-recipes.ts`: metadata, dependencies och kompakta filutdrag. Ersätter gamla `Component References`/`data/shadcn-examples`-vägen. |
 | Dossier | Återanvändbar capability-modul som injiceras i codegen-prompten. Klass: `hard` (env-secrets) / `soft`. Fidelity: `verbatim` / `rewritable`. Källa: `data/dossiers/{hard,soft}/<id>/`. |
+| `promptInstructionMode` | Per-dossier-manifestfält som styr hur mycket av `instructions.md` som når prompten: `compact` (default, manifest-deriverad summary) / `selected-sections` / `full`. Renderas i `system-prompt/sections/dossiers.ts`. |
 | `selectedDossierIds` | Stream-meta-fält med exakt dossier-id-lista från orchestration. Primär källa för finalize/verbatim-policy; `requestedCapabilities` är fallback/autofix-signal. |
 
 ---

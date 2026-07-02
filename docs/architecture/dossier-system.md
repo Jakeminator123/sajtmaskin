@@ -22,6 +22,8 @@ data/dossiers/
 | `hard` | The dossier needs `process.env` secrets to run (API keys, DB URLs). | Selection runs a preflight check on `envVars[].required`. If anything is missing, the dossier is still injected but the codegen LLM is told to render an "unconfigured" placeholder UI. |
 | `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
 
+Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard.
+
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
@@ -41,11 +43,13 @@ Samma dossier kan spänna över F2 och F3 — det är inte två separata dossier
 | Fidelity | When | Effect on prompt |
 |---|---|---|
 | `verbatim` | Integration glue where paraphrasing breaks the integration: webhook signing, OAuth callbacks, SDK init, middleware. | The file is rendered into the system prompt under `## Dossier Files To Emit Verbatim`. The codegen LLM **must** emit it byte-exact in its CodeProject output. |
-| `rewritable` | UI components, layout patterns, render glue the LLM should adapt to the project. | The file is described in `instructions.md` and the codegen LLM may paraphrase freely. |
+| `rewritable` | UI components, layout patterns, render glue the LLM should adapt to the project. | The file is described via compact manifest-derived guidance in the prompt (see `promptInstructionMode` below) and the codegen LLM may paraphrase freely. |
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
-## Manifest schema (4 required + basics)
+**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
+
+## Manifest schema (7 required + optional)
 
 ```json
 {
@@ -84,10 +88,12 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 | `files` | optional | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`. |
 | `exposes` | optional | Symbols the codegen LLM may import. |
 | `sourceRepoUrl` | optional | Pointer to the upstream reference (typically under `data/template-references/`). |
+| `notes` | optional | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated. |
+| `promptInstructionMode` | optional | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`. |
 
 ## `instructions.md` template
 
-Every dossier ships with a Markdown file the codegen LLM reads when the dossier is selected. Five fixed sections:
+Every dossier ships with a Markdown file. Five standard sections — CI (`dossiers:validate-all` via `validate-manifest.ts`) **requires** the first two (`When to use`, `How to integrate`) and treats the other three (`UX rules`, `Avoid`, `Verification`) as recommended warnings:
 
 ```markdown
 # When to use
@@ -121,8 +127,8 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
 - `## Available Dossiers` — compact list of selected dossiers.
-- `## Selected Dossier Instructions` — full `instructions.md` per dossier.
-- `## Dossier Files To Emit Verbatim` — files whose effective injection mode is `verbatim`. Resolution: per-file `files[].injectionMode` overrides the dossier-level `codeFidelity`. So a `rewritable` dossier can still mark one file as `verbatim` (or vice-versa).
+- `## Selected Dossier Instructions` — per-dossier runtime instructions, rendered per `promptInstructionMode`: `compact` (default; manifest-derived summary), `selected-sections`, or `full` (the whole `instructions.md`). The full file is thus NOT injected by default.
+- `## Dossier Files To Emit Verbatim` — files whose effective injection mode is `verbatim`. Resolution: per-file `files[].injectionMode` overrides the dossier-level `codeFidelity`. So a `rewritable` dossier can still mark one file as `verbatim` (or vice-versa). On follow-ups, verbatim files already in the project render as pointers under `## Dossier Verbatim Files Already in Project`.
 
 ## Adding a new dossier
 
@@ -132,7 +138,7 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema.
 3. Write `data/dossiers/<class>/<id>/instructions.md` with the five sections.
 4. Place files under `data/dossiers/<class>/<id>/components/...` matching `files[].path`.
-5. Run `npm run typecheck` to validate manifest shape against `DossierEntry`.
+5. Run `npm run dossiers:validate-all` (canonical AJV validation + invariants; `typecheck` alone does not validate manifest JSON).
 6. Open the backoffice "Dossiers" page → "Capability map" tab → "Bygg om" to refresh `_index/capability-map.json`.
 
 ### AI-assisted from a template-reference repo
@@ -176,11 +182,9 @@ backoffice "Bygg om" tab when curating.
 
 ## Disabling the pipeline
 
-Set `SAJTMASKIN_DOSSIER_PIPELINE=false` in any environment to skip dossier selection entirely. The `## Available Dossiers` block disappears from the system prompt; the rest of the pipeline is unaffected.
+Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip dossier selection entirely. With no selection there is no `DossierSelectionResult`, so **all** dossier blocks (`## Available Dossiers`, `## Selected Dossier Instructions`, `## Dossier Files To Emit Verbatim`) disappear from the system prompt; the rest of the pipeline is unaffected.
 
-**Code default (if env is unset):** on in all environments. Use `SAJTMASKIN_DOSSIER_PIPELINE=false` or `0` to opt out explicitly. See fallback in `src/lib/config.ts`.
-
-**Current deploy status (as of 2026-04-23):** explicitly set to `true` on all three Vercel environments (Development, Preview, Production). The pipeline is active everywhere at runtime; to disable it on any environment, set the variable to `false` or `0` on that target.
+**Code default (if env is unset):** on in dev/preview/prod, **off under `NODE_ENV=test`** (`useDossierPipeline` in `src/lib/config.ts`). Per-environment opt-out via the env var on that Vercel target.
 
 ## Files at a glance
 

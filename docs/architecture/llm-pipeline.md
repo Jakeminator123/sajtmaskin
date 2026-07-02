@@ -148,7 +148,7 @@ Server auto-brief körs **inte** vid: `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1`, 
 | BuildSpec | `deriveBuildSpec()` — `build-spec/builder.ts` | Ja |
 | Orchestration contract | `buildOrchestrationContract()` | Ja |
 | Scaffold-serialisering | `serializeScaffoldForPrompt()` (`inspirational` / `structural`) | Ja |
-| Dossiers | `enforceFollowUpCapabilityFloor()` + `selectDossiersForRequest()` (**19 dossiers**) | Ja |
+| Dossiers | `enforceFollowUpCapabilityFloor()` + `selectDossiersForRequest()` (**25 dossiers**) | Ja |
 | Variant + freeze | `resolveScaffoldVariant()` + `enforceFollowUpVariantFreeze()` (**28 variant-filer**) | Delvis |
 
 **Pre-generation contract gate:** om `buildContractClarificationQuestion()` returnerar en fråga avbryts codegen tills användaren svarar (`pre-generation-contract-gate.ts`).
