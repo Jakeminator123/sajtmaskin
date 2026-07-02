@@ -409,6 +409,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "own-component-import-fixer",
     category: "mechanical-import",
+    risk: "risky",
     sourcePath: "src/lib/gen/autofix/deterministic-import-repair.ts",
     targetFailureMode:
       "TS2304 missing import for a component/symbol the version's OWN files export (e.g. `Reveal` in components/reveal.tsx) — not a library name",

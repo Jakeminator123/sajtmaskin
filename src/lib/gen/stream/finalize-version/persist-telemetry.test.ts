@@ -38,7 +38,7 @@ function makeParams(overrides: Partial<PersistParams> = {}): PersistParams {
     autoFixFixCount: 0,
     autoFixWarningCount: 0,
     autoFixDependencyCount: 0,
-    autoFixHeavyLoad: false,
+    autoFixRisk: { safeFixCount: 0, riskyFixCount: 0, riskyFixerIds: [] },
     verifierBlocked: false,
     verifierBlockingFindings: [],
     preflightIssueCount: 0,
