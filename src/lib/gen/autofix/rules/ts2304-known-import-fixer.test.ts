@@ -456,12 +456,100 @@ export function B() {
   });
 
   it("leaves a shadcn∩lucide ambiguous name (Calendar) for the LLM", () => {
-    // `Calendar` is both a shadcn component AND a lucide icon — the correct
-    // module is genuinely ambiguous, so the deterministic fixer must do nothing.
+    // `Calendar` is both a shadcn component AND a lucide icon. A bare,
+    // prop-less `<Calendar />` gives no usage signal, so the deterministic
+    // fixer must do nothing.
     const content = project(
       FILE,
       `export default function Page() {
   return <Calendar />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Calendar'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // M#badge1: shadcn∩lucide collisions are now resolved when the file's usage
+  // is unambiguous, instead of always deferring to the LLM loop. `<Badge
+  // variant=…>text</Badge>` can only be the shadcn component (a glyph renders
+  // children inside an <svg> — invalid HTML → hydration mismatch; prod chat
+  // 1c34592c v3).
+  it("resolves a shadcn∩lucide collision to shadcn when used with variant/children", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Badge variant="secondary">Vårt erbjudande</Badge>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Badge", module: "@/components/ui/badge" },
+    ]);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+  });
+
+  it("resolves a shadcn∩lucide collision to lucide for icon-ish self-closing usage", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return <Badge className="h-4 w-4" />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Badge", module: "lucide-react" },
+    ]);
+    expect(result.code).toContain('import { Badge } from "lucide-react"');
+  });
+
+  // Codex P2 (PR #356): mixed shadcn + icon-shaped usage in the same file —
+  // one import cannot satisfy both, so the deterministic fixer must defer.
+  it("leaves a mixed shadcn/icon collision usage for the LLM", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <div>
+      <Badge variant="secondary">Nyhet</Badge>
+      <Badge className="h-4 w-4" />
+    </div>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // Codex P2 (PR #356): a bare self-closing usage anywhere keeps the whole
+  // file ambiguous — the bare `<Calendar />` may be the shadcn calendar.
+  it("keeps a collision ambiguous when icon-ish and bare usages are mixed", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  return (
+    <div>
+      <Calendar className="h-4 w-4" />
+      <Calendar />
+    </div>
+  );
 }`,
     );
 

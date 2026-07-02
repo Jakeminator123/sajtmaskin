@@ -1,22 +1,30 @@
 /**
- * Lucide-misuse fixer — single home for the two cases where the model
- * imports a lucide-react identifier but uses it as the next/* component
- * with the same name.
+ * Lucide-misuse fixer — single home for the cases where the model imports a
+ * lucide-react identifier but uses it as a same-named component from another
+ * canonical module.
  *
  *   • `Link`  from `lucide-react` used as `<Link href="...">` → next/link
  *   • `Image` from `lucide-react` used as `<Image src="..."/>` → next/image
+ *   • shadcn∩lucide collisions (`Badge`, `Calendar`, `Table`, …) imported
+ *     from `lucide-react` but used as the shadcn/ui component (children or
+ *     `variant=`/`asChild` props) → `@/components/ui/<subpath>`
  *
- * Previously these lived in two near-identical files
+ * Previously the next/* cases lived in two near-identical files
  * (`lucide-link-fixer.ts` + `lucide-image-fixer.ts`) which kept drifting
  * apart in subtle ways — same regex shape, different rename behaviour.
- * Consolidating them removes ~60 lines of duplicated logic and makes
- * future "lucide-X also clashes with next/X" additions trivial (`Form`,
- * `Script`, `Head`, …).
  *
- * Both exported function names (`fixLucideLinkMisuse`,
- * `fixLucideImageMisuse`) are preserved so `pipeline.ts` and existing
- * call sites do not need to change beyond the import path.
+ * The shadcn-collision case was added after prod chat 1c34592c v3: a
+ * follow-up rewrote `import { Badge } from "@/components/ui/badge"` to
+ * `import { Badge } from "lucide-react"`. Every validator accepted it
+ * (Badge IS a real lucide glyph), but at runtime `<Badge>` rendered as an
+ * `<svg>` whose `<span>`/text children are invalid inside svg → hydration
+ * mismatch that regenerated the whole tree on the client.
+ *
+ * The exported function names (`fixLucideLinkMisuse`, `fixLucideImageMisuse`)
+ * are preserved so `pipeline.ts` and existing call sites do not change.
  */
+import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
 type LucideMisuseConfig = {
   /** lucide identifier that collides with a next/* component. */
@@ -54,6 +62,29 @@ function lucideImportRe(symbol: string): RegExp {
   );
 }
 
+/**
+ * Match the lucide-react named import ONLY when `symbol` is actually bound
+ * under its own name. Two aliased shapes must be skipped (the misuse premise
+ * is false and the before/after specifier split would corrupt the import,
+ * e.g. `import { as BadgeIcon, Fish } from "lucide-react"`):
+ *
+ *   - `import { Badge as BadgeIcon } from "lucide-react"` — the glyph is
+ *     bound as `BadgeIcon`; `Badge` in JSX refers to something else.
+ *   - `import { BadgeCheck as Badge } from "lucide-react"` — the local name
+ *     `Badge` is a different glyph; rewriting would strip `BadgeCheck as`.
+ */
+function matchUnaliasedLucideImport(
+  code: string,
+  symbol: string,
+): RegExpMatchArray | null {
+  const importMatch = code.match(lucideImportRe(symbol));
+  if (!importMatch) return null;
+  const before = importMatch[1] ?? "";
+  const after = importMatch[3] ?? "";
+  if (/\bas\s*$/.test(before) || /^\s*as\b/.test(after)) return null;
+  return importMatch;
+}
+
 function nextDefaultImportRe(symbol: string, modulePath: string): RegExp {
   const escapedModule = modulePath.replace(/\//g, "\\/");
   return new RegExp(`import\\s+${symbol}\\s+from\\s+["']${escapedModule}["']`);
@@ -63,7 +94,7 @@ function applyLucideMisuseFix(code: string, config: LucideMisuseConfig): {
   code: string;
   fixed: boolean;
 } {
-  const importMatch = code.match(lucideImportRe(config.symbol));
+  const importMatch = matchUnaliasedLucideImport(code, config.symbol);
   if (!importMatch) return { code, fixed: false };
   if (!config.nextUsageRe.test(code)) return { code, fixed: false };
 
@@ -165,4 +196,201 @@ export function fixLucideImageMisuse(
   _filePath: string,
 ): { code: string; fixed: boolean } {
   return applyLucideMisuseFix(code, LUCIDE_IMAGE_CONFIG);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// shadcn ∩ lucide collisions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Names that are BOTH a lucide glyph and a shadcn/ui component (derived from
+ * the two canonical data sets so it never drifts): currently Badge, Calendar,
+ * Command, Form, Sheet, Sidebar, Table.
+ */
+export const SHADCN_LUCIDE_COLLISION_NAMES: readonly string[] = Object.keys(
+  SHADCN_COMPONENTS,
+).filter((name) => LUCIDE_ICONS.has(name));
+
+/**
+ * Props that only make sense on the shadcn component, never on an svg glyph.
+ * `size` is deliberately NOT here — lucide icons take a numeric `size` prop.
+ * `asChild` matches with or without `=` (boolean shorthand).
+ */
+const SHADCN_PROP_MARKER_SRC = String.raw`\b(?:variant\s*=|asChild\b)`;
+
+/**
+ * True when `symbol` is used as the shadcn component rather than as a lucide
+ * icon: a paired tag with actual children (`<Badge>…</Badge>` — lucide glyphs
+ * never take children) or a shadcn-only prop (`variant=`/`asChild`).
+ *
+ * An explicit EMPTY pair (`<Badge className="h-4 w-4"></Badge>`) is icon-shaped
+ * — same as a self-closing icon — and must not count as component usage
+ * (Codex P2: previously any closing tag flipped valid icon code to shadcn).
+ */
+export function hasShadcnComponentUsage(code: string, symbol: string): boolean {
+  const pairedWithChildrenRe = new RegExp(
+    `<${symbol}\\b[^>]*>(?!\\s*</${symbol}\\s*>)[\\s\\S]*?</${symbol}\\s*>`,
+  );
+  if (pairedWithChildrenRe.test(code)) return true;
+  return new RegExp(`<${symbol}\\b[^>]*${SHADCN_PROP_MARKER_SRC}`).test(code);
+}
+
+/**
+ * Props that are normal on a lucide glyph. A self-closing usage whose valued
+ * props all live here (and that has at least one of them) is icon usage.
+ */
+const ICONISH_PROPS = new Set([
+  "className",
+  "size",
+  "strokeWidth",
+  "absoluteStrokeWidth",
+  "color",
+  "style",
+  "key",
+  "aria-hidden",
+  "aria-label",
+  "role",
+  "focusable",
+]);
+
+/**
+ * Usage-based disambiguation for a shadcn∩lucide collision name (M#badge1):
+ *
+ *   - "shadcn"    — children or `variant=`/`asChild` (glyphs take neither),
+ *                   and NO icon-shaped usage elsewhere in the file
+ *   - "lucide"    — EVERY self-closing usage carries ONLY icon-ish props
+ *                   (className/size/…), each with at least one present. A bare
+ *                   `<Calendar />` anywhere keeps the file ambiguous:
+ *                   prop-less self-closing is plausible for several shadcn
+ *                   components too (Codex P2).
+ *   - "ambiguous" — anything else: mixed shadcn+icon usage (one import can't
+ *                   satisfy both — Codex P2), bare usages, non-JSX value
+ *                   usage, … → leave for the LLM fixer.
+ */
+export function classifyShadcnLucideCollisionUsage(
+  code: string,
+  symbol: string,
+): "shadcn" | "lucide" | "ambiguous" {
+  const hasShadcn = hasShadcnComponentUsage(code, symbol);
+  const selfClosingRe = new RegExp(`<${symbol}\\b([^>]*?)/>`, "g");
+  const shadcnMarkerRe = new RegExp(SHADCN_PROP_MARKER_SRC);
+  let sawIconishUsage = false;
+  let sawUnclearUsage = false;
+  for (const match of code.matchAll(selfClosingRe)) {
+    const props = match[1] ?? "";
+    // A self-closing usage with a shadcn-only prop (`<Badge variant="x" />`)
+    // is already counted via `hasShadcn` — it is not icon evidence.
+    if (shadcnMarkerRe.test(props)) continue;
+    let iconishPropCount = 0;
+    let sawForeignProp = false;
+    for (const propMatch of props.matchAll(/([A-Za-z_][\w-]*)\s*=/g)) {
+      if (ICONISH_PROPS.has(propMatch[1])) iconishPropCount += 1;
+      else sawForeignProp = true;
+    }
+    if (sawForeignProp || iconishPropCount === 0) sawUnclearUsage = true;
+    else sawIconishUsage = true;
+  }
+  if (hasShadcn) {
+    // Mixed shadcn + icon-shaped usage: a single import cannot satisfy both
+    // (the alias-split fix only applies when the lucide import already
+    // exists), so the missing-import resolvers must defer to the LLM.
+    return sawIconishUsage || sawUnclearUsage ? "ambiguous" : "shadcn";
+  }
+  return sawIconishUsage && !sawUnclearUsage ? "lucide" : "ambiguous";
+}
+
+function shadcnNamedImportRe(symbol: string, modulePath: string): RegExp {
+  const escapedModule = modulePath.replace(/[/.]/g, "\\$&");
+  return new RegExp(
+    `^(\\s*import\\s*\\{)([^}]*)(\\}\\s*from\\s*["']${escapedModule}["'])`,
+    "m",
+  );
+}
+
+function applyShadcnCollisionFix(
+  code: string,
+  symbol: string,
+): { code: string; fixed: boolean } {
+  // Aliased imports (`Badge as BadgeIcon` / `BadgeCheck as Badge`) are NOT the
+  // misuse case — the collision name is not bound to the lucide glyph — and
+  // splitting them on the symbol would corrupt the specifier list (Codex P1).
+  const importMatch = matchUnaliasedLucideImport(code, symbol);
+  if (!importMatch) return { code, fixed: false };
+  if (!hasShadcnComponentUsage(code, symbol)) return { code, fixed: false };
+
+  const before = importMatch[1] ?? "";
+  const after = importMatch[3] ?? "";
+  const otherImports = [before, after]
+    .join(",")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  let result = code;
+
+  // Icon-only usages (self-closing WITHOUT a shadcn-only prop) keep the lucide
+  // glyph under an alias, mirroring the Link handling above.
+  const iconOnlyRe = new RegExp(
+    `<${symbol}\\b(?![^>]*${SHADCN_PROP_MARKER_SRC})([^>]*?)\\/>`,
+    "g",
+  );
+  const hasIconOnlyUsage = new RegExp(iconOnlyRe.source).test(code);
+  if (hasIconOnlyUsage) {
+    const aliasName = `${symbol}Icon`;
+    const aliasTaken =
+      otherImports.some((n) => n === aliasName || n.startsWith(`${symbol} as`)) ||
+      new RegExp(`\\b${aliasName}\\b`).test(code);
+    const lucideAlias = aliasTaken ? `Lucide${symbol}` : aliasName;
+    const newImports = [...otherImports, `${symbol} as ${lucideAlias}`];
+    result = result.replace(
+      importMatch[0],
+      `import { ${newImports.join(", ")} } from "lucide-react"`,
+    );
+    result = result.replace(iconOnlyRe, `<${lucideAlias}$1/>`);
+  } else {
+    result = rewriteWithoutSymbol(result, importMatch[0], otherImports);
+  }
+
+  const modulePath = `@/components/ui/${SHADCN_COMPONENTS[symbol]}`;
+  const namedRe = shadcnNamedImportRe(symbol, modulePath);
+  const existing = result.match(namedRe);
+  if (existing) {
+    const specs = (existing[2] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!specs.includes(symbol)) {
+      result = result.replace(
+        namedRe,
+        `$1 ${[...specs, symbol].join(", ")} $3`,
+      );
+    }
+  } else {
+    const insertPoint = result.indexOf("\n") + 1;
+    result =
+      result.slice(0, insertPoint) +
+      `import { ${symbol} } from "${modulePath}";\n` +
+      result.slice(insertPoint);
+  }
+
+  return { code: result, fixed: result !== code };
+}
+
+/**
+ * When a shadcn∩lucide collision name is imported from lucide-react but used
+ * as the shadcn component (children or `variant=`/`asChild`), rewrite the
+ * import to the shadcn path. Icon-only usages in the same file keep the glyph
+ * as `<XIcon/>`. Icon-only files are left untouched.
+ */
+export function fixLucideShadcnCollisionMisuse(
+  code: string,
+  _filePath: string,
+): { code: string; fixed: boolean; fixedNames: string[] } {
+  let current = code;
+  const fixedNames: string[] = [];
+  for (const symbol of SHADCN_LUCIDE_COLLISION_NAMES) {
+    const result = applyShadcnCollisionFix(current, symbol);
+    if (result.fixed) {
+      current = result.code;
+      fixedNames.push(symbol);
+    }
+  }
+  return { code: current, fixed: fixedNames.length > 0, fixedNames };
 }

@@ -9,6 +9,7 @@ import {
   markVersionRepairing,
   failVersionVerification,
   failVersionVerificationIfUnleased,
+  resetVersionVerificationToPending,
   saveRepairedFiles,
   getChat,
   acquireVersionLease,
@@ -17,6 +18,8 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
+  QUALITY_GATE_SETUP_HINT,
+  QualityGateUnavailableError,
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
@@ -687,6 +690,35 @@ async function handlePOST(
       if (current && current.filesJson !== baseFilesJsonForRecovery) {
         staleBaseNoOp = true;
       }
+    }
+    // Unreachable verify lane (network / timeout / preview-host down): the
+    // post-repair gate never evaluated the repaired code, so finalizing the
+    // version as failed would be a false-RED verdict about infra — prod chat
+    // 1c34592c v3 got `Repair crashed: fetch failed` although its only problem
+    // was the Fly preview-host being unreachable. Mirror quality-gate/route.ts:
+    // reset the row to the honest `pending` resting state (retryable; the
+    // readiness watchdog still backstops a chronically unverifiable version)
+    // and surface a retryable 503 instead of a hard 500.
+    if (err instanceof QualityGateUnavailableError) {
+      if (dbConfigured && internalVersionId && !staleBaseNoOp) {
+        await resetVersionVerificationToPending(internalVersionId, undefined, leaseRunId).catch(
+          (resetErr) => {
+            console.warn(
+              "[repair] Failed to reset version to pending after unavailable verify lane:",
+              resetErr,
+            );
+          },
+        );
+      }
+      return NextResponse.json(
+        {
+          error: err.message,
+          code: "quality_gate_unavailable",
+          retryable: err.retryable,
+          hint: QUALITY_GATE_SETUP_HINT,
+        },
+        { status: 503 },
+      );
     }
     if (dbConfigured && internalVersionId && !staleBaseNoOp) {
       await failAfterRepair(

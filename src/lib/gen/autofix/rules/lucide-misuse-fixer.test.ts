@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./lucide-misuse-fixer";
+import {
+  SHADCN_LUCIDE_COLLISION_NAMES,
+  fixLucideImageMisuse,
+  fixLucideLinkMisuse,
+  fixLucideShadcnCollisionMisuse,
+} from "./lucide-misuse-fixer";
 
 describe("fixLucideLinkMisuse", () => {
   it("replaces lucide Link import with next/link when <Link href> is used", () => {
@@ -170,5 +175,187 @@ describe("fixLucideImageMisuse", () => {
     expect(result.fixed).toBe(true);
     expect(result.code).toContain('import Image from "next/image"');
     expect(result.code).not.toContain("lucide-react");
+  });
+});
+
+// Prod chat 1c34592c v3: a follow-up rewrote `import { Badge } from
+// "@/components/ui/badge"` to `import { Badge } from "lucide-react"`. Every
+// validator accepted it (Badge IS a lucide glyph) but `<Badge>` then rendered
+// as an <svg> whose <span>/text children are invalid HTML → hydration
+// mismatch that regenerated the whole tree on the client.
+describe("fixLucideShadcnCollisionMisuse", () => {
+  it("derives the collision set from the canonical data (Badge included)", () => {
+    expect(SHADCN_LUCIDE_COLLISION_NAMES).toContain("Badge");
+    expect(SHADCN_LUCIDE_COLLISION_NAMES).toContain("Table");
+  });
+
+  it("rewrites lucide Badge to shadcn when used with children/variant (prod v3 shape)", () => {
+    const code = [
+      'import { BadgeCheck, Fish } from "lucide-react";',
+      'import { Button } from "@/components/ui/button";',
+      'import { Badge } from "lucide-react";',
+      "",
+      "export default function Page() {",
+      "  return (",
+      "    <div>",
+      '      <Badge className="rounded-full">',
+      '        <span className="h-2 w-2 rounded-full" />',
+      "        Lokal fångst från Bohuslän",
+      "      </Badge>",
+      '      <Badge variant="secondary">Vårt erbjudande</Badge>',
+      '      <BadgeCheck className="h-5 w-5" />',
+      "    </div>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.fixedNames).toEqual(["Badge"]);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(result.code).not.toMatch(
+      /import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/,
+    );
+    // Sibling lucide glyphs are untouched.
+    expect(result.code).toContain('import { BadgeCheck, Fish } from "lucide-react"');
+  });
+
+  it("keeps icon-only usages as an aliased glyph when both usages exist", () => {
+    const code = [
+      'import { Badge } from "lucide-react";',
+      "",
+      "export default function Page() {",
+      "  return (",
+      "    <div>",
+      '      <Badge variant="outline">Nyhet</Badge>',
+      '      <Badge className="h-4 w-4" />',
+      "    </div>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(result.code).toContain("Badge as BadgeIcon");
+    expect(result.code).toContain('<BadgeIcon className="h-4 w-4" />');
+    expect(result.code).toContain('<Badge variant="outline">Nyhet</Badge>');
+  });
+
+  it("does nothing for icon-only usage", () => {
+    const code = [
+      'import { Badge } from "lucide-react";',
+      "",
+      "export default function Icon() {",
+      '  return <Badge className="h-4 w-4" />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
+
+  it("does nothing when the name is not imported from lucide-react", () => {
+    const code = [
+      'import { Badge } from "@/components/ui/badge";',
+      "",
+      "export default function Page() {",
+      '  return <Badge variant="secondary">OK</Badge>;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
+
+  it("merges into an existing shadcn import without duplicating", () => {
+    const code = [
+      'import { Badge } from "lucide-react";',
+      'import { badgeVariants } from "@/components/ui/badge";',
+      "",
+      "export default function Page() {",
+      '  return <Badge variant="secondary">OK</Badge>;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain(
+      'import { badgeVariants, Badge } from "@/components/ui/badge"',
+    );
+    const importCount = (result.code.match(/@\/components\/ui\/badge/g) || []).length;
+    expect(importCount).toBe(1);
+  });
+
+  it("handles other collision names generically (Table with children)", () => {
+    const code = [
+      'import { Table } from "lucide-react";',
+      "",
+      "export default function Prices() {",
+      "  return (",
+      "    <Table>",
+      "      <tbody />",
+      "    </Table>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { Table } from "@/components/ui/table"');
+    expect(result.code).not.toContain("lucide-react");
+  });
+
+  // Codex P1 (PR #356): an already-aliased lucide import means the collision
+  // name is NOT bound to the glyph — the fixer must not touch it. Previously
+  // the before/after specifier split produced invalid code like
+  // `import { as BadgeIcon, Fish } from "lucide-react"`.
+  it("leaves an aliased lucide import (Badge as BadgeIcon) untouched", () => {
+    const code = [
+      'import { Badge as BadgeIcon, Fish } from "lucide-react";',
+      'import { Badge } from "@/components/ui/badge";',
+      "",
+      "export default function Page() {",
+      "  return (",
+      "    <div>",
+      '      <Badge variant="secondary">Nyhet</Badge>',
+      '      <BadgeIcon className="h-4 w-4" />',
+      "    </div>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+  });
+
+  it("leaves a reverse-aliased lucide import (BadgeCheck as Badge) untouched", () => {
+    const code = [
+      'import { BadgeCheck as Badge } from "lucide-react";',
+      "",
+      "export default function Page() {",
+      '  return <Badge className="h-4 w-4" />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+  });
+
+  // Codex P2 (PR #356): an explicit empty pair is icon-shaped, not component
+  // usage — `<Badge className="h-4 w-4"></Badge>` must stay a lucide glyph.
+  it("does nothing for an explicit empty-pair icon usage", () => {
+    const code = [
+      'import { Badge } from "lucide-react";',
+      "",
+      "export default function Icon() {",
+      '  return <Badge className="h-4 w-4"></Badge>;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideShadcnCollisionMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
   });
 });

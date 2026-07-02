@@ -243,4 +243,116 @@ export default function FloatingWatch3d() {
       ),
     ).toBe(true);
   });
+
+  // Prod chat 1c34592c v3 (fish-pinball): `useRef<HTMLCanvasElement | null>`
+  // was counted as a JSX opening tag → false `Tag mismatch for
+  // <HTMLCanvasElement>: 1 opening vs 0 closing`, escalated to preview-blocking
+  // (the file has a plain <canvas>), which failed the version and sent it into
+  // the repair loop. Global DOM/standard type names must be excluded from tag
+  // counting the same way fixMissingImports excludes them.
+  it("does not report tag mismatch for global DOM types in generic position", () => {
+    const code = `
+"use client";
+
+import { useEffect, useRef } from "react";
+
+export function FishPinball() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    void ctx;
+  }, []);
+  return <canvas ref={canvasRef} className="h-full w-full" />;
+}
+
+export default FishPinball;
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/fish-pinball.tsx");
+    expect(
+      warnings.some((w) => w.includes("Tag mismatch for <HTMLCanvasElement>")),
+    ).toBe(false);
+  });
+
+  it("does not escalate warnings to preview-blocking for plain HTML <canvas> files", () => {
+    // <canvas> (DOM 2D canvas) is not an R3F <Canvas>; a genuine tag mismatch in
+    // such a file must stay an ordinary warning, not preview-blocking.
+    const code = `
+"use client";
+
+export default function Game() {
+  return (
+    <div>
+      <ScoreBoard>
+      <canvas className="h-64 w-full" />
+    </div>
+  );
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/fish-pinball.tsx");
+    const mismatch = warnings.find((w) => w.includes("Tag mismatch for <ScoreBoard>"));
+    expect(mismatch).toBeDefined();
+    expect(mismatch).not.toContain("preview-blocking");
+  });
+
+  // shadcn∩lucide collision: a missing Badge used with children/variant is the
+  // shadcn component — merging it into the lucide import renders an svg whose
+  // children are invalid HTML (hydration mismatch; prod chat 1c34592c v3).
+  it("imports missing Badge from shadcn (not lucide) when used with children/variant", () => {
+    const code = `
+import { Fish } from "lucide-react";
+
+export default function Hero() {
+  return (
+    <div>
+      <Badge variant="secondary">Lokal fångst</Badge>
+      <Fish className="h-4 w-4" />
+    </div>
+  );
+}
+`.trim();
+    const { code: out } = runJsxChecker(code, "app/page.tsx");
+    expect(out).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(out).not.toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
+  });
+
+  it("still merges a missing icon-only collision name into the lucide import", () => {
+    const code = `
+import { Fish } from "lucide-react";
+
+export default function Hero() {
+  return (
+    <div>
+      <Badge className="h-4 w-4" />
+      <Fish className="h-4 w-4" />
+    </div>
+  );
+}
+`.trim();
+    const { code: out } = runJsxChecker(code, "app/page.tsx");
+    expect(out).toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
+    expect(out).not.toContain("@/components/ui/badge");
+  });
+
+  // Codex P2 (PR #356): mixed shadcn + icon-shaped usage — importing from
+  // either module silently mis-binds one of the usages, so the checker must
+  // leave the name unresolved (LLM fixer owns it).
+  it("skips a mixed shadcn/icon collision usage instead of guessing", () => {
+    const code = `
+import { Fish } from "lucide-react";
+
+export default function Hero() {
+  return (
+    <div>
+      <Badge variant="secondary">Nyhet</Badge>
+      <Badge className="h-4 w-4" />
+      <Fish className="h-4 w-4" />
+    </div>
+  );
+}
+`.trim();
+    const { code: out, warnings } = runJsxChecker(code, "app/page.tsx");
+    expect(out).not.toContain("@/components/ui/badge");
+    expect(out).not.toMatch(/import\s*\{[^}]*\bBadge\b[^}]*\}\s*from\s*["']lucide-react/);
+    expect(warnings.some((w) => w.includes("ambiguous shadcn∩lucide"))).toBe(true);
+  });
 });
