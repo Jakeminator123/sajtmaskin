@@ -72,6 +72,7 @@ export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): 
     "",
     "- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: \"1\", name: \"Skogssvit\", price: 1290 }, ...]`.",
     "- Forms: use `useState` + `toast.success(\"Bokningen mottagen!\")` on submit. No POST endpoint, no DB.",
+    "- Contact/booking forms that would SEND EMAIL: still render the full, beautiful form UI (name/email/message fields, validation, loading state) — but the submit handler is a pure client-side mock (`toast.success(\"Meddelandet mottaget! (demo — mejl aktiveras i 'Bygg integrationer')\")`). Do NOT emit an email API route, do NOT import an email SDK, and do NOT reference `process.env` for email addresses — never invent env keys like `BOOKING_TO_EMAIL`, `CONTACT_EMAIL_TO` or other `*_EMAIL` variables. Real email delivery is wired in F3 via the contact-form dossier's canonical keys (`RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL_TO`).",
     "- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success(\"Inloggad (demo)\")` on submit. No real session.",
     "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
     "- Search: client-side `Array.filter()` over the inline mock data.",

@@ -49,6 +49,29 @@ describe("buildProjectEnvFileContents", () => {
     expect(body).toContain("# ── Dina ifyllda värden");
     expect(body).toContain("KLARNA_API_SECRET=klarna_real_secret");
   });
+
+  it("groups detected email-recipient keys under an email heading with a hint", async () => {
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "design",
+      projectFiles: [
+        {
+          path: "app/api/booking/route.ts",
+          content:
+            "const to = process.env.BOOKING_TO_EMAIL;\nconst from = process.env.BOOKING_FROM_EMAIL;\nconst misc = process.env.MY_RANDOM_KEY;",
+        },
+      ],
+    });
+    expect(body).toContain("Upptäckta integrationer");
+    // Email-recipient keys get the dedicated heading + a "do I need these?" hint...
+    expect(body).toContain("E-post (kontakt-/bokningsformulär)");
+    expect(body).toContain("# BOOKING_TO_EMAIL=");
+    expect(body).toContain("# BOOKING_FROM_EMAIL=");
+    expect(body).toContain("email-not-configured");
+    // ...while non-email custom keys stay in the generic bucket.
+    expect(body).toContain("# MY_RANDOM_KEY=");
+  });
 });
 
 describe("injectProjectEnvFileIntoFilesJson", () => {

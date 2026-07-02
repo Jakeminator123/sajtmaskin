@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { detectIntegrations, detectIntegrationsFromVersionFiles } from "./detect-integrations";
+import {
+  detectIntegrations,
+  detectIntegrationsFromVersionFiles,
+  isEmailRecipientEnvKey,
+} from "./detect-integrations";
 import type { SelectedDossier } from "./dossiers/types";
 
 const RESEND_DOSSIER: SelectedDossier = {
@@ -215,6 +219,82 @@ describe("detectIntegrations + best-matching-cluster on shared env keys", () => 
     expect(supabase?.envEnforcement?.DATABASE_URL).toBe("build");
   });
 
+});
+
+describe("isEmailRecipientEnvKey", () => {
+  it("matches recipient/sender-shaped email keys", () => {
+    for (const key of [
+      "BOOKING_TO_EMAIL",
+      "BOOKING_FROM_EMAIL",
+      "CONTACT_EMAIL_TO",
+      "EMAIL_FROM",
+      "EMAIL_TO",
+      "SUPPORT_EMAIL",
+      "ADMIN_EMAIL",
+      "NOTIFY_EMAIL",
+      "ORDER_EMAIL_TO",
+      "REPLY_TO_EMAIL",
+    ]) {
+      expect(isEmailRecipientEnvKey(key), key).toBe(true);
+    }
+  });
+
+  it("does not match vendor API keys or non-role email keys", () => {
+    for (const key of [
+      "MAILCHIMP_API_KEY", // no exact MAIL/EMAIL token
+      "NEXT_PUBLIC_EMAILJS_KEY", // EMAILJS !== EMAIL, no role token
+      "SENDGRID_API_KEY",
+      "RESEND_API_KEY",
+      "STRIPE_SECRET_KEY",
+      "DATABASE_URL",
+      "EMAIL_SERVICE_ID", // has EMAIL token but no routing/role token
+    ]) {
+      expect(isEmailRecipientEnvKey(key), key).toBe(false);
+    }
+  });
+});
+
+describe("detectIntegrations custom email-recipient env keys", () => {
+  const BOOKING_CODE = `
+    export async function sendBooking() {
+      const to = process.env.BOOKING_TO_EMAIL;
+      const from = process.env.BOOKING_FROM_EMAIL;
+      const misc = process.env.MY_RANDOM_KEY;
+      return { to, from, misc };
+    }
+  `;
+
+  it("groups email-recipient keys under a dedicated custom-email group, not Miljövariabler", () => {
+    const detected = detectIntegrations(BOOKING_CODE);
+    const email = detected.find((d) => d.key === "custom-email");
+    const custom = detected.find((d) => d.key === "custom-env");
+    expect(email).toBeDefined();
+    expect(email?.provider).toBe("email");
+    expect(email?.envVars).toEqual(
+      expect.arrayContaining(["BOOKING_TO_EMAIL", "BOOKING_FROM_EMAIL"]),
+    );
+    // Non-email custom keys stay in the generic bucket.
+    expect(custom?.envVars).toContain("MY_RANDOM_KEY");
+    expect(custom?.envVars).not.toContain("BOOKING_TO_EMAIL");
+  });
+
+  it("classifies custom-email keys as feature-runtime (never build-blocking) with selectedDossiers", () => {
+    const detected = detectIntegrations(BOOKING_CODE, { selectedDossiers: [] });
+    const email = detected.find((d) => d.key === "custom-email");
+    expect(email?.envEnforcement?.BOOKING_TO_EMAIL).toBe("feature-runtime");
+    expect(email?.envEnforcement?.BOOKING_FROM_EMAIL).toBe("feature-runtime");
+    // Generic custom-env spillover still defaults to build.
+    const custom = detected.find((d) => d.key === "custom-env");
+    expect(custom?.envEnforcement?.MY_RANDOM_KEY).toBe("build");
+  });
+
+  it("stays feature-runtime even when a mismatched dossier is selected", () => {
+    const detected = detectIntegrations(BOOKING_CODE, {
+      selectedDossiers: [STRIPE_DOSSIER],
+    });
+    const email = detected.find((d) => d.key === "custom-email");
+    expect(email?.envEnforcement?.BOOKING_TO_EMAIL).toBe("feature-runtime");
+  });
 });
 
 describe("detectIntegrationsFromVersionFiles + selectedDossiers", () => {

@@ -143,6 +143,15 @@ function buildDetectedIntegrationsCommentBlock(
     );
     if (keys.length === 0) continue;
     lines.push(`# ${integration.name}${integration.provider ? ` (${integration.provider})` : ""}`);
+    if (integration.key === "custom-email") {
+      // Directly answer the common "do I need these?" question in the file:
+      // these are the recipient/sender addresses for the contact/booking mail.
+      lines.push(
+        "#   ↳ Mottagar-/avsändaradresser för formulärmail. Sajten bootar utan dem,",
+        "#     men mail skickas först när dessa + RESEND_API_KEY (och en verifierad",
+        "#     avsändardomän) är satta — annars svarar formuläret 503 \"email-not-configured\".",
+      );
+    }
     for (const key of keys) {
       lines.push(`# ${key}=`);
     }

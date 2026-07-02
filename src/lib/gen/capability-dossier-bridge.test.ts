@@ -133,14 +133,28 @@ describe("filterDossierCapabilitiesForPrompt", () => {
     ).toEqual([]);
   });
 
-  it("keeps explicit delivery and carousel requests", () => {
+  it("keeps explicit carousel requests in F2, but contact-form (email delivery) is strictly F3", () => {
+    // Email delivery is an F3 integration: even an explicit "sends email with
+    // Resend" prompt must not inject the resend dossier into F2 (its verbatim
+    // server route imports `resend`, which the F2 SDK deny-list strips —
+    // shipping a broken /api/contact). F2 renders the form as a visual mockup.
     expect(
       filterDossierCapabilitiesForPrompt({
         capabilities: ["contact-form", "carousel"],
         prompt: "Create a contact form that sends email with Resend and an Embla carousel",
         previewPolicy: "fidelity2",
       }),
-    ).toEqual(["contact-form", "carousel"]);
+    ).toEqual(["carousel"]);
+  });
+
+  it("keeps contact-form in F3 (integrations)", () => {
+    expect(
+      filterDossierCapabilitiesForPrompt({
+        capabilities: ["contact-form"],
+        prompt: "Bygg integrationer",
+        previewPolicy: "fidelity3",
+      }),
+    ).toEqual(["contact-form"]);
   });
 
   it("drops LLM-suggested visual-3d on a cinematic/immersive prompt with no 3D words", () => {
