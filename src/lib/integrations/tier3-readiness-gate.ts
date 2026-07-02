@@ -14,6 +14,7 @@
 
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
+import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import {
   getStoredProjectEnvVarMap,
@@ -85,6 +86,7 @@ export async function deriveTier3BuildSpecForVersion(
 export type Tier3GateResult =
   | { ok: true; spec: Tier3BuildSpec }
   | { ok: false; reason: "version_files_unavailable" }
+  | { ok: false; reason: "product_postcheck_blocked" }
   | {
       ok: false;
       reason: "missing_env";
@@ -93,15 +95,48 @@ export type Tier3GateResult =
     };
 
 /**
- * Full readiness decision for starting F3 from `versionId`: derive the
- * file-based build spec, load the project's stored env values, and validate
- * every required real key (honoring the "tillåt placeholders i F3" opt-in).
+ * Server-side Product Postcheck block (Codex P1 rounds 3+5 on #353) — shared
+ * by BOTH F3 entry points (`/finalize-design` and the stream route via
+ * {@link checkTier3ReadinessForVersion}), so a client that skips
+ * finalize-design cannot lift a product-blocked F2 version to F3 either.
+ * The F3 trigger button reads `product_postcheck.summary` from `/error-log`
+ * once on mount and can be stale; this is the authoritative check. The
+ * newest summary row wins (a later passing postcheck unblocks). Read
+ * failures fail open with a log — defense-in-depth on top of the client
+ * button; a telemetry hiccup must not brick the legit F3 flow.
+ */
+export async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
+  try {
+    const logs = await getLatestEngineVersionErrorLogs(versionId, 200);
+    const summary = logs.find((log) => log.category === "product_postcheck.summary");
+    const meta =
+      summary?.meta && typeof summary.meta === "object"
+        ? (summary.meta as Record<string, unknown>)
+        : null;
+    return meta?.productBlocked === true;
+  } catch (err) {
+    console.warn(
+      "[tier3-readiness-gate] product-postcheck block read failed (fail-open):",
+      err,
+    );
+    return false;
+  }
+}
+
+/**
+ * Full readiness decision for starting F3 from `versionId`: enforce the
+ * Product Postcheck block, derive the file-based build spec, load the
+ * project's stored env values, and validate every required real key
+ * (honoring the "tillåt placeholders i F3" opt-in).
  */
 export async function checkTier3ReadinessForVersion(params: {
   versionId: string;
   selectedDossiers: SelectedDossier[];
   projectId: string | null;
 }): Promise<Tier3GateResult> {
+  if (await isProductPostcheckBlocked(params.versionId)) {
+    return { ok: false, reason: "product_postcheck_blocked" };
+  }
   const spec = await deriveTier3BuildSpecForVersion(
     params.versionId,
     params.selectedDossiers,

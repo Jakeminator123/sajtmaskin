@@ -26,34 +26,12 @@ import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
 // Shared with the stream route's F3 gate (M#818-2) — single owner for the
-// file-based spec derivation, see tier3-readiness-gate.ts.
-import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
-import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-
-/**
- * Server-side Product Postcheck block (Codex P1 round 3 on #353). The F3
- * trigger button reads `product_postcheck.summary` from `/error-log` once on
- * mount, so a summary row written AFTER mount (e.g. by the resume-verify
- * lane) is invisible to its cached `productBlocked` state. Enforce the block
- * where it cannot be raced: the newest summary row wins (a later passing
- * postcheck unblocks). Read failures fail open with a log — this gate is
- * defense-in-depth on top of the client button, and a telemetry hiccup must
- * not brick the legit F3 flow.
- */
-async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
-  try {
-    const logs = await getLatestEngineVersionErrorLogs(versionId, 200);
-    const summary = logs.find((log) => log.category === "product_postcheck.summary");
-    const meta =
-      summary?.meta && typeof summary.meta === "object"
-        ? (summary.meta as Record<string, unknown>)
-        : null;
-    return meta?.productBlocked === true;
-  } catch (err) {
-    console.warn("[finalize-design] product-postcheck block read failed (fail-open):", err);
-    return false;
-  }
-}
+// file-based spec derivation AND the Product Postcheck block (Codex P1
+// rounds 3+5 on #353), see tier3-readiness-gate.ts.
+import {
+  deriveTier3BuildSpecForVersion,
+  isProductPostcheckBlocked,
+} from "@/lib/integrations/tier3-readiness-gate";
 
 export const runtime = "nodejs";
 
@@ -130,9 +108,11 @@ export async function POST(
       );
     }
 
-    // Codex P1 round 3 (#353): enforce the Product Postcheck block server-side
-    // — the client button's cached `productBlocked` can be stale when the
-    // summary row was written after mount (resume-verify lane).
+    // Codex P1 rounds 3+5 (#353): enforce the Product Postcheck block
+    // server-side (shared owner in tier3-readiness-gate.ts — the stream
+    // route's F3 gate enforces the same block). The client button's cached
+    // `productBlocked` can be stale when the summary row was written after
+    // mount (resume-verify lane).
     if (await isProductPostcheckBlocked(baseVersion.id)) {
       return NextResponse.json(
         {
