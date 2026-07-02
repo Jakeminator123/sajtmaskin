@@ -70,6 +70,7 @@ import {
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
+  resolveServerRepairOutcome,
   type ServerVerifyFailedOutput,
 } from "./server-verify-log-meta";
 import { resolvePostRepairFinalize } from "./server-repair-policy";
@@ -1090,14 +1091,16 @@ function logRepairOutcome(
   },
 ) {
   // The "remainingErrors" counter reflects esbuild parse errors, not the
-  // quality-gate (tsc/build/eslint) outcome. When syntax is clean but the
-  // gate still fails we surface that explicitly so logs/UI don't read as
-  // "0 errors but somehow not promoted" (the historic confusing case).
-  const message = repaired
-    ? `Server repair succeeded (${method}).`
-    : outcomeQualifier?.syntaxCleanGateFailed
-      ? `Server repair incomplete (${method}, syntax clean but quality gate still failing${earlyStopReason ? `, ${earlyStopReason}` : ""}).`
-      : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} esbuild syntax errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`;
+  // quality-gate (tsc/build/eslint) outcome. The canonical taxonomy resolver
+  // (Fas 0) surfaces the syntax-clean-but-gate-failed case explicitly so logs
+  // don't read as "0 errors but somehow not promoted" (historic confusion).
+  const { message } = resolveServerRepairOutcome({
+    method,
+    repaired,
+    remainingErrors,
+    syntaxCleanGateFailed: outcomeQualifier?.syntaxCleanGateFailed,
+    earlyStopReason,
+  });
   createEngineVersionErrorLogs([{
     chatId,
     versionId,
