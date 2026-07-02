@@ -1761,6 +1761,18 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
   rewriteRequestUrl(req, info.chatId, info.restPath, search);
+  // Next 16 dev (`blockCrossSiteDEV`) avvisar WS-upgrades till interna paths
+  // (`/_next/*`, `/__nextjs*`) vars `Origin` inte matchar dev-serverns hostname
+  // (här 127.0.0.1) eller `allowedDevOrigins`. Browserns HMR-socket skickar
+  // `Origin: https://<fly-host>` → 403 → syns som 502 via Fly-edgen. Värre:
+  // Next 16.2 levererar Reacts debugkanal (REACT_DEBUG_CHUNK) över samma
+  // socket och HYDRERINGEN väntar på den — utan ansluten HMR-WS förblir
+  // previewn död SSR-HTML (inga klick funkar). Origin-lösa upgrades släpps
+  // igenom av Next ("Allow requests with no origin"), så vi strippar headern
+  // för interna Next-paths. App-egna WS-endpoints lämnas orörda.
+  if (isHmrPath(info.restPath) || info.restPath.startsWith("/_next/") || info.restPath.startsWith("/__nextjs")) {
+    delete req.headers.origin;
+  }
   proxy.ws(req, socket, head, { target: `ws://${LOOPBACK}:${runtime.runtimePort}` });
   return true;
 }
