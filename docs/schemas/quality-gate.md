@@ -390,12 +390,75 @@ producerar `repair-outcome`-loggar med följande fält:
 | `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från (Wave 5) |
 | `syntaxCleanGateFailed` | `boolean` | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
 | `earlyStopReason` | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| null` | Varför loopen bröts |
+| `outcome` | `ServerRepairOutcome` | **Kanonisk outcome-enum (Fas 0)** — se nedan |
 
 **Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
 som typecheck failade. Det beror på att `remainingErrors` läses från
 `validateGeneratedCode` (esbuild parse), inte från quality-gaten. Wave 5
 lade till `remainingErrorsSource` + `syntaxCleanGateFailed` så UI/loggar
 kan disambigueras: "0 syntaxfel (esbuild) — men quality gate failar fortfarande".
+
+### Kanonisk repair-outcome-taxonomi (Fas 0)
+
+`resolveServerRepairOutcome` (`src/lib/gen/verify/server-verify-log-meta.ts`) är
+**en enda ägare** för både `meta.outcome` och loggmeddelandet. Både
+`server-verify.ts` (`logRepairOutcome`) och `repair/route.ts` (`logRepair`)
+bygger meddelandet härifrån — inga egna fritext-ternärer. `control-stats.mjs`
+grupperar på `meta->>'outcome'` (query `serverRepairOutcomes`).
+
+| `outcome` | Betyder |
+|---|---|
+| `repaired` | Gate passerade efter repair |
+| `syntax_clean_gate_failed` | esbuild rent, men typecheck/build failar |
+| `syntax_errors_remain` | esbuild-syntaxfel kvar efter alla pass |
+| `time_budget_exceeded` | Loopen bröts på wall-clock-budget |
+| `no_improvement` | Loopen förbättrade inget (icke-tyst fallback) |
+| `fixer_noop` | Fixern producerade ingen ändring |
+| `no_context` | Ingen actionable felkontext att repair:a |
+
+**Gammal→ny-mappning** (fritext ersatt, inte parallellt namn):
+
+| Gammal fritext | Ny `outcome` |
+|---|---|
+| `Server repair succeeded (…).` | `repaired` |
+| `…syntax clean but quality gate still failing…` | `syntax_clean_gate_failed` |
+| `…N esbuild syntax errors remain…` | `syntax_errors_remain` |
+| `…time budget exceeded…` | `time_budget_exceeded` |
+| `…0 errors remain…` (route-loggen, gate failade ändå) | `syntax_clean_gate_failed` (**bugfix**) |
+
+Historiska rader saknar `meta.outcome`; läsare (`control-stats`, backoffice)
+bucketar dem som `(historisk/utan-outcome)`.
+
+## Telemetri-fält: dossier-val & deploy-utfall (Fas 0)
+
+`generation_telemetry` skrivs av `persist-telemetry.ts` + deploy-flödet:
+
+| Fält / plats | Skrivs av | Läses av |
+|---|---|---|
+| `meta.selectedDossierIds` (`string[]`) | `persistTelemetryRecord` (endast när ≥1 dossier valdes) | `control-stats` (`dossierUsage`) |
+| `deploy_result` (kolumn, t.ex. `production:ready` / `preview:queued` / `production:error`) | `recordDeployResultForVersion` från `POST /api/v0/deployments` (best-effort, senaste telemetri-raden för versionId) | `control-stats` (`deployOutcomes`), backoffice generation-history |
+
+Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
+befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
+utan nyckeln = "ingen dossier".
+
+## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
+
+Fryst referens för Fas 6-mätningen. 14-dagarsfönster t.o.m. 2026-07-02
+(115 genereringar, 41 chattar). **OBS:** fönstret ligger mestadels *före*
+render-first-bytet och dagens punktfixar (#346/#354/#356) — effekten mäts om
+per våg, inte rakt mot dessa tal.
+
+| Mätvärde | Baslinje | Mål (efter Fas 1–4) |
+|---|---|---|
+| Quality gate pass | 84 % | 90–93 % |
+| Typecheck som first failure | 99 % av gate-fails | < 60 % |
+| Importrelaterade TS-fel | 84 % av felträffar | < 35 % |
+| Verifier skippad | 69 % (volymstyrd) | riskbaserad |
+| Gate-failade räddade av repair | 1/28 (3,6 %) | > 25 % |
+| Versioner som slutar failed | 38 % | < 25 % |
+
+Källa: `scripts/db/control-stats.mjs` (14 d) + kodverifiering mot master 2026-07-02.
 
 ## LLM-fixer incomplete-files-skydd (Wave 5 hot-fix #5)
 

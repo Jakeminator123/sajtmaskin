@@ -2,6 +2,111 @@ import type { QualityGateCheckResult } from "./preview-quality-gate";
 import type { VisualQAResult } from "./visual-qa";
 import type { RepairErrorManifest } from "./repair-loop";
 
+/**
+ * Fas 0 — kanonisk repair-outcome-taxonomi. En enda enum som ersätter de
+ * tidigare spretiga fritext-strängarna ("Server repair incomplete ...") och
+ * de förvirrande "0 errors remain"-fallen. Skrivs som `meta.outcome` på
+ * server-repair-loggar och grupperas av `scripts/db/control-stats.mjs`.
+ *
+ * Gammal→ny-mappning (dokumenteras i docs/schemas/quality-gate.md):
+ *   - "Server repair succeeded (…)."                         → `repaired`
+ *   - "…syntax clean but quality gate still failing…"        → `syntax_clean_gate_failed`
+ *   - "…N esbuild syntax errors remain…"                     → `syntax_errors_remain`
+ *   - "…time budget exceeded…"                               → `time_budget_exceeded`
+ *   - "…0 errors remain…" (gate failade ändå)                → `syntax_clean_gate_failed` (fix)
+ *   - no-context-skip                                        → `no_context`
+ */
+export type ServerRepairOutcome =
+  | "repaired"
+  | "syntax_clean_gate_failed"
+  | "syntax_errors_remain"
+  | "time_budget_exceeded"
+  | "no_improvement"
+  | "fixer_noop"
+  | "no_context";
+
+type ResolveServerRepairOutcomeParams = {
+  method: "deterministic" | "llm";
+  repaired: boolean;
+  remainingErrors?: number;
+  /**
+   * Explicit signal att esbuild-syntaxen är ren men typecheck/build failade.
+   * Om utelämnad härleds den ur `remainingErrors === 0 && !repaired` så att
+   * en gate-only-fail aldrig loggas som ett vilseledande "0 errors remain".
+   */
+  syntaxCleanGateFailed?: boolean;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
+  /** Repair-loopen hade ingen actionable felkontext att jobba med. */
+  noContext?: boolean;
+};
+
+/**
+ * Härleder den kanoniska outcome-enumen + ett läsbart meddelande ur de
+ * signaler både `server-verify.ts` och `repair/route.ts` redan har. En ägare
+ * per signal (`workflow.mdc`): båda callsites bygger meddelandet härifrån i
+ * stället för egna ternärer.
+ */
+export function resolveServerRepairOutcome(
+  params: ResolveServerRepairOutcomeParams,
+): { outcome: ServerRepairOutcome; message: string } {
+  const { method, repaired, remainingErrors, syntaxCleanGateFailed, earlyStopReason, noContext } =
+    params;
+  const stopSuffix = earlyStopReason ? `, ${earlyStopReason}` : "";
+  const remainingLabel =
+    typeof remainingErrors === "number" ? `${remainingErrors}` : "?";
+
+  if (repaired) {
+    return { outcome: "repaired", message: `Server repair succeeded (${method}).` };
+  }
+  if (noContext) {
+    return {
+      outcome: "no_context",
+      message: `Server repair skipped (${method}, no actionable error context).`,
+    };
+  }
+  if (syntaxCleanGateFailed === true) {
+    return {
+      outcome: "syntax_clean_gate_failed",
+      message: `Server repair incomplete (${method}, syntax clean but quality gate still failing${stopSuffix}).`,
+    };
+  }
+  if (earlyStopReason === "time_budget_exceeded") {
+    const remainingSuffix =
+      typeof remainingErrors === "number" && remainingErrors > 0
+        ? ` with ${remainingErrors} esbuild syntax error(s) remaining`
+        : "";
+    return {
+      outcome: "time_budget_exceeded",
+      message: `Server repair stopped (${method}, time budget exceeded${remainingSuffix}).`,
+    };
+  }
+  // Derived syntax-clean: esbuild rent men gate failade ändå. Fixar det
+  // historiska "0 errors remain"-fallet där route-loggen såg ut som success.
+  if (typeof remainingErrors === "number" && remainingErrors === 0) {
+    return {
+      outcome: "syntax_clean_gate_failed",
+      message: `Server repair incomplete (${method}, syntax clean but quality gate still failing${stopSuffix}).`,
+    };
+  }
+  if (typeof remainingErrors === "number" && remainingErrors > 0) {
+    return {
+      outcome: "syntax_errors_remain",
+      message: `Server repair incomplete (${method}, ${remainingLabel} esbuild syntax error(s) remain${stopSuffix}).`,
+    };
+  }
+  if (earlyStopReason === "fixer_noop") {
+    return {
+      outcome: "fixer_noop",
+      message: `Server repair incomplete (${method}, fixer produced no change).`,
+    };
+  }
+  // Default: non-silent honest fallback (aldrig `null`/tyst).
+  return {
+    outcome: "no_improvement",
+    message: `Server repair incomplete (${method}, no improvement${stopSuffix}).`,
+  };
+}
+
 export type ServerVerifyFailedOutput = {
   check: string;
   exitCode: number;
@@ -167,10 +272,21 @@ export function buildServerRepairOutcomeMeta(
     errorManifest,
   } = params;
 
+  // Fas 0: kanonisk outcome-enum härledd ur samma signaler. Skrivs som
+  // `meta.outcome` så control-stats kan `GROUP BY meta->>'outcome'`.
+  const { outcome } = resolveServerRepairOutcome({
+    method,
+    repaired,
+    remainingErrors,
+    syntaxCleanGateFailed,
+    earlyStopReason,
+  });
+
   return {
     method,
     llmPasses,
     repaired,
+    outcome,
     remainingErrors,
     ...(remainingErrorsSource ? { remainingErrorsSource } : {}),
     ...(typeof syntaxCleanGateFailed === "boolean" ? { syntaxCleanGateFailed } : {}),
