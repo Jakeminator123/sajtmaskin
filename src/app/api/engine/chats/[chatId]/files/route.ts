@@ -51,8 +51,17 @@ async function loadOwnEngineFilesForChat(req: Request, chatId: string, versionId
   };
 }
 
+/**
+ * Persist a MATERIAL user edit (PUT/PATCH/DELETE). Unlike the idempotent
+ * heal/materialize persists in GET, an edited file set is new content — any
+ * `promoted`/`passed` verdict on the row belonged to the previous contents,
+ * so the write also resets the row to `draft`/`pending` (post-#351 P1:
+ * a promoted F3 version must not stay deploy-green after an in-place edit).
+ */
 async function saveOwnEngineFiles(versionId: string, files: CodeFile[]) {
-  return updateVersionFiles(versionId, JSON.stringify(files));
+  return updateVersionFiles(versionId, JSON.stringify(files), {
+    invalidateVerification: true,
+  });
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
@@ -264,7 +273,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
       }
     }
 
-    const updated = await updateVersionFiles(scopedVersion.version.id, JSON.stringify(nextFiles));
+    const updated = await saveOwnEngineFiles(scopedVersion.version.id, nextFiles);
     if (!updated) {
       return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
     }
