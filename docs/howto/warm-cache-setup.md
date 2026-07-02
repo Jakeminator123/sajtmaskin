@@ -31,7 +31,15 @@ Båda är default AV. När `true` **och** cachen är provisionerad kör de inne 
 
 ## Vilka scaffolds är provisionerade?
 
-Just nu bara **`landing-page`** — det är den scaffold som matchar flest real-världs-prompts. `SCAFFOLD_IDS`-arrayen överst i [`scripts/provision-warm-cache.ts`](../../scripts/provision-warm-cache.ts) lägger du till fler när diskkostnad + latens mätts. Med symlink-strategin är kostnaden per scaffold bara `tsconfig.json` + `eslint.config.mjs` (några KB) + en symlink — så 10 scaffolds är triviala att provisionera om man vill.
+**Alla aktiva scaffolds** — listan ägs av [`scripts/warm-cache-scaffolds.json`](../../scripts/warm-cache-scaffolds.json) (läses av både provisioneringsscriptet och smoke-checken). Med symlink-strategin är kostnaden per scaffold bara `tsconfig.json` + `eslint.config.mjs` (några KB) + en symlink, så det finns ingen anledning att bara täcka `landing-page` — det gapet gjorde tidigare att F2-generationer på andra scaffolds tyst skippade warm-passen med `cache_cold`. Ny scaffold i `src/lib/gen/scaffolds/`? Lägg till dess id i JSON-listan och kör om provisioneringen.
+
+## Verifiera cachen (smoke-check)
+
+```powershell
+npm run warm-cache:smoke
+```
+
+Kollar per scaffold att cache-dir, `node_modules`-symlink, `tsconfig.json` och `eslint.config.*` finns, samt att `npx --no-install tsc/eslint --version` fungerar inne i cachen. Exit 1 med tydlig `COLD`-rad om något saknas.
 
 ## Uppdatera cachen
 
@@ -47,7 +55,7 @@ npm run provision:warm-cache:force
 
 ## Verifiera att det fungerar
 
-1. Provisionera cachen.
+1. Provisionera cachen och kör `npm run warm-cache:smoke` → allt grönt.
 2. Sätt flaggorna i `.env.local`.
 3. Starta `npm run dev`.
 4. Generera en sida med en medveten type-only-import-bug (t.ex. `import type { Star } from "lucide-react"; <Star />`). Förväntat:
@@ -55,6 +63,21 @@ npm run provision:warm-cache:force
    - LLM-fixern kickar in **innan** version sparas
    - Ingen 118s bakgrunds-repair-pass
    - Version landar clean
+
+## Observability: körde passen verkligen?
+
+Varje finalize skriver `warmTsc`/`warmEslint`-block till `site.done` i
+`logs/generationslogg/<run>/timeline.ndjson`:
+
+```json
+{ "warmTsc": { "enabled": true, "ran": false, "skipped": "cache_cold", "scaffoldId": "portfolio", "durationMs": 3 } }
+```
+
+- `ran: true` → passet körde på riktigt.
+- `enabled: true` + `skipped: "cache_cold"` → **falsk trygghet**: flaggan är på men cachen saknas (server-loggen får också en `console.warn`). Kör om provisioneringen.
+- `skipped: "feature_flag_disabled"` → medvetet av.
+
+Backoffice-sidan **LLM-flöde telemetri** (`backoffice/pages/llm_flode_telemetry.py`) aggregerar samma status per kategori och varnar när flagga-på-men-kall-cache förekommer. Schema: `docs/schemas/strict/site-done-telemetry.schema.json`.
 
 ## Caveats + uppföljning
 

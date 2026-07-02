@@ -25,6 +25,36 @@ export type FinalizeProgressCallback = (
   data: Record<string, unknown>,
 ) => void;
 
+/**
+ * Per-finalize outcome of one pre-VM warm pass (warm-tsc / warm-eslint).
+ * Emitted in `site.done` telemetry and rendered in backoffice
+ * (`llm_flode_telemetry.py`) so a silently skipped pass (`cache_cold`,
+ * `feature_flag_disabled`, …) can never be mistaken for a pass that ran.
+ */
+export interface WarmPassTelemetry {
+  /** True when the pass was requested: feature flag truthy or F3-force. */
+  enabled: boolean;
+  /** True when the pass actually executed (tsc/eslint spawned). */
+  ran: boolean;
+  /**
+   * Skip reason when `ran` is false: `cache_cold`, `feature_flag_disabled`,
+   * `quality_gate_planned`, `esbuild_failed`, `tsc_failed`, `tsc_skipped`,
+   * `no_files`, `tsc_unavailable`, `eslint_unavailable`, `exception`, or
+   * `not_reached` (validation never got far enough to attempt the pass).
+   * Null when `ran` is true.
+   */
+  skipped: string | null;
+  scaffoldId: string | null;
+  durationMs: number;
+}
+
+export interface WarmEslintPassTelemetry extends WarmPassTelemetry {
+  /** Lint errors found (null when the pass did not run). */
+  errorCount: number | null;
+  /** Lint warnings found (null when the pass did not run). */
+  warningCount: number | null;
+}
+
 export interface FinalizeParams {
   accumulatedContent: string;
   chatId: string;
@@ -131,6 +161,15 @@ export interface FinalizeResult {
   }>;
   /** True when warm-tsc was intentionally skipped because a later quality gate will typecheck. */
   warmTscSkipped?: boolean;
+  /**
+   * Structured observability for the pre-VM warm-tsc pass (P0: stop silent
+   * skip). `enabled` = the operator/config requested the pass (env flag or
+   * F3-force); `ran`/`skipped` mirror the actual outcome so "flag on but
+   * cache cold" is visible instead of reading as "typecheck ran".
+   */
+  warmTsc?: WarmPassTelemetry;
+  /** Same as `warmTsc` but for the pre-VM warm-eslint pass. */
+  warmEslint?: WarmEslintPassTelemetry;
   /**
    * Verifier LLM blocking findings carried out of `runFinalizeFastPath`.
    * Used by the post-finalize lane to gate the preview/VM lane on

@@ -54,6 +54,7 @@ import {
   pruneStaleLogsIfCleanRepair,
 } from "./persist-side-effects";
 import { persistTelemetryRecord } from "./persist-telemetry";
+import { buildWarmPassTelemetry } from "./warm-pass-telemetry";
 import type {
   FinalizeParams,
   FinalizeResult,
@@ -727,6 +728,12 @@ export async function finalizeAndSaveVersion(
     crossFileStubs: crossFileStubs ?? [],
     verifierBlockingFindings: effectiveVerifierBlockingFindings ?? [],
     warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
+    ...buildWarmPassTelemetry({
+      tsc: syntaxResult.tsc,
+      eslint: syntaxResult.eslint,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      isFidelity3: buildSpec?.previewPolicy === "fidelity3",
+    }),
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };
 }

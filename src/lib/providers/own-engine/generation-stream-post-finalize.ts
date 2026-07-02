@@ -314,6 +314,12 @@ export async function runOwnEngineStreamPostFinalize(params: {
     f2TimeMs: null,
     f3TimeMs: null,
     warmTscSkipped: finalized.warmTscSkipped === true,
+    // P0 warm-pass observability: structured {enabled, ran, skipped,
+    // scaffoldId, durationMs} per pass, so backoffice can tell "ran" from
+    // "silently skipped (cache_cold / feature_flag_disabled)". Source:
+    // buildWarmPassTelemetry in finalize-version/runner.ts.
+    warmTsc: finalized.warmTsc ?? null,
+    warmEslint: finalized.warmEslint ?? null,
   });
   devLogFinalizeSite();
   await commitCredits();

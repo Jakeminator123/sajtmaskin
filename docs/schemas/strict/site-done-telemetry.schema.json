@@ -25,6 +25,52 @@
     "warmTscSkipped": {
       "type": "boolean",
       "description": "Wave 7: true om validate_syntax warm-tsc hoppades över för att downstream quality-gate kommer köra typecheck. Mäter latens-vinst-rate."
+    },
+    "warmTsc": {
+      "$ref": "#/definitions/warmPass",
+      "description": "P0 warm-pass observability: strukturerat utfall för pre-VM warm-tsc. enabled = operatörsintent (env-flagga eller F3-force); ran/skipped = faktiskt utfall. Källa: buildWarmPassTelemetry i finalize-version/runner.ts."
+    },
+    "warmEslint": {
+      "allOf": [
+        { "$ref": "#/definitions/warmPass" },
+        {
+          "type": ["object", "null"],
+          "properties": {
+            "errorCount": { "type": ["number", "null"] },
+            "warningCount": { "type": ["number", "null"] }
+          }
+        }
+      ],
+      "description": "P0 warm-pass observability: strukturerat utfall för pre-VM warm-eslint (samma form som warmTsc + errorCount/warningCount)."
+    }
+  },
+  "definitions": {
+    "warmPass": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ran": { "type": "boolean" },
+        "skipped": {
+          "type": ["string", "null"],
+          "enum": [
+            "cache_cold",
+            "feature_flag_disabled",
+            "quality_gate_planned",
+            "esbuild_failed",
+            "tsc_failed",
+            "no_files",
+            "tsc_unavailable",
+            "eslint_unavailable",
+            "exception",
+            "not_reached",
+            null
+          ]
+        },
+        "scaffoldId": { "type": ["string", "null"] },
+        "durationMs": { "type": "number", "minimum": 0 }
+      },
+      "required": []
     }
   }
 }

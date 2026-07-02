@@ -9,6 +9,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_fixer_partial_response`` (wave 1/5) — excludedFiles per session
   - ``llm_repair_gate.deduped``     (fas 5)    — ledger dedupe av upprepat LLM-repairförsök
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
+  - ``site.done`` → ``warmTsc``/``warmEslint`` (P0 obs.) — körde vs tyst skip (cache_cold m.m.)
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
   - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
   - ``orchestration.simple_website_path`` (2026-04-29) — snabb init-lane enabled/reason
@@ -338,11 +339,54 @@ def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
-def _render_warm_tsc_skipped(run_dirs: list[Path]) -> None:
-    st.subheader("Warm-tsc hoppades över (`warmTscSkipped` i `site.done`)")
+def _warm_pass_status(block: Any) -> str:
+    """Klassificera ett warmTsc/warmEslint-block till en läsbar status."""
+    if not isinstance(block, dict):
+        return "saknas (äldre event)"
+    if block.get("ran") is True:
+        return "körde"
+    skipped = block.get("skipped") or "okänd"
+    if skipped == "cache_cold" and block.get("enabled") is True:
+        return "skippad: cache_cold (FLAGGA PÅ — falsk trygghet!)"
+    return f"skippad: {skipped}"
+
+
+def _render_warm_pass_block(events: list[dict[str, Any]], key: str, title: str) -> None:
+    """Aggregera ran/skipped-kategorier för ett warm-pass-fält i site.done."""
+    st.markdown(f"**{title}**")
+    counts: dict[str, int] = {}
+    for event in events:
+        status = _warm_pass_status(event.get(key))
+        counts[status] = counts.get(status, 0) + 1
+    rows = [
+        {"Status": status, "Antal": count, "Andel": _pct(count, len(events))}
+        for status, count in sorted(counts.items(), key=lambda kv: -kv[1])
+    ]
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    flagged = [
+        e for e in events
+        if isinstance(e.get(key), dict)
+        and e[key].get("enabled") is True
+        and e[key].get("ran") is False
+        and e[key].get("skipped") == "cache_cold"
+    ]
+    if flagged:
+        scaffolds = sorted({str((e[key] or {}).get("scaffoldId") or "okänd") for e in flagged})
+        st.warning(
+            f"{len(flagged)} finalize(s) hade flaggan PÅ men kall warm-cache "
+            f"(scaffolds: {', '.join(scaffolds)}). Passet skippades fail-open — "
+            "kör `npm run provision:warm-cache` (se docs/howto/warm-cache-setup.md)."
+        )
+
+
+def _render_warm_passes(run_dirs: list[Path]) -> None:
+    st.subheader("Pre-VM warm-pass status (`warmTsc` / `warmEslint` i `site.done`)")
     st.caption(
-        "Indikerar att tsc-valideringen hoppades över under validate-steget "
-        "eftersom quality gate planerades köra det ändå. Skip-rate mäter latency-vinsten från wave 7."
+        "P0-observability: visar per finalize om warm-tsc/warm-eslint faktiskt KÖRDE, "
+        "eller skippades — och varför (`cache_cold` = flagga på men cache oprovisionerad, "
+        "`feature_flag_disabled` = medvetet av, `quality_gate_planned` = latensvinst wave 7). "
+        "Källa: `buildWarmPassTelemetry` i `finalize-version/runner.ts`."
     )
     events = _collect_site_done(run_dirs)
     if not events:
@@ -352,10 +396,15 @@ def _render_warm_tsc_skipped(run_dirs: list[Path]) -> None:
         )
         return
 
+    _render_warm_pass_block(events, "warmTsc", "Warm-tsc (pre-VM typecheck)")
+    _render_warm_pass_block(events, "warmEslint", "Warm-eslint (pre-VM lint)")
+
+    # Legacy wave-7-mätning: skip-rate för quality_gate_planned-optimeringen.
     skipped = [e for e in events if e.get("warmTscSkipped") is True]
     not_skipped = [e for e in events if e.get("warmTscSkipped") is False]
     total = len(events)
 
+    st.markdown("**Wave 7 latensvinst (`warmTscSkipped`, legacy-fält)**")
     col1, col2, col3 = st.columns(3)
     col1.metric("Totalt site.done", total)
     col2.metric("warmTscSkipped=true", len(skipped))
@@ -726,7 +775,7 @@ def render(ctx: BackofficeContext) -> None:
     _render_llm_repair_gate_deduped(run_dirs)
 
     st.divider()
-    _render_warm_tsc_skipped(run_dirs)
+    _render_warm_passes(run_dirs)
 
     st.divider()
     _render_f2_f3_time(run_dirs)

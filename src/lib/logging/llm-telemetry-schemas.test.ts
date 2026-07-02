@@ -174,6 +174,76 @@ describe("LLM telemetri strict schemas", () => {
       };
       expect(validate(payload)).toBe(true);
     });
+
+    it("matchar site.done med strukturerade warmTsc/warmEslint-block (ran)", () => {
+      const payload = {
+        type: "site.done",
+        chatId: "test-chat",
+        versionId: "v1",
+        durationMs: 12000,
+        warmTscSkipped: false,
+        warmTsc: {
+          enabled: true,
+          ran: true,
+          skipped: null,
+          scaffoldId: "landing-page",
+          durationMs: 2300,
+        },
+        warmEslint: {
+          enabled: true,
+          ran: true,
+          skipped: null,
+          scaffoldId: "landing-page",
+          durationMs: 1900,
+          errorCount: 0,
+          warningCount: 2,
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("matchar site.done med skippade warm-pass (cache_cold / feature_flag_disabled)", () => {
+      const payload = {
+        type: "site.done",
+        chatId: "test-chat",
+        versionId: "v2",
+        durationMs: 9000,
+        warmTsc: {
+          enabled: true,
+          ran: false,
+          skipped: "cache_cold",
+          scaffoldId: "portfolio",
+          durationMs: 3,
+        },
+        warmEslint: {
+          enabled: false,
+          ran: false,
+          skipped: "feature_flag_disabled",
+          scaffoldId: "portfolio",
+          durationMs: 0,
+          errorCount: null,
+          warningCount: null,
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("kastar okänd skip-reason i warmTsc", () => {
+      const payload = {
+        type: "site.done",
+        chatId: "test-chat",
+        versionId: "v3",
+        durationMs: 100,
+        warmTsc: {
+          enabled: true,
+          ran: false,
+          skipped: "made_up_reason",
+          scaffoldId: null,
+          durationMs: 0,
+        },
+      };
+      expect(validate(payload)).toBe(false);
+    });
   });
 
   describe("product-postcheck.schema.json", () => {
