@@ -209,6 +209,29 @@ export function useSendMessage(
         }
       };
 
+      // 5-2 stale-base gate (client half): shared UX for the 409
+      // `stale_base_version` response so the primary stream path and the
+      // network `/messages` fallback surface the identical reload hint.
+      const handleStaleBaseVersion = () => {
+        toast.error(
+          "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
+        );
+        mutateVersions();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content:
+                    m.content?.trim() ||
+                    "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
+                  isStreaming: false,
+                }
+              : m,
+          ),
+        );
+      };
+
       let requestBody: Record<string, unknown> | null = null;
       // Hoisted so the catch block can distinguish between client-initiated
       // aborts (we cancelled this controller) vs server/provider-initiated
@@ -338,23 +361,7 @@ export function useSendMessage(
           // reload hint and refresh the version list instead of falling
           // through to the generic error/abort path.
           if (response.status === 409 && errorData?.reason === "stale_base_version") {
-            toast.error(
-              "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
-            );
-            mutateVersions();
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMessageId
-                  ? {
-                      ...m,
-                      content:
-                        m.content?.trim() ||
-                        "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
-                      isStreaming: false,
-                    }
-                  : m,
-              ),
-            );
+            handleStaleBaseVersion();
             return;
           }
           throw new Error(
@@ -424,6 +431,16 @@ export function useSendMessage(
                 errorData = (await fallbackRes.json()) as Record<string, unknown>;
               } catch {
                 // ignore
+              }
+              // Mirror the primary stream path: a 409 stale-base response here
+              // means the server has a newer version, so surface the same
+              // reload hint instead of a generic error.
+              if (
+                fallbackRes.status === 409 &&
+                errorData?.reason === "stale_base_version"
+              ) {
+                handleStaleBaseVersion();
+                return;
               }
               throw new Error(
                 buildApiErrorMessage({
