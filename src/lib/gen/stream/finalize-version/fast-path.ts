@@ -338,13 +338,24 @@ export async function runFinalizeFastPath(params: {
   const hasSafeOnlyFixes =
     autoFixRisk.safeFixCount > 0 && autoFixRisk.riskyFixCount === 0;
   const hasRiskyFixes = autoFixRisk.riskyFixCount > 0;
+  // Efterputs (coach-lucka 1): `autoFixRisk` only covers the PRE-phase
+  // autofix. `validateAndFix` runs AFTER that summary and can rewrite content
+  // via LLM fixers (esbuild syntax fix, warm-tsc/warm-eslint RepairGate). An
+  // LLM rewrite is risky by definition (see fixer-registry `llm-*` entries),
+  // so it must block the safe-only verifier skip. Deliberately NOT blocked:
+  // `tsc.repaired` from the deterministic import repair alone — those fixes
+  // are mechanical, safe-classed and already carry a warm-tsc receipt.
+  const hasLlmFixesInValidate =
+    syntaxResult.fixerUsed === true || syntaxResult.llmFixCount > 0;
   const verifierSkippedBySafeFixesOnly =
-    verifierPolicy.run && hasSafeOnlyFixes && !has3DSignal;
+    verifierPolicy.run && hasSafeOnlyFixes && !has3DSignal && !hasLlmFixesInValidate;
   const verifierReason = verifierSkippedBySafeFixesOnly
     ? "safe_fixes_only"
     : verifierPolicy.run && hasRiskyFixes
       ? "risky_fixes"
-      : verifierPolicy.reason;
+      : verifierPolicy.run && hasSafeOnlyFixes && hasLlmFixesInValidate
+        ? "llm_fixes_in_validate"
+        : verifierPolicy.reason;
   if (verifierSkippedBySafeFixesOnly) {
     devLogAppend("in-progress", {
       type: "verifier.skipped",

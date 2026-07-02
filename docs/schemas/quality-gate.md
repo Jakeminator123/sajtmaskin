@@ -74,6 +74,7 @@ den tidigare volymtröskeln:
 | `safeFixCount > 0` och `riskyFixCount === 0` | Verifiern får hoppas över med reason `safe_fixes_only`. |
 | `riskyFixCount > 0` | Verifiern körs med trigger/reason `risky_fixes`. |
 | 3D-signal (`BuildSpec.capabilityFlags.signals` innehåller `needs3D`/`needsPhysics`, eller orchestration-capability `visual-3d`/`physics-3d`) | Verifiern körs; safe-only-skip används inte. |
+| LLM-fix i validate-fasen (`validateAndFix` rapporterar `fixerUsed`/`llmFixCount > 0` — esbuild-syntaxfix eller warm-tsc/warm-eslint via RepairGate) | Verifiern körs med trigger `llm_fixes_in_validate`; safe-only-skip används inte. LLM-omskrivningar är risky per definition. Ren deterministisk import-repair med warm-tsc-kvitto blockerar däremot inte skippet. |
 | Grundpolicyn säger `run: false` | Oförändrat: Fas 2 tvingar inte på verifiern på nya vägar. |
 
 `FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
