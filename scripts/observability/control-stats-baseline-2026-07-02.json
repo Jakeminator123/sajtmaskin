@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "baselineId": "control-stats-2026-07-02-14d",
+  "baselineFrozenAt": "2026-07-02T00:00:00.000Z",
+  "source": "docs/schemas/quality-gate.md#baslinje-2026-07-02-kontrollflode-konsolidering-fas-0",
+  "windowDays": 14,
+  "windowEndsAt": "2026-07-02",
+  "volume": [
+    {
+      "chats": 41,
+      "versions": null,
+      "generations": 115,
+      "telemetry_rows": null,
+      "error_log_rows": null
+    }
+  ],
+  "qualityGateFirstFailure": null,
+  "qualityGateChecks": null,
+  "qualityGateResults": null,
+  "verifierPhase": null,
+  "serverRepairOutcomes": null,
+  "deployOutcomes": null,
+  "dossierUsage": null,
+  "versionStates": null,
+  "derivedKpis": {
+    "qualityGatePassPct": 84,
+    "typecheckFirstFailureOfGateFailsPct": 99,
+    "importRelatedTypecheckErrorsPct": 84,
+    "verifierSkippedPct": 69,
+    "repairRescueRatePct": 3.6,
+    "repairRescuedGateFailedVersions": 1,
+    "repairGateFailedVersions": 28,
+    "failedVersionsPct": 38
+  },
+  "_notes": {
+    "scope": "Fryst Fas 0-baslinje: 14-dagarsfönster t.o.m. 2026-07-02, 115 genereringar och 41 chattar.",
+    "qualityGateFirstFailure": "Dokumentet anger endast typecheck som first failure (99 % av gate-fails), inte råa bucket-rader.",
+    "qualityGateChecks": "Inte angivet i Fas 0-baslinjeavsnittet.",
+    "qualityGateResults": "Dokumentet anger quality gate pass som 84 %, inte rå quality_gate_result-fördelning.",
+    "verifierPhase": "Dokumentet anger verifier skippad som 69 % och legacy-volymstyrd, inte status/reason-buckets.",
+    "serverRepairOutcomes": "Fas 0-fältet finns i control-stats-outputen men baseline-avsnittet anger ingen outcome-fördelning.",
+    "deployOutcomes": "Fas 0-fältet finns i control-stats-outputen men baseline-avsnittet anger ingen deploy-fördelning.",
+    "dossierUsage": "Fas 0-fältet finns i control-stats-outputen men baseline-avsnittet anger ingen dossier-topplista.",
+    "versionStates": "Dokumentet anger versioner som slutar failed som 38 %, inte rå state-fördelning.",
+    "importRelatedTypecheckErrorsPct": "Bygger på historisk error-log-analys: 84 % av typecheck-felträffarna var importrelaterade."
+  }
+}
