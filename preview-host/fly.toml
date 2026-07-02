@@ -1,6 +1,11 @@
 # Fly app names need lowercase letters and hyphens.
 app = "vm-fly-jakem"
 primary_region = "arn"
+# M#fly1: `npm install` OOM-dödades under parallella boots (Fly-loggar
+# 2026-07-02). Swap gör att minnestoppar blir inbromsning i stället för
+# dödade processer; grundorsaken (parallella installs) serialiseras i
+# runtime.js (installQueue) och idle-runtimes stoppas av idle-reapern.
+swap_size_mb = 2048
 
 [build]
   dockerfile = "Dockerfile"
