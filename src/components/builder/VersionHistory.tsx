@@ -199,6 +199,13 @@ interface VersionHistoryProps {
   selectedVersionId: string | null;
   activePreviewSessionId?: string | null;
   onVersionSelect: (versionId: string, demoUrl?: string) => void;
+  /**
+   * Fas 4: efter en lyckad restore/rollback ber vi controllern tvinga en
+   * forced re-push av preview-sessionen mot den nyskapade (återställda)
+   * versionen, så preview:n konvergerar utan manuell reload. Samma
+   * forced-restart-primitiv som `missing`/`stopped`/env-restart använder.
+   */
+  onPreviewResync?: (versionId: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   /** Pre-fetched versions from parent to avoid duplicate polling */
@@ -217,6 +224,7 @@ export function VersionHistory({
   selectedVersionId,
   activePreviewSessionId = null,
   onVersionSelect,
+  onPreviewResync,
   isCollapsed = false,
   onToggleCollapse,
   versions: externalVersions,
@@ -495,6 +503,13 @@ export function VersionHistory({
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       await Promise.resolve(mutate());
+      // Fas 4: tvinga en re-push av preview-sessionen mot den nya (återställda)
+      // versionen EFTER att versionslistan refetchats (så raden finns när
+      // bootstrap-effekten kör). Utan detta kunde preview:n bli kvar på den
+      // gamla/trasiga VM-sessionen (prod-fall: v3 aktiv i DB, VM körde v2).
+      if (data?.versionId) {
+        onPreviewResync?.(String(data.versionId));
+      }
       setConfirmRestoreVersion(null);
     } catch (error) {
       console.error("Restore error:", error);

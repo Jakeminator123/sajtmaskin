@@ -70,6 +70,11 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
   // in the overlay payload. Reset whenever the active version changes so
   // a stale pin from a prior mismatch can't carry over.
   const mismatchObservedAtRef = useRef<number | null>(null);
+  // Loop-skydd (fas 4): en auto-resync per unik `${versionId}:${previewSessionId}`.
+  // Nyckeln inkluderar den STALE preview-sessionens id så att en genuint ny
+  // session (efter en forced restart) tillåts auto-resynca igen, medan SAMMA
+  // fastnade session bara triggar ETT automatiskt försök innan overlay-fallback.
+  const autoResyncAttemptsRef = useRef<Set<string>>(new Set());
   const [versionMismatchPayload, setVersionMismatchPayload] =
     useState<VersionMismatchOverlayPayload | null>(null);
 
@@ -78,6 +83,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     statusUnavailableCountRef.current = 0;
     lastPreviewRecoverAtRef.current = 0;
     mismatchObservedAtRef.current = null;
+    autoResyncAttemptsRef.current.clear();
   }, [chatId, activeVersionId]);
 
   const effectiveVersionMismatchPayload =
@@ -86,6 +92,54 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     versionMismatchPayload.expectedVersionId === activeVersionId
       ? versionMismatchPayload
       : null;
+
+  // Delad forced-restart-primitiv (samma väg som `missing`/`stopped` och
+  // env-restart): markera bootstrap-nyckeln som ej-klar, sätt forced key och
+  // bumpa retry-nonce så `useBuilderVmPreview` POST:ar `/preview-session`
+  // med `forceRestart:true` för den angivna versionen.
+  const triggerForcedPreviewRestart = useCallback(
+    (versionId: string) => {
+      if (!chatId || !versionId) return;
+      const key = `${chatId}:${versionId}`;
+      setPreviewSessionRecovering(true);
+      previewBootstrapDoneKeysRef.current.delete(key);
+      setForcedPreviewRestartKey(key);
+      setPreviewBootstrapRetryNonce((n) => n + 1);
+    },
+    [
+      chatId,
+      setPreviewSessionRecovering,
+      previewBootstrapDoneKeysRef,
+      setForcedPreviewRestartKey,
+      setPreviewBootstrapRetryNonce,
+    ],
+  );
+
+  // Explicit/manuell resync (overlay-knappen "Försök igen" + restore-flödet).
+  // Bypassar auto-resync-loopskyddet: rensar attempt-nycklarna för versionen så
+  // att en genuint ny stale-session kan auto-resynca igen, och tvingar en
+  // omstart direkt. `versionIdOverride` används av restore (ny versionId hinner
+  // ev. inte bli aktiv än); annars gäller aktiv version.
+  const forcePreviewResync = useCallback(
+    (versionIdOverride?: string) => {
+      const vid = (versionIdOverride ?? activeVersionId ?? "").trim();
+      if (!chatId || !vid) return;
+      for (const k of [...autoResyncAttemptsRef.current]) {
+        if (k.startsWith(`${vid}:`)) autoResyncAttemptsRef.current.delete(k);
+      }
+      mismatchObservedAtRef.current = null;
+      setVersionMismatchPayload(null);
+      logPreviewLifecycleTelemetry({
+        kind: "recover",
+        phase: "started",
+        chatId,
+        versionId: vid,
+        detail: "manual_force_resync",
+      });
+      triggerForcedPreviewRestart(vid);
+    },
+    [chatId, activeVersionId, triggerForcedPreviewRestart],
+  );
 
   const handlePreviewSessionSuspect = useCallback(async () => {
     const versionId = activeVersionId;
@@ -135,10 +189,33 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
 
     if (statusPayload.status === "version_mismatch") {
       // Server says the active VM session is bound to a different versionId
-      // than the one the user has selected (typical: app finalized a new
-      // version, VM is still booting/running the previous one). Surface
-      // as overlay payload so the iframe doesn't sit white for the ~5–10s
-      // restart window without explanation.
+      // than the one the user has selected (typical: app finalized/restored a
+      // new version, VM is still booting/running the previous one).
+      //
+      // Fas 4: auto-resynca i stället för att bara visa overlay. Ett (1)
+      // automatiskt forced-restart-försök per unik `${versionId}:${sessionId}`
+      // (loop-skydd). Vid fortsatt mismatch faller vi tillbaka på dagens
+      // overlay med manuell "Försök igen" (som via `forcePreviewResync`
+      // bypassar loopskyddet). 12s-debouncen ovan garanterar dessutom att
+      // försöken aldrig blir en restart-storm.
+      const staleSessionId = statusPayload.previewSessionId ?? "unknown";
+      const attemptKey = `${versionId}:${staleSessionId}`;
+      if (!autoResyncAttemptsRef.current.has(attemptKey)) {
+        autoResyncAttemptsRef.current.add(attemptKey);
+        mismatchObservedAtRef.current = null;
+        setVersionMismatchPayload(null);
+        logPreviewLifecycleTelemetry({
+          kind: "recover",
+          phase: "started",
+          chatId,
+          versionId,
+          detail: "version_mismatch_auto_resync",
+        });
+        triggerForcedPreviewRestart(versionId);
+        return;
+      }
+      // Auto-resync redan förbrukat för denna (version, stale-session) →
+      // visa overlay så användaren kan tvinga omstart manuellt.
       const observedAt = mismatchObservedAtRef.current ?? now();
       mismatchObservedAtRef.current = observedAt;
       const payload: VersionMismatchOverlayPayload = {
@@ -207,11 +284,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
       detail: statusPayload.status,
     });
 
-    setPreviewSessionRecovering(true);
-    const key = `${chatId}:${versionId}`;
-    previewBootstrapDoneKeysRef.current.delete(key);
-    setForcedPreviewRestartKey(key);
-    setPreviewBootstrapRetryNonce((n) => n + 1);
+    triggerForcedPreviewRestart(versionId);
   }, [
     chatId,
     activeVersionId,
@@ -220,9 +293,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
     setPreviewSessionRecovering,
-    previewBootstrapDoneKeysRef,
-    setForcedPreviewRestartKey,
-    setPreviewBootstrapRetryNonce,
+    triggerForcedPreviewRestart,
     onRecoverFailed,
     now,
   ]);
@@ -234,6 +305,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
 
   return {
     handlePreviewSessionSuspect,
+    forcePreviewResync,
     resetRecoverAttempts,
     versionMismatchPayload: effectiveVersionMismatchPayload,
   };

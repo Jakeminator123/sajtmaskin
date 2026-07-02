@@ -110,6 +110,13 @@ export interface PreviewPanelProps {
   versionMismatchPayload?: VersionMismatchOverlayPayload | null;
   /** Ask controller to verify server session and recover preview if needed. */
   onPreviewSessionSuspect?: () => void;
+  /**
+   * Explicit/manual forced preview resync (overlay "Försök igen"-knappen).
+   * Skiljer sig från `onPreviewSessionSuspect`: den senare är den automatiska
+   * heartbeat/iframe-vägen (respekterar auto-resync-loopskyddet), medan denna
+   * alltid tvingar en omstart oavsett loopskyddet.
+   */
+  onForcePreviewResync?: () => void;
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;

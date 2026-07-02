@@ -359,7 +359,7 @@ export function useBuilderPageController() {
     resetPreviewForNewChat,
   } = vmPreview;
 
-  const { handlePreviewSessionSuspect, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
+  const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
     currentPreviewUrl: state.currentPreviewUrl,
@@ -1698,6 +1698,7 @@ export function useBuilderPageController() {
     activePreviewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     previewLifecycle,
     handlePreviewSessionSuspect,
+    forcePreviewResync,
     versionMismatchPayload,
     clearPreviewBuildError,
     clearPreviewSessionState,
