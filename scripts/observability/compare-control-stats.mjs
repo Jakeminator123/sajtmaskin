@@ -231,23 +231,18 @@ function deriveRepairRescueRatePct(stats) {
     };
   }
 
-  const rows = Array.isArray(stats?.serverRepairOutcomes)
-    ? stats.serverRepairOutcomes
-    : null;
-  if (!rows || rows.length === 0) return { value: null, note: "saknas i input" };
-  let repaired = 0;
-  let total = 0;
-  let usedVersions = false;
-  for (const row of rows) {
-    const count = numberOrNull(row.versions) ?? rowCount(row);
-    if (numberOrNull(row.versions) !== null) usedVersions = true;
-    total += count;
-    if (String(row.outcome ?? "").toLowerCase() === "repaired") repaired += count;
+  const rescued = numberOrNull(stats?.repairRescuedGateFailedVersions);
+  const failed = numberOrNull(stats?.repairGateFailedVersions);
+  if (rescued !== null && failed !== null && failed > 0) {
+    return { value: (rescued / failed) * 100, note: `${rescued}/${failed}` };
   }
-  if (total === 0) return { value: null, note: "tom serverRepairOutcomes" };
+
+  // Do NOT derive this from `serverRepairOutcomes`: that denominator is only
+  // repair attempts/outcome rows, while the frozen KPI is "gate-failade
+  // versioner räddade av repair" (1/28). Comparing those would be false-green.
   return {
-    value: (repaired / total) * 100,
-    note: `${repaired}/${total}${usedVersions ? " versioner" : " rader"}`,
+    value: null,
+    note: "kräver gate-fail denominator",
   };
 }
 
@@ -466,7 +461,10 @@ function runSelfTest() {
   assert(md.includes("Quality gate pass"), "expected quality gate row");
   assert(md.includes("93 %"), "expected derived current quality gate pass");
   assert(md.includes("safe_fixes_only:30"), "expected verifier skip reason");
-  assert(md.includes("40 %"), "expected repair rescue rate from serverRepairOutcomes");
+  assert(
+    md.includes("kräver gate-fail denominator"),
+    "expected repair rescue denominator warning",
+  );
   assert(md.includes("kräver error-log-aggregat"), "expected import aggregate note");
   console.log("[compare-control-stats] self-test OK");
 }
