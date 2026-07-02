@@ -1394,12 +1394,16 @@ export function useBuilderPageController() {
           didChangeVersion,
           nextDemoUrl,
           currentPreviewUrl,
-          // The follow-up's freshly generated version is the newest; a manually
-          // selected OLDER version (or a failed latest) is not — so we never pin
-          // the previous frame over a different, user-chosen version.
-          activeVersionIsLatest:
-            Boolean(derived.activeVersionId) &&
-            derived.activeVersionId === derived.latestVersionId,
+          // Retain only for a just-generated follow-up version: either its row
+          // hasn't arrived from the `/versions` refetch yet (`!activeVersionMatch`
+          // — true on the first render after `done`, before `latestVersionId`
+          // catches up) OR it is the newest non-failed version. A manually
+          // selected OLDER version already in the list is neither, so we never
+          // pin the previous frame over a different, user-chosen version.
+          activeVersionIsFreshOrLatest:
+            !activeVersionMatch ||
+            (Boolean(derived.activeVersionId) &&
+              derived.activeVersionId === derived.latestVersionId),
         })
       ) {
         return;
