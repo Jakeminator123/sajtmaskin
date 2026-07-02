@@ -1,10 +1,15 @@
-# Quality Gate
+# RenderGate och ReleaseGate
 
 ## Scope
 
 Denna sida samlar den mänskligt läsbara kontraktsbilden för Sajtmaskins
-quality gate: vilka checks som körs, var de körs, när de triggas och hur de
-kopplas till preview, `server-verify` och repair.
+RenderGate (kod: `designPreview` quality gate) och ReleaseGate (kod:
+`integrationsBuild` quality gate): vilka checks som körs, var de körs, när de
+triggas och hur de kopplas till preview, `server-verify` och repair. Kodens
+identifierare, telemetri-kategorier och DB-strängar heter fortsatt `quality
+gate`, `designPreview`, `integrationsBuild`, `server-verify` och
+`product_postcheck.*`; docs använder kanoniska begrepp och mappar till kodnamnen
+vid behov.
 
 Primära kodkällor:
 
@@ -26,29 +31,32 @@ Närliggande docs:
 - `docs/architecture/llm-pipeline.md` § FAS 3
 - `docs/architecture/llm-pipeline.md` § FAS 2
 
-## Vad quality gate är
+## Vad RenderGate / ReleaseGate är
 
-Quality gate är builderns samlingsnamn för verifieringar som kräver en riktig
-Next-/Node-miljö och därför körs i preview-hostens isolerade verify-lane, inte
-i samma workspace som den live dev-preview användaren ser i iframen.
+RenderGate och ReleaseGate är builderns samlingsnamn för verifieringar som
+kräver en riktig Next-/Node-miljö och därför körs i preview-hostens isolerade
+verify-lane, inte i samma workspace som den live dev-preview användaren ser i
+iframen.
 
-Den svarar främst på frågan:
+De svarar främst på frågan:
 
 - Går det här projektet att installera, typechecka, linta eller bygga enligt
   den policy som gäller för den aktuella versionen?
 
-Quality gate är alltså inte samma sak som:
+De är alltså inte samma sak som:
 
-- mekaniska fixar (deterministisk autofix)
+- Normalize (kod: url-expand + autofix + deterministisk import-repair)
 - syntaxvalidering i finalize
 - verifier-pass (hybrid: deterministiska checks + LLM-audit) — kör
   regex-/AST-baserade guards (t.ex. `undefined-jsx-symbol`,
   `r3f-client-boundary`, `navigation-placeholder-actions`,
   `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) innan
-  LLM-passet och matar eventuella blocking findings in i fixern
+  LLM-passet och matar eventuella Blocker-fynd in i RepairGate
 - live-previewns `npm run dev`
+- CapabilitySmoke (kod: `product_postcheck.*`) som gör capability-specifik
+  DOM/render-smoke efter preview och rapporterar varningar/degradations
 
-## Verifier-pass policy after mekanisk autofix
+## Verifier-pass policy efter Normalize
 
 Verifier-pass (hybrid: deterministiska guards + LLM-audit) styrs fortfarande
 först av `resolveVerifierPassPolicy()`:
@@ -58,10 +66,10 @@ först av `resolveVerifierPassPolicy()`:
 - `strict`, högre quality target, app-intent, heavy context och riskabla
   BuildSpec-scope kan fortfarande välja att köra verifiern
 
-Efter det grundbeslutet används **riskklassad mekanisk autofix** i stället för
+Efter det grundbeslutet används **riskklassad Normalize** i stället för
 den tidigare volymtröskeln:
 
-| Autofix-resultat | Verifier-beslut när grundpolicyn säger `run` |
+| Normalize-resultat | Verifier-beslut när grundpolicyn säger `run` |
 |---|---|
 | `safeFixCount > 0` och `riskyFixCount === 0` | Verifiern får hoppas över med reason `safe_fixes_only`. |
 | `riskyFixCount > 0` | Verifiern körs med trigger/reason `risky_fixes`. |
@@ -71,7 +79,7 @@ den tidigare volymtröskeln:
 `FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
 behandlas konservativt som `risky`.
 
-### Autofix risk telemetry
+### Normalize risk telemetry
 
 Nya writers skriver `engine_version_error_logs` med category `autofix` och
 `meta.event = "autofix_risk"`:
@@ -97,12 +105,12 @@ Nya writers skriver `engine_version_error_logs` med category `autofix` och
 | Preview-lane | Ge användaren snabb live-preview | `npm install` + `npm run dev` |
 | Verify-lane | Bekräfta export-/buildbarhet och ge repair-underlag | `tsc`, ev. `eslint`, ev. `next build` |
 
-Live-previewn kan därför vara redo eller starta samtidigt som quality gate
+Live-previewn kan därför vara redo eller starta samtidigt som RenderGate/ReleaseGate
 fortfarande kör i bakgrunden.
 
 ## Checks
 
-Quality gate använder dessa check-id:n:
+RenderGate/ReleaseGate använder dessa kod-check-id:n:
 
 | Check | Kommando |
 |------|----------|
@@ -127,14 +135,14 @@ defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
-| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
-| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
+| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | RenderGate för F2 (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
+| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
 
 **2026-04-23 förändring av F2-lanen.** `build` och `lint` togs bort från
 F2 på VMn eftersom motsvarande pass nu körs pre-VM i Sajtmaskin-backendens
 Node-process (`src/lib/gen/preview/warm-typecheck.ts` +
 `src/lib/gen/preview/warm-eslint.ts`) via en varm scaffold-cache. De
-passen matar LLM-fixer-loopen med samma diagnostik och kan laga felen
+passen matar RepairGate med samma diagnostik och kan laga felen
 innan filerna ens skickas till preview-host. F2 på VMn behåller bara
 `typecheck` som billigt skyddsnät (fail-open om warm-cachen är kall).
 Gav ~5–20 s snabbare finalize + cirka -5–10 USD/mån i Fly-CPU. F3
@@ -145,11 +153,11 @@ Revert: sätt `qualityGateTiers.designPreview` till
 `["typecheck", "build", "lint"]` i `config/ai_models/manifest.json` om
 du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
-### F2 render-first: typecheck-only är advisory (#330, 2026-07-02)
+### F2 render-first: typecheck-only är Advisory (#330, 2026-07-02)
 
 I F2 (`lifecycle_stage !== "integrations"`) failar ett **typecheck-only**-fel
 inte längre versionen. `next dev` kör JS oavsett TS-typfel, så previewn
-renderar — därför behandlas typfelet som **advisory**.
+renderar — därför behandlas typfelet som **Advisory**.
 
 **Regelägare (single source of truth):** `isTypecheckOnlyAdvisory()` i
 `src/lib/gen/verify/quality-gate-checks.ts`. Båda gate-vägarna använder samma
@@ -160,11 +168,11 @@ predikat så de aldrig är oense:
   `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }`
   i stället för `failVersionVerification`. Vid transient promote-fel
   (`promoteError`/`promoteGuardUnavailable`) följer `designAdvisory` med i
-  svaret så klienten inte auto-reparerar en advisory ändå.
+  svaret så klienten inte auto-reparerar en Advisory ändå.
 - **Bakgrundsvägen** `triggerServerVerification` (`server-verify.ts`) speglar
-  regeln: advisory → `promoteVersion` FÖRSÖKS FÖRE terminal-emit, och
+  regeln: Advisory → `promoteVersion` FÖRSÖKS FÖRE terminal-emit, och
   `version.verifier.done`-utfallet härleds från om promotionen faktiskt tog
-  (`advisoryPromoted`). En promote-no-op (lease-takeover/guard/DB) emitterar
+  (`advisoryPromoted`, kodfält). En promote-no-op (lease-takeover/guard/DB) emitterar
   INGEN terminal bus-händelse — terminal bus-`failed` är sticky i
   `reconcileTerminalDbState`, så en förhastad `failed` skulle pinna en falsk
   röd status även efter att versionen promotats någon annanstans. Bussen
@@ -178,24 +186,24 @@ predikat så de aldrig är oense:
 
 - Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
 - Bara när **varje** failande check är `typecheck`. Ett `build`- eller
-  `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) failar hårt som förr.
-- **Bara advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
+  `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) är Blocker som förr.
+- **Bara Advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
   resolution (TS2304/TS2305/TS2307/TS2552/TS2613/TS2614/TS1361/TS2300/TS2440 —
   `RENDER_RISK_TS_CODES`) bryter även `next dev` i runtime och failar hårt.
   Oparsebar tsc-output (inga TS-koder) failar också hårt (fail-closed).
   Advisory gäller alltså bara semantiska typfel (TS2322, TS2339, TS7006, …)
   som `next dev` bevisligen renderar igenom.
-- `verifier`/promote-guard (`assertPromoteAllowed`) förblir blockerande —
-  `diagnosticOnly`-läget i server-verify advisory-promotar aldrig.
+- `verifier`/promote-guard (`assertPromoteAllowed`) förblir Blocker —
+  `diagnosticOnly`-läget i server-verify Advisory-promotar aldrig.
 - Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
   (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
-  når aldrig advisory-promote.
-- `vmGatePassed: false` bevaras så ingen konsument läser advisory som
+  når aldrig Advisory-promote.
+- `vmGatePassed: false` bevaras så ingen konsument läser Advisory som
   solid-grön build, och båda vägarna emitterar `version.degraded
   {typecheck_advisory}` så status-projektionen visar "klar med varningar"
   (aldrig solid grön). Chat-panelen visar "Godkänd med varningar (typecheck
   advisory)" i amber. Durabelt: promotade radens `verification_summary` bär
-  advisory-texten + `warning`-raden i `engine_version_error_logs`.
+  Advisory-texten + `warning`-raden i `engine_version_error_logs`.
 
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
@@ -206,7 +214,7 @@ Bakgrundsgate:n är dock fortfarande fire-and-forget — se SAJ-28 +
 `docs/plans/archived/P34-blocking-lint-in-validate-and-fix.md` för plan att
 lyfta lint till blockerande `validateAndFix`-passet.
 
-## När quality gate körs
+## När RenderGate / ReleaseGate körs
 
 ### 1. Asynkt efter finalize
 
@@ -219,8 +227,11 @@ Detta händer inte alltid. Vanliga skäl att hoppa över:
 - `verificationPolicy === "fast"`
 - versionen är inte eligible
 - `previewBlocked === true`
-- `verificationBlocked === true`
-- låg-risk-standardflöde utan starka signaler
+- F2-init utan preflight-fel och utan verifier-Blocker
+
+Vanliga skäl att köra är F3 (`previewPolicy: "fidelity3"`), repair-pass,
+icke-blockerande kvalitetsvarningar eller verifier-Blocker. Verifier-Blocker kan
+köra diagnostic-only: findings syns, men promotion/reparation sker inte automatiskt.
 
 ### 2. Explicit via route
 
@@ -230,28 +241,28 @@ Tar en `checks`-lista. Minst en check krävs.
 
 ### 3. Efter repair
 
-Både `server-verify` och den explicita `repair`-routen kan re-köra quality gate
+Både `server-verify` och den explicita `repair`-routen kan re-köra RenderGate/ReleaseGate
 efter att en reparationsomgång har producerat nya filer.
 
-## Hur quality gate förhåller sig till repair
+## Hur RenderGate / ReleaseGate förhåller sig till repair
 
-Quality gate är i första hand en verifiering, men i dagens arkitektur används
-den också som exakt felkälla för repair-lanen:
+RenderGate/ReleaseGate är i första hand verifiering, men i dagens arkitektur
+används gate-output också som exakt felkälla för RepairGate:
 
-1. quality gate failar
+1. RenderGate/ReleaseGate failar
 2. feloutput (`typecheck`, `lint`, `build`) samlas
 3. **deterministisk, diagnostik-driven import-repair körs FÖRST** (se nedan) på
-   de exakta tsc-koderna innan någon LLM-fix
+   de exakta tsc-koderna innan RepairGate
 4. om gate:n passerar efter den deterministiska fixen promotas versionen utan
    ett enda LLM-anrop (`method: "deterministic"`, `llmPasses: 0`)
-5. annars kör delad `runRepairLoop()` LLM-fix på **residuet** med samma policy
+5. annars kör delad `runRepairLoop()` via RepairGate på **residuet** med samma policy
    för både `server-verify` och manuell `/repair`. Loopens LLM-anrop går via
    `runLlmRepairGate()` (Fas 3, se "En repair-port" nedan) med
    ursprungsdiagnostiken (tsc-output inkl. TS-koder) som primära structured
    errors + prior-patch-noter vid pass > 0
 6. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
-   LLM-fixern när felmängden är lokal
-7. quality gate re-körs enligt **samma-signal-kontraktet**
+   RepairGate när felmängden är lokal
+7. RenderGate/ReleaseGate re-körs enligt **samma-signal-kontraktet**
    (`resolveSameSignalGateChecks`): varje check som failade i ursprungsgaten
    måste passera igen (union med baslanen) innan versionen blir
    `repair_available`. Ett pass som lagar syntax men inte når
@@ -263,16 +274,16 @@ den också som exakt felkälla för repair-lanen:
 Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
 implementation, två entrypoints:
 
-- **server-repair:** anropas överst i `runRepairLoop()` på quality gate-
+- **server-repair:** anropas överst i `runRepairLoop()` på RenderGate/ReleaseGate-
   diagnostiken (som tidigare)
 - **finalize normalize (Fas 1 kontrollflöde):** anropas i `validateAndFix()`
   (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
   warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
   vidare till `runLlmRepairGate` (phase `warm-tsc`)
 
-Bakgrund (prod-telemetri 2026-06/07): av de versioner vars quality gate failade
+Bakgrund (prod-telemetri 2026-06/07): av de versioner vars RenderGate/ReleaseGate failade
 på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är
-importhantering. De dominerande felen är import-only och har redan mekaniska
+importhantering. De dominerande felen är import-only och har redan Normalize-
 ägare som körs blint i `runAutoFix()` — men de når ändå gate:n eftersom de
 blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger exakt symbol + fil,
 vilket tar bort tvetydigheten. Pre-passen konsumerar diagnostiken och dirigerar
@@ -289,18 +300,18 @@ varje fall till rätt **befintlig** fixer:
 Obligatoriskt eftersteg per fil som fick import-injektioner: react/same-module-
 dedupe + kvitto — `consolidateReactImports`, sedan dubbelbindnings-pruning, och
 om filen fortfarande bär **introducerade** dubbelbindningar eller nya parse-fel
-revertas filens ändringar (diagnostiken förblir synlig för LLM-fixern). Ingen
+revertas filens ändringar (diagnostiken förblir synlig för RepairGate). Ingen
 fixer får lämna ifrån sig två import-statements som re-deklarerar samma lokala
 bindning (stänger "smörsajt"-klassen: dubbel React-import → TS2300 →
 webpack-krasch → preview-500).
 
 Konservativ: bara dessa import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till LLM. Okända namn utan matchande egen
+TS7009, generiska mismatchar) lämnas till RepairGate. Okända namn utan matchande egen
 fil lämnas orörda (befintlig cross-file-checker/stub-hantering nedströms —
-normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
+Normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
 (`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
 children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
-användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till LLM.
+användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till RepairGate.
 Stripe löses bara i API-route-/route-handler-filer. Alla fixers är idempotenta.
 
 **F2/F3-kontrakt (tier-3 SDK):** F2-guarden (`tier3-sdk-guard-fixer`) strippar
@@ -319,10 +330,8 @@ felet. `handledCodes` registrerar varje faktisk tsc-kod för sig — TS2552
 ("Cannot find name … Did you mean …") särskiljs från TS2304 även om båda löses
 av samma known-import-fixer, så statistiken inte buntar ihop dem.
 
-Det betyder att quality gate i nuläget är både:
-
-- verifieringslager
-- källa till repair-kontext
+Det betyder att RenderGate/ReleaseGate i nuläget är både verifieringslager och källa till
+repair-kontext, medan själva LLM-reparationen fortfarande går genom RepairGate.
 
 ### En repair-port: RepairGate (Fas 3)
 
@@ -364,7 +373,7 @@ alltid via `finally`.
 
 ## Repair-accept (ingen tyst filersättning)
 
-När post-repair quality gate passerar skrivs inte reparerade filer direkt över
+När post-repair RenderGate/ReleaseGate passerar skrivs inte reparerade filer direkt över
 `engine_versions.files_json`.
 
 I stället:
@@ -394,7 +403,7 @@ repair-vs-user-edit-clobbern (#260 P2 #5).
 `runRepairLoop()` använder `buildGroupedRepairErrorContext()` för att gruppera
 fel per fil och prioritera utifrån importgraf:
 
-- diagnostics extraheras från quality gate-output + syntaxfel
+- diagnostics extraheras från RenderGate/ReleaseGate-output + syntaxfel
 - grupperas till `RepairErrorManifest` (`file`, `importedByCount`, `dependsOn`, diagnostics)
 - sorteras så hög-impact-filer hanteras först
 
@@ -411,46 +420,51 @@ Verify-lane installerar nu i två steg:
 Samtidigt försöker verify-lane dela `node_modules` mellan live och verify
 workspace när dependency fingerprint matchar, för att minska dubbla installer.
 
-## Vad som blockeras och vad som bara varnar
+## Blocker och Advisory
 
 I preflight-/preview-kontraktet finns en viktig skillnad:
 
-- **blocking errors** kan stoppa preview eller verification
-- **non-blocking quality warnings** ska inte stoppa preview
+- **Blocker** kan stoppa preview, verification eller promote.
+- **Advisory** ska synas i status/diagnostik men inte stoppa preview.
 
-Typiska blocking-fall:
+Typiska Blocker-fall:
 
 - `code_structure_failure`
 - `dependency_install_failure`
 - `env_config_missing`
 
-Typiska icke-blockerande quality warnings:
+Typiska Advisory-fall:
 
 - SEO-signaler
 - analytics-varningar
 - vissa scaffold-/kvalitetssignaler
 
-SEO-varningar ska alltså inte tolkas som att quality gate blockerar previewn.
+SEO-varningar ska alltså inte tolkas som att RenderGate/ReleaseGate blockerar previewn.
 
 ## Relation till andra steg i pipeline
 
-Quality gate ligger efter finalize/persist och efter preview-start-handoff i den
+RenderGate/ReleaseGate ligger efter finalize/persist och efter preview-start-handoff i den
 större builder-kedjan:
 
 ```mermaid
 flowchart TD
-    codegen[CodegenStream] --> mechfix["Mekaniska fixar"]
-    mechfix --> syntax[SyntaxValidation]
+    codegen[CodegenStream] --> normalize[Normalize]
+    normalize --> syntax[SyntaxValidation]
     syntax --> verifier[VerifierPass]
     verifier --> preflight[MergeAndPreflight]
     preflight --> persist[VersionPersist]
     persist --> preview[PreviewStart]
-    preview --> qualityGate[QualityGate]
-    qualityGate -->|pass| promoted[PromoteVersion]
-    qualityGate -->|"F2 typecheck-only (advisory)"| promoted
-    qualityGate -->|"fail (F3, or F2 build/lint)"| repair[ServerRepair]
-    repair --> qualityGate
-    qualityGate -->|repair pass| repairAvailable[RepairAvailable]
+    preview --> renderGate[RenderGate F2]
+    preview --> releaseGate[ReleaseGate F3]
+    renderGate -->|pass| promoted[PromoteVersion]
+    renderGate -->|"typecheck-only Advisory"| promoted
+    renderGate -->|Blocker| repair[RepairGate / server repair]
+    releaseGate -->|pass| promoted
+    releaseGate -->|Blocker| repair
+    repair --> renderGate
+    repair --> releaseGate
+    renderGate -->|repair pass| repairAvailable[RepairAvailable]
+    releaseGate -->|repair pass| repairAvailable
     repairAvailable --> acceptRepair[AcceptRepair]
     acceptRepair --> promoted
 ```
@@ -483,8 +497,8 @@ producerar `repair-outcome`-loggar med följande fält:
 | Fält | Typ | Beskrivning |
 |---|---|---|
 | `method` | `"deterministic" \| "llm"` | Vilken repair-strategi som kördes |
-| `llmPasses` | `number` | Antal LLM-fixer-anrop i loopen |
-| `repaired` | `boolean` | True om gate passerade efter repair |
+| `llmPasses` | `number` | Antal RepairGate-anrop i loopen |
+| `repaired` | `boolean` | True om RenderGate/ReleaseGate passerade efter repair |
 | `remainingErrors` | `number?` | Antal kvarvarande **esbuild-syntax**-fel — ej tsc/build |
 | `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från (Wave 5) |
 | `syntaxCleanGateFailed` | `boolean` | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
@@ -493,9 +507,9 @@ producerar `repair-outcome`-loggar med följande fält:
 
 **Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
 som typecheck failade. Det beror på att `remainingErrors` läses från
-`validateGeneratedCode` (esbuild parse), inte från quality-gaten. Wave 5
+`validateGeneratedCode` (esbuild parse), inte från RenderGate/ReleaseGate. Wave 5
 lade till `remainingErrorsSource` + `syntaxCleanGateFailed` så UI/loggar
-kan disambigueras: "0 syntaxfel (esbuild) — men quality gate failar fortfarande".
+kan disambigueras: "0 syntaxfel (esbuild) — men RenderGate/ReleaseGate failar fortfarande".
 
 ### Kanonisk repair-outcome-taxonomi (Fas 0)
 
@@ -521,7 +535,7 @@ grupperar på `meta->>'outcome'` (query `serverRepairOutcomes`).
 | Gammal fritext | Ny `outcome` |
 |---|---|
 | `Server repair succeeded (…).` | `repaired` |
-| `…syntax clean but quality gate still failing…` | `syntax_clean_gate_failed` |
+| `…syntax clean but quality gate still failing…` | `syntax_clean_gate_failed` (legacy-fritext) |
 | `…N esbuild syntax errors remain…` | `syntax_errors_remain` |
 | `…time budget exceeded…` | `time_budget_exceeded` |
 | `…0 errors remain…` (route-loggen, gate failade ändå) | `syntax_clean_gate_failed` (**bugfix**) |
@@ -551,7 +565,7 @@ per våg, inte rakt mot dessa tal.
 
 | Mätvärde | Baslinje | Mål (efter Fas 1–4) |
 |---|---|---|
-| Quality gate pass | 84 % | 90–93 % |
+| RenderGate/ReleaseGate pass | 84 % | 90–93 % |
 | Typecheck som first failure | 99 % av gate-fails | < 60 % |
 | Importrelaterade TS-fel | 84 % av felträffar | < 35 % |
 | Verifier skippad | 69 % (volymstyrd) | riskbaserad |
@@ -562,7 +576,7 @@ Källa: `scripts/db/control-stats.mjs` (14 d) + kodverifiering mot master 2026-0
 
 ### Fas 6 mätavstämning
 
-Den här PR:ens tooling äger bara jämförelse och syntetiska fixtures. Själva
+Den här toolingen äger bara jämförelse och syntetiska fixtures. Själva
 prod-mätningen ägs av orkestratorn/ägaren, eftersom den kräver prod-snapshot
 och databasåtkomst.
 
@@ -581,9 +595,9 @@ Vitest och kan köras riktat med:
 npx vitest run src/lib/gen/autofix/eval/
 ```
 
-## LLM-fixer incomplete-files-skydd (Wave 5 hot-fix #5)
+## RepairGate incomplete-files-skydd (Wave 5 hot-fix #5)
 
-`runLlmFixer` i `src/lib/gen/autofix/llm-fixer.ts` validerar varje returnerad
+`runLlmFixer` (kod-legacy bakom RepairGate) i `src/lib/gen/autofix/llm-fixer.ts` validerar varje returnerad
 fil **före merge** med `validateCompleteFiles`. Filer som flaggas som ofullständiga
 exkluderas från merge och rapporteras tillbaka i `FixerResult.incompleteFiles`:
 
@@ -594,12 +608,12 @@ exkluderas från merge och rapporteras tillbaka i `FixerResult.incompleteFiles`:
 | `unbalanced_delimiters` | `{` `(` `[` obalanserade (string/comment-aware räknare) |
 
 Detta är klassen av bugg bakom historiska "missing `}`"- och "ButtonProps"-incidenter:
-LLM:n returnerade en partial file som mergades direkt och korrumperade projektet
+RepairGate returnerade tidigare en partial file som mergades direkt och korrumperade projektet
 medan esbuild-passet senare rapporterade 0 fel.
 
 ## Dokumentationsstatus
 
-Quality gate finns redan dokumenterad, men utspritt:
+RenderGate/ReleaseGate finns redan dokumenterad, men utspritt:
 
 - `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
 - `docs/architecture/llm-pipeline.md` § FAS 3 — runtimebild, tier-2 vs verify-lane

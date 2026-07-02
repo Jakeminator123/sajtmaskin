@@ -72,7 +72,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Generation History", "Overhead", generation_history.render),
     PageSpec("Logg-export", "Overhead", log_export.render),
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
-    PageSpec("Autofix & Kvalitet", "Overhead", autofix.render),
+    PageSpec("Normalize / RepairGate & Kvalitet", "Overhead", autofix.render),
     PageSpec("Fixer Registry", "Overhead", fixer_registry.render),
     PageSpec("Repair Loop (hardening)", "Overhead", repair_loop.render),
     PageSpec("Error-log RAG", "Overhead", error_log_rag.render),

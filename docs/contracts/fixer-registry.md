@@ -6,6 +6,10 @@ Single source of truth for every fixer/validator the generation pipeline runs.
 
 **Visualised in:** `backoffice/pages/fixer_registry.py` (Streamlit table grouped by category + phase).
 
+Docs använder kontrollbegreppen Normalize och RepairGate. Registry-id:n,
+category-värden, lane-värden och telemetry counters är kod-legacy och döps inte
+om.
+
 ## Why
 
 Without a registry, "what touches generated code?" requires grep:ing through 40+
@@ -36,9 +40,10 @@ interface FixerRegistryEntry {
 }
 ```
 
-`FixEntry` (runtime output from autofix/preflight) now also carries `lane` for
+`FixEntry` (runtime output from Normalize/preflight) now also carries `lane` for
 telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense`,
-`post_merge`, `server_repair`). Canonical lane contracts: see the **Lane contracts** section below.
+`post_merge`, `server_repair`). Lane-namnen är runtime-värden; canonical docs
+contracts finns i **Lane contracts** section below.
 
 ## Risk classes
 
@@ -49,7 +54,7 @@ telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense
 | `safe` | Narrow deterministic hygiene: directives, escaping/quotes, known library imports, same-module dedupe, URL/asset expansion, metadata/font/config small fixes, and read-only validators. |
 | `risky` | Structure or contract mutation: JSX tag/default-export rewrites, cross-file import/provider decisions, dependency additions/version bumps, regex import surgery, LLM rewrites, and server-repair passes. Unknown fixer ids are treated as `risky` at runtime. |
 
-Many `safe` fixes are normal flow. One `risky` fix is a signal to keep verifier
+Many `safe` Normalize fixes are normal flow. One `risky` fix is a signal to keep verifier
 coverage when the base verifier policy says it should run.
 
 See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
@@ -70,10 +75,10 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 | `validator-syntax` | esbuild syntax check |
 | `validator-jsx` | JSX checker (tag balance, default export) |
 | `validator-dep` | Dependency completion + version validation |
-| `llm-syntax` | LLM-fixer for syntax/typecheck escalation |
-| `llm-verifier` | LLM-fixer for verifier-blocking findings |
-| `llm-partial-file` | LLM-fixer for truncated file content |
-| `llm-server-repair` | Server-repair-loop LLM passes |
+| `llm-syntax` | RepairGate escalation for syntax/typecheck residuals |
+| `llm-verifier` | RepairGate escalation for verifier-Blocker findings |
+| `llm-partial-file` | RepairGate escalation for truncated file content |
+| `llm-server-repair` | Server-repair-loop RepairGate passes |
 | `verifier-pass` | Read-only verifier LLM (not a fixer per se) |
 
 ## Owner phases
@@ -85,20 +90,20 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 | `verifier` | After preflight, when verifier policy says yes |
 | `preflight` | During finalize-preflight (partial-file-repair) |
 | `post-merge` | After follow-up merge against previous version |
-| `server-repair` | Server-side after quality-gate failures |
+| `server-repair` | Server-side after RenderGate/ReleaseGate failures |
 
 A fixer can run in more than one phase: `ownerPhase` is the primary/grouping
 phase, `additionalOwnerPhases` lists the rest. Example: the diagnostic-driven
 import fixers (`ts2304-known-import-fixer`, `own-component-import-fixer`) run in
 the shared deterministic import-repair (`autofix/deterministic-import-repair.ts`)
-from BOTH the finalize normalize pass on warm-tsc failure (`post-syntax`, before
+from BOTH the finalize Normalize pass on warm-tsc failure (`post-syntax`, before
 `runLlmRepairGate`) and the server repair-loop pre-pass (`server-repair`, before
-the LLM passes).
+RepairGate).
 
-## Deterministic import-repair order (normalize + server-repair)
+## Deterministic import-repair order (Normalize + server-repair)
 
-When tsc diagnostics exist (warm-tsc fail in finalize, or quality-gate fail in
-server-repair), the deterministic import-repair runs BEFORE any LLM fixer, in
+When tsc diagnostics exist (warm-tsc fail in finalize, or RenderGate/ReleaseGate fail in
+server-repair), the deterministic import-repair runs BEFORE RepairGate, in
 this order:
 
 1. `ts2304-known-import-fixer` — TS2304/TS2552 names resolvable to a known
@@ -114,7 +119,7 @@ this order:
    may hand over two import statements re-declaring the same local binding.
 
 In finalize, warm-tsc is then re-run ONCE (no loop, cost cap) and only the
-residual diagnostics reach `runLlmRepairGate`.
+residual diagnostics reach RepairGate (`runLlmRepairGate`).
 
 ## Lane contracts
 
@@ -122,19 +127,19 @@ Lane-kontrakten för fixer-systemet. Målet är tydliga entrypoints per lane, in
 
 | Lane | Entrypoint | När den kör | Input | Output | Får mutera |
 |---|---|---|---|---|---|
-| `mechanical` | `runAutoFix()` i `src/lib/gen/autofix/pipeline.ts` | Under finalize/validate när kandidatversion byggs | CodeProject-innehåll | Mekaniskt reparerat innehåll + `FixEntry[]` | Kandidatens filer |
+| `mechanical` | `runAutoFix()` i `src/lib/gen/autofix/pipeline.ts` | Under Normalize när kandidatversion byggs | CodeProject-innehåll | Mekaniskt reparerat innehåll + `FixEntry[]` | Kandidatens filer |
 | `static_gate` | `validateAndFix()` + `runFinalizePreflightAll()` | Efter mekanisk lane för gate-signaler | Kandidatens filer | Valideringsresultat/preflight-issues | Ingen kod (bara signaler) |
-| `llm_repair` | `runLlmRepairGate()` (syntax + verifier) | När static-gate blockerar | Kandidat + fel-sammanfattning | LLM-reparerat kandidatinnehåll (eller noop) | Kandidatens filer |
+| `llm_repair` | `runLlmRepairGate()` (syntax + verifier) | När static-gate har Blocker-residual | Kandidat + fel-sammanfattning | RepairGate-reparerat kandidatinnehåll (eller noop) | Kandidatens filer |
 | `stream_suspense` | `createDefaultRules()` i `src/lib/gen/suspense/default-rules.ts` | Under streamning, rad-för-rad | Stream-rader | Transformerade rader före parse/finalize | Endast stream-buffer/context |
 | `post_merge` | `repairGeneratedFiles()` + `fixTypeOnlyModuleDefaultImports()` | Efter merge/scaffold-preflight | Merged `CodeFile[]` | Reparerat merged filset + fixes | Merged filset |
-| `server_repair` | `runRepairLoop()` i `src/lib/gen/verify/repair-loop.ts` | Efter server-verify/quality-gate-fel | Persistad version + verifierfel | Reparerad serverversion eller early-stop | Persistad version |
+| `server_repair` | `runRepairLoop()` i `src/lib/gen/verify/repair-loop.ts` | Efter server-verify/RenderGate-/ReleaseGate-fel | Persistad version + verifierfel | Reparerad serverversion eller early-stop | Persistad version |
 
 Lane-gränser:
 
-- `runAutoFix()` är entrypoint för mekanisk lane; den producerar lane-taggade `FixEntry` (`mechanical`).
+- `runAutoFix()` är entrypoint för Normalize-lanen; den producerar lane-taggade `FixEntry` (`mechanical`).
 - `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`.
 - `createDefaultRules()` är enda default-väg till suspense-rules i streaming-lane.
-- Server-repair (`runRepairLoop`) är separat lane och konsolideras inte med autofix-lane.
+- Server-repair (`runRepairLoop`) är separat lane men skickar LLM-residual via RepairGate.
 
 ## Adding a new fixer
 

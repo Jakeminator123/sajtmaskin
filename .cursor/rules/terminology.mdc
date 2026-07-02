@@ -20,11 +20,19 @@ Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras sem
 | mallar/templates för runtime-startpunkter | `scaffolds` |
 | scaffold family, style direction | `scaffold variant` |
 | blandad “brief” | `Deep Brief` för init, `Snapshot-Brief` för follow-up |
-| blandad “autofix” | `mekanisk autofix` eller `LLM-fix` |
+| blandad “autofix”, mekanisk autofix, url-expand, deterministisk import-repair | `Normalize` |
+| LLM-fix, syntax-fixer, verifier-fixer, server-repair-LLM | `RepairGate` |
+| quality gate / preview-check i F2-löptext | `RenderGate` |
+| build gate, readiness eller integrationsBuild-gate i F3-löptext | `ReleaseGate` |
+| warning, soft fail, degraded/typecheck_advisory | `Advisory` |
+| hard fail, blocking, preview-blocking | `Blocker` |
+| product postcheck | `CapabilitySmoke` |
 | `demoUrl` | `previewUrl` |
 | dashboard om adminytan | `backoffice/` eller `sajtmaskin_backoffice.py` |
 | prompt-static | `Core Rules` |
 | tier 2/tier 3 för produktläge | F2 (`fidelity2`) / F3 (`fidelity3`) |
+
+Kontrollbegreppen ovan styr hur agenter skriver i docs/PR-text. Befintliga kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn.
 
 ## Fas-skillnad
 

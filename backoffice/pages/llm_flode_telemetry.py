@@ -7,7 +7,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_fixer_aborted``          (wave 1/5) — abort + duration + retry-signal
   - ``dossier_verbatim_restored``  (wave 6)   — säkerhetshygien: LLM korrumperade verbatim
   - ``llm_fixer_partial_response`` (wave 1/5) — excludedFiles per session
-  - ``llm_repair_gate.deduped``     (fas 5)    — ledger dedupe av upprepat LLM-repairförsök
+  - ``llm_repair_gate.deduped``     (fas 5)    — RepairGate ledger-dedupe av upprepat repairförsök
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``warmTsc``/``warmEslint`` (P0 obs.) — körde vs tyst skip (cache_cold m.m.)
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
@@ -114,10 +114,11 @@ def _pct(numerator: int, denominator: int) -> str:
 
 
 def _render_llm_fixer_aborted(run_dirs: list[Path]) -> None:
-    st.subheader("LLM Fixer — abort-events (`llm_fixer_aborted`)")
+    st.subheader("RepairGate — abort-events (`llm_fixer_aborted`)")
     st.caption(
-        "Emitteras av `llm-fixer.ts` när ett `AbortError`/timeout inträffar under LLM-fix. "
-        "Hög frekvens = fixer aborteras ofta p.g.a. timeout eller yttre avbrott."
+        "Emitteras av `llm-fixer.ts` (kod-legacy bakom RepairGate) när ett "
+        "`AbortError`/timeout inträffar under LLM-repair. Hög frekvens = "
+        "RepairGate aborteras ofta p.g.a. timeout eller yttre avbrott."
     )
     events = _collect_events_by_type(run_dirs, "llm_fixer_aborted")
     if not events:
@@ -264,10 +265,10 @@ def _render_dossier_verbatim_restored(run_dirs: list[Path]) -> None:
 
 
 def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
-    st.subheader("LLM Fixer — partiella svar (`llm_fixer_partial_response`)")
+    st.subheader("RepairGate — partiella svar (`llm_fixer_partial_response`)")
     st.caption(
-        "Emitteras när LLM returnerade filer men en del var ofullständiga (truncated/noop). "
-        "Hög `excludedFiles`-count = LLM genererade för många filer på en gång → shrink-signal."
+        "Emitteras när RepairGate returnerade filer men en del var ofullständiga (truncated/noop). "
+        "Hög `excludedFiles`-count = modellen genererade för många filer på en gång → shrink-signal."
     )
     events = _collect_events_by_type(run_dirs, "llm_fixer_partial_response")
     if not events:
@@ -304,9 +305,9 @@ def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
 
 
 def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
-    st.subheader("LLM Repair Gate — dedupe (`llm_repair_gate.deduped`)")
+    st.subheader("RepairGate — dedupe (`llm_repair_gate.deduped`)")
     st.caption(
-        "Emitteras när `RepairLedger` stoppar ett upprepat LLM-repairförsök "
+        "Emitteras när `RepairLedger` stoppar ett upprepat RepairGate-försök "
         "med samma scope/contentHash/diagnosticFingerprint/requiredFiles. "
         "Schema: `docs/schemas/strict/llm-repair-gate-deduped.schema.json`."
     )
@@ -659,10 +660,11 @@ def _render_dossier_stubs(run_dirs: list[Path]) -> None:
 
 
 def _render_degradations(run_dirs: list[Path]) -> None:
-    st.subheader("Degradations (`version.degraded.*`)")
+    st.subheader("Advisory / degradations (`version.degraded.*`)")
     st.caption(
         'Emitteras av `event-bus` när pipelinen lyckas men "ÅN ENDAST DEGRADERAT" '
-        "— t.ex. server-verify hoppades p.g.a. policy, eller F2 product-postcheck "
+        "— t.ex. server-verify hoppades p.g.a. policy, eller CapabilitySmoke "
+        "(kod: F2 product-postcheck) "
         "fick aldrig en tillåten preview-URL. Speglas till devLog som "
         "`type: 'version.degraded.<kind>'` av `event-bus-subscribers.installDefaultSubscribers()`. "
         "Surfaces så att 'grön status' inte döljer att en kontroll aldrig kördes. "

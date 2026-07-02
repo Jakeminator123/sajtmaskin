@@ -35,12 +35,12 @@ REPAIR_LOOP_INLINED_HISTORY = (
         "Stops stale diagnostics from keeping a clean follow-up red by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass has no preflight/syntax blockers. Verifier-only findings stay on the latest pass but no longer keep older rows active. Inlined 2026-04-28 (was FEATURES.consistentRepairPassIndex).",
     ),
     (
-        "Phase 2B — verifier re-run after LLM-fixer",
-        "After the verifier-fixer succeeds, re-run runVerifierPass once to confirm the fix actually addressed the blocking finding. Capped at 1 re-run + 30s timeout. Inlined 2026-04-28 (was FEATURES.verifierRerunAfterFix).",
+        "Phase 2B — verifier re-run after RepairGate",
+        "After RepairGate succeeds, re-run runVerifierPass once to confirm the fix actually addressed the Blocker finding. Capped at 1 re-run + 30s timeout. Inlined 2026-04-28 (was FEATURES.verifierRerunAfterFix).",
     ),
     (
-        "Phase 2C — skip LLM-fixer escalation on merged-only syntax fail",
-        "When stream-syntax already passed but merged-syntax fails, run only the deterministic mechanical autofix + esbuild revalidation. Saves an LLM-fixer call per follow-up. Inlined 2026-04-28 (was FEATURES.skipDoubleValidateAndFixOnMerge).",
+        "Phase 2C — skip RepairGate escalation on merged-only syntax fail",
+        "When stream-syntax already passed but merged-syntax fails, run only Normalize + esbuild revalidation. Saves a RepairGate call per follow-up. Inlined 2026-04-28 (was FEATURES.skipDoubleValidateAndFixOnMerge).",
     ),
 )
 

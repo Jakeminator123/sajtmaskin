@@ -189,12 +189,12 @@ ANVÄNDARENS PROMPT
   ├─ 9. LLM-generering → CodeFile[]
   │
   └─10. Post-generation:
-        ├─ Mekanisk autofix → Syntax validate/fix → Finalize
-        ├─ Readiness-bedömning (heuristisk)
-        ├─ Tier-2 verify-lane (typecheck)
+        ├─ Normalize → Syntax validate/fix → Finalize
+        ├─ ReleaseGate-bedömning (heuristisk)
+        ├─ RenderGate (F2 typecheck/preview)
         │    ├─ Env-signal (saknade nycklar → UI-hint)
-        │    ├─ Server repair (mekanisk → LLM)
-        │    └─ Autofix fallback
+        │    ├─ Server repair (Normalize → RepairGate)
+        │    └─ RepairGate fallback
         └─ Background server verify (typecheck — slimmad 2026-04-23; build/lint flyttade till pre-VM warm-cache)
 ```
 """
