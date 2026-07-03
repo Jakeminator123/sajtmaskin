@@ -412,6 +412,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         // En fresh/updated session har bara KÖAT bootet — logga den som
         // `preview_url_handoff` (samma fält, ärligt namn) och reservera
         // `preview_ready` för det resume-verifierade kvittot (running:true).
+        const previewHandoffMs = Math.max(0, Date.now() - engineStartedAt);
         logPreviewLifecycleTelemetry({
           kind: sr.runtimeReady ? "preview_ready" : "preview_url_handoff",
           chatId,
@@ -423,7 +424,20 @@ export async function runOwnEngineStreamPostFinalize(params: {
           startOutcome: sr.startOutcome,
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
-          msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
+          msSinceEngineStart: previewHandoffMs,
+        });
+        // Spegla till timeline.ndjson (devLog är server-only och kan inte
+        // anropas från lifecycle-loggern, som även importeras av klienten) —
+        // backoffice-panelen "Preview-latens" läser dessa events härifrån.
+        // No-op i prod (generationslogg avstängd).
+        devLogAppend("in-progress", {
+          type: sr.runtimeReady ? "preview_ready" : "preview_url_handoff",
+          chatId,
+          versionId: finalized.version.id,
+          previewSessionId: sr.previewSessionId,
+          startOutcome: sr.startOutcome,
+          fidelityTier: sr.fidelityTier,
+          msSinceEngineStart: previewHandoffMs,
         });
         // The `preview-ready` SSE stays for BOTH cases — it is the client's
         // URL handoff (stream-handlers.ts sets the iframe URL + binds session
