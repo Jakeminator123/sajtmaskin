@@ -42,10 +42,11 @@ export function emitOwnEngineToolCallSse(
 ): void {
   const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
   const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-  // Env-/integrationsverktygen registreras först EFTER validering/emit (Codex
-  // P2, PR #375): en droppad signal (malformad eller F2-mutad) som hamnar i
-  // `toolCallNames` skulle annars trigga `tool_only_empty_generation`-prompten
-  // i chatten — en spök-fråga utan något att konfigurera.
+  // Env-/integrationsverktygen registreras först EFTER argument-validering
+  // (Codex P2, PR #375): en MALFORMAD signal som hamnar i `toolCallNames`
+  // skulle trigga `tool_only_empty_generation`-prompten i chatten — en
+  // spök-fråga utan något att konfigurera. Giltiga signaler registreras även
+  // när de F2-mutas (se drop-grenen nedan).
   if (toolName && !ENV_TOOLS_F2_BLOCKED.has(toolName)) bridge.toolCallNames.add(toolName);
 
   const { enc, safeEnqueue, toolSignaledProviders, setBlockingToolCall } = bridge;
@@ -60,6 +61,11 @@ export function emitOwnEngineToolCallSse(
     lifecycleStage !== "integrations" &&
     ENV_TOOLS_F2_BLOCKED.has(toolName)
   ) {
+    // F2-mutade men GILTIGA signaler registreras ändå som tool-call: en
+    // tool-only-generation utan kod ska ge "kör igen eller fortsätt"-prompten
+    // (tool_only_empty_generation), inte en generisk tom-output-failure.
+    // Kontraktet pinnas av stream/route.test.ts.
+    bridge.toolCallNames.add(toolName);
     warnLog("engine", "Dropped F2 env/integration tool-call (defense-in-depth)", {
       toolName,
       lifecycleStage,

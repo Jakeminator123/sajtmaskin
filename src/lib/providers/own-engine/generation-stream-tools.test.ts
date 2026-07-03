@@ -137,7 +137,10 @@ describe("emitOwnEngineToolCallSse", () => {
     );
     expect(chunks.length).toBe(0);
     expect(providers.size).toBe(0);
-    expect(toolCallNames.size).toBe(0);
+    // Giltig men F2-mutad signal registreras ändå som tool-call så att en
+    // tool-only-generation ger "kör igen eller fortsätt"-prompten
+    // (tool_only_empty_generation) — pinnas även av stream/route.test.ts.
+    expect(toolCallNames.has("suggestIntegration")).toBe(true);
   });
 
   it("drops requestEnvVar SSE in F2 (lifecycleStage='design')", () => {
