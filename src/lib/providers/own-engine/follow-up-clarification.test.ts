@@ -273,7 +273,10 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
     ).toBe(true);
   });
 
-  it("unlocks on major game/canvas follow-ups without requiring clear-redesign wording", () => {
+  it("keeps the frozen scaffold on game/canvas follow-ups (no auto-unlock; scaffold-freeze policy 2026-07-03)", () => {
+    // A capability follow-up asking for a game must NOT rebase the whole site
+    // onto another scaffold. The feature is added as a new route on the current
+    // scaffold; only explicit clear-redesign wording unlocks a rematch.
     expect(
       shouldIgnorePersistedScaffoldForMatch({
         hasPreviousFiles: true,
@@ -282,7 +285,7 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
         scaffoldMode: "auto",
         scaffoldId: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("keeps small visual-3d overlays on the current scaffold", () => {
@@ -349,9 +352,12 @@ describe("follow-up signal regression matrix (3D / game / refine / modify)", () 
     ).toBe(false);
   });
 
-  it("'bygg Pac-Man-spel med score och collision' = scaffold unlocks (major-change)", () => {
+  it("'bygg Pac-Man-spel med score och collision' = scaffold STAYS frozen (freeze policy 2026-07-03)", () => {
     const message = "bygg ett Pac-Man-spel med score och collision";
 
+    // Previously this unlocked a scaffold rematch (major-change). Policy change:
+    // a game follow-up keeps the current scaffold; only explicit clear-redesign
+    // wording ("gör om hela sajten") switches scaffold.
     expect(
       shouldIgnorePersistedScaffoldForMatch({
         hasPreviousFiles: true,
@@ -360,7 +366,7 @@ describe("follow-up signal regression matrix (3D / game / refine / modify)", () 
         scaffoldMode: "auto",
         scaffoldId: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("'ändra rubriken' = clear-refine, no dossier capability, no scaffold unlock", () => {

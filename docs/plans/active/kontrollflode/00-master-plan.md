@@ -285,6 +285,11 @@ Baslinje = 14-dagarsfönstret t.o.m. 2026-07-02 (`kontrollflödesmapp/`). Mål e
 | 2026-07-02 | Exekvering: parallellt där möjligt (grind-/cloud-agenter PR:ar), sekventiellt där beroenden kräver; smarthet 1–10 anges per fas | Jake |
 | 2026-07-02 | Verifier-kostnad: ökad verifier-frekvens vid riskabla fixar accepterad | Jake |
 | 2026-07-02 | Våg A+B körs som fyra parallella cloud-agenter från master (fas 0/4/1/2); merge-ordning 0→4→1→2; `repairScopeId`-trådning flyttad Fas 0→Fas 1 | Jake + orkestrator |
+| 2026-07-02 | **Våg A+B mergad:** #361 (Fas 0) → #362 (Fas 4) → #363 (Fas 1) → #360 (Fas 2). #360 krävde master-merge + 2 integrationsfixar (risk-fält på Fas 1:s nya `own-component-import-fixer`, `autoFixRisk` i Fas 0:s testfixtur) — verifierade i worktree före merge. `ts2304-known-import-fixer` behåller `risky`: klassningen är inert för verifier-policyn (fixern körs i warm-tsc-repairen, inte i `runAutoFix` vars fixar risk-summeras) och fail-closed är rätt default | Orkestrator (merge på Jakes uppdrag) |
+| 2026-07-02 | **Våg C (Fas 3) mergad:** #364 — repair-loopen via `runLlmRepairGate` + delad `RepairLedger` (ledger-handover finalize→server-verify; aborted-attempt-undantag för reducerad-budget-retry), `resolveSameSignalGateChecks` (strikt additiv union, #260/#291 bevarade), superseded-abort i två varianter (nyare version / files_json-avance), callsite-vakttest. Granskad via diff-läsning + lokal worktree-verifiering (typecheck 0 fel, 249 riktade tester gröna) + full CI inkl. Vercel Agent Review. L1-planen markerad superseded | Orkestrator (merge på Jakes uppdrag) |
+| 2026-07-02 | Fas 6 delas: builder-agent levererar eval-svit + baseline-jämförelse-tooling; själva prod-mätningen (kräver prod-DB-creds) + beslutsunderlag (P34, postcheck, partial-file, verifier-frekvens) ägs av orkestratorn + Jake efter ~7 dagars ny data | Orkestrator |
+| 2026-07-03 | **Våg D mergad:** #366 (Fas 5 terminologi/docs — 7 kanoniska begrepp, llm-pipeline-ordningen rättad, endast backoffice-visningstext) → #365 (Fas 6 eval-svit 21 tester + `stats:compare` + fryst baslinje-JSON). #365 fick en rubrik-konflikt i `quality-gate.md` mot #366 (Fas 5 döpte om "LLM-fixer incomplete-files-skydd" → "RepairGate …") — löst i worktree (behöll Fas 6-avsnittet + Fas 5-rubriken), eval-svit + self-test + typecheck gröna före merge. **Alla 7 faser är nu levererade i kod/docs.** | Orkestrator (merge på Jakes uppdrag) |
+| 2026-07-03 | **Efterputs #367 mergad** (extern coach-review av slutläget, 91 % säkerhet): (1) safe-only verifier-skip blockeras nu när `validateAndFix` använt LLM-fixar (`fixerUsed`/`llmFixCount>0` ⇒ trigger `llm_fixes_in_validate`) — medvetet snävare än coachens förslag: deterministisk import-repair med warm-tsc-kvitto blockerar inte skippet; (2) `control-stats` sektion 20: `typecheckTsCodes` + `derivedKpis.importRelatedTypecheckErrorsPct` (metod = baslinjens TS2304+TS2300+TS2440) så `stats:compare` slipper n/a på huvud-KPI:n; (3) LucideIcon-residualen loggad som P2 i backloggen (2 träffar/14 d — under åtgärdströskeln); (4) coachens #355-varning: stale PR, ska rebasas/omvärderas — inte mergas rakt av. Bugbot-pass: 0 fynd | Orkestrator |
 
 ## 9. Medvetet utanför scope (nu)
 
@@ -301,10 +306,16 @@ Baslinje = 14-dagarsfönstret t.o.m. 2026-07-02 (`kontrollflödesmapp/`). Mål e
 ## 10. Nästa steg
 
 1. ~~Jake granskar denna master-plan~~ — godkänd 2026-07-02.
-2. Agent-prompts för Våg A+B (Fas 0/4/1/2) skrivna → [`aktiviteter/`](aktiviteter/).
-   Prompterna är självbärande (agenterna startar från `origin/master` där plan-dokumenten
-   inte finns ännu).
-3. Builder-agenter (cloud) körs parallellt; varje agent skapar featurebranch + PR mot master
-   med dokumenterad bug-postcheck. Orkestratorn granskar; Jake mergar i ordning 0→4→1→2.
-4. Efter Våg A+B: mätavstämning, sedan nivå 2 + prompt för Fas 3 (RepairGate) skrivs mot
-   då-aktuellt kodläge.
+2. ~~Agent-prompts för Våg A+B (Fas 0/4/1/2)~~ — skrivna → [`aktiviteter/`](aktiviteter/).
+3. ~~Våg A+B implementerad och mergad~~ — PR #361/#362/#363/#360, alla CI-gröna med
+   dokumenterad bug-postcheck (2026-07-02, se beslutsloggen).
+4. ~~Fas 3 (Våg C)~~ — implementerad och mergad som PR #364 (2026-07-02). L1-planen
+   markerad superseded.
+5. ~~Våg D (Fas 5 + Fas 6-tooling)~~ — mergad som #366 + #365 (2026-07-03).
+   **Allt builder-arbete är klart.**
+6. **Kvar (orkestrator + ägare), efter ~7 dagars ny prod-data (~2026-07-10):**
+   mätavstämningen — `npm run env:pull:prod-snapshot` → `control-stats --json` →
+   `npm run stats:compare -- --baseline scripts/observability/control-stats-baseline-2026-07-02.json --current <fil> --md`
+   — sedan beslutsunderlag (P34 lint C–E, postcheck advisory→hard, partial-file-utfasning,
+   verifier-frekvensjustering), Jakes beslut, och flytt av denna plan till `avklarat/`
+   med utfallssiffror. Ev. arkivering/radering av `kontrollflödesmapp/` är Jakes beslut.
