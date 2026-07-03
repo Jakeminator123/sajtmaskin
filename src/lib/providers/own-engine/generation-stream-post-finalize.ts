@@ -1,5 +1,6 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 import { dbConfigured } from "@/lib/db/client";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
@@ -192,6 +193,16 @@ export async function runOwnEngineStreamPostFinalize(params: {
   });
   const previewUrlHint = resolvePreviewUrlHint(chatId, previewWillRun);
 
+  // M#pv1 (honest preview_success): track the CONFIRMED preview runtime outcome
+  // and stamp it onto the version's telemetry row after the attempt resolves.
+  //   - false : preview blocked (won't render) OR the session start failed.
+  //   - true  : a real runtime-ready receipt (resume-verified `running:true`).
+  //   - null  : pending — a fresh boot was queued but not confirmed. The
+  //             finalize writer already left `null`, so no stamp is needed.
+  // This replaces the old finalize-time `!hasPreviewBlockingPreflightErrors`
+  // false-green, which claimed success before the runtime was ever attempted.
+  let previewRuntimeOutcome: boolean | null = previewBlocked ? false : null;
+
   // `done` confirms that version persistence/finalize finished. Live preview is a separate
   // post-done phase and only becomes canonical on `preview-ready` (or explicit GET status/routes).
   safeEnqueue(
@@ -383,6 +394,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
       });
       if (previewSessionResult.ok) {
         const sr = previewSessionResult.result;
+        // Only a confirmed runtime-ready receipt (resume-verified `running:true`)
+        // counts as success. A freshly-created/updated session has only queued
+        // the boot, so it stays pending (null) until confirmed elsewhere.
+        previewRuntimeOutcome = sr.runtimeReady ? true : null;
         logPreviewLifecycleTelemetry({
           kind: "preview_start_outcome",
           chatId,
@@ -437,6 +452,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
           }
         }
       } else {
+        // Confirmed failure: the preview session did not start (host unreachable,
+        // disk full, invalid payload, …) so no runtime came up.
+        previewRuntimeOutcome = false;
         logPreviewLifecycleTelemetry({
           kind: "preview_failed",
           chatId,
@@ -491,6 +509,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Preview start failed";
+      // Confirmed failure: preview start threw before a runtime came up.
+      previewRuntimeOutcome = false;
       logPreviewLifecycleTelemetry({
         kind: "preview_failed",
         chatId,
@@ -543,6 +563,16 @@ export async function runOwnEngineStreamPostFinalize(params: {
         });
       });
     }
+  }
+
+  // M#pv1: persist the confirmed preview runtime outcome (best-effort; never
+  // throws). Pending (null) is left as the finalize writer wrote it, so the row
+  // honestly reads "unconfirmed" rather than a premature green.
+  if (previewRuntimeOutcome !== null && dbConfigured) {
+    await recordPreviewRuntimeOutcomeForVersion(
+      finalized.version.id,
+      previewRuntimeOutcome,
+    );
   }
 
   const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({

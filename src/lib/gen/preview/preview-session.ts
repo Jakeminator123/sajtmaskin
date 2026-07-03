@@ -48,6 +48,19 @@ export interface PreviewSessionResult {
   prodBuildLogSnippet?: string;
   /** Session reused vs fresh boot. HTTP route-level `reused_url` is handled before this layer. */
   startOutcome: "resumed" | "recreated";
+  /**
+   * True only when the preview RUNTIME was confirmed responding (preview-host
+   * `/status` reported `running: true` for this version — the resume path
+   * verifies this via {@link tryResumeTier2Runtime}). `false` for a
+   * freshly-created / file-swapped session where the host has only *queued* the
+   * boot and returned `201` before `npm run dev` is serving (preview-host
+   * `/preview/session/start` + `/update` return before the runtime is up).
+   *
+   * This is the honest runtime-ready receipt behind `generation_telemetry`
+   * `preview_success` (M#pv1): session-created ≠ runtime-survived. A `false`
+   * here means "not yet confirmed ready" (pending), NOT "failed".
+   */
+  runtimeReady: boolean;
   /** Telemetry / UI hints for the tier-2 provider. */
   tier2Meta?: PreviewSessionTier2Meta;
 }
@@ -322,6 +335,9 @@ async function runStartPreviewSession(
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
+            // Confirmed runtime-ready: tryResumeTier2Runtime only returns a
+            // session when preview-host `/status` reported `running: true`.
+            runtimeReady: true,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -398,6 +414,10 @@ async function runStartPreviewSession(
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: updated.startOutcome ?? "resumed",
+            // Files were swapped into the live session and the host re-boots
+            // Next dev — the update response returns before that boot is
+            // serving, so the runtime is NOT yet confirmed ready.
+            runtimeReady: false,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -522,6 +542,11 @@ async function runStartPreviewSession(
       previewMode: resolvedMode,
       fidelityTier: 2,
       startOutcome: started.startOutcome,
+      // Fresh boot: preview-host `/preview/session/start` queues the boot and
+      // returns 201 before `npm run dev` is serving, so the runtime is NOT yet
+      // confirmed ready. `preview_success` stays pending (null) until a real
+      // runtime-ready receipt arrives (M#pv1).
+      runtimeReady: false,
       tier2Meta: { tier2Provider: "preview_host" },
     },
   };

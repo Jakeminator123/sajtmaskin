@@ -567,6 +567,44 @@ Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
 befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
 utan nyckeln = "ingen dossier".
 
+## Telemetri-fält: ärlig `preview_success` (M#pv1)
+
+`generation_telemetry.preview_success` (kolumn `boolean` nullable) är en
+**tri-state** som betyder "svarade preview-runtimen?", inte "blockerade
+preflighten previewn?". Semantiken ägs numera av två skrivare:
+
+| Läge | Betyder | Skrivs av |
+|---|---|---|
+| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` (resume-verifierad väg via `tryResumeTier2Runtime`). | `recordPreviewRuntimeOutcomeForVersion` (post-finalize) |
+| `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel) |
+| `null` | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes. | `persistTelemetryRecord` (default) |
+
+**Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
+svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.
+Prod-bevis 2026-07-03: `preview_success=true` på verifier-blockerade versioner och
+på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
+
+**Gammal→ny-mappning** (ersatt semantik, inte parallellt fält):
+
+| Gammalt värde (skrevs vid finalize) | Betydde | Ny semantik |
+|---|---|---|
+| `true` (`!hasPreviewBlockingPreflightErrors`) | "preflight blockerade inte previewn" — sattes FÖRE previewförsöket, ljög grönt | Skrivs inte längre vid finalize. `true` kräver nu ett runtime-ready-kvitto. |
+| `false` (`hasPreviewBlockingPreflightErrors`) | preflight blockerade previewn | Oförändrat `false` (bekräftat ingen preview). |
+
+**Läsare (redan tri-state-medvetna, ingen ny kolumn):**
+
+- `scaffold-scoring.ts` (SAJ-49) och `scripts/db/scaffold-scores.mjs`
+  exkluderar `null` (pending/infra-brus) och rankar bara bekräftade utfall.
+- `scripts/db/control-stats.mjs` `telemetryTotals` skiljer nu
+  `preview_ready` / `preview_failed` / `preview_pending` (tidigare buntades
+  `null` in i `preview_not_ok`); `byScaffold.preview_ready` = bekräftat redo.
+- Backoffice `generation_history._preview_label`: `ready` / `failed` / `pending`.
+
+**Historiska rader:** rader före 2026-07-cutoffen bär gamla, överoptimistiska
+`true`-värden. Läsarna behandlar dem som gamla semantiken (jämför inte rakt av
+över cutoffen). Ingen migration — semantiken bor i skrivarna/läsarna, inte i
+kolumnen.
+
 ## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
 
 Fryst referens för Fas 6-mätningen. 14-dagarsfönster t.o.m. 2026-07-02

@@ -166,8 +166,17 @@ try {
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(CASE WHEN retry_count > 0 THEN 1 ELSE 0 END)::int AS retried_runs,
-            SUM(CASE WHEN preview_success THEN 1 ELSE 0 END)::int AS preview_ok,
-            SUM(CASE WHEN preview_success IS NOT TRUE THEN 1 ELSE 0 END)::int AS preview_not_ok,
+            -- M#pv1 honest preview_success tri-state:
+            --   TRUE  = runtime confirmed ready (runtime-ready receipt),
+            --   FALSE = confirmed no working preview (blocked or start failed),
+            --   NULL  = pending/unconfirmed (fresh boot queued, or no preview attempt).
+            -- Do NOT fold NULL into "not ok" — that would count pending boots as
+            -- failures. Rows before the 2026-07 semantic cutoff used the old
+            -- "preflight did not block" meaning (over-optimistic TRUE); compare
+            -- across the cutoff with care.
+            SUM(CASE WHEN preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
+            SUM(CASE WHEN preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
+            SUM(CASE WHEN preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
             SUM(preflight_error_count)::int AS preflight_errors_total,
             SUM(preflight_warning_count)::int AS preflight_warnings_total,
             AVG(duration_ms)::int AS avg_duration_ms
@@ -183,10 +192,12 @@ try {
   );
 
   // 8) Per scaffold: volym, preview-utfall, autofix/LLM-fix-frekvens.
+  // M#pv1: preview_ready = runtime confirmed ready (preview_success IS TRUE);
+  // pending/failed are visible in telemetryTotals, not folded in here.
   out.byScaffold = await safe(
     "byScaffold",
     `SELECT COALESCE(scaffold_id,'(null)') AS scaffold, COUNT(*)::int AS runs,
-            SUM(CASE WHEN preview_success THEN 1 ELSE 0 END)::int AS preview_ok,
+            SUM(CASE WHEN preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(preflight_error_count)::int AS preflight_errors

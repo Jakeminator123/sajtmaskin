@@ -223,10 +223,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         // Best-effort persist (prod-incident 2026-07-03): the preview session
         // is already running — a contended engine_versions row (verify/lease
         // holds the lock) must not 500 this route via statement_timeout. The
-        // lock-timeout mode never throws; a skipped persist is retried on the
-        // next preview-session start.
+        // lock-timeout mode never throws.
+        //
+        // M#pv2 (prod-incident chat 3120c05c v1): a preview session that
+        // *consistently* coincides with the verify lease used to skip the
+        // persist every time and leave `preview_url = null` forever. Bounded
+        // retry-after-release rides over the brief lease/verify row lock so the
+        // idempotent URL lands without blocking to statement_timeout.
         const persisted = await updateVersionPreviewUrl(versionRow.id, sr.previewUrl, {
           lockTimeoutMs: 2000,
+          maxRetries: 3,
+          retryDelayMs: 300,
         });
         if (!persisted) {
           console.warn(

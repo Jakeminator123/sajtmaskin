@@ -66,10 +66,17 @@ def _run_history(repo_root, extra_args: list[str]) -> dict[str, Any]:
 
 
 def _preview_label(value: Any) -> str:
+    # M#pv1 (honest preview_success tri-state):
+    #   True  -> runtime confirmed ready (runtime-ready receipt), not just
+    #            "preflight did not block" as the old semantics claimed.
+    #   False -> confirmed no working preview (blocked, or session start failed).
+    #   None  -> pending / unconfirmed (fresh boot queued, or no preview attempt).
+    # Rows before the 2026-07 semantic cutoff used the old over-optimistic
+    # meaning, so an older "ready" is weaker evidence than a current one.
     if value is True:
-        return "ok"
+        return "ready"
     if value is False:
-        return "FAIL"
+        return "failed"
     return "pending"
 
 

@@ -123,6 +123,44 @@ export async function recordDeployResultForVersion(
   }
 }
 
+/**
+ * M#pv1 (honest `preview_success`): stamp the confirmed preview RUNTIME outcome
+ * onto the version's latest telemetry row. Mirrors `recordDeployResultForVersion`.
+ *
+ * `preview_success` is a tri-state the readers already assume (see
+ * `scaffold-scoring.ts` SAJ-49, `scripts/db/scaffold-scores.mjs`,
+ * backoffice `_preview_label`):
+ *   - `true`  = runtime confirmed responding (preview-host `/status running:true`,
+ *               i.e. the resume-verified path) OR — via this stamp — a real
+ *               runtime-ready receipt.
+ *   - `false` = the preview will not / did not produce a working runtime
+ *               (preview blocked, or the session start failed).
+ *   - `null`  = pending / unconfirmed (fresh boot queued, or no preview attempt).
+ *
+ * The finalize writer (`persist-telemetry.ts`) no longer claims `true` from a
+ * pre-preview preflight signal; it writes the honest pending/blocked value and
+ * this stamp records the confirmed outcome once the preview attempt resolves.
+ *
+ * Best-effort by contract: a generation must never fail because telemetry could
+ * not be written, so this swallows all errors and no-ops when the version has no
+ * telemetry row. Takes the newest row (same "latest wins" semantics as the
+ * deploy/feedback writers).
+ */
+export async function recordPreviewRuntimeOutcomeForVersion(
+  versionId: string,
+  previewSuccess: boolean,
+): Promise<void> {
+  try {
+    if (!versionId) return;
+    const rows = await getTelemetryForVersion(versionId);
+    const latest = rows[0];
+    if (!latest) return;
+    await updateTelemetryRecord(latest.id, { previewSuccess });
+  } catch (err) {
+    console.warn("[telemetry] Failed to record preview runtime outcome:", err);
+  }
+}
+
 export async function getTelemetryForVersion(versionId: string) {
   assertDbConfigured();
   return db
