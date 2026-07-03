@@ -11,8 +11,8 @@
     {
       "key": "STRIPE_SECRET_KEY",
       "required": true,
-      "enforcement": "build",
-      "purpose": "Server-side Stripe API authentication. Find it in the Stripe dashboard under Developers > API keys. Tagged 'build' because the checkout-session route instantiates the Stripe client at module scope; a missing/placeholder value makes deploy crash on first request."
+      "enforcement": "feature-runtime",
+      "purpose": "Server-side Stripe API authentication. Find it in the Stripe dashboard under Developers > API keys. Tagged 'feature-runtime' (like resend-contact-form): the checkout-session route instantiates the Stripe client lazily AFTER the env guard, so a missing key degrades to 503 'payments-not-configured' + IntegrationConfigNotice instead of blocking the F3 build or crashing the deploy."
     },
     {
       "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
