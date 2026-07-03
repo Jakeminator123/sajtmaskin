@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
@@ -247,10 +247,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       // (preview-host /status reported running:true for this version's
       // session). Stamp the honest preview_success=true — monotonic +
       // best-effort inside the writer. Fresh/recreated boots have only
-      // queued the boot and stay pending; the client's normal
-      // GET /preview-status polling confirms those.
+      // queued the boot and stay pending; the heartbeat receipt path
+      // confirms those. Scheduled via after() (PR #377 runda 4) so the
+      // telemetry write never sits on the user-visible response path —
+      // same pattern as /preview-status and /preview-heartbeat.
       if (sr.runtimeReady) {
-        await recordPreviewRuntimeOutcomeForVersion(versionRow.id, true);
+        const confirmedVersionId = versionRow.id;
+        after(async () => {
+          await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true);
+        });
       }
 
       logPreviewLifecycleTelemetry({

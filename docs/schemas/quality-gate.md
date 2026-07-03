@@ -602,6 +602,17 @@ svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlev
 Prod-bevis 2026-07-03: `preview_success=true` på verifier-blockerade versioner och
 på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
 
+**Lifecycle-telemetrin följer samma semantik (runda 4):** post-finalize loggar
+`kind: "preview_url_handoff"` för en köad boot (URL:en lämnad till klienten,
+runtime EJ bekräftad — samma fält som `preview_ready` så latens-analys
+fungerar) och reserverar `kind: "preview_ready"` för det resume-verifierade
+kvittot — incident-tooling som läser `preview_ready` som "runtime uppe" får
+inga falska gröna. `preview-ready`-**SSE:n** emitteras oförändrat i båda
+fallen (den är klientens URL-handoff: `stream-handlers.ts` sätter iframe-URL
++ sessionsmetadata på den, och sync-JSON-fallbacks läser den) men bär nu det
+ärliga fältet `runtimeConfirmed: boolean` (additivt i
+`BuilderPreviewReadyPayload`).
+
 **Gammal→ny-mappning** (ersatt semantik, inte parallellt fält):
 
 | Gammalt värde (skrevs vid finalize) | Betydde | Ny semantik |

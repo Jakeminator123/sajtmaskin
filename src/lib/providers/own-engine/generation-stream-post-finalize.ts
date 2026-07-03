@@ -407,8 +407,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
           verificationPolicy: buildSpec.verificationPolicy,
           tier2Provider: sr.tier2Meta?.tier2Provider,
         });
+        // M#pv1 (PR #377 runda 4): `preview_ready` i lifecycle-telemetrin är
+        // runtime-up-signalen (incident-tooling läser den som "Runtime uppe").
+        // En fresh/updated session har bara KÖAT bootet — logga den som
+        // `preview_url_handoff` (samma fält, ärligt namn) och reservera
+        // `preview_ready` för det resume-verifierade kvittot (running:true).
         logPreviewLifecycleTelemetry({
-          kind: "preview_ready",
+          kind: sr.runtimeReady ? "preview_ready" : "preview_url_handoff",
           chatId,
           versionId: finalized.version.id,
           previewSessionId: sr.previewSessionId,
@@ -420,6 +425,11 @@ export async function runOwnEngineStreamPostFinalize(params: {
           verificationPolicy: buildSpec.verificationPolicy,
           msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
         });
+        // The `preview-ready` SSE stays for BOTH cases — it is the client's
+        // URL handoff (stream-handlers.ts sets the iframe URL + binds session
+        // metadata on it, and the sync-JSON fallbacks read it for previewUrl).
+        // The additive `runtimeConfirmed` field carries the honest boot state
+        // so no consumer has to infer runtime-up from the event's existence.
         safeEnqueue(
           enc.encode(
             formatSSEEvent("preview-ready", {
@@ -427,6 +437,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
               previewSessionId: sr.previewSessionId,
               previewMode: sr.previewMode,
               previewTier: sr.fidelityTier,
+              runtimeConfirmed: sr.runtimeReady,
               ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
               ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
             }),

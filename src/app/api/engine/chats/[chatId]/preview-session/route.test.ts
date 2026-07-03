@@ -41,6 +41,28 @@ vi.mock("@/lib/db/services/generation-telemetry", () => ({
   recordPreviewRuntimeOutcomeForVersion,
 }));
 
+// The resume-verified ready-stamp is scheduled via after() (PR #377 runda 4)
+// so the telemetry write never sits on the response path. Capture callbacks
+// so tests can run them deterministically — same pattern as
+// preview-status/route.test.ts and repair/route.test.ts.
+const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (cb: () => unknown) => {
+      afterCallbacks.value.push(cb);
+    },
+  };
+});
+
+async function runAfterCallbacks(): Promise<void> {
+  for (const cb of afterCallbacks.value) {
+    await cb();
+  }
+  afterCallbacks.value = [];
+}
+
 vi.mock("@/lib/db/engine-version-lifecycle", () => ({
   canExposeEnginePreview,
 }));
@@ -85,6 +107,7 @@ import { POST } from "./route";
 describe("POST preview-session (engine)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    afterCallbacks.value = [];
     isTier2PreviewConfigured.mockReturnValue(true);
     canExposeEnginePreview.mockReturnValue(true);
     isTier2LivePreviewUrl.mockReturnValue(false);
@@ -348,6 +371,11 @@ describe("POST preview-session (engine)", () => {
     );
 
     expect(res.status).toBe(200);
+    // Scheduled via after() — must NOT run before the response resolved…
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+    expect(afterCallbacks.value.length).toBe(1);
+    // …and stamps with the exact version binding when after() runs.
+    await runAfterCallbacks();
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true);
   });
 
@@ -363,6 +391,7 @@ describe("POST preview-session (engine)", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(afterCallbacks.value.length).toBe(0);
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 

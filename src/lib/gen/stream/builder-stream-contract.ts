@@ -78,6 +78,14 @@ export type BuilderPreviewReadyPayload = {
   previewMode?: BuilderPreviewMode;
   /** 2 = dev preview path without prod build step; 3 = build step ran during preview start. */
   previewTier?: 2 | 3;
+  /**
+   * Honest boot state (M#pv1, PR #377 runda 4): `true` when the preview-host
+   * confirmed `running: true` for this version's session (resume-verified);
+   * `false` when the session was created/updated but the boot is only QUEUED —
+   * the URL is still handed off so the client can start loading the iframe,
+   * but the runtime is not yet confirmed up. Absent on older servers.
+   */
+  runtimeConfirmed?: boolean;
   /** Present when preview start ran `npm run build` (after dev or `build_only`). */
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
