@@ -583,6 +583,85 @@ Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
 befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
 utan nyckeln = "ingen dossier".
 
+## Telemetri-fält: ärlig `preview_success` (M#pv1)
+
+`generation_telemetry.preview_success` (kolumn `boolean` nullable) är en
+**tri-state** som betyder "svarade preview-runtimen?", inte "blockerade
+preflighten previewn?". Semantiken ägs numera av två skrivare:
+
+| Läge | Betyder | Skrivs av |
+|---|---|---|
+| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` för versionens session (verifierad via `tryResumeTier2Runtime`/`fetchPreviewHostStatus`). | `recordPreviewRuntimeOutcomeForVersion` — stämplas vid kvittopunkterna: **`POST /preview-heartbeat` (normalvägen — klienten heartbeat:ar ~25 s medan iframen lever; routen verifierar kvittot med ETT host-`/status`-anrop innan stämpel, one-shot per version/instans via confirmed-cachen)**, `GET /preview-status` (running-grenen, suspect/recovery-vägen), `POST /preview-session` (resume-verifierad väg) och post-finalize (resume-verifierad start). |
+| `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel i post-finalize) |
+| `null` | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes. | `persistTelemetryRecord` (default) |
+
+**Monotont OCH atomiskt kontrakt** (en enda writer,
+`recordPreviewRuntimeOutcomeForVersion`): monotoniteten sitter i själva
+UPDATE-satsens `WHERE` (en enda villkorad sats, ingen förläsning — två racande
+kvitton kan aldrig låta "sist committad vinner"): `true`-stämpel kräver
+`preview_success IS DISTINCT FROM true` (`null→true`, `false→true` OK — senare
+bekräftad boot vinner över tidigare startfel); `false`-stämpel kräver
+`preview_success IS NULL` (endast `null→false`; en fördröjd `false` kan aldrig
+skriva över en bekräftad `true`). Målraden (senaste telemetri-raden för
+versionen) löses av en subquery i samma sats. Best-effort: kastar aldrig i het
+väg; `GET /preview-status` schemalägger stämpeln via `after()` (post-response,
+blockerar aldrig status-svaret) och writerns per-instans confirmed-cache gör
+upprepade polls efter bekräftelse helt DB-fria. Stämplar bara när versionen är
+knuten till sessionen (`/preview-status` kräver session↔version-match innan
+running-grenen, och hostens `/status` re-verifierar versionId). Ingen ny
+polling — alla stämpelpunkter hänger på befintliga anrop. Känt smalt kant-race
+(kvittot binds till versionId, inte till innehållsrevisionen VM:en servar) är
+loggat som P3 (M#pv4) i `BUG-SWARM-BACKLOG.md`.
+
+**Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
+svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.
+Prod-bevis 2026-07-03: `preview_success=true` på verifier-blockerade versioner och
+på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
+
+**Lifecycle-telemetrin följer samma semantik (runda 4):** post-finalize loggar
+`kind: "preview_url_handoff"` för en köad boot (URL:en lämnad till klienten,
+runtime EJ bekräftad — samma fält som `preview_ready` så latens-analys
+fungerar) och reserverar `kind: "preview_ready"` för det resume-verifierade
+kvittot — incident-tooling som läser `preview_ready` som "runtime uppe" får
+inga falska gröna. `preview-ready`-**SSE:n** emitteras oförändrat i båda
+fallen (den är klientens URL-handoff: `stream-handlers.ts` sätter iframe-URL
++ sessionsmetadata på den, och sync-JSON-fallbacks läser den) men bär nu det
+ärliga fältet `runtimeConfirmed: boolean` (additivt i
+`BuilderPreviewReadyPayload`).
+
+**Gammal→ny-mappning** (ersatt semantik, inte parallellt fält):
+
+| Gammalt värde (skrevs vid finalize) | Betydde | Ny semantik |
+|---|---|---|
+| `true` (`!hasPreviewBlockingPreflightErrors`) | "preflight blockerade inte previewn" — sattes FÖRE previewförsöket, ljög grönt | Skrivs inte längre vid finalize. `true` kräver nu ett runtime-ready-kvitto. |
+| `false` (`hasPreviewBlockingPreflightErrors`) | preflight blockerade previewn | Oförändrat `false` (bekräftat ingen preview). |
+
+**Läsare (redan tri-state-medvetna, ingen ny kolumn):**
+
+- `scaffold-scoring.ts` (SAJ-49) och `scripts/db/scaffold-scores.mjs`
+  exkluderar `null` (pending/infra-brus) och rankar bara bekräftade utfall.
+- `scripts/db/control-stats.mjs` `telemetryTotals` skiljer
+  `preview_ready` / `preview_failed` / `preview_pending` (tidigare buntades
+  `null` in i `preview_not_ok`) och redovisar pre-cutoff-rader separat som
+  `legacy_preview_flag`; `byScaffold.preview_ready` = bekräftat redo efter
+  cutoff.
+- Backoffice `generation_history._preview_label`: `ready` / `failed` /
+  `pending`, och pre-cutoff `true` renderas som `legacy (preflight)` (läser
+  radens `created_at`; cutoff-värdet dupliceras från `control-stats.mjs` med
+  käll-pekare — oparsebar timestamp behandlas konservativt som legacy).
+
+**Historiska rader — hård cutoff i aggregaten:** rader före semantik-cutoffen
+(`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:30:00Z` i
+`scripts/db/control-stats.mjs` — satt EFTER förväntad merge+deploy av PR #377
+med marginal; justeras framåt om deployen sker senare) bär gamla,
+överoptimistiska `true`-värden. Ett 14-dagarsfönster som straddlar bytet
+skulle annars rapportera exakt den false-green semantikbytet tar bort — därför
+räknas pre-cutoff-rader ALDRIG in i `preview_ready`-KPI:n utan bucketas som
+`legacy_preview_flag`. Fel-riktningen är medvetet konservativ: en
+ny-semantik-rad som hamnar före cutoffen bucketas som legacy (underskattar
+`preview_ready`, aldrig false-green). Ingen migration — semantiken bor i
+skrivarna/läsarna, inte i kolumnen.
+
 ## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
 
 Fryst referens för Fas 6-mätningen. 14-dagarsfönster t.o.m. 2026-07-02

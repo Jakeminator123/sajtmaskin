@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
@@ -7,6 +7,7 @@ import {
   updateVersionPreviewUrl,
   type Version,
 } from "@/lib/db/chat-repository-pg";
+import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
@@ -223,16 +224,38 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         // Best-effort persist (prod-incident 2026-07-03): the preview session
         // is already running — a contended engine_versions row (verify/lease
         // holds the lock) must not 500 this route via statement_timeout. The
-        // lock-timeout mode never throws; a skipped persist is retried on the
-        // next preview-session start.
+        // lock-timeout mode never throws.
+        //
+        // M#pv2 (prod-incident chat 3120c05c v1): a preview session that
+        // *consistently* coincides with the verify lease used to skip the
+        // persist every time and leave `preview_url = null` forever. Bounded
+        // retry-after-release rides over the brief lease/verify row lock so the
+        // idempotent URL lands without blocking to statement_timeout.
         const persisted = await updateVersionPreviewUrl(versionRow.id, sr.previewUrl, {
           lockTimeoutMs: 2000,
+          maxRetries: 3,
+          retryDelayMs: 300,
         });
         if (!persisted) {
           console.warn(
             `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${versionRow.id} — session is running; next start re-persists.`,
           );
         }
+      }
+
+      // M#pv1: the resume-verified path is a real runtime-ready receipt
+      // (preview-host /status reported running:true for this version's
+      // session). Stamp the honest preview_success=true — monotonic +
+      // best-effort inside the writer. Fresh/recreated boots have only
+      // queued the boot and stay pending; the heartbeat receipt path
+      // confirms those. Scheduled via after() (PR #377 runda 4) so the
+      // telemetry write never sits on the user-visible response path —
+      // same pattern as /preview-status and /preview-heartbeat.
+      if (sr.runtimeReady) {
+        const confirmedVersionId = versionRow.id;
+        after(async () => {
+          await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true);
+        });
       }
 
       logPreviewLifecycleTelemetry({

@@ -181,7 +181,19 @@ export async function persistTelemetryRecord(params: {
       syntaxFixerUsed: syntaxResult.fixerUsed,
       preflightErrorCount: preflightErrors.length,
       preflightWarningCount: preflightWarnings.length,
-      previewSuccess: !hasPreviewBlockingPreflightErrors,
+      // M#pv1 (honest preview_success): this runs at finalize, BEFORE the
+      // preview runtime is ever attempted, so it must NOT claim runtime success.
+      // Old semantics `!hasPreviewBlockingPreflightErrors` meant "preflight did
+      // not block preview" and was persisted as `true` even for versions whose
+      // runtime later died (or was verifier-blocked) — a false-green.
+      // New tri-state (readers already assume it — scaffold-scoring SAJ-49,
+      // scaffold-scores.mjs, backoffice `_preview_label`):
+      //   - `false` : preflight blocked the preview → it cannot render (confirmed).
+      //   - `null`  : pending — runtime not yet attempted/confirmed.
+      // `recordPreviewRuntimeOutcomeForVersion` (post-finalize) upgrades this to
+      // `true` on a real runtime-ready receipt, or `false` on preview failure /
+      // verifier-block; a fresh boot that is never confirmed stays `null`.
+      previewSuccess: hasPreviewBlockingPreflightErrors ? false : null,
       previewBlockingReason,
       // SAJ-59: distinguish preflight-block from verifier-only block.
       // Previously a verifier-only failure (e.g. ESLint via verifier-LLM,

@@ -70,6 +70,26 @@ async function safe(label, sql, params = []) {
 
 const W = `now() - interval '${days} days'`;
 
+/**
+ * M#pv1 semantic cutoff (PR #377): rader skapade FÖRE denna tidpunkt bär den
+ * GAMLA preview_success-semantiken ("preflighten blockerade inte previewn" —
+ * en överoptimistisk true skriven vid finalize, innan runtimen ens försökts).
+ * Rader PÅ/EFTER bär den ärliga tri-staten (true = runtime-ready-kvitto,
+ * false = bekräftat ingen preview, null = pending). Ett 14-dagarsfönster kan
+ * straddla deployen, så pre-cutoff-rader redovisas som `legacy_preview_flag`
+ * och räknas ALDRIG in i preview_ready/failed/pending — annars rapporterar
+ * KPI:n exakt den false-green semantikbytet tar bort.
+ *
+ * Cutoffen är satt EFTER förväntad merge+deploy av PR #377 (med marginal) —
+ * hellre för sent än för tidigt, eftersom fel-riktningen är KONSERVATIV:
+ * en ny-semantik-rad som råkar hamna före cutoffen bucketas som legacy
+ * (underskattar `preview_ready`, aldrig false-green), medan en legacy-rad
+ * efter cutoffen hade återinfört exakt den false-green som tas bort.
+ * Justera framåt om den faktiska prod-deployen sker senare än detta.
+ */
+const PREVIEW_SUCCESS_SEMANTIC_CUTOFF = "2026-07-03T14:30:00Z";
+const PV_CUT = `timestamptz '${PREVIEW_SUCCESS_SEMANTIC_CUTOFF}'`;
+
 try {
   await client.connect();
 
@@ -166,8 +186,18 @@ try {
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(CASE WHEN retry_count > 0 THEN 1 ELSE 0 END)::int AS retried_runs,
-            SUM(CASE WHEN preview_success THEN 1 ELSE 0 END)::int AS preview_ok,
-            SUM(CASE WHEN preview_success IS NOT TRUE THEN 1 ELSE 0 END)::int AS preview_not_ok,
+            -- M#pv1 honest preview_success tri-state (endast rader efter cutoff):
+            --   TRUE  = runtime confirmed ready (runtime-ready receipt),
+            --   FALSE = confirmed no working preview (blocked or start failed),
+            --   NULL  = pending/unconfirmed (fresh boot queued, or no preview attempt).
+            -- Do NOT fold NULL into "not ok" — that would count pending boots as
+            -- failures. Rows BEFORE the semantic cutoff carry the legacy
+            -- "preflight did not block" meaning (over-optimistic TRUE) and are
+            -- bucketed separately as legacy_preview_flag — never into the KPI.
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
+            SUM(CASE WHEN created_at < ${PV_CUT} THEN 1 ELSE 0 END)::int AS legacy_preview_flag,
             SUM(preflight_error_count)::int AS preflight_errors_total,
             SUM(preflight_warning_count)::int AS preflight_warnings_total,
             AVG(duration_ms)::int AS avg_duration_ms
@@ -183,10 +213,13 @@ try {
   );
 
   // 8) Per scaffold: volym, preview-utfall, autofix/LLM-fix-frekvens.
+  // M#pv1: preview_ready = runtime confirmed ready (preview_success IS TRUE,
+  // endast rader efter semantik-cutoffen — legacy-rader räknas inte);
+  // pending/failed/legacy are visible in telemetryTotals, not folded in here.
   out.byScaffold = await safe(
     "byScaffold",
     `SELECT COALESCE(scaffold_id,'(null)') AS scaffold, COUNT(*)::int AS runs,
-            SUM(CASE WHEN preview_success THEN 1 ELSE 0 END)::int AS preview_ok,
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(preflight_error_count)::int AS preflight_errors

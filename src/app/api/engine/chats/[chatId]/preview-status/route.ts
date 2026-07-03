@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
@@ -12,6 +12,7 @@ import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 
 const BOOT_GRACE_MS = 90_000;
 
@@ -168,6 +169,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         });
         return NextResponse.json(body);
       }
+
+      // M#pv1: canonical runtime-ready receipt on the SUSPECT/RECOVERY path —
+      // the host just reported `running: true` for the session pinned to exactly
+      // this versionId (session↔version equality checked above, and
+      // `tryResumeTier2Runtime` re-verifies versionId host-side). NOTE (PR #377
+      // runda 3): this route only fires from `handlePreviewSessionSuspect` +
+      // VersionHistory's SWR poll — the NORMAL-boot receipt lives in
+      // `POST /preview-heartbeat` (fires every ~25s while the iframe is live).
+      // Scheduled via `after()` (same pattern as repair/analytics routes) so a
+      // saturated DB pool can never delay the user-visible status response —
+      // the stamp runs post-response. Monotonic + atomic + best-effort inside
+      // the writer (single conditional UPDATE, never throws, `true` terminal),
+      // and its per-instance confirmed-cache makes repeat polls DB-free.
+      after(async () => {
+        await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+      });
 
       const body: PreviewStatusApiJson = {
         ok: true,

@@ -33,6 +33,14 @@ vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs: createEngineVersionErrorLogsMock,
 }));
 
+const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
+  vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
+);
+
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
+  recordPreviewRuntimeOutcomeForVersion,
+}));
+
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
   dbConfigured: true,
@@ -80,6 +88,7 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
 vi.mock("@/lib/gen/verify/server-verify", () => ({
   isServerVerifyEligible,
   triggerServerVerification: vi.fn(),
+  triggerBuildErrorRepair: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/lib/streaming", () => ({
@@ -197,6 +206,9 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
+        // Fresh/recreated boot: only QUEUED — telemetry must say
+        // `preview_url_handoff`, never the runtime-up `preview_ready` (M#pv1).
+        runtimeReady: false,
         tier2Meta: { tier2Provider: "preview_host" },
       },
     });
@@ -250,9 +262,12 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         verificationPolicy: "strict",
       }),
     );
+    // Queued boot (runtimeReady:false) → the URL handoff is logged under the
+    // honest `preview_url_handoff` kind; the runtime-up `preview_ready` event
+    // must NOT be written for a boot that is only queued (M#pv1, PR #377 r4).
     expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "preview_ready",
+        kind: "preview_url_handoff",
         chatId: "chat_1",
         versionId: "ver_1",
         previewSessionId: "ps_1",
@@ -264,7 +279,126 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         msSinceEngineStart: expect.any(Number),
       }),
     );
+    expect(logPreviewLifecycleTelemetryMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "preview_ready" }),
+    );
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
+  });
+
+  it("logs preview_ready (runtime-up) and runtimeConfirmed:true SSE only for a resume-verified session", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "resumed",
+        runtimeReady: true,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+    });
+
+    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "preview_ready", versionId: "ver_1" }),
+    );
+    expect(logPreviewLifecycleTelemetryMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "preview_url_handoff" }),
+    );
+    // The SSE carries the honest boot state either way.
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "preview-ready",
+      expect.objectContaining({ runtimeConfirmed: true }),
+    );
+  });
+
+  it("emits the preview-ready SSE with runtimeConfirmed:false for a queued boot (URL handoff preserved)", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+        runtimeReady: false,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+    });
+
+    // The client's URL handoff must survive: the SSE is still emitted with
+    // the previewUrl — only the honest boot-state flag differs.
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "preview-ready",
+      expect.objectContaining({
+        previewUrl: "https://preview.example",
+        runtimeConfirmed: false,
+      }),
+    );
   });
 
   // Regression (prod chat 4314362f, 2026-07-02): the previewUrl persist used
@@ -1117,5 +1251,105 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
         verificationPolicy: "design_preview_skip_verify",
       }),
     );
+  });
+});
+
+// M#pv1 (honest preview_success): the confirmed preview RUNTIME outcome is
+// stamped onto the telemetry row. `true` only on a runtime-ready receipt
+// (resume-verified `running:true`); `false` on a session-start failure; and a
+// freshly-QUEUED boot stays PENDING (no stamp) instead of a premature green.
+describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)", () => {
+  const previewBuildSpec = {
+    buildIntent: "website",
+    generationMode: "init",
+    changeScope: "redesign",
+    scaffoldId: null,
+    routePlanSummary: "prompt:one-page:/",
+    stylePack: "brand-led",
+    qualityTarget: "standard",
+    previewPolicy: "fidelity2",
+    verificationPolicy: "standard",
+    contextPolicy: "normal",
+    referenceCategories: [],
+    forbiddenPatterns: [],
+    tokenBudgets: {
+      scaffoldChars: 48_000,
+      refsChars: 24_000,
+      systemContextChars: 96_000,
+    },
+  } as const;
+
+  async function runPreview() {
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: previewBuildSpec as never,
+    });
+  }
+
+  beforeEach(() => {
+    recordPreviewRuntimeOutcomeForVersion.mockClear();
+    updateVersionPreviewUrl.mockReset();
+    updateVersionPreviewUrl.mockResolvedValue(true);
+    getChat.mockReset();
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    startPreviewSessionMock.mockReset();
+  });
+
+  it("stamps preview_success=true only when the runtime is confirmed ready", async () => {
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "resumed",
+        runtimeReady: true,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await runPreview();
+
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true);
+  });
+
+  it("leaves preview_success PENDING (no stamp) for a freshly-queued boot", async () => {
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+        runtimeReady: false,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await runPreview();
+
+    // No runtime-ready receipt yet → must NOT claim success (or failure).
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it("stamps preview_success=false when the preview session fails to start", async () => {
+    startPreviewSessionMock.mockResolvedValue({
+      ok: false,
+      error: { stage: "preview-start", message: "host unreachable" },
+    });
+
+    await runPreview();
+
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", false);
   });
 });

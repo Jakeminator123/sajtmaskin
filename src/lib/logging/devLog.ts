@@ -61,6 +61,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "verifier-pass.fixer",
   "preview_start_outcome",
   "preview_ready",
+  "preview_url_handoff",
   "preview_failed",
   "scaffold-retry.suggested",
   "site.done",
@@ -349,6 +350,9 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (readString(entry, "tier2Provider")) details.push(`provider=${readString(entry, "tier2Provider")}`);
       break;
     case "preview_ready":
+    // `preview_url_handoff` = köad boot vars URL lämnats till klienten (M#pv1
+    // runda 4) — samma fältuppsättning som `preview_ready`, ärligare namn.
+    case "preview_url_handoff":
       if (readString(entry, "previewSessionId")) {
         details.push(`previewSession=${shortId(readString(entry, "previewSessionId"))}`);
       } else if (readString(entry, "sandboxId")) {

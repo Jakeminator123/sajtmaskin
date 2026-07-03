@@ -35,7 +35,34 @@ export type PreviewLifecycleTelemetryEvent =
       tier2Provider?: "preview_host";
     }
   | {
+      /**
+       * Runtime-up-signal: preview-host bekräftade `running: true` för
+       * versionens session (resume-verifierad). Incident-/loggtooling tolkar
+       * `preview_ready` som "runtime uppe" — emittera den ALDRIG för en boot
+       * som bara är köad (M#pv1, PR #377 runda 4); använd
+       * `preview_url_handoff` för det fallet.
+       */
       kind: "preview_ready";
+      chatId: string;
+      versionId?: string | null;
+      previewSessionId?: string | null;
+      previewMode: string;
+      fidelityTier: 2 | 3;
+      prodBuildVerified?: boolean;
+      startOutcome: "resumed" | "recreated";
+      previewPolicy?: string | null;
+      verificationPolicy?: string | null;
+      msSinceEngineStart: number;
+    }
+  | {
+      /**
+       * URL-handoff för en KÖAD boot: sessionen skapades/uppdaterades och
+       * preview-URL:en har lämnats till klienten, men preview-host har bara
+       * köat bootet — runtimen är INTE bekräftad ännu (`preview_success`
+       * förblir pending tills ett riktigt kvitto). Samma fält som
+       * `preview_ready` så latens-analys (`msSinceEngineStart`) fungerar.
+       */
+      kind: "preview_url_handoff";
       chatId: string;
       versionId?: string | null;
       previewSessionId?: string | null;
