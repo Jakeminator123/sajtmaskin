@@ -268,11 +268,15 @@ export async function runLlmFixer(
     const message = err instanceof Error ? err.message : String(err);
     if (isAbort) {
       console.error("[llm-fixer] aborted (AbortSignal/timeout):", message);
+      const inputFiles = parseCodeProject(content).files;
       devLogAppend("in-progress", {
         type: "llm_fixer_aborted",
         durationMs: performance.now() - start,
         errorsCount: errors.length,
         requiredFilesCount: options?.requiredFiles?.length ?? 0,
+        inputFileCount: inputFiles.length,
+        inputCharLength: content.length,
+        promptCharLength: errors.join("\n").length,
       });
     } else {
       console.error("[llm-fixer] failed:", message);

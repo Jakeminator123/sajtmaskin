@@ -477,6 +477,19 @@ export function buildGroupedRepairErrorContext(
   return { errorManifest, contextLines };
 }
 
+function resolveNonPromotedEarlyStopReason(params: {
+  earlyStopReason: RepairEarlyStopReason;
+  hasDeterministicProgress: boolean;
+  improvedSyntax: boolean;
+}): RepairEarlyStopReason {
+  if (params.earlyStopReason) return params.earlyStopReason;
+  // Deterministic pre-pass or syntax improvement counts as measurable
+  // progress — leave reason null so callers classify gate-only failure as
+  // `syntax_clean_gate_failed`, not spurious `no_improvement`.
+  if (params.hasDeterministicProgress || params.improvedSyntax) return null;
+  return "no_improvement";
+}
+
 export async function runRepairLoop<TPayload = unknown>(
   params: RunRepairLoopParams<TPayload>,
 ): Promise<RunRepairLoopResult<TPayload>> {
@@ -600,6 +613,12 @@ export async function runRepairLoop<TPayload = unknown>(
     };
   }
 
+  // Baseline after deterministic pre-pass (autofix + import-repair). LLM
+  // abort/partial must not discard progress measured against THIS snapshot.
+  const preLlmBaselineContent = content;
+  const hasDeterministicProgress =
+    importRepair.fixed || content !== params.initialContent;
+
   let bestContent = content;
   let bestErrorCount = syntaxResult.errors.length;
   let llmPasses = 0;
@@ -692,7 +711,6 @@ export async function runRepairLoop<TPayload = unknown>(
           })
         : null;
 
-    const fixerInput = targetedBundle?.contentForFixer ?? content;
     const contentBeforePass = content;
     const originalMaxTokens = params.fixerMaxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS;
     const reducedMaxTokens = Math.max(1, Math.floor(originalMaxTokens * 0.5));
@@ -705,14 +723,17 @@ export async function runRepairLoop<TPayload = unknown>(
       attemptErrors: string[],
       maxTokens: number,
       timeoutMs: number,
+      bundleOverride?: TargetedRepairBundle | null,
     ): Promise<FixerResult> => {
+      const activeBundle = bundleOverride ?? targetedBundle;
+      const activeFixerInput = activeBundle?.contentForFixer ?? content;
       const gate = await runLlmRepairGate({
-        content: fixerInput,
+        content: activeFixerInput,
         errors: attemptErrors,
         chatId: params.chatId ?? "",
         timeoutMs,
         maxTokens,
-        requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+        requiredFiles: activeBundle?.requiredFiles ?? brokenFiles,
         config: gateConfig,
         recurringPatterns: params.recurringPatterns ?? [],
         phase: "repair-loop",
@@ -726,31 +747,152 @@ export async function runRepairLoop<TPayload = unknown>(
       return gate.result;
     };
 
-    let fixerResult = await runFixerAttempt(errorSummary, originalMaxTokens, params.llmTimeoutMs);
-    if (fixerResult.aborted) {
-      console.warn("[repair-loop] LLM-fixer aborted, retrying with reduced budget");
+    const mergePartialFixerOutput = async (
+      result: FixerResult,
+      bundle: TargetedRepairBundle | null,
+    ): Promise<void> => {
+      if (!result.partial || result.fixedFiles.length === 0) return;
+      const fixerOutput = bundle
+        ? bundle.mergeBack(result.fixedContent)
+        : result.fixedContent;
+      const reFixed = await runAutoFix(fixerOutput, {
+        previewPolicy: params.previewPolicy,
+      });
+      content = reFixed.fixedContent;
+      syntaxResult = await validateGeneratedCode(content);
+      if (syntaxResult.errors.length < bestErrorCount) {
+        bestErrorCount = syntaxResult.errors.length;
+        bestContent = content;
+      }
+    };
+
+    const buildRetryTargetedBundle = (
+      result: FixerResult,
+    ): TargetedRepairBundle | null => {
+      if (params.enableTargetedRepair === false) return null;
+      const retryBrokenFiles = [
+        ...new Set([
+          ...syntaxResult.errors.map((error) => error.file).filter(Boolean),
+          ...result.incompleteFiles.map((entry) => entry.path),
+          ...result.missingFiles,
+          ...filesFromGateOutput,
+        ]),
+      ];
+      if (retryBrokenFiles.length === 0) return null;
+      return buildTargetedRepairBundle({
+        fullContent: content,
+        brokenFiles: retryBrokenFiles,
+        maxFiles: Math.min(
+          params.targetedRepairMaxFiles ?? 16,
+          Math.max(1, retryBrokenFiles.length),
+        ),
+      });
+    };
+
+    let activeBundle: TargetedRepairBundle | null = targetedBundle;
+    let fixerResult = await runFixerAttempt(
+      errorSummary,
+      originalMaxTokens,
+      params.llmTimeoutMs,
+      activeBundle,
+    );
+
+    const needsTargetedRetry =
+      fixerResult.aborted ||
+      (fixerResult.partial &&
+        !fixerResult.success &&
+        (fixerResult.incompleteFiles.length > 0 || fixerResult.missingFiles.length > 0));
+
+    if (needsTargetedRetry) {
+      if (fixerResult.aborted) {
+        devLogAppend("in-progress", {
+          type: "repair_loop.llm_abort",
+          chatId: params.chatId,
+          pass: pass + 1,
+          attempt: "primary",
+          aborted: true,
+          hasDeterministicProgress,
+          inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
+          inputCharLength: (activeBundle?.contentForFixer ?? content).length,
+          timeoutMs: params.llmTimeoutMs,
+        });
+      }
+      await mergePartialFixerOutput(fixerResult, activeBundle);
+      const retryBundle = buildRetryTargetedBundle(fixerResult);
+      if (retryBundle) {
+        activeBundle = retryBundle;
+      } else if (activeBundle) {
+        // Stale-bundle-skydd (bugbot HIGH, PR #380): pass-startens bundle har
+        // `mergeBack`/`contentForFixer` stängda över PRE-partial-merge-
+        // innehållet. Att behålla den efter `mergePartialFixerOutput` skulle
+        // låta retry-mergen skriva över de accepterade partiella fixarna.
+        // Bygg om SAMMA filurval mot aktuellt `content`; blir bundlen null
+        // (t.ex. alla filer valda) körs retryn på hela aktuella innehållet
+        // utan mergeBack — större prompt, men aldrig stale.
+        activeBundle = buildTargetedRepairBundle({
+          fullContent: content,
+          brokenFiles: activeBundle.requiredFiles,
+          maxFiles: Math.min(
+            params.targetedRepairMaxFiles ?? 16,
+            Math.max(1, activeBundle.requiredFiles.length),
+          ),
+        });
+      }
       fixerResult = await runFixerAttempt(
         errorSummary.slice(0, 3),
         reducedMaxTokens,
         params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+        activeBundle,
       );
+      if (fixerResult.aborted) {
+        devLogAppend("in-progress", {
+          type: "repair_loop.llm_abort",
+          chatId: params.chatId,
+          pass: pass + 1,
+          attempt: "retry",
+          aborted: true,
+          hasDeterministicProgress,
+          inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
+          inputCharLength: (activeBundle?.contentForFixer ?? content).length,
+          timeoutMs: params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+        });
+      }
     }
     const timedOut = fixerResult.aborted === true;
     llmPasses += fixerAttemptCount;
 
     if (!fixerResult.success && !fixerResult.partial) {
-      const stopReason = resolveServerRepairEarlyStopReason({
-        fixerProducedOutput: false,
-        errorsBefore,
-        errorsAfter: errorsBefore,
-        timedOut,
-      });
-      earlyStopReason = stopReason === "continue" ? null : stopReason;
+      // LLM produced no mergeable output. Deterministic pre-pass progress
+      // (import-repair, dep-completer, etc.) still lives in `content` —
+      // do NOT classify that as `no_improvement`. Fall through to the final
+      // gate on `bestContent` when syntax is clean.
+      if (!hasDeterministicProgress && content === preLlmBaselineContent) {
+        const stopReason = resolveServerRepairEarlyStopReason({
+          fixerProducedOutput: false,
+          errorsBefore,
+          errorsAfter: errorsBefore,
+          timedOut,
+        });
+        earlyStopReason = stopReason === "continue" ? null : stopReason;
+        break;
+      }
+      earlyStopReason = timedOut ? "time_budget_exceeded" : null;
+      // Preserve the fewest-error snapshot invariant (VADE, PR #380): a
+      // partial merge earlier in this pass can have left `content` WORSE
+      // than `bestContent` — an unconditional overwrite would regress to a
+      // more-broken snapshot and desync `bestContent`/`bestErrorCount`.
+      // (`syntaxResult` always corresponds to `content` here: the partial-
+      // merge helper revalidates, and the no-merge path leaves both as the
+      // deterministic baseline that already seeded `bestContent`.)
+      if (syntaxResult.errors.length < bestErrorCount) {
+        bestErrorCount = syntaxResult.errors.length;
+        bestContent = content;
+      }
       break;
     }
 
-    const fixerOutput = targetedBundle
-      ? targetedBundle.mergeBack(fixerResult.fixedContent)
+    const fixerOutput = activeBundle
+      ? activeBundle.mergeBack(fixerResult.fixedContent)
       : fixerResult.fixedContent;
     // post-LLM mechanical pass: normalizes the fixer output before the next
     // validate iteration. Required after every LLM pass. Carries the same
@@ -770,8 +912,9 @@ export async function runRepairLoop<TPayload = unknown>(
     // the targeted input we handed it OR the post-autofix content differs
     // from what the loop had at the top of this iteration. Either signal
     // means the model did not regurgitate the same bytes verbatim.
+    const fixerInputForPass = activeBundle?.contentForFixer ?? content;
     const contentChanged =
-      fixerOutput !== fixerInput || content !== contentBeforePass;
+      fixerOutput !== fixerInputForPass || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
       errorsBefore,
@@ -786,6 +929,10 @@ export async function runRepairLoop<TPayload = unknown>(
       bestContent = content;
     }
     if (stopReason !== "continue") {
+      if (stopReason === "no_improvement" && hasDeterministicProgress) {
+        earlyStopReason = null;
+        break;
+      }
       earlyStopReason = stopReason;
       break;
     }
@@ -863,7 +1010,13 @@ export async function runRepairLoop<TPayload = unknown>(
         // does NOT promote, surface an explicit `no_improvement` so the outcome
         // is observable and the caller can name a reason. A successful promotion
         // keeps the existing reason (null on a clean resolve).
-        earlyStopReason: promoted.promoted ? earlyStopReason : (earlyStopReason ?? "no_improvement"),
+        earlyStopReason: promoted.promoted
+          ? earlyStopReason
+          : resolveNonPromotedEarlyStopReason({
+              earlyStopReason,
+              hasDeterministicProgress,
+              improvedSyntax: 0 < initialSyntaxErrorCount,
+            }),
         remainingErrors: 0,
         improvedSyntax: 0 < initialSyntaxErrorCount,
         noContext: false,
@@ -879,7 +1032,11 @@ export async function runRepairLoop<TPayload = unknown>(
     // M#sr0: a non-promoted loop must never report `earlyStopReason=null`. If
     // the loop ran its passes without an explicit early stop (or skipped the
     // final gate), default to `no_improvement` so the failure is observable.
-    earlyStopReason: earlyStopReason ?? "no_improvement",
+    earlyStopReason: resolveNonPromotedEarlyStopReason({
+      earlyStopReason,
+      hasDeterministicProgress,
+      improvedSyntax: finalSyntaxResult.errors.length < initialSyntaxErrorCount,
+    }),
     remainingErrors: finalSyntaxResult.errors.length,
     improvedSyntax: finalSyntaxResult.errors.length < initialSyntaxErrorCount,
     noContext: false,
