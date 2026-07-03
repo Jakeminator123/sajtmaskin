@@ -518,6 +518,22 @@ export async function runRepairLoop<TPayload = unknown>(
       handledCodes: importRepair.handledCodes,
       fixCount: importRepair.fixes.length,
       fixers: countByFixer(importRepair.fixes),
+      // M#imp1 telemetry: which cannot-find codes were seen, which names
+      // resolved, and why the residue stayed residual (tier3_gated /
+      // ambiguous_shadcn_lucide / unknown_name / not_applied).
+      cannotFindSummary: importRepair.cannotFindSummary,
+    });
+  } else if (importRepair.cannotFindSummary.residual.length > 0) {
+    // Nothing was fixable — log the residual classification anyway so a prod
+    // run where EVERY known-import candidate was gated (e.g. tier-3 SDKs in
+    // an F2 lane, prod chat cc10e7de v8) is observable instead of silent.
+    devLogAppend("in-progress", {
+      type: "validate.tsc.import-repair",
+      chatId: params.chatId,
+      handledCodes: [],
+      fixCount: 0,
+      fixers: {},
+      cannotFindSummary: importRepair.cannotFindSummary,
     });
   }
 

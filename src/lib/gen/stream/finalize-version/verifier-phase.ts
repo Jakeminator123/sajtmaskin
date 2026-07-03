@@ -227,6 +227,10 @@ export async function runVerifierPhase(params: {
                 resolvedSymbols: resolved.map(
                   ({ ref }) => `${ref.file}::${ref.symbol}`,
                 ),
+                // M#imp1 telemetry: per residual name WHY it stayed residual
+                // (tier3_gated / ambiguous_shadcn_lucide / unknown_name /
+                // not_applied) + which cannot-find codes were involved.
+                cannotFindSummary: repair.cannotFindSummary,
                 scaffoldId: resolvedScaffold?.id ?? null,
               });
               for (const { finding } of resolved.slice(0, 5)) {

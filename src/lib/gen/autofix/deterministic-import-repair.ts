@@ -43,9 +43,11 @@
 
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import {
+  classifyCannotFindNameResidual,
   fixKnownTs2304Imports,
   isKnownLibraryImportName,
   fileDeclaresSymbol,
+  type CannotFindNameResidualReason,
 } from "./rules/ts2304-known-import-fixer";
 import { fixValueUsedFromTypeImport } from "./rules/value-used-from-type-import-fixer";
 import {
@@ -110,6 +112,24 @@ export interface DeterministicImportRepairResult {
   fixes: FixEntry[];
   /** Distinct TS codes a fixer actually resolved (for telemetry). */
   handledCodes: string[];
+  /**
+   * Telemetry summary for the cannot-find-name class (M#imp1 prod
+   * archaeology). Reported on the existing `validate.tsc.import-repair` /
+   * `verifier-pass.deterministic-import-fix` devLog events so a prod run
+   * shows WHICH names resolved and WHY the residue stayed residual
+   * (tier3_gated / ambiguous_shadcn_lucide / unknown_name / not_applied).
+   */
+  cannotFindSummary: {
+    /** Distinct cannot-find codes seen in the input diagnostics. */
+    seenCodes: string[];
+    /** `file::name` keys the known-import/own-component fixers resolved. */
+    resolvedNames: string[];
+    residual: Array<{
+      file: string;
+      name: string;
+      reason: CannotFindNameResidualReason;
+    }>;
+  };
 }
 
 export interface DeterministicImportRepairOptions {
@@ -481,9 +501,9 @@ export function runDeterministicImportRepair(
               file: file.path,
             });
             for (const addition of result.added) {
-              const codes = cannotFindNameCodes.get(
-                cannotFindNameKey(posix, addition.name),
-              );
+              const key = cannotFindNameKey(posix, addition.name);
+              resolvedCannotFindKeys.add(key);
+              const codes = cannotFindNameCodes.get(key);
               if (codes && codes.size > 0) {
                 for (const c of codes) fileHandledCodes.add(c);
               } else {
@@ -581,7 +601,11 @@ export function runDeterministicImportRepair(
             // Drop the file's fixes and keep the pre-repair content — the
             // diagnostics stay visible to the LLM fixer instead. (When no other
             // file commits a change, the whole result falls back to the
-            // byte-identical original below.)
+            // byte-identical original below.) The telemetry summary must not
+            // count the file's names as resolved either.
+            for (const key of [...resolvedCannotFindKeys]) {
+              if (key.startsWith(`${posix}::`)) resolvedCannotFindKeys.delete(key);
+            }
             return { ...file, content: originalCode };
           }
           code = receipt.code;
@@ -619,10 +643,47 @@ export function runDeterministicImportRepair(
     }
   }
 
+  // Telemetry summary (M#imp1): which cannot-find codes were seen, which
+  // names resolved, and per residual name WHY it stayed residual. Computed
+  // against the ORIGINAL file contents (classification is read-only).
+  const seenCodes = new Set<string>();
+  for (const codes of cannotFindNameCodes.values()) {
+    for (const code of codes) seenCodes.add(code);
+  }
+  const residual: DeterministicImportRepairResult["cannotFindSummary"]["residual"] = [];
+  if (cannotFindNamesByFile.size > 0) {
+    const codeByFile = new Map(
+      parseCodeProject(content).files.map((file) => [
+        toPosixPath(file.path),
+        file.content,
+      ]),
+    );
+    for (const [file, names] of cannotFindNamesByFile) {
+      for (const name of names) {
+        if (resolvedCannotFindKeys.has(cannotFindNameKey(file, name))) continue;
+        residual.push({
+          file,
+          name,
+          reason: classifyCannotFindNameResidual({
+            name,
+            filePath: file,
+            fileCode: codeByFile.get(file),
+            allowTier3,
+          }),
+        });
+      }
+    }
+  }
+
   return {
     content: working,
     fixed: committedChange && working !== content,
     fixes,
     handledCodes: [...handledCodes],
+    cannotFindSummary: {
+      seenCodes: [...seenCodes],
+      resolvedNames: [...resolvedCannotFindKeys],
+      residual,
+    },
   };
 }

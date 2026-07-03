@@ -2,7 +2,7 @@ import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
-import { KNOWN_MODULE_SPECIFIERS } from "../import-validator";
+import { KNOWN_MODULE_SPECIFIERS, collectImportBoundNames } from "../import-validator";
 import { classifyShadcnLucideCollisionUsage } from "./lucide-misuse-fixer";
 import type { AutoFixEntry } from "../pipeline";
 
@@ -48,7 +48,7 @@ export interface Ts2304KnownImportFixResult {
   addedImports: Ts2304KnownImportAddition[];
 }
 
-type ResolvedImport = { module: string; kind: "named" | "default" };
+type ResolvedImport = { module: string; kind: "named" | "default" | "type-named" };
 
 const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
 
@@ -90,6 +90,17 @@ const NAMED_PACKAGE_IMPORTS: Record<string, string> = {
   toast: "sonner",
 };
 
+// Type-only exports resolved as `import type { X } from "module"` (kind
+// `type-named`). Value-importing these would bind a non-existent runtime
+// export (TS2305 / runtime import error), so they get their own emission
+// path. `LucideIcon` is the recurring prod name (`type Feature = { icon:
+// LucideIcon }`); scope stays narrow on purpose — ambiguous type names that
+// exist in several libraries (e.g. `SVGAttributes`, also in react) are NOT
+// mapped here and stay with the LLM fixer.
+const TYPE_NAMED_PACKAGE_IMPORTS: Record<string, string> = {
+  LucideIcon: "lucide-react",
+};
+
 /**
  * True for server-only files where a bare `Stripe` reference resolves to the
  * `stripe` package default export (`new Stripe(...)` in an API route). Gating by
@@ -99,6 +110,53 @@ function isServerRouteFile(filePath: string | undefined): boolean {
   if (!filePath) return false;
   const p = toPosixPath(filePath);
   return /\/api\//.test(p) || /(?:^|\/)route\.[tj]sx?$/.test(p);
+}
+
+/**
+ * Server-safe file gate for Node-only SDK resolutions (Stripe/Resend).
+ * Codex P2 on PR #378: the route-only gate left `new Resend(...)` in the
+ * canonical F3 build-spec helper `lib/email.ts` unresolved even in F3.
+ * Boundary (conservative, documented): a file qualifies when it does NOT
+ * open with a `"use client"` directive (BB#291 — client files never get
+ * Node SDKs) AND it is either a route-surface file (`/api/`, `route.ts`) or
+ * a server helper module under `lib/`/`server/` (optionally `src/`-prefixed
+ * — the canonical SDK-client-init pattern: `lib/email.ts`, `lib/stripe.ts`).
+ * Components, pages and everything else stay excluded: a bare SDK reference
+ * there is almost certainly wrong in another way and belongs to the LLM.
+ */
+function isServerSdkFile(filePath: string | undefined, fileCode?: string): boolean {
+  if (!filePath) return false;
+  if (fileCode && hasUseClientDirective(fileCode)) return false;
+  if (isServerRouteFile(filePath)) return true;
+  const p = toPosixPath(filePath);
+  return /(?:^|\/)(?:src\/)?(?:lib|server)\//.test(p);
+}
+
+/**
+ * True when `name` is referenced in a VALUE position — a JSX tag
+ * (`<LucideIcon />`), a construction/call (`new LucideIcon(...)`,
+ * `LucideIcon(...)`), a JSX prop value (`icon={LucideIcon}`) or a bare
+ * assignment (`const Icon = LucideIcon;`). Used to gate the `type-named`
+ * emission (Codex P2 on PR #378): type-only exports have no runtime binding,
+ * so an `import type` only satisfies type-position usage — for a value
+ * usage it would just trade TS2304 for TS1361 at the next gate. Type-alias
+ * lines (`type X = LucideIcon;`) are excluded from the assignment signal —
+ * that `=` is a type position. Conservative direction: a false "value"
+ * classification leaves the name residual for the LLM (safe); the patterns
+ * never match plain annotations/generics (`icon: LucideIcon`,
+ * `Record<Id, LucideIcon>`).
+ */
+function hasValuePositionUsage(code: string, name: string): boolean {
+  const n = escapeRegExp(name);
+  if (new RegExp(`<${n}[\\s/>]`).test(code)) return true;
+  if (new RegExp(`\\bnew\\s+${n}\\b|\\b${n}\\s*\\(`).test(code)) return true;
+  if (new RegExp(`=\\s*\\{\\s*${n}\\s*\\}`).test(code)) return true;
+  const assignRe = new RegExp(`=\\s*${n}\\s*(?:[;,)\\]}]|$)`);
+  for (const line of code.split("\n")) {
+    if (/^\s*(?:export\s+)?type\s/.test(line)) continue;
+    if (assignRe.test(line)) return true;
+  }
+  return false;
 }
 
 /**
@@ -139,9 +197,19 @@ function resolveKnownImportRaw(
   if (DEFAULT_IMPORT_NAMES[name]) {
     return { module: DEFAULT_IMPORT_NAMES[name], kind: "default" };
   }
-  // Stripe Node SDK — default export, server files only.
-  if (name === "Stripe" && isServerRouteFile(filePath)) {
+  // Stripe Node SDK — default export, server-safe files only (routes +
+  // `lib/`/`server/` helper modules without a "use client" directive).
+  if (name === "Stripe" && isServerSdkFile(filePath, fileCode)) {
     return { module: "stripe", kind: "default" };
+  }
+  // Resend Node SDK — NAMED export (`import { Resend } from "resend"`),
+  // same server-safe gate as Stripe (prod chat cc10e7de v8:
+  // `new Resend(resendApiKey)` with no import; Codex P2: the F3 build spec
+  // initializes the client in `lib/email.ts`, outside the route surface).
+  // `resend` is on the tier-3 deny list, so the F2/F3 gate in
+  // `resolveKnownImport` keeps it residual outside fidelity3.
+  if (name === "Resend" && isServerSdkFile(filePath, fileCode)) {
+    return { module: "resend", kind: "named" };
   }
   // Clerk server entrypoint — named imports.
   if (CLERK_SERVER_IMPORTS.has(name)) {
@@ -152,6 +220,18 @@ function resolveKnownImportRaw(
   // blind guesser can't mis-attribute unrelated symbols.
   if (NAMED_PACKAGE_IMPORTS[name]) {
     return { module: NAMED_PACKAGE_IMPORTS[name], kind: "named" };
+  }
+  // Type-only exports → `import type { X }` emission — but ONLY when every
+  // usage is in type position (Codex P2 on PR #378). A VALUE usage of a
+  // type-only export (`<LucideIcon />`, `const Icon = LucideIcon`) is a
+  // model error no import can fix: `import type` is erased at runtime
+  // (TS1361 / undefined binding at the next gate) and a VALUE import of a
+  // type-only export has no runtime binding either. Design choice: leave
+  // value usages residual for the LLM fixer (it must pick a real icon),
+  // reported as `type_export_value_usage` in cannotFindSummary.
+  if (TYPE_NAMED_PACKAGE_IMPORTS[name]) {
+    if (fileCode && hasValuePositionUsage(fileCode, name)) return null;
+    return { module: TYPE_NAMED_PACKAGE_IMPORTS[name], kind: "type-named" };
   }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return { module, kind: "named" };
@@ -186,6 +266,50 @@ function extractMissingName(message: string): string | null {
   return match ? match[1] : null;
 }
 
+export type CannotFindNameResidualReason =
+  | "tier3_gated"
+  | "ambiguous_shadcn_lucide"
+  | "type_export_value_usage"
+  | "unknown_name"
+  | "not_applied";
+
+/**
+ * Classify WHY a cannot-find-name diagnostic stayed residual after the
+ * deterministic known-import pass. Telemetry-only (M#imp1 prod archaeology):
+ * lets `runDeterministicImportRepair` report per name whether the tier-3
+ * F2 gate suppressed a resolvable SDK import (`tier3_gated` — e.g. Stripe /
+ * Resend in a fidelity2 lane), the name was an unresolvable shadcn∩lucide
+ * collision, the name is simply not in any registry, or the name resolved but
+ * an injection guard skipped it (already imported / locally declared /
+ * server-only module in a client file / self-import).
+ */
+export function classifyCannotFindNameResidual(params: {
+  name: string;
+  filePath: string;
+  fileCode?: string;
+  allowTier3: boolean;
+}): CannotFindNameResidualReason {
+  const raw = resolveKnownImportRaw(params.name, params.filePath, params.fileCode);
+  if (raw) {
+    if (!params.allowTier3 && isTier3SdkModule(raw.module)) return "tier3_gated";
+    return "not_applied";
+  }
+  // A known type-only export used in VALUE position: no import can fix it
+  // (model must swap in a real icon) — surfaced distinctly so prod telemetry
+  // separates this from genuinely unknown names (Codex P2 on PR #378).
+  if (
+    TYPE_NAMED_PACKAGE_IMPORTS[params.name] &&
+    params.fileCode &&
+    hasValuePositionUsage(params.fileCode, params.name)
+  ) {
+    return "type_export_value_usage";
+  }
+  const inShadcn = Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, params.name);
+  const inLucide = LUCIDE_ICONS.has(params.name);
+  if (inShadcn && inLucide) return "ambiguous_shadcn_lucide";
+  return "unknown_name";
+}
+
 /**
  * True when `name` exists in ANY of the known-library registries this fixer
  * resolves from (Next defaults, Stripe, Clerk server, diagnostic-only package
@@ -197,9 +321,10 @@ function extractMissingName(message: string): string | null {
  */
 export function isKnownLibraryImportName(name: string): boolean {
   if (DEFAULT_IMPORT_NAMES[name]) return true;
-  if (name === "Stripe") return true;
+  if (name === "Stripe" || name === "Resend") return true;
   if (CLERK_SERVER_IMPORTS.has(name)) return true;
   if (NAMED_PACKAGE_IMPORTS[name]) return true;
+  if (TYPE_NAMED_PACKAGE_IMPORTS[name]) return true;
   for (const names of Object.values(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return true;
   }
@@ -243,30 +368,27 @@ function hasUseClientDirective(code: string): boolean {
 }
 
 /** Modules that must never be imported inside a `"use client"` file. */
-const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe"]);
+const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe", "resend"]);
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Names already bound by an import statement (default, named, namespace). */
+/**
+ * Names already bound by an import statement (default, named, namespace —
+ * value AND type-only). Delegates to the shared multi-line-aware collector
+ * in `import-validator.ts` (bugbot HIGH on PR #378 / M#imp1 class): the old
+ * per-line scan here could not see bindings inside multi-line import blocks
+ * (`import {\n  Flame,\n} from "lucide-react"`), so a diagnostic naming an
+ * already-bound icon got a DUPLICATE import injected — which the
+ * post-injection receipt then had to salvage or revert, dropping the file's
+ * legitimate fixes. Type-only bindings count as "imported" on purpose:
+ * a type-bound name used as a value is TS1361 territory
+ * (`value-used-from-type-import-fixer`), never a missing import.
+ */
 function collectImportedNames(code: string): Set<string> {
-  const names = new Set<string>();
-  for (const line of code.split("\n")) {
-    const named = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}/);
-    if (named) {
-      for (const spec of named[1].split(",")) {
-        const aliased = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
-        const bound = aliased ? aliased[2] : spec.trim();
-        if (bound) names.add(bound);
-      }
-    }
-    const def = line.match(/^\s*import\s+([A-Za-z_$][\w$]*)\s*(?:,|from)\s/);
-    if (def) names.add(def[1]);
-    const ns = line.match(/^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)/);
-    if (ns) names.add(ns[1]);
-  }
-  return names;
+  const bound = collectImportBoundNames(code);
+  return new Set<string>([...bound.value, ...bound.typeOnly]);
 }
 
 function nameAppearsInFile(code: string, name: string): boolean {
@@ -322,6 +444,7 @@ function addKnownImportsToFile(
 ): { code: string; added: Array<{ name: string; module: string }> } {
   const alreadyImported = collectImportedNames(code);
   const namedByModule = new Map<string, string[]>();
+  const typeNamedByModule = new Map<string, string[]>();
   const defaultImports: Array<{ name: string; module: string }> = [];
   const isClientFile = hasUseClientDirective(code);
 
@@ -343,6 +466,10 @@ function addKnownImportsToFile(
     if (moduleMatchesFile(resolved.module, filePath)) continue;
     if (resolved.kind === "default") {
       defaultImports.push({ name, module: resolved.module });
+    } else if (resolved.kind === "type-named") {
+      const bucket = typeNamedByModule.get(resolved.module) ?? [];
+      if (!bucket.includes(name)) bucket.push(name);
+      typeNamedByModule.set(resolved.module, bucket);
     } else {
       const bucket = namedByModule.get(resolved.module) ?? [];
       if (!bucket.includes(name)) bucket.push(name);
@@ -387,6 +514,38 @@ function addKnownImportsToFile(
     for (const name of names) added.push({ name, module });
   }
 
+  // Type-only names merge ONLY into an existing `import type { ... }` line for
+  // the same module — never into a value import (a type-only export has no
+  // runtime binding; a value merge would emit TS2305 / a runtime import error).
+  for (const [module, names] of typeNamedByModule) {
+    const existingIdx = lines.findIndex(
+      (line) =>
+        (line.includes(`from "${module}"`) || line.includes(`from '${module}'`)) &&
+        /^\s*import\s+type\s+\{/.test(line),
+    );
+
+    if (existingIdx >= 0) {
+      const braceMatch = lines[existingIdx].match(
+        /^(\s*import\s+type\s+\{)([^}]*)(\}\s*from\s+.+)$/,
+      );
+      if (braceMatch) {
+        const existingSpecs = braceMatch[2]
+          .split(",")
+          .map((spec) => spec.trim())
+          .filter(Boolean);
+        const toAdd = names.filter((name) => !existingSpecs.includes(name));
+        if (toAdd.length > 0) {
+          lines[existingIdx] = `${braceMatch[1]} ${[...existingSpecs, ...toAdd].join(", ")} ${braceMatch[3]}`;
+          for (const name of toAdd) added.push({ name, module });
+        }
+        continue;
+      }
+    }
+
+    newImports.push(`import type { ${names.join(", ")} } from "${module}"`);
+    for (const name of names) added.push({ name, module });
+  }
+
   for (const { name, module } of defaultImports) {
     const hasDefaultFromModule = lines.some((line) =>
       new RegExp(
@@ -399,13 +558,28 @@ function addKnownImportsToFile(
   }
 
   if (newImports.length > 0) {
+    // Never splice INSIDE a multi-line import block: for `import {\n  Flame,\n}
+    // from "lucide-react"` the old walk stopped on the block's second line and
+    // inserted there — a parse regression the post-injection receipt then
+    // reverted, silently dropping every fix for the file (v8-eval, M#imp1).
+    // Track open blocks and advance past the `} from "…"` closer.
     let insertIdx = 0;
+    let inImportBlock = false;
     for (let i = 0; i < lines.length; i++) {
-      if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+      const line = lines[i];
+      if (inImportBlock) {
         insertIdx = i + 1;
-      } else if (insertIdx > 0) {
-        break;
+        if (/\}\s*from\s+["']/.test(line)) inImportBlock = false;
+        continue;
       }
+      if (/^\s*import\s/.test(line) || /^\s*["']use /.test(line)) {
+        insertIdx = i + 1;
+        if (line.includes("{") && !/from\s+["']/.test(line)) {
+          inImportBlock = true;
+        }
+        continue;
+      }
+      if (insertIdx > 0) break;
     }
     lines.splice(insertIdx, 0, ...newImports);
   }

@@ -386,7 +386,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/ts2304-known-import-fixer.ts",
     targetFailureMode:
-      "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK)",
+      "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, lucide type-only export, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK, Resend SDK)",
     triggers: [
       "warm-tsc / quality-gate tsc `Cannot find name 'X'` where X resolves to a known module",
     ],
@@ -402,9 +402,15 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "(verify/repair-loop.ts). shadcn∩lucide collision names (Badge, Calendar, " +
       "Table, …) are resolved usage-aware (M#badge1): children/variant/asChild → " +
       "shadcn, icon-ish self-closing → lucide, unclear → left for the LLM. Stripe " +
-      "resolves only in API route / route-handler files. Tier-3 backend SDKs " +
-      "(Clerk-server, Stripe) are only (re)introduced in F3 (fidelity3); in F2 " +
-      "they stay residual so the F2 SDK guard is never undone.",
+      "(default import) and Resend (named import) resolve only in server-safe " +
+      "files — API routes/route handlers plus lib//server/ helper modules " +
+      "(canonical `lib/email.ts` SDK-init pattern) — never in 'use client' " +
+      "files. Type-only exports (LucideIcon) emit `import type { … }` (kind " +
+      "type-named) when used in TYPE position; value-position usage is left " +
+      "residual for the LLM (reason type_export_value_usage) since no import " +
+      "can fix it. Tier-3 backend SDKs (Clerk-server, Stripe, Resend) are only " +
+      "(re)introduced in F3 (fidelity3); in F2 they stay residual so the F2 SDK " +
+      "guard is never undone.",
   },
   {
     id: "own-component-import-fixer",
