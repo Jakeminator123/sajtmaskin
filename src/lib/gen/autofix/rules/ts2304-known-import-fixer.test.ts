@@ -455,6 +455,80 @@ export function B() {
     expect(result.code).toBe(content);
   });
 
+  // Bugbot HIGH on PR #378 (M#imp1 class, deterministic-repair leg): the
+  // fixer's own "already imported?" scan was line-based and could not see
+  // bindings inside MULTI-LINE import blocks — a diagnostic naming an
+  // already-bound icon injected a duplicate import, which the post-injection
+  // receipt then had to salvage/revert, dropping the file's legitimate fixes.
+  it("never re-injects a name bound in a multi-line import block (shared multi-line collector)", () => {
+    const content = project(
+      FILE,
+      `import {
+  ArrowRight,
+  Flame,
+  Gem,
+} from "lucide-react";
+
+const services = [{ icon: Gem }, { icon: Flame }];
+
+export default function Page() {
+  return (
+    <main>
+      <Badge variant="secondary">Ny</Badge>
+      <ArrowRight className="h-4 w-4" />
+    </main>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+      // Stale/duplicate diagnostic for an icon the multi-line block already binds.
+      { file: FILE, message: "Cannot find name 'Flame'." },
+    ]);
+
+    // Only the genuinely missing symbol gets an import.
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Badge", module: "@/components/ui/badge" },
+    ]);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    // No duplicated lucide specifiers / no second lucide import statement.
+    expect(result.code.match(/from "lucide-react"/g)).toHaveLength(1);
+    expect(result.code.match(/\bFlame\b/g)?.length).toBe(
+      content.match(/\bFlame\b/g)?.length,
+    );
+  });
+
+  it("sees bindings in a multi-line `import type` block too", () => {
+    const iconFile = "components/icon-list.tsx";
+    const content = project(
+      iconFile,
+      `import type {
+  LucideIcon,
+  LucideProps,
+} from "lucide-react";
+
+const features: { icon: LucideIcon }[] = [];
+
+export function IconList() {
+  return <Badge variant="outline">{features.length}</Badge>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: iconFile, message: "Cannot find name 'Badge'." },
+      { file: iconFile, message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    // LucideIcon is already type-bound in the multi-line block — only Badge lands.
+    expect(result.addedImports).toEqual([
+      { file: iconFile, name: "Badge", module: "@/components/ui/badge" },
+    ]);
+    expect(result.code.match(/\bLucideIcon\b/g)?.length).toBe(
+      content.match(/\bLucideIcon\b/g)?.length,
+    );
+  });
+
   const RESEND_ROUTE = "app/api/contact/route.ts";
   const resendRouteContent = project(
     RESEND_ROUTE,

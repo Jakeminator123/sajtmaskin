@@ -2,7 +2,7 @@ import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
-import { KNOWN_MODULE_SPECIFIERS } from "../import-validator";
+import { KNOWN_MODULE_SPECIFIERS, collectImportBoundNames } from "../import-validator";
 import { classifyShadcnLucideCollisionUsage } from "./lucide-misuse-fixer";
 import type { AutoFixEntry } from "../pipeline";
 
@@ -306,24 +306,21 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Names already bound by an import statement (default, named, namespace). */
+/**
+ * Names already bound by an import statement (default, named, namespace —
+ * value AND type-only). Delegates to the shared multi-line-aware collector
+ * in `import-validator.ts` (bugbot HIGH on PR #378 / M#imp1 class): the old
+ * per-line scan here could not see bindings inside multi-line import blocks
+ * (`import {\n  Flame,\n} from "lucide-react"`), so a diagnostic naming an
+ * already-bound icon got a DUPLICATE import injected — which the
+ * post-injection receipt then had to salvage or revert, dropping the file's
+ * legitimate fixes. Type-only bindings count as "imported" on purpose:
+ * a type-bound name used as a value is TS1361 territory
+ * (`value-used-from-type-import-fixer`), never a missing import.
+ */
 function collectImportedNames(code: string): Set<string> {
-  const names = new Set<string>();
-  for (const line of code.split("\n")) {
-    const named = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}/);
-    if (named) {
-      for (const spec of named[1].split(",")) {
-        const aliased = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
-        const bound = aliased ? aliased[2] : spec.trim();
-        if (bound) names.add(bound);
-      }
-    }
-    const def = line.match(/^\s*import\s+([A-Za-z_$][\w$]*)\s*(?:,|from)\s/);
-    if (def) names.add(def[1]);
-    const ns = line.match(/^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)/);
-    if (ns) names.add(ns[1]);
-  }
-  return names;
+  const bound = collectImportBoundNames(code);
+  return new Set<string>([...bound.value, ...bound.typeOnly]);
 }
 
 function nameAppearsInFile(code: string, name: string): boolean {

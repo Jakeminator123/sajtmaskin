@@ -299,4 +299,37 @@ describe("v8-eval: prod cc10e7de missing-import class through deterministic repa
     expect(result.content).not.toContain('from "stripe"');
     expect(result.content).not.toContain('from "resend"');
   });
+
+  it("F3 + stale diagnostic for an icon bound in the multi-line block: no duplicate injection, no guard-revert (bugbot HIGH #378)", () => {
+    // PAGE binds ArrowRight/Flame/Gem/… in a MULTI-LINE lucide import block.
+    // Before the shared multi-line collector, a cannot-find diagnostic naming
+    // one of those icons made `addKnownImportsToFile` inject a duplicate
+    // import; the post-injection receipt then had to salvage or revert the
+    // whole file — dropping the legitimate Badge/Button fixes (the exact
+    // M#imp1 guard-revert class, on the deterministic-repair leg).
+    const result = runDeterministicImportRepair(
+      V8_PROJECT,
+      [...V8_DIAGNOSTICS, { file: "app/page.tsx", message: "Cannot find name 'ArrowRight'." }],
+      { previewPolicy: "fidelity3" },
+    );
+
+    expect(result.fixed).toBe(true);
+    const page = getFileContent(result.content, "app/page.tsx");
+    // The legitimate fixes still land…
+    expect(page).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(page).toContain('import { Button } from "@/components/ui/button"');
+    // …and the multi-line lucide block is untouched: ONE lucide import, no
+    // duplicated specifier, no receipt-salvage fix entries for this file.
+    expect(page.match(/from "lucide-react"/g)).toHaveLength(1);
+    expect(page.match(/\bArrowRight\b/g)?.length).toBe(
+      PAGE.match(/\bArrowRight\b/g)?.length,
+    );
+    expect(
+      result.fixes.some((fix) => fix.fixer === "duplicate-import-binding-fixer"),
+    ).toBe(false);
+    // The already-bound name is accounted for in telemetry, not re-imported.
+    expect(result.cannotFindSummary.residual).toEqual([
+      { file: "app/page.tsx", name: "ArrowRight", reason: "not_applied" },
+    ]);
+  });
 });

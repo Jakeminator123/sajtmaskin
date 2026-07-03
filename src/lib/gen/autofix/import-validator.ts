@@ -32,11 +32,14 @@ const NAMESPACE_IMPORT_STATEMENT_RE =
 /**
  * Names bound by import statements across the whole file, split into VALUE
  * and TYPE-ONLY bindings. Multi-line aware (see the regex comment above).
- * Canonical binding collector for this module — both the JSX-tag scan
- * (`detectMissingImports`) and the icon-value scan
- * (`fixMissingIconValueImports`) resolve "already imported?" through this.
+ * Canonical "already imported?" collector: consumed by this module's JSX-tag
+ * scan (`detectMissingImports`) and icon-value scan
+ * (`fixMissingIconValueImports`), AND by the diagnostic-driven
+ * `ts2304-known-import-fixer` (bugbot HIGH on PR #378: its own line-based
+ * scan re-injected names bound in multi-line import blocks — same M#imp1
+ * guard-revert class). ONE shared implementation on purpose; do not fork.
  */
-function collectImportBoundNames(code: string): {
+export function collectImportBoundNames(code: string): {
   value: Set<string>;
   typeOnly: Set<string>;
 } {
