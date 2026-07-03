@@ -156,10 +156,10 @@ export function IconList() {
       expect(getFileContent(result.content, "components/icon-list.tsx")).toContain(
         'import { Flame } from "lucide-react"',
       );
-      // Current deterministic known-import mapping resolves the value icon but
-      // leaves the missing LucideIcon type residual for downstream handling.
-      expect(getFileContent(result.content, "components/icon-list.tsx")).not.toContain(
-        "import type { LucideIcon }",
+      // Stabilisering våg 1: the type-named mapping now resolves LucideIcon
+      // deterministically as an `import type` (backlog LucideIcon row).
+      expect(getFileContent(result.content, "components/icon-list.tsx")).toContain(
+        'import type { LucideIcon } from "lucide-react"',
       );
       expect(result.handledCodes).toContain("TS2304");
       expectNoDuplicateImportBindings(result.content);

@@ -48,7 +48,7 @@ export interface Ts2304KnownImportFixResult {
   addedImports: Ts2304KnownImportAddition[];
 }
 
-type ResolvedImport = { module: string; kind: "named" | "default" };
+type ResolvedImport = { module: string; kind: "named" | "default" | "type-named" };
 
 const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
 
@@ -88,6 +88,17 @@ const CLERK_SERVER_IMPORTS = new Set([
 // so this resolves in both F2 and F3.
 const NAMED_PACKAGE_IMPORTS: Record<string, string> = {
   toast: "sonner",
+};
+
+// Type-only exports resolved as `import type { X } from "module"` (kind
+// `type-named`). Value-importing these would bind a non-existent runtime
+// export (TS2305 / runtime import error), so they get their own emission
+// path. `LucideIcon` is the recurring prod name (`type Feature = { icon:
+// LucideIcon }`); scope stays narrow on purpose — ambiguous type names that
+// exist in several libraries (e.g. `SVGAttributes`, also in react) are NOT
+// mapped here and stay with the LLM fixer.
+const TYPE_NAMED_PACKAGE_IMPORTS: Record<string, string> = {
+  LucideIcon: "lucide-react",
 };
 
 /**
@@ -143,6 +154,14 @@ function resolveKnownImportRaw(
   if (name === "Stripe" && isServerRouteFile(filePath)) {
     return { module: "stripe", kind: "default" };
   }
+  // Resend Node SDK — NAMED export (`import { Resend } from "resend"`),
+  // server files only, mirroring the Stripe gating exactly (prod chat
+  // cc10e7de v8: `new Resend(resendApiKey)` in app/api/contact/route.ts with
+  // no import). `resend` is on the tier-3 deny list, so the F2/F3 gate in
+  // `resolveKnownImport` keeps it residual outside fidelity3.
+  if (name === "Resend" && isServerRouteFile(filePath)) {
+    return { module: "resend", kind: "named" };
+  }
   // Clerk server entrypoint — named imports.
   if (CLERK_SERVER_IMPORTS.has(name)) {
     return { module: "@clerk/nextjs/server", kind: "named" };
@@ -152,6 +171,10 @@ function resolveKnownImportRaw(
   // blind guesser can't mis-attribute unrelated symbols.
   if (NAMED_PACKAGE_IMPORTS[name]) {
     return { module: NAMED_PACKAGE_IMPORTS[name], kind: "named" };
+  }
+  // Type-only exports → `import type { X }` emission.
+  if (TYPE_NAMED_PACKAGE_IMPORTS[name]) {
+    return { module: TYPE_NAMED_PACKAGE_IMPORTS[name], kind: "type-named" };
   }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return { module, kind: "named" };
@@ -186,6 +209,39 @@ function extractMissingName(message: string): string | null {
   return match ? match[1] : null;
 }
 
+export type CannotFindNameResidualReason =
+  | "tier3_gated"
+  | "ambiguous_shadcn_lucide"
+  | "unknown_name"
+  | "not_applied";
+
+/**
+ * Classify WHY a cannot-find-name diagnostic stayed residual after the
+ * deterministic known-import pass. Telemetry-only (M#imp1 prod archaeology):
+ * lets `runDeterministicImportRepair` report per name whether the tier-3
+ * F2 gate suppressed a resolvable SDK import (`tier3_gated` — e.g. Stripe /
+ * Resend in a fidelity2 lane), the name was an unresolvable shadcn∩lucide
+ * collision, the name is simply not in any registry, or the name resolved but
+ * an injection guard skipped it (already imported / locally declared /
+ * server-only module in a client file / self-import).
+ */
+export function classifyCannotFindNameResidual(params: {
+  name: string;
+  filePath: string;
+  fileCode?: string;
+  allowTier3: boolean;
+}): CannotFindNameResidualReason {
+  const raw = resolveKnownImportRaw(params.name, params.filePath, params.fileCode);
+  if (raw) {
+    if (!params.allowTier3 && isTier3SdkModule(raw.module)) return "tier3_gated";
+    return "not_applied";
+  }
+  const inShadcn = Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, params.name);
+  const inLucide = LUCIDE_ICONS.has(params.name);
+  if (inShadcn && inLucide) return "ambiguous_shadcn_lucide";
+  return "unknown_name";
+}
+
 /**
  * True when `name` exists in ANY of the known-library registries this fixer
  * resolves from (Next defaults, Stripe, Clerk server, diagnostic-only package
@@ -197,9 +253,10 @@ function extractMissingName(message: string): string | null {
  */
 export function isKnownLibraryImportName(name: string): boolean {
   if (DEFAULT_IMPORT_NAMES[name]) return true;
-  if (name === "Stripe") return true;
+  if (name === "Stripe" || name === "Resend") return true;
   if (CLERK_SERVER_IMPORTS.has(name)) return true;
   if (NAMED_PACKAGE_IMPORTS[name]) return true;
+  if (TYPE_NAMED_PACKAGE_IMPORTS[name]) return true;
   for (const names of Object.values(KNOWN_MODULE_SPECIFIERS)) {
     if (names.includes(name)) return true;
   }
@@ -243,7 +300,7 @@ function hasUseClientDirective(code: string): boolean {
 }
 
 /** Modules that must never be imported inside a `"use client"` file. */
-const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe"]);
+const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe", "resend"]);
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -322,6 +379,7 @@ function addKnownImportsToFile(
 ): { code: string; added: Array<{ name: string; module: string }> } {
   const alreadyImported = collectImportedNames(code);
   const namedByModule = new Map<string, string[]>();
+  const typeNamedByModule = new Map<string, string[]>();
   const defaultImports: Array<{ name: string; module: string }> = [];
   const isClientFile = hasUseClientDirective(code);
 
@@ -343,6 +401,10 @@ function addKnownImportsToFile(
     if (moduleMatchesFile(resolved.module, filePath)) continue;
     if (resolved.kind === "default") {
       defaultImports.push({ name, module: resolved.module });
+    } else if (resolved.kind === "type-named") {
+      const bucket = typeNamedByModule.get(resolved.module) ?? [];
+      if (!bucket.includes(name)) bucket.push(name);
+      typeNamedByModule.set(resolved.module, bucket);
     } else {
       const bucket = namedByModule.get(resolved.module) ?? [];
       if (!bucket.includes(name)) bucket.push(name);
@@ -387,6 +449,38 @@ function addKnownImportsToFile(
     for (const name of names) added.push({ name, module });
   }
 
+  // Type-only names merge ONLY into an existing `import type { ... }` line for
+  // the same module — never into a value import (a type-only export has no
+  // runtime binding; a value merge would emit TS2305 / a runtime import error).
+  for (const [module, names] of typeNamedByModule) {
+    const existingIdx = lines.findIndex(
+      (line) =>
+        (line.includes(`from "${module}"`) || line.includes(`from '${module}'`)) &&
+        /^\s*import\s+type\s+\{/.test(line),
+    );
+
+    if (existingIdx >= 0) {
+      const braceMatch = lines[existingIdx].match(
+        /^(\s*import\s+type\s+\{)([^}]*)(\}\s*from\s+.+)$/,
+      );
+      if (braceMatch) {
+        const existingSpecs = braceMatch[2]
+          .split(",")
+          .map((spec) => spec.trim())
+          .filter(Boolean);
+        const toAdd = names.filter((name) => !existingSpecs.includes(name));
+        if (toAdd.length > 0) {
+          lines[existingIdx] = `${braceMatch[1]} ${[...existingSpecs, ...toAdd].join(", ")} ${braceMatch[3]}`;
+          for (const name of toAdd) added.push({ name, module });
+        }
+        continue;
+      }
+    }
+
+    newImports.push(`import type { ${names.join(", ")} } from "${module}"`);
+    for (const name of names) added.push({ name, module });
+  }
+
   for (const { name, module } of defaultImports) {
     const hasDefaultFromModule = lines.some((line) =>
       new RegExp(
@@ -399,13 +493,28 @@ function addKnownImportsToFile(
   }
 
   if (newImports.length > 0) {
+    // Never splice INSIDE a multi-line import block: for `import {\n  Flame,\n}
+    // from "lucide-react"` the old walk stopped on the block's second line and
+    // inserted there — a parse regression the post-injection receipt then
+    // reverted, silently dropping every fix for the file (v8-eval, M#imp1).
+    // Track open blocks and advance past the `} from "…"` closer.
     let insertIdx = 0;
+    let inImportBlock = false;
     for (let i = 0; i < lines.length; i++) {
-      if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+      const line = lines[i];
+      if (inImportBlock) {
         insertIdx = i + 1;
-      } else if (insertIdx > 0) {
-        break;
+        if (/\}\s*from\s+["']/.test(line)) inImportBlock = false;
+        continue;
       }
+      if (/^\s*import\s/.test(line) || /^\s*["']use /.test(line)) {
+        insertIdx = i + 1;
+        if (line.includes("{") && !/from\s+["']/.test(line)) {
+          inImportBlock = true;
+        }
+        continue;
+      }
+      if (insertIdx > 0) break;
     }
     lines.splice(insertIdx, 0, ...newImports);
   }

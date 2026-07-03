@@ -54,6 +54,23 @@ describe("fixDomBuiltinJsxTags", () => {
     expect(code).toBe(NO_MATCH_CASE);
   });
 
+  it("prod cc10e7de v1/v5/v8: leaves the bare-import FormEvent<HTMLFormElement> pattern byte-identical", () => {
+    // The exact prod annotation shape (no `React.` prefix). The fixer
+    // correctly no-ops here — the 2026-07-03 blocker was the verifier scan's
+    // false positive (fixed in verifier-pass.ts), NOT a mapping gap in
+    // KNOWN_HTML_INTERFACE_TO_TAG (HTMLFormElement has been mapped all along;
+    // the paired assertions above prove the rewrite works for real misuse).
+    const prodCase = [
+      'import type { FormEvent } from "react";',
+      "async function handleSubmit(event: FormEvent<HTMLFormElement>) {",
+      "  event.preventDefault();",
+      "}",
+    ].join("\n");
+    const { code, fixed } = fixDomBuiltinJsxTags(prodCase, "components/contact-form.tsx");
+    expect(fixed).toBe(false);
+    expect(code).toBe(prodCase);
+  });
+
   it("falls back to <div> for unknown HTMLxxxElement names and warns", () => {
     const { code, fixed, warnings } = fixDomBuiltinJsxTags(UNKNOWN_INTERFACE_CASE, "x.tsx");
     expect(fixed).toBe(true);

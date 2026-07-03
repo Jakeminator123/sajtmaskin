@@ -146,6 +146,74 @@ export default clerkMiddleware((auth, req) => {
     expect(stripeImports).toBe(1);
   });
 
+  const RESEND_ROUTE = "app/api/contact/route.ts";
+  const resendContent = file(
+    RESEND_ROUTE,
+    `export async function POST() {
+  const resend = new Resend(process.env.RESEND_API_KEY!);
+  return Response.json({ ok: true });
+}`,
+  );
+
+  it("resolves Resend as a NAMED import in an API route in F3 (prod cc10e7de v8)", () => {
+    const result = runDeterministicImportRepair(
+      resendContent,
+      [diag(RESEND_ROUTE, "Cannot find name 'Resend'. Did you mean 'resend'?")],
+      { previewPolicy: "fidelity3" },
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2552");
+    expect(result.content).toContain('import { Resend } from "resend"');
+  });
+
+  it("leaves Resend residual in F2 and reports the tier-3 gate in the telemetry summary", () => {
+    const result = runDeterministicImportRepair(resendContent, [
+      diag(RESEND_ROUTE, "Cannot find name 'Resend'."),
+    ]); // no previewPolicy → F2-safe default
+
+    expect(result.fixed).toBe(false);
+    expect(result.content).not.toContain('from "resend"');
+    expect(result.cannotFindSummary.residual).toEqual([
+      { file: RESEND_ROUTE, name: "Resend", reason: "tier3_gated" },
+    ]);
+  });
+
+  it("telemetry summary: seen codes + resolved names + residual reasons (M#imp1)", () => {
+    const content = project(
+      file(
+        "app/page.tsx",
+        `export default function Page() {
+  return (
+    <main>
+      <Button>Start</Button>
+      <MysteryWidget />
+      <Calendar />
+    </main>
+  );
+}`,
+      ),
+      stripeContent,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag("app/page.tsx", "Cannot find name 'Button'."),
+      diag("app/page.tsx", "Cannot find name 'MysteryWidget'."),
+      diag("app/page.tsx", "Cannot find name 'Calendar'."),
+      diag(STRIPE_ROUTE, "Cannot find name 'Stripe'. Did you mean 'stripe'?"),
+    ]); // F2-safe default → Stripe gated
+
+    expect(result.cannotFindSummary.seenCodes.sort()).toEqual(["TS2304", "TS2552"]);
+    expect(result.cannotFindSummary.resolvedNames).toEqual(["app/page.tsx::Button"]);
+    expect(result.cannotFindSummary.residual).toEqual(
+      expect.arrayContaining([
+        { file: "app/page.tsx", name: "MysteryWidget", reason: "unknown_name" },
+        { file: "app/page.tsx", name: "Calendar", reason: "ambiguous_shadcn_lucide" },
+        { file: STRIPE_ROUTE, name: "Stripe", reason: "tier3_gated" },
+      ]),
+    );
+    expect(result.cannotFindSummary.residual).toHaveLength(3);
+  });
+
   it("resolves Clerk server helpers in middleware in F3 (TS2304)", () => {
     const result = runDeterministicImportRepair(
       clerkContent,

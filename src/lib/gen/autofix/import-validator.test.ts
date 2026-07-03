@@ -1,5 +1,80 @@
 import { describe, expect, it } from "vitest";
-import { runImportValidator } from "./import-validator";
+import { runImportValidator, runImportValidatorGuarded } from "./import-validator";
+
+describe("import-validator multi-line import bindings (M#imp1, prod cc10e7de v8)", () => {
+  // Minimized from prod version 4a29c7b4's app/page.tsx: a MULTI-LINE lucide
+  // import block + icons used as `icon:` values + <Badge>/<Button> JSX with
+  // no shadcn imports. The old per-line binding scan could not see the
+  // multi-line lucide bindings → fixMissingIconValueImports re-imported them
+  // → the guarded wrapper reverted EVERYTHING, discarding the correct
+  // Badge/Button fixes. Normalize then shipped the file broken three times.
+  const V8_PAGE_PATTERN = [
+    'import Image from "next/image";',
+    "import {",
+    "  ArrowRight,",
+    "  Flame,",
+    "  Gem,",
+    "  Hammer,",
+    "  MapPin,",
+    "  Waves,",
+    "  Zap,",
+    '} from "lucide-react";',
+    "",
+    "const services = [",
+    '  { title: "Neonobjekt", icon: Gem, tag: "Objekt" },',
+    '  { title: "Interiörer", icon: Hammer, tag: "Uppdrag" },',
+    '  { title: "Liveupplevelser", icon: Flame, tag: "Workshop" },',
+    "];",
+    "",
+    "export default function Page() {",
+    "  return (",
+    "    <main>",
+    '      <Badge className="rounded-full">Vad vi skapar</Badge>',
+    '      <Button size="lg">',
+    "        Boka <ArrowRight className=\"h-4 w-4\" />",
+    "      </Button>",
+    "      {services.map((s) => (",
+    "        <s.icon key={s.title} />",
+    "      ))}",
+    "    </main>",
+    "  );",
+    "}",
+  ].join("\n");
+
+  it("adds the missing shadcn imports without re-importing multi-line lucide bindings", () => {
+    const result = runImportValidator(V8_PAGE_PATTERN);
+
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(result.code).toContain('import { Button } from "@/components/ui/button"');
+    // The icons are already bound by the multi-line import — no duplicates.
+    expect(result.code.match(/from "lucide-react"/g)).toHaveLength(1);
+  });
+
+  it("survives the guarded wrapper (no duplicate-binding revert)", () => {
+    const result = runImportValidatorGuarded(V8_PAGE_PATTERN, "app/page.tsx");
+
+    expect(result.reverted).toBe(false);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    expect(result.code).toContain('import { Button } from "@/components/ui/button"');
+  });
+
+  it("still adds a lucide value import for a bare icon: value the file does NOT import", () => {
+    const code = [
+      "import {",
+      "  ArrowRight,",
+      '} from "lucide-react";',
+      "",
+      'const motifs = [{ label: "Trail", icon: PawPrint }];',
+      "",
+      "export function Motifs() {",
+      "  return <ArrowRight />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+    expect(result.code).toContain('import { PawPrint } from "lucide-react"');
+  });
+});
 
 describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
   // ─────────────────────────────────────────────────────────────────────────

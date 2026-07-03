@@ -485,7 +485,20 @@ export function checkUndefinedJsxSymbols(
       JSX_CANVAS_RE.test(f.content) ||
       R3F_INTRINSIC_RE.test(f.content);
 
-    const JSX_OPENING_TAG = /<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
+    // The negative lookbehind guards against TypeScript generic type
+    // arguments: `FormEvent<HTMLFormElement>`, `Promise<Response>`,
+    // `ChangeEvent<HTMLInputElement>` all have `<` preceded by an identifier
+    // character and are NOT JSX. Prod incident 2026-07-03 (chat cc10e7de,
+    // v1/v5/v8): the un-guarded scan flagged the type argument in a perfectly
+    // valid `handleSubmit(event: FormEvent<HTMLFormElement>)` as
+    // `undefined-jsx-symbol` — a finding no fixer can resolve (there is
+    // nothing to fix), so the version failed verification three times. Real
+    // JSX tags are only ever preceded by whitespace, `(`, `{`, `;`, `=`, `>`,
+    // `,`, `!`, `&`, `|`, `?`, `:`, `[` or line start — same tradeoff as the
+    // sibling regex in `dom-builtin-jsx-fixer.ts` (keyword-abutting JSX like
+    // `return<Foo/>` is not matched; formatted LLM output never emits that).
+    const JSX_OPENING_TAG =
+      /(?<![A-Za-z0-9_$.])<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
     let match: RegExpExecArray | null;
     while ((match = JSX_OPENING_TAG.exec(scrubbed)) !== null) {
       const name = match[1];
