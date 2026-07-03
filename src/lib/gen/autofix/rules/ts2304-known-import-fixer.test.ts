@@ -455,6 +455,315 @@ export function B() {
     expect(result.code).toBe(content);
   });
 
+  // Bugbot HIGH on PR #378 (M#imp1 class, deterministic-repair leg): the
+  // fixer's own "already imported?" scan was line-based and could not see
+  // bindings inside MULTI-LINE import blocks — a diagnostic naming an
+  // already-bound icon injected a duplicate import, which the post-injection
+  // receipt then had to salvage/revert, dropping the file's legitimate fixes.
+  it("never re-injects a name bound in a multi-line import block (shared multi-line collector)", () => {
+    const content = project(
+      FILE,
+      `import {
+  ArrowRight,
+  Flame,
+  Gem,
+} from "lucide-react";
+
+const services = [{ icon: Gem }, { icon: Flame }];
+
+export default function Page() {
+  return (
+    <main>
+      <Badge variant="secondary">Ny</Badge>
+      <ArrowRight className="h-4 w-4" />
+    </main>
+  );
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: FILE, message: "Cannot find name 'Badge'." },
+      // Stale/duplicate diagnostic for an icon the multi-line block already binds.
+      { file: FILE, message: "Cannot find name 'Flame'." },
+    ]);
+
+    // Only the genuinely missing symbol gets an import.
+    expect(result.addedImports).toEqual([
+      { file: FILE, name: "Badge", module: "@/components/ui/badge" },
+    ]);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge"');
+    // No duplicated lucide specifiers / no second lucide import statement.
+    expect(result.code.match(/from "lucide-react"/g)).toHaveLength(1);
+    expect(result.code.match(/\bFlame\b/g)?.length).toBe(
+      content.match(/\bFlame\b/g)?.length,
+    );
+  });
+
+  it("sees bindings in a multi-line `import type` block too", () => {
+    const iconFile = "components/icon-list.tsx";
+    const content = project(
+      iconFile,
+      `import type {
+  LucideIcon,
+  LucideProps,
+} from "lucide-react";
+
+const features: { icon: LucideIcon }[] = [];
+
+export function IconList() {
+  return <Badge variant="outline">{features.length}</Badge>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: iconFile, message: "Cannot find name 'Badge'." },
+      { file: iconFile, message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    // LucideIcon is already type-bound in the multi-line block — only Badge lands.
+    expect(result.addedImports).toEqual([
+      { file: iconFile, name: "Badge", module: "@/components/ui/badge" },
+    ]);
+    expect(result.code.match(/\bLucideIcon\b/g)?.length).toBe(
+      content.match(/\bLucideIcon\b/g)?.length,
+    );
+  });
+
+  const RESEND_ROUTE = "app/api/contact/route.ts";
+  const resendRouteContent = project(
+    RESEND_ROUTE,
+    `export async function POST() {
+  const resend = new Resend(process.env.RESEND_API_KEY!);
+  return Response.json({ ok: true });
+}`,
+  );
+  const resendDiagnostics = [
+    { file: RESEND_ROUTE, message: "Cannot find name 'Resend'. Did you mean 'resend'?" },
+  ];
+
+  it("resolves Resend as a NAMED import in an API route in F3 (allowTier3) — prod cc10e7de v8", () => {
+    const result = fixKnownTs2304Imports(resendRouteContent, resendDiagnostics, {
+      allowTier3: true,
+    });
+
+    expect(result.addedImports).toEqual([
+      { file: RESEND_ROUTE, name: "Resend", module: "resend" },
+    ]);
+    expect(result.code).toContain('import { Resend } from "resend"');
+  });
+
+  it("leaves Resend residual in F2 (tier-3 gate — never undo the F2 SDK guard)", () => {
+    const result = fixKnownTs2304Imports(resendRouteContent, resendDiagnostics);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(resendRouteContent);
+  });
+
+  it("does NOT import Resend into a non-server file even in F3 (path-gate)", () => {
+    const content = project(
+      FILE,
+      `export default function Page() {
+  const r = new Resend("");
+  return <div>{String(r)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: FILE, message: "Cannot find name 'Resend'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("never injects resend into a 'use client' route-adjacent file even in F3", () => {
+    const clientFile = "app/api/contact/route.ts";
+    const content = project(
+      clientFile,
+      `"use client";
+
+export function ContactWidget() {
+  const r = new Resend("");
+  return <div>{String(r)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: clientFile, message: "Cannot find name 'Resend'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // Codex P2 (PR #378): a VALUE usage of a type-only export can never be
+  // satisfied by any import (`import type` is erased at runtime; the module
+  // has no runtime binding to value-import). Leave it for the LLM.
+  it("does NOT emit a type import when LucideIcon is used in VALUE position (JSX)", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `export function IconList() {
+  return <LucideIcon className="h-4 w-4" />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("does NOT emit a type import when LucideIcon is assigned as a value", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `const Icon = LucideIcon;
+
+export function IconList() {
+  return <Icon />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // Codex P2 (PR #378): the F3 build spec initializes SDK clients in
+  // `lib/email.ts` — outside the route surface. Server helper modules under
+  // lib/ (no "use client") must resolve too.
+  it("resolves Resend in a lib/ server helper module in F3 (lib/email.ts pattern)", () => {
+    const helper = "lib/email.ts";
+    const content = project(
+      helper,
+      `export function createEmailClient() {
+  return new Resend(process.env.RESEND_API_KEY!);
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Resend'. Did you mean 'resend'?" }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([{ file: helper, name: "Resend", module: "resend" }]);
+    expect(result.code).toContain('import { Resend } from "resend"');
+  });
+
+  it("resolves Stripe in a lib/ server helper module in F3 (lib/stripe.ts pattern)", () => {
+    const helper = "lib/stripe.ts";
+    const content = project(
+      helper,
+      `export function createStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Stripe'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([{ file: helper, name: "Stripe", module: "stripe" }]);
+    expect(result.code).toContain('import Stripe from "stripe"');
+  });
+
+  it("still refuses Resend in a 'use client' file under lib/ even in F3", () => {
+    const helper = "lib/email-widget.tsx";
+    const content = project(
+      helper,
+      `"use client";
+
+export function EmailWidget() {
+  const r = new Resend("");
+  return <div>{String(r)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Resend'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("resolves LucideIcon as an `import type` (type-named kind)", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `const features: { icon: LucideIcon; label: string }[] = [];
+
+export function IconList() {
+  return <div>{features.length}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.addedImports).toEqual([
+      { file: "components/icon-list.tsx", name: "LucideIcon", module: "lucide-react" },
+    ]);
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+    // Never a value import — lucide-react has no runtime LucideIcon export.
+    expect(result.code).not.toMatch(/import\s+\{\s*LucideIcon/);
+  });
+
+  it("merges LucideIcon into an existing lucide type-only import line", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `import type { LucideProps } from "lucide-react";
+
+const features: { icon: LucideIcon; props: LucideProps }[] = [];
+
+export function IconList() {
+  return <div>{features.length}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.code).toContain(
+      'import type { LucideProps, LucideIcon } from "lucide-react"',
+    );
+    expect(result.code.match(/from "lucide-react"/g)).toHaveLength(1);
+  });
+
+  it("does NOT merge LucideIcon into a lucide VALUE import line", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `import { Flame } from "lucide-react";
+
+const features: { icon: LucideIcon }[] = [{ icon: Flame }];
+
+export function IconList() {
+  return <Flame />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+  });
+
   it("leaves a shadcn∩lucide ambiguous name (Calendar) for the LLM", () => {
     // `Calendar` is both a shadcn component AND a lucide icon. A bare,
     // prop-less `<Calendar />` gives no usage signal, so the deterministic

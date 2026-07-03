@@ -272,6 +272,8 @@ async function runWarmTscPass(
           handledCodes: importRepair.handledCodes,
           fixCount: importRepair.fixes.length,
           fixers: countByFixer(importRepair.fixes),
+          // M#imp1 telemetry: resolved vs residual cannot-find names + reason.
+          cannotFindSummary: importRepair.cannotFindSummary,
         });
         let residualConfirmed = false;
         if (!isBudgetExceeded(opts.budgetDeadline)) {

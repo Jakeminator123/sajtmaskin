@@ -211,6 +211,67 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings[0]?.detail).toContain("<Cuboid");
   });
 
+  it("does NOT flag DOM interfaces used as type-generic arguments (prod cc10e7de v1/v5/v8)", () => {
+    // The exact prod pattern that failed three versions: a correct
+    // `FormEvent<HTMLFormElement>` type annotation — no JSX misuse anywhere.
+    // The scan previously matched `<HTMLFormElement>` inside the generic and
+    // emitted an unfixable `undefined-jsx-symbol` blocker.
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/contact-form.tsx",
+        content: [
+          '"use client";',
+          'import type { FormEvent } from "react";',
+          "export function ContactForm() {",
+          "  async function handleSubmit(event: FormEvent<HTMLFormElement>) {",
+          "    event.preventDefault();",
+          "  }",
+          "  return <form onSubmit={handleSubmit}><input name='email' /></form>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("does NOT flag capitalised names in other type-generic positions", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/widget.tsx",
+        content: [
+          'import type { ChangeEvent } from "react";',
+          "export async function helper(): Promise<Response> {",
+          '  return fetch("/api");',
+          "}",
+          "export function Widget() {",
+          "  const onChange = (e: ChangeEvent<HTMLInputElement>) => e.target.value;",
+          "  return <input onChange={onChange} />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("still flags REAL DOM-interface JSX misuse (belt-and-suspenders behind dom-builtin-jsx-fixer)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/broken.tsx",
+        content: [
+          "export function Broken() {",
+          "  return <HTMLFormElement onSubmit={() => {}}><input /></HTMLFormElement>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("undefined-jsx-symbol");
+    expect(findings[0]?.detail).toContain("<form>");
+  });
+
   it("gives a precise lowercase-tag hint for DOM-interface tags (no react-three noise)", () => {
     const findings = checkUndefinedJsxSymbols([
       {

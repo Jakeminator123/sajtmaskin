@@ -14,6 +14,68 @@ import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
 
+// Whole-text import-binding regexes. Unlike the per-line scans below these
+// span MULTI-LINE named-import blocks (`import {\n  Flame,\n} from
+// "lucide-react"`), whose bindings the line-based scans cannot see.
+// Prod incident 2026-07-03 (chat cc10e7de v8, M#imp1): `app/page.tsx` had a
+// multi-line lucide import; `fixMissingIconValueImports` did not see those
+// bindings, re-imported six icons, and the guarded wrapper then reverted the
+// ENTIRE import-validator result — silently discarding the correct
+// `Badge`/`Button` shadcn fixes that `detectMissingImports` had just added.
+const NAMED_IMPORT_STATEMENT_RE =
+  /^[ \t]*import\s+(type\s+)?(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([^}]*)\}\s*from\s*["'][^"']+["']/gm;
+const DEFAULT_IMPORT_STATEMENT_RE =
+  /^[ \t]*import\s+(type\s+)?([A-Za-z_$][\w$]*)\s*(?:,|from)\s/gm;
+const NAMESPACE_IMPORT_STATEMENT_RE =
+  /^[ \t]*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s/gm;
+
+/**
+ * Names bound by import statements across the whole file, split into VALUE
+ * and TYPE-ONLY bindings. Multi-line aware (see the regex comment above).
+ * Canonical "already imported?" collector: consumed by this module's JSX-tag
+ * scan (`detectMissingImports`) and icon-value scan
+ * (`fixMissingIconValueImports`), AND by the diagnostic-driven
+ * `ts2304-known-import-fixer` (bugbot HIGH on PR #378: its own line-based
+ * scan re-injected names bound in multi-line import blocks — same M#imp1
+ * guard-revert class). ONE shared implementation on purpose; do not fork.
+ */
+export function collectImportBoundNames(code: string): {
+  value: Set<string>;
+  typeOnly: Set<string>;
+} {
+  const value = new Set<string>();
+  const typeOnly = new Set<string>();
+
+  NAMED_IMPORT_STATEMENT_RE.lastIndex = 0;
+  for (const match of code.matchAll(NAMED_IMPORT_STATEMENT_RE)) {
+    const statementIsTypeOnly = Boolean(match[1]);
+    for (const rawSpec of match[2].split(",")) {
+      let spec = rawSpec.trim();
+      if (!spec) continue;
+      const specIsTypeOnly = /^type\s+/.test(spec);
+      if (specIsTypeOnly) spec = spec.replace(/^type\s+/, "");
+      const aliased = spec.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
+      const bound = aliased ? aliased[2] : spec;
+      if (!/^[A-Za-z_$][\w$]*$/.test(bound)) continue;
+      if (statementIsTypeOnly || specIsTypeOnly) typeOnly.add(bound);
+      else value.add(bound);
+    }
+  }
+
+  DEFAULT_IMPORT_STATEMENT_RE.lastIndex = 0;
+  for (const match of code.matchAll(DEFAULT_IMPORT_STATEMENT_RE)) {
+    if (match[1]) typeOnly.add(match[2]);
+    else value.add(match[2]);
+  }
+
+  NAMESPACE_IMPORT_STATEMENT_RE.lastIndex = 0;
+  for (const match of code.matchAll(NAMESPACE_IMPORT_STATEMENT_RE)) {
+    value.add(match[1]);
+  }
+
+  return { value, typeOnly };
+}
+
 export const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
   react: [
     "useState", "useEffect", "useRef", "useCallback", "useMemo",
@@ -492,22 +554,13 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   const fixes: AutoFixEntry[] = [];
   const lines = code.split("\n");
 
-  const importedNames = new Set<string>();
-  for (const line of lines) {
-    const defaultMatch = line.match(/^\s*import\s+(\w+)\s+from\s+/);
-    if (defaultMatch) importedNames.add(defaultMatch[1]);
-
-    const namedMatch = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+/);
-    if (namedMatch) {
-      for (const spec of namedMatch[1].split(",")) {
-        const asMatch = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
-        importedNames.add(asMatch ? asMatch[2] : spec.trim());
-      }
-    }
-
-    const namespaceMatch = line.match(/^\s*import\s+\*\s+as\s+(\w+)\s+from\s+/);
-    if (namespaceMatch) importedNames.add(namespaceMatch[1]);
-  }
+  // Multi-line aware (M#imp1): the old per-line scan could not see bindings
+  // inside multi-line import blocks, so already-imported names got re-added
+  // and the guarded wrapper reverted the whole result. Type-only bindings
+  // count as "imported" here on purpose — re-importing them as values is a
+  // different fixer's job (value-used-from-type-import), not a missing import.
+  const bound = collectImportBoundNames(code);
+  const importedNames = new Set<string>([...bound.value, ...bound.typeOnly]);
 
   const jsxTagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
   const jsxTags = new Set<string>();
@@ -718,13 +771,29 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   }
 
   if (newImports.length > 0) {
+    // Never splice INSIDE a multi-line import block (M#imp1): the old walk
+    // stopped at the first non-`import` line, which for `import {\n  Flame,\n}
+    // from "lucide-react"` is the second line of the block — inserting there
+    // corrupted the block, hid its bindings from every later scan, and ended
+    // in a guarded-wrapper revert of the whole result. Track open blocks and
+    // advance to the `} from "…"` closer before inserting.
     let insertIdx = 0;
+    let inImportBlock = false;
     for (let i = 0; i < lines.length; i++) {
-      if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+      const line = lines[i];
+      if (inImportBlock) {
         insertIdx = i + 1;
-      } else if (insertIdx > 0) {
-        break;
+        if (/\}\s*from\s+["']/.test(line)) inImportBlock = false;
+        continue;
       }
+      if (/^\s*import\s/.test(line) || /^\s*["']use /.test(line)) {
+        insertIdx = i + 1;
+        if (line.includes("{") && !/from\s+["']/.test(line)) {
+          inImportBlock = true;
+        }
+        continue;
+      }
+      if (insertIdx > 0) break;
     }
     lines.splice(insertIdx, 0, ...newImports);
   }
@@ -772,45 +841,37 @@ const ICON_PROPERTY_JSX_VALUE_RE = /\b[A-Za-z]*[Ii]con\s*=\s*\{\s*([A-Z][A-Za-z0
  * ships a TS1361/`ReferenceError` unless the binding is converted to a value
  * import. Treating both kinds as "already imported" (the old single-Set
  * behaviour) silently skipped exactly the file that needed fixing.
+ *
+ * Multi-line aware since M#imp1 (prod chat cc10e7de v8): delegates to the
+ * whole-text collector so a multi-line lucide import block's bindings are
+ * seen — the old per-line scan re-imported six already-imported icons, which
+ * made the guarded wrapper revert the whole import-validator result.
  */
 function collectImportedBindings(code: string): {
   value: Set<string>;
   typeOnly: Set<string>;
 } {
-  const value = new Set<string>();
-  const typeOnly = new Set<string>();
-  for (const line of code.split("\n")) {
-    const named = line.match(/^\s*import\s+(type\s+)?\{([^}]+)\}/);
-    if (named) {
-      const lineIsTypeOnly = Boolean(named[1]);
-      for (const rawSpec of named[2].split(",")) {
-        let spec = rawSpec.trim();
-        if (!spec) continue;
-        const specIsTypeOnly = /^type\s+/.test(spec);
-        if (specIsTypeOnly) spec = spec.replace(/^type\s+/, "");
-        const aliased = spec.match(/(\w+)\s+as\s+(\w+)/);
-        const bound = aliased ? aliased[2] : spec;
-        if (!bound) continue;
-        if (lineIsTypeOnly || specIsTypeOnly) typeOnly.add(bound);
-        else value.add(bound);
-      }
-    }
-    const def = line.match(/^\s*import\s+([A-Za-z_$][\w$]*)\s*(?:,|from)\s/);
-    if (def) value.add(def[1]);
-    const ns = line.match(/^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)/);
-    if (ns) value.add(ns[1]);
-  }
-  return { value, typeOnly };
+  return collectImportBoundNames(code);
 }
 
 /**
  * Convert a type-only lucide binding into a value binding (M#cr1). Handles:
  *  - inline spec in a value import: `import { type PawPrint, Menu } from
  *    "lucide-react"` → strip the `type` keyword (done — no further add needed);
- *  - whole-line `import type { PawPrint } from "lucide-react"` with a single
- *    spec → flip the line to a value import (done);
- *  - whole-line with multiple specs → remove the name from the type line and
- *    report `needsValueImport: true` so the caller adds the value import.
+ *  - whole-statement `import type { PawPrint } from "lucide-react"` with a
+ *    single spec → flip the statement to a value import (done);
+ *  - whole-statement with multiple specs → remove the name from the type
+ *    import and report `needsValueImport: true` so the caller adds the value
+ *    import.
+ *
+ * MULTI-LINE aware (Codex P2 on PR #378): statements are gathered as line
+ * RANGES (opener → `} from "…"` closer), so `import type {\n  PawPrint,\n}
+ * from "lucide-react"` converts too. Before this, the multi-line-aware
+ * binding collector correctly classified the name type-only but this
+ * converter only understood single lines → returned null → the caller
+ * skipped the value fix entirely and the TS1361/runtime failure shipped.
+ * A converted/edited statement is re-emitted single-line — downstream
+ * parse/dedupe receipts validate the result.
  *
  * Only lucide-react imports are converted — a type binding from any other
  * module is a different symbol and is left for the LLM fixer (returns null).
@@ -821,36 +882,55 @@ function convertLucideTypeImportToValue(
 ): { code: string; needsValueImport: boolean } | null {
   const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const lines = code.split("\n");
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.includes("lucide-react")) continue;
+    if (!/^\s*import\s/.test(line)) continue;
 
-    // Inline `type Name` spec inside a VALUE import line.
-    if (/^\s*import\s+\{/.test(line) && !/^\s*import\s+type\s/.test(line)) {
-      const inlineRe = new RegExp(`(\\{[^}]*?)\\btype\\s+(${n})\\b`);
-      if (inlineRe.test(line)) {
-        lines[i] = line.replace(inlineRe, "$1$2");
-        return { code: lines.join("\n"), needsValueImport: false };
-      }
+    // Gather the full statement range: single line, or opener → closer.
+    let end = i;
+    if (line.includes("{") && !/from\s+["']/.test(line)) {
+      while (end < lines.length - 1 && !/\}\s*from\s+["']/.test(lines[end])) end++;
+    }
+    const stmt = lines.slice(i, end + 1).join("\n");
+    if (!stmt.includes("lucide-react")) {
+      i = end;
       continue;
     }
 
-    // Whole-line `import type { … } from "lucide-react"`.
-    const whole = line.match(
-      /^(\s*import\s+)type\s+\{([^}]*)\}(\s*from\s+["']lucide-react["'].*)$/,
+    // Inline `type Name` spec inside a VALUE import statement.
+    if (/^\s*import\s*\{/.test(line) && !/^\s*import\s+type\s/.test(line)) {
+      const inlineRe = new RegExp(`(\\{[\\s\\S]*?)\\btype\\s+(${n})\\b`);
+      if (inlineRe.test(stmt)) {
+        lines.splice(i, end - i + 1, ...stmt.replace(inlineRe, "$1$2").split("\n"));
+        return { code: lines.join("\n"), needsValueImport: false };
+      }
+      i = end;
+      continue;
+    }
+
+    // Whole-statement `import type { … } from "lucide-react"`.
+    const whole = stmt.match(
+      /^(\s*import\s+)type\s*\{([\s\S]*?)\}(\s*from\s+["']lucide-react["'].*)$/,
     );
-    if (!whole) continue;
+    if (!whole) {
+      i = end;
+      continue;
+    }
     const specs = whole[2]
       .split(",")
       .map((spec) => spec.trim())
       .filter(Boolean);
-    if (!specs.includes(name)) continue;
+    if (!specs.includes(name)) {
+      i = end;
+      continue;
+    }
     if (specs.length === 1) {
-      lines[i] = `${whole[1]}{ ${name} }${whole[3]}`;
+      lines.splice(i, end - i + 1, `${whole[1]}{ ${name} }${whole[3]}`);
       return { code: lines.join("\n"), needsValueImport: false };
     }
     const remaining = specs.filter((spec) => spec !== name);
-    lines[i] = `${whole[1]}type { ${remaining.join(", ")} }${whole[3]}`;
+    lines.splice(i, end - i + 1, `${whole[1]}type { ${remaining.join(", ")} }${whole[3]}`);
     return { code: lines.join("\n"), needsValueImport: true };
   }
   return null;

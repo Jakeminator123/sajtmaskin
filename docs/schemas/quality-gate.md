@@ -334,12 +334,28 @@ versionens `lifecycle_stage`: `integrations` ⇒ `fidelity3`) och löser tier-3-
 moduler (enligt `isTier3SdkModule`) **endast** i F3. I F2/okänt lämnas de
 residual så gaten blockerar. Icke-tier-3 (shadcn/lucide/next) är opåverkat.
 
-Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers) och
-`validate.tsc.import-repair.resolved` (`llmSkippedBecauseResolved: true`) i
-dev-loggen, så prod-analys kan se om autofix saknades, lagade eller orsakade
-felet. `handledCodes` registrerar varje faktisk tsc-kod för sig — TS2552
-("Cannot find name … Did you mean …") särskiljs från TS2304 även om båda löses
-av samma known-import-fixer, så statistiken inte buntar ihop dem.
+Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers,
+cannotFindSummary) och `validate.tsc.import-repair.resolved`
+(`llmSkippedBecauseResolved: true`) i dev-loggen, så prod-analys kan se om
+autofix saknades, lagade eller orsakade felet. `handledCodes` registrerar
+varje faktisk tsc-kod för sig — TS2552 ("Cannot find name … Did you mean …")
+särskiljs från TS2304 även om båda löses av samma known-import-fixer, så
+statistiken inte buntar ihop dem.
+
+`cannotFindSummary` (stabilisering våg 1, M#imp1-arkeologi) redovisar
+cannot-find-klassen per körning: `seenCodes` (distinkta TS2304/TS2552),
+`resolvedNames` (`fil::namn` som fick import) och `residual` med `reason`
+per namn — `tier3_gated` (resolvbar SDK men F2-gaten stoppade, t.ex.
+Stripe/Resend i fidelity2), `ambiguous_shadcn_lucide` (kollision utan
+usage-signal), `type_export_value_usage` (typ-only-export som `LucideIcon`
+använd i VÄRDE-position — ingen import kan lösa det; modellen måste byta
+till en riktig ikon, residualen går till LLM-fixern), `unknown_name` (finns
+inte i någon mappning) eller `not_applied` (resolvad men injektionsguard
+hoppade över — redan importerad, lokalt deklarerad, server-only-modul i
+client-fil, self-import). Samma fält
+emitteras på `verifier-pass.deterministic-import-fix` i finalize.
+Repair-loopens event loggas även när INGET var fixbart (fixCount 0) så en
+körning där alla kandidater gate:ades är observerbar i stället för tyst.
 
 Det betyder att RenderGate/ReleaseGate i nuläget är både verifieringslager och källa till
 repair-kontext, medan själva LLM-reparationen fortfarande går genom RepairGate.

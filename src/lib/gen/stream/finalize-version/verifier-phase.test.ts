@@ -44,6 +44,8 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 import { runVerifierPhase } from "./verifier-phase";
+import { checkUndefinedJsxSymbols } from "@/lib/gen/verify/verifier-pass";
+import { parseCodeProject } from "@/lib/gen/parser";
 
 function fencedFile(path: string, code: string): string {
   return `\`\`\`tsx file="${path}"\n${code}\n\`\`\``;
@@ -210,6 +212,87 @@ describe("runVerifierPhase deterministic import pre-fix", () => {
       expect.objectContaining({ id: "undefined-jsx-symbol" }),
     ]);
     expect(result.contentForVersion).toBe(page);
+  });
+
+  it("prod cc10e7de contact-form: a valid FormEvent<HTMLFormElement> type annotation never blocks (full normalize+verifier path)", async () => {
+    // Failing-test for M#jsx1: this is the REAL prod file shape (minimized
+    // from version 4a29c7b4's components/contact-form.tsx). There is no JSX
+    // misuse — only the type-generic annotation. Before the scanner fix the
+    // deterministic verifier scan flagged `<HTMLFormElement>` inside the
+    // generic as `undefined-jsx-symbol`; the dom pre-fix correctly no-ops
+    // (nothing to rewrite), the import pre-fix correctly refuses the
+    // DOM-variant, and the finding reached the LLM gate as an unfixable
+    // blocker — failing v1, v5 and v8 in prod. The mocked `runVerifierPass`
+    // delegates to the REAL deterministic scan so this exercises the whole
+    // dom-prefix → scan → import-prefix chain on real content.
+    const prodContactForm = fencedFile(
+      "components/contact-form.tsx",
+      `"use client";
+
+import type { FormEvent } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+
+export function ContactForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    if (!formData.get("name")) {
+      toast.error("Fyll i namn.");
+      return;
+    }
+    setIsSubmitting(true);
+  }
+
+  return (
+    <form className="grid gap-5" onSubmit={handleSubmit}>
+      <Button type="submit" disabled={isSubmitting}>
+        Skicka
+      </Button>
+    </form>
+  );
+}`,
+    );
+    runVerifierPass.mockImplementation(async (content: string) => ({
+      blocking: checkUndefinedJsxSymbols(parseCodeProject(content).files),
+      quality: [],
+    }));
+
+    const result = await runVerifierPhase(baseParams(prodContactForm));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(result.contentForVersion).toBe(prodContactForm);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+
+  it("real DOM-interface JSX misuse is rewritten by the dom pre-fix BEFORE the verifier scan", async () => {
+    const brokenForm = fencedFile(
+      "components/contact-form.tsx",
+      `export function ContactForm() {
+  return (
+    <HTMLFormElement onSubmit={() => {}}>
+      <input name="email" />
+    </HTMLFormElement>
+  );
+}`,
+    );
+    runVerifierPass.mockImplementation(async (content: string) => ({
+      blocking: checkUndefinedJsxSymbols(parseCodeProject(content).files),
+      quality: [],
+    }));
+
+    const result = await runVerifierPhase(baseParams(brokenForm));
+
+    // The deterministic dom pre-fix rewrote the tag, so the (real) scan on the
+    // fixed content finds nothing and no blocker survives to the LLM gate.
+    expect(result.contentForVersion).toContain("<form onSubmit=");
+    expect(result.contentForVersion).not.toContain("<HTMLFormElement");
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 
   it("ignores DOM-interface undefined-jsx details (owned by dom-builtin-jsx-fixer)", async () => {
