@@ -84,6 +84,89 @@ function check(label, condition) {
   check("closed socket releases viewer", activePreviewSocketCount("guard-chat") === 0);
 }
 
+// 5. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
+//    concurrent `restart: true` boots must NEVER run bootRuntimeForSession
+//    concurrently — the old "await existing, then run" released all waiters in
+//    parallel, spawning two dev servers (EADDRINUSE) and orphaning a child
+//    that held Next 16's workspace dev-lock.
+{
+  const { setBootRunnerForTesting } = runtime.__testing;
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  const chatId = "guard-serial-chat";
+  const session = {
+    sessionId: "guard-serial-session",
+    previewSessionId: "ps_guard-serial",
+    chatId,
+    versionId: "v1",
+    previewUrl: `http://localhost/${chatId}`,
+    status: "starting",
+    lastAction: "start",
+    sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    filesJson: { "package.json": "{}" },
+  };
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(
+    join(dataDir, "preview-host-store.json"),
+    JSON.stringify({
+      sessions: { [session.sessionId]: session },
+      logs: {},
+      previewSessionToSession: { [session.previewSessionId]: session.sessionId },
+    }),
+    "utf8",
+  );
+
+  let active = 0;
+  let maxActive = 0;
+  let bootRuns = 0;
+  setBootRunnerForTesting(async () => {
+    active += 1;
+    bootRuns += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    active -= 1;
+    return { runtimePort: 4000 + bootRuns };
+  });
+
+  try {
+    // (a) A burst of concurrent restart boots serializes (concurrency 1) and
+    //     coalesces queued restarts instead of running one boot per request.
+    const burst = [
+      runtime.ensureRuntimeForChat(chatId, { restart: true }),
+      runtime.ensureRuntimeForChat(chatId, { restart: true }),
+      runtime.ensureRuntimeForChat(chatId, { restart: true }),
+    ];
+    const burstResults = await Promise.all(burst);
+    check("restart burst never overlaps boots", maxActive === 1);
+    check("restart burst coalesces queued restarts", bootRuns <= 2);
+    check(
+      "restart burst boots resolve with the session",
+      burstResults.every((r) => r && r.session && r.runtimePort > 0),
+    );
+
+    // (b) A restart arriving MID-boot still triggers one follow-up boot
+    //     (the original "restart is never dropped" guarantee).
+    const before = bootRuns;
+    const first = runtime.ensureRuntimeForChat(chatId, { restart: true });
+    await new Promise((resolve) => setTimeout(resolve, 10)); // first is now running
+    const second = runtime.ensureRuntimeForChat(chatId, { restart: true });
+    await Promise.all([first, second]);
+    check("mid-boot restart runs a follow-up boot", bootRuns - before === 2);
+    check("mid-boot restart still never overlaps", maxActive === 1);
+
+    // (c) Non-restart boots dedupe onto whatever is in flight.
+    const beforePlain = bootRuns;
+    const restartBoot = runtime.ensureRuntimeForChat(chatId, { restart: true });
+    const plainBoot = runtime.ensureRuntimeForChat(chatId, {});
+    check("plain boot dedupes to in-flight boot", plainBoot === restartBoot);
+    await Promise.all([restartBoot, plainBoot]);
+    check("deduped plain boot ran no extra boot", bootRuns - beforePlain === 1);
+  } finally {
+    setBootRunnerForTesting(null);
+  }
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

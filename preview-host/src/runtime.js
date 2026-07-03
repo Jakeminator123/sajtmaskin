@@ -1425,6 +1425,13 @@ async function stopRuntimeForSession(session) {
 }
 
 async function spawnDevServer(session, workspaceDir, runtimePort) {
+  // Defense-in-depth (prod-incident 2026-07-03): never overwrite a live
+  // tracked child. `runtimeChildren.set` below would orphan the previous
+  // process, which keeps holding Next 16's workspace dev-lock and kills every
+  // later boot with "Another next dev server is already running". Boots are
+  // serialized per chat, so this is normally a no-op — it only fires if a
+  // prior child survived an aborted/raced boot path.
+  await stopTrackedRuntime(session.sessionId, null);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
   const runId = runIdResolverFromSession(session);
@@ -1598,36 +1605,80 @@ async function bootRuntimeForSession(session, options = {}) {
   }
 }
 
-async function ensureRuntimeForChat(chatId, options = {}) {
-  const existing = inflightBootByChat.get(chatId);
-  // When a `restart: true` boot is requested while a non-restart boot is
-  // already in flight (e.g. /preview/session/update arriving while the
-  // initial /preview/session/start boot is still running), we MUST NOT
-  // dedupe to the existing one — the restart flag would silently be
-  // dropped and the new files would never trigger `npm install`.
-  // Instead, wait for the existing boot to finish (best-effort) and then
-  // run a fresh boot with the restart flag applied.
-  if (existing && options.restart !== true) {
-    return existing;
+/**
+ * Injectable boot runner for the serialization guard tests
+ * (`scripts/test-runtime-guards.mjs`). Production always uses the real
+ * `bootRuntimeForSession`.
+ */
+let bootRunnerForChat = bootRuntimeForSession;
+
+/**
+ * Serialized per-chat boot (prod-incident 2026-07-03, chat e8420220):
+ *
+ * The previous implementation let a `restart: true` boot `await` the
+ * in-flight boot and then run its own — but when SEVERAL restart boots
+ * arrived while one was in flight, they ALL awaited the SAME promise and
+ * were released in parallel once it settled. Two+ concurrent
+ * `bootRuntimeForSession` calls for the same chat then raced
+ * stop→resolvePort→spawn: two dev servers spawned (EADDRINUSE), the
+ * later spawn overwrote `runtimeChildren`, and the earlier child leaked
+ * as an orphan holding Next 16's workspace dev-lock — every subsequent
+ * boot died with "Another next dev server is already running" until the
+ * session hibernated with no working preview.
+ *
+ * Now every boot for a chat is CHAINED onto the previous one (strict
+ * serialization), and restart boots coalesce: while a restart boot is
+ * QUEUED (not yet started), further restart requests return that queued
+ * boot — it re-reads the session from the store when it runs, so it
+ * always boots the latest filesJson. This keeps the original guarantee
+ * (a restart is never silently dropped) without ever running two boots
+ * concurrently. Non-restart boots keep deduping to whatever is in
+ * flight/queued.
+ */
+const bootChainByChat = new Map();
+const queuedRestartBootByChat = new Map();
+
+function ensureRuntimeForChat(chatId, options = {}) {
+  const restart = options.restart === true;
+  if (restart) {
+    const queued = queuedRestartBootByChat.get(chatId);
+    if (queued) return queued;
+  } else {
+    const existing = inflightBootByChat.get(chatId);
+    if (existing) return existing;
   }
-  if (existing && options.restart === true) {
-    await existing.catch(() => undefined);
-  }
-  const run = (async () => {
-    const data = readStoreSync();
-    const session = findSessionByChatId(data, chatId);
-    if (!session) return null;
-    const result = await bootRuntimeForSession(session, options);
-    return { session, runtimePort: result.runtimePort };
-  })();
+  const prevTail = bootChainByChat.get(chatId) ?? Promise.resolve();
+  const run = prevTail
+    .catch(() => undefined)
+    .then(async () => {
+      if (restart && queuedRestartBootByChat.get(chatId) === run) {
+        // The boot is now RUNNING, not queued — a restart request arriving
+        // from here on must queue a fresh boot (this one may already have
+        // snapshotted pre-update files).
+        queuedRestartBootByChat.delete(chatId);
+      }
+      const data = readStoreSync();
+      const session = findSessionByChatId(data, chatId);
+      if (!session) return null;
+      const result = await bootRunnerForChat(session, options);
+      return { session, runtimePort: result.runtimePort };
+    });
+  const tail = run.catch(() => undefined);
+  bootChainByChat.set(chatId, tail);
   inflightBootByChat.set(chatId, run);
-  try {
-    return await run;
-  } finally {
+  if (restart) queuedRestartBootByChat.set(chatId, run);
+  tail.then(() => {
     if (inflightBootByChat.get(chatId) === run) {
       inflightBootByChat.delete(chatId);
     }
-  }
+    if (queuedRestartBootByChat.get(chatId) === run) {
+      queuedRestartBootByChat.delete(chatId);
+    }
+    if (bootChainByChat.get(chatId) === tail) {
+      bootChainByChat.delete(chatId);
+    }
+  });
+  return run;
 }
 
 function queueRuntimeBoot(chatId, options = {}) {
@@ -2321,5 +2372,8 @@ module.exports = {
     runShellCommand,
     registerPreviewSocket,
     activePreviewSocketCount,
+    setBootRunnerForTesting(runner) {
+      bootRunnerForChat = runner ?? bootRuntimeForSession;
+    },
   },
 };
