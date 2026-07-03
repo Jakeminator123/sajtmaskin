@@ -47,6 +47,92 @@ export interface ImageValidationResult {
   warnings: string[];
 }
 
+export const KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY = "knownBrokenImageReplacements";
+
+/**
+ * Growth cap for the per-chat dead-URL → replacement map (Bugbot MEDIUM,
+ * PR #376). The map lives in `engine_chats.orchestration_snapshot` and is
+ * appended to on every validation pass, so without a ceiling a long-lived
+ * chat could grow it unboundedly. 50 entries is far above what a single
+ * site realistically accumulates. On overflow the FIRST entries in object
+ * order are dropped (simple FIFO). Note: Postgres jsonb normalizes key
+ * order, so after a round-trip the eviction order is approximate — the
+ * guarantee that matters is the hard bound, enforced at this coerce
+ * boundary which every read AND write input passes through.
+ */
+export const KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES = 50;
+
+/**
+ * SQL-side hard ceiling for the persisted map (Codex P2, PR #376 round 2).
+ * The append path unions the incoming (already capped) batch into the jsonb
+ * column, so without a DB-side bound the COLUMN could still creep past the
+ * read cap (51, 52, …) even though reads coerce back to 50. Heuristic: when
+ * the merged map would exceed 2× the read cap, the key is RESET to just the
+ * incoming batch in the same UPDATE. JSONB does not preserve insertion
+ * order, so exact FIFO in the DB is not the goal — a bounded column is.
+ */
+export const KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING =
+  KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES * 2;
+
+export type KnownImageReplacementMap = Record<string, string>;
+
+function isPersistableImageReplacementUrl(url: string): boolean {
+  if (!url || url.length > 2_000) return false;
+  if (url.startsWith("/api/placeholder")) return true;
+  return isExternalImageUrl(url);
+}
+
+export function coerceKnownImageReplacementMap(input: unknown): KnownImageReplacementMap {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const out: KnownImageReplacementMap = {};
+  for (const [deadUrl, replacementUrl] of Object.entries(input)) {
+    if (!isExternalImageUrl(deadUrl) || typeof replacementUrl !== "string") continue;
+    if (!isPersistableImageReplacementUrl(replacementUrl)) continue;
+    out[deadUrl] = replacementUrl;
+  }
+  const keys = Object.keys(out);
+  if (keys.length <= KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES) return out;
+  // FIFO eviction: drop the oldest (first-inserted) entries beyond the cap.
+  const capped: KnownImageReplacementMap = {};
+  for (const key of keys.slice(keys.length - KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES)) {
+    capped[key] = out[key];
+  }
+  return capped;
+}
+
+/**
+ * Statuses that prove the URL itself is permanently gone (Codex/VADE P2,
+ * PR #376 round 2): 404 Not Found and 410 Gone. Transient failures —
+ * network `"error"` (timeout/DNS), 5xx, 429 — may still be REPLACED within
+ * the current pass, but must never be cached as a permanent dead→replacement
+ * mapping: the heal path applies the map without any network recheck, so a
+ * one-off CDN blip would otherwise durably swap a valid image forever.
+ */
+export function isDefinitivelyDeadImageStatus(status: number | "error"): boolean {
+  return status === 404 || status === 410;
+}
+
+export function buildKnownImageReplacementMap(
+  broken: BrokenImage[],
+): KnownImageReplacementMap {
+  const out: KnownImageReplacementMap = {};
+  for (const entry of broken) {
+    if (!isDefinitivelyDeadImageStatus(entry.status)) continue;
+    // Placeholder fallback (Codex P2 #4): when Unsplash search missed,
+    // autoFix replaced the dead URL with the deterministic placeholder from
+    // `buildPlaceholderReplacementUrl(alt)` while leaving `replacementUrl`
+    // null. Persist that same mapping so the heal path stays consistent
+    // with what was actually written to the files.
+    const replacementUrl =
+      entry.replacementUrl ?? buildPlaceholderReplacementUrl(entry.alt);
+    if (replacementUrl === entry.url) continue;
+    if (!isExternalImageUrl(entry.url)) continue;
+    if (!isPersistableImageReplacementUrl(replacementUrl)) continue;
+    out[entry.url] = replacementUrl;
+  }
+  return out;
+}
+
 const TOPIC_SPECIFIC_IMAGE_KEYWORDS = [
   "jul",
   "christmas",
@@ -478,6 +564,55 @@ function applyReplacements(
       }
     }
     return { ...f, content };
+  });
+
+  return { files: updatedFiles, replacedCount };
+}
+
+function sortedKnownImageReplacements(replacements: KnownImageReplacementMap) {
+  return Object.entries(coerceKnownImageReplacementMap(replacements))
+    .map(([deadUrl, replacementUrl]) => ({ deadUrl, replacementUrl }))
+    .filter((entry) => entry.deadUrl !== entry.replacementUrl)
+    .sort((a, b) => b.deadUrl.length - a.deadUrl.length);
+}
+
+export function applyKnownImageReplacementsToContent(
+  content: string,
+  replacements: KnownImageReplacementMap,
+): { content: string; replacedCount: number } {
+  const sorted = sortedKnownImageReplacements(replacements);
+  if (sorted.length === 0 || !content) return { content, replacedCount: 0 };
+
+  let nextContent = content;
+  let replacedCount = 0;
+  for (const entry of sorted) {
+    const parts = nextContent.split(entry.deadUrl);
+    const occurrences = parts.length - 1;
+    if (occurrences === 0) continue;
+    nextContent = parts.join(entry.replacementUrl);
+    replacedCount += occurrences;
+  }
+  return { content: nextContent, replacedCount };
+}
+
+export function applyKnownImageReplacementsToFiles<T extends { content: string }>(
+  files: T[],
+  replacements: KnownImageReplacementMap,
+): { files: T[]; replacedCount: number } {
+  const sorted = sortedKnownImageReplacements(replacements);
+  if (sorted.length === 0 || files.length === 0) return { files, replacedCount: 0 };
+
+  let replacedCount = 0;
+  const updatedFiles = files.map((file) => {
+    let content = file.content;
+    for (const entry of sorted) {
+      const parts = content.split(entry.deadUrl);
+      const occurrences = parts.length - 1;
+      if (occurrences === 0) continue;
+      content = parts.join(entry.replacementUrl);
+      replacedCount += occurrences;
+    }
+    return content === file.content ? file : { ...file, content };
   });
 
   return { files: updatedFiles, replacedCount };

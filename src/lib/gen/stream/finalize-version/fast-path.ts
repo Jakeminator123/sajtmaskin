@@ -29,7 +29,9 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
+import { getKnownBrokenImageReplacements } from "@/lib/db/chat-repository-pg";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { applyKnownImageReplacementsToContent } from "@/lib/utils/image-validator";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   ensureNonEmptyGenerationContent,
@@ -283,6 +285,24 @@ export async function runFinalizeFastPath(params: {
     previousFiles,
     stage: "after_validation",
   });
+
+  try {
+    const knownImageReplacements = await getKnownBrokenImageReplacements(chatId);
+    const knownImageHeal = applyKnownImageReplacementsToContent(
+      contentForVersion,
+      knownImageReplacements,
+    );
+    if (knownImageHeal.replacedCount > 0) {
+      contentForVersion = knownImageHeal.content;
+      devLogAppend("in-progress", {
+        type: "known-image-replacement-heal",
+        chatId,
+        replacedCount: knownImageHeal.replacedCount,
+      });
+    }
+  } catch (error) {
+    console.warn("[image-validator] Failed to apply known image replacements:", error);
+  }
 
   // ── Phase 2: materialize images (deep path only) ────────────────────────
   if (finalizePath.runDeepPath) {

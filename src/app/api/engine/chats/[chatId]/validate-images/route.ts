@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { FEATURES, SECRETS } from "@/lib/config";
-import { validateImages } from "@/lib/utils/image-validator";
+import { buildKnownImageReplacementMap, validateImages } from "@/lib/utils/image-validator";
 import { z } from "zod";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
+import {
+  recordKnownBrokenImageReplacements,
+  updateVersionFiles,
+} from "@/lib/db/chat-repository-pg";
 
 export const runtime = "nodejs";
 
@@ -46,6 +49,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           autoFix,
         unsplashAccessKey: unsplashKey,
       });
+
+      // Codex P2 (PR #376 round 2): a dry-run (`autoFix: false`) must not
+      // mutate the chat snapshot — the heal path consumes the map
+      // unconditionally, so recording here would let a validation-only call
+      // rewrite future generated files. Record only when a fix was requested.
+      if (autoFix) {
+        const knownReplacements = buildKnownImageReplacementMap(result.broken);
+        if (Object.keys(knownReplacements).length > 0) {
+          try {
+            await recordKnownBrokenImageReplacements(chatId, knownReplacements);
+          } catch (recordError) {
+            console.warn("[validate-images] Failed to record known image replacements:", recordError);
+          }
+        }
+      }
 
       let fixed = false;
       if (autoFix && result.replacedCount > 0) {
