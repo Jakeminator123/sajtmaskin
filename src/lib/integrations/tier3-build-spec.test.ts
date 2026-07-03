@@ -271,7 +271,7 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("Steps:");
   });
 
-  it("instructs a graceful not-configured fallback for every integration CTA", () => {
+  it("instructs the graceful not-configured fallback for integrations whose dossier ships the notice", () => {
     const block = renderTier3BuildPlanBlock(
       deriveTier3BuildSpec({
         ...emptyContracts,
@@ -286,11 +286,33 @@ describe("renderTier3BuildPlanBlock", () => {
       }),
     );
     expect(block).not.toBeNull();
-    // The header must tell the model to degrade calmly on not-configured
-    // responses rather than surface a raw error to the visitor.
-    expect(block).toContain("Graceful fallback is mandatory");
+    // stripe-checkout ships components/integration-config-notice.tsx →
+    // the model must be told to degrade calmly on not-configured responses.
+    expect(block).toContain("Graceful fallback (mandatory)");
     expect(block).toContain("payments-not-configured");
-    expect(block).toContain("email-not-configured");
     expect(block).toContain("IntegrationConfigNotice");
+  });
+
+  it("does NOT emit the config-notice instruction for dossiers that lack the component (Clerk)", () => {
+    // clerk-auth is dossier-backed but does not ship integration-config-notice.tsx.
+    // Referencing IntegrationConfigNotice here would make the model import
+    // `@/components/integration-config-notice` with no file behind it → build break.
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "clerk",
+            name: "Clerk",
+            reason: "auth",
+            status: "chosen",
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    expect(block).toContain("### Clerk (`clerk`)");
+    expect(block).not.toContain("IntegrationConfigNotice");
+    expect(block).not.toContain("Graceful fallback (mandatory)");
   });
 });

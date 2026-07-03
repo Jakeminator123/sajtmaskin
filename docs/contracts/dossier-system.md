@@ -64,7 +64,8 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
   "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "build", "purpose": "API auth"}],
   "dependencies": ["stripe", "@stripe/stripe-js"],
   "files": [
-    {"path": "components/checkout-button.tsx", "role": "client", "injectionMode": "rewritable"},
+    {"path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim"},
+    {"path": "components/integration-config-notice.tsx", "role": "shared", "injectionMode": "verbatim"},
     {"path": "components/api/checkout-session/route.ts", "role": "server", "injectionMode": "verbatim"}
   ],
   "exposes": [{"name": "CheckoutButton", "type": "component", "import": "@/components/checkout-button"}],

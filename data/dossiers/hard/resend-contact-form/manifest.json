@@ -3,7 +3,7 @@
   "id": "resend-contact-form",
   "label": "Resend Contact Form",
   "capability": "contact-form",
-  "codeFidelity": "rewritable",
+  "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Server-rendered contact form that submits to a Next.js Route Handler and sends the message as an email via Resend. Client component owns the form state + UX feedback (loading / success / error); server route owns the API call + validation. Designed to degrade gracefully when RESEND_API_KEY / EMAIL_FROM / CONTACT_EMAIL_TO are missing — the route returns 503 'email-not-configured' and the form renders a calm IntegrationConfigNotice + disabled submit instead of a raw error.",
@@ -32,7 +32,7 @@
     {
       "path": "components/contact-form.tsx",
       "role": "client",
-      "injectionMode": "rewritable"
+      "injectionMode": "verbatim"
     },
     {
       "path": "components/integration-config-notice.tsx",
@@ -50,6 +50,11 @@
       "name": "ContactForm",
       "type": "component",
       "import": "@/components/contact-form"
+    },
+    {
+      "name": "IntegrationConfigNotice",
+      "type": "component",
+      "import": "@/components/integration-config-notice"
     }
   ],
   "lastVerified": "2026-04-21",

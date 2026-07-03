@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
-  apiVersion: "2026-01-28.clover",
-});
-
 interface Body {
   priceId: string;
   successUrl?: string;
@@ -12,7 +8,8 @@ interface Body {
 }
 
 export async function POST(request: Request) {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
     // Recognizable error code so the client can render a calm "not configured"
     // notice instead of guessing on the HTTP status alone.
     return NextResponse.json(
@@ -20,6 +17,12 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
+  // Instantiate Stripe AFTER the env guard — a module-level `new Stripe("")`
+  // throws at import time and would turn the missing-key path into a route
+  // crash instead of the JSON 503 above.
+  const stripe = new Stripe(secretKey, {
+    apiVersion: "2026-01-28.clover",
+  });
   let body: Body;
   try {
     body = (await request.json()) as Body;

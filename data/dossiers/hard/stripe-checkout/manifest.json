@@ -26,7 +26,7 @@
     {
       "path": "components/checkout-button.tsx",
       "role": "client",
-      "injectionMode": "rewritable"
+      "injectionMode": "verbatim"
     },
     {
       "path": "components/integration-config-notice.tsx",
@@ -44,6 +44,11 @@
       "name": "CheckoutButton",
       "type": "component",
       "import": "@/components/checkout-button"
+    },
+    {
+      "name": "IntegrationConfigNotice",
+      "type": "component",
+      "import": "@/components/integration-config-notice"
     }
   ],
   "lastVerified": "2026-04-20",

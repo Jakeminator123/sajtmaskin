@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
-import { IntegrationConfigNotice } from "@/components/integration-config-notice";
+import { IntegrationConfigNotice } from "./integration-config-notice";
 
 interface ContactFormProps {
   subjectPrefix?: string;
@@ -51,9 +51,10 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       // Integration not wired up yet: degrade calmly instead of surfacing a raw
-      // error. We check both the status and the error code so the client never
-      // has to guess on the status alone.
-      if (res.status === 503 || body.error === "email-not-configured") {
+      // error. Gate ONLY on the explicit error code from the route — a
+      // platform/proxy 503 (Resend actually configured) must take the normal
+      // retryable error path below, not flip the form into setup mode.
+      if (body.error === "email-not-configured") {
         setState({ kind: "not-configured" });
         return;
       }

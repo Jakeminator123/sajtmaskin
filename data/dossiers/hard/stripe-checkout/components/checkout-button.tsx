@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { IntegrationConfigNotice } from "@/components/integration-config-notice";
+import { IntegrationConfigNotice } from "./integration-config-notice";
 
 interface CheckoutButtonProps {
   priceId: string;
@@ -35,9 +35,10 @@ export function CheckoutButton({
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         // Integration not wired up yet: degrade calmly instead of surfacing a
-        // raw error. We check both the status and the error code so the client
-        // never has to guess on the status alone.
-        if (res.status === 503 || body.error === "payments-not-configured") {
+        // raw error. Gate ONLY on the explicit error code from the route — a
+        // platform/proxy 503 (Stripe actually configured) must take the normal
+        // retryable error path below, not flip the CTA into setup mode.
+        if (body.error === "payments-not-configured") {
           setNotConfigured(true);
           setLoading(false);
           return;
