@@ -143,6 +143,31 @@ describe("emitOwnEngineToolCallSse", () => {
     expect(toolCallNames.has("suggestIntegration")).toBe(true);
   });
 
+  it("does not suppress the post-finalize detector when envVars are empty (Codex P2)", () => {
+    const chunks: Uint8Array[] = [];
+    const providers = new Set<string>();
+    const toolCallNames = new Set<string>();
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: (d) => chunks.push(d),
+        toolCallNames,
+        toolSignaledProviders: providers,
+        setBlockingToolCall: () => {},
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: { name: "OpenAI", envVars: [] },
+      },
+    );
+    // Signalen emitteras (giltigt namn) men providern markeras INTE som
+    // signalerad — detektorn ska kunna återvinna riktiga env-nycklar ur koden.
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(toolCallNames.has("suggestIntegration")).toBe(true);
+    expect(providers.size).toBe(0);
+  });
+
   it("does not register malformed suggestIntegration in F2 either (VADE)", () => {
     const toolCallNames = new Set<string>();
     emitOwnEngineToolCallSse(

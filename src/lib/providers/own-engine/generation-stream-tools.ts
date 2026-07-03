@@ -157,7 +157,14 @@ export function emitOwnEngineToolCallSse(
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
     bridge.toolCallNames.add(toolName);
-    if (providerKey) {
+    // Markera providern som signalerad BARA när anropet levererade användbara
+    // env-nycklar (Codex P2, PR #375): en tom envVars-signal skulle annars
+    // suppressa post-finalize-detektorn i getUnsignaledDetectedIntegrations,
+    // som kan återvinna de riktiga nycklarna (t.ex. OPENAI_API_KEY) ur koden.
+    const hasUsableEnvVars = envVars.some(
+      (v) => typeof v === "string" && v.trim().length > 0,
+    );
+    if (providerKey && hasUsableEnvVars) {
       toolSignaledProviders.add(providerKey);
     }
     debugLog("engine", "Tool: suggestIntegration", { provider: providerKey ?? "custom-env" });
