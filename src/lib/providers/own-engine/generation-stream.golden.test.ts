@@ -367,6 +367,10 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(markerOutput.f3Continuation).toBe(true);
     expect(markerOutput.lifecycleStage).toBe("integrations");
     expect(markerOutput.parentVersionId).toBe("ver_f2_parent");
+    // Canonical quick-replies persisted (server classifies against these) and
+    // a toolName that must not trip the client's integration/env filters.
+    expect(markerOutput.options).toEqual(["Godkänn förslag", "Avvisa förslag", "Annat"]);
+    expect(String(persistUiParts?.[0]?.toolName).toLowerCase()).not.toContain("integration");
   });
 
   it("does NOT persist an F3-continuation marker for an F2 (fidelity2) tool-only run", async () => {

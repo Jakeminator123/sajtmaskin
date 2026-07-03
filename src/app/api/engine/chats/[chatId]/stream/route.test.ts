@@ -17,6 +17,7 @@ const resolveChatPreferredVersionId = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
+const consumeF3ContinuationMarker = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
@@ -266,6 +267,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatScaffoldId: vi.fn(),
   failVersionVerification,
   getVersionById,
+  consumeF3ContinuationMarker,
 }));
 
 vi.mock("@/lib/gen/context/file-context-builder", () => ({
@@ -1390,6 +1392,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
       checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
           { event: "content", data: { text: "<main>Integrations build</main>" } },
@@ -1408,6 +1411,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
 
       expect(response.status).toBe(200);
+      // The atomic marker consume ran BEFORE generation, on the marker message.
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
       // The shared M#818-2 env-readiness gate MUST have run on the build base.
       expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
         expect.objectContaining({ versionId: "ver_f2_parent" }),
@@ -1427,6 +1432,161 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
     });
 
+    it("does NOT inherit for a rejecting reply — marker consumed, message runs as F2 (Bugbot HIGH)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Design continues</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Avvisa förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // The reject consumes the marker (a later reply cannot resurrect F3)…
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      // …but the message itself runs in the F2 design lane.
+      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycleStage: "design" }),
+      );
+      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          includeIntegrationSignals: false,
+          lifecycleParentVersionId: null,
+        }),
+      );
+    });
+
+    it("does NOT inherit for an unrelated design reply to the F3 question (Bugbot HIGH)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Blue hero</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Byt hero-färgen till blå, tack." }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycleStage: "design" }),
+      );
+      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+        expect.objectContaining({ includeIntegrationSignals: false }),
+      );
+    });
+
+    it("does NOT inherit when the atomic consume is not confirmed — race loser stays F2 (Bugbot MEDIUM)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      // A concurrent reply already consumed the marker: the conditional
+      // jsonb UPDATE reports 0 rows for this request.
+      consumeF3ContinuationMarker.mockResolvedValue(false);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Race loser</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycleStage: "design" }),
+      );
+      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+        expect.objectContaining({ includeIntegrationSignals: false }),
+      );
+    });
+
+    it("does NOT inherit when the consume write throws — unconfirmed is never F3 (Bugbot MEDIUM)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      consumeF3ContinuationMarker.mockRejectedValue(new Error("db down"));
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Fail-safe F2</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycleStage: "design" }),
+      );
+    });
+
     it("keeps the env-requirement strict: inherited F3 still 412s when keys are missing", async () => {
       getEngineChatByIdForRequest.mockResolvedValueOnce({
         id: "chat_1",
@@ -1437,6 +1597,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
       checkTier3ReadinessForVersion.mockResolvedValue({
         ok: false,
         reason: "missing_env",

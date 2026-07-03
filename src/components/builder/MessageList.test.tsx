@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/builder/types";
+import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { MessageList } from "./MessageList";
 
 vi.mock("streamdown", () => ({
@@ -118,6 +119,52 @@ describe("MessageList", () => {
 
     await waitFor(() => {
       expect(onQuickReply).toHaveBeenCalledWith("Design", { planMode: false });
+    });
+  });
+
+  it("keeps the F3 awaiting-input quick-replies after reload from the persisted marker (Bugbot MEDIUM PR #382)", async () => {
+    // Reload scenario: the message list is rebuilt from persisted
+    // engine_messages.ui_parts (no live stream state). The old marker
+    // toolName ("Integrationsbygge…") matched `isIntegrationOrEnvToolPart`
+    // and suppressed `getLatestPendingReply` — the reply dialog never opened
+    // and the Godkänn/Avvisa quick-replies disappeared.
+    const onQuickReply = vi.fn(async () => {});
+    const messages: ChatMessage[] = [
+      {
+        id: "user_f3_kick",
+        role: "user",
+        content: "Bygg integrationer nu utifrån den finaliserade designversionen.",
+      },
+      {
+        id: "assistant_f3_marker",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+
+    render(
+      <MessageList chatId="chat_f3" messages={messages} onQuickReply={onQuickReply} />,
+    );
+
+    // The pendingReply-driven dialog must detect the marker…
+    await waitFor(() => {
+      expect(screen.getByText("Svar krävs för att fortsätta")).toBeTruthy();
+    });
+
+    // …and surface the canonical quick-replies.
+    const approveButton = screen.getByRole("button", { name: "Godkänn förslag" });
+    expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+
+    fireEvent.click(approveButton);
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
     });
   });
 });

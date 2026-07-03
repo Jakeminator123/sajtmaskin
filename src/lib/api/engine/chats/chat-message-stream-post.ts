@@ -110,7 +110,10 @@ import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
-import { resolvePendingF3Continuation } from "@/lib/gen/stream/f3-continuation";
+import {
+  classifyF3ContinuationReply,
+  resolvePendingF3Continuation,
+} from "@/lib/gen/stream/f3-continuation";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
@@ -399,13 +402,22 @@ export async function handleMessageStreamRequest(
         // actual SDK codegen ran with `previewPolicy: fidelity2` and the F2
         // guards stripped the integration imports (prod chat cc10e7de v8).
         // Derivation is server-authoritative: the generation stream persisted
-        // an assistant F3-continuation marker (`f3-continuation.ts`), and ONLY
-        // the direct reply to it inherits the stage (any later user message
-        // consumes the marker). Conservative exclusions: explicit client
-        // overrides win unchanged, plan-mode stays F2, and technical passes
-        // (autofix/preserve-payload) are not user replies. The inherited stage
-        // flows through the SAME M#818-2 env-readiness gate below — the
-        // inheritance never bypasses finalize-design strictness.
+        // an assistant F3-continuation marker (`f3-continuation.ts`).
+        // Conservative exclusions: explicit client overrides win unchanged,
+        // plan-mode stays F2, and technical passes (autofix/preserve-payload)
+        // are not user replies. Bugbot round 2 (PR #382) hardening:
+        //  - HIGH: only an APPROVING reply inherits F3
+        //    (`classifyF3ContinuationReply` — quick-reply exact match or
+        //    conservative approval free text; fail-safe = F2). Reject and
+        //    unrelated replies consume the marker and run as normal F2.
+        //  - MEDIUM race: inheritance additionally requires a CONFIRMED
+        //    atomic marker consume (`consumeF3ContinuationMarker`, conditional
+        //    jsonb write) BEFORE generation starts — of two racing replies
+        //    only one can win the marker; an unconfirmed/failed write never
+        //    inherits.
+        // The inherited stage flows through the SAME M#818-2 env-readiness
+        // gate below — the inheritance never bypasses finalize-design
+        // strictness.
         if (
           parsedMeta.lifecycleStage !== "integrations" &&
           !metaPlanMode &&
@@ -417,24 +429,59 @@ export async function handleMessageStreamRequest(
             engineChat.messages,
           );
           if (pendingF3Continuation) {
-            parsedMeta.lifecycleStage = "integrations";
-            if (!parsedMeta.parentVersionId) {
-              parsedMeta.parentVersionId = pendingF3Continuation.parentVersionId;
+            const f3ReplyIntent = classifyF3ContinuationReply(message);
+            // Every direct reply consumes the marker — approve to claim the
+            // continuation, reject/unrelated so a racing (or later) request
+            // cannot resurrect it. Errors count as "not confirmed".
+            let markerConsumeConfirmed = false;
+            if (pendingF3Continuation.messageId) {
+              try {
+                markerConsumeConfirmed = await chatRepo.consumeF3ContinuationMarker(
+                  engineChat.id,
+                  pendingF3Continuation.messageId,
+                );
+              } catch (consumeErr) {
+                debugLog("orchestration", "F3 marker consume failed — staying in F2", {
+                  chatId,
+                  error:
+                    consumeErr instanceof Error
+                      ? consumeErr.message
+                      : String(consumeErr),
+                });
+              }
             }
-            debugLog(
-              "orchestration",
-              "F3 lifecycle stage inherited over awaiting-input reply",
-              {
+            if (f3ReplyIntent === "approve" && markerConsumeConfirmed) {
+              parsedMeta.lifecycleStage = "integrations";
+              if (!parsedMeta.parentVersionId) {
+                parsedMeta.parentVersionId = pendingF3Continuation.parentVersionId;
+              }
+              debugLog(
+                "orchestration",
+                "F3 lifecycle stage inherited over awaiting-input reply",
+                {
+                  chatId,
+                  parentVersionId: parsedMeta.parentVersionId,
+                  engineBaseVersionId: metaEngineBaseVersionId,
+                },
+              );
+              devLogAppend("in-progress", {
+                type: "f3.stage_inherited",
                 chatId,
+                replyIntent: f3ReplyIntent,
                 parentVersionId: parsedMeta.parentVersionId,
-                engineBaseVersionId: metaEngineBaseVersionId,
-              },
-            );
-            devLogAppend("in-progress", {
-              type: "f3.stage_inherited",
-              chatId,
-              parentVersionId: parsedMeta.parentVersionId,
-            });
+              });
+            } else {
+              devLogAppend("in-progress", {
+                type: "f3.stage_not_inherited",
+                chatId,
+                replyIntent: f3ReplyIntent,
+                markerConsumeConfirmed,
+                reason:
+                  f3ReplyIntent === "approve"
+                    ? "marker_consume_unconfirmed"
+                    : "reply_not_approving",
+              });
+            }
           }
         }
         // M#818-2: F3 env-readiness gate. `/finalize-design` is the intended F3
