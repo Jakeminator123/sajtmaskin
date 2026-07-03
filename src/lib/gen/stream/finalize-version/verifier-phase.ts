@@ -20,10 +20,13 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
+  checkUndefinedJsxSymbols,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
+  parseUndefinedJsxSymbolFinding,
   runVerifierPass,
 } from "@/lib/gen/verify/verifier-pass";
+import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -137,15 +140,14 @@ export async function runVerifierPhase(params: {
     "error",
   );
   try {
-    const findings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
-    verifierBlockingFindings = findings.blocking.slice(0, 5);
+    const rawFindings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
     devLogAppend("in-progress", {
       type: "verifier-pass",
       chatId,
-      blocking: findings.blocking.length,
-      quality: findings.quality.length,
-      blockingFindings: findings.blocking.slice(0, 5),
-      qualityFindings: findings.quality.slice(0, 5),
+      blocking: rawFindings.blocking.length,
+      quality: rawFindings.quality.length,
+      blockingFindings: rawFindings.blocking.slice(0, 5),
+      qualityFindings: rawFindings.quality.slice(0, 5),
       scaffoldId: resolvedScaffold?.id ?? null,
       resolvedTier: resolvedTier ?? null,
     });
@@ -161,6 +163,110 @@ export async function runVerifierPhase(params: {
             : null;
     const ragCapabilityIds = params.buildSpec?.capabilityFlags?.signals ?? [];
     const ragRoutePath = params.buildSpec?.routeRealization?.primaryRoutePath ?? null;
+
+    // Deterministic import pre-fix, BEFORE the verifier → LLM handoff (prod
+    // incident 2026-07-03, chat e8420220): `undefined-jsx-symbol` findings for
+    // KNOWN imports (Link → next/link, Button/Badge → shadcn, lucide glyphs,
+    // unique own components) are mechanically solvable via the shared
+    // `runDeterministicImportRepair` — the same owner the warm-tsc normalize
+    // pass and the server repair-loop already use. Previously these findings
+    // went straight to the LLM repair gate; when that call timed out
+    // (AbortSignal at VERIFIER_REPAIR_TIMEOUT_MS) five trivially-fixable
+    // missing imports were left blocking and the version failed verification.
+    // Findings are translated to `Cannot find name 'X'` diagnostics, the fix
+    // is confirmed by re-running the deterministic `checkUndefinedJsxSymbols`
+    // scan, and only confirmed-resolved findings are dropped — the residue
+    // (ambiguous names, non-import findings) still reaches the LLM fixer.
+    let findings = rawFindings;
+    if (rawFindings.blocking.length > 0) {
+      try {
+        const importable = rawFindings.blocking
+          .map((finding) => ({
+            finding,
+            ref: parseUndefinedJsxSymbolFinding(finding),
+          }))
+          .filter(
+            (entry): entry is { finding: (typeof rawFindings.blocking)[number]; ref: { file: string; symbol: string } } =>
+              entry.ref !== null,
+          );
+        if (importable.length > 0) {
+          const repair = runDeterministicImportRepair(
+            contentForVersion,
+            importable.map(({ ref }) => ({
+              file: ref.file,
+              message: `Cannot find name '${ref.symbol}'.`,
+            })),
+            { previewPolicy: params.buildSpec?.previewPolicy },
+          );
+          if (repair.fixed) {
+            const stillBroken = new Set(
+              checkUndefinedJsxSymbols(parseCodeProject(repair.content).files, {
+                maxFindings: 1000,
+              })
+                .map((finding) => parseUndefinedJsxSymbolFinding(finding))
+                .filter((ref): ref is { file: string; symbol: string } => ref !== null)
+                .map((ref) => `${ref.file}::${ref.symbol}`),
+            );
+            const resolved = importable.filter(
+              ({ ref }) => !stillBroken.has(`${ref.file}::${ref.symbol}`),
+            );
+            if (resolved.length > 0) {
+              contentForVersion = repair.content;
+              const resolvedFindings = new Set(resolved.map(({ finding }) => finding));
+              findings = {
+                ...rawFindings,
+                blocking: rawFindings.blocking.filter(
+                  (finding) => !resolvedFindings.has(finding),
+                ),
+              };
+              devLogAppend("in-progress", {
+                type: "verifier-pass.deterministic-import-fix",
+                chatId,
+                resolvedCount: resolved.length,
+                residualBlocking: findings.blocking.length,
+                resolvedSymbols: resolved.map(
+                  ({ ref }) => `${ref.file}::${ref.symbol}`,
+                ),
+                scaffoldId: resolvedScaffold?.id ?? null,
+              });
+              for (const { finding } of resolved.slice(0, 5)) {
+                appendErrorLogEvent({
+                  phase: "post-gen",
+                  subphase: "verifier-pass",
+                  creator: "verifier",
+                  fixer: "deterministic-import-repair",
+                  severity: "warning",
+                  fault: finding.id,
+                  faultText: finding.detail,
+                  fixText: "deterministic import repair added the missing known import",
+                  modelTier: resolvedTier ?? null,
+                  model,
+                  provider: "own-engine",
+                  repairPassIndex,
+                  result: "fixed",
+                  chatId,
+                  versionId: null,
+                  scaffoldId: resolvedScaffold?.id ?? null,
+                  routePath: ragRoutePath,
+                  capabilityIds: ragCapabilityIds,
+                  generationMode: ragGenerationMode,
+                  lineageHash: null,
+                });
+              }
+            }
+          }
+        }
+      } catch (importPrefixErr) {
+        // The pre-fix must never break finalize — fall through to the LLM
+        // repair gate with the original findings/content.
+        console.warn(
+          "[verifier-pass] Deterministic import pre-fix failed (non-fatal):",
+          importPrefixErr,
+        );
+      }
+    }
+
+    verifierBlockingFindings = findings.blocking.slice(0, 5);
     for (const finding of findings.blocking.slice(0, 5)) {
       appendErrorLogEvent({
         phase: "post-gen",

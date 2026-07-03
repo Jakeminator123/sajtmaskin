@@ -273,7 +273,7 @@ används gate-output också som exakt felkälla för RepairGate:
 ### Deterministisk import-repair före LLM
 
 Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
-implementation, två entrypoints:
+implementation, tre entrypoints:
 
 - **server-repair:** anropas överst i `runRepairLoop()` på RenderGate/ReleaseGate-
   diagnostiken (som tidigare)
@@ -281,6 +281,16 @@ implementation, två entrypoints:
   (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
   warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
   vidare till `runLlmRepairGate` (phase `warm-tsc`)
+- **verifier-pass (prod-incident 2026-07-03):** `runVerifierPhase`
+  (`finalize-version/verifier-phase.ts`) översätter `undefined-jsx-symbol`-
+  Blockers till `Cannot find name 'X'`-diagnostik
+  (`parseUndefinedJsxSymbolFinding`) och kör pre-passen INNAN
+  `runLlmRepairGate` (phase `verifier`). Fixen bekräftas med en omkörning av
+  den deterministiska `checkUndefinedJsxSymbols`-scannen; bara bekräftat lösta
+  findings släpps (RAG-rad `fixer: deterministic-import-repair`,
+  `result: fixed`) och residuet går till LLM-fixern. Utan detta lämnade en
+  timeoutad LLM-repair trivialt fixbara imports (Link/Button/Badge) som
+  Blockers och versionen failade verifieringen.
 
 Bakgrund (prod-telemetri 2026-06/07): av de versioner vars RenderGate/ReleaseGate failade
 på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är

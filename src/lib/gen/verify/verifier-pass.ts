@@ -421,6 +421,29 @@ export function buildUndefinedJsxDetail(
   return base;
 }
 
+/**
+ * Parse the file + symbol out of an `undefined-jsx-symbol` finding whose
+ * detail uses the base "is used but neither imported nor declared" wording
+ * from {@link buildUndefinedJsxDetail}. Returns `null` for every other
+ * finding shape — including the DOM-interface variant, which is owned by the
+ * deterministic `dom-builtin-jsx-fixer` and must NOT be routed to an import
+ * fixer. Consumed by the finalize verifier-phase to translate these findings
+ * into `Cannot find name 'X'` diagnostics for the deterministic import
+ * repair, so trivially-known imports (Link, Button, …) never need the LLM.
+ */
+const UNDEFINED_JSX_DETAIL_RE =
+  /^(.+?): `<([A-Za-z_$][\w$]*) \/>` is used but `\2` is neither imported nor declared in this file\./;
+
+export function parseUndefinedJsxSymbolFinding(finding: {
+  id: string;
+  detail: string;
+}): { file: string; symbol: string } | null {
+  if (finding.id !== "undefined-jsx-symbol") return null;
+  const match = finding.detail.match(UNDEFINED_JSX_DETAIL_RE);
+  if (!match) return null;
+  return { file: match[1].trim(), symbol: match[2] };
+}
+
 export function checkUndefinedJsxSymbols(
   files: Array<Pick<CodeFile, "path" | "content">>,
   options: { maxFindings?: number } = {},
