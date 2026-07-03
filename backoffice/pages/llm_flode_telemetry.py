@@ -467,7 +467,16 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
     col1, col2, col3 = st.columns(3)
     col1.metric("URL-handoff events", len(handoffs))
     col2.metric("Runtime-ready events", len(ready))
-    col3.metric("Ready-rate", _pct(len(ready), len(lifecycle_events)))
+    # Ready-rate = andel handoffs som fått bekräftad runtime i timeline.
+    # Nämnaren är handoffs (en lyckad boot ger BÅDA eventen — handoff först,
+    # ready vid kvittot); ready/(handoffs+ready) hade visat ~50 % vid 1:1-par.
+    # Cappas vid 100 %: ready utan handoff i fönstret (resume av äldre boot)
+    # ska inte blåsa upp kvoten.
+    if handoffs:
+        ready_rate = _pct(min(len(ready), len(handoffs)), len(handoffs))
+    else:
+        ready_rate = "—"
+    col3.metric("Ready-rate", ready_rate)
 
     rows = []
     if handoff_ms:
