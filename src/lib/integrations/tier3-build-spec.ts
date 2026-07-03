@@ -72,6 +72,14 @@ export interface Tier3IntegrationRequirement {
   buildInstructions: string[];
   /** Vendor setup guide (re-exported from `IntegrationDefinition.setupGuide`). */
   setupGuide: string;
+  /**
+   * True when a backing dossier ships `components/integration-config-notice.tsx`
+   * (the calm not-configured fallback UI). Drives the per-integration graceful-
+   * fallback instruction in `renderTier3BuildPlanBlock` — the instruction must
+   * NOT be emitted for integrations whose dossier does not provide the
+   * component, or the model may import a file that never lands in the project.
+   */
+  hasConfigNoticeComponent: boolean;
 }
 
 export interface Tier3BuildSpec {
@@ -216,41 +224,54 @@ function findIntegrationDefinition(
  *  - dossier's capability equals integration.category
  *  - integration provider appears in the dossier's dependencies array
  */
+interface DossierBackingMatcher {
+  readonly matches: (def: IntegrationDefinition) => boolean;
+  readonly files: ReadonlyArray<{ path: string }>;
+}
+
 interface DossierBackingIndex {
-  readonly matchers: ReadonlyArray<(def: IntegrationDefinition) => boolean>;
+  readonly matchers: ReadonlyArray<DossierBackingMatcher>;
 }
 
 function buildDossierBackingIndex(): DossierBackingIndex {
   const entries = getAllDossiers();
-  const matchers: Array<(def: IntegrationDefinition) => boolean> = [];
+  const matchers: DossierBackingMatcher[] = [];
   for (const entry of entries) {
     const idLc = entry.id.toLowerCase();
     const capabilityLc = entry.capability.toLowerCase();
     const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
-    matchers.push((def: IntegrationDefinition) => {
-      const keyLc = def.key.toLowerCase();
-      const providerLc = (def.provider ?? def.key).toLowerCase();
-      const categoryLc = def.category.toLowerCase();
-      if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
-      if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
-      if (capabilityLc === categoryLc) return true;
-      if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
-        return true;
-      }
-      return false;
+    matchers.push({
+      files: entry.files ?? [],
+      matches: (def: IntegrationDefinition) => {
+        const keyLc = def.key.toLowerCase();
+        const providerLc = (def.provider ?? def.key).toLowerCase();
+        const categoryLc = def.category.toLowerCase();
+        if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
+        if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
+        if (capabilityLc === categoryLc) return true;
+        if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
+          return true;
+        }
+        return false;
+      },
     });
   }
   return { matchers };
 }
 
-function isIntegrationDossierBacked(
+function findBackingDossiers(
   def: IntegrationDefinition,
   index: DossierBackingIndex,
-): boolean {
-  for (const match of index.matchers) {
-    if (match(def)) return true;
-  }
-  return false;
+): DossierBackingMatcher[] {
+  return index.matchers.filter((m) => m.matches(def));
+}
+
+const CONFIG_NOTICE_FILE = "components/integration-config-notice.tsx";
+
+function backingDossierShipsConfigNotice(backing: DossierBackingMatcher[]): boolean {
+  return backing.some((dossier) =>
+    dossier.files.some((f) => f.path === CONFIG_NOTICE_FILE),
+  );
 }
 
 /**
@@ -296,7 +317,8 @@ export function deriveTier3BuildSpec(
     // would block the build on a value no generated file would ever use.
     // Downgrade to warn-only so the UI still surfaces the expected vars but
     // F3 validation doesn't refuse to start.
-    if (!isIntegrationDossierBacked(def, backingIndex) && buildEnforcedTier3.length > 0) {
+    const backingDossiers = findBackingDossiers(def, backingIndex);
+    if (backingDossiers.length === 0 && buildEnforcedTier3.length > 0) {
       effectiveWarnOnly = [...warnOnlyEnvKeys, ...buildEnforcedTier3];
       buildEnforcedTier3 = [];
     }
@@ -311,6 +333,7 @@ export function deriveTier3BuildSpec(
       warnOnlyEnvKeys: effectiveWarnOnly,
       buildInstructions: resolveBuildInstructions(def),
       setupGuide: def.setupGuide,
+      hasConfigNoticeComponent: backingDossierShipsConfigNotice(backingDossiers),
     });
   }
 
@@ -391,6 +414,7 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     "",
     "You are now in F3 (\"bygg integrationer\"). Wire each integration below end-to-end.",
     "Use the listed env keys; assume real values are present at runtime.",
+    "Never surface a raw error string, stack trace, or HTTP status code to the site visitor when an integration is not configured.",
     "",
   ];
   for (const req of spec.requirements) {
@@ -400,6 +424,16 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     }
     if (req.placeholderOkEnvKeys.length > 0) {
       lines.push(`Public/placeholder-OK env: \`${req.placeholderOkEnvKeys.join("`, `")}\``);
+    }
+    // Only integrations whose backing dossier actually ships the config-notice
+    // component get the graceful-fallback instruction. Emitting it globally
+    // made the model import `@/components/integration-config-notice` in
+    // projects where no dossier provides that file (Clerk, OpenAI, …) —
+    // a guaranteed build break.
+    if (req.hasConfigNoticeComponent) {
+      lines.push(
+        "Graceful fallback (mandatory): this integration's dossier ships `components/integration-config-notice.tsx`. Every CTA for this integration MUST handle the API route's not-configured response (HTTP 503 with an error code like `payments-not-configured` / `email-not-configured`) by rendering the `IntegrationConfigNotice` component with a disabled CTA — never a raw error.",
+      );
     }
     lines.push("Steps:");
     for (const step of req.buildInstructions) {

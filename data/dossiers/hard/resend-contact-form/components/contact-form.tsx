@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 
+import { IntegrationConfigNotice } from "./integration-config-notice";
+
 interface ContactFormProps {
   subjectPrefix?: string;
   className?: string;
@@ -11,7 +13,8 @@ type SubmitState =
   | { kind: "idle" }
   | { kind: "submitting" }
   | { kind: "success"; email: string }
-  | { kind: "error"; message: string; degraded: boolean };
+  | { kind: "not-configured" }
+  | { kind: "error"; message: string };
 
 export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
   const [state, setState] = useState<SubmitState>({ kind: "idle" });
@@ -26,11 +29,11 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
     const message = String(formData.get("message") ?? "").trim();
 
     if (!name || !email || !message) {
-      setState({ kind: "error", message: "Fill in name, email, and message.", degraded: false });
+      setState({ kind: "error", message: "Fyll i namn, e-post och meddelande." });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setState({ kind: "error", message: "That email address looks invalid.", degraded: false });
+      setState({ kind: "error", message: "E-postadressen ser inte giltig ut." });
       return;
     }
 
@@ -42,34 +45,32 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
         body: JSON.stringify({
           name,
           email,
-          subject: subjectPrefix ? `${subjectPrefix}: ${subject || "(no subject)"}` : subject,
+          subject: subjectPrefix ? `${subjectPrefix}: ${subject || "(inget ämne)"}` : subject,
           message,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.status === 503) {
-        setState({
-          kind: "error",
-          message: "The contact form is not yet configured. Please email us directly.",
-          degraded: true,
-        });
+      // Integration not wired up yet: degrade calmly instead of surfacing a raw
+      // error. Gate ONLY on the explicit error code from the route — a
+      // platform/proxy 503 (Resend actually configured) must take the normal
+      // retryable error path below, not flip the form into setup mode.
+      if (body.error === "email-not-configured") {
+        setState({ kind: "not-configured" });
         return;
       }
       if (!res.ok || !body.ok) {
         setState({
           kind: "error",
-          message: body.error ?? `Request failed (${res.status})`,
-          degraded: false,
+          message: "Meddelandet kunde inte skickas just nu. Försök igen om en stund.",
         });
         return;
       }
       setState({ kind: "success", email });
       form.reset();
-    } catch (err) {
+    } catch {
       setState({
         kind: "error",
-        message: err instanceof Error ? err.message : "Network error.",
-        degraded: false,
+        message: "Meddelandet kunde inte skickas just nu. Kontrollera din anslutning och försök igen.",
       });
     }
   }
@@ -78,9 +79,9 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
     return (
       <div className={className}>
         <div className="rounded-lg border border-border bg-card p-6 text-card-foreground">
-          <h3 className="text-lg font-semibold">Thanks — your message is on its way.</h3>
+          <h3 className="text-lg font-semibold">Tack — ditt meddelande är på väg.</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            We&apos;ll reply to <span className="font-medium">{state.email}</span> as soon as we can.
+            Vi svarar på <span className="font-medium">{state.email}</span> så snart vi kan.
           </p>
         </div>
       </div>
@@ -88,12 +89,13 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
   }
 
   const submitting = state.kind === "submitting";
+  const notConfigured = state.kind === "not-configured";
 
   return (
     <form className={className} onSubmit={handleSubmit} noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-foreground">Name</span>
+          <span className="mb-1 block font-medium text-foreground">Namn</span>
           <input
             name="name"
             required
@@ -102,7 +104,7 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-foreground">Email</span>
+          <span className="mb-1 block font-medium text-foreground">E-post</span>
           <input
             name="email"
             type="email"
@@ -113,14 +115,14 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
         </label>
       </div>
       <label className="mt-4 block text-sm">
-        <span className="mb-1 block font-medium text-foreground">Subject (optional)</span>
+        <span className="mb-1 block font-medium text-foreground">Ämne (valfritt)</span>
         <input
           name="subject"
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
       <label className="mt-4 block text-sm">
-        <span className="mb-1 block font-medium text-foreground">Message</span>
+        <span className="mb-1 block font-medium text-foreground">Meddelande</span>
         <textarea
           name="message"
           required
@@ -128,19 +130,26 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
+      {notConfigured && (
+        <div className="mt-4">
+          <IntegrationConfigNotice
+            title="Kontaktformuläret är inte aktiverat ännu"
+            message="För att ta emot meddelanden behöver sajten kopplas till Resend. Lägg till env-nycklarna nedan (de fungerar som lösenord och ska hållas hemliga). Under tiden kan du höra av dig direkt via e-post."
+            envKeys={["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]}
+            docHref="https://resend.com/api-keys"
+            docLabel="Så skapar du en Resend-nyckel"
+          />
+        </div>
+      )}
       {state.kind === "error" && (
-        <p
-          className={`mt-3 text-sm ${state.degraded ? "text-muted-foreground" : "text-destructive"}`}
-        >
-          {state.message}
-        </p>
+        <p className="mt-3 text-sm text-destructive">{state.message}</p>
       )}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || notConfigured}
         className="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
       >
-        {submitting ? "Sending…" : "Send message"}
+        {submitting ? "Skickar…" : "Skicka meddelande"}
       </button>
     </form>
   );

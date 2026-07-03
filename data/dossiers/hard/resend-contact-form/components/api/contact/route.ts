@@ -14,12 +14,22 @@ function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * F2 design previews inject the stub `re_placeholder_preview_not_a_real_key`;
+ * Resend rejects it with a generic error instead of the calm not-configured
+ * path, so treat placeholder-marked values as unconfigured.
+ */
+function isLikelyValidResendApiKey(key: string | undefined): key is string {
+  if (!key) return false;
+  return key.startsWith("re_") && !key.toLowerCase().includes("placeholder");
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   const to = process.env.CONTACT_EMAIL_TO;
 
-  if (!apiKey || !from || !to) {
+  if (!isLikelyValidResendApiKey(apiKey) || !from || !to) {
     return NextResponse.json(
       { ok: false, error: "email-not-configured" },
       { status: 503 },
