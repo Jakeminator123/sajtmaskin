@@ -6,9 +6,13 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ---
 
-## Aktiv drivlinje: Kontrollflöde-konsolidering (start 2026-07-02)
+## Aktiv drivlinje: Stabilisering 2026-07 (start 2026-07-03)
 
-Färre, tidigare, mätbara kontroller i LLM-flödet: import-normalisering uppströms, riskScore i stället för `fixCount>5`, en repair-port (RepairGate/L1), preview-resync vid restore, terminologi + mätning. 7 faser i 4 vågor, en PR per fas → [`kontrollflode/00-master-plan.md`](kontrollflode/00-master-plan.md). Underlag: `kontrollflödesmapp/` (prod-statistik 14 d + coach-analys, kodverifierad 2026-07-02).
+Init-grön, F3-integrationer hela vägen och preview/DB-P2:or stängda — driven av prod-evidensen från live-sessionen 2026-07-03 (chat `cc10e7de`, evidens → [`../avklarat/stort-framsteg-2026-07-03/`](../avklarat/stort-framsteg-2026-07-03/)). **Våg 1 + tidigarelagd Våg 2 levererade 2026-07-03** (PR #374–#378 mergade, tagg `backup_BRA-2000`); Våg 3 pågår → [`stabilisering-2026-07/00-master-plan.md`](stabilisering-2026-07/00-master-plan.md).
+
+## Kontrollflöde-konsolidering (kod levererad, väntar mätning ~2026-07-10)
+
+Färre, tidigare, mätbara kontroller i LLM-flödet: import-normalisering uppströms, riskScore i stället för `fixCount>5`, en repair-port (RepairGate/L1), preview-resync vid restore, terminologi + mätning. Alla 7 faser mergade (#360–#367); kvar är prod-mätavstämningen (~2026-07-10, delas med stabiliserings-planen) + beslutsunderlag → [`kontrollflode/00-master-plan.md`](kontrollflode/00-master-plan.md). Underlag: `kontrollflödesmapp/` (prod-statistik 14 d + coach-analys, kodverifierad 2026-07-02).
 
 ## Status: Grandmaster-plan AVKLARAD (arkiverad 2026-06-22)
 
