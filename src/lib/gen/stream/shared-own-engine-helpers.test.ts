@@ -92,6 +92,40 @@ describe("shared-own-engine-helpers", () => {
     expect(result).toEqual([{ key: "stripe", envVars: ["STRIPE_SECRET_KEY"] }]);
   });
 
+  it("dedupes detected integrations against normalized tool provider keys", () => {
+    detectIntegrations.mockReturnValue([
+      {
+        key: "google-analytics",
+        provider: "google-analytics",
+        envVars: ["NEXT_PUBLIC_GA_ID"],
+      },
+      {
+        key: "stripe",
+        provider: "stripe",
+        envVars: ["STRIPE_SECRET_KEY"],
+      },
+    ]);
+
+    const result = getUnsignaledDetectedIntegrations(
+      "code",
+      new Set(["GoogleAnalytics", "stripe"]),
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("matches camelCase brands against canonical single-token keys (OpenAI ≡ openai)", () => {
+    // Vercel Agent-fynd PR #375: hyphenerad slug gjorde "OpenAI" → "open-ai"
+    // som inte matchade "openai" → dubbla integration-kort.
+    detectIntegrations.mockReturnValue([
+      { key: "openai", provider: "openai", envVars: ["OPENAI_API_KEY"] },
+    ]);
+
+    const result = getUnsignaledDetectedIntegrations("code", new Set(["OpenAI"]));
+
+    expect(result).toEqual([]);
+  });
+
   it("returns the finalized result on success", async () => {
     finalizeAndSaveVersion.mockResolvedValue({ version: { id: "ver_1" } });
 

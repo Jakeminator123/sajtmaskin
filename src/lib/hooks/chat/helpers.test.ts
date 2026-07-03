@@ -10,6 +10,7 @@ import {
   buildPromptStrategySteps,
   finalizeStreamStats,
   initStreamStats,
+  integrationSignalToToolPart,
   mergeStreamingText,
 } from "./helpers";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
@@ -208,5 +209,42 @@ describe("buildPromptStrategySteps", () => {
 
     expect(steps).not.toContain("Källa: Auto-repair (server-driven)");
     expect(steps).toContain("Typ: followup_technical");
+  });
+});
+
+describe("integrationSignalToToolPart", () => {
+  it("uses provider-derived display names instead of generic Integration fallback", () => {
+    const part = integrationSignalToToolPart(
+      {
+        key: "stripe",
+        name: "Integration",
+        provider: "stripe",
+        intent: "env_vars",
+        envVars: ["STRIPE_SECRET_KEY"],
+        status: "Kräver konfiguration",
+      },
+      "fallback",
+    );
+
+    const output = (part as { output?: { steps?: string[] } }).output;
+    expect(output?.steps).toContain("Integration: Stripe");
+    expect(output?.steps).not.toContain("Integration: Integration");
+  });
+
+  it("omits integration label when both name and provider are generic/empty", () => {
+    const part = integrationSignalToToolPart(
+      {
+        key: "integration:unknown",
+        name: "Integration",
+        intent: "configure",
+        status: "Kräver konfiguration",
+      },
+      "fallback",
+    );
+
+    const output = (part as { output?: { steps?: string[] } }).output;
+    expect(output?.steps).toContain("Åtgärd: Konfigurera");
+    expect(output?.steps).toContain("Status: Kräver konfiguration");
+    expect(output?.steps).not.toContain("Integration: Integration");
   });
 });
