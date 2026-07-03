@@ -77,6 +77,16 @@ jobs:
       - name: Verify route maxDuration ↔ manifest sync
         run: npm run route-timeouts:check
 
+      # CI/Vercel-paritet (2026-07-03): Vercels prebuild kör `preflight:common`
+      # (inkl. check-bug-backlog) — men detta jobb gjorde det inte, så en commit
+      # kunde bli CI-grön och ändå fälla prod-deployen (hänt: #368, stängd
+      # [x]-rad kvar i Aktiv kö → check-bug-backlog fällde bygget efter merge).
+      # Kör samma sanity-checks här så draft-PR:er fångar det före merge.
+      # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
+      - name: Preflight parity with Vercel prebuild (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run preflight:common
+
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
   # Deterministic + keyless (no DB creds, no network — all 49 tests run offline).

@@ -220,7 +220,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const sr = started.result;
       if (sr.previewUrl.trim()) {
-        await updateVersionPreviewUrl(versionRow.id, sr.previewUrl);
+        // Best-effort persist (prod-incident 2026-07-03): the preview session
+        // is already running — a contended engine_versions row (verify/lease
+        // holds the lock) must not 500 this route via statement_timeout. The
+        // lock-timeout mode never throws; a skipped persist is retried on the
+        // next preview-session start.
+        const persisted = await updateVersionPreviewUrl(versionRow.id, sr.previewUrl, {
+          lockTimeoutMs: 2000,
+        });
+        if (!persisted) {
+          console.warn(
+            `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${versionRow.id} — session is running; next start re-persists.`,
+          );
+        }
       }
 
       logPreviewLifecycleTelemetry({
