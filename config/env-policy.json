@@ -93,6 +93,7 @@
     "BRAVE_API_KEY",
     "CONTENTFUL_ACCESS_TOKEN",
     "CONTENTFUL_SPACE_ID",
+    "CONTACT_EMAIL_TO",
     "CRON_SECRET",
     "CSP_ENFORCE",
     "DB_SSL_REJECT_UNAUTHORIZED",
@@ -1400,6 +1401,26 @@
       "notes": "Stripe price id for the 50-credit pack."
     },
     {
+      "key": "STRIPE_SECRET_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Stripe server secret for billing and generated-site F3 checkout. Store as Vercel encrypted env; do not mark sensitive-only unless there is a concrete need to hide inspectability."
+    },
+    {
+      "key": "RESEND_API_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Resend API key for outbound mail and generated-site F3 contact forms. Store as Vercel encrypted env; avoid sensitive-only so operators can inspect presence/targeting."
+    },
+    {
       "key": "EMAIL_FROM",
       "classification": "optional_runtime",
       "recommendedVercelTargets": [
@@ -1408,6 +1429,16 @@
         "production"
       ],
       "notes": "Outbound email From-address. Has a code default in serverSchema."
+    },
+    {
+      "key": "CONTACT_EMAIL_TO",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Recipient address for generated-site F3 contact forms. Usually non-secret; encrypted Vercel storage is sufficient and sensitive-only is unnecessary."
     },
     {
       "key": "ENABLE_PEXELS",
