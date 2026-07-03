@@ -42,7 +42,11 @@ export function emitOwnEngineToolCallSse(
 ): void {
   const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
   const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-  if (toolName) bridge.toolCallNames.add(toolName);
+  // Env-/integrationsverktygen registreras först EFTER validering/emit (Codex
+  // P2, PR #375): en droppad signal (malformad eller F2-mutad) som hamnar i
+  // `toolCallNames` skulle annars trigga `tool_only_empty_generation`-prompten
+  // i chatten — en spök-fråga utan något att konfigurera.
+  if (toolName && !ENV_TOOLS_F2_BLOCKED.has(toolName)) bridge.toolCallNames.add(toolName);
 
   const { enc, safeEnqueue, toolSignaledProviders, setBlockingToolCall } = bridge;
   const lifecycleStage: PreviewLifecycleStage = bridge.lifecycleStage ?? "design";
@@ -116,6 +120,7 @@ export function emitOwnEngineToolCallSse(
       ],
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
+    bridge.toolCallNames.add(toolName);
     if (providerKey) {
       toolSignaledProviders.add(providerKey);
     }
@@ -144,6 +149,7 @@ export function emitOwnEngineToolCallSse(
       ],
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
+    bridge.toolCallNames.add(toolName);
     return;
   }
 

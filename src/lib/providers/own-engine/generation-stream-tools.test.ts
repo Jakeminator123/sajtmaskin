@@ -6,12 +6,13 @@ describe("emitOwnEngineToolCallSse", () => {
   it("emits integration SSE for suggestIntegration in F3 without blocking", () => {
     const chunks: Uint8Array[] = [];
     const enc = new TextEncoder();
+    const toolCallNames = new Set<string>();
     let blocking = false;
     emitOwnEngineToolCallSse(
       {
         enc,
         safeEnqueue: (d) => chunks.push(d),
-        toolCallNames: new Set(),
+        toolCallNames,
         toolSignaledProviders: new Set(),
         setBlockingToolCall: () => {
           blocking = true;
@@ -34,6 +35,7 @@ describe("emitOwnEngineToolCallSse", () => {
     expect(integration).toBeDefined();
     const data = integration?.data as { items: Array<{ key: string }> };
     expect(data.items[0]?.key).toBe("stripe");
+    expect(toolCallNames.has("suggestIntegration")).toBe(true);
   });
 
   it("derives integration name from provider when suggestIntegration omits name", () => {
@@ -71,12 +73,13 @@ describe("emitOwnEngineToolCallSse", () => {
   it("drops malformed suggestIntegration calls with generic empty payload", () => {
     const chunks: Uint8Array[] = [];
     const providers = new Set<string>();
+    const toolCallNames = new Set<string>();
     const enc = new TextEncoder();
     emitOwnEngineToolCallSse(
       {
         enc,
         safeEnqueue: (d) => chunks.push(d),
-        toolCallNames: new Set(),
+        toolCallNames,
         toolSignaledProviders: providers,
         setBlockingToolCall: () => {},
         lifecycleStage: "integrations",
@@ -90,6 +93,9 @@ describe("emitOwnEngineToolCallSse", () => {
     );
     expect(chunks).toHaveLength(0);
     expect(providers.size).toBe(0);
+    // Codex P2 (PR #375): droppade signaler får inte registreras som tool-call
+    // — annars triggas "tool_only_empty_generation"-spökprompten i chatten.
+    expect(toolCallNames.size).toBe(0);
   });
 
   it("does not mark blocking for emitPlanArtifact", () => {
@@ -114,11 +120,12 @@ describe("emitOwnEngineToolCallSse", () => {
     const chunks: Uint8Array[] = [];
     const enc = new TextEncoder();
     const providers = new Set<string>();
+    const toolCallNames = new Set<string>();
     emitOwnEngineToolCallSse(
       {
         enc,
         safeEnqueue: (d) => chunks.push(d),
-        toolCallNames: new Set(),
+        toolCallNames,
         toolSignaledProviders: providers,
         setBlockingToolCall: () => {},
         lifecycleStage: "design",
@@ -130,6 +137,7 @@ describe("emitOwnEngineToolCallSse", () => {
     );
     expect(chunks.length).toBe(0);
     expect(providers.size).toBe(0);
+    expect(toolCallNames.size).toBe(0);
   });
 
   it("drops requestEnvVar SSE in F2 (lifecycleStage='design')", () => {
