@@ -28,6 +28,7 @@ import {
 } from "./repair-files-payload";
 import {
   coerceKnownImageReplacementMap,
+  KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING,
   KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY,
   type KnownImageReplacementMap,
 } from "@/lib/utils/image-validator";
@@ -516,14 +517,26 @@ export async function recordKnownBrokenImageReplacements(
   const clean = coerceKnownImageReplacementMap(replacements);
   if (Object.keys(clean).length === 0) return false;
   const replacementsJson = JSON.stringify(clean);
+  // Codex P2 (PR #376 round 2): the union alone lets the COLUMN creep past
+  // the read cap (51, 52, …) since only the incoming batch is capped. Hard
+  // ceiling heuristic: when the merged map would exceed
+  // KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING (2× the read cap), reset the
+  // key to just the incoming (already capped) batch in the same UPDATE.
+  // JSONB does not preserve insertion order, so exact FIFO in the DB is not
+  // the goal — a bounded column size is the guarantee.
+  const mergedMapExpr = sql`coalesce(${engineChats.orchestrationSnapshot}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
+        || ${replacementsJson}::jsonb`;
   const result = await db
     .update(engineChats)
     .set({
       orchestrationSnapshot: sql<Record<string, unknown>>`jsonb_set(
         coalesce(${engineChats.orchestrationSnapshot}, '{}'::jsonb),
         '{knownBrokenImageReplacements}'::text[],
-        coalesce(${engineChats.orchestrationSnapshot}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
-          || ${replacementsJson}::jsonb,
+        CASE
+          WHEN (SELECT count(*) FROM jsonb_object_keys(${mergedMapExpr})) > ${KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING}
+          THEN ${replacementsJson}::jsonb
+          ELSE ${mergedMapExpr}
+        END,
         true
       )`,
       updatedAt: new Date(),

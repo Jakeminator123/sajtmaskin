@@ -33,7 +33,11 @@ vi.mock("./promote-guard", () => ({
   assertPromoteAllowed: vi.fn(async () => ({ allowed: true, reason: null })),
 }));
 
-import { updateChatOrchestrationSnapshot } from "./chat-repository-pg";
+import {
+  recordKnownBrokenImageReplacements,
+  updateChatOrchestrationSnapshot,
+} from "./chat-repository-pg";
+import { KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING } from "@/lib/utils/image-validator";
 
 function renderSetExpression(): { sql: string; params: unknown[] } {
   const set = updateSet.value as Record<string, unknown>;
@@ -75,5 +79,47 @@ describe("updateChatOrchestrationSnapshot — knownBrokenImageReplacements survi
     expect(ok).toBe(true);
     const set = updateSet.value as Record<string, unknown>;
     expect(set.orchestrationSnapshot).toBeNull();
+  });
+});
+
+// Codex P2 (PR #376 round 2): the append union alone lets the jsonb COLUMN
+// creep past the read cap (51, 52, …). The write must carry a SQL-side hard
+// ceiling: when the merged map exceeds the ceiling, the key is RESET to just
+// the incoming (already capped) batch inside the same UPDATE.
+describe("recordKnownBrokenImageReplacements — SQL-side hard ceiling on the merged map", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateSet.value = undefined;
+    updateWhere.value = undefined;
+  });
+
+  it("renders a CASE that counts merged keys against the hard ceiling and falls back to the incoming batch", async () => {
+    const incoming = {
+      "https://images.unsplash.com/photo-dead?w=800":
+        "https://images.unsplash.com/photo-live?w=800",
+    };
+
+    const ok = await recordKnownBrokenImageReplacements("chat_1", incoming);
+    expect(ok).toBe(true);
+
+    const { sql, params } = renderSetExpression();
+    // Ceiling guard: merged key count is measured in SQL…
+    expect(sql).toContain("case");
+    expect(sql).toContain("jsonb_object_keys");
+    expect(sql).toContain("count(*)");
+    // …compared against the hard ceiling (2× read cap)…
+    expect(params).toContain(KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING);
+    // …and both the union branch and the reset-to-incoming branch bind the
+    // (already capped) incoming batch as a parameter.
+    expect(sql).toContain("||");
+    expect(params).toContain(JSON.stringify(incoming));
+  });
+
+  it("no-ops without touching the DB when the incoming batch is empty after coercion", async () => {
+    const ok = await recordKnownBrokenImageReplacements("chat_1", {
+      "not-a-url": "also-not-a-url",
+    });
+    expect(ok).toBe(false);
+    expect(updateSet.value).toBeUndefined();
   });
 });

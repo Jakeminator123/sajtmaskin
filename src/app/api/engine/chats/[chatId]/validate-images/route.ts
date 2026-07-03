@@ -50,12 +50,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         unsplashAccessKey: unsplashKey,
       });
 
-      const knownReplacements = buildKnownImageReplacementMap(result.broken);
-      if (Object.keys(knownReplacements).length > 0) {
-        try {
-          await recordKnownBrokenImageReplacements(chatId, knownReplacements);
-        } catch (recordError) {
-          console.warn("[validate-images] Failed to record known image replacements:", recordError);
+      // Codex P2 (PR #376 round 2): a dry-run (`autoFix: false`) must not
+      // mutate the chat snapshot — the heal path consumes the map
+      // unconditionally, so recording here would let a validation-only call
+      // rewrite future generated files. Record only when a fix was requested.
+      if (autoFix) {
+        const knownReplacements = buildKnownImageReplacementMap(result.broken);
+        if (Object.keys(knownReplacements).length > 0) {
+          try {
+            await recordKnownBrokenImageReplacements(chatId, knownReplacements);
+          } catch (recordError) {
+            console.warn("[validate-images] Failed to record known image replacements:", recordError);
+          }
         }
       }
 
