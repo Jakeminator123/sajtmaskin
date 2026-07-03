@@ -170,12 +170,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      // M#pv1: this is the canonical runtime-ready receipt on the normal path —
+      // M#pv1: canonical runtime-ready receipt on the SUSPECT/RECOVERY path —
       // the host just reported `running: true` for the session pinned to exactly
       // this versionId (session↔version equality checked above, and
-      // `tryResumeTier2Runtime` re-verifies versionId host-side). The client
-      // already polls this route during/after boot, so fresh/recreated boots
-      // get their honest `preview_success=true` here without any new polling.
+      // `tryResumeTier2Runtime` re-verifies versionId host-side). NOTE (PR #377
+      // runda 3): this route only fires from `handlePreviewSessionSuspect` +
+      // VersionHistory's SWR poll — the NORMAL-boot receipt lives in
+      // `POST /preview-heartbeat` (fires every ~25s while the iframe is live).
       // Scheduled via `after()` (same pattern as repair/analytics routes) so a
       // saturated DB pool can never delay the user-visible status response —
       // the stamp runs post-response. Monotonic + atomic + best-effort inside

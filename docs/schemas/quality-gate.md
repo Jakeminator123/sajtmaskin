@@ -575,7 +575,7 @@ preflighten previewn?". Semantiken ägs numera av två skrivare:
 
 | Läge | Betyder | Skrivs av |
 |---|---|---|
-| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` för versionens session (verifierad via `tryResumeTier2Runtime`/`fetchPreviewHostStatus`). | `recordPreviewRuntimeOutcomeForVersion` — stämplas vid de kanoniska kvittopunkterna: `GET /preview-status` (running-grenen, normalvägen — klienten pollar redan denna route under/efter boot), `POST /preview-session` (resume-verifierad väg) och post-finalize (resume-verifierad start). |
+| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` för versionens session (verifierad via `tryResumeTier2Runtime`/`fetchPreviewHostStatus`). | `recordPreviewRuntimeOutcomeForVersion` — stämplas vid kvittopunkterna: **`POST /preview-heartbeat` (normalvägen — klienten heartbeat:ar ~25 s medan iframen lever; routen verifierar kvittot med ETT host-`/status`-anrop innan stämpel, one-shot per version/instans via confirmed-cachen)**, `GET /preview-status` (running-grenen, suspect/recovery-vägen), `POST /preview-session` (resume-verifierad väg) och post-finalize (resume-verifierad start). |
 | `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel i post-finalize) |
 | `null` | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes. | `persistTelemetryRecord` (default) |
 
@@ -618,8 +618,10 @@ på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
   `null` in i `preview_not_ok`) och redovisar pre-cutoff-rader separat som
   `legacy_preview_flag`; `byScaffold.preview_ready` = bekräftat redo efter
   cutoff.
-- Backoffice `generation_history._preview_label`: `ready` / `failed` / `pending`
-  (per-rad-visning, aggregerar inte — ingen cutoff-logik behövs där).
+- Backoffice `generation_history._preview_label`: `ready` / `failed` /
+  `pending`, och pre-cutoff `true` renderas som `legacy (preflight)` (läser
+  radens `created_at`; cutoff-värdet dupliceras från `control-stats.mjs` med
+  käll-pekare — oparsebar timestamp behandlas konservativt som legacy).
 
 **Historiska rader — hård cutoff i aggregaten:** rader före semantik-cutoffen
 (`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:30:00Z` i

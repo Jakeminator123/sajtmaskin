@@ -140,8 +140,11 @@ export async function recordDeployResultForVersion(
  * pre-preview preflight signal; it writes the honest pending/blocked value and
  * this stamp records the confirmed outcome once the preview attempt resolves.
  * Callsites hang off EXISTING receipt points (no new polling): post-finalize
- * (block/start-fail/resume-verified) and the routes that observe the host's
- * `running:true` status (`GET /preview-status`, `POST /preview-session` resume).
+ * (block/start-fail/resume-verified), the routes that observe the host's
+ * `running:true` status (`GET /preview-status`, `POST /preview-session`
+ * resume), and — the normal-path receipt (PR #377 runda 3) —
+ * `POST /preview-heartbeat`, which fires every ~25s while the iframe is live
+ * and verifies the receipt with one host `/status` call before stamping.
  *
  * **Monotonic AND atomic by contract** (PR #377 review rounds 1+2 — stale or
  * racing events must never downgrade a confirmed outcome). The monotonicity is
@@ -186,6 +189,17 @@ export function resetConfirmedPreviewReadyCacheForTests(): void {
   confirmedPreviewReadyVersionIds.clear();
 }
 
+/**
+ * True when a ready-stamp for this version already MATCHED a row on this
+ * instance. Lets hot callers (heartbeat-route's one-shot host verification)
+ * skip both the host `/status` call and the DB round-trip once confirmed.
+ * Per-instance only — cross-instance duplicates are harmless (the SQL guard
+ * makes stamps idempotent and the host check is a cheap bounded GET).
+ */
+export function hasConfirmedPreviewReadyOnInstance(versionId: string): boolean {
+  return confirmedPreviewReadyVersionIds.has(versionId);
+}
+
 export async function recordPreviewRuntimeOutcomeForVersion(
   versionId: string,
   previewSuccess: boolean,
@@ -211,8 +225,21 @@ export async function recordPreviewRuntimeOutcomeForVersion(
       .where(
         and(sql`${generationTelemetry.id} = ${latestRowIdForVersion}`, monotonicGuard),
       );
-    if (previewSuccess && (result.rowCount ?? 0) > 0) {
-      rememberConfirmedPreviewReady(versionId);
+    if (previewSuccess) {
+      if ((result.rowCount ?? 0) > 0) {
+        rememberConfirmedPreviewReady(versionId);
+      } else {
+        // rowCount 0 on a true-stamp is ambiguous: either no telemetry row
+        // exists yet (do NOT cache — a later stamp must still land once the
+        // row appears) or the row is already true (stamped by another
+        // instance). Disambiguate with one read so this instance can cache
+        // and stop re-verifying/re-stamping on every heartbeat. Runs at most
+        // once per version per instance (after it, the cache short-circuits).
+        const rows = await getTelemetryForVersion(versionId);
+        if (rows[0]?.previewSuccess === true) {
+          rememberConfirmedPreviewReady(versionId);
+        }
+      }
     }
   } catch (err) {
     console.warn("[telemetry] Failed to record preview runtime outcome:", err);

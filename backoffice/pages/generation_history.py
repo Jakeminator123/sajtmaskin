@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -65,15 +66,43 @@ def _run_history(repo_root, extra_args: list[str]) -> dict[str, Any]:
     return {"error": "Oväntat svarsformat (förväntade objekt)."}
 
 
-def _preview_label(value: Any) -> str:
+# M#pv1 semantik-cutoff — SAMMA värde som `PREVIEW_SUCCESS_SEMANTIC_CUTOFF` i
+# `scripts/db/control-stats.mjs` (kanonisk källa; värdet dupliceras här eftersom
+# konstant-delning Python<->JS inte är rimlig — uppdatera BÅDA vid flytt).
+# Rader skrivna FÖRE cutoffen bär gamla semantiken ("preflighten blockerade
+# inte previewn") — deras `true` är INTE ett runtime-ready-kvitto.
+_PREVIEW_SUCCESS_SEMANTIC_CUTOFF = datetime(2026, 7, 3, 14, 30, tzinfo=timezone.utc)
+
+
+def _is_before_preview_semantic_cutoff(created_at: Any) -> bool:
+    """True när raden skrevs före semantik-cutoffen (eller inte kan avgöras).
+
+    Oparsebar/saknad timestamp behandlas som FÖRE cutoffen — konservativ
+    riktning: hellre "legacy (preflight)" än en falsk "ready"-etikett.
+    """
+    text = "" if created_at is None else str(created_at).strip()
+    if not text:
+        return True
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+    except ValueError:
+        return True
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed < _PREVIEW_SUCCESS_SEMANTIC_CUTOFF
+
+
+def _preview_label(value: Any, created_at: Any = None) -> str:
     # M#pv1 (honest preview_success tri-state):
     #   True  -> runtime confirmed ready (runtime-ready receipt), not just
     #            "preflight did not block" as the old semantics claimed.
     #   False -> confirmed no working preview (blocked, or session start failed).
     #   None  -> pending / unconfirmed (fresh boot queued, or no preview attempt).
-    # Rows before the 2026-07 semantic cutoff used the old over-optimistic
-    # meaning, so an older "ready" is weaker evidence than a current one.
+    # Pre-cutoff `true` gets its own bucket ("legacy (preflight)") so the old
+    # over-optimistic semantics can never render as a runtime-ready "ready".
     if value is True:
+        if _is_before_preview_semantic_cutoff(created_at):
+            return "legacy (preflight)"
         return "ready"
     if value is False:
         return "failed"
@@ -98,7 +127,7 @@ def _recent_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "Scaffold": r.get("scaffold_id") or "—",
                 "Model": r.get("model") or "—",
                 "Intent": r.get("build_intent") or "—",
-                "Preview": _preview_label(r.get("preview_success")),
+                "Preview": _preview_label(r.get("preview_success"), r.get("created_at")),
                 "Quality gate": r.get("quality_gate_result") or "—",
                 "Deploy": r.get("deploy_result") or "—",
                 "Retry": r.get("retry_count"),
@@ -165,7 +194,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                         "Scaffold": t.get("scaffold_id") or "—",
                         "Model": t.get("model") or "—",
                         "Intent": t.get("build_intent") or "—",
-                        "Preview": _preview_label(t.get("preview_success")),
+                        "Preview": _preview_label(t.get("preview_success"), t.get("created_at")),
                         "Quality gate": t.get("quality_gate_result") or "—",
                         "Deploy": t.get("deploy_result") or "—",
                         "Retry": t.get("retry_count"),

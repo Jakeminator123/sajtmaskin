@@ -15,10 +15,25 @@ const updateSet = vi.hoisted(() => ({ value: undefined as unknown }));
 const updateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
 const updateCalls = vi.hoisted(() => ({ count: 0 }));
 const updateResult = vi.hoisted(() => ({ rowCount: 1, reject: false }));
+// Disambiguation read used ONLY when a true-stamp matched nothing (rowCount 0):
+// already-true (stamped elsewhere) vs no-row-yet.
+const selectRows = vi.hoisted(
+  () => ({ value: [] as Array<{ id: string; previewSuccess?: boolean | null }>, count: 0 }),
+);
 
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          orderBy: () => {
+            selectRows.count += 1;
+            return Promise.resolve(selectRows.value);
+          },
+        }),
+      }),
+    }),
     update: () => ({
       set: (s: unknown) => {
         updateSet.value = s;
@@ -53,6 +68,8 @@ describe("recordPreviewRuntimeOutcomeForVersion (M#pv1, atomic SQL-side monotoni
     updateCalls.count = 0;
     updateResult.rowCount = 1;
     updateResult.reject = false;
+    selectRows.value = [];
+    selectRows.count = 0;
     resetConfirmedPreviewReadyCacheForTests();
     vi.clearAllMocks();
   });
@@ -99,16 +116,32 @@ describe("recordPreviewRuntimeOutcomeForVersion (M#pv1, atomic SQL-side monotoni
     expect(updateCalls.count).toBe(2);
   });
 
-  it("does NOT cache when the true-stamp matched nothing (no row yet, or stamped elsewhere) — a later stamp still reaches the DB", async () => {
+  it("does NOT cache when the true-stamp matched nothing because no row exists yet — a later stamp still reaches the DB", async () => {
     updateResult.rowCount = 0;
+    selectRows.value = []; // disambiguation read: no telemetry row at all
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
     expect(updateCalls.count).toBe(1);
+    expect(selectRows.count).toBe(1);
 
     // A telemetry row may appear later (finalize) — the next receipt must
     // still issue the conditional UPDATE.
     updateResult.rowCount = 1;
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
     expect(updateCalls.count).toBe(2);
+  });
+
+  it("caches when the true-stamp matched nothing because the row is ALREADY true (stamped by another instance)", async () => {
+    updateResult.rowCount = 0;
+    selectRows.value = [{ id: "tel_1", previewSuccess: true }];
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
+    expect(updateCalls.count).toBe(1);
+    expect(selectRows.count).toBe(1);
+
+    // Confirmed via disambiguation read → repeat stamps do no DB work at all
+    // (heartbeat steady state stays free even cross-instance).
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
+    expect(updateCalls.count).toBe(1);
+    expect(selectRows.count).toBe(1);
   });
 
   it("does NOT cache false-stamps — a later confirmed boot can still upgrade false→true", async () => {

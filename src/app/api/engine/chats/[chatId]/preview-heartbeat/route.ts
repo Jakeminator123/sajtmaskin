@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
@@ -8,6 +8,11 @@ import {
 } from "@/lib/gen/preview/session-store";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
+import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
+import {
+  hasConfirmedPreviewReadyOnInstance,
+  recordPreviewRuntimeOutcomeForVersion,
+} from "@/lib/db/services/generation-telemetry";
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
@@ -78,6 +83,34 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         previewUrl: session.previewUrl,
         versionId: session.versionId,
       });
+
+      // M#pv1 (PR #377 runda 3): the heartbeat is the receipt point that
+      // provably fires on EVERY normal successful boot — the client
+      // heartbeats every ~25s while the tier-2 iframe is live
+      // (`usePreviewHeartbeat`), whereas `/preview-status` only fires on the
+      // suspect/recovery path. The heartbeat alone only proves "client sees an
+      // iframe", so before stamping we verify the actual runtime receipt with
+      // ONE host `/status` call (`running:true`, host re-checks versionId) —
+      // the same canonical receipt as the preview-status path. Version binding
+      // is exact: the session↔versionId equality check above already returned
+      // `session_mismatch` otherwise. One-shot per version per instance: the
+      // writer's confirmed-cache gates BOTH the host call and the DB write, so
+      // steady-state heartbeats add no host or DB traffic. Scheduled via
+      // `after()` so the stamp never delays the heartbeat response;
+      // best-effort + monotonic + atomic inside the writer.
+      if (!hasConfirmedPreviewReadyOnInstance(versionId)) {
+        after(async () => {
+          try {
+            const resumed = await tryResumeTier2Runtime(session);
+            if (resumed) {
+              await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+            }
+          } catch {
+            // Best-effort: a failed receipt check must never surface —
+            // the next heartbeat retries.
+          }
+        });
+      }
 
       logPreviewLifecycleTelemetry({
         kind: "heartbeat",
