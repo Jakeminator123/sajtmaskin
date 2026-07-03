@@ -36,6 +36,62 @@ describe("emitOwnEngineToolCallSse", () => {
     expect(data.items[0]?.key).toBe("stripe");
   });
 
+  it("derives integration name from provider when suggestIntegration omits name", () => {
+    const chunks: Uint8Array[] = [];
+    const enc = new TextEncoder();
+    emitOwnEngineToolCallSse(
+      {
+        enc,
+        safeEnqueue: (d) => chunks.push(d),
+        toolCallNames: new Set(),
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: {
+          provider: "stripe",
+          envVars: ["STRIPE_SECRET_KEY"],
+        },
+      },
+    );
+    const text = chunks.map((c) => new TextDecoder().decode(c)).join("");
+    const { events } = parseSSEBuffer(text);
+    const integration = events.find((e) => e.event === "integration");
+    expect(integration).toBeDefined();
+    const data = integration?.data as {
+      items: Array<{ key?: string; provider?: string; name?: string }>;
+    };
+    expect(data.items[0]?.key).toBe("stripe");
+    expect(data.items[0]?.provider).toBe("stripe");
+    expect(data.items[0]?.name).toBe("Stripe");
+  });
+
+  it("drops malformed suggestIntegration calls with generic empty payload", () => {
+    const chunks: Uint8Array[] = [];
+    const providers = new Set<string>();
+    const enc = new TextEncoder();
+    emitOwnEngineToolCallSse(
+      {
+        enc,
+        safeEnqueue: (d) => chunks.push(d),
+        toolCallNames: new Set(),
+        toolSignaledProviders: providers,
+        setBlockingToolCall: () => {},
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: {
+          name: "Integration",
+        },
+      },
+    );
+    expect(chunks).toHaveLength(0);
+    expect(providers.size).toBe(0);
+  });
+
   it("does not mark blocking for emitPlanArtifact", () => {
     const enc = new TextEncoder();
     let blocking = false;

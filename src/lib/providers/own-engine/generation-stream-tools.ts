@@ -1,4 +1,10 @@
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
+import {
+  isGenericIntegrationName,
+  normalizeIntegrationProviderKey,
+  resolveIntegrationDisplayName,
+  resolveIntegrationIdentityKey,
+} from "@/lib/integrations/suggestion-display";
 import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
 import { formatSSEEvent } from "@/lib/streaming";
 import { debugLog, warnLog } from "@/lib/utils/debug";
@@ -58,13 +64,45 @@ export function emitOwnEngineToolCallSse(
   }
 
   if (toolName === "suggestIntegration") {
-    const envVars = Array.isArray(toolArgs.envVars) ? (toolArgs.envVars as string[]) : [];
+    const providerRaw = typeof toolArgs.provider === "string" ? toolArgs.provider : null;
+    const nameRaw = typeof toolArgs.name === "string" ? toolArgs.name : null;
+    const providerKey = resolveIntegrationIdentityKey({
+      provider: providerRaw,
+      name: nameRaw,
+    });
+    const normalizedProvider = normalizeIntegrationProviderKey(providerRaw);
+    const normalizedName = normalizeIntegrationProviderKey(nameRaw);
+    const hasProvider = Boolean(normalizedProvider);
+    const hasName = Boolean(normalizedName);
+    const hasEnvVarsField = Array.isArray(toolArgs.envVars);
+    const envVars = hasEnvVarsField ? (toolArgs.envVars as string[]) : [];
+    const derivedDisplayName = resolveIntegrationDisplayName({
+      provider: providerRaw,
+      name: nameRaw,
+      key: providerKey,
+    });
+    const missingProviderAndName = !hasProvider && !hasName;
+    const missingEnvVarsAndGenericName =
+      !hasEnvVarsField && isGenericIntegrationName(nameRaw) && !derivedDisplayName;
+
+    if (missingProviderAndName || missingEnvVarsAndGenericName) {
+      warnLog("engine", "Dropped malformed suggestIntegration tool-call (defense-in-depth)", {
+        lifecycleStage,
+        hasProvider,
+        hasName,
+        hasEnvVarsField,
+        provider: providerRaw,
+        name: nameRaw,
+      });
+      return;
+    }
+
     const integrationPayload: BuilderIntegrationEnvelope = {
       items: [
         {
-          key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
-          name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
-          provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
+          key: providerKey ?? "custom-env",
+          name: derivedDisplayName ?? undefined,
+          provider: normalizedProvider ?? undefined,
           intent: "env_vars",
           envVars,
           status: "Kräver konfiguration",
@@ -74,9 +112,10 @@ export function emitOwnEngineToolCallSse(
       ],
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
-    const providerKey = typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown";
-    toolSignaledProviders.add(providerKey);
-    debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
+    if (providerKey) {
+      toolSignaledProviders.add(providerKey);
+    }
+    debugLog("engine", "Tool: suggestIntegration", { provider: providerKey ?? "custom-env" });
     return;
   }
 

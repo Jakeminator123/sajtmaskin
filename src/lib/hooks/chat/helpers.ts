@@ -1,6 +1,11 @@
 import type { UiMessagePart } from "@/lib/builder/types";
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import {
+  isGenericIntegrationName,
+  normalizeIntegrationProviderKey,
+  resolveIntegrationDisplayName,
+} from "@/lib/integrations/suggestion-display";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS } from "./constants";
 import type {
@@ -582,16 +587,19 @@ function stableIntegrationSignalKey(signal: IntegrationSseSignal): string {
 }
 
 function deriveProviderKey(signal: IntegrationSseSignal): string {
-  const provider = signal.provider?.toLowerCase().trim();
+  const provider = normalizeIntegrationProviderKey(signal.provider);
   if (provider) {
     const match = KNOWN_PROVIDERS.find((k) => provider.includes(k));
     if (match) return match;
     return provider;
   }
 
-  const name = signal.name?.toLowerCase().trim() ?? "";
-  for (const known of KNOWN_PROVIDERS) {
-    if (name.includes(known)) return known;
+  const name = signal.name?.trim() ?? "";
+  const normalizedName = name.toLowerCase();
+  if (normalizedName && !isGenericIntegrationName(normalizedName)) {
+    for (const known of KNOWN_PROVIDERS) {
+      if (normalizedName.includes(known)) return known;
+    }
   }
 
   const envHint = signal.envVars?.join(" ").toLowerCase() ?? "";
@@ -599,8 +607,14 @@ function deriveProviderKey(signal: IntegrationSseSignal): string {
     if (envHint.includes(known)) return known;
   }
 
-  if (signal.key) return signal.key;
-  if (name) return name;
+  if (signal.key) {
+    const normalizedKey = normalizeIntegrationProviderKey(signal.key);
+    if (normalizedKey) return normalizedKey;
+    return signal.key;
+  }
+  if (normalizedName && !isGenericIntegrationName(normalizedName)) {
+    return normalizeIntegrationProviderKey(name) ?? name;
+  }
   if (signal.envVars && signal.envVars.length > 0) {
     return `env:${signal.envVars.sort().join(",")}`;
   }
@@ -666,9 +680,14 @@ function mergeIntegrationSignalsByProvider(
 
 function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
   const steps: string[] = [];
-  const displayName =
-    signal.provider ?? signal.name ?? "Integration";
-  steps.push(`Integration: ${displayName}`);
+  const displayName = resolveIntegrationDisplayName({
+    provider: signal.provider,
+    name: signal.name,
+    key: signal.key,
+  });
+  if (displayName) {
+    steps.push(`Integration: ${displayName}`);
+  }
   if (signal.intent) {
     const label =
       signal.intent === "env_vars"

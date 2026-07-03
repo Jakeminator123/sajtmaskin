@@ -92,6 +92,28 @@ describe("shared-own-engine-helpers", () => {
     expect(result).toEqual([{ key: "stripe", envVars: ["STRIPE_SECRET_KEY"] }]);
   });
 
+  it("dedupes detected integrations against normalized tool provider keys", () => {
+    detectIntegrations.mockReturnValue([
+      {
+        key: "google-analytics",
+        provider: "google-analytics",
+        envVars: ["NEXT_PUBLIC_GA_ID"],
+      },
+      {
+        key: "stripe",
+        provider: "stripe",
+        envVars: ["STRIPE_SECRET_KEY"],
+      },
+    ]);
+
+    const result = getUnsignaledDetectedIntegrations(
+      "code",
+      new Set(["GoogleAnalytics", "stripe"]),
+    );
+
+    expect(result).toEqual([]);
+  });
+
   it("returns the finalized result on success", async () => {
     finalizeAndSaveVersion.mockResolvedValue({ version: { id: "ver_1" } });
 

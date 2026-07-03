@@ -13,6 +13,42 @@ vi.mock("@streamdown/code", () => ({
 }));
 
 describe("MessageList", () => {
+  it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {
+    // Ägarbeslut 2026-07-03: integrations-/env-frågor ska stanna inline
+    // i chatten (compact cards) och inte driva plan-dialogen.
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_inline_1",
+        role: "assistant",
+        content: "Här är nästa steg för integrationen.",
+        uiParts: [
+          {
+            type: "tool:integration-suggestion",
+            toolName: "Integration suggestion",
+            toolCallId: "integration:stripe",
+            state: "approval-requested",
+            output: {
+              question: "Vill du konfigurera Stripe nu?",
+              options: ["Godkänn förslag", "Avvisa förslag"],
+              provider: "stripe",
+              name: "Stripe",
+              envVars: ["STRIPE_SECRET_KEY"],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_inline_1" messages={messages} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Vill du konfigurera Stripe nu?")).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+  });
+
   it("shows the actual awaiting-input question without synthetic approval buttons", async () => {
     const messages: ChatMessage[] = [
       {
