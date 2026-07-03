@@ -4,10 +4,16 @@ import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
+const addMessageMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
   dbConfigured: false,
+}));
+
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  addMessage: addMessageMock,
+  failVersionVerification: vi.fn(),
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -114,6 +120,8 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
   beforeEach(() => {
     finalizeAndSaveVersionMock.mockReset();
     finalizeAndSaveVersionMock.mockResolvedValue(mockFinalizeResult);
+    addMessageMock.mockReset();
+    addMessageMock.mockResolvedValue(null);
     commitCredits.mockClear();
     commitCredits.mockResolvedValue(undefined);
   });
@@ -313,6 +321,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       resolvedScaffold: null,
       urlMap: {},
       commitCredits,
+      lifecycleParentVersionId: "ver_f2_parent",
     });
 
     const events = await collectSseEvents(out);
@@ -337,5 +346,103 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         toolCalls: ["suggestIntegration"],
       }),
     );
+
+    // P1 F3-entry: the awaiting-input question is persisted WITH the
+    // F3-continuation marker so the follow-up route can inherit the
+    // integrations stage server-side for the user's direct reply.
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const [persistChatId, persistRole, persistContent, , persistUiParts] =
+      addMessageMock.mock.calls[0] as [
+        string,
+        string,
+        string,
+        unknown,
+        Array<Record<string, unknown>>,
+      ];
+    expect(persistChatId).toBe("chat_tool_only");
+    expect(persistRole).toBe("assistant");
+    expect(persistContent).toContain("Integrationer signalerades");
+    const markerOutput = persistUiParts?.[0]?.output as Record<string, unknown>;
+    expect(persistUiParts?.[0]?.type).toBe("tool:awaiting-input");
+    expect(markerOutput.f3Continuation).toBe(true);
+    expect(markerOutput.lifecycleStage).toBe("integrations");
+    expect(markerOutput.parentVersionId).toBe("ver_f2_parent");
+    // Canonical quick-replies persisted (server classifies against these) and
+    // a toolName that must not trip the client's integration/env filters.
+    expect(markerOutput.options).toEqual(["Godkänn förslag", "Avvisa förslag", "Annat"]);
+    expect(String(persistUiParts?.[0]?.toolName).toLowerCase()).not.toContain("integration");
+  });
+
+  it("does NOT persist an F3-continuation marker for an F2 (fidelity2) tool-only run", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_f2_tool_only", null),
+    );
+    // In F2 a well-formed suggestIntegration is still REGISTERED (the SSE is
+    // dropped — F2-mute net) so the run parks in the same awaiting-input
+    // prompt. The F3-continuation marker must NOT be persisted here: an F2
+    // reply must never inherit the integrations stage.
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: {
+          provider: "stripe",
+          name: "Stripe",
+          envVars: ["STRIPE_SECRET_KEY"],
+        },
+      }) +
+      formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 });
+
+    const out = createOwnEngineGenerationStream({
+      chatId: "chat_f2_tool_only",
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "uppdatera hero",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((event) => event.event === "done")?.data as Record<
+      string,
+      unknown
+    >;
+
+    expect(doneData.versionId).toBeNull();
+    // Same awaiting-input contract as before (pinned by stream/route.test.ts)…
+    expect(doneData.reason).toBe("tool_only_empty_generation");
+    // …but no F3 marker: the reply to an F2 run must not inherit F3.
+    expect(addMessageMock).not.toHaveBeenCalled();
   });
 });

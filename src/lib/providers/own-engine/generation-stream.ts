@@ -9,6 +9,7 @@ import {
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
+import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
@@ -248,6 +249,25 @@ export function createOwnEngineGenerationStream(
         if (hasOnlyIntegrationToolCalls) {
           const awaitingInputPrompt =
             "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
+          // P1 F3-entry (BUG-SWARM-BACKLOG): persist the awaiting-input
+          // question WITH the F3-continuation marker. Without a version and
+          // without this message the F3 stage only lived in the client's
+          // volatile stream state, so the user's "Godkänn förslag" reply came
+          // back as a plain F2 follow-up and the SDK codegen ran in the wrong
+          // lane. The follow-up route reads this marker server-side
+          // (`resolvePendingF3Continuation`) to inherit the stage for the
+          // direct reply. Best-effort: a persist failure degrades to the old
+          // behavior instead of breaking the stream.
+          if (buildSpec.previewPolicy === "fidelity3") {
+            await chatRepo
+              .addMessage(chatId, "assistant", awaitingInputPrompt, undefined, [
+                buildF3AwaitingInputUiPart({
+                  question: awaitingInputPrompt,
+                  parentVersionId: lifecycleParentVersionId ?? null,
+                }),
+              ])
+              .catch(() => null);
+          }
           await finishWithoutVersion("tool_only_empty_generation", {
             awaitingInput: true,
             awaitingInputPrompt,
