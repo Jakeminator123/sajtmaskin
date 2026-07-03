@@ -43,6 +43,22 @@ export function isGenericIntegrationName(value: string | null | undefined): bool
   return GENERIC_INTEGRATION_NAME_KEYS.has(compactName(normalized));
 }
 
+/**
+ * Identity form for dedupe/matching: lowercase alphanumerics only. Unlike the
+ * hyphenated slug from {@link normalizeIntegrationProviderKey}, this collapses
+ * camelCase brands to their canonical single-token keys ("OpenAI" → "openai",
+ * "GoogleAnalytics" → "googleanalytics" ≡ "google-analytics"), so two spellings
+ * of the same provider can never produce duplicate integration cards.
+ */
+export function normalizeIntegrationIdentity(
+  value: string | null | undefined,
+): string | null {
+  const normalized = normalizeText(value);
+  if (!normalized) return null;
+  const compact = compactName(normalized);
+  return compact || null;
+}
+
 export function normalizeIntegrationProviderKey(
   value: string | null | undefined,
 ): string | null {
@@ -76,14 +92,14 @@ export function deriveIntegrationNameFromProvider(
 export function resolveIntegrationIdentityKey(
   input: IntegrationIdentityInput,
 ): string | null {
-  const providerKey = normalizeIntegrationProviderKey(input.provider);
+  const providerKey = normalizeIntegrationIdentity(input.provider);
   if (providerKey) return providerKey;
 
-  const key = normalizeIntegrationProviderKey(input.key);
+  const key = normalizeIntegrationIdentity(input.key);
   if (key && !isGenericIntegrationName(key)) return key;
 
   if (!isGenericIntegrationName(input.name)) {
-    return normalizeIntegrationProviderKey(input.name);
+    return normalizeIntegrationIdentity(input.name);
   }
   return null;
 }

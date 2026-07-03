@@ -114,6 +114,18 @@ describe("shared-own-engine-helpers", () => {
     expect(result).toEqual([]);
   });
 
+  it("matches camelCase brands against canonical single-token keys (OpenAI ≡ openai)", () => {
+    // Vercel Agent-fynd PR #375: hyphenerad slug gjorde "OpenAI" → "open-ai"
+    // som inte matchade "openai" → dubbla integration-kort.
+    detectIntegrations.mockReturnValue([
+      { key: "openai", provider: "openai", envVars: ["OPENAI_API_KEY"] },
+    ]);
+
+    const result = getUnsignaledDetectedIntegrations("code", new Set(["OpenAI"]));
+
+    expect(result).toEqual([]);
+  });
+
   it("returns the finalized result on success", async () => {
     finalizeAndSaveVersion.mockResolvedValue({ version: { id: "ver_1" } });
 

@@ -3,7 +3,7 @@ import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import {
   isGenericIntegrationName,
-  normalizeIntegrationProviderKey,
+  normalizeIntegrationIdentity,
   resolveIntegrationDisplayName,
 } from "@/lib/integrations/suggestion-display";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
@@ -587,7 +587,9 @@ function stableIntegrationSignalKey(signal: IntegrationSseSignal): string {
 }
 
 function deriveProviderKey(signal: IntegrationSseSignal): string {
-  const provider = normalizeIntegrationProviderKey(signal.provider);
+  // Identity form (compact, camelCase-säker): "OpenAI" → "openai" så samma
+  // provider aldrig får två olika dedupe-nycklar (Vercel Agent-fynd PR #375).
+  const provider = normalizeIntegrationIdentity(signal.provider);
   if (provider) {
     const match = KNOWN_PROVIDERS.find((k) => provider.includes(k));
     if (match) return match;
@@ -595,25 +597,25 @@ function deriveProviderKey(signal: IntegrationSseSignal): string {
   }
 
   const name = signal.name?.trim() ?? "";
-  const normalizedName = name.toLowerCase();
+  const normalizedName = normalizeIntegrationIdentity(name) ?? "";
   if (normalizedName && !isGenericIntegrationName(normalizedName)) {
     for (const known of KNOWN_PROVIDERS) {
       if (normalizedName.includes(known)) return known;
     }
   }
 
-  const envHint = signal.envVars?.join(" ").toLowerCase() ?? "";
+  const envHint = normalizeIntegrationIdentity(signal.envVars?.join(" ") ?? "") ?? "";
   for (const known of KNOWN_PROVIDERS) {
     if (envHint.includes(known)) return known;
   }
 
   if (signal.key) {
-    const normalizedKey = normalizeIntegrationProviderKey(signal.key);
+    const normalizedKey = normalizeIntegrationIdentity(signal.key);
     if (normalizedKey) return normalizedKey;
     return signal.key;
   }
   if (normalizedName && !isGenericIntegrationName(normalizedName)) {
-    return normalizeIntegrationProviderKey(name) ?? name;
+    return normalizedName;
   }
   if (signal.envVars && signal.envVars.length > 0) {
     return `env:${signal.envVars.sort().join(",")}`;

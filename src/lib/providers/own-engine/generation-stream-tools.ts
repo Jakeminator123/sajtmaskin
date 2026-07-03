@@ -97,10 +97,14 @@ export function emitOwnEngineToolCallSse(
       return;
     }
 
+    // providerKey är kompakt identitetsform (dedupe); payload-nyckeln behåller
+    // registry-stil (hyphenated slug) så konsumenter som slår upp t.ex.
+    // "vercel-blob" inte bryts.
+    const payloadKey = normalizedProvider ?? (providerKey ? normalizedName : null) ?? "custom-env";
     const integrationPayload: BuilderIntegrationEnvelope = {
       items: [
         {
-          key: providerKey ?? "custom-env",
+          key: payloadKey,
           name: derivedDisplayName ?? undefined,
           provider: normalizedProvider ?? undefined,
           intent: "env_vars",
