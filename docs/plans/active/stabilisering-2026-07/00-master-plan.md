@@ -201,6 +201,7 @@ mätavstämning ~2026-07-10 — en mätning, två konsumenter).
 | Datum | Beslut | Av |
 |---|---|---|
 | 2026-07-03 | Läget taggat `backup_BRA-2000` (= `f91a9aca2`) på ägarens begäran efter verifierad lyckad prod-generering. E1 utförd (evidens → avklarat, zip → `.cursor/bugs/`). Våg 3 startad med fyra parallella builder-subagenter: W3-A F3-entry-P1 (Fable 5) · W3-B repair-robusthet B2 (Opus 4.8) · W3-C restore-studs C4 + readiness-copy D1 (GPT 5.3) · W3-D backoffice/schema-låsning E2+E4 (GPT 5.5). C3 (DB-pool) kvarstår som ägar-infra-beslut | Jake + orkestrator |
+| 2026-07-04 | **Våg 3 KOMPLETT — alla fyra PR mergade:** #379 backoffice/CI (`37cb4f786`, 2 fynd fixade av orkestratorn: ready-rate-nämnare + timeline-spegling), #380 repair-robusthet (`ea278b22d`, VADE-invariant + bugbot-HIGH stale-bundle fixade av orkestratorn), #381 restore-studs + Blocker/Advisory-readiness (`1070d530f`, bugbot-HIGH ljugande overlay + VADE allowFailed-memo), #382 **F3-entry-P1** (`996add2b9`, 5 fynd över 2 rundor: intent-gatat arv, atomisk marker-konsumtion EFTER gates, lineage=byggbas — stänger rotorsaken till v8-haveriet i cc10e7de). Kvar i planen: C3 (ägar-infra-beslut), mätavstämning ~2026-07-10, PR-beslut #355/#358/#348 (ägare) | orkestrator |
 
 ## 9. Nästa steg
 
