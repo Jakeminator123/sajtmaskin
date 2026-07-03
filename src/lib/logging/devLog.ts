@@ -63,6 +63,8 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "preview_ready",
   "preview_url_handoff",
   "preview_failed",
+  "image-replacement.finalize",
+  "image-materialization",
   "scaffold-retry.suggested",
   "site.done",
   "site.message.done",
@@ -366,6 +368,14 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (readString(entry, "stage")) details.push(`stage=${readString(entry, "stage")}`);
       if (readString(entry, "failureCode")) details.push(`code=${readString(entry, "failureCode")}`);
       if (readString(entry, "detail")) details.push(`detail=${truncateInline(readString(entry, "detail")!, 90)}`);
+      break;
+    case "image-replacement.finalize":
+      if (readNumber(entry, "replacedCount") !== null) details.push(`replaced=${readNumber(entry, "replacedCount")}`);
+      if (readString(entry, "source")) details.push(`source=${readString(entry, "source")}`);
+      break;
+    case "image-materialization":
+      if (readNumber(entry, "replacedCount") !== null) details.push(`replaced=${readNumber(entry, "replacedCount")}`);
+      if (readNumber(entry, "skippedCount") !== null) details.push(`skipped=${readNumber(entry, "skippedCount")}`);
       break;
     case "scaffold-retry.suggested":
       if (readString(entry, "currentScaffoldId")) details.push(`from=${readString(entry, "currentScaffoldId")}`);

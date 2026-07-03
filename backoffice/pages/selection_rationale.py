@@ -24,12 +24,15 @@ Två filbaserade källor (komplement, inte duplikat, av `LLM-flöde telemetri`):
      samt skannas för ``scaffoldId``/``resolvedTier`` och fil-tillgängliga
      drift-liknande events (``scaffold-retry.suggested``).
 
-VIKTIG SIGNAL-NOT (annars luras operatören): dossier-signalerna
-``dossiers_selected`` / ``dossier_capability_unresolved``
-(``src/lib/gen/orchestrate.ts``) och dossierns
-``SelectedDossier.reason`` (``src/lib/gen/dossiers/select.ts``) emitteras som
-``console.info`` / DB-telemetri — de hamnar **inte** i fil-loggarna. Vyn visar
-kolumnstrukturen ändå och säger tydligt att de bara finns i console/DB.
+  3. **DB-telemetri** ``generation_telemetry.meta.selectedDossierIds`` via
+     ``scripts/db/generation-history.mjs --json``. Dossier-valen persisteras i
+     DB, inte i fil-loggarna.
+
+VIKTIG SIGNAL-NOT (annars luras operatören): console-signalerna
+``dossiers_selected`` / ``dossier_capability_unresolved`` och dossierns
+``SelectedDossier.reason`` hamnar fortfarande inte i fil-loggarna. Vyn läser
+de persisterade dossier-ID:na från DB när ``POSTGRES_URL`` finns och säger
+tydligt när DB saknas.
 (De gamla ``scaffold_drift`` / ``variant_drift``-signalerna togs bort som död
 kod — brief-schemat producerade aldrig de nominerings-fält de byggde på.)
 
@@ -40,6 +43,7 @@ För full tidslinje per körning: se sidan ``LLM-flöde telemetri``.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +58,8 @@ PAGE_NAME = "Selection Rationale (read-only)"
 _MAX_RUNS = 20
 _MAX_ROWS_PER_RUN = 500
 _DUMP_REL = "data/prompt-dumps/orchestration-dynamic/generation-input-package.json"
+_HISTORY_SCRIPT_REL = "scripts/db/generation-history.mjs"
+_DB_TIMEOUT_S = 60
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +175,49 @@ def _load_orchestration_dump(repo_root: Path) -> dict[str, Any] | None:
     except OSError:
         dumped_at = None
     return {"payload": payload, "dumpedAtUtc": dumped_at}
+
+
+def _load_recent_generation_telemetry(repo_root: Path, limit: int = 100) -> dict[str, Any]:
+    """Läs senaste generation_telemetry-rader via befintligt Node-script.
+
+    Backoffice har ingen egen Postgres-driver; detta speglar Generation History
+    och Scaffold Performance: read-only subprocess mot DB:n som `.env.local`
+    pekar på. Returnerar alltid dict med antingen `rows` eller `error`.
+    """
+    script_path = repo_root / _HISTORY_SCRIPT_REL
+    if not script_path.exists():
+        return {"error": f"Script saknas: {script_path}"}
+    try:
+        result = subprocess.run(
+            ["node", str(script_path), "--json", f"--limit={limit}"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=_DB_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"Script timeout efter {_DB_TIMEOUT_S}s"}
+    except FileNotFoundError:
+        return {"error": "`node` saknas på PATH"}
+
+    stdout = (result.stdout or "").strip()
+    if not stdout:
+        return {"error": (result.stderr or "Tomt svar från script").strip()}
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        return {"error": f"Kunde inte tolka JSON från generation-history: {exc}"}
+    return data if isinstance(data, dict) else {"error": "Oväntat DB-svarsformat."}
+
+
+def _selected_dossier_ids(meta: Any) -> list[str]:
+    if not isinstance(meta, dict):
+        return []
+    raw = meta.get("selectedDossierIds")
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()]
 
 
 def _txt(value: Any) -> str:
@@ -383,22 +432,73 @@ def _render_recent_runs_table(run_dirs: list[Path]) -> None:
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
-def _render_dossier_note() -> None:
-    st.subheader("Dossier-val (console/DB-only — ej i fil-loggar)")
+def _render_dossier_note(ctx: BackofficeContext) -> None:
+    st.subheader("Dossier-val (DB-telemetri, ej fil-loggar)")
     st.caption(
-        "Dossier-rationalen är medvetet inte fil-loggad. Den finns som "
-        "`console.info`-events `[orchestrate] dossiers_selected` / "
-        "`dossier_capability_unresolved` (`src/lib/gen/orchestrate.ts`) samt som "
-        "`SelectedDossier.reason` (`capability-match` | `default-fallback`, "
-        "`src/lib/gen/dossiers/select.ts`). Persisteras annars i DB-telemetri "
-        "(`generation_telemetry`), inte i `logs/generationslogg`."
+        "Dossier-ID:n persisteras i `generation_telemetry.meta.selectedDossierIds` "
+        "av finalize-telemetrin. Console-eventen `[orchestrate] dossiers_selected` "
+        "och `dossier_capability_unresolved` finns fortfarande bara i serverloggen; "
+        "fil-loggarna (`logs/generationslogg`) bär inte dossier-rationalen."
     )
-    st.info(
-        "Inga dossier-reasons finns i fil-loggarna. Kör med synlig serverkonsol, "
-        "eller läs DB-telemetri via `Databashälsa`-sidan, för att se dossier-val. "
-        "Kolumnstruktur: `capability` · `dossierId` · `reason` "
-        "(`capability-match`/`default-fallback`) · `configured` (maskerad boolean)."
-    )
+    payload = _load_recent_generation_telemetry(ctx.repo_root, limit=100)
+    if payload.get("error"):
+        st.info(
+            "Kunde inte läsa DB-telemetri för dossier-val: "
+            f"{payload['error']}. Sätt `POSTGRES_URL` i `.env.local` eller använd "
+            "Generation History när DB är tillgänglig."
+        )
+        return
+
+    rows = payload.get("rows") or []
+    if not isinstance(rows, list) or not rows:
+        st.info("Inga generation_telemetry-rader hittades i DB-fönstret.")
+        return
+
+    detail_rows = []
+    counts: dict[str, int] = {}
+    rows_with_dossiers = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        dossier_ids = _selected_dossier_ids(row.get("meta"))
+        if not dossier_ids:
+            continue
+        rows_with_dossiers += 1
+        for dossier_id in dossier_ids:
+            counts[dossier_id] = counts.get(dossier_id, 0) + 1
+        detail_rows.append(
+            {
+                "Tid": _txt(row.get("created_at"))[:19],
+                "Projekt": _txt(row.get("project_name")),
+                "Chatt": _txt(row.get("chat_title") or row.get("chat_id"))[:36],
+                "Version": _txt(row.get("version_number")),
+                "Stage": _txt(row.get("lifecycle_stage")),
+                "Scaffold": _txt(row.get("scaffold_id")),
+                "Dossiers": ", ".join(dossier_ids),
+            }
+        )
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("DB-rader lästa", len(rows))
+    col2.metric("Rader med dossier-val", rows_with_dossiers)
+    col3.metric("Unika dossiers", len(counts))
+
+    if not detail_rows:
+        st.info(
+            "Inga `meta.selectedDossierIds` hittades i de senaste DB-raderna. "
+            "Tomma dossier-listor skrivs medvetet inte till meta."
+        )
+        return
+
+    st.markdown("**Dossier-användning (senaste DB-raderna)**")
+    count_rows = [
+        {"Dossier": dossier_id, "Antal": count}
+        for dossier_id, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    st.dataframe(pd.DataFrame(count_rows), hide_index=True, use_container_width=True)
+
+    st.markdown("**Senaste rader med dossier-val**")
+    st.dataframe(pd.DataFrame(detail_rows[:100]), hide_index=True, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +524,9 @@ def render(ctx: BackofficeContext) -> None:
     st.warning(
         "**Signal-not:** dossier-signalerna `dossiers_selected` / "
         "`dossier_capability_unresolved` emitteras som "
-        "`console.info` (ej i fil-loggar). Den rikaste fil-källan är "
+        "`console.info` (ej i fil-loggar), medan valda dossier-ID:n finns i "
+        "`generation_telemetry.meta.selectedDossierIds` när DB är tillgänglig. "
+        "Den rikaste fil-källan är "
         "prompt-dumpens `scaffoldSelection`-meta; per körning kompletterar "
         "generationsloggen med modell/tier/scaffold. Det som inte finns i fil "
         "visas som tom struktur, inte som krasch."
@@ -455,7 +557,7 @@ def render(ctx: BackofficeContext) -> None:
     _render_recent_runs_table(run_dirs)
 
     st.divider()
-    _render_dossier_note()
+    _render_dossier_note(ctx)
 
     st.divider()
     st.caption(
@@ -463,7 +565,8 @@ def render(ctx: BackofficeContext) -> None:
         "(`ScaffoldSelectionMeta`) + orkestrering `src/lib/gen/orchestrate.ts` · "
         "dossier-val `src/lib/gen/dossiers/select.ts` · modell-trace "
         "`src/lib/models/trace.ts` · prompt-dump `src/lib/gen/orchestrate/generation-package.ts` · "
-        "logg-skrivare `src/lib/logging/generation-log-writer.ts`. "
+        "logg-skrivare `src/lib/logging/generation-log-writer.ts` · DB-läsning "
+        "`scripts/db/generation-history.mjs`. "
         "Full tidslinje: sidan **LLM-flöde telemetri**. "
         "Signalkontrakt: `docs/schemas/orchestration-signal-contract.md`."
     )
