@@ -405,19 +405,32 @@ export async function handleMessageStreamRequest(
         // an assistant F3-continuation marker (`f3-continuation.ts`).
         // Conservative exclusions: explicit client overrides win unchanged,
         // plan-mode stays F2, and technical passes (autofix/preserve-payload)
-        // are not user replies. Bugbot round 2 (PR #382) hardening:
-        //  - HIGH: only an APPROVING reply inherits F3
-        //    (`classifyF3ContinuationReply` — quick-reply exact match or
-        //    conservative approval free text; fail-safe = F2). Reject and
-        //    unrelated replies consume the marker and run as normal F2.
-        //  - MEDIUM race: inheritance additionally requires a CONFIRMED
-        //    atomic marker consume (`consumeF3ContinuationMarker`, conditional
-        //    jsonb write) BEFORE generation starts — of two racing replies
-        //    only one can win the marker; an unconfirmed/failed write never
-        //    inherits.
-        // The inherited stage flows through the SAME M#818-2 env-readiness
-        // gate below — the inheritance never bypasses finalize-design
-        // strictness.
+        // are not user replies.
+        //
+        // PHASE A (here, before the M#818-2 gate): classify the reply and set
+        // the stage PROVISIONALLY for an approving reply so the env-readiness
+        // gate + credit gate run against the real F3 intent. Only an
+        // APPROVING reply inherits (`classifyF3ContinuationReply` — Bugbot
+        // HIGH r2: quick-reply exact match or conservative approval free
+        // text; fail-safe = F2). Codex P2 r3: the inherited lineage is
+        // resolved with the SAME resolution as the file base and the gate
+        // (chat-scoped `engineBaseVersionId`, else preferred) — never the raw
+        // marker parent, so `parent_version_id` can't point at a version that
+        // was never the build base.
+        //
+        // PHASE B (at the persistence boundary, right before the user message
+        // is persisted): the atomic marker consume. Codex P1 r3: consuming
+        // here — AFTER the 412/409 readiness gate, the clarification gate and
+        // the credit gate — means an aborted request leaves the marker
+        // pending, so the same approval still inherits F3 once the user has
+        // fixed env/credits. The conditional jsonb write stays the race
+        // arbiter: an unconfirmed consume downgrades the provisional stage
+        // back to design before anything is persisted or generated.
+        let f3ContinuationDecision: {
+          replyIntent: ReturnType<typeof classifyF3ContinuationReply>;
+          markerMessageId: string | null;
+          markerParentVersionId: string | null;
+        } | null = null;
         if (
           parsedMeta.lifecycleStage !== "integrations" &&
           !metaPlanMode &&
@@ -430,56 +443,63 @@ export async function handleMessageStreamRequest(
           );
           if (pendingF3Continuation) {
             const f3ReplyIntent = classifyF3ContinuationReply(message);
-            // Every direct reply consumes the marker — approve to claim the
-            // continuation, reject/unrelated so a racing (or later) request
-            // cannot resurrect it. Errors count as "not confirmed".
-            let markerConsumeConfirmed = false;
-            if (pendingF3Continuation.messageId) {
-              try {
-                markerConsumeConfirmed = await chatRepo.consumeF3ContinuationMarker(
-                  engineChat.id,
-                  pendingF3Continuation.messageId,
-                );
-              } catch (consumeErr) {
-                debugLog("orchestration", "F3 marker consume failed — staying in F2", {
+            f3ContinuationDecision = {
+              replyIntent: f3ReplyIntent,
+              markerMessageId: pendingF3Continuation.messageId,
+              markerParentVersionId: pendingF3Continuation.parentVersionId,
+            };
+            if (f3ReplyIntent === "approve") {
+              // Same resolution as `resolveFollowUpPreviousFiles` and the
+              // readiness gate: chat-scoped explicit base, else preferred.
+              let inheritedBaseId: string | null = null;
+              if (metaEngineBaseVersionId) {
+                try {
+                  const baseVersion = await chatRepo.getVersionById(metaEngineBaseVersionId);
+                  inheritedBaseId =
+                    baseVersion && baseVersion.chat_id === engineChat.id
+                      ? baseVersion.id
+                      : null;
+                } catch {
+                  inheritedBaseId = null;
+                }
+              }
+              if (!inheritedBaseId) {
+                try {
+                  inheritedBaseId = await resolveChatPreferredVersionId(engineChat.id);
+                } catch {
+                  inheritedBaseId = null;
+                }
+              }
+              if (
+                inheritedBaseId &&
+                pendingF3Continuation.parentVersionId &&
+                inheritedBaseId !== pendingF3Continuation.parentVersionId
+              ) {
+                devLogAppend("in-progress", {
+                  type: "f3.lineage_drift",
                   chatId,
-                  error:
-                    consumeErr instanceof Error
-                      ? consumeErr.message
-                      : String(consumeErr),
+                  markerParentVersionId: pendingF3Continuation.parentVersionId,
+                  resolvedBaseVersionId: inheritedBaseId,
                 });
               }
-            }
-            if (f3ReplyIntent === "approve" && markerConsumeConfirmed) {
               parsedMeta.lifecycleStage = "integrations";
-              if (!parsedMeta.parentVersionId) {
-                parsedMeta.parentVersionId = pendingF3Continuation.parentVersionId;
-              }
+              parsedMeta.parentVersionId = inheritedBaseId;
               debugLog(
                 "orchestration",
-                "F3 lifecycle stage inherited over awaiting-input reply",
+                "F3 lifecycle stage provisionally inherited (pending marker consume)",
                 {
                   chatId,
                   parentVersionId: parsedMeta.parentVersionId,
+                  markerParentVersionId: pendingF3Continuation.parentVersionId,
                   engineBaseVersionId: metaEngineBaseVersionId,
                 },
               );
-              devLogAppend("in-progress", {
-                type: "f3.stage_inherited",
-                chatId,
-                replyIntent: f3ReplyIntent,
-                parentVersionId: parsedMeta.parentVersionId,
-              });
             } else {
               devLogAppend("in-progress", {
                 type: "f3.stage_not_inherited",
                 chatId,
                 replyIntent: f3ReplyIntent,
-                markerConsumeConfirmed,
-                reason:
-                  f3ReplyIntent === "approve"
-                    ? "marker_consume_unconfirmed"
-                    : "reply_not_approving",
+                reason: "reply_not_approving",
               });
             }
           }
@@ -1088,6 +1108,61 @@ export async function handleMessageStreamRequest(
         }
 
         await chatRepo.addMessage(engineChat.id, "user", message);
+
+        // PHASE B — atomic F3-marker consume at the persistence boundary
+        // (Codex P1 r3). Runs AFTER every blocking pre-check (stale-base 409,
+        // f3_base_mismatch 409, M#818-2 readiness 412/409, follow-up
+        // clarification return, credit gate) and AFTER the user reply was
+        // persisted above. An abort in any of those gates therefore leaves
+        // the marker pending — the same approval inherits F3 again once the
+        // user has fixed env/credits. Consuming after the persist also
+        // removes the "consumed but nothing persisted" window entirely: once
+        // the reply row exists, the history walk clears pending regardless,
+        // so this conditional write's ONLY remaining job is the concurrent
+        // race arbiter. Every direct reply consumes (approve to claim the
+        // continuation, reject/unrelated so a racing approve cannot resurrect
+        // it); an approve whose consume is not CONFIRMED (lost race, write
+        // error) downgrades the provisional stage back to design before
+        // anything is generated.
+        if (f3ContinuationDecision) {
+          let markerConsumeConfirmed = false;
+          if (f3ContinuationDecision.markerMessageId) {
+            try {
+              markerConsumeConfirmed = await chatRepo.consumeF3ContinuationMarker(
+                engineChat.id,
+                f3ContinuationDecision.markerMessageId,
+              );
+            } catch (consumeErr) {
+              debugLog("orchestration", "F3 marker consume failed — staying in F2", {
+                chatId,
+                error:
+                  consumeErr instanceof Error
+                    ? consumeErr.message
+                    : String(consumeErr),
+              });
+            }
+          }
+          if (f3ContinuationDecision.replyIntent === "approve") {
+            if (markerConsumeConfirmed) {
+              devLogAppend("in-progress", {
+                type: "f3.stage_inherited",
+                chatId,
+                replyIntent: f3ContinuationDecision.replyIntent,
+                parentVersionId: parsedMeta.parentVersionId,
+              });
+            } else {
+              parsedMeta.lifecycleStage = "design";
+              parsedMeta.parentVersionId = null;
+              devLogAppend("in-progress", {
+                type: "f3.stage_not_inherited",
+                chatId,
+                replyIntent: f3ContinuationDecision.replyIntent,
+                markerConsumeConfirmed,
+                reason: "marker_consume_unconfirmed",
+              });
+            }
+          }
+        }
 
         const promptForLlm = optimizedMessage;
 

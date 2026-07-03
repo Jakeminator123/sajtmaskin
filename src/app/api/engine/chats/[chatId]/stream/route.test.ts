@@ -1411,7 +1411,9 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
 
       expect(response.status).toBe(200);
-      // The atomic marker consume ran BEFORE generation, on the marker message.
+      // The atomic marker consume ran BEFORE generation (exactly once), on
+      // the marker message — at the persistence boundary after the gates.
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledTimes(1);
       expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
       // The shared M#818-2 env-readiness gate MUST have run on the build base.
       expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
@@ -1522,6 +1524,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      // The provisional F3 stage runs the readiness gate BEFORE the consume
+      // (Codex P1 r3 ordering) — green here so the request reaches Phase B.
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
       // A concurrent reply already consumed the marker: the conditional
       // jsonb UPDATE reports 0 rows for this request.
       consumeF3ContinuationMarker.mockResolvedValue(false);
@@ -1544,12 +1550,16 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
       expect(response.status).toBe(200);
       expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
-      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+      // The unconfirmed consume downgrades the provisional stage: the
+      // generation itself runs in the F2 design lane.
       expect(resolveOrchestrationBase).toHaveBeenCalledWith(
         expect.objectContaining({ lifecycleStage: "design" }),
       );
       expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
-        expect.objectContaining({ includeIntegrationSignals: false }),
+        expect.objectContaining({
+          includeIntegrationSignals: false,
+          lifecycleParentVersionId: null,
+        }),
       );
     });
 
@@ -1562,6 +1572,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
       consumeF3ContinuationMarker.mockRejectedValue(new Error("db down"));
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -1581,9 +1593,71 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
 
       expect(response.status).toBe(200);
-      expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
       expect(resolveOrchestrationBase).toHaveBeenCalledWith(
         expect.objectContaining({ lifecycleStage: "design" }),
+      );
+      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+        expect.objectContaining({ includeIntegrationSignals: false }),
+      );
+    });
+
+    it("resolves inherited F3 lineage from the SAME resolution as the build base, not the raw marker parent (Codex P2 r3)", async () => {
+      // The marker points at an older parent (ver_old_parent), but the reply
+      // carries no engineBaseVersionId → files + gate resolve from the chat's
+      // preferred version. Lineage must follow that SAME resolution.
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_old_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_preferred");
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Integrations build</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      // Plain approval reply WITHOUT engineBaseVersionId (e.g. after reload
+      // with no active version selected).
+      sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+        success: true,
+        data: {
+          message: typeof body.message === "string" ? body.message : "",
+          attachments: [],
+          modelId: "test-model-id",
+          thinking: true,
+          imageGenerations: true,
+          system: "",
+          designSystemId: null,
+          meta: { appProjectId: "app_proj_1" },
+        },
+      }));
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // Gate and lineage agree on the resolved base (preferred)…
+      expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+        expect.objectContaining({ versionId: "ver_preferred" }),
+      );
+      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          includeIntegrationSignals: true,
+          // …NOT the raw marker parent (ver_old_parent), which was never the
+          // build base for this generation.
+          lifecycleParentVersionId: "ver_preferred",
+        }),
       );
     });
 
@@ -1620,6 +1694,47 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(response.status).toBe(412);
       const body = (await response.json()) as Record<string, unknown>;
       expect(body.error).toBe("tier3_env_not_ready");
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+      // Codex P1 r3: a 412-aborted approval must NOT consume the marker —
+      // after the user fixes the env keys, the same approval inherits F3.
+      expect(consumeF3ContinuationMarker).not.toHaveBeenCalled();
+      // Nothing was persisted either, so the pending walk stays armed.
+      expect(addMessage).not.toHaveBeenCalled();
+    });
+
+    it("does NOT consume the marker when the credit gate aborts the send (Codex P1 r3)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      prepareCredits.mockResolvedValueOnce({
+        ok: false,
+        response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+          status: 402,
+          headers: { "Content-Type": "application/json" },
+        }),
+      });
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(402);
+      // Credit abort → marker untouched → the retried approval inherits F3.
+      expect(consumeF3ContinuationMarker).not.toHaveBeenCalled();
+      expect(addMessage).not.toHaveBeenCalled();
       expect(createGenerationPipeline).not.toHaveBeenCalled();
     });
 
