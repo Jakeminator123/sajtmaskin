@@ -19,6 +19,7 @@ import { join, resolve } from "node:path";
 import {
   findDuplicateDefaults,
   findMissingInstructionsHeadingsPartitioned,
+  findModuleLevelSdkConstructions,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
   REQUIRED_INSTRUCTIONS_HEADINGS,
   validateDossierImportClosure,
@@ -45,6 +46,7 @@ interface ValidRow {
   defaultForCapability: boolean;
   dir: string;
   files: DossierFile[];
+  dependencies: string[];
   defaultInjectionMode: "verbatim" | "rewritable";
 }
 
@@ -109,6 +111,7 @@ function main(): void {
         defaultForCapability: result.data.defaultForCapability === true,
         dir,
         files: result.data.files ?? [],
+        dependencies: result.data.dependencies ?? [],
         defaultInjectionMode: result.data.codeFidelity,
       });
     }
@@ -199,12 +202,36 @@ function main(): void {
     console.log("✓ import closure (dossierfiler refererar bara till kända filer/runtime)");
   }
 
+  // Cross-cutting 4: SDK-klienter får inte konstrueras på modulnivå
+  // (B5-standard efter Codex P1 på #374: modulnivå-`new Stripe("")` kastar
+  // vid import utan env-nyckel → env-guardens 503 blir onåbar).
+  const sdkInitErrors: string[] = [];
+  for (const row of validRows) {
+    for (const issue of findModuleLevelSdkConstructions(
+      { files: row.files, dependencies: row.dependencies },
+      row.dir,
+    )) {
+      sdkInitErrors.push(
+        `${row.class}/${row.id}: ${issue.dossierFile}:${issue.line} konstruerar ` +
+          `"${issue.identifier}" (${issue.packageName}) på modulnivå — flytta in i ` +
+          `handlern efter env-guarden (lazy init)`,
+      );
+    }
+  }
+  if (sdkInitErrors.length > 0) {
+    console.error("✗ modulnivå-SDK-konstruktion (import-time crash utan env-nyckel)");
+    for (const e of sdkInitErrors) console.error(`    ${e}`);
+  } else {
+    console.log("✓ inga SDK-klienter konstrueras på modulnivå (lazy init efter env-guard)");
+  }
+
   const totalFailures =
     schemaFailures +
     importClosureFailures +
     defaultErrors.length +
     headingErrors.length +
-    verbatimErrors.length;
+    verbatimErrors.length +
+    sdkInitErrors.length;
   if (validRows.length === 0 && totalFailures === 0) {
     console.error("✗ no dossiers found under data/dossiers/{hard,soft}");
     process.exit(1);

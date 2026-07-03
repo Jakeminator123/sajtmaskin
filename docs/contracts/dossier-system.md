@@ -163,8 +163,22 @@ in [`src/lib/gen/dossiers/validate-manifest.ts`](../../src/lib/gen/dossiers/vali
 
 - **Runtime** — `registry.ts` excludes any manifest that fails it from the pool.
 - **CI** — `npm run dossiers:validate-all` (blocking) plus exposes/import-closure,
-  `defaultForCapability` uniqueness, instructions headings and SDK version pins.
+  `defaultForCapability` uniqueness, instructions headings, SDK version pins and
+  the module-level SDK-init rule (below).
 - **Curation** — `dossiers:curate` validates the AI draft with the same function.
+
+**Module-level SDK-init rule (B5-standard, 2026-07-03):** dossier code must not
+construct env-dependent SDK clients at module scope (`const stripe = new
+Stripe(process.env.KEY ?? "")`) — the constructor throws at import time when the
+key is missing, which makes the handler's env guard (503 `*-not-configured`)
+unreachable and kills the graceful-degradation contract. Construct clients
+inside the handler, **after** the env guard (lazy init). Enforced by
+`findModuleLevelSdkConstructions()` in `dossiers:validate-all` (heuristic:
+column-0 declarations whose statement references `process.env`; env-free
+factories like Clerk's `createRouteMatcher` are allowed). Dossiers whose
+instructions declare a not-configured contract should also ship component
+tests exercising the 503 → notice path (see
+`src/lib/gen/dossiers/dossier-config-fallback.test.tsx`).
 
 **Documented divergence:** the backoffice save path (`backoffice/pages/dossiers.py`,
 `_validate_manifest`) does a lighter Python pre-check (required fields + enum

@@ -295,6 +295,122 @@ export function validateDossierImportClosure(
   return issues;
 }
 
+export interface ModuleLevelSdkIssue {
+  dossierFile: string;
+  line: number;
+  identifier: string;
+  packageName: string;
+}
+
+const MODULE_LEVEL_DECL_RE = /^(?:export\s+)?(?:const|let|var)\s/;
+const IMPORT_STATEMENT_RE = /import\s+(type\s+)?([^'"]+?)\s+from\s+["']([^"']+)["']/g;
+
+/** "@scope/name/sub@1.2" → "@scope/name" · "stripe@^18" → "stripe". */
+function dependencyPackageName(dep: string): string {
+  const versionAt = dep.startsWith("@") ? dep.indexOf("@", 1) : dep.indexOf("@");
+  const withoutVersion = versionAt === -1 ? dep : dep.slice(0, versionAt);
+  const parts = withoutVersion.split("/");
+  return withoutVersion.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+}
+
+/** Local binding names introduced by an import clause ("A, { B as C }"). */
+function importBindingNames(clause: string): string[] {
+  const names: string[] = [];
+  const braceMatch = clause.match(/\{([^}]*)\}/);
+  if (braceMatch) {
+    for (const part of braceMatch[1].split(",")) {
+      const cleaned = part.trim();
+      if (!cleaned || cleaned.startsWith("type ")) continue;
+      const asMatch = cleaned.match(/\bas\s+([\w$]+)$/);
+      names.push(asMatch ? asMatch[1] : cleaned.split(/\s+/)[0]);
+    }
+  }
+  const outsideBraces = clause.replace(/\{[^}]*\}/, "");
+  const nsMatch = outsideBraces.match(/\*\s+as\s+([\w$]+)/);
+  if (nsMatch) names.push(nsMatch[1]);
+  const defaultMatch = outsideBraces.match(/(?:^|,)\s*([\w$]+)\s*(?:,|$)/);
+  if (defaultMatch) names.push(defaultMatch[1]);
+  return names;
+}
+
+/**
+ * Dossier-standard (stabilisering 2026-07, B5 — ägarkrav efter Codex P1 på
+ * PR #374): SDK-klienter från dossierns `dependencies` får inte konstrueras
+ * ENV-BEROENDE på MODULNIVÅ i dossier-kod. En modulnivå-
+ * `new Stripe(process.env.KEY ?? "")` kastar vid import när nyckeln saknas
+ * och gör handlerns env-guard (503 `*-not-configured`) onåbar — hela
+ * degradation-kontraktet blir dött. Konstruera klienten inne i handlern
+ * EFTER env-guarden (lazy init).
+ *
+ * Heuristik (dokumenterat medvetet enkel): modulnivå = deklaration som börjar
+ * på kolumn 0. Flaggar `new <Ident>(…)` samt `create*(-fabriker)` när
+ * identifieraren importerats från ett paket i `dependencies` OCH satsen
+ * (deklarationsraden + följande rader till satsslut, max 15) refererar
+ * `process.env` — env-fria konstruktioner (t.ex. Clerks `createRouteMatcher`
+ * med route-mönster) är inte kraschklassen och flaggas inte. Residual:
+ * env-nyckel som lästs till en egen modulvariabel före konstruktionen fångas
+ * inte — täcks av review/instructions-kontraktet.
+ */
+export function findModuleLevelSdkConstructions(
+  manifest: Pick<DossierManifest, "files" | "dependencies">,
+  dossierRoot: string,
+): ModuleLevelSdkIssue[] {
+  const issues: ModuleLevelSdkIssue[] = [];
+  const dependencyPackages = new Set(
+    (manifest.dependencies ?? []).map(dependencyPackageName),
+  );
+  if (dependencyPackages.size === 0) return issues;
+
+  for (const fileEntry of manifest.files ?? []) {
+    if (!CODE_FILE_RE.test(fileEntry.path)) continue;
+    const fullPath = join(dossierRoot, fileEntry.path);
+    if (!existsSync(fullPath)) continue;
+    const source = readFileSync(fullPath, "utf8");
+
+    const sdkLocalNames = new Map<string, string>();
+    IMPORT_STATEMENT_RE.lastIndex = 0;
+    let importMatch: RegExpExecArray | null = null;
+    while ((importMatch = IMPORT_STATEMENT_RE.exec(source)) !== null) {
+      const [, typeOnly, clause, spec] = importMatch;
+      if (typeOnly) continue;
+      const pkg = dependencyPackageName(spec);
+      if (!dependencyPackages.has(pkg)) continue;
+      for (const name of importBindingNames(clause)) {
+        sdkLocalNames.set(name, pkg);
+      }
+    }
+    if (sdkLocalNames.size === 0) continue;
+
+    const lines = source.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!MODULE_LEVEL_DECL_RE.test(line)) continue;
+      const ctorMatch = line.match(/\bnew\s+([\w$]+)\s*(?:<[^>]*>)?\s*\(/);
+      const factoryMatch = line.match(/=\s*(create[\w$]*)\s*\(/);
+      const candidate = ctorMatch?.[1] ?? factoryMatch?.[1];
+      if (!candidate) continue;
+      const pkg = sdkLocalNames.get(candidate);
+      if (!pkg) continue;
+      // Env-beroende? Läs satsen till dess slut (nästa kolumn-0-rad), max 15
+      // rader, och kräv en process.env-referens — annars är konstruktionen
+      // env-fri och kan inte krascha på saknad nyckel.
+      let statement = line;
+      for (let j = i + 1; j < Math.min(lines.length, i + 15); j++) {
+        if (/^\S/.test(lines[j])) break;
+        statement += `\n${lines[j]}`;
+      }
+      if (!statement.includes("process.env")) continue;
+      issues.push({
+        dossierFile: fileEntry.path,
+        line: i + 1,
+        identifier: candidate,
+        packageName: pkg,
+      });
+    }
+  }
+  return issues;
+}
+
 /**
  * Aggregated cross-dossier check: `defaultForCapability: true` must be unique
  * per capability. Returns a list of error strings (empty if all good).
