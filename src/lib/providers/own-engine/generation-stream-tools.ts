@@ -1,4 +1,10 @@
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
+import {
+  isGenericIntegrationName,
+  normalizeIntegrationProviderKey,
+  resolveIntegrationDisplayName,
+  resolveIntegrationIdentityKey,
+} from "@/lib/integrations/suggestion-display";
 import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
 import { formatSSEEvent } from "@/lib/streaming";
 import { debugLog, warnLog } from "@/lib/utils/debug";
@@ -21,6 +27,37 @@ export type OwnEngineToolSseBridge = {
 const ENV_TOOLS_F2_BLOCKED = new Set(["suggestIntegration", "requestEnvVar"]);
 
 /**
+ * Delad argument-validering för env-/integrationsverktygen (Codex P2 + VADE,
+ * PR #375). Endast VÄLFORMADE signaler får registreras i `toolCallNames` —
+ * i både F2 och F3 — annars ger en tool-only-generation spökprompten
+ * "Integrationer signalerades…" utan något att konfigurera.
+ */
+function isWellFormedEnvToolCall(
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+): boolean {
+  if (toolName === "requestEnvVar") {
+    return typeof toolArgs.key === "string" && toolArgs.key.trim().length > 0;
+  }
+  if (toolName !== "suggestIntegration") return false;
+  const providerRaw = typeof toolArgs.provider === "string" ? toolArgs.provider : null;
+  const nameRaw = typeof toolArgs.name === "string" ? toolArgs.name : null;
+  const hasProvider = Boolean(normalizeIntegrationProviderKey(providerRaw));
+  const hasName = Boolean(normalizeIntegrationProviderKey(nameRaw));
+  if (!hasProvider && !hasName) return false;
+  const hasEnvVarsField = Array.isArray(toolArgs.envVars);
+  const derivedDisplayName = resolveIntegrationDisplayName({
+    provider: providerRaw,
+    name: nameRaw,
+    key: resolveIntegrationIdentityKey({ provider: providerRaw, name: nameRaw }),
+  });
+  if (!hasEnvVarsField && isGenericIntegrationName(nameRaw) && !derivedDisplayName) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Maps AI SDK tool invocations from the codegen stream into builder-facing SSE
  * (`integration`, `tool-call`). Keeps `generation-stream.ts` focused on I/O loop.
  *
@@ -36,7 +73,12 @@ export function emitOwnEngineToolCallSse(
 ): void {
   const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
   const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-  if (toolName) bridge.toolCallNames.add(toolName);
+  // Env-/integrationsverktygen registreras först EFTER argument-validering
+  // (Codex P2, PR #375): en MALFORMAD signal som hamnar i `toolCallNames`
+  // skulle trigga `tool_only_empty_generation`-prompten i chatten — en
+  // spök-fråga utan något att konfigurera. Giltiga signaler registreras även
+  // när de F2-mutas (se drop-grenen nedan).
+  if (toolName && !ENV_TOOLS_F2_BLOCKED.has(toolName)) bridge.toolCallNames.add(toolName);
 
   const { enc, safeEnqueue, toolSignaledProviders, setBlockingToolCall } = bridge;
   const lifecycleStage: PreviewLifecycleStage = bridge.lifecycleStage ?? "design";
@@ -50,6 +92,14 @@ export function emitOwnEngineToolCallSse(
     lifecycleStage !== "integrations" &&
     ENV_TOOLS_F2_BLOCKED.has(toolName)
   ) {
+    // F2-mutade men GILTIGA signaler registreras ändå som tool-call: en
+    // tool-only-generation utan kod ska ge "kör igen eller fortsätt"-prompten
+    // (tool_only_empty_generation), inte en generisk tom-output-failure.
+    // Kontraktet pinnas av stream/route.test.ts. Malformade signaler
+    // registreras inte (VADE-fynd: samma validering i F2 som i F3).
+    if (isWellFormedEnvToolCall(toolName, toolArgs)) {
+      bridge.toolCallNames.add(toolName);
+    }
     warnLog("engine", "Dropped F2 env/integration tool-call (defense-in-depth)", {
       toolName,
       lifecycleStage,
@@ -58,13 +108,45 @@ export function emitOwnEngineToolCallSse(
   }
 
   if (toolName === "suggestIntegration") {
-    const envVars = Array.isArray(toolArgs.envVars) ? (toolArgs.envVars as string[]) : [];
+    const providerRaw = typeof toolArgs.provider === "string" ? toolArgs.provider : null;
+    const nameRaw = typeof toolArgs.name === "string" ? toolArgs.name : null;
+    const providerKey = resolveIntegrationIdentityKey({
+      provider: providerRaw,
+      name: nameRaw,
+    });
+    const normalizedProvider = normalizeIntegrationProviderKey(providerRaw);
+    const normalizedName = normalizeIntegrationProviderKey(nameRaw);
+    const hasProvider = Boolean(normalizedProvider);
+    const hasName = Boolean(normalizedName);
+    const hasEnvVarsField = Array.isArray(toolArgs.envVars);
+    const envVars = hasEnvVarsField ? (toolArgs.envVars as string[]) : [];
+    const derivedDisplayName = resolveIntegrationDisplayName({
+      provider: providerRaw,
+      name: nameRaw,
+      key: providerKey,
+    });
+    if (!isWellFormedEnvToolCall(toolName, toolArgs)) {
+      warnLog("engine", "Dropped malformed suggestIntegration tool-call (defense-in-depth)", {
+        lifecycleStage,
+        hasProvider,
+        hasName,
+        hasEnvVarsField,
+        provider: providerRaw,
+        name: nameRaw,
+      });
+      return;
+    }
+
+    // providerKey är kompakt identitetsform (dedupe); payload-nyckeln behåller
+    // registry-stil (hyphenated slug) så konsumenter som slår upp t.ex.
+    // "vercel-blob" inte bryts.
+    const payloadKey = normalizedProvider ?? (providerKey ? normalizedName : null) ?? "custom-env";
     const integrationPayload: BuilderIntegrationEnvelope = {
       items: [
         {
-          key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
-          name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
-          provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
+          key: payloadKey,
+          name: derivedDisplayName ?? undefined,
+          provider: normalizedProvider ?? undefined,
           intent: "env_vars",
           envVars,
           status: "Kräver konfiguration",
@@ -74,9 +156,18 @@ export function emitOwnEngineToolCallSse(
       ],
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
-    const providerKey = typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown";
-    toolSignaledProviders.add(providerKey);
-    debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
+    bridge.toolCallNames.add(toolName);
+    // Markera providern som signalerad BARA när anropet levererade användbara
+    // env-nycklar (Codex P2, PR #375): en tom envVars-signal skulle annars
+    // suppressa post-finalize-detektorn i getUnsignaledDetectedIntegrations,
+    // som kan återvinna de riktiga nycklarna (t.ex. OPENAI_API_KEY) ur koden.
+    const hasUsableEnvVars = envVars.some(
+      (v) => typeof v === "string" && v.trim().length > 0,
+    );
+    if (providerKey && hasUsableEnvVars) {
+      toolSignaledProviders.add(providerKey);
+    }
+    debugLog("engine", "Tool: suggestIntegration", { provider: providerKey ?? "custom-env" });
     return;
   }
 
@@ -101,6 +192,7 @@ export function emitOwnEngineToolCallSse(
       ],
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
+    bridge.toolCallNames.add(toolName);
     return;
   }
 

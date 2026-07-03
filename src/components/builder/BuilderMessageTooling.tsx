@@ -14,6 +14,7 @@ import {
   openIntegrationsPanel,
   openProjectEnvVarsPanel,
 } from "@/lib/builder/project-env-events";
+import { isGenericIntegrationName, resolveIntegrationDisplayName } from "@/lib/integrations/suggestion-display";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2 } from "lucide-react";
 import {
@@ -91,7 +92,7 @@ type ToolIntegrationSummary = {
 };
 
 type IntegrationCardData = {
-  name: string;
+  name?: string;
   status?: string;
   intentLabel?: string;
   envKeys: string[];
@@ -923,6 +924,7 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
       ) as ToolUIPart["state"];
       const replyPrompt = getActionPrompt(tool, toolState);
       if (!replyPrompt) continue;
+      if (isIntegrationOrEnvToolPart(tool) && !isPlanAwaitingInput(tool)) continue;
       const toolCallId =
         (typeof tool.toolCallId === "string" && tool.toolCallId) || `tool-${toolIndex}`;
       const key = [message.id, toolCallId, replyPrompt.question, replyPrompt.options.join("|")].join(
@@ -937,8 +939,19 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
       };
     }
     const hasAwaitingInput = toolParts.some((part) => {
-      const tool = part.tool as { type?: string; state?: string };
-      return tool.type === "tool:awaiting-input" || tool.state === "approval-requested";
+      const tool = part.tool as Partial<ToolUIPart> & {
+        input?: unknown;
+        output?: unknown;
+        type?: string;
+        toolName?: string;
+      };
+      const toolRecord = part.tool as { type?: string; state?: string };
+      const toolType = typeof toolRecord.type === "string" ? toolRecord.type : "";
+      const toolState = typeof toolRecord.state === "string" ? toolRecord.state : "";
+      if (isIntegrationOrEnvToolPart(tool) && !isPlanAwaitingInput(tool)) {
+        return false;
+      }
+      return toolType === "tool:awaiting-input" || toolState === "approval-requested";
     });
     const hasPlanAwaitingInput = toolParts.some((part) =>
       isPlanAwaitingInput(
@@ -1254,14 +1267,19 @@ function extractApprovalOptions(
 export function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string }) {
   const state = typeof tool.state === "string" ? tool.state : "input-available";
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
-  const name = `${(tool as { name?: string }).name ?? ""} ${(tool as { toolName?: string }).toolName ?? ""}`.toLowerCase();
   if (state === "approval-requested") return true;
   if (type === "tool-post-check" || type === "tool-quality-gate") return true;
-  return (
-    name.includes("integration") ||
-    looksLikeEnvVarEvent(type) ||
-    looksLikeEnvVarEvent(name)
-  );
+  return isIntegrationOrEnvToolPart(tool);
+}
+
+function isIntegrationOrEnvToolPart(
+  tool: Partial<ToolUIPart> & { type?: string },
+): boolean {
+  const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
+  const name =
+    `${(tool as { name?: string }).name ?? ""} ${(tool as { toolName?: string }).toolName ?? ""}`
+      .toLowerCase();
+  return type.includes("integration") || name.includes("integration") || looksLikeEnvVarEvent(type) || looksLikeEnvVarEvent(name);
 }
 
 function looksLikeEnvVarEvent(value: string): boolean {
@@ -1280,10 +1298,15 @@ function looksLikeEnvVarEvent(value: string): boolean {
 function getToolIntegrationSummary(
   tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
 ): ToolIntegrationSummary | null {
-  const name =
+  const rawName =
     extractIntegrationName(tool.input) ||
     extractIntegrationName(tool.output) ||
     extractIntegrationName(tool);
+  const provider =
+    extractIntegrationProvider(tool.input) ||
+    extractIntegrationProvider(tool.output) ||
+    extractIntegrationProvider(tool);
+  const name = resolveIntegrationDisplayName({ name: rawName, provider });
   const envKeys = dedupeStrings([
     ...extractEnvKeys(tool.input),
     ...extractEnvKeys(tool.output),
@@ -1327,13 +1350,21 @@ function getIntegrationCardData(
     (typeof output?.installUrl === "string" && output.installUrl) ||
     null;
   const sourceEvent = typeof output?.sourceEvent === "string" ? output.sourceEvent : null;
-  const name = summary?.name || (typeof output?.name === "string" ? output.name : null) || null;
+  const name = resolveIntegrationDisplayName({
+    name: summary?.name ?? (typeof output?.name === "string" ? output.name : null),
+    provider:
+      typeof output?.provider === "string"
+        ? output.provider
+        : typeof output?.key === "string"
+          ? output.key
+          : null,
+  });
   const envKeys = summary?.envKeys ?? [];
   const status = summary?.status || (typeof output?.status === "string" ? output.status : undefined);
 
   if (!name && envKeys.length === 0 && !marketplaceUrl && !intentLabel) return null;
   return {
-    name: name || "Integration",
+    name: name ?? undefined,
     status,
     intentLabel,
     envKeys,
@@ -1350,15 +1381,31 @@ function extractIntegrationName(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (!trimmed || looksLikeFilePath(trimmed)) return null;
+    if (!trimmed || looksLikeFilePath(trimmed) || isGenericIntegrationName(trimmed)) return null;
     return trimmed;
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const candidates = [obj.integration, obj.provider, obj.service, obj.name, obj.title];
+    const candidates = [obj.integration, obj.service, obj.name, obj.title];
     for (const candidate of candidates) {
-      if (typeof candidate === "string" && candidate.trim() && !looksLikeFilePath(candidate.trim())) {
-        return candidate.trim();
+      if (typeof candidate !== "string") continue;
+      const trimmed = candidate.trim();
+      if (!trimmed || looksLikeFilePath(trimmed) || isGenericIntegrationName(trimmed)) continue;
+      return trimmed;
+    }
+  }
+  return null;
+}
+
+function extractIntegrationProvider(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const candidates = [obj.provider, obj.key, obj.integration];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed && !looksLikeFilePath(trimmed)) {
+        return trimmed;
       }
     }
   }
