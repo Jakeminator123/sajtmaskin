@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import {
-  createEngineVersionErrorLog,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
 } from "@/lib/db/services/version-errors";
@@ -15,6 +14,28 @@ type ErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
+
+/**
+ * Bounded row-lock wait for the error-log insert. The insert's FK check takes a
+ * `FOR KEY SHARE` lock on the referenced `engine_versions` row; a concurrent
+ * verify/lease can hold `FOR UPDATE` on it (quality-gate `acquireVersionLease`).
+ * Without this bound the insert blocked until Supabase's global
+ * `statement_timeout` and the route 500:ade (prod incident 2026-07-03).
+ */
+const ERROR_LOG_LOCK_TIMEOUT_MS = 3_000;
+
+/**
+ * Row contention on `engine_versions` — diagnostics are best-effort, so return a
+ * retryable 503 (with `Retry-After`) instead of a statement-timeout 500. Callers
+ * that must persist (resume-lane product blocker) retry; fire-and-forget callers
+ * ignore it.
+ */
+function errorLogContentionResponse() {
+  return NextResponse.json(
+    { success: false, stored: false, code: "row_contention", retryable: true },
+    { status: 503, headers: { "Retry-After": "3" } },
+  );
+}
 
 export async function POST(request: Request, ctx: RouteParams) {
   try {
@@ -34,6 +55,7 @@ export async function POST(request: Request, ctx: RouteParams) {
     }
 
     if ("logs" in body && Array.isArray(body.logs)) {
+      const requestedCount = body.logs.length;
       const rows = await createEngineVersionErrorLogs(
         body.logs.map((log) => ({
           chatId: internalChatId,
@@ -43,20 +65,34 @@ export async function POST(request: Request, ctx: RouteParams) {
           message: log.message,
           meta: log.meta || null,
         })),
+        { lockTimeoutMs: ERROR_LOG_LOCK_TIMEOUT_MS },
       );
+      // The insert is atomic, so `rows` is either the full batch or `[]` (only
+      // possible outcome is row contention when a batch was requested).
+      if (requestedCount > 0 && rows.length === 0) {
+        return errorLogContentionResponse();
+      }
       return NextResponse.json({ success: true, stored: true, logs: rows });
     }
 
     const payload = body as ErrorLogPayload;
-    const row = await createEngineVersionErrorLog({
-      chatId: internalChatId,
-      versionId: internalVersionId,
-      level: payload.level,
-      category: payload.category || null,
-      message: payload.message,
-      meta: payload.meta || null,
-    });
-    return NextResponse.json({ success: true, stored: true, log: row });
+    const rows = await createEngineVersionErrorLogs(
+      [
+        {
+          chatId: internalChatId,
+          versionId: internalVersionId,
+          level: payload.level,
+          category: payload.category || null,
+          message: payload.message,
+          meta: payload.meta || null,
+        },
+      ],
+      { lockTimeoutMs: ERROR_LOG_LOCK_TIMEOUT_MS },
+    );
+    if (rows.length === 0) {
+      return errorLogContentionResponse();
+    }
+    return NextResponse.json({ success: true, stored: true, log: rows[0] });
   } catch (error) {
     console.error("[API] Failed to store version error log:", error);
     return NextResponse.json(
