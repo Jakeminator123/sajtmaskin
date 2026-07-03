@@ -24,22 +24,28 @@ function harness(overrides?: {
   const setForceKey = vi.fn();
   const setRetryNonce = vi.fn();
   const bootstrapDone = { current: new Set<string>() } as MutableRefObject<Set<string>>;
-  const rendered = renderHook(() =>
-    usePreviewSession({
-      chatId: "chat_1",
-      activeVersionId: "ver_2",
-      activeVersionFailedWithoutPreviewUrl:
-        overrides?.activeVersionFailedWithoutPreviewUrl,
-      currentPreviewUrl: TIER2_URL,
-      activePreviewSessionMeta: { previewSessionId: "sbx_1", versionId: "ver_2" },
-      setCurrentPreviewUrl: vi.fn(),
-      bumpPreviewRefreshToken: vi.fn(),
-      setPreviewSessionRecovering: setRecovering,
-      previewBootstrapDoneKeysRef: bootstrapDone,
-      setForcedPreviewRestartKey: setForceKey,
-      setPreviewBootstrapRetryNonce: setRetryNonce,
-      now: overrides?.now,
-    }),
+  const rendered = renderHook(
+    (props: { activeVersionFailedWithoutPreviewUrl?: boolean }) =>
+      usePreviewSession({
+        chatId: "chat_1",
+        activeVersionId: "ver_2",
+        activeVersionFailedWithoutPreviewUrl: props.activeVersionFailedWithoutPreviewUrl,
+        currentPreviewUrl: TIER2_URL,
+        activePreviewSessionMeta: { previewSessionId: "sbx_1", versionId: "ver_2" },
+        setCurrentPreviewUrl: vi.fn(),
+        bumpPreviewRefreshToken: vi.fn(),
+        setPreviewSessionRecovering: setRecovering,
+        previewBootstrapDoneKeysRef: bootstrapDone,
+        setForcedPreviewRestartKey: setForceKey,
+        setPreviewBootstrapRetryNonce: setRetryNonce,
+        now: overrides?.now,
+      }),
+    {
+      initialProps: {
+        activeVersionFailedWithoutPreviewUrl:
+          overrides?.activeVersionFailedWithoutPreviewUrl,
+      },
+    },
   );
   return { rendered, setRecovering, setForceKey, setRetryNonce, bootstrapDone };
 }
@@ -93,6 +99,9 @@ describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () =
     });
     expect(h.rendered.result.current.versionMismatchPayload).not.toBeNull();
     expect(h.rendered.result.current.versionMismatchPayload?.mismatchDirection).toBe("session_older");
+    expect(h.rendered.result.current.versionMismatchPayload?.reason).toBe(
+      "auto_resync_exhausted",
+    );
     expect(h.setForceKey).not.toHaveBeenCalled();
     expect(h.setRetryNonce).not.toHaveBeenCalled();
   });
@@ -118,6 +127,46 @@ describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () =
     expect(h.rendered.result.current.versionMismatchPayload?.mismatchDirection).toBe(
       "session_newer",
     );
+    // Suppressions-payloaden ska INTE se ut som en förbrukad auto-resync —
+    // UI:t renderar banner (ingen force-restart) utifrån detta fält.
+    expect(h.rendered.result.current.versionMismatchPayload?.reason).toBe(
+      "suppressed_failed_version",
+    );
+  });
+
+  it("återupptar normal auto-resync när failed-versionen senare fått previewUrl/reparerats (flaggan släpper)", async () => {
+    let clock = 1_700_000;
+    vi.mocked(fetchPreviewStatus).mockResolvedValue(
+      mismatch("sbx_restored", "ver_3", "session_newer"),
+    );
+
+    const h = harness({
+      now: () => clock,
+      activeVersionFailedWithoutPreviewUrl: true,
+    });
+
+    // Suppression aktiv: ingen restart, banner-payload.
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+    expect(h.setForceKey).not.toHaveBeenCalled();
+    expect(h.rendered.result.current.versionMismatchPayload?.reason).toBe(
+      "suppressed_failed_version",
+    );
+
+    // Versionen repareras / får previewUrl → flaggan blir false vid nästa render.
+    h.rendered.rerender({ activeVersionFailedWithoutPreviewUrl: false });
+
+    clock += 12_001;
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+
+    // Normal mismatch-väg återupptagen: auto-resync körs (suppressionen har
+    // inte förbrukat loop-skyddets attempt-nyckel).
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_2");
+    expect(h.setRetryNonce).toHaveBeenCalledTimes(1);
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
   });
 
   it("behåller auto-resync för äkta mismatch även när failed-utan-url-skyddet är på", async () => {

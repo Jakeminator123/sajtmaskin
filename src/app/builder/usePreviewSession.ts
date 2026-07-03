@@ -200,7 +200,11 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         statusPayload.mismatchDirection === "session_newer";
       if (shouldSuppressAutoResyncBounce) {
         // M#pv3: failed version without own preview URL should not steal back
-        // the VM session from a restored newer version.
+        // the VM session from a restored newer version. NOTE: no auto-resync
+        // has run here — the payload carries `reason: "suppressed_failed_version"`
+        // so the UI renders an honest banner instead of the "automatisk omstart
+        // räckte inte" overlay with a force-restart button (which would
+        // re-trigger the exact bounce this branch suppresses).
         const observedAt = mismatchObservedAtRef.current ?? now();
         mismatchObservedAtRef.current = observedAt;
         const payload: VersionMismatchOverlayPayload = {
@@ -209,6 +213,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
           currentVersionId: statusPayload.versionId ?? null,
           mismatchDirection: statusPayload.mismatchDirection ?? "unknown",
           msSinceMismatch: Math.max(0, now() - observedAt),
+          reason: "suppressed_failed_version",
         };
         setVersionMismatchPayload(payload);
         return;
@@ -250,6 +255,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         currentVersionId: statusPayload.versionId ?? null,
         mismatchDirection: statusPayload.mismatchDirection ?? "unknown",
         msSinceMismatch: Math.max(0, now() - observedAt),
+        reason: "auto_resync_exhausted",
       };
       setVersionMismatchPayload(payload);
       return;

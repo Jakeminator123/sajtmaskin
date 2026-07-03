@@ -57,6 +57,32 @@ export function VersionMismatchOverlay({
   payload,
   onForceRestart,
 }: VersionMismatchOverlayProps) {
+  // M#pv3: suppressed-failed-version är INTE ett fel-läge som kräver åtgärd —
+  // previewn under bannern fungerar (servar den restore:ade/senast fungerande
+  // versionen) och ingen automatisk omstart har körts. Rendera en diskret,
+  // icke-blockerande banner utan force-restart-knapp: en "Försök igen" här
+  // skulle återutlösa exakt den restore-studs som suppressionen stoppar.
+  if (payload.reason === "suppressed_failed_version") {
+    return (
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center p-2"
+        data-testid="version-mismatch-banner"
+      >
+        <div className="pointer-events-auto flex max-w-xl items-start gap-2 rounded-md border border-amber-500/40 bg-amber-950/90 px-3 py-2 text-amber-50 shadow-lg">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <p className="text-[12px] leading-snug text-amber-100/90">
+            Den valda versionen misslyckades och har ingen egen preview — previewn
+            visar den senast fungerande versionen
+            {payload.currentVersionId
+              ? ` (${payload.currentVersionId.slice(0, 8)})`
+              : ""}
+            . Välj en annan version i versionspanelen för att byta.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const sessionIsNewer = payload.mismatchDirection === "session_newer";
   const title = sessionIsNewer ? "Preview kör en nyare version" : "Preview visar fel version";
   const description = sessionIsNewer
