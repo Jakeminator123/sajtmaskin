@@ -186,10 +186,36 @@ describe("POST preview-session (engine)", () => {
 
     expect(res.status).toBe(200);
     expect(startPreviewSession).toHaveBeenCalled();
-    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1", {
+      lockTimeoutMs: 2000,
+    });
     const body = (await res.json()) as { startOutcome?: string; previewSessionId?: string };
     expect(body.startOutcome).toBe("recreated");
     expect(body.previewSessionId).toBe("ps_1");
+  });
+
+  it("returns ok even when the previewUrl persist is skipped by row contention (best-effort, prod 57014)", async () => {
+    // updateVersionPreviewUrl's lockTimeoutMs mode never throws — contention
+    // returns false. The session is already running, so the route must still
+    // answer 200 with the started session instead of 500:ing (prod 2026-07-03).
+    updateVersionPreviewUrl.mockResolvedValue(false);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; previewUrl?: string };
+    expect(body.ok).toBe(true);
+    expect(body.previewUrl).toBe("https://preview.example/chat_1");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1", {
+      lockTimeoutMs: 2000,
+    });
   });
 
   it("does not return reused_url when the active preview session points at a different previewUrl", async () => {
@@ -248,7 +274,9 @@ describe("POST preview-session (engine)", () => {
         skipProjectScaffold: true,
       }),
     );
-    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1", {
+      lockTimeoutMs: 2000,
+    });
     expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "preview_start_outcome",

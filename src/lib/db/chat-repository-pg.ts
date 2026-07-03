@@ -894,12 +894,60 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
 export async function updateVersionPreviewUrl(
   versionId: string,
   previewUrl: string | null,
+  options?: {
+    /**
+     * Fail-fast, best-effort mode (prod-incident 2026-07-03, chat 69aae3d5):
+     * the preview_url persist from POST /preview-session blocked on the
+     * `engine_versions` row lock (held by a concurrent verify/lease
+     * transaction) until Supabase's `statement_timeout` killed it (57014) and
+     * the whole route 500:ade — even though the preview session itself had
+     * started fine. Same medicine as `updateVersionFiles` heal-persist
+     * (M#files1): a transaction-local `lock_timeout` makes a contended write
+     * give up in ~ms, NEVER throws, and returns false so the caller can treat
+     * the persist as best-effort (the next preview-session start re-persists
+     * the idempotent URL).
+     */
+    lockTimeoutMs?: number;
+  },
 ): Promise<boolean> {
+  const lockTimeoutMs = options?.lockTimeoutMs;
+  if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {
+    try {
+      return await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT set_config('lock_timeout', ${String(Math.floor(lockTimeoutMs))}, true)`,
+        );
+        const result = await tx
+          .update(engineVersions)
+          .set({ previewUrl })
+          .where(eq(engineVersions.id, versionId));
+        return (result.rowCount ?? 0) > 0;
+      });
+    } catch {
+      // Lock contention (55P03) / transient error → skip the persist. The
+      // preview session is already running; the URL is re-persisted on the
+      // next uncontended preview-session start.
+      return false;
+    }
+  }
   const result = await db
     .update(engineVersions)
     .set({ previewUrl })
     .where(eq(engineVersions.id, versionId));
   return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Postgres `lock_not_available` (55P03) — raised when a transaction-local
+ * `lock_timeout` expires while waiting for a row lock. Used to translate
+ * contention into a graceful no-op instead of an unhandled 500.
+ */
+function isLockTimeoutError(err: unknown): boolean {
+  if (err == null || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  if (code === "55P03") return true;
+  const cause = (err as { cause?: unknown }).cause;
+  return cause != null && cause !== err && isLockTimeoutError(cause);
 }
 
 // ── Distributed version lease (Plan C / P1) ──────────────────────────────────
@@ -932,21 +980,37 @@ const leaseTtlInterval = sql`now() + ${VERSION_LEASE_TTL_SECONDS} * interval '1 
  * lease), or `null` when another live lease already owns the version (caller
  * must then NOT run — same semantics as the old process-local `inflight` Set).
  */
+/**
+ * Transaction-local lock budget for the lease/watchdog `FOR UPDATE` paths.
+ * Prod-observed (2026-07-02/03): without this, a contended `SELECT … FOR
+ * UPDATE` blocks until the global `statement_timeout` (57014) and surfaces as
+ * quality-gate/preview 500s. 5s is generous for the short lease transactions —
+ * a wait longer than that means another job actively owns the row.
+ */
+const LEASE_LOCK_TIMEOUT_MS = 5_000;
+
 export async function acquireVersionLease(
   versionId: string,
   kind: VersionJobKind,
 ): Promise<{ runId: string } | null> {
   const runId = uuid();
-  const won = await db.transaction(async (tx) => {
-    // Codex P2 (serialize lease acquisition with version-row updates): lock the
-    // engine_versions row FIRST, in the same transaction as the lease insert.
-    // The accept/readiness no-active-lease UPDATEs lock the same row before
-    // re-checking the lease, so they can no longer take a NOT EXISTS snapshot
-    // that predates this (uncommitted) lease and then promote/fail the version
-    // out from under the new run. Without this, the lease insert touches only
-    // engine_version_jobs, so the two paths never contend on a common lock.
-    await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
-    const result = await tx.execute(sql`
+  try {
+    const won = await db.transaction(async (tx) => {
+      // Fas 4 P2-fix (2026-07-03): bound the row-lock wait. On expiry Postgres
+      // raises 55P03, which we translate to `null` below — semantically
+      // identical to "another live lease owns the version, don't run".
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+      );
+      // Codex P2 (serialize lease acquisition with version-row updates): lock the
+      // engine_versions row FIRST, in the same transaction as the lease insert.
+      // The accept/readiness no-active-lease UPDATEs lock the same row before
+      // re-checking the lease, so they can no longer take a NOT EXISTS snapshot
+      // that predates this (uncommitted) lease and then promote/fail the version
+      // out from under the new run. Without this, the lease insert touches only
+      // engine_version_jobs, so the two paths never contend on a common lock.
+      await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+      const result = await tx.execute(sql`
       INSERT INTO engine_version_jobs (id, version_id, kind, run_id, status, lease_expires_at)
       VALUES (${uuid()}, ${versionId}, ${kind}, ${runId}, 'running', ${leaseTtlInterval})
       ON CONFLICT (version_id) WHERE status = 'running'
@@ -955,10 +1019,19 @@ export async function acquireVersionLease(
         WHERE engine_version_jobs.lease_expires_at < now()
       RETURNING run_id
     `);
-    const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
-    return rows.length > 0;
-  });
-  return won ? { runId } : null;
+      const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
+      return rows.length > 0;
+    });
+    return won ? { runId } : null;
+  } catch (err) {
+    if (isLockTimeoutError(err)) {
+      console.warn(
+        `[lease] acquireVersionLease lock contention on ${versionId} (${kind}) — treating as not acquired.`,
+      );
+      return null;
+    }
+    throw err;
+  }
 }
 
 /** Extend the lease (call between long passes). False when the lease is no longer ours/active. */
@@ -1217,7 +1290,15 @@ export async function failVersionVerificationIfUnleased(
   // table BEFORE building the statement (Postgres resolves relations at plan
   // time; an in-statement to_regclass guard cannot short-circuit a missing one).
   const jobsExist = await leaseTableExists();
-  const updated = await db.transaction(async (tx) => {
+  let updated: boolean;
+  try {
+    updated = await db.transaction(async (tx) => {
+    // Fas 4 P2-fix (2026-07-03): bounded lock wait — a watchdog that can't get
+    // the row lock quickly no-ops (returns null) and retries on the next poll,
+    // instead of blocking to statement_timeout (57014).
+    await tx.execute(
+      sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+    );
     // Codex P2 (serialize with acquireVersionLease): lock the version row FIRST.
     // acquireVersionLease locks the same row before committing its lease, so a
     // verify/repair that starts in the gap can't slip its lease in after our
@@ -1246,6 +1327,15 @@ export async function failVersionVerificationIfUnleased(
       );
     return (result.rowCount ?? 0) > 0;
   });
+  } catch (err) {
+    if (isLockTimeoutError(err)) {
+      console.warn(
+        `[lease] failVersionVerificationIfUnleased lock contention on ${versionId} — no-op, next poll retries.`,
+      );
+      return null;
+    }
+    throw err;
+  }
   if (!updated) {
     return null;
   }
