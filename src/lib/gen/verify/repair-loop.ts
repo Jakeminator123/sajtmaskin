@@ -859,7 +859,15 @@ export async function runRepairLoop<TPayload = unknown>(
         break;
       }
       earlyStopReason = timedOut ? "time_budget_exceeded" : null;
-      if (content !== bestContent) {
+      // Preserve the fewest-error snapshot invariant (VADE, PR #380): a
+      // partial merge earlier in this pass can have left `content` WORSE
+      // than `bestContent` — an unconditional overwrite would regress to a
+      // more-broken snapshot and desync `bestContent`/`bestErrorCount`.
+      // (`syntaxResult` always corresponds to `content` here: the partial-
+      // merge helper revalidates, and the no-merge path leaves both as the
+      // deterministic baseline that already seeded `bestContent`.)
+      if (syntaxResult.errors.length < bestErrorCount) {
+        bestErrorCount = syntaxResult.errors.length;
         bestContent = content;
       }
       break;
