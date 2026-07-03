@@ -4,15 +4,24 @@ export type ChatReadinessStatus = "blocked" | "warning" | "ready";
 
 export type ChatReadinessAction = "env" | "versions" | "preview" | "deploy" | "seo";
 
+export type ChatReadinessCategory = "blocker" | "advisory";
+
 export type ChatReadinessItem = {
   id: string;
   title: string;
   detail?: string | null;
   severity: ChatReadinessSeverity;
+  category?: ChatReadinessCategory;
   action?: ChatReadinessAction;
   /** Env keys this item is about. Lets the UI open the env panel on the exact relevant keys. */
   envKeys?: string[];
 };
+
+export function resolveReadinessCategoryFromSeverity(
+  severity: ChatReadinessSeverity,
+): ChatReadinessCategory {
+  return severity === "blocker" ? "blocker" : "advisory";
+}
 
 export type ChatReadinessInfo = {
   versionId: string | null;

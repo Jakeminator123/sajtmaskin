@@ -1,0 +1,109 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`LaunchReadinessCard > visar separata grupper för Blocker och Advisory 1`] = `
+<div
+  class="border-border/70 bg-muted/10 border-b px-3 py-2 text-xs"
+>
+  <div
+    class="flex items-center justify-between gap-2"
+  >
+    <div
+      class="flex items-center gap-2"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-circle-alert h-4 w-4 text-red-400"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+        />
+        <line
+          x1="12"
+          x2="12"
+          y1="8"
+          y2="12"
+        />
+        <line
+          x1="12"
+          x2="12.01"
+          y1="16"
+          y2="16"
+        />
+      </svg>
+      <span
+        class="font-medium text-gray-200"
+      >
+        Lansering
+      </span>
+    </div>
+    <span
+      class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 [a&]:hover:bg-accent [a&]:hover:text-accent-foreground text-[10px] border-red-500/30 bg-red-500/10 text-red-200"
+      data-slot="badge"
+      data-variant="outline"
+    >
+      1 spärr
+    </span>
+  </div>
+  <div
+    class="mt-2 space-y-2"
+  >
+    <div
+      class="space-y-1.5"
+    >
+      <div
+        class="text-[11px] font-medium text-red-200"
+      >
+        Blockerar deploy
+      </div>
+      <div
+        class="rounded-md border px-2.5 py-2 border-border/60 bg-background/40"
+      >
+        <div
+          class="text-[11px] font-medium text-foreground"
+        >
+          Versionen underkändes av quality gate (typecheck/build).
+        </div>
+      </div>
+    </div>
+    <div
+      class="space-y-1.5"
+    >
+      <div
+        class="text-[11px] font-medium text-amber-200"
+      >
+        Rekommendationer — blockerar inte
+      </div>
+      <div
+        class="rounded-md border px-2.5 py-2 border-border/40 bg-muted/30"
+      >
+        <div
+          class="text-[11px] font-medium text-muted-foreground"
+        >
+          SEO: title saknas.
+        </div>
+      </div>
+    </div>
+    <div
+      class="text-[11px] text-muted-foreground"
+    >
+      Versionsstatus: 
+      <span
+        class="text-foreground"
+      >
+        failed
+      </span>
+    </div>
+  </div>
+</div>
+`;

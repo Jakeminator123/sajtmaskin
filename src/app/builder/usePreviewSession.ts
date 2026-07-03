@@ -10,6 +10,12 @@ import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-ho
 export type UsePreviewSessionParams = {
   chatId: string | null;
   activeVersionId: string | null;
+  /**
+   * M#pv3: active version is terminally failed and has no own stored preview URL.
+   * In this state we suppress the first auto-resync on `version_mismatch`
+   * (session_newer) to avoid bounce-loops back to the failed version.
+   */
+  activeVersionFailedWithoutPreviewUrl?: boolean;
   currentPreviewUrl: string | null;
   activePreviewSessionMeta: { previewSessionId: string; versionId: string } | null;
   setCurrentPreviewUrl: (url: string) => void;
@@ -45,6 +51,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
   const {
     chatId,
     activeVersionId,
+    activeVersionFailedWithoutPreviewUrl = false,
     currentPreviewUrl,
     activePreviewSessionMeta,
     setCurrentPreviewUrl,
@@ -188,6 +195,25 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     }
 
     if (statusPayload.status === "version_mismatch") {
+      const shouldSuppressAutoResyncBounce =
+        activeVersionFailedWithoutPreviewUrl &&
+        statusPayload.mismatchDirection === "session_newer";
+      if (shouldSuppressAutoResyncBounce) {
+        // M#pv3: failed version without own preview URL should not steal back
+        // the VM session from a restored newer version.
+        const observedAt = mismatchObservedAtRef.current ?? now();
+        mismatchObservedAtRef.current = observedAt;
+        const payload: VersionMismatchOverlayPayload = {
+          chatId,
+          expectedVersionId: versionId,
+          currentVersionId: statusPayload.versionId ?? null,
+          mismatchDirection: statusPayload.mismatchDirection ?? "unknown",
+          msSinceMismatch: Math.max(0, now() - observedAt),
+        };
+        setVersionMismatchPayload(payload);
+        return;
+      }
+
       // Server says the active VM session is bound to a different versionId
       // than the one the user has selected (typical: app finalized/restored a
       // new version, VM is still booting/running the previous one).
@@ -295,6 +321,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     setPreviewSessionRecovering,
     triggerForcedPreviewRestart,
     onRecoverFailed,
+    activeVersionFailedWithoutPreviewUrl,
     now,
   ]);
 

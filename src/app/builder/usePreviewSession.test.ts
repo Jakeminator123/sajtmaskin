@@ -16,7 +16,10 @@ import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 const TIER2_URL = "https://chat-1.fly.dev/preview";
 
-function harness(overrides?: { now?: () => number }) {
+function harness(overrides?: {
+  now?: () => number;
+  activeVersionFailedWithoutPreviewUrl?: boolean;
+}) {
   const setRecovering = vi.fn();
   const setForceKey = vi.fn();
   const setRetryNonce = vi.fn();
@@ -25,6 +28,8 @@ function harness(overrides?: { now?: () => number }) {
     usePreviewSession({
       chatId: "chat_1",
       activeVersionId: "ver_2",
+      activeVersionFailedWithoutPreviewUrl:
+        overrides?.activeVersionFailedWithoutPreviewUrl,
       currentPreviewUrl: TIER2_URL,
       activePreviewSessionMeta: { previewSessionId: "sbx_1", versionId: "ver_2" },
       setCurrentPreviewUrl: vi.fn(),
@@ -90,6 +95,47 @@ describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () =
     expect(h.rendered.result.current.versionMismatchPayload?.mismatchDirection).toBe("session_older");
     expect(h.setForceKey).not.toHaveBeenCalled();
     expect(h.setRetryNonce).not.toHaveBeenCalled();
+  });
+
+  it("undertrycker auto-resync när aktiv version är failed utan previewUrl och mismatchen pekar mot nyare session", async () => {
+    const clock = 1_500_000;
+    vi.mocked(fetchPreviewStatus).mockResolvedValue(
+      mismatch("sbx_restored", "ver_3", "session_newer"),
+    );
+
+    const h = harness({
+      now: () => clock,
+      activeVersionFailedWithoutPreviewUrl: true,
+    });
+
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+
+    expect(h.setForceKey).not.toHaveBeenCalled();
+    expect(h.setRetryNonce).not.toHaveBeenCalled();
+    expect(h.rendered.result.current.versionMismatchPayload).not.toBeNull();
+    expect(h.rendered.result.current.versionMismatchPayload?.mismatchDirection).toBe(
+      "session_newer",
+    );
+  });
+
+  it("behåller auto-resync för äkta mismatch även när failed-utan-url-skyddet är på", async () => {
+    vi.mocked(fetchPreviewStatus).mockResolvedValue(
+      mismatch("sbx_old", "ver_1", "session_older"),
+    );
+
+    const h = harness({
+      activeVersionFailedWithoutPreviewUrl: true,
+    });
+
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+
+    expect(h.setForceKey).toHaveBeenCalledWith("chat_1:ver_2");
+    expect(h.setRetryNonce).toHaveBeenCalledTimes(1);
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
   });
 
   it("tillåter en ny auto-resync när preview-sessionen (session id) är en annan efter första omstarten", async () => {
