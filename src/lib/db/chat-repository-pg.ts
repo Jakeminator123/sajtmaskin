@@ -26,6 +26,11 @@ import {
   encodeRepairedFilesEnvelope,
   hashFilesJson,
 } from "./repair-files-payload";
+import {
+  coerceKnownImageReplacementMap,
+  KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY,
+  type KnownImageReplacementMap,
+} from "@/lib/utils/image-validator";
 
 export interface Chat {
   id: string;
@@ -466,6 +471,36 @@ export async function updateChatOrchestrationSnapshot(
   const result = await db
     .update(engineChats)
     .set({ orchestrationSnapshot: snapshot, updatedAt: new Date() })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getKnownBrokenImageReplacements(
+  chatId: string,
+): Promise<KnownImageReplacementMap> {
+  const snapshot = await getChatOrchestrationSnapshot(chatId);
+  return coerceKnownImageReplacementMap(snapshot?.[KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY]);
+}
+
+export async function recordKnownBrokenImageReplacements(
+  chatId: string,
+  replacements: KnownImageReplacementMap,
+): Promise<boolean> {
+  const clean = coerceKnownImageReplacementMap(replacements);
+  if (Object.keys(clean).length === 0) return false;
+  const replacementsJson = JSON.stringify(clean);
+  const result = await db
+    .update(engineChats)
+    .set({
+      orchestrationSnapshot: sql<Record<string, unknown>>`jsonb_set(
+        coalesce(${engineChats.orchestrationSnapshot}, '{}'::jsonb),
+        '{knownBrokenImageReplacements}'::text[],
+        coalesce(${engineChats.orchestrationSnapshot}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
+          || ${replacementsJson}::jsonb,
+        true
+      )`,
+      updatedAt: new Date(),
+    })
     .where(eq(engineChats.id, chatId));
   return (result.rowCount ?? 0) > 0;
 }

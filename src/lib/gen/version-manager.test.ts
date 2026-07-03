@@ -4,21 +4,30 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion: vi.fn(),
   getLatestVersion: vi.fn(),
   getVersionById: vi.fn(),
+  getKnownBrokenImageReplacements: vi.fn(),
+  updateVersionFiles: vi.fn(),
 }));
 
 import {
+  getKnownBrokenImageReplacements,
   getLatestVersion,
   getPreferredVersion,
+  getVersionById,
+  updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import {
   mergePackageJsonContent,
   mergeVersionFilesWithWarnings,
   resolveChatPreferredVersionId,
+  resolveFollowUpPreviousFiles,
 } from "./version-manager";
 import type { CodeFile } from "./parser";
 
 const getPreferredVersionMock = vi.mocked(getPreferredVersion);
 const getLatestVersionMock = vi.mocked(getLatestVersion);
+const getVersionByIdMock = vi.mocked(getVersionById);
+const getKnownBrokenImageReplacementsMock = vi.mocked(getKnownBrokenImageReplacements);
+const updateVersionFilesMock = vi.mocked(updateVersionFiles);
 
 const file = (path: string, content: string): CodeFile => ({
   path,
@@ -231,5 +240,45 @@ describe("resolveChatPreferredVersionId", () => {
     getLatestVersionMock.mockResolvedValue(null);
 
     expect(await resolveChatPreferredVersionId("chat_1")).toBeNull();
+  });
+});
+
+describe("resolveFollowUpPreviousFiles known image heals", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getKnownBrokenImageReplacementsMock.mockResolvedValue({});
+    updateVersionFilesMock.mockResolvedValue(true);
+  });
+
+  it("applies known dead image replacements to the explicit base and persists the healed files_json", async () => {
+    const deadUrl =
+      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
+    const replacementUrl =
+      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    getVersionByIdMock.mockResolvedValue({
+      id: "ver_old",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([
+        file("app/page.tsx", `<img src="${deadUrl}" alt="Neon glassblowing" />`),
+      ]),
+    } as never);
+    getKnownBrokenImageReplacementsMock.mockResolvedValue({
+      [deadUrl]: replacementUrl,
+    });
+
+    const files = await resolveFollowUpPreviousFiles("chat_1", "ver_old");
+
+    expect(files[0]?.content).toContain(replacementUrl);
+    expect(files[0]?.content).not.toContain(deadUrl);
+    expect(updateVersionFilesMock).toHaveBeenCalledTimes(1);
+    expect(updateVersionFilesMock).toHaveBeenCalledWith(
+      "ver_old",
+      expect.any(String),
+      { lockTimeoutMs: 250 },
+    );
+    const persisted = JSON.parse(updateVersionFilesMock.mock.calls[0]?.[1] as string) as CodeFile[];
+    expect(persisted[0]?.content).toContain(replacementUrl);
+    expect(getPreferredVersionMock).not.toHaveBeenCalled();
+    expect(getLatestVersionMock).not.toHaveBeenCalled();
   });
 });

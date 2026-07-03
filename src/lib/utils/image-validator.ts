@@ -47,6 +47,40 @@ export interface ImageValidationResult {
   warnings: string[];
 }
 
+export const KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY = "knownBrokenImageReplacements";
+
+export type KnownImageReplacementMap = Record<string, string>;
+
+function isPersistableImageReplacementUrl(url: string): boolean {
+  if (!url || url.length > 2_000) return false;
+  if (url.startsWith("/api/placeholder")) return true;
+  return isExternalImageUrl(url);
+}
+
+export function coerceKnownImageReplacementMap(input: unknown): KnownImageReplacementMap {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const out: KnownImageReplacementMap = {};
+  for (const [deadUrl, replacementUrl] of Object.entries(input)) {
+    if (!isExternalImageUrl(deadUrl) || typeof replacementUrl !== "string") continue;
+    if (!isPersistableImageReplacementUrl(replacementUrl)) continue;
+    out[deadUrl] = replacementUrl;
+  }
+  return out;
+}
+
+export function buildKnownImageReplacementMap(
+  broken: BrokenImage[],
+): KnownImageReplacementMap {
+  const out: KnownImageReplacementMap = {};
+  for (const entry of broken) {
+    if (!entry.replacementUrl || entry.replacementUrl === entry.url) continue;
+    if (!isExternalImageUrl(entry.url)) continue;
+    if (!isPersistableImageReplacementUrl(entry.replacementUrl)) continue;
+    out[entry.url] = entry.replacementUrl;
+  }
+  return out;
+}
+
 const TOPIC_SPECIFIC_IMAGE_KEYWORDS = [
   "jul",
   "christmas",
@@ -478,6 +512,55 @@ function applyReplacements(
       }
     }
     return { ...f, content };
+  });
+
+  return { files: updatedFiles, replacedCount };
+}
+
+function sortedKnownImageReplacements(replacements: KnownImageReplacementMap) {
+  return Object.entries(coerceKnownImageReplacementMap(replacements))
+    .map(([deadUrl, replacementUrl]) => ({ deadUrl, replacementUrl }))
+    .filter((entry) => entry.deadUrl !== entry.replacementUrl)
+    .sort((a, b) => b.deadUrl.length - a.deadUrl.length);
+}
+
+export function applyKnownImageReplacementsToContent(
+  content: string,
+  replacements: KnownImageReplacementMap,
+): { content: string; replacedCount: number } {
+  const sorted = sortedKnownImageReplacements(replacements);
+  if (sorted.length === 0 || !content) return { content, replacedCount: 0 };
+
+  let nextContent = content;
+  let replacedCount = 0;
+  for (const entry of sorted) {
+    const parts = nextContent.split(entry.deadUrl);
+    const occurrences = parts.length - 1;
+    if (occurrences === 0) continue;
+    nextContent = parts.join(entry.replacementUrl);
+    replacedCount += occurrences;
+  }
+  return { content: nextContent, replacedCount };
+}
+
+export function applyKnownImageReplacementsToFiles<T extends { content: string }>(
+  files: T[],
+  replacements: KnownImageReplacementMap,
+): { files: T[]; replacedCount: number } {
+  const sorted = sortedKnownImageReplacements(replacements);
+  if (sorted.length === 0 || files.length === 0) return { files, replacedCount: 0 };
+
+  let replacedCount = 0;
+  const updatedFiles = files.map((file) => {
+    let content = file.content;
+    for (const entry of sorted) {
+      const parts = content.split(entry.deadUrl);
+      const occurrences = parts.length - 1;
+      if (occurrences === 0) continue;
+      content = parts.join(entry.replacementUrl);
+      replacedCount += occurrences;
+    }
+    return content === file.content ? file : { ...file, content };
   });
 
   return { files: updatedFiles, replacedCount };

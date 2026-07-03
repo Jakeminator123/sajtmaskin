@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractImageRefs, validateImages, type TextFile } from "./image-validator";
+import {
+  applyKnownImageReplacementsToFiles,
+  extractImageRefs,
+  validateImages,
+  type TextFile,
+} from "./image-validator";
 
 describe("extractImageRefs", () => {
   it("extracts CSS background-image urls", () => {
@@ -80,6 +85,30 @@ describe("extractImageRefs", () => {
 });
 
 describe("validateImages", () => {
+  it("applies known dead Unsplash replacements without network calls", () => {
+    const deadUrl =
+      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
+    const replacementUrl =
+      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = applyKnownImageReplacementsToFiles(
+      [
+        {
+          name: "app/page.tsx",
+          content: `<img src="${deadUrl}" alt="Neon glassblowing studio" />`,
+        },
+      ],
+      { [deadUrl]: replacementUrl },
+    );
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.files[0]?.content).toContain(replacementUrl);
+    expect(result.files[0]?.content).not.toContain(deadUrl);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   it("adds duplicate_alt warning for repeated descriptive alt texts", async () => {
     const files: TextFile[] = [
       {

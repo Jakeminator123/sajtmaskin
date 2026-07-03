@@ -1,12 +1,16 @@
 import {
+  getKnownBrokenImageReplacements,
   getPreferredVersion,
   getLatestVersion,
   getVersionById,
+  updateVersionFiles,
+  type Version,
 } from "@/lib/db/chat-repository-pg";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { incIngressEvent } from "@/lib/observability/metrics";
 import { parseCodeProject, type CodeFile } from "./parser";
 import { extractStructuralElements } from "./context/structural-elements";
+import { applyKnownImageReplacementsToFiles } from "@/lib/utils/image-validator";
 
 /**
  * Extracts files from raw assistant content using the CodeProject parser.
@@ -149,7 +153,12 @@ export async function resolveFollowUpPreviousFiles(
             versionId: version.id,
           });
         } catch {}
-        return parsed;
+        return applyKnownImageHealsToVersionFiles({
+          chatId,
+          version,
+          files: parsed,
+          branch: "explicit",
+        });
       }
     }
   }
@@ -171,12 +180,51 @@ export async function resolveFollowUpPreviousFiles(
     });
   } catch {}
   if (!version?.files_json) return [];
-  return (
-    parseStoredVersionFiles(version.files_json, {
-      versionId: version.id,
-      chatId: version.chat_id,
-    }) ?? []
-  );
+  const parsed = parseStoredVersionFiles(version.files_json, {
+    versionId: version.id,
+    chatId: version.chat_id,
+  });
+  if (!parsed || parsed.length === 0) return [];
+  return applyKnownImageHealsToVersionFiles({
+    chatId,
+    version,
+    files: parsed,
+    branch,
+  });
+}
+
+async function applyKnownImageHealsToVersionFiles(params: {
+  chatId: string;
+  version: Version;
+  files: CodeFile[];
+  branch: "explicit" | "preferred" | "latest";
+}): Promise<CodeFile[]> {
+  let replacements: Record<string, string>;
+  try {
+    replacements = await getKnownBrokenImageReplacements(params.chatId);
+  } catch (error) {
+    console.warn("[version-manager] Failed to read known image replacements:", error);
+    return params.files;
+  }
+  const result = applyKnownImageReplacementsToFiles(params.files, replacements);
+  if (result.replacedCount === 0) return params.files;
+
+  const healedFilesJson = JSON.stringify(result.files);
+  try {
+    await updateVersionFiles(params.version.id, healedFilesJson, { lockTimeoutMs: 250 });
+  } catch (error) {
+    console.warn("[version-manager] Failed to persist known image replacements:", error);
+  }
+  try {
+    devLogAppend("latest", {
+      type: "version-manager.known-image-heal",
+      chatId: params.chatId,
+      versionId: params.version.id,
+      branch: params.branch,
+      replacedCount: result.replacedCount,
+    });
+  } catch {}
+  return result.files;
 }
 
 export interface MergeWarning {
