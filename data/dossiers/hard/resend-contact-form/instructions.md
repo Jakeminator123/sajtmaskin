@@ -21,7 +21,7 @@ Do not use it for:
 3. Pass an optional `subjectPrefix` prop if you want server-side categorisation (e.g. `subjectPrefix="Hotel inquiry"` so the inbox sees `Hotel inquiry: <user subject>`).
 4. The form POSTs to `/api/contact`, which validates the body, calls Resend, and returns `{ ok: true }` on success or `{ ok: false, error }` on failure.
 
-If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process.env` the dossier is selected but **unconfigured**. The route returns HTTP 503 with `{ ok: false, error: "email-not-configured" }`. The bundled `ContactForm` component handles this gracefully — it surfaces a calm "the contact form is not yet configured, please email us directly" message after the user clicks Send (rather than blocking the form upfront, which would hide the existence of a contact path). If you want a stricter UX, add a server-side feature flag and render an alternative `<a href="mailto:…">` instead of `<ContactForm />` when the env is incomplete.
+If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process.env` the dossier is selected but **unconfigured**. The route returns HTTP 503 with `{ ok: false, error: "email-not-configured" }`. The bundled `ContactForm` component handles this gracefully — on that response it renders the shared `IntegrationConfigNotice` (a calm, muted Swedish notice with the required env-key names + a Resend setup link) and disables the submit button, after the user clicks Send (rather than blocking the form upfront, which would hide the existence of a contact path). The notice also nudges the visitor to reach out by email in the meantime. The notice ships as `components/integration-config-notice.tsx` (verbatim); keep its calm/neutral styling and Swedish copy. If you want a stricter UX, add a server-side feature flag and render an alternative `<a href="mailto:…">` instead of `<ContactForm />` when the env is incomplete.
 
 # UX rules
 
@@ -35,7 +35,8 @@ If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process
 # Avoid
 
 - Do not call the Resend SDK directly from the client — the API key would leak.
-- Do not paraphrase `components/api/contact/route.ts`. The Resend SDK init pattern, body validation order, and the "missing env returns 503"-guard must stay byte-exact.
+- Do not paraphrase `components/api/contact/route.ts`. The Resend SDK init pattern, body validation order, and the "missing env returns 503 `email-not-configured`"-guard must stay byte-exact.
+- Do not surface a raw error string or the HTTP status code to the visitor — on `email-not-configured` render the `IntegrationConfigNotice` and disable the submit button instead.
 - Do not store form submissions in a database without telling the user (privacy). Email-only delivery is the default contract.
 - Do not auto-fill the message with marketing copy. Always start empty.
 - Do not hide the contact email entirely when the form is unconfigured — give the user a fallback way to reach you.
@@ -44,6 +45,6 @@ If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process
 
 - Submit the form with valid data — the configured inbox receives an email within a few seconds.
 - Submit with an invalid email — the form shows an inline error, no API call is made.
-- Submit with `RESEND_API_KEY` empty — the route returns 503 and the UI shows the unconfigured state.
+- Submit with `RESEND_API_KEY` empty — the route returns 503 `email-not-configured`, the form renders the `IntegrationConfigNotice` and disables the submit button, and no raw error/status code is shown to the visitor.
 - Server logs show `[POST] /api/contact 200` on success or `[POST] /api/contact 503` when degraded.
 - Reload the page — the form returns to its empty state cleanly.

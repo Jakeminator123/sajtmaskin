@@ -6,7 +6,7 @@
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Hosted Stripe Checkout for one-time and subscription payments. Adds a server route that creates checkout sessions and a client button that redirects to Stripe's hosted page. Webhook handling is intentionally out of scope — add separately when subscriptions need lifecycle events.",
+  "summary": "Hosted Stripe Checkout for one-time and subscription payments. Adds a server route that creates checkout sessions and a client button that redirects to Stripe's hosted page. When STRIPE_SECRET_KEY is missing the route returns 503 'payments-not-configured' and the button degrades to a calm IntegrationConfigNotice + disabled state instead of a raw error. Webhook handling is intentionally out of scope — add separately when subscriptions need lifecycle events.",
   "envVars": [
     {
       "key": "STRIPE_SECRET_KEY",
@@ -27,6 +27,11 @@
       "path": "components/checkout-button.tsx",
       "role": "client",
       "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/integration-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "verbatim"
     },
     {
       "path": "components/api/checkout-session/route.ts",

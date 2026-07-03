@@ -391,6 +391,7 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     "",
     "You are now in F3 (\"bygg integrationer\"). Wire each integration below end-to-end.",
     "Use the listed env keys; assume real values are present at runtime.",
+    "Graceful fallback is mandatory: every integration CTA (payment button, contact/email form, etc.) MUST handle its API route's not-configured response — HTTP 503 with an error code such as `payments-not-configured` or `email-not-configured` — by rendering the calm config-notice component (`IntegrationConfigNotice`) in a disabled state. Never surface a raw error string, stack trace, or HTTP status code to the visitor.",
     "",
   ];
   for (const req of spec.requirements) {

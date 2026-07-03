@@ -270,4 +270,27 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
     expect(block).toContain("Steps:");
   });
+
+  it("instructs a graceful not-configured fallback for every integration CTA", () => {
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "billing",
+            status: "chosen",
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    // The header must tell the model to degrade calmly on not-configured
+    // responses rather than surface a raw error to the visitor.
+    expect(block).toContain("Graceful fallback is mandatory");
+    expect(block).toContain("payments-not-configured");
+    expect(block).toContain("email-not-configured");
+    expect(block).toContain("IntegrationConfigNotice");
+  });
 });

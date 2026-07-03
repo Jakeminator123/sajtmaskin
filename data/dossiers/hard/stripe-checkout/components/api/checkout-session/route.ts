@@ -13,8 +13,10 @@ interface Body {
 
 export async function POST(request: Request) {
   if (!process.env.STRIPE_SECRET_KEY) {
+    // Recognizable error code so the client can render a calm "not configured"
+    // notice instead of guessing on the HTTP status alone.
     return NextResponse.json(
-      { error: "STRIPE_SECRET_KEY is not configured" },
+      { error: "payments-not-configured" },
       { status: 503 },
     );
   }
