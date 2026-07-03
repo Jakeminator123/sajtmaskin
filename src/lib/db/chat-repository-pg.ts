@@ -468,9 +468,36 @@ export async function updateChatOrchestrationSnapshot(
   chatId: string,
   snapshot: Record<string, unknown> | null,
 ): Promise<boolean> {
+  // Bugbot HIGH (PR #376): the finalize snapshot persist is built from an
+  // EARLIER read and previously replaced the whole jsonb column, so it could
+  // race with `recordKnownBrokenImageReplacements`' atomic append and drop the
+  // healed-image map. Merge that one key SQL-side — the DB column's current
+  // `knownBrokenImageReplacements` is unioned with the incoming snapshot's —
+  // while every other key keeps the replace semantics callers rely on.
+  if (snapshot === null) {
+    const result = await db
+      .update(engineChats)
+      .set({ orchestrationSnapshot: null, updatedAt: new Date() })
+      .where(eq(engineChats.id, chatId));
+    return (result.rowCount ?? 0) > 0;
+  }
+  const snapshotJson = JSON.stringify(snapshot);
+  const mergedReplacementsExpr = sql`coalesce(${engineChats.orchestrationSnapshot}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
+        || coalesce(${snapshotJson}::jsonb->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)`;
   const result = await db
     .update(engineChats)
-    .set({ orchestrationSnapshot: snapshot, updatedAt: new Date() })
+    .set({
+      orchestrationSnapshot: sql<Record<string, unknown>>`CASE
+        WHEN (${mergedReplacementsExpr}) = '{}'::jsonb THEN ${snapshotJson}::jsonb
+        ELSE jsonb_set(
+          ${snapshotJson}::jsonb,
+          '{knownBrokenImageReplacements}'::text[],
+          ${mergedReplacementsExpr},
+          true
+        )
+      END`,
+      updatedAt: new Date(),
+    })
     .where(eq(engineChats.id, chatId));
   return (result.rowCount ?? 0) > 0;
 }

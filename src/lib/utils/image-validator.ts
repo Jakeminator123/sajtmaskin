@@ -49,6 +49,19 @@ export interface ImageValidationResult {
 
 export const KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY = "knownBrokenImageReplacements";
 
+/**
+ * Growth cap for the per-chat dead-URL → replacement map (Bugbot MEDIUM,
+ * PR #376). The map lives in `engine_chats.orchestration_snapshot` and is
+ * appended to on every validation pass, so without a ceiling a long-lived
+ * chat could grow it unboundedly. 50 entries is far above what a single
+ * site realistically accumulates. On overflow the FIRST entries in object
+ * order are dropped (simple FIFO). Note: Postgres jsonb normalizes key
+ * order, so after a round-trip the eviction order is approximate — the
+ * guarantee that matters is the hard bound, enforced at this coerce
+ * boundary which every read AND write input passes through.
+ */
+export const KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES = 50;
+
 export type KnownImageReplacementMap = Record<string, string>;
 
 function isPersistableImageReplacementUrl(url: string): boolean {
@@ -65,7 +78,14 @@ export function coerceKnownImageReplacementMap(input: unknown): KnownImageReplac
     if (!isPersistableImageReplacementUrl(replacementUrl)) continue;
     out[deadUrl] = replacementUrl;
   }
-  return out;
+  const keys = Object.keys(out);
+  if (keys.length <= KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES) return out;
+  // FIFO eviction: drop the oldest (first-inserted) entries beyond the cap.
+  const capped: KnownImageReplacementMap = {};
+  for (const key of keys.slice(keys.length - KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES)) {
+    capped[key] = out[key];
+  }
+  return capped;
 }
 
 export function buildKnownImageReplacementMap(

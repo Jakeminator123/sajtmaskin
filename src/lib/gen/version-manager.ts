@@ -3,7 +3,6 @@ import {
   getPreferredVersion,
   getLatestVersion,
   getVersionById,
-  updateVersionFiles,
   type Version,
 } from "@/lib/db/chat-repository-pg";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -193,6 +192,15 @@ export async function resolveFollowUpPreviousFiles(
   });
 }
 
+/**
+ * Bugbot HIGH+MEDIUM (PR #376): heal the follow-up base IN-MEMORY ONLY.
+ * Writing the healed files back to the base version's row via
+ * `updateVersionFiles` mutated historical versions (breaking restore) and
+ * cleared `repaired_files_json`/`repair_available_at`/`preview_url` as a side
+ * effect of the write. The healed content still reaches persistence naturally:
+ * it feeds the follow-up prompt context and merge base, and the finalize
+ * fast-path re-applies the same map before the NEXT version is saved.
+ */
 async function applyKnownImageHealsToVersionFiles(params: {
   chatId: string;
   version: Version;
@@ -209,12 +217,6 @@ async function applyKnownImageHealsToVersionFiles(params: {
   const result = applyKnownImageReplacementsToFiles(params.files, replacements);
   if (result.replacedCount === 0) return params.files;
 
-  const healedFilesJson = JSON.stringify(result.files);
-  try {
-    await updateVersionFiles(params.version.id, healedFilesJson, { lockTimeoutMs: 250 });
-  } catch (error) {
-    console.warn("[version-manager] Failed to persist known image replacements:", error);
-  }
   try {
     devLogAppend("latest", {
       type: "version-manager.known-image-heal",

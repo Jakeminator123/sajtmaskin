@@ -250,7 +250,10 @@ describe("resolveFollowUpPreviousFiles known image heals", () => {
     updateVersionFilesMock.mockResolvedValue(true);
   });
 
-  it("applies known dead image replacements to the explicit base and persists the healed files_json", async () => {
+  // Bugbot HIGH+MEDIUM (PR #376): the heal must be in-memory only — writing
+  // the healed files back to the base version's row mutated history (restore)
+  // and cleared repair-offer state (`repaired_files_json`/`repair_available_at`).
+  it("heals the explicit follow-up base in memory WITHOUT touching the base version row", async () => {
     const deadUrl =
       "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
     const replacementUrl =
@@ -270,14 +273,9 @@ describe("resolveFollowUpPreviousFiles known image heals", () => {
 
     expect(files[0]?.content).toContain(replacementUrl);
     expect(files[0]?.content).not.toContain(deadUrl);
-    expect(updateVersionFilesMock).toHaveBeenCalledTimes(1);
-    expect(updateVersionFilesMock).toHaveBeenCalledWith(
-      "ver_old",
-      expect.any(String),
-      { lockTimeoutMs: 250 },
-    );
-    const persisted = JSON.parse(updateVersionFilesMock.mock.calls[0]?.[1] as string) as CodeFile[];
-    expect(persisted[0]?.content).toContain(replacementUrl);
+    // The base version's row must stay untouched — no files_json write, no
+    // repair-offer/preview-url side effects, no verification-state reset.
+    expect(updateVersionFilesMock).not.toHaveBeenCalled();
     expect(getPreferredVersionMock).not.toHaveBeenCalled();
     expect(getLatestVersionMock).not.toHaveBeenCalled();
   });

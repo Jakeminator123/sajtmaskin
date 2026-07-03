@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyKnownImageReplacementsToFiles,
+  coerceKnownImageReplacementMap,
   extractImageRefs,
+  KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES,
   validateImages,
   type TextFile,
 } from "./image-validator";
@@ -107,6 +109,30 @@ describe("validateImages", () => {
     expect(result.files[0]?.content).not.toContain(deadUrl);
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  // Bugbot MEDIUM (PR #376): the per-chat map is capped so it cannot grow
+  // unboundedly across a long-lived chat; overflow evicts the OLDEST entry.
+  it("caps the known-replacement map at the max and evicts the oldest entry on overflow", () => {
+    const input: Record<string, string> = {};
+    for (let i = 0; i < KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES + 1; i++) {
+      input[`https://images.unsplash.com/photo-dead-${i}?w=800`] =
+        `https://images.unsplash.com/photo-live-${i}?w=800`;
+    }
+
+    const capped = coerceKnownImageReplacementMap(input);
+
+    expect(Object.keys(capped)).toHaveLength(KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES);
+    // Entry 0 is the oldest (first inserted) and must be evicted…
+    expect(capped["https://images.unsplash.com/photo-dead-0?w=800"]).toBeUndefined();
+    // …while the newest entry survives.
+    expect(
+      capped[
+        `https://images.unsplash.com/photo-dead-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`
+      ],
+    ).toBe(
+      `https://images.unsplash.com/photo-live-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`,
+    );
   });
 
   it("adds duplicate_alt warning for repeated descriptive alt texts", async () => {
