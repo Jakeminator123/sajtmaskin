@@ -7,9 +7,21 @@ interface Body {
   cancelUrl?: string;
 }
 
+/**
+ * True only for a real-looking Stripe secret key. F2 design previews inject
+ * the stub `sk_test_placeholder_preview_not_real`, and copied `.env.local`
+ * files often carry similar placeholders — calling Stripe with those yields a
+ * generic 500 instead of the calm not-configured notice, so treat any
+ * placeholder-marked value as unconfigured.
+ */
+function isLikelyValidStripeSecretKey(key: string | undefined): key is string {
+  if (!key) return false;
+  return /^(sk|rk)_(test|live)_/.test(key) && !key.toLowerCase().includes("placeholder");
+}
+
 export async function POST(request: Request) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
+  if (!isLikelyValidStripeSecretKey(secretKey)) {
     // Recognizable error code so the client can render a calm "not configured"
     // notice instead of guessing on the HTTP status alone.
     return NextResponse.json(

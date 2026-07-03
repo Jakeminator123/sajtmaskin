@@ -215,6 +215,47 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
     expect(await res.json()).toEqual({ error: "payments-not-configured" });
   });
 
+  it("stripe route: F2 stub placeholder key is treated as NOT configured (503, not a Stripe 500)", async () => {
+    // Codex P2: previews inject sk_test_placeholder_preview_not_real from
+    // config/ai_models/41-tier3-stub-placeholders.env.txt — calling Stripe
+    // with it yields a generic 500 and the config notice is skipped.
+    process.env.STRIPE_SECRET_KEY = "sk_test_placeholder_preview_not_real";
+    const { POST } = await import(
+      "../../../../data/dossiers/hard/stripe-checkout/components/api/checkout-session/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId: "price_123" }),
+      }),
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "payments-not-configured" });
+  });
+
+  it("resend route: F2 stub placeholder key is treated as NOT configured", async () => {
+    process.env.RESEND_API_KEY = "re_placeholder_preview_not_a_real_key";
+    process.env.EMAIL_FROM = "noreply@example.com";
+    process.env.CONTACT_EMAIL_TO = "owner@example.com";
+    const { POST } = await import(
+      "../../../../data/dossiers/hard/resend-contact-form/components/api/contact/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Anna",
+          email: "anna@example.com",
+          message: "Hej!",
+        }),
+      }) as never,
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: "email-not-configured" });
+  });
+
   it("stripe route: with a key set, body validation still runs before any Stripe call", async () => {
     process.env.STRIPE_SECRET_KEY = "sk_test_dummy_key_for_validation_only";
     const { POST } = await import(
