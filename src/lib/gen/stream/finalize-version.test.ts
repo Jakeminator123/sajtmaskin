@@ -84,6 +84,11 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // `runLlmRepairGate({ requiredFiles })`. The unit tests don't care
   // about the exact list, just that the export exists.
   extractFilePathsFromVerifierFindings: () => [] as string[],
+  // Deterministic import pre-fix hooks (verifier-phase). Stubbed inert here so
+  // the finalize tests keep exercising the LLM repair loop unchanged; the
+  // pre-fix behaviour has its own focused suite in `verifier-phase.test.ts`.
+  parseUndefinedJsxSymbolFinding: () => null,
+  checkUndefinedJsxSymbols: () => [],
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
