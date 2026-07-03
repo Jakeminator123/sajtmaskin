@@ -34,10 +34,12 @@
  *    `needsGame` boolean flags for prompt/build-spec/context-policy. Uses
  *    ASCII `\b` in some rules, Unicode boundaries in others.
  *  - `src/lib/providers/own-engine/follow-up-clarification.ts` —
- *    `FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS` for scaffold rematch unlock.
- *    Strictly narrower than this vocabulary: e.g. "lägg till en
- *    3d-kaffekopp" detects `visual-3d` here but does NOT unlock scaffold
- *    there.
+ *    scaffold-freeze policy. NOTE (2026-07-03): the former
+ *    `FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS` game/canvas auto-unlock was
+ *    removed — a game follow-up now KEEPS the frozen scaffold (adds a new
+ *    route) and only explicit clear-redesign wording unlocks a rematch. This
+ *    vocabulary still detects `visual-3d`/`needsGame` for capability injection;
+ *    it just no longer drives scaffold rematch.
  *
  * Touching one consumer's tokens? Read the regression matrix in
  * `src/lib/providers/own-engine/follow-up-clarification.test.ts` (describe

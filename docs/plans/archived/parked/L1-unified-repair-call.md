@@ -1,7 +1,8 @@
 ---
 id: L1
 title: Unified repair-call — slå ihop fyra LLM-fixer-anrop till ett
-status: paused
+status: superseded
+superseded_by: docs/plans/active/kontrollflode/00-master-plan.md (Fas 3, PR #364, 2026-07-02)
 created: 2026-04-21
 linear: null
 paused: 2026-04-23
@@ -23,6 +24,8 @@ read_only_files:
   - src/lib/gen/autofix/fixer-prompt.ts
 ---
 
+> **Superseded 2026-07-02:** Målet levererat av kontrollflöde-konsolideringens Fas 3 (PR #364): all LLM-repair går nu genom `runLlmRepairGate` + `RepairLedger` (en port, dedupe över lanes, samma-signal-verifiering, `llm-fixer-callsite-guard.test.ts` vaktar att `runLlmFixer` bara har en produktions-callsite). Skillnad mot ursprungsidén: anropen konsoliderades bakom EN gate i stället för att slås ihop till ETT anrop — prompt-/pass-sammanslagning blev onödig när dedupe + rätt diagnostikmål löste kostnadsproblemet. Se [`kontrollflode/00-master-plan.md`](../../active/kontrollflode/00-master-plan.md).
+>
 > **Paused 2026-04-23:** Parkerad per OMTAG-waven eftersom den kräver telemetri-data + stabilt repo. Note att `src/lib/gen/stream/finalize-version.ts` nu är splittad till paket `finalize-version/` (OMTAG fas 1·03) — owner_files uppdaterad.
 
 # L1 — Unified repair-call
