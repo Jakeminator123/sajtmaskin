@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "site-done-telemetry.schema.json",
   "title": "site.done",
-  "description": "Emitteras av src/lib/providers/own-engine/generation-stream-post-finalize.ts via devLogAppend när hela generation-pipelinen avslutats. Innehåller fas-timings + preview-status + nya wave-7-fält (f2TimeMs/f3TimeMs/warmTscSkipped). Skrivs till logs/generationslogg/<run>/timeline.ndjson.",
+  "description": "Emitteras av src/lib/providers/own-engine/generation-stream-post-finalize.ts via devLogAppend när finalize-delen avslutats. Innehåller duration + planerade legacy-fält (f2TimeMs/f3TimeMs) + warm-pass-status. Preview-latens efter #377 läses från preview_url_handoff/preview_ready-events, inte från site.done. Skrivs till logs/generationslogg/<run>/timeline.ndjson.",
   "type": "object",
   "additionalProperties": true,
   "required": ["type", "chatId", "versionId", "durationMs"],
@@ -16,11 +16,11 @@
     "previewDeferred": { "type": "boolean" },
     "f2TimeMs": {
       "type": ["number", "null"],
-      "description": "Wave 7 telemetri (planerad mätpunkt): tid från site.start till första preview_ready. Idag null tills mätpunkter wireas (TODO i generation-stream-post-finalize.ts)."
+      "description": "Legacy/planerat fält. site.done skrivs före preview-start och kan därför inte bära korrekt preview-latens idag; använd preview_url_handoff/preview_ready.msSinceEngineStart."
     },
     "f3TimeMs": {
       "type": ["number", "null"],
-      "description": "Wave 7 telemetri (planerad mätpunkt): tid från preview_ready till sista quality-gate-resultat. Idag null tills mätpunkter wireas."
+      "description": "Legacy/planerat fält. Full F3-split kräver terminalt RenderGate/ReleaseGate-slut-event och kan inte beräknas korrekt från dagens site.done."
     },
     "warmTscSkipped": {
       "type": "boolean",

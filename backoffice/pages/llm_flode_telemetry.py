@@ -10,13 +10,14 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_repair_gate.deduped``     (fas 5)    — RepairGate ledger-dedupe av upprepat repairförsök
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``warmTsc``/``warmEslint`` (P0 obs.) — körde vs tyst skip (cache_cold m.m.)
-  - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
+  - ``preview_url_handoff`` / ``preview_ready``           (M#pv1)    — observerad preview-latens
   - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
   - ``orchestration.simple_website_path`` (2026-04-29) — snabb init-lane enabled/reason
+  - ``image-replacement.finalize`` / ``image-materialization`` — bildläkning i finalize
 
 Separat hantering (se respektive notering i sidans sektioner):
-  - ``image_replaced_with_placeholder`` — skrivs via ``debugLog`` (console), ej i NDJSON.
-    Kräver ``DEBUG=images`` + manuell logparsning.
+  - ``image_replaced_with_placeholder`` — legacy console-debug från image-validator-route.
+    Finalize-läkning syns numera via timeline-events ovan.
   - ``dossier_stub_created`` — emitteras via ``engine_version_error_logs`` i DB
     under category ``merge:cross-file-stub``, ej som standalone devLog-event.
 
@@ -100,6 +101,16 @@ def _fmt_ms(value: float | None) -> str:
     if value >= 1_000:
         return f"{value / 1000:.2f} s"
     return f"{value:.0f} ms"
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    idx = round((len(ordered) - 1) * percentile)
+    return ordered[max(0, min(idx, len(ordered) - 1))]
 
 
 def _pct(numerator: int, denominator: int) -> str:
@@ -428,46 +439,127 @@ def _render_warm_passes(run_dirs: list[Path]) -> None:
 
 
 def _render_f2_f3_time(run_dirs: list[Path]) -> None:
-    st.subheader("F2/F3-fasseparat latens (`f2TimeMs` / `f3TimeMs` i `site.done`)")
+    st.subheader("Preview-latens (`preview_url_handoff` / `preview_ready`)")
     st.caption(
-        "Planerad fasuppdelning av total durationMs. "
-        "**Obs:** `f2TimeMs` och `f3TimeMs` är null i källkoden idag — "
-        "de är markerade som `TODO(F2/F3 telemetry split)` i `generation-stream-post-finalize.ts`. "
-        "Sektionen visas när de börjar emitteras."
+        "`site.done.f2TimeMs`/`f3TimeMs` är fortfarande historiska null-fält eftersom "
+        "`site.done` skrivs före preview och RenderGate/ReleaseGate. Efter #377 finns "
+        "däremot `preview_url_handoff` (URL köad till klient) och `preview_ready` "
+        "(runtime bekräftad) med `msSinceEngineStart`, så backoffice visar den "
+        "observerbara preview-delen här. Full F3-split kräver ett separat terminalt "
+        "gate-slut-event och kan inte beräknas korrekt från dagens timeline."
     )
-    events = _collect_site_done(run_dirs)
-    events_with_f2 = [e for e in events if _rnum(e.get("f2TimeMs")) is not None]
-    events_with_f3 = [e for e in events if _rnum(e.get("f3TimeMs")) is not None]
 
-    if not events_with_f2 and not events_with_f3:
+    handoffs = _collect_events_by_type(run_dirs, "preview_url_handoff")
+    ready = _collect_events_by_type(run_dirs, "preview_ready")
+    lifecycle_events = [*handoffs, *ready]
+    if not lifecycle_events:
         st.info(
-            "`f2TimeMs` och `f3TimeMs` är ännu inte implementerade i källkoden "
-            "(null i `site.done`-devLog). När de aktiveras visas P50/P95 här."
+            "Inga `preview_url_handoff`/`preview_ready`-events hittade i de senaste "
+            "körningarna. De skrivs när post-finalize försöker starta preview."
         )
         return
 
-    f2_vals = [_rnum(e.get("f2TimeMs")) for e in events_with_f2]
-    f3_vals = [_rnum(e.get("f3TimeMs")) for e in events_with_f3]
+    handoff_ms = [_rnum(e.get("msSinceEngineStart")) for e in handoffs]
+    handoff_ms = [v for v in handoff_ms if v is not None]
+    ready_ms = [_rnum(e.get("msSinceEngineStart")) for e in ready]
+    ready_ms = [v for v in ready_ms if v is not None]
 
-    col1, col2 = st.columns(2)
-    if f2_vals:
-        col1.metric("Snitt f2TimeMs", _fmt_ms(sum(f2_vals) / len(f2_vals)))  # type: ignore[arg-type]
-    if f3_vals:
-        col2.metric("Snitt f3TimeMs", _fmt_ms(sum(f3_vals) / len(f3_vals)))  # type: ignore[arg-type]
+    col1, col2, col3 = st.columns(3)
+    col1.metric("URL-handoff events", len(handoffs))
+    col2.metric("Runtime-ready events", len(ready))
+    col3.metric("Ready-rate", _pct(len(ready), len(lifecycle_events)))
+
+    rows = []
+    if handoff_ms:
+        rows.append(
+            {
+                "Signal": "preview_url_handoff",
+                "Antal": len(handoff_ms),
+                "Snitt": _fmt_ms(sum(handoff_ms) / len(handoff_ms)),
+                "P50": _fmt_ms(_percentile(handoff_ms, 0.50)),
+                "P95": _fmt_ms(_percentile(handoff_ms, 0.95)),
+            }
+        )
+    if ready_ms:
+        rows.append(
+            {
+                "Signal": "preview_ready",
+                "Antal": len(ready_ms),
+                "Snitt": _fmt_ms(sum(ready_ms) / len(ready_ms)),
+                "P50": _fmt_ms(_percentile(ready_ms, 0.50)),
+                "P95": _fmt_ms(_percentile(ready_ms, 0.95)),
+            }
+        )
+    if rows:
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    detail_rows = []
+    for event in sorted(lifecycle_events, key=lambda e: str(e.get("_ts", "")), reverse=True)[:100]:
+        detail_rows.append(
+            {
+                "Tid": event.get("_ts", "")[:19],
+                "Run": event.get("_run", ""),
+                "Signal": event.get("type", "—"),
+                "Chat": (event.get("chatId") or event.get("_slug") or "")[:36],
+                "Version": str(event.get("versionId") or "")[:16] or "—",
+                "Preview session": str(event.get("previewSessionId") or "")[:16] or "—",
+                "Fidelity": event.get("fidelityTier", "—"),
+                "Start outcome": event.get("startOutcome", "—"),
+                "msSinceEngineStart": _fmt_ms(_rnum(event.get("msSinceEngineStart"))),
+            }
+        )
+    st.markdown("**Senaste preview-lifecycle-events**")
+    st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
 
 
 def _render_image_replaced(run_dirs: list[Path]) -> None:
-    st.subheader("Bild ersatt med placeholder (`image_replaced_with_placeholder`)")
+    st.subheader("Bildläkning i finalize (`image-replacement.finalize` / `image-materialization`)")
     st.caption(
-        "**Loggas via `debugLog` (console), inte via `devLogAppend` → syns INTE i timeline.ndjson.** "
-        "Kräver `DEBUG=images` i `.env.local` och manuell läsning av serverloggen. "
-        "Schema: `docs/schemas/strict/image-replaced-with-placeholder.schema.json`."
+        "`image-replacement.finalize` skrivs när finalize läker kända trasiga bild-URL:er "
+        "från chattens persistade ersättningskarta. `image-materialization` skrivs när "
+        "deep-path materialiserar/ersätter bildplatshållare. Legacy "
+        "`image_replaced_with_placeholder` från validate-images-routen finns bara i "
+        "console-debug och räknas inte här."
     )
-    st.info(
-        "Sektionen kräver att `image_replaced_with_placeholder`-events porteras till "
-        "`devLogAppend` i `src/lib/utils/image-validator.ts`. Tills dess: konsultera serverloggen."
-    )
-    _ = run_dirs  # används inte ännu
+    heal_events = _collect_events_by_type(run_dirs, "image-replacement.finalize")
+    # Äldre lokala körningar från PR #376 kan ha det gamla interna eventnamnet.
+    heal_events.extend(_collect_events_by_type(run_dirs, "known-image-replacement-heal"))
+    materialize_events = _collect_events_by_type(run_dirs, "image-materialization")
+    all_events = [*heal_events, *materialize_events]
+    if not all_events:
+        st.info(
+            "Inga timeline-synliga bildläknings-events hittade i de senaste körningarna. "
+            "Det betyder antingen att inga trasiga/kända bilder behövde ersättas, eller "
+            "att körningen är äldre än finalize-eventet."
+        )
+        return
+
+    healed_count = sum(int(_rnum(e.get("replacedCount")) or 0) for e in heal_events)
+    materialized_count = sum(int(_rnum(e.get("replacedCount")) or 0) for e in materialize_events)
+    skipped_count = sum(int(_rnum(e.get("skippedCount")) or 0) for e in materialize_events)
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Finalize-heal events", len(heal_events), f"{healed_count} URL:er")
+    col2.metric("Materialize events", len(materialize_events), f"{materialized_count} ersatta")
+    col3.metric("Materialize skipped", skipped_count)
+
+    rows = []
+    for event in sorted(all_events, key=lambda e: str(e.get("_ts", "")), reverse=True)[:100]:
+        rows.append(
+            {
+                "Tid": event.get("_ts", "")[:19],
+                "Run": event.get("_run", ""),
+                "Signal": event.get("type", "—"),
+                "Chat": (event.get("chatId") or event.get("_slug") or "")[:36],
+                "Replaced": event.get("replacedCount", "—"),
+                "Skipped": event.get("skippedCount", "—"),
+                "Source": event.get("source", "—"),
+                "Queries": ", ".join(str(q) for q in (event.get("queries") or [])[:5])
+                if isinstance(event.get("queries"), list)
+                else "—",
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
 def _render_prompt_size(ctx: BackofficeContext) -> None:
@@ -808,7 +900,8 @@ Events skrivs via `devLogAppend(target, {...})` i TypeScript-källan och hamnar 
 **Strict schemas:** `docs/schemas/strict/llm-fixer-aborted.schema.json`, `site-aborted.schema.json` m.fl.
 
 **Undantag:**
-- `image_replaced_with_placeholder` → `debugLog` (console, ej NDJSON)
+- `image_replaced_with_placeholder` → legacy `debugLog` från validate-images-routen (console, ej NDJSON).
+  Finalize-läkning syns via `image-replacement.finalize` / `image-materialization`.
 - `dossier_stub_created` → DB (`engine_version_error_logs` under `merge:cross-file-stub`)
 """
         )

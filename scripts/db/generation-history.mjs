@@ -97,6 +97,7 @@ const RECENT_QUERY = `
     gt.deploy_result,
     gt.duration_ms,
     gt.file_count,
+    gt.meta,
     v.version_number,
     v.lifecycle_stage,
     v.release_state,
@@ -132,7 +133,7 @@ const CHAT_TELEMETRY_QUERY = `
          prompt_classification, retry_count, autofix_applied, syntax_fixer_used,
          preflight_error_count, preflight_warning_count, quality_gate_result,
          preview_success, preview_blocking_reason, deploy_result, duration_ms,
-         file_count, created_at
+         file_count, meta, created_at
   FROM generation_telemetry
   WHERE chat_id = $1
   ORDER BY created_at ASC
