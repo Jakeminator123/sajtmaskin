@@ -143,6 +143,25 @@ describe("emitOwnEngineToolCallSse", () => {
     expect(toolCallNames.has("suggestIntegration")).toBe(true);
   });
 
+  it("does not register malformed suggestIntegration in F2 either (VADE)", () => {
+    const toolCallNames = new Set<string>();
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: vi.fn(),
+        toolCallNames,
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        lifecycleStage: "design",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: { name: "Integration" },
+      },
+    );
+    expect(toolCallNames.size).toBe(0);
+  });
+
   it("drops requestEnvVar SSE in F2 (lifecycleStage='design')", () => {
     const chunks: Uint8Array[] = [];
     const enc = new TextEncoder();

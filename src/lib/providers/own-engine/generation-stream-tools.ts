@@ -27,6 +27,37 @@ export type OwnEngineToolSseBridge = {
 const ENV_TOOLS_F2_BLOCKED = new Set(["suggestIntegration", "requestEnvVar"]);
 
 /**
+ * Delad argument-validering för env-/integrationsverktygen (Codex P2 + VADE,
+ * PR #375). Endast VÄLFORMADE signaler får registreras i `toolCallNames` —
+ * i både F2 och F3 — annars ger en tool-only-generation spökprompten
+ * "Integrationer signalerades…" utan något att konfigurera.
+ */
+function isWellFormedEnvToolCall(
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+): boolean {
+  if (toolName === "requestEnvVar") {
+    return typeof toolArgs.key === "string" && toolArgs.key.trim().length > 0;
+  }
+  if (toolName !== "suggestIntegration") return false;
+  const providerRaw = typeof toolArgs.provider === "string" ? toolArgs.provider : null;
+  const nameRaw = typeof toolArgs.name === "string" ? toolArgs.name : null;
+  const hasProvider = Boolean(normalizeIntegrationProviderKey(providerRaw));
+  const hasName = Boolean(normalizeIntegrationProviderKey(nameRaw));
+  if (!hasProvider && !hasName) return false;
+  const hasEnvVarsField = Array.isArray(toolArgs.envVars);
+  const derivedDisplayName = resolveIntegrationDisplayName({
+    provider: providerRaw,
+    name: nameRaw,
+    key: resolveIntegrationIdentityKey({ provider: providerRaw, name: nameRaw }),
+  });
+  if (!hasEnvVarsField && isGenericIntegrationName(nameRaw) && !derivedDisplayName) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Maps AI SDK tool invocations from the codegen stream into builder-facing SSE
  * (`integration`, `tool-call`). Keeps `generation-stream.ts` focused on I/O loop.
  *
@@ -64,8 +95,11 @@ export function emitOwnEngineToolCallSse(
     // F2-mutade men GILTIGA signaler registreras ändå som tool-call: en
     // tool-only-generation utan kod ska ge "kör igen eller fortsätt"-prompten
     // (tool_only_empty_generation), inte en generisk tom-output-failure.
-    // Kontraktet pinnas av stream/route.test.ts.
-    bridge.toolCallNames.add(toolName);
+    // Kontraktet pinnas av stream/route.test.ts. Malformade signaler
+    // registreras inte (VADE-fynd: samma validering i F2 som i F3).
+    if (isWellFormedEnvToolCall(toolName, toolArgs)) {
+      bridge.toolCallNames.add(toolName);
+    }
     warnLog("engine", "Dropped F2 env/integration tool-call (defense-in-depth)", {
       toolName,
       lifecycleStage,
@@ -91,11 +125,7 @@ export function emitOwnEngineToolCallSse(
       name: nameRaw,
       key: providerKey,
     });
-    const missingProviderAndName = !hasProvider && !hasName;
-    const missingEnvVarsAndGenericName =
-      !hasEnvVarsField && isGenericIntegrationName(nameRaw) && !derivedDisplayName;
-
-    if (missingProviderAndName || missingEnvVarsAndGenericName) {
+    if (!isWellFormedEnvToolCall(toolName, toolArgs)) {
       warnLog("engine", "Dropped malformed suggestIntegration tool-call (defense-in-depth)", {
         lifecycleStage,
         hasProvider,
