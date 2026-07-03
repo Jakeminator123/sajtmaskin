@@ -112,20 +112,69 @@ export async function createEngineVersionErrorLog(
   return rows[0] as VersionErrorLog;
 }
 
+/**
+ * Postgres `lock_not_available` (55P03) — raised when a transaction-local
+ * `lock_timeout` expires while waiting for a row lock. Mirrors the helper in
+ * `chat-repository-pg.ts`; duplicated here to avoid a cross-module import cycle.
+ */
+function isLockTimeoutError(err: unknown): boolean {
+  if (err == null || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  if (code === "55P03") return true;
+  const cause = (err as { cause?: unknown }).cause;
+  return cause != null && cause !== err && isLockTimeoutError(cause);
+}
+
 export async function createEngineVersionErrorLogs(
   payloads: VersionErrorLogPayload[],
+  options?: {
+    /**
+     * Best-effort mode (prod incident 2026-07-03, chat 3120c05c): inserting an
+     * error-log row takes an FK `FOR KEY SHARE` lock on the referenced
+     * `engine_versions` row. When a concurrent verify/lease holds `FOR UPDATE`
+     * on that row (quality-gate `acquireVersionLease`), the insert blocked until
+     * Supabase's global `statement_timeout` (57014) and the whole route 500:ade —
+     * even though these findings are pure diagnostics. A transaction-local
+     * `lock_timeout` makes the contended insert give up in ~ms (55P03); we then
+     * return `[]` so the caller degrades gracefully instead of surfacing a
+     * statement-timeout 500. Same medicine as `updateVersionPreviewUrl` (#370).
+     */
+    lockTimeoutMs?: number;
+  },
 ): Promise<VersionErrorLog[]> {
   assertDbConfigured();
   if (payloads.length === 0) return [];
   const now = new Date();
   const enrichedPayloads = await enrichEnginePayloads(payloads);
-  const rows = await db
-    .insert(engineVersionErrorLogs)
-    .values(enrichedPayloads.map((payload) => mapLogPayload(payload, now)))
-    .returning();
+  const values = enrichedPayloads.map((payload) => mapLogPayload(payload, now));
+
+  const lockTimeoutMs = options?.lockTimeoutMs;
+  let rows: VersionErrorLog[];
+  if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {
+    try {
+      rows = (await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT set_config('lock_timeout', ${String(Math.floor(lockTimeoutMs))}, true)`,
+        );
+        return await tx.insert(engineVersionErrorLogs).values(values).returning();
+      })) as VersionErrorLog[];
+    } catch (err) {
+      if (isLockTimeoutError(err)) {
+        // Row contention on engine_versions — skip the best-effort diagnostics
+        // write instead of 500:ing. The caller treats `[]` as "not stored".
+        return [];
+      }
+      throw err;
+    }
+  } else {
+    rows = (await db
+      .insert(engineVersionErrorLogs)
+      .values(values)
+      .returning()) as VersionErrorLog[];
+  }
   // Fas 2: mirror bug-level findings to the flat JSONL bug register (best-effort).
   appendBugRegisterEntries(enrichedPayloads);
-  return rows as VersionErrorLog[];
+  return rows;
 }
 
 export async function getEngineVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {

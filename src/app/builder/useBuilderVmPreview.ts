@@ -35,6 +35,32 @@ export function hasMatchingPreviewSessionMeta(
   );
 }
 
+/**
+ * Storm guard (prod incident 2026-07-03, chat 3120c05c): the bootstrap effect
+ * re-runs on every SWR revalidation of `chat`/`versions` during the post-stream
+ * settling window, and the per-key "done" marker is only set AFTER a
+ * `POST /preview-session` resolves. Before this guard, ~8 preview-session POSTs
+ * fired in ~5 s for the same version — each booted/refreshed the VM and wrote
+ * the contended `engine_versions` row, so the preview URL never persisted and
+ * the iframe kept reloading.
+ *
+ * A start is allowed only when no POST is already in flight for the key, and
+ * (for non-forced starts) the key is not already done. Combined with the
+ * same-key-aware effect cleanup (which does not abort an in-flight POST on mere
+ * dep-churn), this collapses the storm to a single in-flight start per version
+ * while still letting explicit force-restarts and transient retries through.
+ */
+export function shouldStartPreviewBootstrapPost(params: {
+  key: string;
+  isForcedRestart: boolean;
+  doneKeys: ReadonlySet<string>;
+  inFlightKeys: ReadonlySet<string>;
+}): boolean {
+  if (params.inFlightKeys.has(params.key)) return false;
+  if (params.doneKeys.has(params.key) && !params.isForcedRestart) return false;
+  return true;
+}
+
 export type UseBuilderVmPreviewParams = {
   isAuthenticated: boolean;
   chatId: string | null;
@@ -89,6 +115,14 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const [previewSessionRecovering, setPreviewSessionRecovering] = useState(false);
   const previewBootstrapGenRef = useRef(0);
   const previewBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
+  // Keys with an in-flight `POST /preview-session`. Prevents the post-stream
+  // storm (see shouldStartPreviewBootstrapPost) by de-duping concurrent starts.
+  const previewBootstrapInFlightRef = useRef<Set<string>>(new Set());
+  // AbortController per in-flight bootstrap key. A running POST is aborted ONLY
+  // when the effect later runs for a DIFFERENT key (chat/version switch) or on
+  // unmount — never on same-key SWR dep-churn, which previously abort+restarted
+  // into a preview-session storm (prod 2026-07-03).
+  const previewBootstrapControllersRef = useRef<Map<string, AbortController>>(new Map());
   const [previewBootstrapRetryNonce, setPreviewBootstrapRetryNonce] = useState(0);
   const previewBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
   // Pending transient-retry timeouts so we can cancel them on cleanup
@@ -132,6 +166,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     if (key) {
       previewBootstrapDoneKeysRef.current.delete(key);
       previewBootstrapTransientAttemptsRef.current.delete(key);
+      previewBootstrapInFlightRef.current.delete(key);
+      previewBootstrapControllersRef.current.get(key)?.abort();
+      previewBootstrapControllersRef.current.delete(key);
       setForcedPreviewRestartKey((current) => (current === key ? null : current));
     }
     setActivePreviewSessionMeta(null);
@@ -181,6 +218,11 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   useEffect(() => {
     previewBootstrapDoneKeysRef.current.clear();
     previewBootstrapTransientAttemptsRef.current.clear();
+    previewBootstrapInFlightRef.current.clear();
+    for (const controller of previewBootstrapControllersRef.current.values()) {
+      controller.abort();
+    }
+    previewBootstrapControllersRef.current.clear();
     const resetTimer = window.setTimeout(() => {
       setPreviewBootstrapRetryNonce(0);
       setForcedPreviewRestartKey(null);
@@ -201,6 +243,20 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     }
   }, [activePreviewSessionMeta, activeVersionId]);
 
+  // Abort any still-running bootstrap POSTs when the component unmounts. During
+  // the component's life, stale POSTs are aborted at the start of the effect
+  // below (on a real key change), not in cleanup — that is what keeps same-key
+  // dep-churn from abort+restarting into a storm.
+  useEffect(() => {
+    const controllers = previewBootstrapControllersRef.current;
+    const inFlight = previewBootstrapInFlightRef.current;
+    return () => {
+      for (const controller of controllers.values()) controller.abort();
+      controllers.clear();
+      inFlight.clear();
+    };
+  }, []);
+
   useEffect(() => {
     const gen = ++previewBootstrapGenRef.current;
 
@@ -211,6 +267,15 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
 
     const key = `${chatId}:${activeVersionId}`;
     const isForcedRestart = forcedPreviewRestartKey === key;
+    // Real key change (chat/version switch): abort any POST still in flight for
+    // a DIFFERENT key. Same-key dep-churn keeps its in-flight POST alive so we
+    // never abort+restart into a preview-session storm (prod 2026-07-03).
+    for (const otherKey of [...previewBootstrapControllersRef.current.keys()]) {
+      if (otherKey === key) continue;
+      previewBootstrapControllersRef.current.get(otherKey)?.abort();
+      previewBootstrapControllersRef.current.delete(otherKey);
+      previewBootstrapInFlightRef.current.delete(otherKey);
+    }
     const hasMatchingSession = hasMatchingPreviewSessionMeta(
       activePreviewSessionMeta,
       activeVersionId,
@@ -243,16 +308,42 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       return;
     }
 
-    let cancelled = false;
-    const ac = new AbortController();
     const tid = window.setTimeout(() => {
       void (async () => {
-        if (cancelled || previewBootstrapGenRef.current !== gen) return;
+        if (previewBootstrapGenRef.current !== gen) return;
+        // Storm guard: never fire a second preview-session POST for a key that
+        // already has one in flight (see shouldStartPreviewBootstrapPost).
+        if (
+          !shouldStartPreviewBootstrapPost({
+            key,
+            isForcedRestart,
+            doneKeys: previewBootstrapDoneKeysRef.current,
+            inFlightKeys: previewBootstrapInFlightRef.current,
+          })
+        ) {
+          return;
+        }
+        const ac = new AbortController();
+        previewBootstrapInFlightRef.current.add(key);
+        previewBootstrapControllersRef.current.set(key, ac);
+        // Free the in-flight slot (and this key's controller) so the key can
+        // bootstrap again — retry, forced restart, or a new attempt. Called
+        // explicitly on every terminal path rather than via try/finally: a
+        // `finally` statement makes the React Compiler bail on the whole
+        // component (which silences its lint rules). Aborted/switched keys are
+        // freed by the key-change loop above and the unmount effect.
+        const releaseInFlight = () => {
+          previewBootstrapInFlightRef.current.delete(key);
+          if (previewBootstrapControllersRef.current.get(key) === ac) {
+            previewBootstrapControllersRef.current.delete(key);
+          }
+        };
 
         const finishBootstrapFailure = (failure?: {
           stage?: string | null;
           message?: string | null;
         }) => {
+          releaseInFlight();
           previewBootstrapDoneKeysRef.current.add(key);
           previewBootstrapTransientAttemptsRef.current.delete(key);
           if (isForcedRestart) {
@@ -273,6 +364,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
           delayMs: number,
           finalFailure?: { stage?: string | null; message?: string | null },
         ) => {
+          releaseInFlight();
           const prev = previewBootstrapTransientAttemptsRef.current.get(key) ?? 0;
           const next = prev + 1;
           previewBootstrapTransientAttemptsRef.current.set(key, next);
@@ -283,7 +375,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             // trigger spurious effect re-runs against the old version.
             // Discovered in Wave 5 race-condition audit.
             const retryId = window.setTimeout(() => {
-              if (cancelled || previewBootstrapGenRef.current !== gen) return;
+              if (previewBootstrapGenRef.current !== gen) return;
               setPreviewBootstrapRetryNonce((n) => n + 1);
             }, delayMs);
             pendingRetryTimeoutsRef.current.push(retryId);
@@ -309,7 +401,12 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             signal: ac.signal,
           });
           const data = (await res.json().catch(() => null)) as PreviewSessionPostApiJson | null;
-          if (cancelled || previewBootstrapGenRef.current !== gen) return;
+          // Apply the result unless THIS POST was aborted (a real key change or
+          // unmount aborts `ac`). Deliberately NOT gated on `gen`: same-key SWR
+          // dep-churn advances `gen` but the result is still valid for this
+          // version — dropping it here would discard a good preview URL and
+          // re-POST (the storm we are fixing).
+          if (ac.signal.aborted) return;
 
           if (res.status === 503) {
             if (
@@ -337,6 +434,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
               setPreviewProdBuild(null);
               setPreviewPending(false);
               if (isForcedRestart) setPreviewSessionRecovering(false);
+              releaseInFlight();
               return;
             }
           }
@@ -377,6 +475,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             return;
           }
 
+          releaseInFlight();
           previewBootstrapDoneKeysRef.current.add(key);
           previewBootstrapTransientAttemptsRef.current.delete(key);
           if (isForcedRestart) {
@@ -420,7 +519,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
           }
           syncServerStateAfterPreviewBootstrap();
         } catch (err) {
-          if (cancelled || previewBootstrapGenRef.current !== gen) return;
+          if (ac.signal.aborted) return;
           if (err instanceof Error && err.name === "AbortError") return;
           scheduleTransientRetry(PREVIEW_BOOTSTRAP_RETRY_FALLBACK_MS, {
             stage: "preview-start",
@@ -434,8 +533,6 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     }, 0);
 
     return () => {
-      cancelled = true;
-      ac.abort();
       clearTimeout(tid);
       // Cancel any pending transient retries so they don't fire against
       // a stale chat/version. (See scheduleTransientRetry above.)
@@ -443,6 +540,11 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
         clearTimeout(id);
       }
       pendingRetryTimeoutsRef.current = [];
+      // NB: an in-flight POST is intentionally NOT aborted here. Same-key SWR
+      // dep-churn re-runs this effect constantly during the post-stream settling
+      // window; aborting on every cleanup was the root of the preview-session
+      // storm. Stale POSTs are aborted at the top of the effect on a real key
+      // change, and all are aborted on unmount (see the unmount effect above).
     };
   }, [
     isAuthenticated,
