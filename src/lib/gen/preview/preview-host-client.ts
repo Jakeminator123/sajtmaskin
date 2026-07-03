@@ -220,6 +220,18 @@ export type VersionMismatchOverlayPayload = {
   mismatchDirection?: "session_newer" | "session_older" | "unknown";
   /** Milliseconds elapsed since the mismatch was first observed. */
   msSinceMismatch: number;
+  /**
+   * Why the mismatch surface is shown. Missing field = `auto_resync_exhausted`
+   * (backwards-compatible default):
+   * - `auto_resync_exhausted`: det automatiska resync-försöket är förbrukat och
+   *   versionen divergerar fortfarande — blocking overlay med manuell
+   *   "Försök igen" (force-restart).
+   * - `suppressed_failed_version` (M#pv3): den valda versionen är terminalt
+   *   `failed` utan egen previewUrl; auto-resync undertrycks medvetet (ingen
+   *   omstart har körts) och previewn servar den senast fungerande versionen —
+   *   renderas som diskret banner utan force-restart-åtgärd.
+   */
+  reason?: "auto_resync_exhausted" | "suppressed_failed_version";
 };
 
 export type PreviewHostStartErr = {

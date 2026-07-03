@@ -18,6 +18,7 @@ import {
   type ChatReadiness,
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
+import { buildSeoAdvisoriesFromMeta, withReadinessCategory } from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
 import {
   resolveProjectEnv,
@@ -156,21 +157,20 @@ function buildPreviewWarning(detail?: string | null, diagnosticCode?: string | n
   };
 }
 
-function hasCriticalSeoIssues(meta: unknown): boolean {
-  if (!meta || typeof meta !== "object") return false;
-  const issues = (meta as Record<string, unknown>).issues;
-  if (!Array.isArray(issues)) return false;
-  const criticalCodes = new Set(["missing-metadata", "missing-title"]);
-  return issues.some(
-    (issue) =>
-      typeof issue === "object" &&
-      issue !== null &&
-      criticalCodes.has((issue as Record<string, unknown>).code as string),
-  );
+function buildReadinessPayload(params: {
+  blockers?: ChatReadinessItem[];
+  warnings?: ChatReadinessItem[];
+  info: ChatReadiness["info"];
+}): ChatReadiness {
+  return buildChatReadiness({
+    blockers: (params.blockers ?? []).map(withReadinessCategory),
+    warnings: (params.warnings ?? []).map(withReadinessCategory),
+    info: params.info,
+  });
 }
 
 function buildNoVersionReadiness(): ChatReadiness {
-  return buildChatReadiness({
+  return buildReadinessPayload({
     blockers: [
       {
         id: "no-version",
@@ -374,17 +374,11 @@ async function buildEngineReadiness(
     warnings.push(buildPreviewWarning(latestPreviewSignal.message, previewMeta.previewCode));
   }
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
-  if (latestSeoWarning && hasCriticalSeoIssues(latestSeoWarning.meta)) {
-      blockers.push({
-        id: "seo-critical",
-        title: "Versionen saknar kritisk SEO-metadata.",
-        detail: "Titel och/eller metadata-export saknas. Dessa krävs för publicering.",
-        severity: "blocker",
-        action: "seo",
-      });
+  if (latestSeoWarning) {
+    warnings.push(...buildSeoAdvisoriesFromMeta(latestSeoWarning.meta));
   }
 
-  return buildChatReadiness({
+  return buildReadinessPayload({
     blockers,
     warnings,
     info: {

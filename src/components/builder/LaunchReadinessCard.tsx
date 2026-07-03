@@ -3,7 +3,11 @@
 import { AlertCircle, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
+import {
+  resolveReadinessCategoryFromSeverity,
+  type ChatReadiness,
+  type ChatReadinessItem,
+} from "@/lib/chat-readiness";
 import {
   deployReadinessBadgeClassName,
   envKeysForReadinessItem,
@@ -23,18 +27,22 @@ type Props = {
   lifecycleStage?: EngineVersionLifecycleStage | null;
 };
 
+function resolveItemCategory(item: ChatReadinessItem): "blocker" | "advisory" {
+  return item.category ?? resolveReadinessCategoryFromSeverity(item.severity);
+}
+
 function renderItem(
   item: ChatReadinessItem,
   envKeys: string[],
   isIntegrations: boolean,
 ) {
-  const isWarning = item.severity === "warning";
+  const isAdvisory = resolveItemCategory(item) === "advisory";
   return (
     <div
       key={item.id}
       className={cn(
         "rounded-md border px-2.5 py-2",
-        isWarning
+        isAdvisory
           ? "border-border/40 bg-muted/30"
           : "border-border/60 bg-background/40",
       )}
@@ -42,7 +50,7 @@ function renderItem(
       <div
         className={cn(
           "text-[11px] font-medium",
-          isWarning ? "text-muted-foreground" : "text-foreground",
+          isAdvisory ? "text-muted-foreground" : "text-foreground",
         )}
       >
         {item.title}
@@ -73,6 +81,14 @@ export function LaunchReadinessCard({
   }
 
   const isIntegrations = lifecycleStage === "integrations";
+  const readinessItems =
+    readiness != null ? [...readiness.blockers, ...readiness.warnings] : [];
+  const blockingItems = readinessItems.filter(
+    (item) => resolveItemCategory(item) === "blocker",
+  );
+  const advisoryItems = readinessItems.filter(
+    (item) => resolveItemCategory(item) === "advisory",
+  );
 
   const badge =
     readiness != null
@@ -108,20 +124,33 @@ export function LaunchReadinessCard({
         <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
       ) : readiness ? (
         <div className="mt-2 space-y-2">
-          {readiness.blockers.map((item) =>
-            renderItem(
-              item,
-              envKeysForReadinessItem(item, readiness.info),
-              isIntegrations,
-            ),
-          )}
-          {readiness.warnings.map((item) =>
-            renderItem(
-              item,
-              envKeysForReadinessItem(item, readiness.info),
-              isIntegrations,
-            ),
-          )}
+          {blockingItems.length > 0 ? (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-red-200">Blockerar deploy</div>
+              {blockingItems.map((item) =>
+                renderItem(
+                  item,
+                  envKeysForReadinessItem(item, readiness.info),
+                  isIntegrations,
+                ),
+              )}
+            </div>
+          ) : null}
+
+          {advisoryItems.length > 0 ? (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-amber-200">
+                Rekommendationer — blockerar inte
+              </div>
+              {advisoryItems.map((item) =>
+                renderItem(
+                  item,
+                  envKeysForReadinessItem(item, readiness.info),
+                  isIntegrations,
+                ),
+              )}
+            </div>
+          ) : null}
 
           {readiness.info.lifecycleStatus ? (
             <div className="text-[11px] text-muted-foreground">

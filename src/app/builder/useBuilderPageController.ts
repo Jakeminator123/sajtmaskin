@@ -13,7 +13,10 @@ import {
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import {
+  canExposeEnginePreview,
+  resolveEngineVersionLifecycleStatus,
+} from "@/lib/db/engine-version-lifecycle";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -221,6 +224,24 @@ export function useBuilderPageController() {
     });
   }, [derived.activeVersionId, derived.effectiveVersionsList]);
 
+  const activeVersionFailedWithoutPreviewUrl = useMemo(() => {
+    const vid = derived.activeVersionId;
+    if (!vid) return false;
+    const activeVersion = derived.effectiveVersionsList.find(
+      (version) => (version.versionId || version.id) === vid,
+    );
+    if (!activeVersion) return false;
+    // `allowFailed: true` krävs (VADE, PR #381): utan den short-circuitar
+    // versionSummaryHasPreview till false för ALLA failade versioner
+    // (canExposeEnginePreview-gaten), så en failad version MED egen
+    // previewUrl skulle feldetekteras som "utan preview" och få resyncen
+    // undertryckt — den ska tvärtom få resynca till sin egen session.
+    return (
+      resolveEngineVersionLifecycleStatus(activeVersion) === "failed" &&
+      !versionSummaryHasPreview(activeVersion, { allowFailed: true })
+    );
+  }, [derived.activeVersionId, derived.effectiveVersionsList]);
+
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
     chatHooksChatId,
     derived.activeVersionId,
@@ -362,6 +383,7 @@ export function useBuilderPageController() {
   const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
+    activeVersionFailedWithoutPreviewUrl,
     currentPreviewUrl: state.currentPreviewUrl,
     activePreviewSessionMeta,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
