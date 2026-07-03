@@ -231,9 +231,14 @@ export function useBuilderPageController() {
       (version) => (version.versionId || version.id) === vid,
     );
     if (!activeVersion) return false;
+    // `allowFailed: true` krävs (VADE, PR #381): utan den short-circuitar
+    // versionSummaryHasPreview till false för ALLA failade versioner
+    // (canExposeEnginePreview-gaten), så en failad version MED egen
+    // previewUrl skulle feldetekteras som "utan preview" och få resyncen
+    // undertryckt — den ska tvärtom få resynca till sin egen session.
     return (
       resolveEngineVersionLifecycleStatus(activeVersion) === "failed" &&
-      !versionSummaryHasPreview(activeVersion)
+      !versionSummaryHasPreview(activeVersion, { allowFailed: true })
     );
   }, [derived.activeVersionId, derived.effectiveVersionsList]);
 
