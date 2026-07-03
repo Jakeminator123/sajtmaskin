@@ -579,14 +579,23 @@ preflighten previewn?". Semantiken ägs numera av två skrivare:
 | `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel i post-finalize) |
 | `null` | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes. | `persistTelemetryRecord` (default) |
 
-**Monotont kontrakt** (en enda writer, `recordPreviewRuntimeOutcomeForVersion`):
-`null→true`, `null→false` och `false→true` tillåts (en senare bekräftad boot
-vinner över ett tidigare startfel); `true` är terminal — stale events
-nedgraderar aldrig; samma värde är idempotent no-op (ingen write). Best-effort:
-kastar aldrig i het väg; stämplar bara när versionen är knuten till sessionen
-(`/preview-status` kräver session↔version-match innan running-grenen, och
-hostens `/status` re-verifierar versionId). Ingen ny polling — alla
-stämpelpunkter hänger på befintliga anrop.
+**Monotont OCH atomiskt kontrakt** (en enda writer,
+`recordPreviewRuntimeOutcomeForVersion`): monotoniteten sitter i själva
+UPDATE-satsens `WHERE` (en enda villkorad sats, ingen förläsning — två racande
+kvitton kan aldrig låta "sist committad vinner"): `true`-stämpel kräver
+`preview_success IS DISTINCT FROM true` (`null→true`, `false→true` OK — senare
+bekräftad boot vinner över tidigare startfel); `false`-stämpel kräver
+`preview_success IS NULL` (endast `null→false`; en fördröjd `false` kan aldrig
+skriva över en bekräftad `true`). Målraden (senaste telemetri-raden för
+versionen) löses av en subquery i samma sats. Best-effort: kastar aldrig i het
+väg; `GET /preview-status` schemalägger stämpeln via `after()` (post-response,
+blockerar aldrig status-svaret) och writerns per-instans confirmed-cache gör
+upprepade polls efter bekräftelse helt DB-fria. Stämplar bara när versionen är
+knuten till sessionen (`/preview-status` kräver session↔version-match innan
+running-grenen, och hostens `/status` re-verifierar versionId). Ingen ny
+polling — alla stämpelpunkter hänger på befintliga anrop. Känt smalt kant-race
+(kvittot binds till versionId, inte till innehållsrevisionen VM:en servar) är
+loggat som P3 (M#pv4) i `BUG-SWARM-BACKLOG.md`.
 
 **Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
 svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.
@@ -613,13 +622,16 @@ på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
   (per-rad-visning, aggregerar inte — ingen cutoff-logik behövs där).
 
 **Historiska rader — hård cutoff i aggregaten:** rader före semantik-cutoffen
-(`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:00:00Z` i
-`scripts/db/control-stats.mjs`; justeras till faktisk prod-deploy av PR #377)
-bär gamla, överoptimistiska `true`-värden. Ett 14-dagarsfönster som straddlar
-bytet skulle annars rapportera exakt den false-green semantikbytet tar bort —
-därför räknas pre-cutoff-rader ALDRIG in i `preview_ready`-KPI:n utan bucketas
-som `legacy_preview_flag`. Ingen migration — semantiken bor i skrivarna/
-läsarna, inte i kolumnen.
+(`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:30:00Z` i
+`scripts/db/control-stats.mjs` — satt EFTER förväntad merge+deploy av PR #377
+med marginal; justeras framåt om deployen sker senare) bär gamla,
+överoptimistiska `true`-värden. Ett 14-dagarsfönster som straddlar bytet
+skulle annars rapportera exakt den false-green semantikbytet tar bort — därför
+räknas pre-cutoff-rader ALDRIG in i `preview_ready`-KPI:n utan bucketas som
+`legacy_preview_flag`. Fel-riktningen är medvetet konservativ: en
+ny-semantik-rad som hamnar före cutoffen bucketas som legacy (underskattar
+`preview_ready`, aldrig false-green). Ingen migration — semantiken bor i
+skrivarna/läsarna, inte i kolumnen.
 
 ## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
 

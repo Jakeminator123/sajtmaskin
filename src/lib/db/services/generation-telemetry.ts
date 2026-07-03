@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, dbConfigured } from "@/lib/db/client";
 import { generationTelemetry } from "@/lib/db/schema";
@@ -143,37 +143,77 @@ export async function recordDeployResultForVersion(
  * (block/start-fail/resume-verified) and the routes that observe the host's
  * `running:true` status (`GET /preview-status`, `POST /preview-session` resume).
  *
- * **Monotonic by contract** (PR #377 review — stale events must never
- * downgrade a confirmed outcome):
- *   - `null → true`, `null → false`, `false → true` are allowed
- *     (a later confirmed boot wins over an earlier start failure).
- *   - `true` is terminal — a stale `false` never downgrades it.
- *   - Same-value stamps are idempotent no-ops (no write).
+ * **Monotonic AND atomic by contract** (PR #377 review rounds 1+2 — stale or
+ * racing events must never downgrade a confirmed outcome). The monotonicity is
+ * enforced INSIDE the single UPDATE statement (no read-check-write window —
+ * two racing receipt writers can never let "whoever commits last" win):
+ *   - `true`-stamp: `WHERE … AND preview_success IS DISTINCT FROM true` —
+ *     `null → true` and `false → true` are allowed (a later confirmed boot
+ *     wins over an earlier start failure); already-`true` matches nothing.
+ *   - `false`-stamp: `WHERE … AND preview_success IS NULL` — only
+ *     `null → false` is allowed; a delayed `false` can never overwrite a
+ *     confirmed `true` (or an earlier `false`, which would be a no-op anyway).
+ *   - The target row (newest telemetry row for the version) is resolved by a
+ *     subquery in the same statement, so there is no pre-read at all.
  *
  * Best-effort by contract: a generation/status poll must never fail because
  * telemetry could not be written, so this swallows all errors and no-ops when
- * the version has no telemetry row. Takes the newest row (same "latest wins"
- * semantics as the deploy/feedback writers) — a repair pass creates a NEW row
- * for the same version, so a later receipt stamps the row for the CURRENT
- * content, not a stale one. Repeat polls after confirmation are read-only
- * (`current === true` → early return, no write).
+ * the version has no telemetry row (the UPDATE simply matches nothing).
+ * "Latest row wins" mirrors the deploy/feedback writers — a repair pass
+ * creates a NEW row for the same version, so a later receipt stamps the row
+ * for the CURRENT content. (Known narrow edge: the receipt is keyed on
+ * versionId, not on the content revision the VM actually serves — logged as
+ * P3 in BUG-SWARM-BACKLOG, see M#pv4.)
+ *
+ * The per-instance confirmed-`true` cache keeps the hot `GET /preview-status`
+ * polling path cheap: once a version's ready-stamp actually matched a row on
+ * this instance, repeat polls skip the DB round-trip entirely. Safe because
+ * `true` is terminal and the SQL guard makes cross-instance stamps idempotent.
  */
+const confirmedPreviewReadyVersionIds = new Set<string>();
+const CONFIRMED_PREVIEW_READY_CACHE_MAX = 500;
+
+function rememberConfirmedPreviewReady(versionId: string): void {
+  if (confirmedPreviewReadyVersionIds.size >= CONFIRMED_PREVIEW_READY_CACHE_MAX) {
+    const oldest = confirmedPreviewReadyVersionIds.values().next().value;
+    if (oldest !== undefined) confirmedPreviewReadyVersionIds.delete(oldest);
+  }
+  confirmedPreviewReadyVersionIds.add(versionId);
+}
+
+/** Test-only: clears the per-instance confirmed-ready cache between test cases. */
+export function resetConfirmedPreviewReadyCacheForTests(): void {
+  confirmedPreviewReadyVersionIds.clear();
+}
+
 export async function recordPreviewRuntimeOutcomeForVersion(
   versionId: string,
   previewSuccess: boolean,
 ): Promise<void> {
   try {
     if (!versionId || !dbConfigured) return;
-    const rows = await getTelemetryForVersion(versionId);
-    const latest = rows[0];
-    if (!latest) return;
-    const current = latest.previewSuccess ?? null;
-    // Terminal: already confirmed ready — never downgrade from stale events.
-    if (current === true) return;
-    // Idempotent no-op: same value, skip the write.
-    if (current === previewSuccess) return;
-    // Allowed transitions: null→true, null→false, false→true.
-    await updateTelemetryRecord(latest.id, { previewSuccess });
+    // Confirmed ready on this instance: any further stamp is a guaranteed
+    // no-op (`true` is terminal), so skip the DB round-trip entirely.
+    if (confirmedPreviewReadyVersionIds.has(versionId)) return;
+
+    const latestRowIdForVersion = sql`(
+      SELECT ${generationTelemetry.id} FROM ${generationTelemetry}
+      WHERE ${generationTelemetry.versionId} = ${versionId}
+      ORDER BY ${generationTelemetry.createdAt} DESC
+      LIMIT 1
+    )`;
+    const monotonicGuard = previewSuccess
+      ? sql`${generationTelemetry.previewSuccess} IS DISTINCT FROM true`
+      : isNull(generationTelemetry.previewSuccess);
+    const result = await db
+      .update(generationTelemetry)
+      .set({ previewSuccess })
+      .where(
+        and(sql`${generationTelemetry.id} = ${latestRowIdForVersion}`, monotonicGuard),
+      );
+    if (previewSuccess && (result.rowCount ?? 0) > 0) {
+      rememberConfirmedPreviewReady(versionId);
+    }
   } catch (err) {
     console.warn("[telemetry] Failed to record preview runtime outcome:", err);
   }

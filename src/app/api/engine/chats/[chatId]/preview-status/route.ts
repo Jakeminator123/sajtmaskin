@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
@@ -176,9 +176,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // `tryResumeTier2Runtime` re-verifies versionId host-side). The client
       // already polls this route during/after boot, so fresh/recreated boots
       // get their honest `preview_success=true` here without any new polling.
-      // Monotonic + best-effort inside the writer (never throws, `true` is
-      // terminal, a later confirmed boot upgrades an earlier start-failure).
-      await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+      // Scheduled via `after()` (same pattern as repair/analytics routes) so a
+      // saturated DB pool can never delay the user-visible status response —
+      // the stamp runs post-response. Monotonic + atomic + best-effort inside
+      // the writer (single conditional UPDATE, never throws, `true` terminal),
+      // and its per-instance confirmed-cache makes repeat polls DB-free.
+      after(async () => {
+        await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+      });
 
       const body: PreviewStatusApiJson = {
         ok: true,

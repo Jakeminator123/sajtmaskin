@@ -44,6 +44,27 @@ vi.mock("@/lib/db/services/generation-telemetry", () => ({
   recordPreviewRuntimeOutcomeForVersion,
 }));
 
+// The M#pv1 ready-stamp is scheduled via after() (post-response, never blocks
+// the hot polling path). Capture the callbacks so tests can run them
+// deterministically — same pattern as repair/route.test.ts.
+const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (cb: () => unknown) => {
+      afterCallbacks.value.push(cb);
+    },
+  };
+});
+
+async function runAfterCallbacks(): Promise<void> {
+  for (const cb of afterCallbacks.value) {
+    await cb();
+  }
+  afterCallbacks.value = [];
+}
+
 vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
   logPreviewLifecycleTelemetry: vi.fn(),
 }));
@@ -53,6 +74,7 @@ import { GET } from "./route";
 describe("GET preview-status (engine)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    afterCallbacks.value = [];
     isTier2PreviewConfigured.mockReturnValue(true);
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionById.mockResolvedValue(null);
@@ -220,6 +242,12 @@ describe("GET preview-status (engine)", () => {
     // M#pv1: running is the canonical runtime-ready receipt on the normal
     // path — the honest preview_success=true is stamped here (session is
     // version-checked before this branch, so the versionId binding is exact).
+    // The stamp is scheduled via after() so it never blocks the response:
+    // it must NOT have run before the response resolved…
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+    expect(afterCallbacks.value.length).toBe(1);
+    // …and it fires with the exact version binding when after() runs.
+    await runAfterCallbacks();
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true);
   });
 
@@ -240,6 +268,7 @@ describe("GET preview-status (engine)", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(afterCallbacks.value.length).toBe(0);
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 
@@ -258,6 +287,7 @@ describe("GET preview-status (engine)", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(afterCallbacks.value.length).toBe(0);
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 });

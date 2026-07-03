@@ -79,9 +79,15 @@ const W = `now() - interval '${days} days'`;
  * straddla deployen, så pre-cutoff-rader redovisas som `legacy_preview_flag`
  * och räknas ALDRIG in i preview_ready/failed/pending — annars rapporterar
  * KPI:n exakt den false-green semantikbytet tar bort.
- * Justera vid behov till den faktiska prod-deploy-tidpunkten för PR #377.
+ *
+ * Cutoffen är satt EFTER förväntad merge+deploy av PR #377 (med marginal) —
+ * hellre för sent än för tidigt, eftersom fel-riktningen är KONSERVATIV:
+ * en ny-semantik-rad som råkar hamna före cutoffen bucketas som legacy
+ * (underskattar `preview_ready`, aldrig false-green), medan en legacy-rad
+ * efter cutoffen hade återinfört exakt den false-green som tas bort.
+ * Justera framåt om den faktiska prod-deployen sker senare än detta.
  */
-const PREVIEW_SUCCESS_SEMANTIC_CUTOFF = "2026-07-03T14:00:00Z";
+const PREVIEW_SUCCESS_SEMANTIC_CUTOFF = "2026-07-03T14:30:00Z";
 const PV_CUT = `timestamptz '${PREVIEW_SUCCESS_SEMANTIC_CUTOFF}'`;
 
 try {
