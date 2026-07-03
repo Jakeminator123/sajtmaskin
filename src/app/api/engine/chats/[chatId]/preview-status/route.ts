@@ -12,6 +12,7 @@ import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 
 const BOOT_GRACE_MS = 90_000;
 
@@ -168,6 +169,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         });
         return NextResponse.json(body);
       }
+
+      // M#pv1: this is the canonical runtime-ready receipt on the normal path —
+      // the host just reported `running: true` for the session pinned to exactly
+      // this versionId (session↔version equality checked above, and
+      // `tryResumeTier2Runtime` re-verifies versionId host-side). The client
+      // already polls this route during/after boot, so fresh/recreated boots
+      // get their honest `preview_success=true` here without any new polling.
+      // Monotonic + best-effort inside the writer (never throws, `true` is
+      // terminal, a later confirmed boot upgrades an earlier start-failure).
+      await recordPreviewRuntimeOutcomeForVersion(versionId, true);
 
       const body: PreviewStatusApiJson = {
         ok: true,

@@ -7,6 +7,7 @@ import {
   updateVersionPreviewUrl,
   type Version,
 } from "@/lib/db/chat-repository-pg";
+import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
@@ -240,6 +241,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${versionRow.id} — session is running; next start re-persists.`,
           );
         }
+      }
+
+      // M#pv1: the resume-verified path is a real runtime-ready receipt
+      // (preview-host /status reported running:true for this version's
+      // session). Stamp the honest preview_success=true — monotonic +
+      // best-effort inside the writer. Fresh/recreated boots have only
+      // queued the boot and stay pending; the client's normal
+      // GET /preview-status polling confirms those.
+      if (sr.runtimeReady) {
+        await recordPreviewRuntimeOutcomeForVersion(versionRow.id, true);
       }
 
       logPreviewLifecycleTelemetry({

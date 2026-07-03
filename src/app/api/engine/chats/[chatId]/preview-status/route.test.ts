@@ -36,6 +36,14 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getVersionById,
 }));
 
+const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
+  vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
+);
+
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
+  recordPreviewRuntimeOutcomeForVersion,
+}));
+
 vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
   logPreviewLifecycleTelemetry: vi.fn(),
 }));
@@ -209,6 +217,48 @@ describe("GET preview-status (engine)", () => {
     const body = (await res.json()) as { status: string; previewUrl?: string };
     expect(body.status).toBe("running");
     expect(body.previewUrl).toBe("https://live.example");
+    // M#pv1: running is the canonical runtime-ready receipt on the normal
+    // path — the honest preview_success=true is stamped here (session is
+    // version-checked before this branch, so the versionId binding is exact).
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true);
+  });
+
+  it("does NOT stamp preview_success when the runtime is not confirmed running", async () => {
+    const oldEnough = Date.now() - 120_000;
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      createdAt: oldEnough,
+      lastUsedAt: oldEnough,
+    });
+    tryResumeTier2Runtime.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it("does NOT stamp preview_success on version_mismatch (session bound to another version)", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_server",
+      previewUrl: "https://preview.example",
+      versionId: "v2",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 });
 

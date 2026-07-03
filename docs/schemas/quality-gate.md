@@ -575,9 +575,18 @@ preflighten previewn?". Semantiken ägs numera av två skrivare:
 
 | Läge | Betyder | Skrivs av |
 |---|---|---|
-| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` (resume-verifierad väg via `tryResumeTier2Runtime`). | `recordPreviewRuntimeOutcomeForVersion` (post-finalize) |
-| `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel) |
+| `true` | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` för versionens session (verifierad via `tryResumeTier2Runtime`/`fetchPreviewHostStatus`). | `recordPreviewRuntimeOutcomeForVersion` — stämplas vid de kanoniska kvittopunkterna: `GET /preview-status` (running-grenen, normalvägen — klienten pollar redan denna route under/efter boot), `POST /preview-session` (resume-verifierad väg) och post-finalize (resume-verifierad start). |
+| `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas. | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel i post-finalize) |
 | `null` | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes. | `persistTelemetryRecord` (default) |
+
+**Monotont kontrakt** (en enda writer, `recordPreviewRuntimeOutcomeForVersion`):
+`null→true`, `null→false` och `false→true` tillåts (en senare bekräftad boot
+vinner över ett tidigare startfel); `true` är terminal — stale events
+nedgraderar aldrig; samma värde är idempotent no-op (ingen write). Best-effort:
+kastar aldrig i het väg; stämplar bara när versionen är knuten till sessionen
+(`/preview-status` kräver session↔version-match innan running-grenen, och
+hostens `/status` re-verifierar versionId). Ingen ny polling — alla
+stämpelpunkter hänger på befintliga anrop.
 
 **Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
 svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.
@@ -595,15 +604,22 @@ på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
 
 - `scaffold-scoring.ts` (SAJ-49) och `scripts/db/scaffold-scores.mjs`
   exkluderar `null` (pending/infra-brus) och rankar bara bekräftade utfall.
-- `scripts/db/control-stats.mjs` `telemetryTotals` skiljer nu
+- `scripts/db/control-stats.mjs` `telemetryTotals` skiljer
   `preview_ready` / `preview_failed` / `preview_pending` (tidigare buntades
-  `null` in i `preview_not_ok`); `byScaffold.preview_ready` = bekräftat redo.
-- Backoffice `generation_history._preview_label`: `ready` / `failed` / `pending`.
+  `null` in i `preview_not_ok`) och redovisar pre-cutoff-rader separat som
+  `legacy_preview_flag`; `byScaffold.preview_ready` = bekräftat redo efter
+  cutoff.
+- Backoffice `generation_history._preview_label`: `ready` / `failed` / `pending`
+  (per-rad-visning, aggregerar inte — ingen cutoff-logik behövs där).
 
-**Historiska rader:** rader före 2026-07-cutoffen bär gamla, överoptimistiska
-`true`-värden. Läsarna behandlar dem som gamla semantiken (jämför inte rakt av
-över cutoffen). Ingen migration — semantiken bor i skrivarna/läsarna, inte i
-kolumnen.
+**Historiska rader — hård cutoff i aggregaten:** rader före semantik-cutoffen
+(`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:00:00Z` i
+`scripts/db/control-stats.mjs`; justeras till faktisk prod-deploy av PR #377)
+bär gamla, överoptimistiska `true`-värden. Ett 14-dagarsfönster som straddlar
+bytet skulle annars rapportera exakt den false-green semantikbytet tar bort —
+därför räknas pre-cutoff-rader ALDRIG in i `preview_ready`-KPI:n utan bucketas
+som `legacy_preview_flag`. Ingen migration — semantiken bor i skrivarna/
+läsarna, inte i kolumnen.
 
 ## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
 

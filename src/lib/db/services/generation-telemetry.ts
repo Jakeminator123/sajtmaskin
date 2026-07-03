@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db/client";
+import { db, dbConfigured } from "@/lib/db/client";
 import { generationTelemetry } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 
@@ -131,8 +131,7 @@ export async function recordDeployResultForVersion(
  * `scaffold-scoring.ts` SAJ-49, `scripts/db/scaffold-scores.mjs`,
  * backoffice `_preview_label`):
  *   - `true`  = runtime confirmed responding (preview-host `/status running:true`,
- *               i.e. the resume-verified path) OR — via this stamp — a real
- *               runtime-ready receipt.
+ *               i.e. a real runtime-ready receipt).
  *   - `false` = the preview will not / did not produce a working runtime
  *               (preview blocked, or the session start failed).
  *   - `null`  = pending / unconfirmed (fresh boot queued, or no preview attempt).
@@ -140,21 +139,40 @@ export async function recordDeployResultForVersion(
  * The finalize writer (`persist-telemetry.ts`) no longer claims `true` from a
  * pre-preview preflight signal; it writes the honest pending/blocked value and
  * this stamp records the confirmed outcome once the preview attempt resolves.
+ * Callsites hang off EXISTING receipt points (no new polling): post-finalize
+ * (block/start-fail/resume-verified) and the routes that observe the host's
+ * `running:true` status (`GET /preview-status`, `POST /preview-session` resume).
  *
- * Best-effort by contract: a generation must never fail because telemetry could
- * not be written, so this swallows all errors and no-ops when the version has no
- * telemetry row. Takes the newest row (same "latest wins" semantics as the
- * deploy/feedback writers).
+ * **Monotonic by contract** (PR #377 review — stale events must never
+ * downgrade a confirmed outcome):
+ *   - `null → true`, `null → false`, `false → true` are allowed
+ *     (a later confirmed boot wins over an earlier start failure).
+ *   - `true` is terminal — a stale `false` never downgrades it.
+ *   - Same-value stamps are idempotent no-ops (no write).
+ *
+ * Best-effort by contract: a generation/status poll must never fail because
+ * telemetry could not be written, so this swallows all errors and no-ops when
+ * the version has no telemetry row. Takes the newest row (same "latest wins"
+ * semantics as the deploy/feedback writers) — a repair pass creates a NEW row
+ * for the same version, so a later receipt stamps the row for the CURRENT
+ * content, not a stale one. Repeat polls after confirmation are read-only
+ * (`current === true` → early return, no write).
  */
 export async function recordPreviewRuntimeOutcomeForVersion(
   versionId: string,
   previewSuccess: boolean,
 ): Promise<void> {
   try {
-    if (!versionId) return;
+    if (!versionId || !dbConfigured) return;
     const rows = await getTelemetryForVersion(versionId);
     const latest = rows[0];
     if (!latest) return;
+    const current = latest.previewSuccess ?? null;
+    // Terminal: already confirmed ready — never downgrade from stale events.
+    if (current === true) return;
+    // Idempotent no-op: same value, skip the write.
+    if (current === previewSuccess) return;
+    // Allowed transitions: null→true, null→false, false→true.
     await updateTelemetryRecord(latest.id, { previewSuccess });
   } catch (err) {
     console.warn("[telemetry] Failed to record preview runtime outcome:", err);
