@@ -600,6 +600,106 @@ export function ContactWidget() {
     expect(result.code).toBe(content);
   });
 
+  // Codex P2 (PR #378): a VALUE usage of a type-only export can never be
+  // satisfied by any import (`import type` is erased at runtime; the module
+  // has no runtime binding to value-import). Leave it for the LLM.
+  it("does NOT emit a type import when LucideIcon is used in VALUE position (JSX)", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `export function IconList() {
+  return <LucideIcon className="h-4 w-4" />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  it("does NOT emit a type import when LucideIcon is assigned as a value", () => {
+    const content = project(
+      "components/icon-list.tsx",
+      `const Icon = LucideIcon;
+
+export function IconList() {
+  return <Icon />;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(content, [
+      { file: "components/icon-list.tsx", message: "Cannot find name 'LucideIcon'." },
+    ]);
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
+  // Codex P2 (PR #378): the F3 build spec initializes SDK clients in
+  // `lib/email.ts` — outside the route surface. Server helper modules under
+  // lib/ (no "use client") must resolve too.
+  it("resolves Resend in a lib/ server helper module in F3 (lib/email.ts pattern)", () => {
+    const helper = "lib/email.ts";
+    const content = project(
+      helper,
+      `export function createEmailClient() {
+  return new Resend(process.env.RESEND_API_KEY!);
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Resend'. Did you mean 'resend'?" }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([{ file: helper, name: "Resend", module: "resend" }]);
+    expect(result.code).toContain('import { Resend } from "resend"');
+  });
+
+  it("resolves Stripe in a lib/ server helper module in F3 (lib/stripe.ts pattern)", () => {
+    const helper = "lib/stripe.ts";
+    const content = project(
+      helper,
+      `export function createStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Stripe'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([{ file: helper, name: "Stripe", module: "stripe" }]);
+    expect(result.code).toContain('import Stripe from "stripe"');
+  });
+
+  it("still refuses Resend in a 'use client' file under lib/ even in F3", () => {
+    const helper = "lib/email-widget.tsx";
+    const content = project(
+      helper,
+      `"use client";
+
+export function EmailWidget() {
+  const r = new Resend("");
+  return <div>{String(r)}</div>;
+}`,
+    );
+
+    const result = fixKnownTs2304Imports(
+      content,
+      [{ file: helper, message: "Cannot find name 'Resend'." }],
+      { allowTier3: true },
+    );
+
+    expect(result.addedImports).toEqual([]);
+    expect(result.code).toBe(content);
+  });
+
   it("resolves LucideIcon as an `import type` (type-named kind)", () => {
     const content = project(
       "components/icon-list.tsx",

@@ -113,6 +113,53 @@ function isServerRouteFile(filePath: string | undefined): boolean {
 }
 
 /**
+ * Server-safe file gate for Node-only SDK resolutions (Stripe/Resend).
+ * Codex P2 on PR #378: the route-only gate left `new Resend(...)` in the
+ * canonical F3 build-spec helper `lib/email.ts` unresolved even in F3.
+ * Boundary (conservative, documented): a file qualifies when it does NOT
+ * open with a `"use client"` directive (BB#291 — client files never get
+ * Node SDKs) AND it is either a route-surface file (`/api/`, `route.ts`) or
+ * a server helper module under `lib/`/`server/` (optionally `src/`-prefixed
+ * — the canonical SDK-client-init pattern: `lib/email.ts`, `lib/stripe.ts`).
+ * Components, pages and everything else stay excluded: a bare SDK reference
+ * there is almost certainly wrong in another way and belongs to the LLM.
+ */
+function isServerSdkFile(filePath: string | undefined, fileCode?: string): boolean {
+  if (!filePath) return false;
+  if (fileCode && hasUseClientDirective(fileCode)) return false;
+  if (isServerRouteFile(filePath)) return true;
+  const p = toPosixPath(filePath);
+  return /(?:^|\/)(?:src\/)?(?:lib|server)\//.test(p);
+}
+
+/**
+ * True when `name` is referenced in a VALUE position — a JSX tag
+ * (`<LucideIcon />`), a construction/call (`new LucideIcon(...)`,
+ * `LucideIcon(...)`), a JSX prop value (`icon={LucideIcon}`) or a bare
+ * assignment (`const Icon = LucideIcon;`). Used to gate the `type-named`
+ * emission (Codex P2 on PR #378): type-only exports have no runtime binding,
+ * so an `import type` only satisfies type-position usage — for a value
+ * usage it would just trade TS2304 for TS1361 at the next gate. Type-alias
+ * lines (`type X = LucideIcon;`) are excluded from the assignment signal —
+ * that `=` is a type position. Conservative direction: a false "value"
+ * classification leaves the name residual for the LLM (safe); the patterns
+ * never match plain annotations/generics (`icon: LucideIcon`,
+ * `Record<Id, LucideIcon>`).
+ */
+function hasValuePositionUsage(code: string, name: string): boolean {
+  const n = escapeRegExp(name);
+  if (new RegExp(`<${n}[\\s/>]`).test(code)) return true;
+  if (new RegExp(`\\bnew\\s+${n}\\b|\\b${n}\\s*\\(`).test(code)) return true;
+  if (new RegExp(`=\\s*\\{\\s*${n}\\s*\\}`).test(code)) return true;
+  const assignRe = new RegExp(`=\\s*${n}\\s*(?:[;,)\\]}]|$)`);
+  for (const line of code.split("\n")) {
+    if (/^\s*(?:export\s+)?type\s/.test(line)) continue;
+    if (assignRe.test(line)) return true;
+  }
+  return false;
+}
+
+/**
  * F2/F3 tier-3 gate around {@link resolveKnownImportRaw}. The F2 SDK guard
  * (`tier3-sdk-guard-fixer`) strips tier-3 backend SDK imports (stripe,
  * @clerk/nextjs/server, …) from F2 design previews. This resolver must NOT
@@ -150,16 +197,18 @@ function resolveKnownImportRaw(
   if (DEFAULT_IMPORT_NAMES[name]) {
     return { module: DEFAULT_IMPORT_NAMES[name], kind: "default" };
   }
-  // Stripe Node SDK — default export, server files only.
-  if (name === "Stripe" && isServerRouteFile(filePath)) {
+  // Stripe Node SDK — default export, server-safe files only (routes +
+  // `lib/`/`server/` helper modules without a "use client" directive).
+  if (name === "Stripe" && isServerSdkFile(filePath, fileCode)) {
     return { module: "stripe", kind: "default" };
   }
   // Resend Node SDK — NAMED export (`import { Resend } from "resend"`),
-  // server files only, mirroring the Stripe gating exactly (prod chat
-  // cc10e7de v8: `new Resend(resendApiKey)` in app/api/contact/route.ts with
-  // no import). `resend` is on the tier-3 deny list, so the F2/F3 gate in
+  // same server-safe gate as Stripe (prod chat cc10e7de v8:
+  // `new Resend(resendApiKey)` with no import; Codex P2: the F3 build spec
+  // initializes the client in `lib/email.ts`, outside the route surface).
+  // `resend` is on the tier-3 deny list, so the F2/F3 gate in
   // `resolveKnownImport` keeps it residual outside fidelity3.
-  if (name === "Resend" && isServerRouteFile(filePath)) {
+  if (name === "Resend" && isServerSdkFile(filePath, fileCode)) {
     return { module: "resend", kind: "named" };
   }
   // Clerk server entrypoint — named imports.
@@ -172,8 +221,16 @@ function resolveKnownImportRaw(
   if (NAMED_PACKAGE_IMPORTS[name]) {
     return { module: NAMED_PACKAGE_IMPORTS[name], kind: "named" };
   }
-  // Type-only exports → `import type { X }` emission.
+  // Type-only exports → `import type { X }` emission — but ONLY when every
+  // usage is in type position (Codex P2 on PR #378). A VALUE usage of a
+  // type-only export (`<LucideIcon />`, `const Icon = LucideIcon`) is a
+  // model error no import can fix: `import type` is erased at runtime
+  // (TS1361 / undefined binding at the next gate) and a VALUE import of a
+  // type-only export has no runtime binding either. Design choice: leave
+  // value usages residual for the LLM fixer (it must pick a real icon),
+  // reported as `type_export_value_usage` in cannotFindSummary.
   if (TYPE_NAMED_PACKAGE_IMPORTS[name]) {
+    if (fileCode && hasValuePositionUsage(fileCode, name)) return null;
     return { module: TYPE_NAMED_PACKAGE_IMPORTS[name], kind: "type-named" };
   }
   for (const [module, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
@@ -212,6 +269,7 @@ function extractMissingName(message: string): string | null {
 export type CannotFindNameResidualReason =
   | "tier3_gated"
   | "ambiguous_shadcn_lucide"
+  | "type_export_value_usage"
   | "unknown_name"
   | "not_applied";
 
@@ -235,6 +293,16 @@ export function classifyCannotFindNameResidual(params: {
   if (raw) {
     if (!params.allowTier3 && isTier3SdkModule(raw.module)) return "tier3_gated";
     return "not_applied";
+  }
+  // A known type-only export used in VALUE position: no import can fix it
+  // (model must swap in a real icon) — surfaced distinctly so prod telemetry
+  // separates this from genuinely unknown names (Codex P2 on PR #378).
+  if (
+    TYPE_NAMED_PACKAGE_IMPORTS[params.name] &&
+    params.fileCode &&
+    hasValuePositionUsage(params.fileCode, params.name)
+  ) {
+    return "type_export_value_usage";
   }
   const inShadcn = Object.prototype.hasOwnProperty.call(SHADCN_COMPONENTS, params.name);
   const inLucide = LUCIDE_ICONS.has(params.name);

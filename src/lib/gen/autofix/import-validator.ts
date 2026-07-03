@@ -858,10 +858,20 @@ function collectImportedBindings(code: string): {
  * Convert a type-only lucide binding into a value binding (M#cr1). Handles:
  *  - inline spec in a value import: `import { type PawPrint, Menu } from
  *    "lucide-react"` → strip the `type` keyword (done — no further add needed);
- *  - whole-line `import type { PawPrint } from "lucide-react"` with a single
- *    spec → flip the line to a value import (done);
- *  - whole-line with multiple specs → remove the name from the type line and
- *    report `needsValueImport: true` so the caller adds the value import.
+ *  - whole-statement `import type { PawPrint } from "lucide-react"` with a
+ *    single spec → flip the statement to a value import (done);
+ *  - whole-statement with multiple specs → remove the name from the type
+ *    import and report `needsValueImport: true` so the caller adds the value
+ *    import.
+ *
+ * MULTI-LINE aware (Codex P2 on PR #378): statements are gathered as line
+ * RANGES (opener → `} from "…"` closer), so `import type {\n  PawPrint,\n}
+ * from "lucide-react"` converts too. Before this, the multi-line-aware
+ * binding collector correctly classified the name type-only but this
+ * converter only understood single lines → returned null → the caller
+ * skipped the value fix entirely and the TS1361/runtime failure shipped.
+ * A converted/edited statement is re-emitted single-line — downstream
+ * parse/dedupe receipts validate the result.
  *
  * Only lucide-react imports are converted — a type binding from any other
  * module is a different symbol and is left for the LLM fixer (returns null).
@@ -872,36 +882,55 @@ function convertLucideTypeImportToValue(
 ): { code: string; needsValueImport: boolean } | null {
   const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const lines = code.split("\n");
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.includes("lucide-react")) continue;
+    if (!/^\s*import\s/.test(line)) continue;
 
-    // Inline `type Name` spec inside a VALUE import line.
-    if (/^\s*import\s+\{/.test(line) && !/^\s*import\s+type\s/.test(line)) {
-      const inlineRe = new RegExp(`(\\{[^}]*?)\\btype\\s+(${n})\\b`);
-      if (inlineRe.test(line)) {
-        lines[i] = line.replace(inlineRe, "$1$2");
-        return { code: lines.join("\n"), needsValueImport: false };
-      }
+    // Gather the full statement range: single line, or opener → closer.
+    let end = i;
+    if (line.includes("{") && !/from\s+["']/.test(line)) {
+      while (end < lines.length - 1 && !/\}\s*from\s+["']/.test(lines[end])) end++;
+    }
+    const stmt = lines.slice(i, end + 1).join("\n");
+    if (!stmt.includes("lucide-react")) {
+      i = end;
       continue;
     }
 
-    // Whole-line `import type { … } from "lucide-react"`.
-    const whole = line.match(
-      /^(\s*import\s+)type\s+\{([^}]*)\}(\s*from\s+["']lucide-react["'].*)$/,
+    // Inline `type Name` spec inside a VALUE import statement.
+    if (/^\s*import\s*\{/.test(line) && !/^\s*import\s+type\s/.test(line)) {
+      const inlineRe = new RegExp(`(\\{[\\s\\S]*?)\\btype\\s+(${n})\\b`);
+      if (inlineRe.test(stmt)) {
+        lines.splice(i, end - i + 1, ...stmt.replace(inlineRe, "$1$2").split("\n"));
+        return { code: lines.join("\n"), needsValueImport: false };
+      }
+      i = end;
+      continue;
+    }
+
+    // Whole-statement `import type { … } from "lucide-react"`.
+    const whole = stmt.match(
+      /^(\s*import\s+)type\s*\{([\s\S]*?)\}(\s*from\s+["']lucide-react["'].*)$/,
     );
-    if (!whole) continue;
+    if (!whole) {
+      i = end;
+      continue;
+    }
     const specs = whole[2]
       .split(",")
       .map((spec) => spec.trim())
       .filter(Boolean);
-    if (!specs.includes(name)) continue;
+    if (!specs.includes(name)) {
+      i = end;
+      continue;
+    }
     if (specs.length === 1) {
-      lines[i] = `${whole[1]}{ ${name} }${whole[3]}`;
+      lines.splice(i, end - i + 1, `${whole[1]}{ ${name} }${whole[3]}`);
       return { code: lines.join("\n"), needsValueImport: false };
     }
     const remaining = specs.filter((spec) => spec !== name);
-    lines[i] = `${whole[1]}type { ${remaining.join(", ")} }${whole[3]}`;
+    lines.splice(i, end - i + 1, `${whole[1]}type { ${remaining.join(", ")} }${whole[3]}`);
     return { code: lines.join("\n"), needsValueImport: true };
   }
   return null;

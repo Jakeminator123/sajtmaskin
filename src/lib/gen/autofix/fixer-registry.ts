@@ -402,10 +402,13 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "(verify/repair-loop.ts). shadcn∩lucide collision names (Badge, Calendar, " +
       "Table, …) are resolved usage-aware (M#badge1): children/variant/asChild → " +
       "shadcn, icon-ish self-closing → lucide, unclear → left for the LLM. Stripe " +
-      "(default import) and Resend (named import) resolve only in API route / " +
-      "route-handler files, never in 'use client' files. Type-only exports " +
-      "(LucideIcon) emit `import type { … }` (kind type-named) — never a value " +
-      "import. Tier-3 backend SDKs (Clerk-server, Stripe, Resend) are only " +
+      "(default import) and Resend (named import) resolve only in server-safe " +
+      "files — API routes/route handlers plus lib//server/ helper modules " +
+      "(canonical `lib/email.ts` SDK-init pattern) — never in 'use client' " +
+      "files. Type-only exports (LucideIcon) emit `import type { … }` (kind " +
+      "type-named) when used in TYPE position; value-position usage is left " +
+      "residual for the LLM (reason type_export_value_usage) since no import " +
+      "can fix it. Tier-3 backend SDKs (Clerk-server, Stripe, Resend) are only " +
       "(re)introduced in F3 (fidelity3); in F2 they stay residual so the F2 SDK " +
       "guard is never undone.",
   },

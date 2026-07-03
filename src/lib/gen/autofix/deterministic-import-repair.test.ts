@@ -179,6 +179,31 @@ export default clerkMiddleware((auth, req) => {
     ]);
   });
 
+  it("classifies a VALUE usage of a type-only export as type_export_value_usage (Codex P2 #378)", () => {
+    const content = file(
+      "components/icon-list.tsx",
+      `const Icon = LucideIcon;
+
+export function IconList() {
+  return <Icon />;
+}`,
+    );
+
+    const result = runDeterministicImportRepair(content, [
+      diag("components/icon-list.tsx", "Cannot find name 'LucideIcon'."),
+    ]);
+
+    expect(result.fixed).toBe(false);
+    expect(result.content).not.toContain("import type { LucideIcon }");
+    expect(result.cannotFindSummary.residual).toEqual([
+      {
+        file: "components/icon-list.tsx",
+        name: "LucideIcon",
+        reason: "type_export_value_usage",
+      },
+    ]);
+  });
+
   it("telemetry summary: seen codes + resolved names + residual reasons (M#imp1)", () => {
     const content = project(
       file(

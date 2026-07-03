@@ -347,9 +347,12 @@ cannot-find-klassen per körning: `seenCodes` (distinkta TS2304/TS2552),
 `resolvedNames` (`fil::namn` som fick import) och `residual` med `reason`
 per namn — `tier3_gated` (resolvbar SDK men F2-gaten stoppade, t.ex.
 Stripe/Resend i fidelity2), `ambiguous_shadcn_lucide` (kollision utan
-usage-signal), `unknown_name` (finns inte i någon mappning) eller
-`not_applied` (resolvad men injektionsguard hoppade över — redan importerad,
-lokalt deklarerad, server-only-modul i client-fil, self-import). Samma fält
+usage-signal), `type_export_value_usage` (typ-only-export som `LucideIcon`
+använd i VÄRDE-position — ingen import kan lösa det; modellen måste byta
+till en riktig ikon, residualen går till LLM-fixern), `unknown_name` (finns
+inte i någon mappning) eller `not_applied` (resolvad men injektionsguard
+hoppade över — redan importerad, lokalt deklarerad, server-only-modul i
+client-fil, self-import). Samma fält
 emitteras på `verifier-pass.deterministic-import-fix` i finalize.
 Repair-loopens event loggas även när INGET var fixbart (fixCount 0) så en
 körning där alla kandidater gate:ades är observerbar i stället för tyst.
