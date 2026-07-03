@@ -352,7 +352,7 @@ function importBindingNames(clause: string): string[] {
  * inte — täcks av review/instructions-kontraktet.
  */
 export function findModuleLevelSdkConstructions(
-  manifest: Pick<DossierManifest, "files" | "dependencies">,
+  manifest: Pick<DossierEntry, "files" | "dependencies">,
   dossierRoot: string,
 ): ModuleLevelSdkIssue[] {
   const issues: ModuleLevelSdkIssue[] = [];

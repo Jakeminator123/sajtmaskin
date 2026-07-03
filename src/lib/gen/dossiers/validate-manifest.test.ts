@@ -185,7 +185,7 @@ describe("findModuleLevelSdkConstructions (B5-standard)", () => {
   }
 
   const manifest = {
-    files: [{ path: "components/api/checkout/route.ts", role: "api" as const }],
+    files: [{ path: "components/api/checkout/route.ts", role: "server" as const }],
     dependencies: ["stripe", "@supabase/supabase-js"],
   };
 
