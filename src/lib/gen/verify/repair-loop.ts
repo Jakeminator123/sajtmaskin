@@ -819,7 +819,25 @@ export async function runRepairLoop<TPayload = unknown>(
       }
       await mergePartialFixerOutput(fixerResult, activeBundle);
       const retryBundle = buildRetryTargetedBundle(fixerResult);
-      activeBundle = retryBundle ?? activeBundle;
+      if (retryBundle) {
+        activeBundle = retryBundle;
+      } else if (activeBundle) {
+        // Stale-bundle-skydd (bugbot HIGH, PR #380): pass-startens bundle har
+        // `mergeBack`/`contentForFixer` stängda över PRE-partial-merge-
+        // innehållet. Att behålla den efter `mergePartialFixerOutput` skulle
+        // låta retry-mergen skriva över de accepterade partiella fixarna.
+        // Bygg om SAMMA filurval mot aktuellt `content`; blir bundlen null
+        // (t.ex. alla filer valda) körs retryn på hela aktuella innehållet
+        // utan mergeBack — större prompt, men aldrig stale.
+        activeBundle = buildTargetedRepairBundle({
+          fullContent: content,
+          brokenFiles: activeBundle.requiredFiles,
+          maxFiles: Math.min(
+            params.targetedRepairMaxFiles ?? 16,
+            Math.max(1, activeBundle.requiredFiles.length),
+          ),
+        });
+      }
       fixerResult = await runFixerAttempt(
         errorSummary.slice(0, 3),
         reducedMaxTokens,
