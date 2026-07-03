@@ -295,8 +295,9 @@ export async function runFinalizeFastPath(params: {
     if (knownImageHeal.replacedCount > 0) {
       contentForVersion = knownImageHeal.content;
       devLogAppend("in-progress", {
-        type: "known-image-replacement-heal",
+        type: "image-replacement.finalize",
         chatId,
+        source: "known-broken-image-map",
         replacedCount: knownImageHeal.replacedCount,
       });
     }
