@@ -110,6 +110,7 @@ import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { resolvePendingF3Continuation } from "@/lib/gen/stream/f3-continuation";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
@@ -387,6 +388,53 @@ export async function handleMessageStreamRequest(
                 { status: 409 },
               ),
             );
+          }
+        }
+        // P1 F3-entry (BUG-SWARM-BACKLOG "F3-flödet körde v8 i F2-lane"):
+        // server-side lifecycle-stage inheritance. The F3 stage is only carried
+        // by the auto-kicked "Bygg integrationer" message; when that stream
+        // parks in awaiting-input (tool-only, `tool_only_empty_generation`),
+        // the user's reply arrives as a plain follow-up without
+        // `meta.lifecycleStage` and used to default to design/F2 — so the
+        // actual SDK codegen ran with `previewPolicy: fidelity2` and the F2
+        // guards stripped the integration imports (prod chat cc10e7de v8).
+        // Derivation is server-authoritative: the generation stream persisted
+        // an assistant F3-continuation marker (`f3-continuation.ts`), and ONLY
+        // the direct reply to it inherits the stage (any later user message
+        // consumes the marker). Conservative exclusions: explicit client
+        // overrides win unchanged, plan-mode stays F2, and technical passes
+        // (autofix/preserve-payload) are not user replies. The inherited stage
+        // flows through the SAME M#818-2 env-readiness gate below — the
+        // inheritance never bypasses finalize-design strictness.
+        if (
+          parsedMeta.lifecycleStage !== "integrations" &&
+          !metaPlanMode &&
+          metaPromptSourceKind !== "autofix" &&
+          !metaPromptSourcePreservePayload &&
+          !metaPromptSourceTechnical
+        ) {
+          const pendingF3Continuation = resolvePendingF3Continuation(
+            engineChat.messages,
+          );
+          if (pendingF3Continuation) {
+            parsedMeta.lifecycleStage = "integrations";
+            if (!parsedMeta.parentVersionId) {
+              parsedMeta.parentVersionId = pendingF3Continuation.parentVersionId;
+            }
+            debugLog(
+              "orchestration",
+              "F3 lifecycle stage inherited over awaiting-input reply",
+              {
+                chatId,
+                parentVersionId: parsedMeta.parentVersionId,
+                engineBaseVersionId: metaEngineBaseVersionId,
+              },
+            );
+            devLogAppend("in-progress", {
+              type: "f3.stage_inherited",
+              chatId,
+              parentVersionId: parsedMeta.parentVersionId,
+            });
           }
         }
         // M#818-2: F3 env-readiness gate. `/finalize-design` is the intended F3
