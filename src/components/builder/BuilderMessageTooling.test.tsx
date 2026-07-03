@@ -1,6 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { buildAgentLogItems, CompactToolParts, StructuredToolParts } from "./BuilderMessageTooling";
+import {
+  buildAgentLogItems,
+  CompactToolParts,
+  isActionableToolPart,
+  StructuredToolParts,
+} from "./BuilderMessageTooling";
 
 describe("StructuredToolParts", () => {
   it("extracts detailed server-repair steps for the agent log", () => {
@@ -114,6 +119,54 @@ describe("StructuredToolParts", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+  });
+
+  it("never renders 'Integration: Integration' when provider metadata exists", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_integration_generic_name"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              state: "output-available",
+              output: {
+                name: "Integration",
+                provider: "stripe",
+                envVars: ["STRIPE_SECRET_KEY"],
+                status: "Kräver konfiguration",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Integration: Stripe")).toBeTruthy();
+    expect(screen.queryByText("Integration: Integration")).toBeNull();
+  });
+
+  it("keeps integration/env tool parts actionable in compact mode", () => {
+    // Ägarbeslut 2026-07-03: integrations- och env-frågor ska fortsätta
+    // visas inline i chatten (compact cards), inte flyttas till plan-dialogen.
+    expect(
+      isActionableToolPart({
+        type: "tool:integration-suggestion",
+        state: "output-available",
+        toolName: "Integration suggestion",
+      } as never),
+    ).toBe(true);
+    expect(
+      isActionableToolPart({
+        type: "tool:added-environment-variables",
+        state: "output-available",
+        toolName: "Added environment variables",
+      } as never),
+    ).toBe(true);
   });
 
   it("shows quality-gate pending separately from queued autofix work", () => {

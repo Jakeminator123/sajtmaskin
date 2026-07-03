@@ -17,6 +17,7 @@ const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndUpdateExistingVersion = vi.hoisted(() => vi.fn());
 const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const getChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
+const getKnownBrokenImageReplacements = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
@@ -113,6 +114,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndUpdateExistingVersion,
   updateChatOrchestrationSnapshot,
   getChatOrchestrationSnapshot,
+  getKnownBrokenImageReplacements,
   addMessage,
   deleteEngineMessage,
   logGeneration,
@@ -220,6 +222,7 @@ describe("finalizeAndSaveVersion", () => {
     addAssistantMessageAndUpdateExistingVersion.mockReset();
     updateChatOrchestrationSnapshot.mockReset();
     getChatOrchestrationSnapshot.mockReset();
+    getKnownBrokenImageReplacements.mockReset();
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
@@ -335,6 +338,7 @@ describe("finalizeAndSaveVersion", () => {
     });
     updateChatOrchestrationSnapshot.mockResolvedValue(true);
     getChatOrchestrationSnapshot.mockResolvedValue(null);
+    getKnownBrokenImageReplacements.mockResolvedValue({});
     addMessage.mockResolvedValue({ id: "orphan_msg" });
     deleteEngineMessage.mockResolvedValue(true);
     logGeneration.mockResolvedValue({});
@@ -342,6 +346,62 @@ describe("finalizeAndSaveVersion", () => {
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
+  });
+
+  it("replaces known dead image URLs before persisting the next version", async () => {
+    const deadUrl =
+      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
+    const replacementUrl =
+      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const content = `\`\`\`tsx file="src/app/page.tsx"
+export default function Page() {
+  return <img src="${deadUrl}" alt="Neon glassblowing studio" />;
+}
+\`\`\``;
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: content,
+      fixes: [],
+      warnings: [],
+      dependencies: [],
+    });
+    validateAndFix.mockResolvedValueOnce({
+      content,
+      hadErrors: false,
+      fixerUsed: false,
+      fixerImproved: false,
+      errorsBefore: 0,
+      errorsAfter: 0,
+      passes: 1,
+      status: "passed",
+      pipelineError: null,
+      earlyStopReason: null,
+    });
+    getKnownBrokenImageReplacements.mockResolvedValueOnce({ [deadUrl]: replacementUrl });
+    parseFilesFromContent.mockImplementationOnce((value: string) =>
+      JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: value,
+          language: "tsx",
+        },
+      ]),
+    );
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: content,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+    expect(call?.[1]).toContain(replacementUrl);
+    expect(call?.[1]).not.toContain(deadUrl);
+    const filesJson = call?.[2] as string;
+    expect(filesJson).toContain(replacementUrl);
+    expect(filesJson).not.toContain(deadUrl);
   });
 
   describe("thinking persistence", () => {

@@ -32,6 +32,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion: vi.fn(),
   getLatestVersion: vi.fn(),
   getVersionById: vi.fn(),
+  getKnownBrokenImageReplacements: vi.fn(),
+  updateVersionFiles: vi.fn(),
 }));
 vi.mock("@/lib/observability/metrics", () => ({
   incIngressEvent: vi.fn(),

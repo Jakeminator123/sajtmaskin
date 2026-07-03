@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractImageRefs, validateImages, type TextFile } from "./image-validator";
+import {
+  applyKnownImageReplacementsToFiles,
+  buildKnownImageReplacementMap,
+  coerceKnownImageReplacementMap,
+  extractImageRefs,
+  KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES,
+  validateImages,
+  type BrokenImage,
+  type TextFile,
+} from "./image-validator";
 
 describe("extractImageRefs", () => {
   it("extracts CSS background-image urls", () => {
@@ -80,6 +89,109 @@ describe("extractImageRefs", () => {
 });
 
 describe("validateImages", () => {
+  it("applies known dead Unsplash replacements without network calls", () => {
+    const deadUrl =
+      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
+    const replacementUrl =
+      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = applyKnownImageReplacementsToFiles(
+      [
+        {
+          name: "app/page.tsx",
+          content: `<img src="${deadUrl}" alt="Neon glassblowing studio" />`,
+        },
+      ],
+      { [deadUrl]: replacementUrl },
+    );
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.files[0]?.content).toContain(replacementUrl);
+    expect(result.files[0]?.content).not.toContain(deadUrl);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  // Codex/VADE P2 (PR #376 round 2): only DEFINITIVELY dead statuses
+  // (404/410) may be cached permanently. Transient failures (network
+  // "error", 5xx, 429) can be replaced in the pass but never persisted —
+  // the heal path applies the map without re-checking the network.
+  describe("buildKnownImageReplacementMap — transient vs definitively dead", () => {
+    const brokenEntry = (
+      status: number | "error",
+      overrides: Partial<BrokenImage> = {},
+    ): BrokenImage => ({
+      url: "https://images.unsplash.com/photo-dead?w=800",
+      alt: "Studio",
+      file: "app/page.tsx",
+      status,
+      replacementUrl: "https://images.unsplash.com/photo-live?w=800",
+      ...overrides,
+    });
+
+    it("persists 404 and 410 entries", () => {
+      const map = buildKnownImageReplacementMap([
+        brokenEntry(404),
+        brokenEntry(410, { url: "https://source.unsplash.com/random/800x600?x" }),
+      ]);
+      expect(Object.keys(map)).toHaveLength(2);
+    });
+
+    it("does NOT persist transient failures (timeout/error, 503, 429, 500)", () => {
+      const map = buildKnownImageReplacementMap([
+        brokenEntry("error"),
+        brokenEntry(503),
+        brokenEntry(429),
+        brokenEntry(500),
+      ]);
+      expect(map).toEqual({});
+    });
+
+    // Codex P2 #4 (PR #376 round 2): Unsplash-search miss leaves
+    // replacementUrl null while autoFix wrote the deterministic placeholder —
+    // persist the same dead→placeholder mapping (dead statuses only).
+    it("persists the placeholder fallback for definitively dead URLs without a search replacement", () => {
+      const map = buildKnownImageReplacementMap([
+        brokenEntry(404, { replacementUrl: null, alt: "Porträtt av Emilia" }),
+      ]);
+      expect(map["https://images.unsplash.com/photo-dead?w=800"]).toBe(
+        "/api/placeholder?w=1200&h=800&label=Portr%C3%A4tt%20av%20Emilia",
+      );
+    });
+
+    it("does NOT persist a placeholder fallback for transient failures", () => {
+      const map = buildKnownImageReplacementMap([
+        brokenEntry("error", { replacementUrl: null }),
+      ]);
+      expect(map).toEqual({});
+    });
+  });
+
+  // Bugbot MEDIUM (PR #376): the per-chat map is capped so it cannot grow
+  // unboundedly across a long-lived chat; overflow evicts the OLDEST entry.
+  it("caps the known-replacement map at the max and evicts the oldest entry on overflow", () => {
+    const input: Record<string, string> = {};
+    for (let i = 0; i < KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES + 1; i++) {
+      input[`https://images.unsplash.com/photo-dead-${i}?w=800`] =
+        `https://images.unsplash.com/photo-live-${i}?w=800`;
+    }
+
+    const capped = coerceKnownImageReplacementMap(input);
+
+    expect(Object.keys(capped)).toHaveLength(KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES);
+    // Entry 0 is the oldest (first inserted) and must be evicted…
+    expect(capped["https://images.unsplash.com/photo-dead-0?w=800"]).toBeUndefined();
+    // …while the newest entry survives.
+    expect(
+      capped[
+        `https://images.unsplash.com/photo-dead-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`
+      ],
+    ).toBe(
+      `https://images.unsplash.com/photo-live-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`,
+    );
+  });
+
   it("adds duplicate_alt warning for repeated descriptive alt texts", async () => {
     const files: TextFile[] = [
       {

@@ -2,6 +2,7 @@ import {
   detectIntegrations,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
+import { resolveIntegrationIdentityKey } from "@/lib/integrations/suggestion-display";
 
 import {
   EmptyGenerationError,
@@ -50,7 +51,20 @@ export function getUnsignaledDetectedIntegrations(
   code: string,
   toolSignaledProviders: Set<string>,
 ): DetectedIntegration[] {
-  return detectIntegrations(code).filter((item) => !toolSignaledProviders.has(item.key));
+  const normalizedSignaledProviders = new Set(
+    [...toolSignaledProviders]
+      .map((provider) => resolveIntegrationIdentityKey({ provider }))
+      .filter((provider): provider is string => Boolean(provider)),
+  );
+  return detectIntegrations(code).filter((item) => {
+    const detectedKey = resolveIntegrationIdentityKey({
+      provider: item.provider,
+      key: item.key,
+      name: item.name,
+    });
+    if (!detectedKey) return true;
+    return !normalizedSignaledProviders.has(detectedKey);
+  });
 }
 
 export interface FinalizeOrHandleEmptyGenerationParams {
