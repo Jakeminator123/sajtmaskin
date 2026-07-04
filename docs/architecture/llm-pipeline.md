@@ -124,6 +124,16 @@ Undantag: clear-redesign och explicita borttagningar.
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 
+### F3-förslagsrunda och approval-runda
+
+När en F3-generation slutar tool-only (`suggestIntegration` utan kod) parkas chatten i awaiting-input med en persisterad F3-continuation-marker (`f3-continuation.ts`). Markern bär signalerade providers och en rundräknare. Svaret klassas server-side:
+
+- **Godkänn** ärver F3 och kör en *approval-runda* som tvingar kodgenerering: `suggestIntegration`/`requestEnvVar` dras ur tool-setet, ett byggdirektiv med graceful not-configured-fallback injiceras i prompten, och godkända providers mappas till dossier-capabilities (t.ex. stripe → payments) så hard-dossierns verbatim-mallar väljs in via `selectDossiersForRequest`.
+- **Avvisa** konsumerar markern och avslutar F3 lugnt med ett bekräftelsemeddelande — ingen generation körs.
+- **Loop-breaker:** max en upprepad tool-only-runda per F3-kick. Andra upprepningen avslutar F3 med ett terminalt meddelande utan ny marker.
+
+Tier-3-stub-placeholders (`41-tier3-stub-placeholders.env.txt`-värden i `.env.local`/`env.example`) är inte integrationsbevis: de filtreras ur både `detect-integrations` och follow-up-filkontexten (`stub-env-filter.ts`).
+
 ## Fast Edit Lane
 
 Fast Edit Lane är inte en follow-up-codegen. Den är deterministisk och skapar en immutable minor-version från exakta fil-/inspectorändringar.

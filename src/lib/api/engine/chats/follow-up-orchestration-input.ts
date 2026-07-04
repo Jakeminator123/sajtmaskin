@@ -44,6 +44,15 @@ export interface BuildFollowUpOrchestrationInputParams {
   previousFilePaths?: string[];
   followUpCapabilityDetection: FollowUpCapabilityDetection;
   followUpIntent: OrchestrationInput["followUpIntent"] | null;
+  /**
+   * P2 F3-loop (åtgärd 2): dossier capability ids derived from an APPROVED
+   * F3 integration proposal (provider → capability via
+   * `mapProviderKeysToDossierCapabilities`). Merged into
+   * `requestedDossierCapabilities` unconditionally — the approval reply
+   * text ("Godkänn förslag") carries no capability keywords, so without
+   * this the build round would run without the hard-dossier templates.
+   */
+  additionalDossierCapabilities?: string[];
   orchestrationSnapshot: Record<string, unknown> | null;
   engineModelId: string;
   persistedVariantId?: string | null;
@@ -135,9 +144,17 @@ export function buildFollowUpOrchestrationInput(
     existingShellRoutePaths: params.existingShellRoutePaths,
     previousFilePaths: params.previousFilePaths ?? [],
     capabilities: params.hasFollowUpBase ? inferCapabilities(params.message) : undefined,
-    requestedDossierCapabilities: detectedDossierCapabilities
-      ? params.followUpCapabilityDetection.capabilityIds
-      : undefined,
+    requestedDossierCapabilities: (() => {
+      const merged = Array.from(
+        new Set([
+          ...(detectedDossierCapabilities
+            ? params.followUpCapabilityDetection.capabilityIds
+            : []),
+          ...(params.additionalDossierCapabilities ?? []),
+        ]),
+      );
+      return merged.length > 0 ? merged : undefined;
+    })(),
     requestedCapabilityTiers: detectedDossierCapabilities
       ? params.followUpCapabilityDetection.tierByCapability
       : undefined,

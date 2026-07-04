@@ -314,3 +314,77 @@ describe("detectIntegrationsFromVersionFiles + selectedDossiers", () => {
     expect(resend?.envEnforcement?.RESEND_API_KEY).toBe("feature-runtime");
   });
 });
+
+// ── P2 F3-loop (åtgärd 2): stub placeholders are NOT integration evidence ──
+// Prod chat fa6515bc: a landing page with zero payment code "detected"
+// Stripe purely from tier-3 boot stubs in .env.local/env.example, which fed
+// the F3 build plan and drove unsolicited Stripe proposals.
+describe("detectIntegrationsFromVersionFiles + env stub filter", () => {
+  const STUB_ENV_LOCAL = [
+    "# TIER-3 STUB (preview boot only)",
+    "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+    "STRIPE_WEBHOOK_SECRET=whsec_placeholder_preview",
+    "RESEND_API_KEY=re_placeholder_preview_not_a_real_key",
+    "NEXT_PUBLIC_SITE_URL=http://localhost:3000",
+  ].join("\n");
+
+  const PLAIN_PAGE = `export default function Page() { return <main>Video landing</main>; }`;
+
+  it("does NOT detect integrations from stub-only env artifacts", () => {
+    const detected = detectIntegrationsFromVersionFiles([
+      { name: "app/page.tsx", content: PLAIN_PAGE },
+      { name: ".env.local", content: STUB_ENV_LOCAL },
+      { name: "env.example", content: "STRIPE_SECRET_KEY=\nSTRIPE_PRICE_ID=" },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeUndefined();
+    expect(detected.find((d) => d.provider === "resend")).toBeUndefined();
+  });
+
+  it("does NOT detect from provider-naming COMMENTS in stub-only env files (Codex P2 PR #383)", () => {
+    const detected = detectIntegrationsFromVersionFiles([
+      { name: "app/page.tsx", content: PLAIN_PAGE },
+      {
+        name: ".env.local",
+        content: [
+          "# Stripe - secret key + webhook secret. Real values needed in F3.",
+          "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+          "# Email - Resend API rejects placeholder.",
+          "RESEND_API_KEY=re_placeholder_preview_not_a_real_key",
+        ].join("\n"),
+      },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeUndefined();
+    expect(detected.find((d) => d.provider === "resend")).toBeUndefined();
+  });
+
+  it("still detects from a REAL user-provided env value (genuine intent)", () => {
+    // join-bygget hindrar GitGuardian från att flagga fixturen som Stripe-nyckel.
+    const realLookingKey = ["sk", "test", "51H8f2jKl9dPqRs7T"].join("_");
+    const detected = detectIntegrationsFromVersionFiles([
+      { name: "app/page.tsx", content: PLAIN_PAGE },
+      { name: ".env.local", content: `STRIPE_SECRET_KEY=${realLookingKey}` },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeDefined();
+  });
+
+  it("still detects from real code surfaces regardless of env stubs", () => {
+    const detected = detectIntegrationsFromVersionFiles([
+      {
+        name: "app/api/checkout/route.ts",
+        content: `import Stripe from "stripe";\nexport async function POST() { const s = new Stripe(process.env.STRIPE_SECRET_KEY!); }`,
+      },
+      { name: ".env.local", content: STUB_ENV_LOCAL },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeDefined();
+  });
+
+  it("never rewrites code files even if they mention placeholder", () => {
+    const detected = detectIntegrationsFromVersionFiles([
+      {
+        name: "lib/stripe.ts",
+        content: `// placeholder note\nimport Stripe from "stripe";`,
+      },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeDefined();
+  });
+});

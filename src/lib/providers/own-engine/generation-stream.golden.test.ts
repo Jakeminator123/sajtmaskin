@@ -367,6 +367,10 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(markerOutput.f3Continuation).toBe(true);
     expect(markerOutput.lifecycleStage).toBe("integrations");
     expect(markerOutput.parentVersionId).toBe("ver_f2_parent");
+    // P2 F3-loop: the marker carries the signaled providers (approval →
+    // dossier-capability injection) and the loop-breaker round counter.
+    expect(markerOutput.suggestedProviders).toEqual(["stripe"]);
+    expect(markerOutput.toolOnlyRounds).toBe(1);
     // Canonical quick-replies persisted (server classifies against these) and
     // a toolName that must not trip the client's integration/env filters.
     expect(markerOutput.options).toEqual(["Godkänn förslag", "Avvisa förslag", "Annat"]);
@@ -444,5 +448,205 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.reason).toBe("tool_only_empty_generation");
     // …but no F3 marker: the reply to an F2 run must not inherit F3.
     expect(addMessageMock).not.toHaveBeenCalled();
+  });
+
+  // ── P2 F3-loop: loop-breaker rounds (BUG-SWARM-BACKLOG åtgärd 3) ─────────
+  const f3ToolOnlyBuildSpec = {
+    buildIntent: "website",
+    generationMode: "followUp",
+    changeScope: "local-layout",
+    scaffoldId: null,
+    routePlanSummary: "prompt:one-page:/",
+    stylePack: "brand-led",
+    qualityTarget: "standard",
+    previewPolicy: "fidelity3",
+    verificationPolicy: "standard",
+    contextPolicy: "normal",
+    referenceCategories: ["marketing-sites"],
+    forbiddenPatterns: ["leave_bracket_placeholders"],
+    tokenBudgets: {
+      scaffoldChars: 48_000,
+      refsChars: 24_000,
+      systemContextChars: 96_000,
+    },
+  } as Parameters<typeof createOwnEngineGenerationStream>[0]["buildSpec"];
+
+  function f3ToolOnlyStreamParams(
+    chatId: string,
+    priorRounds: number,
+  ): Parameters<typeof createOwnEngineGenerationStream>[0] {
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: {
+          provider: "stripe",
+          name: "Stripe",
+          envVars: ["STRIPE_SECRET_KEY"],
+        },
+      }) + formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 });
+    return {
+      chatId,
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "Godkänn förslag",
+      engineIntent: "website",
+      buildSpec: f3ToolOnlyBuildSpec,
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+      lifecycleParentVersionId: "ver_f2_parent",
+      f3PriorToolOnlyRounds: priorRounds,
+    };
+  }
+
+  it("round 2 (approval STILL tool-only): persists a closure-offering marker, not the identical question", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_loop_2", null),
+    );
+
+    const out = createOwnEngineGenerationStream(f3ToolOnlyStreamParams("chat_loop_2", 1));
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.reason).toBe("tool_only_empty_generation");
+    expect(doneData.awaitingInput).toBe(true);
+    // Honest loop-breaker copy — offers closure instead of an identical loop.
+    expect(String(doneData.awaitingInputPrompt)).toContain("försöka en sista gång");
+    expect(String(doneData.awaitingInputPrompt)).not.toContain(
+      "Integrationer signalerades",
+    );
+
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const [, , persistContent, , persistUiParts] = addMessageMock.mock.calls[0] as [
+      string,
+      string,
+      string,
+      unknown,
+      Array<Record<string, unknown>>,
+    ];
+    expect(persistContent).toContain("försöka en sista gång");
+    const markerOutput = persistUiParts?.[0]?.output as Record<string, unknown>;
+    expect(markerOutput.f3Continuation).toBe(true);
+    expect(markerOutput.toolOnlyRounds).toBe(2);
+    expect(markerOutput.suggestedProviders).toEqual(["stripe"]);
+  });
+
+  it("round 3 (second repeated tool-only): terminal calm close — NO new marker, no awaiting-input", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_loop_3", null),
+    );
+
+    const out = createOwnEngineGenerationStream(f3ToolOnlyStreamParams("chat_loop_3", 2));
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.reason).toBe("tool_only_rounds_exhausted");
+    expect(doneData.awaitingInput).toBe(false);
+    expect(doneData.versionId).toBeNull();
+
+    // A terminal assistant message IS persisted — but WITHOUT any
+    // F3-continuation marker (no ui_parts), so the next user message runs
+    // as a plain F2 follow-up instead of a third identical dialog.
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const persistArgs = addMessageMock.mock.calls[0] as unknown[];
+    expect(String(persistArgs[2])).toContain("Integrationsbygget avslutades");
+    expect(persistArgs[4]).toBeUndefined();
+
+    const contentPayload = events
+      .filter((e) => e.event === "content")
+      .map((e) => e.data)
+      .join("");
+    expect(contentPayload).toContain("Integrationsbygget avslutades");
+  });
+
+  it("silent F3 round (malformed-only tool calls): loop-breaker path with honest EMPTY copy, no ghost 'Integrationer signalerades' (Bugbot HIGH PR #383 + åtgärd 5)", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_malformed_only", null),
+    );
+    // Malformed: no provider, generic name, no envVars — the #375 guard
+    // drops it and must NOT register it in toolCallNames. The round is
+    // therefore SILENT (zero surviving tool calls, zero code) and must take
+    // the SAME loop-breaker path as tool-only rounds — previously it fell
+    // into the generic "Försök igen med samma prompt" dead end while the
+    // consumed marker was already spent (Bugbot HIGH).
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: { name: "integration" },
+      }) + formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 });
+
+    const out = createOwnEngineGenerationStream({
+      ...f3ToolOnlyStreamParams("chat_malformed_only", 1),
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      // Providers from the consumed marker survive silent rounds so a
+      // retry-approval keeps its provider→dossier mapping.
+      f3PriorSuggestedProviders: ["stripe"],
+    });
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.toolCalls).toEqual([]);
+    expect(doneData.reason).toBe("f3_empty_no_code_generation");
+    expect(doneData.awaitingInput).toBe(true);
+    // Honest copy: never claims integrations were signaled (nothing survived).
+    expect(String(doneData.awaitingInputPrompt)).toContain(
+      "Modellen skrev inga kodfiler i integrationsrundan",
+    );
+    expect(String(doneData.awaitingInputPrompt)).not.toContain(
+      "Integrationer signalerades",
+    );
+
+    // Marker persisted with escalated counter + forwarded providers.
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const persistUiParts = (addMessageMock.mock.calls[0] as unknown[])[4] as Array<
+      Record<string, unknown>
+    >;
+    const markerOutput = persistUiParts?.[0]?.output as Record<string, unknown>;
+    expect(markerOutput.f3Continuation).toBe(true);
+    expect(markerOutput.toolOnlyRounds).toBe(2);
+    expect(markerOutput.suggestedProviders).toEqual(["stripe"]);
+  });
+
+  it("silent F3 round at the cap: terminal calm close, no third dialog (Bugbot HIGH PR #383)", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_silent_exhausted", null),
+    );
+    // Completely silent stream: no tool calls at all (the prod "Model
+    // produced no text events" case) after two prior no-code rounds.
+    const pipelinePayload = formatSSEEvent("done", {
+      promptTokens: 2,
+      completionTokens: 0,
+    });
+
+    const out = createOwnEngineGenerationStream({
+      ...f3ToolOnlyStreamParams("chat_silent_exhausted", 2),
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+    });
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.reason).toBe("tool_only_rounds_exhausted");
+    expect(doneData.awaitingInput).toBe(false);
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const persistArgs = addMessageMock.mock.calls[0] as unknown[];
+    expect(String(persistArgs[2])).toContain("Integrationsbygget avslutades");
+    expect(persistArgs[4]).toBeUndefined();
   });
 });

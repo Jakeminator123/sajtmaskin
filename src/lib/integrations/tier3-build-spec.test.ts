@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  approvedProvidersShipConfigNotice,
   deriveTier3BuildSpec,
+  mapProviderKeysToDossierCapabilities,
   renderTier3BuildPlanBlock,
   validateTier3Readiness,
 } from "./tier3-build-spec";
@@ -293,6 +295,53 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("IntegrationConfigNotice");
   });
 
+  it("never tells the model to assume real env values (P2 F3-loop åtgärd 1)", () => {
+    // The old copy ("assume real values are present at runtime") was wrong
+    // for the approval-without-keys case: feature-runtime keys may stay
+    // placeholders until the owner fills them in. The block must demand the
+    // #374 graceful not-configured pattern instead.
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "billing",
+            status: "chosen",
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    expect(block).not.toContain("assume real values are present");
+    expect(block).toContain("NEVER assume they hold real values");
+    expect(block).toContain("Initialize SDK clients lazily");
+    expect(block).toContain("`*-not-configured`");
+  });
+
+  it("renders feature-runtime keys with the graceful-fallback requirement", () => {
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "billing",
+            status: "chosen",
+            envVars: ["STRIPE_SECRET_KEY"],
+            envEnforcement: { STRIPE_SECRET_KEY: "feature-runtime" },
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    expect(block).toContain(
+      "Feature-runtime env (may be missing/placeholder at runtime — graceful fallback required): `STRIPE_SECRET_KEY`",
+    );
+  });
+
   it("does NOT emit the config-notice instruction for dossiers that lack the component (Clerk)", () => {
     // clerk-auth is dossier-backed but does not ship integration-config-notice.tsx.
     // Referencing IntegrationConfigNotice here would make the model import
@@ -314,5 +363,53 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("### Clerk (`clerk`)");
     expect(block).not.toContain("IntegrationConfigNotice");
     expect(block).not.toContain("Graceful fallback (mandatory)");
+  });
+});
+
+// ── P2 F3-loop (åtgärd 2): approved provider → dossier capability ─────────
+describe("mapProviderKeysToDossierCapabilities", () => {
+  it("maps stripe to the stripe-checkout dossier's capability (payments)", () => {
+    expect(mapProviderKeysToDossierCapabilities(["stripe"])).toContain("payments");
+  });
+
+  it("maps clerk/openai/resend via the same dossier matching rules as the backing clamp", () => {
+    expect(mapProviderKeysToDossierCapabilities(["clerk"])).toContain("auth");
+    expect(mapProviderKeysToDossierCapabilities(["openai"])).toContain("ai-chat");
+    expect(mapProviderKeysToDossierCapabilities(["resend"])).toContain("contact-form");
+  });
+
+  it("compact-matches identity-form keys (suggestIntegration output)", () => {
+    // toolSignaledProviders stores compact identity form ("vercelblob"),
+    // the registry uses the hyphenated slug ("vercel-blob").
+    const caps = mapProviderKeysToDossierCapabilities(["VercelBlob"]);
+    expect(Array.isArray(caps)).toBe(true);
+  });
+
+  it("returns [] for unknown providers, blanks and empty input", () => {
+    expect(mapProviderKeysToDossierCapabilities([])).toEqual([]);
+    expect(mapProviderKeysToDossierCapabilities(["totally-unknown-vendor"])).toEqual([]);
+    expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
+  });
+
+  it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {
+    // next-auth shares the "auth" CATEGORY with clerk, but no dossier
+    // id-prefix/dependency implements next-auth. A category-only match would
+    // inject clerk-auth's verbatim templates + env keys for the wrong
+    // provider. Strict mapping → no capability at all.
+    expect(mapProviderKeysToDossierCapabilities(["next-auth"])).toEqual([]);
+  });
+});
+
+describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
+  it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
+    expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
+    expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
+  });
+
+  it("false for providers whose dossier lacks the component, and for unknowns", () => {
+    expect(approvedProvidersShipConfigNotice(["clerk"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice(["totally-unknown-vendor"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice([])).toBe(false);
   });
 });

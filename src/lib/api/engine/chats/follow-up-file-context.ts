@@ -2,6 +2,10 @@ import { FOLLOW_UP_TUNING } from "@/lib/config";
 import { deriveFollowUpContextPolicy } from "@/lib/gen/build-spec";
 import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
 import {
+  isEnvArtifactPath,
+  maskStubEnvContentForContext,
+} from "@/lib/integrations/stub-env-filter";
+import {
   buildFileContext,
   type FileContext,
 } from "@/lib/gen/context/file-context-builder";
@@ -111,9 +115,21 @@ export function buildFollowUpFileContextDecision(params: {
       : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles
     : FOLLOW_UP_TUNING.normalContextMaxFiles;
 
+  // P2 F3-loop (åtgärd 2): mask tier-3 boot-stub placeholder lines in env
+  // artifacts (.env.local / env.example) for the PROMPT context only — the
+  // model used to read `STRIPE_SECRET_KEY=sk_test_placeholder…` as evidence
+  // of an existing Stripe integration and re-proposed it in F3 (prod chat
+  // fa6515bc). The real `previousFiles` (merge base / persisted output) are
+  // untouched; only what the LLM sees in `## Current Project Files` changes.
+  const contextFiles = params.previousFiles.map((file) =>
+    isEnvArtifactPath(file.path)
+      ? { ...file, content: maskStubEnvContentForContext(file.content ?? "") }
+      : file,
+  );
+
   return {
     fileContext: buildFileContext({
-      files: params.previousFiles,
+      files: contextFiles,
       maxChars,
       includeContents: true,
       maxFilesWithContent,

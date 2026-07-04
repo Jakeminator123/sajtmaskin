@@ -31,10 +31,13 @@
  *      approval — fail-safe. All word matching is Unicode-aware
  *      (`uWordRegex`) per `.cursor/rules/unicode-regex.mdc`.
  *  - `"reject"` — explicit decline ("Avvisa förslag", nej/avvisa/reject …).
- *      The marker is consumed and the message runs as a normal F2 follow-up;
- *      no new F3 question is asked.
+ *      The marker is consumed and F3 closes CALMLY without any generation:
+ *      a short confirmation ({@link F3_REJECT_ACK_MESSAGE}) is persisted and
+ *      streamed with `done.reason = `{@link F3_REJECT_ACK_REASON} (P2
+ *      F3-loop åtgärd 4 — the old "run as F2 follow-up" behavior produced a
+ *      silent empty generation and re-asked the same question).
  *  - `"unrelated"` — anything else (design edits, questions, "Annat").
- *      Same handling as reject: consume + F2.
+ *      Consume + run the message as a normal F2 follow-up.
  *
  * **Fail-safe rule: when in doubt, NOT F3.** A missed approval costs one
  * click ("Bygg integrationer" again); a false F3 burns credits in the wrong
@@ -89,6 +92,64 @@ export const F3_CONTINUATION_QUICK_REPLY_OPTIONS = [
   F3_CONTINUATION_OTHER_OPTION,
 ] as const;
 
+/**
+ * First tool-only round: the standard "run the build or continue with
+ * design?" question (unchanged copy — pinned by MessageList/golden tests).
+ */
+export const F3_CONTINUATION_FIRST_QUESTION =
+  "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
+
+/**
+ * Loop-breaker (P2 "F3 suggestIntegration-loop", BUG-SWARM-BACKLOG): an
+ * APPROVAL round that STILL ended tool-only gets an honest question that
+ * offers closure instead of an identical loop. Max one repeat is offered.
+ */
+export const F3_CONTINUATION_LOOP_QUESTION =
+  "Modellen föreslog integrationer igen i stället för att skriva kod. Du kan försöka en sista gång ('Godkänn förslag') eller avsluta integrationsläget och fortsätta med designversionen ('Avvisa förslag').";
+
+/**
+ * Bugbot HIGH (PR #383): an F3 round that ends completely EMPTY — zero tool
+ * calls, zero code (the prod "Model produced no text events" case) — takes
+ * the SAME loop-breaker path as tool-only rounds, with copy that does not
+ * falsely claim integrations were signaled. Offers retry or calm closure.
+ */
+export const F3_CONTINUATION_EMPTY_QUESTION =
+  "Modellen skrev inga kodfiler i integrationsrundan. Du kan försöka igen ('Godkänn förslag') eller avsluta integrationsläget och fortsätta med designversionen ('Avvisa förslag').";
+
+/** `done`-event reason for the silent (no tool calls) F3 no-code round. */
+export const F3_EMPTY_NO_CODE_REASON = "f3_empty_no_code_generation";
+
+/**
+ * Terminal message after the SECOND repeated no-code round (tool-only OR
+ * silent): no new marker is persisted (loop-breaker cap) — F3 ends and the
+ * chat returns to design.
+ */
+export const F3_CONTINUATION_EXHAUSTED_MESSAGE =
+  "Integrationsbygget avslutades: modellen levererade ingen kod efter upprepade integrationsrundor. Sajten är kvar i designläget — du kan starta 'Bygg integrationer' igen från previewpanelen.";
+
+/** `done`-event reason for the loop-breaker terminal close (no marker). */
+export const F3_TOOL_ONLY_EXHAUSTED_REASON = "tool_only_rounds_exhausted";
+
+/**
+ * Calm reject close-out (P2 F3-loop, åtgärd 4): a reject-classified reply
+ * consumes the marker and gets this short confirmation instead of starting
+ * an own-engine generation that would be empty/silent.
+ */
+export const F3_REJECT_ACK_MESSAGE =
+  "Integrationsförslaget avvisades — inga integrationer byggdes. Sajten är kvar i designläget och du kan fortsätta redigera som vanligt.";
+
+/** `done`-event reason for the calm reject close-out (no generation ran). */
+export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
+
+/**
+ * Codex P2 (PR #383): reject reply that LOST the atomic consume race to a
+ * concurrent approval. The chat must not claim "avvisades" while the winning
+ * approval request keeps building — neutral copy, still no generation on
+ * this request.
+ */
+export const F3_REJECT_RACE_LOST_MESSAGE =
+  "Ditt svar togs emot, men ett annat pågående svar hann före och integrationsbygget kan redan vara igång. Kolla senaste meddelandet i chatten — du kan fortsätta redigera designen som vanligt.";
+
 export type F3ContinuationReplyIntent = "approve" | "reject" | "unrelated";
 
 export interface PendingF3Continuation {
@@ -96,6 +157,20 @@ export interface PendingF3Continuation {
   messageId: string | null;
   /** Parent F2 version id from the original F3 kick (lineage), if known. */
   parentVersionId: string | null;
+  /**
+   * Integration providers signaled by well-formed `suggestIntegration`
+   * calls in the tool-only round that produced the marker (identity-form
+   * keys, e.g. "stripe"). The approval round maps these to dossier
+   * capabilities so the build gets the hard-dossier verbatim templates.
+   * `[]` for markers persisted before this field existed.
+   */
+  suggestedProviders: string[];
+  /**
+   * How many consecutive tool-only rounds this F3 kick has produced
+   * (loop-breaker counter). `1` on the first marker; legacy markers
+   * without the field also read as `1`.
+   */
+  toolOnlyRounds: number;
 }
 
 // Unicode-aware word patterns (see .cursor/rules/unicode-regex.mdc — plain
@@ -156,7 +231,14 @@ export function classifyF3ContinuationReply(message: string): F3ContinuationRepl
 export function buildF3AwaitingInputUiPart(params: {
   question: string;
   parentVersionId: string | null;
+  /** Providers signaled in the round that produced the marker. */
+  suggestedProviders?: string[];
+  /** Loop-breaker counter: which tool-only round this marker represents. */
+  toolOnlyRounds?: number;
 }): Record<string, unknown> {
+  const suggestedProviders = (params.suggestedProviders ?? [])
+    .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    .map((p) => p.trim());
   return {
     type: "tool:awaiting-input",
     toolName: F3_CONTINUATION_TOOL_NAME,
@@ -168,6 +250,11 @@ export function buildF3AwaitingInputUiPart(params: {
       [F3_CONTINUATION_FLAG_KEY]: true,
       lifecycleStage: "integrations",
       parentVersionId: params.parentVersionId,
+      suggestedProviders,
+      toolOnlyRounds:
+        typeof params.toolOnlyRounds === "number" && params.toolOnlyRounds > 0
+          ? Math.floor(params.toolOnlyRounds)
+          : 1,
       blocking: true,
       awaitingInput: true,
     },
@@ -193,7 +280,18 @@ function readF3ContinuationMarker(
       outputRecord.parentVersionId.trim()
         ? outputRecord.parentVersionId.trim()
         : null;
-    return { parentVersionId };
+    const suggestedProviders = Array.isArray(outputRecord.suggestedProviders)
+      ? outputRecord.suggestedProviders
+          .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+          .map((p) => p.trim())
+      : [];
+    const toolOnlyRounds =
+      typeof outputRecord.toolOnlyRounds === "number" &&
+      Number.isFinite(outputRecord.toolOnlyRounds) &&
+      outputRecord.toolOnlyRounds > 0
+        ? Math.floor(outputRecord.toolOnlyRounds)
+        : 1;
+    return { parentVersionId, suggestedProviders, toolOnlyRounds };
   }
   return null;
 }
@@ -226,6 +324,8 @@ export function resolvePendingF3Continuation(
       pending = {
         messageId: typeof message.id === "string" && message.id ? message.id : null,
         parentVersionId: marker.parentVersionId,
+        suggestedProviders: marker.suggestedProviders,
+        toolOnlyRounds: marker.toolOnlyRounds,
       };
     }
   }

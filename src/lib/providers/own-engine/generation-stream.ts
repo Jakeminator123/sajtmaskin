@@ -9,7 +9,15 @@ import {
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
-import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
+import {
+  buildF3AwaitingInputUiPart,
+  F3_CONTINUATION_EMPTY_QUESTION,
+  F3_CONTINUATION_EXHAUSTED_MESSAGE,
+  F3_CONTINUATION_FIRST_QUESTION,
+  F3_CONTINUATION_LOOP_QUESTION,
+  F3_EMPTY_NO_CODE_REASON,
+  F3_TOOL_ONLY_EXHAUSTED_REASON,
+} from "@/lib/gen/stream/f3-continuation";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
@@ -101,6 +109,22 @@ export interface GenerationStreamParams {
   /** F3 only: parent F2 version id, forwarded into `engine_versions.parent_version_id`. */
   lifecycleParentVersionId?: string | null;
   /**
+   * F3 loop-breaker (P2 F3-loop): number of no-code rounds (tool-only OR
+   * completely silent) this F3 kick has ALREADY produced (read from the
+   * consumed continuation marker by the follow-up route). `0`/absent for
+   * the initial F3 kick. If THIS stream also ends without code, the
+   * persisted marker carries `prior + 1` — and at `prior >= 2` no new
+   * marker is persisted at all (calm terminal close).
+   */
+  f3PriorToolOnlyRounds?: number | null;
+  /**
+   * Providers carried by the consumed F3 marker (Bugbot HIGH follow-up):
+   * a SILENT no-code approval round signals nothing itself, so the new
+   * marker forwards these — a retry-approval keeps its provider→dossier
+   * mapping instead of losing the verbatim templates.
+   */
+  f3PriorSuggestedProviders?: string[] | null;
+  /**
    * Mutable container holding the concatenated reasoning emitted by the
    * pipeline. The pipeline writes into `current` once the stream completes
    * (success/abort/error); the finalize step reads it just before persisting
@@ -131,6 +155,8 @@ export function createOwnEngineGenerationStream(
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
+    f3PriorToolOnlyRounds,
+    f3PriorSuggestedProviders,
     accumulatedThinkingRef,
   } = params;
 
@@ -159,6 +185,9 @@ export function createOwnEngineGenerationStream(
       let fallbackVerificationSummary =
         "Återställd ofullständig version efter streamavbrott. Automatisk verifiering hoppades över.";
       const toolSignaledProviders = new Set<string>();
+      // Codex P2 (PR #383): full-set inkl. env-lösa välformade förslag —
+      // används av F3-markern (provider→dossier), inte av detektorn.
+      const allSignaledProviders = new Set<string>();
       const toolCallNames = new Set<string>();
       let sawBlockingToolCall = false;
       const suspense = new SuspenseLineProcessor(undefined, { urlMap });
@@ -245,10 +274,51 @@ export function createOwnEngineGenerationStream(
 
         const hasOnlyIntegrationToolCalls =
           toolCalls.length > 0 && toolCalls.every((name) => toolOnlyIntegrationTools.has(name));
+        const isF3Round = buildSpec.previewPolicy === "fidelity3";
+        // Bugbot HIGH (PR #383): a completely SILENT F3 round — zero tool
+        // calls AND zero code (the prod "Model produced no text events"
+        // case, and any approval round where the model answers empty even
+        // with the integration tools removed) — must take the SAME
+        // loop-breaker path as tool-only rounds. Previously it fell into
+        // the generic "Försök igen med samma prompt" dead end: the marker
+        // was already atomically consumed and the round counter was never
+        // applied, leaving the user stranded in F3.
+        const isSilentF3NoCode = isF3Round && toolCalls.length === 0;
 
-        if (hasOnlyIntegrationToolCalls) {
-          const awaitingInputPrompt =
-            "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
+        if (hasOnlyIntegrationToolCalls || isSilentF3NoCode) {
+          const priorRounds =
+            typeof f3PriorToolOnlyRounds === "number" && f3PriorToolOnlyRounds > 0
+              ? Math.floor(f3PriorToolOnlyRounds)
+              : 0;
+          const noCodeRounds = priorRounds + 1;
+
+          // Loop-breaker (P2 F3-loop, åtgärd 3): max ONE repeated no-code
+          // round per F3 kick — tool-only and silent-empty share the same
+          // counter. The SECOND repeat closes F3 calmly with a terminal
+          // message and does NOT persist a new marker — the next user
+          // message runs as a plain F2 follow-up instead of an identical
+          // "Svar krävs" loop. A NEW explicit "Bygg integrationer" kick
+          // starts a fresh counter (no pending marker → prior = 0).
+          if (isF3Round && noCodeRounds >= 3) {
+            await chatRepo
+              .addMessage(chatId, "assistant", F3_CONTINUATION_EXHAUSTED_MESSAGE)
+              .catch(() => null);
+            await finishWithoutVersion(F3_TOOL_ONLY_EXHAUSTED_REASON, {
+              awaitingInput: false,
+              userMessage: F3_CONTINUATION_EXHAUSTED_MESSAGE,
+            });
+            return;
+          }
+
+          // Honest copy per variant: tool-only round 1 keeps the classic
+          // "Integrationer signalerades…" proposal question; a repeated
+          // tool-only round offers closure; a silent round never claims
+          // integrations were signaled (nothing was).
+          const awaitingInputPrompt = isSilentF3NoCode
+            ? F3_CONTINUATION_EMPTY_QUESTION
+            : noCodeRounds >= 2
+              ? F3_CONTINUATION_LOOP_QUESTION
+              : F3_CONTINUATION_FIRST_QUESTION;
           // P1 F3-entry (BUG-SWARM-BACKLOG): persist the awaiting-input
           // question WITH the F3-continuation marker. Without a version and
           // without this message the F3 stage only lived in the client's
@@ -256,23 +326,41 @@ export function createOwnEngineGenerationStream(
           // back as a plain F2 follow-up and the SDK codegen ran in the wrong
           // lane. The follow-up route reads this marker server-side
           // (`resolvePendingF3Continuation`) to inherit the stage for the
-          // direct reply. Best-effort: a persist failure degrades to the old
-          // behavior instead of breaking the stream.
-          if (buildSpec.previewPolicy === "fidelity3") {
+          // direct reply. The marker also carries the signaled providers
+          // (approval → dossier-capability injection; silent rounds forward
+          // the PRIOR marker's providers so a retry-approval keeps its
+          // dossier mapping) and the no-code round counter (loop-breaker).
+          // Best-effort: a persist failure degrades to the old behavior
+          // instead of breaking the stream.
+          if (isF3Round) {
+            const markerSuggestedProviders = Array.from(
+              new Set([
+                ...(f3PriorSuggestedProviders ?? []),
+                // Full-set (Codex P2, PR #383): env-lösa välformade förslag
+                // ska också bära provider→dossier-mappningen in i markern.
+                ...allSignaledProviders,
+                ...toolSignaledProviders,
+              ]),
+            );
             await chatRepo
               .addMessage(chatId, "assistant", awaitingInputPrompt, undefined, [
                 buildF3AwaitingInputUiPart({
                   question: awaitingInputPrompt,
                   parentVersionId: lifecycleParentVersionId ?? null,
+                  suggestedProviders: markerSuggestedProviders,
+                  toolOnlyRounds: noCodeRounds,
                 }),
               ])
               .catch(() => null);
           }
-          await finishWithoutVersion("tool_only_empty_generation", {
-            awaitingInput: true,
-            awaitingInputPrompt,
-            userMessage: awaitingInputPrompt,
-          });
+          await finishWithoutVersion(
+            isSilentF3NoCode ? F3_EMPTY_NO_CODE_REASON : "tool_only_empty_generation",
+            {
+              awaitingInput: true,
+              awaitingInputPrompt,
+              userMessage: awaitingInputPrompt,
+            },
+          );
           return;
         }
 
@@ -464,6 +552,7 @@ export function createOwnEngineGenerationStream(
                     safeEnqueue,
                     toolCallNames,
                     toolSignaledProviders,
+                    allSignaledProviders,
                     setBlockingToolCall: () => {
                       sawBlockingToolCall = true;
                     },

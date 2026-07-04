@@ -111,7 +111,14 @@ import { createDirectModel } from "@/lib/builder/direct-model";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
+  approvedProvidersShipConfigNotice,
+  mapProviderKeysToDossierCapabilities,
+} from "@/lib/integrations/tier3-build-spec";
+import {
   classifyF3ContinuationReply,
+  F3_REJECT_ACK_MESSAGE,
+  F3_REJECT_ACK_REASON,
+  F3_REJECT_RACE_LOST_MESSAGE,
   resolvePendingF3Continuation,
 } from "@/lib/gen/stream/f3-continuation";
 
@@ -144,6 +151,40 @@ function buildQaShortCircuitStream(params: {
       controller.enqueue(encoder.encode(formatSSEEvent("content", { text: params.text })));
       controller.enqueue(
         encoder.encode(formatSSEEvent("done", { chatId: params.chatId, versionId: null })),
+      );
+      controller.close();
+    },
+  });
+}
+
+/**
+ * Calm F3 reject close-out (P2 F3-loop, åtgärd 4): short confirmation +
+ * `done` with a dedicated reason so the client renders a normal assistant
+ * message instead of the "generation ended without version" failure path.
+ * No own-engine generation runs — the observed reject flow produced a
+ * fully silent generation (`toolCalls: []`, no text) and then re-asked
+ * the same question.
+ */
+function buildF3RejectAckStream(params: {
+  chatId: string;
+  text: string;
+}): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(formatSSEEvent("chatId", { id: params.chatId })));
+      controller.enqueue(encoder.encode(formatSSEEvent("content", { text: params.text })));
+      controller.enqueue(
+        encoder.encode(
+          formatSSEEvent("done", {
+            chatId: params.chatId,
+            versionId: null,
+            messageId: null,
+            ...previewUrlField(null),
+            awaitingInput: false,
+            reason: F3_REJECT_ACK_REASON,
+          }),
+        ),
       );
       controller.close();
     },
@@ -430,6 +471,10 @@ export async function handleMessageStreamRequest(
           replyIntent: ReturnType<typeof classifyF3ContinuationReply>;
           markerMessageId: string | null;
           markerParentVersionId: string | null;
+          /** Providers signaled in the tool-only round (marker payload). */
+          markerSuggestedProviders: string[];
+          /** Loop-breaker counter carried by the consumed marker. */
+          markerToolOnlyRounds: number;
         } | null = null;
         if (
           parsedMeta.lifecycleStage !== "integrations" &&
@@ -447,6 +492,8 @@ export async function handleMessageStreamRequest(
               replyIntent: f3ReplyIntent,
               markerMessageId: pendingF3Continuation.messageId,
               markerParentVersionId: pendingF3Continuation.parentVersionId,
+              markerSuggestedProviders: pendingF3Continuation.suggestedProviders,
+              markerToolOnlyRounds: pendingF3Continuation.toolOnlyRounds,
             };
             if (f3ReplyIntent === "approve") {
               // Same resolution as `resolveFollowUpPreviousFiles` and the
@@ -503,6 +550,67 @@ export async function handleMessageStreamRequest(
               });
             }
           }
+        }
+        // P2 F3-loop (åtgärd 4): a REJECT-classified reply to the pending F3
+        // question ends F3 calmly WITHOUT any generation. The observed prod
+        // flow ran the reject as a normal F2 follow-up, which produced a
+        // fully silent generation ("Model produced no text events",
+        // `toolCalls: []`) and then re-asked the same question. Instead:
+        // persist the reply, consume the marker (so a racing approve cannot
+        // resurrect it — same #382 arbiter semantics), confirm briefly in
+        // the chat and return the user to design mode. No credits are
+        // prepared/charged and no LLM call runs on this path. "Annat"/
+        // unrelated replies keep the existing behavior (consume + run F2).
+        if (f3ContinuationDecision?.replyIntent === "reject") {
+          // Codex P2 (PR #383): the ack REQUIRES a confirmed marker consume.
+          // In a rapid double-submit an approval request may win the atomic
+          // arbiter first — acknowledging "avvisades" while that approval
+          // continues building integrations would make the chat lie. On an
+          // unconfirmed consume the reject still closes calmly (the persisted
+          // user reply clears the pending walk, so no new F3 inheritance),
+          // but with neutral copy instead of a false "avvisades" claim.
+          let rejectConsumeConfirmed = false;
+          await chatRepo.addMessage(engineChat.id, "user", message);
+          if (f3ContinuationDecision.markerMessageId) {
+            try {
+              rejectConsumeConfirmed = await chatRepo.consumeF3ContinuationMarker(
+                engineChat.id,
+                f3ContinuationDecision.markerMessageId,
+              );
+            } catch (consumeErr) {
+              debugLog("orchestration", "F3 reject marker consume failed", {
+                chatId,
+                error:
+                  consumeErr instanceof Error ? consumeErr.message : String(consumeErr),
+              });
+            }
+          }
+          const rejectAckText = rejectConsumeConfirmed
+            ? F3_REJECT_ACK_MESSAGE
+            : F3_REJECT_RACE_LOST_MESSAGE;
+          await chatRepo
+            .addMessage(engineChat.id, "assistant", rejectAckText)
+            .catch(() => null);
+          devLogAppend("in-progress", {
+            type: "f3.rejected_calm_close",
+            chatId,
+            markerMessageId: f3ContinuationDecision.markerMessageId,
+            consumeConfirmed: rejectConsumeConfirmed,
+          });
+          return attachSessionCookie(
+            new Response(
+              wrapStreamForPromptToDoneMetric(
+                buildF3RejectAckStream({ chatId, text: rejectAckText }),
+                {
+                  kind: "followup",
+                  promptStartedAt,
+                  signal: req.signal,
+                  chatId,
+                },
+              ),
+              { headers: createSSEHeaders() },
+            ),
+          );
         }
         // M#818-2: F3 env-readiness gate. `/finalize-design` is the intended F3
         // entry point and refuses to hand out `lifecycleStage: "integrations"`
@@ -1124,6 +1232,12 @@ export async function handleMessageStreamRequest(
         // it); an approve whose consume is not CONFIRMED (lost race, write
         // error) downgrades the provisional stage back to design before
         // anything is generated.
+        // P2 F3-loop: true when this generation is a CONFIRMED approval
+        // continuation ("Godkänn förslag" that claimed the marker). Drives
+        // (a) the forced-codegen build directive below, (b) pulling the
+        // integration-signal tools out of the tool set for this round, and
+        // (c) the dossier-capability injection + loop-breaker counter.
+        let f3ApprovalBuildRound = false;
         if (f3ContinuationDecision) {
           let markerConsumeConfirmed = false;
           if (f3ContinuationDecision.markerMessageId) {
@@ -1144,6 +1258,7 @@ export async function handleMessageStreamRequest(
           }
           if (f3ContinuationDecision.replyIntent === "approve") {
             if (markerConsumeConfirmed) {
+              f3ApprovalBuildRound = true;
               devLogAppend("in-progress", {
                 type: "f3.stage_inherited",
                 chatId,
@@ -1162,6 +1277,63 @@ export async function handleMessageStreamRequest(
               });
             }
           }
+        }
+
+        // P2 F3-loop (åtgärd 1): the approval round must BUILD, not
+        // re-propose. Map the approved providers to dossier capabilities
+        // (stripe → payments etc. via integrationRegistry + dossier
+        // matching) so `selectDossiersForRequest` injects the hard-dossier
+        // verbatim templates — the same mechanic the init path uses — and
+        // inject an explicit end-to-end build directive with the #374
+        // graceful not-configured contract (real keys must NOT be assumed;
+        // placeholder env values may remain until the owner fills them in).
+        let f3ApprovedDossierCapabilities: string[] = [];
+        if (f3ApprovalBuildRound && f3ContinuationDecision) {
+          const approvedProviders = f3ContinuationDecision.markerSuggestedProviders;
+          try {
+            f3ApprovedDossierCapabilities =
+              mapProviderKeysToDossierCapabilities(approvedProviders);
+          } catch (mapErr) {
+            debugLog("orchestration", "F3 provider→capability mapping failed", {
+              chatId,
+              error: mapErr instanceof Error ? mapErr.message : String(mapErr),
+            });
+            f3ApprovedDossierCapabilities = [];
+          }
+          devLogAppend("in-progress", {
+            type: "f3.approval_build_round",
+            chatId,
+            approvedProviders,
+            dossierCapabilities: f3ApprovedDossierCapabilities,
+            priorToolOnlyRounds: f3ContinuationDecision.markerToolOnlyRounds,
+          });
+          // Codex P2 (PR #383): only reference "the dossier's config-notice
+          // UI" when an injected dossier actually ships the component —
+          // otherwise the model imports a file that is never emitted.
+          const configNoticeShipped =
+            approvedProvidersShipConfigNotice(approvedProviders);
+          const fallbackInstruction = configNoticeShipped
+            ? "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and render the dossier's config-notice UI (`components/integration-config-notice.tsx`, included in the provided dossier files) with a disabled CTA instead of a raw error."
+            : "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and show a calm inline notice (plain markup you write yourself) with a disabled CTA instead of a raw error. Do NOT import any config-notice component — none is provided.";
+          optimizedMessage = [
+            wrapWithSection({
+              heading: "## F3 Integration Build Approval",
+              introLines: [
+                "The user has APPROVED the integration proposal. The proposal phase is OVER.",
+                approvedProviders.length > 0
+                  ? `Approved integration providers: ${approvedProviders.join(", ")}.`
+                  : "The approved proposal is described in the chat history above.",
+                "Build the approved integration(s) end-to-end NOW, in this response: the user-facing UI entry points (e.g. purchase/checkout CTA on the site), the complete server API route(s), and the wiring between them. Output code files.",
+                "Do NOT suggest integrations again. Do NOT ask for another confirmation. A response without code files is a failure.",
+                fallbackInstruction,
+                "Placeholder values in `.env.local` / `env.example` (e.g. values containing \"placeholder\") are F2 boot stubs — they are NOT evidence that an integration is configured or already built.",
+              ],
+            }),
+            "",
+            PROMPT_WRAPPER_HEADINGS.userReply,
+            "",
+            optimizedMessage,
+          ].join("\n");
         }
 
         const promptForLlm = optimizedMessage;
@@ -1272,6 +1444,7 @@ export async function handleMessageStreamRequest(
             : [],
           followUpCapabilityDetection,
           followUpIntent,
+          additionalDossierCapabilities: f3ApprovedDossierCapabilities,
           orchestrationSnapshot:
             engineChat.orchestration_snapshot as Record<string, unknown> | null,
           // Q5a + MB-3: budget scales to the generator-phase model's context
@@ -1492,8 +1665,12 @@ export async function handleMessageStreamRequest(
           // Integration tools (`requestEnvVar`, `suggestIntegration`) are
           // only useful in F3 ("bygg integrationer") where the user is
           // wiring real keys. Stays off in F2 follow-ups so design-iteration
-          // chats never surface env-var prompts.
-          includeIntegrationSignals: parsedMeta.lifecycleStage === "integrations",
+          // chats never surface env-var prompts. P2 F3-loop (åtgärd 1a):
+          // ALSO off in the F3 APPROVAL round — the proposal phase is over,
+          // and leaving the tools in let the model re-propose instead of
+          // building (prod chat fa6515bc: three approval rounds, zero code).
+          includeIntegrationSignals:
+            parsedMeta.lifecycleStage === "integrations" && !f3ApprovalBuildRound,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
@@ -1544,6 +1721,21 @@ export async function handleMessageStreamRequest(
           lifecycleParentVersionId:
             parsedMeta.lifecycleStage === "integrations"
               ? parsedMeta.parentVersionId
+              : null,
+          // P2 F3-loop (åtgärd 3): forward the marker's tool-only round
+          // counter so a repeated tool-only outcome escalates (round 2 →
+          // closure-offering question; round 3 → terminal close, no marker).
+          f3PriorToolOnlyRounds:
+            f3ApprovalBuildRound && f3ContinuationDecision
+              ? f3ContinuationDecision.markerToolOnlyRounds
+              : 0,
+          // Bugbot HIGH (PR #383): a SILENT approval round signals no
+          // providers itself — forward the consumed marker's providers so
+          // the re-persisted marker keeps its provider→dossier mapping for
+          // the next retry-approval.
+          f3PriorSuggestedProviders:
+            f3ApprovalBuildRound && f3ContinuationDecision
+              ? f3ContinuationDecision.markerSuggestedProviders
               : null,
         });
 
