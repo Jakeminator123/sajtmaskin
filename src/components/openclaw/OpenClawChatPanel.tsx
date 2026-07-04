@@ -71,6 +71,7 @@ type SpeechRecognitionCtor = new () => {
   onerror: null | ((event: unknown) => void);
   onend: null | (() => void);
   start: () => void;
+  stop: () => void;
   abort: () => void;
 };
 
@@ -214,6 +215,18 @@ export function OpenClawChatPanel({
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
+    // Track the best transcript seen so a pause or manual stop still submits it.
+    // Chrome frequently fires onend WITHOUT a trailing isFinal result when the
+    // user stops talking, which previously dropped the whole utterance.
+    let capturedTranscript = "";
+    let submitted = false;
+    const submitTranscript = (text: string) => {
+      const trimmed = text.trim();
+      if (submitted || !trimmed) return;
+      submitted = true;
+      void send(trimmed);
+    };
+
     recognition.onstart = () => {
       setListening(true);
     };
@@ -221,11 +234,18 @@ export function OpenClawChatPanel({
       const ev = event as {
         results: Array<Array<{ transcript: string; isFinal?: boolean }>>;
       };
-      const result = ev.results?.[ev.results.length - 1];
-      const text = result?.[0]?.transcript ?? "";
-      setInterimTranscript(text);
-      if (result?.[0]?.isFinal && text.trim()) {
-        void send(text.trim());
+      let finalText = "";
+      let interimText = "";
+      for (let i = 0; i < ev.results.length; i++) {
+        const alt = ev.results[i]?.[0];
+        const chunk = alt?.transcript ?? "";
+        if (alt?.isFinal) finalText += chunk;
+        else interimText += chunk;
+      }
+      capturedTranscript = `${finalText} ${interimText}`.trim();
+      setInterimTranscript(capturedTranscript);
+      if (finalText.trim()) {
+        submitTranscript(finalText);
         setInterimTranscript("");
       }
     };
@@ -234,6 +254,8 @@ export function OpenClawChatPanel({
     };
     recognition.onend = () => {
       setListening(false);
+      // Fallback: no isFinal result flushed — submit whatever we captured.
+      submitTranscript(capturedTranscript);
       setInterimTranscript("");
       recognitionRef.current = null;
     };
@@ -243,9 +265,13 @@ export function OpenClawChatPanel({
   }, [isStreaming, send]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.abort?.();
+    // Graceful stop() (not abort) so the recognizer can flush its result;
+    // onend then submits the captured transcript. Keep the interim text
+    // visible until onend clears it so the user sees what will be sent.
+    const recognition = recognitionRef.current;
+    if (recognition?.stop) recognition.stop();
+    else recognition?.abort?.();
     setListening(false);
-    setInterimTranscript("");
   }, []);
 
   const handleHeaderPointerDown = useCallback(
