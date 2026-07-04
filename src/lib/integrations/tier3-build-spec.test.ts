@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  approvedProvidersShipConfigNotice,
   deriveTier3BuildSpec,
   mapProviderKeysToDossierCapabilities,
   renderTier3BuildPlanBlock,
@@ -388,5 +389,27 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities([])).toEqual([]);
     expect(mapProviderKeysToDossierCapabilities(["totally-unknown-vendor"])).toEqual([]);
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
+  });
+
+  it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {
+    // next-auth shares the "auth" CATEGORY with clerk, but no dossier
+    // id-prefix/dependency implements next-auth. A category-only match would
+    // inject clerk-auth's verbatim templates + env keys for the wrong
+    // provider. Strict mapping → no capability at all.
+    expect(mapProviderKeysToDossierCapabilities(["next-auth"])).toEqual([]);
+  });
+});
+
+describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
+  it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
+    expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
+    expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
+  });
+
+  it("false for providers whose dossier lacks the component, and for unknowns", () => {
+    expect(approvedProvidersShipConfigNotice(["clerk"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice(["totally-unknown-vendor"])).toBe(false);
+    expect(approvedProvidersShipConfigNotice([])).toBe(false);
   });
 });

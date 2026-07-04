@@ -340,6 +340,23 @@ describe("detectIntegrationsFromVersionFiles + env stub filter", () => {
     expect(detected.find((d) => d.provider === "resend")).toBeUndefined();
   });
 
+  it("does NOT detect from provider-naming COMMENTS in stub-only env files (Codex P2 PR #383)", () => {
+    const detected = detectIntegrationsFromVersionFiles([
+      { name: "app/page.tsx", content: PLAIN_PAGE },
+      {
+        name: ".env.local",
+        content: [
+          "# Stripe - secret key + webhook secret. Real values needed in F3.",
+          "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+          "# Email - Resend API rejects placeholder.",
+          "RESEND_API_KEY=re_placeholder_preview_not_a_real_key",
+        ].join("\n"),
+      },
+    ]);
+    expect(detected.find((d) => d.provider === "stripe")).toBeUndefined();
+    expect(detected.find((d) => d.provider === "resend")).toBeUndefined();
+  });
+
   it("still detects from a REAL user-provided env value (genuine intent)", () => {
     // join-bygget hindrar GitGuardian från att flagga fixturen som Stripe-nyckel.
     const realLookingKey = ["sk", "test", "51H8f2jKl9dPqRs7T"].join("_");

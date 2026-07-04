@@ -93,6 +93,23 @@ export function filterStubEnvLines(content: string): StubEnvFilterResult {
 }
 
 /**
+ * Codex P2 (PR #383): comment lines in env artifacts (`# Stripe - secret
+ * key…`, `# Email - Resend`) still name providers, and the detection
+ * regexes match provider names ANYWHERE in the scanned text — so a
+ * stub-only env file kept "detecting" Stripe via its comments after the
+ * assignments were filtered. Detection call sites strip comments too;
+ * prompt-context masking keeps them (human-readable and harmless there —
+ * the context note already disclaims boilerplate).
+ */
+export function stripEnvCommentsForScan(content: string): string {
+  if (typeof content !== "string" || content.length === 0) return content ?? "";
+  return content
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n");
+}
+
+/**
  * Header line prepended to env artifacts in PROMPT context when stub lines
  * were removed, so the model knows the omission is deliberate and does not
  * treat remembered boilerplate as configured integrations.

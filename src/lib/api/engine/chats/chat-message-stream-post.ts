@@ -110,11 +110,15 @@ import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
-import { mapProviderKeysToDossierCapabilities } from "@/lib/integrations/tier3-build-spec";
+import {
+  approvedProvidersShipConfigNotice,
+  mapProviderKeysToDossierCapabilities,
+} from "@/lib/integrations/tier3-build-spec";
 import {
   classifyF3ContinuationReply,
   F3_REJECT_ACK_MESSAGE,
   F3_REJECT_ACK_REASON,
+  F3_REJECT_RACE_LOST_MESSAGE,
   resolvePendingF3Continuation,
 } from "@/lib/gen/stream/f3-continuation";
 
@@ -558,36 +562,45 @@ export async function handleMessageStreamRequest(
         // prepared/charged and no LLM call runs on this path. "Annat"/
         // unrelated replies keep the existing behavior (consume + run F2).
         if (f3ContinuationDecision?.replyIntent === "reject") {
+          // Codex P2 (PR #383): the ack REQUIRES a confirmed marker consume.
+          // In a rapid double-submit an approval request may win the atomic
+          // arbiter first — acknowledging "avvisades" while that approval
+          // continues building integrations would make the chat lie. On an
+          // unconfirmed consume the reject still closes calmly (the persisted
+          // user reply clears the pending walk, so no new F3 inheritance),
+          // but with neutral copy instead of a false "avvisades" claim.
+          let rejectConsumeConfirmed = false;
           await chatRepo.addMessage(engineChat.id, "user", message);
           if (f3ContinuationDecision.markerMessageId) {
             try {
-              await chatRepo.consumeF3ContinuationMarker(
+              rejectConsumeConfirmed = await chatRepo.consumeF3ContinuationMarker(
                 engineChat.id,
                 f3ContinuationDecision.markerMessageId,
               );
             } catch (consumeErr) {
-              // Best-effort: the persisted user reply already clears the
-              // pending walk; the conditional consume only matters for the
-              // concurrent-approve race.
-              debugLog("orchestration", "F3 reject marker consume failed (best-effort)", {
+              debugLog("orchestration", "F3 reject marker consume failed", {
                 chatId,
                 error:
                   consumeErr instanceof Error ? consumeErr.message : String(consumeErr),
               });
             }
           }
+          const rejectAckText = rejectConsumeConfirmed
+            ? F3_REJECT_ACK_MESSAGE
+            : F3_REJECT_RACE_LOST_MESSAGE;
           await chatRepo
-            .addMessage(engineChat.id, "assistant", F3_REJECT_ACK_MESSAGE)
+            .addMessage(engineChat.id, "assistant", rejectAckText)
             .catch(() => null);
           devLogAppend("in-progress", {
             type: "f3.rejected_calm_close",
             chatId,
             markerMessageId: f3ContinuationDecision.markerMessageId,
+            consumeConfirmed: rejectConsumeConfirmed,
           });
           return attachSessionCookie(
             new Response(
               wrapStreamForPromptToDoneMetric(
-                buildF3RejectAckStream({ chatId, text: F3_REJECT_ACK_MESSAGE }),
+                buildF3RejectAckStream({ chatId, text: rejectAckText }),
                 {
                   kind: "followup",
                   promptStartedAt,
@@ -1294,6 +1307,14 @@ export async function handleMessageStreamRequest(
             dossierCapabilities: f3ApprovedDossierCapabilities,
             priorToolOnlyRounds: f3ContinuationDecision.markerToolOnlyRounds,
           });
+          // Codex P2 (PR #383): only reference "the dossier's config-notice
+          // UI" when an injected dossier actually ships the component —
+          // otherwise the model imports a file that is never emitted.
+          const configNoticeShipped =
+            approvedProvidersShipConfigNotice(approvedProviders);
+          const fallbackInstruction = configNoticeShipped
+            ? "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and render the dossier's config-notice UI (`components/integration-config-notice.tsx`, included in the provided dossier files) with a disabled CTA instead of a raw error."
+            : "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and show a calm inline notice (plain markup you write yourself) with a disabled CTA instead of a raw error. Do NOT import any config-notice component — none is provided.";
           optimizedMessage = [
             wrapWithSection({
               heading: "## F3 Integration Build Approval",
@@ -1304,7 +1325,7 @@ export async function handleMessageStreamRequest(
                   : "The approved proposal is described in the chat history above.",
                 "Build the approved integration(s) end-to-end NOW, in this response: the user-facing UI entry points (e.g. purchase/checkout CTA on the site), the complete server API route(s), and the wiring between them. Output code files.",
                 "Do NOT suggest integrations again. Do NOT ask for another confirmation. A response without code files is a failure.",
-                "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and render the dossier's config-notice UI with a disabled CTA instead of a raw error.",
+                fallbackInstruction,
                 "Placeholder values in `.env.local` / `env.example` (e.g. values containing \"placeholder\") are F2 boot stubs — they are NOT evidence that an integration is configured or already built.",
               ],
             }),

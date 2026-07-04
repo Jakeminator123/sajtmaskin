@@ -141,6 +141,15 @@ export const F3_REJECT_ACK_MESSAGE =
 /** `done`-event reason for the calm reject close-out (no generation ran). */
 export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
 
+/**
+ * Codex P2 (PR #383): reject reply that LOST the atomic consume race to a
+ * concurrent approval. The chat must not claim "avvisades" while the winning
+ * approval request keeps building — neutral copy, still no generation on
+ * this request.
+ */
+export const F3_REJECT_RACE_LOST_MESSAGE =
+  "Ditt svar togs emot, men ett annat pågående svar hann före och integrationsbygget kan redan vara igång. Kolla senaste meddelandet i chatten — du kan fortsätta redigera designen som vanligt.";
+
 export type F3ContinuationReplyIntent = "approve" | "reject" | "unrelated";
 
 export interface PendingF3Continuation {

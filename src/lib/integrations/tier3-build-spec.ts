@@ -226,6 +226,15 @@ function findIntegrationDefinition(
  */
 interface DossierBackingMatcher {
   readonly matches: (def: IntegrationDefinition) => boolean;
+  /**
+   * Strict variant WITHOUT the `capability === integration.category`
+   * fallback: only id-prefix and dependency matches count. Codex P1
+   * (PR #383): the category fallback is right for env-CLAMPING ("no dossier
+   * can consume this key") but wrong for dossier-INJECTION — a "next-auth"
+   * approval must not pull in the clerk-auth dossier's verbatim templates
+   * just because both live under the "auth" category.
+   */
+  readonly matchesStrict: (def: IntegrationDefinition) => boolean;
   readonly files: ReadonlyArray<{ path: string }>;
   /** Capability of the dossier behind this matcher (e.g. "payments"). */
   readonly capability: string;
@@ -242,20 +251,23 @@ function buildDossierBackingIndex(): DossierBackingIndex {
     const idLc = entry.id.toLowerCase();
     const capabilityLc = entry.capability.toLowerCase();
     const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
+    const matchesStrict = (def: IntegrationDefinition) => {
+      const keyLc = def.key.toLowerCase();
+      const providerLc = (def.provider ?? def.key).toLowerCase();
+      if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
+      if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
+      if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
+        return true;
+      }
+      return false;
+    };
     matchers.push({
       files: entry.files ?? [],
       capability: entry.capability,
+      matchesStrict,
       matches: (def: IntegrationDefinition) => {
-        const keyLc = def.key.toLowerCase();
-        const providerLc = (def.provider ?? def.key).toLowerCase();
-        const categoryLc = def.category.toLowerCase();
-        if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
-        if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
-        if (capabilityLc === categoryLc) return true;
-        if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
-          return true;
-        }
-        return false;
+        if (matchesStrict(def)) return true;
+        return capabilityLc === def.category.toLowerCase();
       },
     });
   }
@@ -287,10 +299,17 @@ function compactProviderKey(value: string): string {
  * "payments"). Used by the F3 approval round (P2 F3-loop, åtgärd 2) to get
  * the approved provider's hard dossier selected/injected into the build's
  * codegen context — the same `selectDossiersForRequest` mechanic the init
- * path uses, keyed off `integrationRegistry` + dossier matching rules
- * (id-prefix / capability=category / dependency). Providers without a
- * registry entry or backing dossier map to nothing (the build instruction
- * still forces codegen; the model just gets no verbatim templates).
+ * path uses, keyed off `integrationRegistry` + dossier matching rules.
+ * Providers without a registry entry or backing dossier map to nothing
+ * (the build instruction still forces codegen; the model just gets no
+ * verbatim templates).
+ *
+ * Uses `matchesStrict` (id-prefix / dependency only — NOT
+ * capability=category): a category-only match would inject a DIFFERENT
+ * provider's dossier ("next-auth" approval → clerk-auth templates) whose
+ * verbatim code and env keys don't implement the approved provider
+ * (Codex P1, PR #383). The category fallback remains in `matches` for the
+ * env-clamping use case in `deriveTier3BuildSpec`.
  *
  * Input keys are compact-matched (non-alphanumerics stripped) so both
  * identity-form ("vercelblob") and registry-slug ("vercel-blob") inputs
@@ -304,21 +323,49 @@ export function mapProviderKeysToDossierCapabilities(
   const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
-    const compact = compactProviderKey(raw);
-    if (!compact) continue;
-    const def = integrationRegistry.find(
-      (d) =>
-        compactProviderKey(d.key) === compact ||
-        compactProviderKey(d.provider ?? d.key) === compact,
-    );
+    const def = findRegistryDefinitionByProviderKey(raw);
     if (!def) continue;
     for (const matcher of backingIndex.matchers) {
-      if (matcher.matches(def)) {
+      if (matcher.matchesStrict(def)) {
         capabilities.add(matcher.capability);
       }
     }
   }
   return Array.from(capabilities);
+}
+
+function findRegistryDefinitionByProviderKey(
+  raw: string,
+): IntegrationDefinition | undefined {
+  const compact = compactProviderKey(raw);
+  if (!compact) return undefined;
+  return integrationRegistry.find(
+    (d) =>
+      compactProviderKey(d.key) === compact ||
+      compactProviderKey(d.provider ?? d.key) === compact,
+  );
+}
+
+/**
+ * True when at least one approved provider's STRICT-matched backing dossier
+ * ships the shared `integration-config-notice.tsx` component (Codex P2,
+ * PR #383): the F3 approval prompt may only instruct the model to render
+ * "the dossier's config-notice UI" when that file actually exists in the
+ * injected templates — providers like Clerk/OpenAI have hard dossiers
+ * without it, and the instruction would make the model import a component
+ * that is never emitted (build break).
+ */
+export function approvedProvidersShipConfigNotice(providerKeys: string[]): boolean {
+  if (providerKeys.length === 0) return false;
+  const backingIndex = buildDossierBackingIndex();
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const def = findRegistryDefinitionByProviderKey(raw);
+    if (!def) continue;
+    const strictBacking = backingIndex.matchers.filter((m) => m.matchesStrict(def));
+    if (backingDossierShipsConfigNotice(strictBacking)) return true;
+  }
+  return false;
 }
 
 /**

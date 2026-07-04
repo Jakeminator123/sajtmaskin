@@ -14,6 +14,7 @@ import { integrationRegistry } from "@/lib/integrations/registry";
 import {
   filterStubEnvLines,
   isEnvArtifactPath,
+  stripEnvCommentsForScan,
 } from "@/lib/integrations/stub-env-filter";
 import {
   detectedIntegrationsFromManifest,
@@ -565,10 +566,15 @@ export function detectIntegrationsFromVersionFiles(
   // and drove the model to propose integrations the user never asked for.
   // Strip stub/empty-value lines from env files before scanning; lines
   // with real, user-provided values still count (genuine intent), and
-  // actual code files are never touched.
+  // actual code files are never touched. Comments are stripped too (Codex
+  // P2, PR #383): `# Stripe`-style provider comments would otherwise keep
+  // matching the detection regexes after the stub assignments are gone.
   const scanFiles = files.map((f) =>
     isEnvArtifactPath(f.name)
-      ? { name: f.name, content: filterStubEnvLines(f.content).filtered }
+      ? {
+          name: f.name,
+          content: stripEnvCommentsForScan(filterStubEnvLines(f.content).filtered),
+        }
       : f,
   );
 

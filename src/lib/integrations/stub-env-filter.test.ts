@@ -5,6 +5,7 @@ import {
   isEnvArtifactPath,
   isLikelyStubEnvValue,
   maskStubEnvContentForContext,
+  stripEnvCommentsForScan,
 } from "./stub-env-filter";
 
 // "Riktiga" nyckel-fixturer byggs med join så att inga sammanhängande
@@ -113,6 +114,26 @@ describe("filterStubEnvLines", () => {
 
   it("handles empty content gracefully", () => {
     expect(filterStubEnvLines("")).toEqual({ filtered: "", removedKeys: [] });
+  });
+});
+
+describe("stripEnvCommentsForScan", () => {
+  it("drops provider-naming comment lines but keeps assignments (Codex P2 PR #383)", () => {
+    const content = [
+      "# Stripe - secret key + webhook secret",
+      "NEXT_PUBLIC_SITE_URL=https://example.com",
+      "  # Email - Resend",
+      "G_ID=G-ABC123XYZ",
+    ].join("\n");
+    const stripped = stripEnvCommentsForScan(content);
+    expect(stripped).not.toContain("Stripe");
+    expect(stripped).not.toContain("Resend");
+    expect(stripped).toContain("NEXT_PUBLIC_SITE_URL=https://example.com");
+    expect(stripped).toContain("G_ID=G-ABC123XYZ");
+  });
+
+  it("handles empty content", () => {
+    expect(stripEnvCommentsForScan("")).toBe("");
   });
 });
 

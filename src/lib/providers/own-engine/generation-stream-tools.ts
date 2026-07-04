@@ -14,6 +14,15 @@ export type OwnEngineToolSseBridge = {
   safeEnqueue: (data: Uint8Array) => void;
   toolCallNames: Set<string>;
   toolSignaledProviders: Set<string>;
+  /**
+   * Codex P2 (PR #383): ALL well-formed signaled providers, regardless of
+   * env vars. `toolSignaledProviders` deliberately excludes env-less
+   * suggestions (detector-suppression semantics, PR #375) — but the F3
+   * continuation marker needs the full set so an approval of e.g.
+   * `suggestIntegration({ provider: "stripe", envVars: [] })` still maps to
+   * the stripe dossier. Optional: callers that don't persist markers omit it.
+   */
+  allSignaledProviders?: Set<string>;
   /** Set true when a tool implies we should not treat "no code" as hard failure */
   setBlockingToolCall: () => void;
   /**
@@ -166,6 +175,11 @@ export function emitOwnEngineToolCallSse(
     );
     if (providerKey && hasUsableEnvVars) {
       toolSignaledProviders.add(providerKey);
+    }
+    // Full-set registrering (Codex P2, PR #383): env-lösa men välformade
+    // förslag måste ändå nå F3-markern (provider→dossier-mappningen).
+    if (providerKey) {
+      bridge.allSignaledProviders?.add(providerKey);
     }
     debugLog("engine", "Tool: suggestIntegration", { provider: providerKey ?? "custom-env" });
     return;

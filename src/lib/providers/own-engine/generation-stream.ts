@@ -185,6 +185,9 @@ export function createOwnEngineGenerationStream(
       let fallbackVerificationSummary =
         "Återställd ofullständig version efter streamavbrott. Automatisk verifiering hoppades över.";
       const toolSignaledProviders = new Set<string>();
+      // Codex P2 (PR #383): full-set inkl. env-lösa välformade förslag —
+      // används av F3-markern (provider→dossier), inte av detektorn.
+      const allSignaledProviders = new Set<string>();
       const toolCallNames = new Set<string>();
       let sawBlockingToolCall = false;
       const suspense = new SuspenseLineProcessor(undefined, { urlMap });
@@ -333,6 +336,9 @@ export function createOwnEngineGenerationStream(
             const markerSuggestedProviders = Array.from(
               new Set([
                 ...(f3PriorSuggestedProviders ?? []),
+                // Full-set (Codex P2, PR #383): env-lösa välformade förslag
+                // ska också bära provider→dossier-mappningen in i markern.
+                ...allSignaledProviders,
                 ...toolSignaledProviders,
               ]),
             );
@@ -546,6 +552,7 @@ export function createOwnEngineGenerationStream(
                     safeEnqueue,
                     toolCallNames,
                     toolSignaledProviders,
+                    allSignaledProviders,
                     setBlockingToolCall: () => {
                       sawBlockingToolCall = true;
                     },
