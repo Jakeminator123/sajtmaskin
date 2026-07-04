@@ -108,11 +108,24 @@ export const F3_CONTINUATION_LOOP_QUESTION =
   "Modellen föreslog integrationer igen i stället för att skriva kod. Du kan försöka en sista gång ('Godkänn förslag') eller avsluta integrationsläget och fortsätta med designversionen ('Avvisa förslag').";
 
 /**
- * Terminal message after the SECOND repeated tool-only round: no new marker
- * is persisted (loop-breaker cap) — F3 ends and the chat returns to design.
+ * Bugbot HIGH (PR #383): an F3 round that ends completely EMPTY — zero tool
+ * calls, zero code (the prod "Model produced no text events" case) — takes
+ * the SAME loop-breaker path as tool-only rounds, with copy that does not
+ * falsely claim integrations were signaled. Offers retry or calm closure.
+ */
+export const F3_CONTINUATION_EMPTY_QUESTION =
+  "Modellen skrev inga kodfiler i integrationsrundan. Du kan försöka igen ('Godkänn förslag') eller avsluta integrationsläget och fortsätta med designversionen ('Avvisa förslag').";
+
+/** `done`-event reason for the silent (no tool calls) F3 no-code round. */
+export const F3_EMPTY_NO_CODE_REASON = "f3_empty_no_code_generation";
+
+/**
+ * Terminal message after the SECOND repeated no-code round (tool-only OR
+ * silent): no new marker is persisted (loop-breaker cap) — F3 ends and the
+ * chat returns to design.
  */
 export const F3_CONTINUATION_EXHAUSTED_MESSAGE =
-  "Integrationsbygget avslutades: modellen föreslog integrationer utan att skriva kod två gånger i rad. Sajten är kvar i designläget — du kan starta 'Bygg integrationer' igen från previewpanelen.";
+  "Integrationsbygget avslutades: modellen levererade ingen kod efter upprepade integrationsrundor. Sajten är kvar i designläget — du kan starta 'Bygg integrationer' igen från previewpanelen.";
 
 /** `done`-event reason for the loop-breaker terminal close (no marker). */
 export const F3_TOOL_ONLY_EXHAUSTED_REASON = "tool_only_rounds_exhausted";

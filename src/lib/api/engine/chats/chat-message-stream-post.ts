@@ -1708,6 +1708,14 @@ export async function handleMessageStreamRequest(
             f3ApprovalBuildRound && f3ContinuationDecision
               ? f3ContinuationDecision.markerToolOnlyRounds
               : 0,
+          // Bugbot HIGH (PR #383): a SILENT approval round signals no
+          // providers itself — forward the consumed marker's providers so
+          // the re-persisted marker keeps its provider→dossier mapping for
+          // the next retry-approval.
+          f3PriorSuggestedProviders:
+            f3ApprovalBuildRound && f3ContinuationDecision
+              ? f3ContinuationDecision.markerSuggestedProviders
+              : null,
         });
 
         return buildEngineStreamResponse({

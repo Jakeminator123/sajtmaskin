@@ -52,6 +52,8 @@ export type OwnEnginePipelineAndGenerationInput = {
   lifecycleParentVersionId?: string | null;
   /** F3 loop-breaker: tool-only rounds already produced by this F3 kick. */
   f3PriorToolOnlyRounds?: number | null;
+  /** Providers from the consumed F3 marker (forwarded on silent rounds). */
+  f3PriorSuggestedProviders?: string[] | null;
 };
 
 /**
@@ -119,6 +121,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     targetVersionId: input.targetVersionId,
     lifecycleParentVersionId: input.lifecycleParentVersionId,
     f3PriorToolOnlyRounds: input.f3PriorToolOnlyRounds,
+    f3PriorSuggestedProviders: input.f3PriorSuggestedProviders,
     accumulatedThinkingRef,
   });
 }

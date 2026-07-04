@@ -572,14 +572,18 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(contentPayload).toContain("Integrationsbygget avslutades");
   });
 
-  it("does NOT claim 'Integrationer signalerades' when every suggestIntegration was malformed (P2 F3-loop åtgärd 5 residual)", async () => {
+  it("silent F3 round (malformed-only tool calls): loop-breaker path with honest EMPTY copy, no ghost 'Integrationer signalerades' (Bugbot HIGH PR #383 + åtgärd 5)", async () => {
     const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
       .EmptyGenerationError;
     finalizeAndSaveVersionMock.mockRejectedValueOnce(
       new EmptyGenerationError("chat_malformed_only", null),
     );
     // Malformed: no provider, generic name, no envVars — the #375 guard
-    // drops it and must NOT register it in toolCallNames.
+    // drops it and must NOT register it in toolCallNames. The round is
+    // therefore SILENT (zero surviving tool calls, zero code) and must take
+    // the SAME loop-breaker path as tool-only rounds — previously it fell
+    // into the generic "Försök igen med samma prompt" dead end while the
+    // consumed marker was already spent (Bugbot HIGH).
     const pipelinePayload =
       formatSSEEvent("tool-call", {
         toolName: "suggestIntegration",
@@ -587,22 +591,62 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       }) + formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 });
 
     const out = createOwnEngineGenerationStream({
-      ...f3ToolOnlyStreamParams("chat_malformed_only", 0),
+      ...f3ToolOnlyStreamParams("chat_malformed_only", 1),
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      // Providers from the consumed marker survive silent rounds so a
+      // retry-approval keeps its provider→dossier mapping.
+      f3PriorSuggestedProviders: ["stripe"],
+    });
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.toolCalls).toEqual([]);
+    expect(doneData.reason).toBe("f3_empty_no_code_generation");
+    expect(doneData.awaitingInput).toBe(true);
+    // Honest copy: never claims integrations were signaled (nothing survived).
+    expect(String(doneData.awaitingInputPrompt)).toContain(
+      "Modellen skrev inga kodfiler i integrationsrundan",
+    );
+    expect(String(doneData.awaitingInputPrompt)).not.toContain(
+      "Integrationer signalerades",
+    );
+
+    // Marker persisted with escalated counter + forwarded providers.
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const persistUiParts = (addMessageMock.mock.calls[0] as unknown[])[4] as Array<
+      Record<string, unknown>
+    >;
+    const markerOutput = persistUiParts?.[0]?.output as Record<string, unknown>;
+    expect(markerOutput.f3Continuation).toBe(true);
+    expect(markerOutput.toolOnlyRounds).toBe(2);
+    expect(markerOutput.suggestedProviders).toEqual(["stripe"]);
+  });
+
+  it("silent F3 round at the cap: terminal calm close, no third dialog (Bugbot HIGH PR #383)", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_silent_exhausted", null),
+    );
+    // Completely silent stream: no tool calls at all (the prod "Model
+    // produced no text events" case) after two prior no-code rounds.
+    const pipelinePayload = formatSSEEvent("done", {
+      promptTokens: 2,
+      completionTokens: 0,
+    });
+
+    const out = createOwnEngineGenerationStream({
+      ...f3ToolOnlyStreamParams("chat_silent_exhausted", 2),
       pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
     });
     const events = await collectSseEvents(out);
     const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
 
-    // Nothing survived → honest generic empty-generation copy, no ghost
-    // "Integrationer signalerades" question and no F3 marker.
-    expect(doneData.toolCalls).toEqual([]);
+    expect(doneData.reason).toBe("tool_only_rounds_exhausted");
     expect(doneData.awaitingInput).toBe(false);
-    expect(addMessageMock).not.toHaveBeenCalled();
-    const contentPayload = events
-      .filter((e) => e.event === "content")
-      .map((e) => e.data)
-      .join("");
-    expect(contentPayload).not.toContain("Integrationer signalerades");
-    expect(contentPayload).toContain("Ingen kod genererades");
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const persistArgs = addMessageMock.mock.calls[0] as unknown[];
+    expect(String(persistArgs[2])).toContain("Integrationsbygget avslutades");
+    expect(persistArgs[4]).toBeUndefined();
   });
 });
