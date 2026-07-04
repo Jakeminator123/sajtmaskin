@@ -9,7 +9,13 @@ import {
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
-import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
+import {
+  buildF3AwaitingInputUiPart,
+  F3_CONTINUATION_EXHAUSTED_MESSAGE,
+  F3_CONTINUATION_FIRST_QUESTION,
+  F3_CONTINUATION_LOOP_QUESTION,
+  F3_TOOL_ONLY_EXHAUSTED_REASON,
+} from "@/lib/gen/stream/f3-continuation";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
@@ -101,6 +107,14 @@ export interface GenerationStreamParams {
   /** F3 only: parent F2 version id, forwarded into `engine_versions.parent_version_id`. */
   lifecycleParentVersionId?: string | null;
   /**
+   * F3 loop-breaker (P2 F3-loop): number of tool-only rounds this F3 kick
+   * has ALREADY produced (read from the consumed continuation marker by the
+   * follow-up route). `0`/absent for the initial F3 kick. If THIS stream
+   * also ends tool-only, the persisted marker carries `prior + 1` — and at
+   * `prior >= 2` no new marker is persisted at all (calm terminal close).
+   */
+  f3PriorToolOnlyRounds?: number | null;
+  /**
    * Mutable container holding the concatenated reasoning emitted by the
    * pipeline. The pipeline writes into `current` once the stream completes
    * (success/abort/error); the finalize step reads it just before persisting
@@ -131,6 +145,7 @@ export function createOwnEngineGenerationStream(
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
+    f3PriorToolOnlyRounds,
     accumulatedThinkingRef,
   } = params;
 
@@ -247,8 +262,35 @@ export function createOwnEngineGenerationStream(
           toolCalls.length > 0 && toolCalls.every((name) => toolOnlyIntegrationTools.has(name));
 
         if (hasOnlyIntegrationToolCalls) {
+          const priorRounds =
+            typeof f3PriorToolOnlyRounds === "number" && f3PriorToolOnlyRounds > 0
+              ? Math.floor(f3PriorToolOnlyRounds)
+              : 0;
+          const toolOnlyRounds = priorRounds + 1;
+
+          // Loop-breaker (P2 F3-loop, åtgärd 3): max ONE repeated tool-only
+          // round per F3 kick. The SECOND repeat (an approval round that
+          // still produced no code, twice) closes F3 calmly with a terminal
+          // message and does NOT persist a new marker — the next user
+          // message runs as a plain F2 follow-up instead of an identical
+          // "Svar krävs" loop.
+          if (buildSpec.previewPolicy === "fidelity3" && toolOnlyRounds >= 3) {
+            await chatRepo
+              .addMessage(chatId, "assistant", F3_CONTINUATION_EXHAUSTED_MESSAGE)
+              .catch(() => null);
+            await finishWithoutVersion(F3_TOOL_ONLY_EXHAUSTED_REASON, {
+              awaitingInput: false,
+              userMessage: F3_CONTINUATION_EXHAUSTED_MESSAGE,
+            });
+            return;
+          }
+
+          // Round 2 (an approval round that STILL ended tool-only) gets an
+          // honest question offering closure instead of the identical loop.
           const awaitingInputPrompt =
-            "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
+            toolOnlyRounds >= 2
+              ? F3_CONTINUATION_LOOP_QUESTION
+              : F3_CONTINUATION_FIRST_QUESTION;
           // P1 F3-entry (BUG-SWARM-BACKLOG): persist the awaiting-input
           // question WITH the F3-continuation marker. Without a version and
           // without this message the F3 stage only lived in the client's
@@ -256,14 +298,18 @@ export function createOwnEngineGenerationStream(
           // back as a plain F2 follow-up and the SDK codegen ran in the wrong
           // lane. The follow-up route reads this marker server-side
           // (`resolvePendingF3Continuation`) to inherit the stage for the
-          // direct reply. Best-effort: a persist failure degrades to the old
-          // behavior instead of breaking the stream.
+          // direct reply. The marker also carries the signaled providers
+          // (approval → dossier-capability injection) and the tool-only
+          // round counter (loop-breaker). Best-effort: a persist failure
+          // degrades to the old behavior instead of breaking the stream.
           if (buildSpec.previewPolicy === "fidelity3") {
             await chatRepo
               .addMessage(chatId, "assistant", awaitingInputPrompt, undefined, [
                 buildF3AwaitingInputUiPart({
                   question: awaitingInputPrompt,
                   parentVersionId: lifecycleParentVersionId ?? null,
+                  suggestedProviders: Array.from(toolSignaledProviders),
+                  toolOnlyRounds,
                 }),
               ])
               .catch(() => null);

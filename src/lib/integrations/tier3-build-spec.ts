@@ -227,6 +227,8 @@ function findIntegrationDefinition(
 interface DossierBackingMatcher {
   readonly matches: (def: IntegrationDefinition) => boolean;
   readonly files: ReadonlyArray<{ path: string }>;
+  /** Capability of the dossier behind this matcher (e.g. "payments"). */
+  readonly capability: string;
 }
 
 interface DossierBackingIndex {
@@ -242,6 +244,7 @@ function buildDossierBackingIndex(): DossierBackingIndex {
     const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
     matchers.push({
       files: entry.files ?? [],
+      capability: entry.capability,
       matches: (def: IntegrationDefinition) => {
         const keyLc = def.key.toLowerCase();
         const providerLc = (def.provider ?? def.key).toLowerCase();
@@ -272,6 +275,50 @@ function backingDossierShipsConfigNotice(backing: DossierBackingMatcher[]): bool
   return backing.some((dossier) =>
     dossier.files.some((f) => f.path === CONFIG_NOTICE_FILE),
   );
+}
+
+function compactProviderKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * Map integration provider keys (as signaled by `suggestIntegration`, e.g.
+ * "stripe") to the dossier capabilities that implement them (e.g.
+ * "payments"). Used by the F3 approval round (P2 F3-loop, åtgärd 2) to get
+ * the approved provider's hard dossier selected/injected into the build's
+ * codegen context — the same `selectDossiersForRequest` mechanic the init
+ * path uses, keyed off `integrationRegistry` + dossier matching rules
+ * (id-prefix / capability=category / dependency). Providers without a
+ * registry entry or backing dossier map to nothing (the build instruction
+ * still forces codegen; the model just gets no verbatim templates).
+ *
+ * Input keys are compact-matched (non-alphanumerics stripped) so both
+ * identity-form ("vercelblob") and registry-slug ("vercel-blob") inputs
+ * resolve.
+ */
+export function mapProviderKeysToDossierCapabilities(
+  providerKeys: string[],
+): string[] {
+  const capabilities = new Set<string>();
+  if (providerKeys.length === 0) return [];
+  const backingIndex = buildDossierBackingIndex();
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const compact = compactProviderKey(raw);
+    if (!compact) continue;
+    const def = integrationRegistry.find(
+      (d) =>
+        compactProviderKey(d.key) === compact ||
+        compactProviderKey(d.provider ?? d.key) === compact,
+    );
+    if (!def) continue;
+    for (const matcher of backingIndex.matchers) {
+      if (matcher.matches(def)) {
+        capabilities.add(matcher.capability);
+      }
+    }
+  }
+  return Array.from(capabilities);
 }
 
 /**
@@ -413,7 +460,15 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     "## Tier-3 Integration Build Plan",
     "",
     "You are now in F3 (\"bygg integrationer\"). Wire each integration below end-to-end.",
-    "Use the listed env keys; assume real values are present at runtime.",
+    // The old wording ("assume real values are present at runtime") was
+    // wrong for the approval-without-keys case (P2 F3-loop): keys tagged
+    // `feature-runtime` may legitimately still be placeholders when the
+    // build runs — the site owner fills them in later via the env panel.
+    // Generated code must therefore ALWAYS use the graceful not-configured
+    // pattern (#374): lazy SDK init after an env guard, calm 503 with a
+    // `*-not-configured` code, config-notice UI instead of a raw error.
+    "Read env keys via `process.env`, but NEVER assume they hold real values: any key may still be missing or a placeholder until the site owner fills it in. Initialize SDK clients lazily (inside the request handler, after an env guard) — never at module scope.",
+    "When a key is missing or placeholder at runtime, the API route must respond with a calm 503 JSON body carrying a `*-not-configured` error code, and the UI must degrade gracefully.",
     "Never surface a raw error string, stack trace, or HTTP status code to the site visitor when an integration is not configured.",
     "",
   ];
@@ -421,6 +476,11 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     lines.push(`### ${req.name} (\`${req.key}\`)`);
     if (req.requiredRealEnvKeys.length > 0) {
       lines.push(`Required env: \`${req.requiredRealEnvKeys.join("`, `")}\``);
+    }
+    if (req.featureRuntimeEnvKeys.length > 0) {
+      lines.push(
+        `Feature-runtime env (may be missing/placeholder at runtime — graceful fallback required): \`${req.featureRuntimeEnvKeys.join("`, `")}\``,
+      );
     }
     if (req.placeholderOkEnvKeys.length > 0) {
       lines.push(`Public/placeholder-OK env: \`${req.placeholderOkEnvKeys.join("`, `")}\``);

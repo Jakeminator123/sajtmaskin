@@ -1331,7 +1331,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     const F3_QUESTION =
       "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
 
-    function f3AwaitingHistory(parentVersionId: string) {
+    function f3AwaitingHistory(
+      parentVersionId: string,
+      markerOptions?: { suggestedProviders?: string[]; toolOnlyRounds?: number },
+    ) {
       return [
         {
           id: "msg_kick",
@@ -1351,6 +1354,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
             buildF3AwaitingInputUiPart({
               question: F3_QUESTION,
               parentVersionId,
+              suggestedProviders: markerOptions?.suggestedProviders,
+              toolOnlyRounds: markerOptions?.toolOnlyRounds,
             }),
           ],
           token_count: null,
@@ -1425,16 +1430,72 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(resolveOrchestrationBase).toHaveBeenCalledWith(
         expect.objectContaining({ lifecycleStage: "integrations" }),
       );
-      // The generation stream runs with integration tools on and F3 lineage.
+      // P2 F3-loop (åtgärd 1): the approval round FORCES codegen — the
+      // proposal tools are pulled OUT of the tool set (the proposal phase is
+      // over) and an explicit end-to-end build directive with the #374
+      // graceful-fallback contract is injected into the round's prompt.
       expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
         expect.objectContaining({
-          includeIntegrationSignals: true,
+          includeIntegrationSignals: false,
           lifecycleParentVersionId: "ver_f2_parent",
+          f3PriorToolOnlyRounds: 1,
         }),
+      );
+      const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+        prompt: string;
+      };
+      expect(orchestrationInput.prompt).toContain("## F3 Integration Build Approval");
+      expect(orchestrationInput.prompt).toContain("not-configured");
+    });
+
+    it("maps approved providers to dossier capabilities so the build round gets the hard-dossier templates (P2 F3-loop åtgärd 2)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["stripe"],
+          toolOnlyRounds: 1,
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Integrations build</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // stripe → the stripe-checkout hard dossier (capability "payments"),
+      // resolved via the REAL integrationRegistry + dossier registry — the
+      // same selection mechanic the init path feeds.
+      const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+        requestedDossierCapabilities?: string[];
+        prompt: string;
+      };
+      expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
+      // The build directive names the approved provider.
+      expect(orchestrationInput.prompt).toContain(
+        "Approved integration providers: stripe",
       );
     });
 
-    it("does NOT inherit for a rejecting reply — marker consumed, message runs as F2 (Bugbot HIGH)", async () => {
+    it("closes F3 calmly on a rejecting reply — marker consumed, NO generation runs (P2 F3-loop åtgärd 4)", async () => {
       getEngineChatByIdForRequest.mockResolvedValueOnce({
         id: "chat_1",
         project_id: "app_proj_1",
@@ -1444,12 +1505,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       consumeF3ContinuationMarker.mockResolvedValue(true);
-      createGenerationPipeline.mockReturnValue(
-        buildPipelineStream([
-          { event: "content", data: { text: "<main>Design continues</main>" } },
-          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
-        ]),
-      );
       mockApprovalReplyRequestMeta();
 
       const response = await POST(
@@ -1464,17 +1519,37 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(response.status).toBe(200);
       // The reject consumes the marker (a later reply cannot resurrect F3)…
       expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
-      // …but the message itself runs in the F2 design lane.
+      // …and NOTHING is generated: the observed prod reject ran a fully
+      // silent generation (toolCalls: [], no text) and re-asked the same
+      // question. Now the route short-circuits before orchestration.
       expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
-      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycleStage: "design" }),
+      expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+      expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+      // No credits are prepared/charged for the acknowledgement.
+      expect(prepareCredits).not.toHaveBeenCalled();
+
+      // The user reply and a short assistant confirmation are persisted.
+      expect(addMessage).toHaveBeenCalledWith("chat_1", "user", "Avvisa förslag");
+      expect(addMessage).toHaveBeenCalledWith(
+        "chat_1",
+        "assistant",
+        expect.stringContaining("avvisades"),
       );
-      expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
-        expect.objectContaining({
-          includeIntegrationSignals: false,
-          lifecycleParentVersionId: null,
-        }),
-      );
+
+      // SSE: confirmation content + calm done (versionId null, dedicated reason).
+      const events = await readSseEvents(response);
+      const contentEvent = events.find((event) => event.event === "content");
+      expect(
+        String((contentEvent?.data as Record<string, unknown>)?.text ?? contentEvent?.data),
+      ).toContain("avvisades");
+      const doneEvent = events.find((event) => event.event === "done");
+      expect(doneEvent?.data).toMatchObject({
+        chatId: "chat_1",
+        versionId: null,
+        awaitingInput: false,
+        reason: "f3_reject_acknowledged",
+      });
     });
 
     it("does NOT inherit for an unrelated design reply to the F3 question (Bugbot HIGH)", async () => {
@@ -1653,7 +1728,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
       expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
         expect.objectContaining({
-          includeIntegrationSignals: true,
+          // Approval build round: proposal tools are OFF (P2 F3-loop åtgärd 1).
+          includeIntegrationSignals: false,
           // …NOT the raw marker parent (ver_old_parent), which was never the
           // build base for this generation.
           lifecycleParentVersionId: "ver_preferred",

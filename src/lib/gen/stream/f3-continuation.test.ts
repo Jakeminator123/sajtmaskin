@@ -20,11 +20,18 @@ let markerCounter = 0;
 
 function assistantMarker(
   parentVersionId: string | null,
-  options?: { id?: string; consumed?: boolean },
+  options?: {
+    id?: string;
+    consumed?: boolean;
+    suggestedProviders?: string[];
+    toolOnlyRounds?: number;
+  },
 ): WalkMessage {
   const part = buildF3AwaitingInputUiPart({
     question: "Integrationer signalerades, men modellen skrev inga kodfiler.",
     parentVersionId,
+    suggestedProviders: options?.suggestedProviders,
+    toolOnlyRounds: options?.toolOnlyRounds,
   });
   if (options?.consumed) {
     (part.output as Record<string, unknown>).f3ContinuationConsumed = true;
@@ -69,6 +76,25 @@ describe("buildF3AwaitingInputUiPart", () => {
       F3_CONTINUATION_REJECT_OPTION,
       F3_CONTINUATION_OTHER_OPTION,
     ]);
+  });
+
+  it("persists signaled providers and the tool-only round counter (P2 F3-loop)", () => {
+    const part = buildF3AwaitingInputUiPart({
+      question: "Q",
+      parentVersionId: null,
+      suggestedProviders: ["stripe", "  ", "resend"],
+      toolOnlyRounds: 2,
+    });
+    const output = part.output as Record<string, unknown>;
+    expect(output.suggestedProviders).toEqual(["stripe", "resend"]);
+    expect(output.toolOnlyRounds).toBe(2);
+  });
+
+  it("defaults providers to [] and rounds to 1 when omitted", () => {
+    const part = buildF3AwaitingInputUiPart({ question: "Q", parentVersionId: null });
+    const output = part.output as Record<string, unknown>;
+    expect(output.suggestedProviders).toEqual([]);
+    expect(output.toolOnlyRounds).toBe(1);
   });
 
   it("uses a toolName that never matches the integration/env tool-part filters (Bugbot MEDIUM)", () => {
@@ -140,7 +166,12 @@ describe("resolvePendingF3Continuation", () => {
   it("reports the pending continuation (with messageId) when the marker is the last actionable state", () => {
     const marker = assistantMarker("ver_f2_parent", { id: "msg_m1" });
     const pending = resolvePendingF3Continuation([user, marker]);
-    expect(pending).toEqual({ messageId: "msg_m1", parentVersionId: "ver_f2_parent" });
+    expect(pending).toEqual({
+      messageId: "msg_m1",
+      parentVersionId: "ver_f2_parent",
+      suggestedProviders: [],
+      toolOnlyRounds: 1,
+    });
   });
 
   it("survives non-marker assistant messages after the marker (repair summaries etc.)", () => {
@@ -149,7 +180,12 @@ describe("resolvePendingF3Continuation", () => {
       assistantMarker("ver_f2_parent", { id: "msg_m1" }),
       assistantPlain,
     ]);
-    expect(pending).toEqual({ messageId: "msg_m1", parentVersionId: "ver_f2_parent" });
+    expect(pending).toEqual({
+      messageId: "msg_m1",
+      parentVersionId: "ver_f2_parent",
+      suggestedProviders: [],
+      toolOnlyRounds: 1,
+    });
   });
 
   it("is consumed by a user reply — a later design follow-up does NOT inherit", () => {
@@ -177,7 +213,12 @@ describe("resolvePendingF3Continuation", () => {
       user,
       assistantMarker("ver_b", { id: "msg_m2" }),
     ]);
-    expect(pending).toEqual({ messageId: "msg_m2", parentVersionId: "ver_b" });
+    expect(pending).toEqual({
+      messageId: "msg_m2",
+      parentVersionId: "ver_b",
+      suggestedProviders: [],
+      toolOnlyRounds: 1,
+    });
   });
 
   it("returns null for plain history, empty history and missing ui_parts", () => {
@@ -213,6 +254,58 @@ describe("resolvePendingF3Continuation", () => {
       user,
       assistantMarker(null, { id: "msg_m3" }),
     ]);
-    expect(pending).toEqual({ messageId: "msg_m3", parentVersionId: null });
+    expect(pending).toEqual({
+      messageId: "msg_m3",
+      parentVersionId: null,
+      suggestedProviders: [],
+      toolOnlyRounds: 1,
+    });
+  });
+
+  it("carries suggestedProviders + toolOnlyRounds from the marker (P2 F3-loop)", () => {
+    const pending = resolvePendingF3Continuation([
+      user,
+      assistantMarker("ver_f2", {
+        id: "msg_m4",
+        suggestedProviders: ["stripe"],
+        toolOnlyRounds: 2,
+      }),
+    ]);
+    expect(pending).toEqual({
+      messageId: "msg_m4",
+      parentVersionId: "ver_f2",
+      suggestedProviders: ["stripe"],
+      toolOnlyRounds: 2,
+    });
+  });
+
+  it("defaults suggestedProviders/toolOnlyRounds for legacy markers without the fields", () => {
+    const legacyMarker: WalkMessage = {
+      id: "msg_legacy",
+      role: "assistant",
+      ui_parts: [
+        {
+          type: "tool:awaiting-input",
+          toolName: F3_CONTINUATION_TOOL_NAME,
+          state: "approval-requested",
+          output: {
+            question: "Q",
+            kind: "f3-continuation",
+            f3Continuation: true,
+            lifecycleStage: "integrations",
+            parentVersionId: "ver_old",
+            blocking: true,
+            awaitingInput: true,
+          },
+        },
+      ],
+    };
+    const pending = resolvePendingF3Continuation([user, legacyMarker]);
+    expect(pending).toEqual({
+      messageId: "msg_legacy",
+      parentVersionId: "ver_old",
+      suggestedProviders: [],
+      toolOnlyRounds: 1,
+    });
   });
 });

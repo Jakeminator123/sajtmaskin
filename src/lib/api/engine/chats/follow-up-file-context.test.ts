@@ -58,6 +58,35 @@ describe("buildFollowUpFileContextDecision", () => {
     expect(decision.fileContext.summary).toContain("### components/three-canvas-shell.tsx");
   });
 
+  it("masks tier-3 boot-stub placeholder lines in env artifacts for the prompt context (P2 F3-loop)", () => {
+    const decision = buildFollowUpFileContextDecision({
+      message: "Byt rubriken i hero.",
+      // Small file set so `.env.local` is guaranteed a content slot even
+      // under the light-context file cap.
+      previousFiles: [
+        previousFiles[0],
+        previousFiles[3],
+        {
+          path: ".env.local",
+          language: "text",
+          content:
+            "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\nNEXT_PUBLIC_SITE_URL=https://example.com",
+        },
+      ],
+      followUpIntent: "clear-refine",
+    });
+
+    // The stub secret never reaches the model's file context…
+    expect(decision.fileContext.summary).not.toContain(
+      "sk_test_placeholder_preview_not_real",
+    );
+    expect(decision.fileContext.summary).not.toContain("STRIPE_SECRET_KEY");
+    // …while real values in the same file survive.
+    expect(decision.fileContext.summary).toContain(
+      "NEXT_PUBLIC_SITE_URL=https://example.com",
+    );
+  });
+
   it("merges error-referenced paths with design-signal pins without duplicates", () => {
     const decision = buildFollowUpFileContextDecision({
       message: [

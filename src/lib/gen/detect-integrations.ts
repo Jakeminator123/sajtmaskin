@@ -12,6 +12,10 @@
 
 import { integrationRegistry } from "@/lib/integrations/registry";
 import {
+  filterStubEnvLines,
+  isEnvArtifactPath,
+} from "@/lib/integrations/stub-env-filter";
+import {
   detectedIntegrationsFromManifest,
   isIntegrationManifestPath,
   tryParseIntegrationManifest,
@@ -552,14 +556,30 @@ export function detectIntegrationsFromVersionFiles(
   files: Array<{ name: string; content: string }>,
   options: DetectIntegrationsOptions = {},
 ): DetectedIntegration[] {
-  const manifestEntry = files.find((f) => isIntegrationManifestPath(f.name));
+  // P2 F3-loop (åtgärd 2): tier-3 STUB placeholders in env artifacts
+  // (`.env.local` / `env.example` boot stubs like
+  // `STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real`) are NOT
+  // integration evidence. The provider regexes match on KEY names, so a
+  // landing page with zero payment code used to "detect" Stripe purely
+  // from F2 boilerplate (prod chat fa6515bc) — which fed the F3 build plan
+  // and drove the model to propose integrations the user never asked for.
+  // Strip stub/empty-value lines from env files before scanning; lines
+  // with real, user-provided values still count (genuine intent), and
+  // actual code files are never touched.
+  const scanFiles = files.map((f) =>
+    isEnvArtifactPath(f.name)
+      ? { name: f.name, content: filterStubEnvLines(f.content).filtered }
+      : f,
+  );
+
+  const manifestEntry = scanFiles.find((f) => isIntegrationManifestPath(f.name));
   const manifestParsed = manifestEntry
     ? tryParseIntegrationManifest(manifestEntry.content)
     : null;
 
   const withoutManifest = manifestEntry
-    ? files.filter((f) => f.name !== manifestEntry.name)
-    : files;
+    ? scanFiles.filter((f) => f.name !== manifestEntry.name)
+    : scanFiles;
 
   const codeForScan = withoutManifest
     .map((f) => `// File: ${f.name}\n${f.content}`)
@@ -579,6 +599,6 @@ export function detectIntegrationsFromVersionFiles(
     return applyEnforcementOverlay(merged, clusters, selectedDossiersProvided);
   }
 
-  const combined = files.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");
+  const combined = scanFiles.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");
   return detectIntegrations(combined, options);
 }

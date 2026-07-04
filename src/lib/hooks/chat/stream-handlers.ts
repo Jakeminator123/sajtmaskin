@@ -25,6 +25,10 @@ import {
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { runPostGenerationChecks } from "./post-checks";
+import {
+  F3_REJECT_ACK_REASON,
+  F3_TOOL_ONLY_EXHAUSTED_REASON,
+} from "@/lib/gen/stream/f3-continuation";
 import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import {
@@ -930,6 +934,13 @@ export async function handleSseStream(
             if (pendingStreamErrorMessage && !hasRecoveredArtifact) {
               throw new Error(pendingStreamErrorMessage);
             }
+            // P2 F3-loop: deliberate no-version close-outs (calm F3 reject,
+            // loop-breaker terminal close). The server already streamed the
+            // explanation as content — finalize the assistant message
+            // without the "generation ended without version" failure toast.
+            const isCalmNoVersionClose =
+              emptyGenerationReason === F3_REJECT_ACK_REASON ||
+              emptyGenerationReason === F3_TOOL_ONLY_EXHAUSTED_REASON;
             const nextId = String(resolvedChatId);
             streamStats.chatId = nextId;
             streamStats.versionId = resolvedVersionId ? String(resolvedVersionId) : null;
@@ -947,6 +958,15 @@ export async function handleSseStream(
             }
             if (pendingCreateKeyRef?.current) {
               updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
+            }
+
+            if (!awaitingInput && !hasRecoveredArtifact && isCalmNoVersionClose) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                ),
+              );
+              break;
             }
 
             if (!awaitingInput && !hasRecoveredArtifact) {
