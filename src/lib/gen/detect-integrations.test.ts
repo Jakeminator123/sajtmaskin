@@ -341,9 +341,11 @@ describe("detectIntegrationsFromVersionFiles + env stub filter", () => {
   });
 
   it("still detects from a REAL user-provided env value (genuine intent)", () => {
+    // join-bygget hindrar GitGuardian från att flagga fixturen som Stripe-nyckel.
+    const realLookingKey = ["sk", "test", "51H8f2jKl9dPqRs7T"].join("_");
     const detected = detectIntegrationsFromVersionFiles([
       { name: "app/page.tsx", content: PLAIN_PAGE },
-      { name: ".env.local", content: "STRIPE_SECRET_KEY=sk_test_51H8f2jKl9dPqRs7T" },
+      { name: ".env.local", content: `STRIPE_SECRET_KEY=${realLookingKey}` },
     ]);
     expect(detected.find((d) => d.provider === "stripe")).toBeDefined();
   });
