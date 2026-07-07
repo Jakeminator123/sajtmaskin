@@ -69,8 +69,20 @@ function resolveConnectionString() {
 
 const connectionString = resolveConnectionString();
 if (!connectionString) {
-  // No DB configured (fork / no-secret CI env) — skip meaningfully, like
-  // db-blob-sync-check does. Not a failure.
+  if (envArg) {
+    // The caller explicitly targeted this env file (e.g. db:migrate:check:prod).
+    // A file that EXISTS but carries no usable Postgres URL must NOT pass as a
+    // silent SKIP — that would be a false-green in the prod migration gate, the
+    // exact failure this check exists to prevent. Mirror the missing-file case
+    // above (hard exit 1) instead of falling through to the fork/no-secret SKIP.
+    console.error(
+      `[db:migrate:check] --env file has no usable Postgres connection ` +
+        `(checked ${CONNECTION_KEYS.join(", ")}) — refusing to skip an explicitly requested check.`,
+    );
+    process.exit(1);
+  }
+  // No explicit --env and no connection configured (fork / no-secret CI env) —
+  // skip meaningfully, like db-blob-sync-check does. Not a failure.
   console.warn(
     "[db:migrate:check] No database connection configured — SKIP (exit 0).",
   );
