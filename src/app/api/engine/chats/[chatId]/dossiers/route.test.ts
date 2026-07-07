@@ -146,6 +146,14 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 404 when a requested versionId is not visible to the caller", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+    const res = await GET(request("ver_missing"), ctx);
+    expect(res.status).toBe(404);
+    // Must not silently fall back to preferred/latest for a requested-but-missing version.
+    expect(resolveSelectedDossiersFromSnapshot).not.toHaveBeenCalled();
+  });
+
   it("marks a hard dossier built-needs-keys when detected but missing real env values", async () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([softDossier(), stripeDossier()]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });

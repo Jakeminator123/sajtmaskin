@@ -79,17 +79,28 @@ function matchRequirementForDossier(
   return best;
 }
 
+type OverviewResult =
+  | { ok: true; response: DossierOverviewResponse }
+  | { ok: false; status: number; error: string };
+
 async function buildDossierOverview(
   request: Request,
   chatId: string,
   requestedVersionId: string | null,
-): Promise<DossierOverviewResponse | null> {
+): Promise<OverviewResult> {
   const chat = await getEngineChatByIdForRequest(request, chatId);
-  if (!chat) return null;
+  if (!chat) return { ok: false, status: 404, error: "Chat not found" };
 
   const requestedVersion = requestedVersionId
     ? await getEngineVersionForChatByIdForRequest(request, chatId, requestedVersionId)
     : null;
+  // When a specific versionId was requested but is not visible to the caller,
+  // 404 instead of silently answering for a different version (mirrors the
+  // sibling `/files` and `/version-status` routes). A missing version only
+  // falls back to preferred/latest when NO versionId was requested.
+  if (requestedVersionId && !requestedVersion) {
+    return { ok: false, status: 404, error: "Version not found" };
+  }
   const version =
     requestedVersion?.version ??
     (await getPreferredVersion(chat.id)) ??
@@ -192,12 +203,15 @@ async function buildDossierOverview(
   };
 
   return {
-    success: true,
-    versionId: version?.id ?? null,
-    lifecycleStage,
-    versionFilesAvailable,
-    counts,
-    dossiers,
+    ok: true,
+    response: {
+      success: true,
+      versionId: version?.id ?? null,
+      lifecycleStage,
+      versionFilesAvailable,
+      counts,
+      dossiers,
+    },
   };
 }
 
@@ -211,11 +225,11 @@ async function handleGET(request: Request, ctx: { params: Promise<{ chatId: stri
     const { searchParams } = new URL(request.url);
     const requestedVersionId = searchParams.get("versionId");
 
-    const overview = await buildDossierOverview(request, chatId, requestedVersionId);
-    if (!overview) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    const result = await buildDossierOverview(request, chatId, requestedVersionId);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
-    return NextResponse.json(overview);
+    return NextResponse.json(result.response);
   } catch (error) {
     console.error("[API] Failed to build dossier overview:", error);
     return NextResponse.json(

@@ -56,9 +56,14 @@ export function PreviewPanelDossiers({
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<DossierOverviewResponse | null>(null);
+  // Identity (`chatId::versionId`) the held `data` was fetched for, so we can
+  // ignore it when the builder switches chat/version while the popover holds
+  // an older response.
+  const [dataKey, setDataKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const overviewKey = `${chatId}::${versionId ?? ""}`;
 
   const load = useCallback(
     async (signal: AbortSignal) => {
@@ -74,6 +79,7 @@ export function PreviewPanelDossiers({
         }
         const json = (await res.json()) as DossierOverviewResponse;
         setData(json);
+        setDataKey(`${chatId}::${versionId ?? ""}`);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(
@@ -100,10 +106,15 @@ export function PreviewPanelDossiers({
     return () => controller.abort();
   }, [open, load]);
 
-  const hardDossiers = data?.dossiers.filter((d) => d.requiresF3) ?? [];
-  const softDossiers = data?.dossiers.filter((d) => !d.requiresF3) ?? [];
-  const stage = data?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
-  const count = data?.counts.total ?? null;
+  // Only trust data whose identity matches the current chat/version. On a
+  // mismatch (chat/version changed) we render the loading state instead of a
+  // stale context's dossiers until the in-flight refetch resolves.
+  const freshData = data && dataKey === overviewKey ? data : null;
+  const hardDossiers = freshData?.dossiers.filter((d) => d.requiresF3) ?? [];
+  const softDossiers = freshData?.dossiers.filter((d) => !d.requiresF3) ?? [];
+  const stage =
+    freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
+  const count = freshData?.counts.total ?? null;
 
   const renderRow = (entry: DossierOverviewEntry) => {
     const descriptor = describeDossierStatus(entry.status, stage);
@@ -208,23 +219,28 @@ export function PreviewPanelDossiers({
         className="w-80 border-gray-800 bg-gray-950 p-0 text-gray-200"
       >
         <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
-          <span className="text-[12px] font-semibold text-white">Dossiers</span>
-          {data ? (
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-white">
+            Dossiers
+            {loading && freshData ? (
+              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+            ) : null}
+          </span>
+          {freshData ? (
             <span className="text-[10px] text-gray-500">
-              {data.counts.hard} hård · {data.counts.soft} mjuk
+              {freshData.counts.hard} hård · {freshData.counts.soft} mjuk
             </span>
           ) : null}
         </div>
 
         <div className="max-h-[420px] overflow-y-auto p-2">
-          {loading && !data ? (
+          {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Läser dossier-status…
             </div>
           ) : error ? (
             <p className="px-1 py-3 text-[11px] text-rose-300">{error}</p>
-          ) : data && data.dossiers.length === 0 ? (
+          ) : freshData && freshData.dossiers.length === 0 ? (
             <p className="px-1 py-3 text-[11px] text-gray-400">
               Inga dossiers är inkopplade i den här versionen.
             </p>
@@ -249,7 +265,7 @@ export function PreviewPanelDossiers({
             </div>
           )}
 
-          {data && !data.versionFilesAvailable ? (
+          {freshData && !freshData.versionFilesAvailable ? (
             <p className="mt-2 border-t border-gray-800 px-1 pt-2 text-[10px] text-gray-500">
               Byggstatus kunde inte läsas (versionens filer saknas) — hård-status
               visas som ej byggd tills filerna finns.
