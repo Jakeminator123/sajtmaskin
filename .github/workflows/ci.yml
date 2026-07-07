@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch: {}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -174,3 +175,37 @@ jobs:
       - name: Ordlista-check (warn-only, grandmaster C2)
         if: ${{ !cancelled() }}
         run: npm run check:terms
+
+  # Blockerande gate: verifierar att PRODUKTIONS-databasen har ALLA migrations
+  # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
+  # (bara SELECT). Rött = prod ligger efter → kör `npm run db:migrate:prod`.
+  #
+  # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
+  # db-blob-sync-check) — jobbet körs bara på trusted events (push master /
+  # manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds. Det gör
+  # detta till en POST-merge-signal (master blir röd tills prod migrerats), inte
+  # en pre-merge-block. Saknas secret (fork) SKIP:ar checken med exit 0.
+  prod-migrations-applied:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prod migration-ledger gate (blocking)
+        run: node scripts/db/check-migrations-applied.mjs
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+          DB_SSL_REJECT_UNAUTHORIZED: "false"

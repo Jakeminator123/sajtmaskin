@@ -7,6 +7,10 @@ import {
   resolveMigrationRunOrder,
   isAlreadyExistsError,
 } from "./migration-order.mjs";
+import {
+  ensureMigrationLedger,
+  recordAppliedMigration,
+} from "./migration-ledger.mjs";
 
 config({ path: ".env.local" });
 
@@ -664,6 +668,16 @@ async function applySqlMigrations() {
   // the drift the blocking `db:schema-drift` gate also guards.
   const ordered = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
 
+  // Best-effort ledger so `db:migrate:check` can tell this DB is up to date.
+  // Warn-only — a ledger hiccup must never abort db:init / dev startup.
+  try {
+    await ensureMigrationLedger(pool);
+  } catch (err) {
+    console.warn(
+      `[db:init] Could not ensure schema_migrations ledger: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   for (const file of ordered) {
     const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
     try {
@@ -672,10 +686,17 @@ async function applySqlMigrations() {
       // Idempotent re-run: the object already exists, so this statement is a
       // no-op. Tolerate ONLY that (matched by stable SQLSTATE, not message text)
       // and re-throw everything else so a real failure still aborts loudly.
-      if (isAlreadyExistsError(err)) {
-        continue;
+      if (!isAlreadyExistsError(err)) {
+        throw err;
       }
-      throw err;
+    }
+    // Record every migration processed (applied OR already-exists). Warn-only.
+    try {
+      await recordAppliedMigration(pool, file);
+    } catch (err) {
+      console.warn(
+        `[db:init] Could not record ${file} in schema_migrations: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 }

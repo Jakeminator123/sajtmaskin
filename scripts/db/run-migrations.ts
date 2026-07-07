@@ -9,6 +9,10 @@ import {
   resolveMigrationRunOrder,
   isAlreadyExistsError,
 } from "./migration-order.mjs";
+import {
+  ensureMigrationLedger,
+  recordAppliedMigration,
+} from "./migration-ledger.mjs";
 import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../../src/lib/db/env";
 
 config({ path: ".env.local" });
@@ -71,6 +75,15 @@ async function main() {
   });
 
   try {
+    // Best-effort: create the schema_migrations ledger so this run can record
+    // what it applied. Warn-only — a ledger hiccup must never abort a migration.
+    try {
+      await ensureMigrationLedger(pool);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`  ⚠ Could not ensure schema_migrations ledger: ${message}`);
+    }
+
     const files = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
 
     if (files.length === 0) {
@@ -94,6 +107,14 @@ async function main() {
           console.error(`  ✗ ${file}: ${message}`);
           throw err;
         }
+      }
+      // Record every migration we processed (freshly applied OR already-exists)
+      // so the ledger reflects the true applied set. Warn-only.
+      try {
+        await recordAppliedMigration(pool, file);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`  ⚠ Could not record ${file} in schema_migrations: ${message}`);
       }
     }
 
