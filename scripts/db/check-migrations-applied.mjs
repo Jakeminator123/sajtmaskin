@@ -32,12 +32,23 @@ const allowInsecureSsl = args.includes("--allow-insecure-ssl");
 const asJson = args.includes("--json");
 
 if (envArg) {
+  // Explicit env file (e.g. db:migrate:check:prod). It MUST win over any
+  // POSTGRES_URL already in the shell (dotenv does not override by default),
+  // otherwise the check could silently run against the wrong database. And a
+  // missing file is a hard error — the caller explicitly asked to check THAT
+  // env, so we must not fall through to whatever happens to be in process.env.
   const envPath = envArg.slice("--env=".length);
-  if (existsSync(envPath)) {
-    config({ path: envPath });
-  } else {
-    console.warn(`[db:migrate:check] --env file not found: ${envPath}`);
+  if (!existsSync(envPath)) {
+    console.error(`[db:migrate:check] --env file not found: ${envPath}`);
+    process.exit(1);
   }
+  config({ path: envPath, override: true });
+} else {
+  // Match the other DB scripts (run-migrations.ts, db-init.mjs, check-dev-db.mjs):
+  // pick up the local dev connection from .env.local so `db:migrate:check` really
+  // gates the dev DB instead of silently skipping. In CI there is no .env.local and
+  // the connection comes from the injected POSTGRES_URL env, so this is a no-op there.
+  config({ path: ".env.local" });
 }
 
 const CONNECTION_KEYS = [
