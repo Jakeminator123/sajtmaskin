@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Boxes, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,9 +59,6 @@ export function PreviewPanelDossiers({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Which version the currently-held `data` was fetched for, so re-opening
-  // after a new generation refetches instead of showing stale status.
-  const fetchedForVersionRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (signal: AbortSignal) => {
@@ -77,7 +74,6 @@ export function PreviewPanelDossiers({
         }
         const json = (await res.json()) as DossierOverviewResponse;
         setData(json);
-        fetchedForVersionRef.current = versionId;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(
@@ -92,14 +88,17 @@ export function PreviewPanelDossiers({
     [chatId, versionId],
   );
 
+  // Fetch whenever the popover opens (and whenever chatId/versionId change
+  // while open, since `load` is memoized on them). Refetching on every open
+  // keeps env-key readiness fresh — e.g. after the user saves keys in
+  // ProjectEnvVarsPanel without a new version — and prevents a previous
+  // chat's dossiers from lingering when the builder switches chat.
   useEffect(() => {
     if (!open) return;
-    const staleVersion = fetchedForVersionRef.current !== versionId;
-    if (!staleVersion && data) return;
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [open, versionId, data, load]);
+  }, [open, load]);
 
   const hardDossiers = data?.dossiers.filter((d) => d.requiresF3) ?? [];
   const softDossiers = data?.dossiers.filter((d) => !d.requiresF3) ?? [];

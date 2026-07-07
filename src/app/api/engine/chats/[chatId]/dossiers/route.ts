@@ -122,7 +122,14 @@ async function buildDossierOverview(
           () => ({}) as Record<string, string>,
         )
       : ({} as Record<string, string>);
-    const allowPlaceholdersInF3 = await readAllowPlaceholdersInF3(chat.project_id);
+    // Mirror the readiness route's env gate: placeholder values only count as
+    // "satisfied" once the version is in F3 (`integrations`). Accepting them in
+    // F2 would let this panel show `built-ready` while the canonical readiness /
+    // env gate still treats the same keys as missing (a false green).
+    const allowPlaceholdersInF3 =
+      lifecycleStage === "integrations"
+        ? await readAllowPlaceholdersInF3(chat.project_id)
+        : false;
     const readiness = validateTier3Readiness(spec, projectEnvVars, {
       allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
       placeholderEnvKeys: loadPlaceholderKeySet(),
