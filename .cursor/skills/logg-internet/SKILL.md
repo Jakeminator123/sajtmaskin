@@ -112,7 +112,8 @@ För varje uppföljning (default 2; 1–3):
 - Skriv en notis-fil: `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md` (tidsstämpel:
   `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan.
 - **Valfritt** (om `loggar` eller Felsökare): korsreferera mot `/logg` för `chatId` —
-  hämta backend-telemetri/fel för samma sajt och väv in i notiserna.
+  hämta backend-telemetri/fel för samma sajt och väv in i notiserna (inkl. **DB-pool-hälsa**:
+  `/logg` flaggar connect-timeout/EMAXCONNSESSION för körningsfönstret).
 - `browser_lock` (`action: "unlock"`).
 - Ge användaren en kort sammanfattning i chatten + pekare till notis-filen.
 
