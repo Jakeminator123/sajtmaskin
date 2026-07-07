@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Boxes, ChevronRight, Loader2, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,34 +89,41 @@ export function PreviewPanelDossiers({
   const [saveError, setSaveError] = useState<string | null>(null);
   const overviewKey = `${chatId}::${versionId ?? ""}`;
 
-  const load = useCallback(
-    async (signal: AbortSignal) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const url = versionId
-          ? `${engineChatBaseUrl(chatId)}/dossiers?versionId=${encodeURIComponent(versionId)}`
-          : `${engineChatBaseUrl(chatId)}/dossiers`;
-        const res = await fetch(url, { signal });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const json = (await res.json()) as DossierOverviewResponse;
-        setData(json);
-        setDataKey(`${chatId}::${versionId ?? ""}`);
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setError(
-          err instanceof Error
-            ? `Kunde inte hämta dossiers: ${err.message}`
-            : "Kunde inte hämta dossiers.",
-        );
-      } finally {
-        setLoading(false);
+  // Tracks the single in-flight request so a newer load (e.g. a post-save
+  // refetch) aborts an earlier one. Without this, a slow initial load could
+  // resolve last and overwrite fresher post-save data (resurrecting keys and
+  // hiding the retry CTA).
+  const abortRef = useRef<AbortController | null>(null);
+  const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+    setLoading(true);
+    setError(null);
+    try {
+      const url = versionId
+        ? `${engineChatBaseUrl(chatId)}/dossiers?versionId=${encodeURIComponent(versionId)}`
+        : `${engineChatBaseUrl(chatId)}/dossiers`;
+      const res = await fetch(url, { signal });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-    },
-    [chatId, versionId],
-  );
+      const json = (await res.json()) as DossierOverviewResponse;
+      if (signal.aborted) return;
+      setData(json);
+      setDataKey(`${chatId}::${versionId ?? ""}`);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setError(
+        err instanceof Error
+          ? `Kunde inte hämta dossiers: ${err.message}`
+          : "Kunde inte hämta dossiers.",
+      );
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
+  }, [chatId, versionId]);
 
   // Fetch whenever the popover opens (and whenever chatId/versionId change
   // while open, since `load` is memoized on them). Refetching on every open
@@ -125,17 +132,15 @@ export function PreviewPanelDossiers({
   // chat's dossiers from lingering when the builder switches chat.
   useEffect(() => {
     if (!open) return;
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
+    void load();
+    return () => abortRef.current?.abort();
   }, [open, load]);
 
   // Fire-and-forget refetch used after saving keys (outside the open effect's
-  // lifecycle). Guarded downstream by the `dataKey === overviewKey` identity
-  // check, so a late response for a stale context is ignored.
+  // lifecycle). `load` aborts any in-flight request first, so the freshest
+  // response always wins.
   const refetch = useCallback(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
+    void load();
   }, [load]);
 
   // Let other builder surfaces (finalize-design 412 handler, integration chat
@@ -207,7 +212,10 @@ export function PreviewPanelDossiers({
   }, [freshData, highlightKeys]);
 
   const projectId = freshData?.projectId ?? null;
-  const canSave = Boolean(projectId);
+  // Only treat "no project" as confirmed once data has loaded — during the
+  // initial fetch `projectId` is null but the project may well exist, so the
+  // inputs must not be disabled (nor mislabelled) while loading.
+  const noProject = Boolean(freshData) && !projectId;
   const filledCount = missingEntries.filter(
     (entry) => (values[entry.key] ?? "").trim().length > 0,
   ).length;
@@ -225,7 +233,8 @@ export function PreviewPanelDossiers({
     stage !== "integrations";
 
   const handleSaveMissing = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId) return; // save button is disabled until the project id is known
+
     const vars = missingEntries
       .map((entry) => ({ key: entry.key, value: (values[entry.key] ?? "").trim() }))
       .filter((entry) => entry.value.length > 0)
@@ -420,18 +429,18 @@ export function PreviewPanelDossiers({
                     autoComplete="off"
                     spellCheck={false}
                     value={values[entry.key] ?? ""}
-                    disabled={!canSave || saving}
+                    disabled={noProject || saving}
                     onChange={(event) =>
                       setValues((prev) => ({ ...prev, [entry.key]: event.target.value }))
                     }
-                    placeholder={canSave ? "Klistra in riktigt värde" : "Inget projekt kopplat än"}
+                    placeholder={noProject ? "Inget projekt kopplat än" : "Klistra in riktigt värde"}
                     className="h-7 border-gray-700 bg-gray-900 text-[11px] text-gray-100"
                   />
                 </li>
               ))}
             </ul>
             {saveError ? <p className="text-[10px] text-rose-300">{saveError}</p> : null}
-            {!canSave ? (
+            {noProject ? (
               <p className="text-[10px] text-gray-500">
                 Nycklar kan sparas när projektet har kopplats (skapa/spara en version först).
               </p>
@@ -439,7 +448,7 @@ export function PreviewPanelDossiers({
             <Button
               size="sm"
               onClick={handleSaveMissing}
-              disabled={!canSave || saving || filledCount === 0}
+              disabled={saving || filledCount === 0 || !projectId}
               className="h-7 w-full text-[11px]"
             >
               {saving ? (

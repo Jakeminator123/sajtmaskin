@@ -140,7 +140,13 @@ export function PreviewPanelF3Trigger({
       });
       return;
     }
-    if (!versionId) return;
+    if (!versionId) {
+      toast.warning("Ingen aktiv version än", {
+        description:
+          "Vänta tills första versionen är skapad innan du bygger integrationer.",
+      });
+      return;
+    }
     if (productBlocked) {
       toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
