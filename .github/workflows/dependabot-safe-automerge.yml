@@ -1,0 +1,105 @@
+name: Dependabot safe auto-merge
+
+# =============================================================================
+# SAFETY NOTE — READ BEFORE ENABLING AUTO-MERGE
+# =============================================================================
+# The actual merge step (`gh pr merge --auto`) is ONLY safe when the `master`
+# branch requires GREEN status checks before a merge is allowed. As of
+# 2026-07-08 the "Protect master" ruleset requires a PR review but does NOT
+# configure any required status checks. With no required checks, `--auto` would
+# let a Dependabot PR merge as soon as review requirements are met WITHOUT CI
+# having verified it (false-green risk).
+#
+# Therefore the merge step is GATED behind the repository variable
+# DEPENDABOT_AUTOMERGE_ENABLED and is OFF by default. In the default (off)
+# state this workflow ONLY labels eligible patch PRs (metadata only) — it never
+# merges anything.
+#
+# To turn real auto-merge ON:
+#   1. Add required status checks to the "Protect master" ruleset — at minimum
+#      the CI jobs: quality, backoffice-tests, schema-drift.
+#   2. Set the repository variable DEPENDABOT_AUTOMERGE_ENABLED = true.
+# See docs/dependency-policy.md for the full policy.
+# =============================================================================
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Dependabot-triggered runs get a read-only token by default; these explicit
+# permissions elevate the token for THIS workflow only.
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  dependabot-safe-automerge:
+    runs-on: ubuntu-latest
+    # Only act on Dependabot-authored PRs.
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Classify update (patch + non-core only)
+        id: classify
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEP_NAMES: ${{ steps.meta.outputs.dependency-names }}
+        run: |
+          eligible=true
+          reason=""
+
+          # Auto-merge is only ever considered for PATCH updates.
+          if [ "$UPDATE_TYPE" != "version-update:semver-patch" ]; then
+            eligible=false
+            reason="not a patch update ($UPDATE_TYPE)"
+          fi
+
+          # Core packages ALWAYS require a manual PR (docs/dependency-policy.md).
+          # Blocked names: ai, @ai-sdk/*, next, react, react-dom, typescript,
+          # tailwindcss, @tailwindcss/*, eslint, @eslint/*, @types/node, stripe,
+          # openai, recharts. Matching is fail-closed: anything uncertain stays
+          # manual.
+          core_regex='^(ai|openai|stripe|recharts|typescript|next|react|react-dom|@types/node)$|^@ai-sdk/|^tailwindcss$|^@tailwindcss/|^eslint$|^@eslint/'
+          IFS=',' read -ra names <<< "$DEP_NAMES"
+          for raw in "${names[@]}"; do
+            name="$(echo "$raw" | xargs)"
+            [ -z "$name" ] && continue
+            if echo "$name" | grep -Eq "$core_regex"; then
+              eligible=false
+              reason="core package requires manual PR: $name"
+            fi
+          done
+
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "Eligibility: $eligible ${reason:+($reason)}"
+
+      - name: Label eligible patch PR (metadata only — default behavior)
+        if: ${{ steps.classify.outputs.eligible == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create "dependabot-patch-safe" \
+            --repo "$REPO" \
+            --color "0e8a16" \
+            --description "Dependabot patch update eligible for safe auto-merge" \
+            || echo "label already exists"
+          gh pr edit "$PR_URL" --add-label "dependabot-patch-safe"
+
+      - name: Enable auto-merge (GATED — OFF unless required checks + variable are set)
+        # Requires BOTH: an eligible patch PR AND the explicit opt-in variable.
+        # Do NOT set DEPENDABOT_AUTOMERGE_ENABLED=true until "Protect master"
+        # enforces required green status checks (see SAFETY NOTE above).
+        if: ${{ steps.classify.outputs.eligible == 'true' && vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
