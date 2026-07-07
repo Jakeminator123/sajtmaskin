@@ -1,8 +1,10 @@
 ---
 id: stabilisering-2026-07
 title: "Stabilisering 2026-07: init-grön, F3-integrationer och preview/DB-lugn"
-status: active
+status: avklarad
 created: 2026-07-03
+archived: 2026-07-07
+archived_note: "Våg 1–4 kodlevererade (#374–#383). Fas 6 prod-mätning (~2026-07-10) utestående — flyttad till avklarat på ägarens begäran 2026-07-07."
 priority: P1
 owner: "orkestrator (Cursor-agent) + Jake (godkännare av fasstart och merge)"
 sources:
@@ -43,7 +45,7 @@ Jake godkänner fasstart och merge.
 ## 1. Bevisläge (prod-session 2026-07-03, chat cc10e7de)
 
 8 versioner, F2→F3, projekt "Neon Glassblowing 2400". Full evidens:
-[`../../avklarat/stort-framsteg-2026-07-03/2026-07-03_slutrapport.md`](../../avklarat/stort-framsteg-2026-07-03/2026-07-03_slutrapport.md).
+[`../stort-framsteg-2026-07-03/2026-07-03_slutrapport.md`](../stort-framsteg-2026-07-03/2026-07-03_slutrapport.md).
 
 | Fynd | Evidens | Kodläge (verifierat mot master 06351d53) |
 |---|---|---|

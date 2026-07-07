@@ -6,13 +6,12 @@ Lifecycle-kontrakt: [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle
 
 ---
 
-## Aktiv drivlinje: Stabilisering 2026-07 (start 2026-07-03)
+## Stabilisering 2026-07 + Kontrollflöde-konsolidering — kod levererad, arkiverade 2026-07-07
 
-Init-grön, F3-integrationer hela vägen och preview/DB-P2:or stängda — driven av prod-evidensen från live-sessionen 2026-07-03 (chat `cc10e7de`, evidens → [`../avklarat/stort-framsteg-2026-07-03/`](../avklarat/stort-framsteg-2026-07-03/)). **Våg 1 + tidigarelagd Våg 2 levererade 2026-07-03** (PR #374–#378 mergade, tagg `backup_BRA-2000`); Våg 3 pågår → [`stabilisering-2026-07/00-master-plan.md`](stabilisering-2026-07/00-master-plan.md).
+Båda initiativens **kod är levererad och mergad** (stabilisering Våg 1–4 #374–#383; kontrollflöde alla 7 faser #360–#367). Enda kvarvarande punkten är den delade prod-mätavstämningen (~2026-07-10) + beslutsunderlag (P34 lint C–E, postcheck advisory→hard, partial-file-utfasning, verifier-frekvens). Planerna flyttades till `avklarat/` på ägarens begäran 2026-07-07 (mätningen görs mot de arkiverade planerna):
 
-## Kontrollflöde-konsolidering (kod levererad, väntar mätning ~2026-07-10)
-
-Färre, tidigare, mätbara kontroller i LLM-flödet: import-normalisering uppströms, riskScore i stället för `fixCount>5`, en repair-port (RepairGate/L1), preview-resync vid restore, terminologi + mätning. Alla 7 faser mergade (#360–#367); kvar är prod-mätavstämningen (~2026-07-10, delas med stabiliserings-planen) + beslutsunderlag → [`kontrollflode/00-master-plan.md`](kontrollflode/00-master-plan.md). Underlag: `kontrollflödesmapp/` (prod-statistik 14 d + coach-analys, kodverifierad 2026-07-02).
+- [`../avklarat/stabilisering-2026-07/00-master-plan.md`](../avklarat/stabilisering-2026-07/00-master-plan.md)
+- [`../avklarat/kontrollflode/00-master-plan.md`](../avklarat/kontrollflode/00-master-plan.md) — underlag (f.d. `kontrollflödesmapp/`) i [`../avklarat/kontrollflode/underlag/`](../avklarat/kontrollflode/underlag/).
 
 ## Status: Grandmaster-plan AVKLARAD (arkiverad 2026-06-22)
 
@@ -71,6 +70,8 @@ Längre horisont (ej P1/P2): core-split v2, WebContainers-migration, ÅÄÖ pre-
 Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-arkitektur — render-worker vs instrumenterad preview → [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md).
 
 Beslutsunderlag (scope, ej startat): PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
+
+Repo-cleanup 2026-07-07 (levererat: 4 bevisat-döda ytor raderade; kvar: 3 ägarbeslut C1–C3 + auth-refaktor R1) → [`2026-07-07-repo-cleanup.md`](2026-07-07-repo-cleanup.md).
 
 Levererat (kod): #4 distribuerat per-version-lås (`engine_version_jobs`) för server-verify/repair via **#256** (2026-06-27) + base-bound repair-save/accept via **#265** (2026-06-28, stänger #260 P2 #5) + #260 **P2 #4** (quality-gate höll leasen över verify-budgeten) löst via **#276** och härdat via **#284** (verify-timeout härleds nu från route-budgeten med marginal). #260 är därmed helt stängd i koden. **Enda kvarvarande punkten är ägarens manuella prod-migration av `engine_version_jobs`** (runbook i plan-doc) → [`../avklarat/2026-06-27-server-verify-distributed-lock.md`](../avklarat/2026-06-27-server-verify-distributed-lock.md).
 

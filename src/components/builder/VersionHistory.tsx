@@ -263,6 +263,7 @@ export function VersionHistory({
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
+  const [disconnectingGitHub, setDisconnectingGitHub] = useState(false);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [diagnosticsVersionId, setDiagnosticsVersionId] = useState<string | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
@@ -450,6 +451,32 @@ export function VersionHistory({
       toast.error(error instanceof Error ? error.message : "Failed to export to GitHub");
     } finally {
       setExportingGitHubVersionId(null);
+    }
+  };
+
+  const handleDisconnectGitHub = async () => {
+    if (disconnectingGitHub) return;
+    if (
+      !window.confirm(
+        "Koppla från GitHub? Du kan koppla igen när som helst, men export kräver en ny koppling.",
+      )
+    ) {
+      return;
+    }
+    setDisconnectingGitHub(true);
+    try {
+      const res = await fetch("/api/auth/github/disconnect", { method: "POST" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || `Kunde inte koppla från GitHub (HTTP ${res.status})`);
+      }
+      await fetchUser();
+      toast.success("GitHub frånkopplat");
+    } catch (error) {
+      console.error("GitHub disconnect error:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte koppla från GitHub");
+    } finally {
+      setDisconnectingGitHub(false);
     }
   };
 
@@ -656,10 +683,21 @@ export function VersionHistory({
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           {isAuthenticated ? (
             hasGitHub ? (
-              <Badge variant="secondary" className="gap-1">
-                <GitBranch className="h-3 w-3" />
-                GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ""}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="gap-1">
+                  <GitBranch className="h-3 w-3" />
+                  GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ""}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDisconnectGitHub}
+                  disabled={disconnectingGitHub}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {disconnectingGitHub ? "Kopplar från…" : "Koppla från"}
+                </Button>
+              </div>
             ) : (
               <Button
                 variant="outline"

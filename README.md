@@ -4,7 +4,7 @@ Detta är repo-rotens **snabba ingång** för människor och LLM:er som arbetar 
 
 Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orientering** över det committade trädet. Kod är alltid source of truth.
 
-> Gäller den **committade** versionen av repot på `master` per **2026-06-23** (rotkartan synkad mot faktisk struktur; LLM-fasen konsoliderad till [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md)). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
+> Gäller den **committade** versionen av repot på `master` per **2026-07-07** (rotkartan synkad mot faktisk struktur; LLM-fasen konsoliderad till [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md)). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
 
 ## Borja har
 
