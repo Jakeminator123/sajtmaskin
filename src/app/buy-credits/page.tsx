@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
+import { CREDIT_COST_BREAKDOWN } from "@/lib/credits/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -141,7 +142,13 @@ function BuyCreditsContent() {
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // #36: don't assert purchase success from the URL alone. After Stripe
+  // redirects back we poll the real balance until the webhook has credited
+  // the account, and only then show success.
+  const [purchaseState, setPurchaseState] = useState<
+    "idle" | "confirming" | "confirmed" | "pending_slow"
+  >("idle");
+  const purchaseBaselineRef = useRef<number | null>(null);
 
   // ─── SajtStudio form state ────────────────────────────────────
   const [formStep, setFormStep] = useState(0);
@@ -163,9 +170,16 @@ function BuyCreditsContent() {
   useEffect(() => {
     const success = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
-    if (success === "true" && sessionId) {
-      setSuccessMessage("Tack för ditt köp! Credits har lagts till på ditt konto.");
-      fetchUser();
+    if (success === "true" && sessionId && purchaseState === "idle") {
+      // Snapshot the balance now, then poll until it increases (webhook landed).
+      purchaseBaselineRef.current = diamonds;
+      setPurchaseState("confirming");
+      // Strip the params so a refresh can't re-trigger a fake "success".
+      const cleaned = new URLSearchParams(searchParams.toString());
+      cleaned.delete("success");
+      cleaned.delete("session_id");
+      const cleanedQuery = cleaned.toString();
+      router.replace(cleanedQuery ? `${pathname}?${cleanedQuery}` : pathname);
     }
 
     const login = searchParams.get("login");
@@ -207,11 +221,49 @@ function BuyCreditsContent() {
     nextParams.delete("reason");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
-  }, [fetchUser, pathname, router, searchParams]);
+  }, [fetchUser, pathname, router, searchParams, diamonds, purchaseState]);
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // #36: while confirming a purchase, poll the balance until the webhook
+  // credits the account (or give up after ~16s and show a soft "kan dröja").
+  useEffect(() => {
+    if (purchaseState !== "confirming") return;
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 8;
+    const poll = () => {
+      void fetchUser();
+    };
+    poll();
+    const interval = setInterval(() => {
+      if (cancelled) return;
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        setPurchaseState((s) => (s === "confirming" ? "pending_slow" : s));
+        return;
+      }
+      poll();
+    }, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [purchaseState, fetchUser]);
+
+  // Balance increased past the pre-purchase baseline → webhook landed.
+  useEffect(() => {
+    if (
+      purchaseState === "confirming" &&
+      purchaseBaselineRef.current !== null &&
+      diamonds > purchaseBaselineRef.current
+    ) {
+      setPurchaseState("confirmed");
+    }
+  }, [diamonds, purchaseState]);
 
   // ─── Stripe checkout handler ──────────────────────────────────
   const handlePurchase = async (packageId: string) => {
@@ -314,11 +366,30 @@ function BuyCreditsContent() {
             )}
           </div>
 
-          {/* Success message */}
-          {successMessage && (
+          {/* Purchase confirmation (verified against real balance, not the URL) */}
+          {purchaseState === "confirming" && (
+            <div className="mb-8 flex items-center gap-3 rounded-lg border border-brand-amber/30 bg-brand-amber/5 p-4">
+              <Loader2 className="text-brand-amber h-5 w-5 shrink-0 animate-spin" />
+              <p className="text-brand-amber text-sm">
+                Bekräftar ditt köp… det tar oftast bara några sekunder.
+              </p>
+            </div>
+          )}
+          {purchaseState === "confirmed" && (
             <div className="mb-8 flex items-center gap-3 rounded-lg border border-brand-teal/30 bg-brand-teal/5 p-4">
               <CheckCircle className="text-brand-teal h-5 w-5 shrink-0" />
-              <p className="text-brand-teal text-sm">{successMessage}</p>
+              <p className="text-brand-teal text-sm">
+                Tack för ditt köp! Dina credits har lagts till på ditt konto.
+              </p>
+            </div>
+          )}
+          {purchaseState === "pending_slow" && (
+            <div className="mb-8 flex items-center gap-3 rounded-lg border border-border bg-card/60 p-4">
+              <Loader2 className="text-muted-foreground h-5 w-5 shrink-0" />
+              <p className="text-muted-foreground text-sm">
+                Betalningen registrerades. Det kan ta en liten stund innan saldot uppdateras —
+                ladda om sidan om en stund om det inte redan syns.
+              </p>
             </div>
           )}
 
@@ -439,39 +510,39 @@ function BuyCreditsContent() {
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2 max-w-2xl mx-auto">
                   {[
-                    { label: "Generering (Mini)", cost: "5", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Pro)", cost: "7", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Max)", cost: "10", icon: Wand2, color: "text-brand-teal" },
-                    { label: "Förfining (Mini)", cost: "3", icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Pro)", cost: "4", icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Max)", cost: "6", icon: Zap, color: "text-brand-amber" },
+                    { label: "Generering (Mini)", cost: CREDIT_COST_BREAKDOWN.generateMini, icon: Wand2, color: "text-brand-teal" },
+                    { label: "Generering (Pro)", cost: CREDIT_COST_BREAKDOWN.generatePro, icon: Wand2, color: "text-brand-teal" },
+                    { label: "Generering (Max)", cost: CREDIT_COST_BREAKDOWN.generateMax, icon: Wand2, color: "text-brand-teal" },
+                    { label: "Förfining (Mini)", cost: CREDIT_COST_BREAKDOWN.refineMini, icon: Zap, color: "text-brand-amber" },
+                    { label: "Förfining (Pro)", cost: CREDIT_COST_BREAKDOWN.refinePro, icon: Zap, color: "text-brand-amber" },
+                    { label: "Förfining (Max)", cost: CREDIT_COST_BREAKDOWN.refineMax, icon: Zap, color: "text-brand-amber" },
                     {
                       label: "Wizard-läge",
-                      cost: "11",
+                      cost: CREDIT_COST_BREAKDOWN.wizard,
                       icon: Sparkles,
                       color: "text-brand-blue",
                     },
                     {
                       label: "Audit (Basic)",
-                      cost: "15",
+                      cost: CREDIT_COST_BREAKDOWN.auditBasic,
                       icon: Globe,
                       color: "text-brand-warm",
                     },
                     {
                       label: "Audit (Advanced)",
-                      cost: "25",
+                      cost: CREDIT_COST_BREAKDOWN.auditAdvanced,
                       icon: Globe,
                       color: "text-brand-warm",
                     },
                     {
                       label: "Publicering",
-                      cost: "20",
+                      cost: CREDIT_COST_BREAKDOWN.deploy,
                       icon: ArrowRight,
                       color: "text-muted-foreground",
                     },
                     {
                       label: "Hosting (per månad)",
-                      cost: "10",
+                      cost: 10,
                       icon: Globe,
                       color: "text-muted-foreground",
                     },

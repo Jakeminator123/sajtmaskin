@@ -5,6 +5,24 @@ import { transactions, users } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { Transaction } from "./shared";
 
+/**
+ * Thrown by {@link createTransaction} when `rejectIfNegative` is set and the
+ * debit would drive the balance below zero. Charge-FIRST call sites (e.g. the
+ * deploy route) catch this and return 402 before delivering anything, so a
+ * raced/insufficient debit can neither overdraft nor become a free delivery.
+ */
+export class InsufficientCreditsError extends Error {
+  readonly code = "INSUFFICIENT_CREDITS" as const;
+  readonly required: number;
+  readonly available: number;
+  constructor(required: number, available: number) {
+    super(`Insufficient credits: need ${required}, have ${available}`);
+    this.name = "InsufficientCreditsError";
+    this.required = required;
+    this.available = available;
+  }
+}
+
 export async function createTransaction(
   userId: string,
   type: string,
@@ -12,6 +30,7 @@ export async function createTransaction(
   description?: string,
   stripePaymentIntent?: string,
   stripeSessionId?: string,
+  options?: { rejectIfNegative?: boolean },
 ): Promise<Transaction> {
   assertDbConfigured();
 
@@ -31,7 +50,17 @@ export async function createTransaction(
       throw new Error("User not found");
     }
 
-    const newBalance = (lockedUser.diamonds || 0) + amount;
+    const currentBalance = lockedUser.diamonds || 0;
+    const newBalance = currentBalance + amount;
+
+    // Opt-in guard, evaluated inside the FOR UPDATE lock so two concurrent
+    // debits can't both pass on the same balance. Default (undefined) keeps
+    // the historical overdraft-tolerant behavior for charge-AFTER call sites,
+    // where throwing here would silently drop an already-delivered charge.
+    if (options?.rejectIfNegative && newBalance < 0) {
+      throw new InsufficientCreditsError(Math.abs(amount), currentBalance);
+    }
+
     const now = new Date();
 
     await tx

@@ -161,7 +161,20 @@ export type PreparedCredits =
       isTest: boolean;
       sessionId: string | null;
       guestUsageType: GuestUsageType | null;
-      commit: () => Promise<void>;
+      /**
+       * Charge the credits. Pass `{ rejectIfNegative: true }` from charge-FIRST
+       * call sites so a raced/insufficient debit throws `InsufficientCreditsError`
+       * (before anything is delivered) instead of writing a negative balance.
+       * Charge-AFTER call sites should omit it (overdraft-tolerant, so an
+       * already-delivered charge is never silently dropped).
+       */
+      commit: (options?: { rejectIfNegative?: boolean }) => Promise<void>;
+      /**
+       * Reverse a previously committed charge (credits the same cost back).
+       * Used by charge-FIRST paths when the delivered action fails after the
+       * debit landed. No-op for guests / test users / zero-cost actions.
+       */
+      refund: () => Promise<void>;
     }
   | { ok: false; cost: number; response: Response };
 
@@ -194,7 +207,7 @@ export async function prepareCredits(
     return { ok: false, cost: evaluation.cost, response };
   }
 
-  const commit = async () => {
+  const commit = async (commitOptions?: { rejectIfNegative?: boolean }) => {
     if (evaluation.user) {
       if (evaluation.isTest || evaluation.cost <= 0) return;
       await createTransaction(
@@ -202,6 +215,9 @@ export async function prepareCredits(
         getCreditTransactionType(action),
         -evaluation.cost,
         getCreditDescription(action, context),
+        undefined,
+        undefined,
+        commitOptions,
       );
       return;
     }
@@ -209,6 +225,16 @@ export async function prepareCredits(
     if (evaluation.guestUsageType && evaluation.sessionId) {
       await incrementGuestUsage(evaluation.sessionId, evaluation.guestUsageType);
     }
+  };
+
+  const refund = async () => {
+    if (!evaluation.user || evaluation.isTest || evaluation.cost <= 0) return;
+    await createTransaction(
+      evaluation.user.id,
+      `${getCreditTransactionType(action)}_refund`,
+      evaluation.cost,
+      `Återbetalning: ${getCreditDescription(action, context)}`,
+    );
   };
 
   return {
@@ -221,5 +247,6 @@ export async function prepareCredits(
     sessionId: evaluation.sessionId,
     guestUsageType: evaluation.guestUsageType,
     commit,
+    refund,
   };
 }

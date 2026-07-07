@@ -68,6 +68,22 @@ const DEPLOY_COSTS = {
 
 const OPENCLAW_TIP_COST = 2;
 
+// ─── Canonical cost breakdown (single source for the pricing UI) ──
+// The buy-credits page reads these instead of hardcoding numbers, so the
+// displayed "Vad kostar det?" table can never drift from the real charges.
+export const CREDIT_COST_BREAKDOWN = {
+  generateMini: PROMPT_CREATE_COSTS.fast,
+  generatePro: PROMPT_CREATE_COSTS.pro,
+  generateMax: PROMPT_CREATE_COSTS.max,
+  refineMini: PROMPT_REFINE_COSTS.fast,
+  refinePro: PROMPT_REFINE_COSTS.pro,
+  refineMax: PROMPT_REFINE_COSTS.max,
+  wizard: WIZARD_COST,
+  auditBasic: AUDIT_COSTS.basic,
+  auditAdvanced: AUDIT_COSTS.advanced,
+  deploy: DEPLOY_COSTS.production,
+} as const;
+
 // ─── Action classification ────────────────────────────────────────
 const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
   "prompt.create",
