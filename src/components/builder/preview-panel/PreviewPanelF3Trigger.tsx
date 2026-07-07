@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -126,6 +127,11 @@ export function PreviewPanelF3Trigger({
   }, [chatId, versionId]);
 
   const handleClick = useCallback(async () => {
+    // Guard the programmatic (retry-event) path: without a version the finalize
+    // body would be `{}` and the server can't anchor the F3 step; while busy a
+    // second finalize could race the running stream. The button is already
+    // disabled for these, but the event path bypasses `disabled`.
+    if (isBusy || !versionId) return;
     if (productBlocked) {
       toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
@@ -206,7 +212,22 @@ export function PreviewPanelF3Trigger({
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, versionId, onReady, onMissingEnv, productBlocked]);
+  }, [chatId, versionId, onReady, onMissingEnv, productBlocked, isBusy]);
+
+  // Re-run the finalize flow when the Dossiers popover asks for a rebuild
+  // (after the user fills the previously-missing keys). A ref keeps the
+  // listener stable while always calling the latest `handleClick`.
+  const handleClickRef = useRef(handleClick);
+  useEffect(() => {
+    handleClickRef.current = handleClick;
+  }, [handleClick]);
+  useEffect(() => {
+    const handler = () => {
+      void handleClickRef.current();
+    };
+    window.addEventListener(F3_REBUILD_REQUEST_EVENT, handler);
+    return () => window.removeEventListener(F3_REBUILD_REQUEST_EVENT, handler);
+  }, []);
 
   // Block the click if we don't yet have a concrete versionId — otherwise
   // the request body becomes `{}` and the server can't anchor the F3 step

@@ -33,6 +33,44 @@ export function openIntegrationsPanel(): void {
   window.dispatchEvent(new CustomEvent("integrations-panel-open"));
 }
 
+/**
+ * Ask the preview-toolbar "Dossiers" popover to open, optionally highlighting a
+ * set of env keys that still need real values. Unlike `ProjectEnvVarsPanel`,
+ * `PreviewPanelDossiers` is mounted in the preview chrome in BOTH F2 and F3, so
+ * this is the F2-safe way to route the user to a key-entry surface after a
+ * finalize-design 412 or from an integration chat card.
+ */
+export const DOSSIERS_PANEL_OPEN_EVENT = "sajtmaskin:dossiers-panel-open";
+
+export function openDossiersPanel(envKeys?: string[]): void {
+  if (typeof window === "undefined") return;
+  const detail =
+    Array.isArray(envKeys) && envKeys.length > 0 ? { envKeys } : { envKeys: [] as string[] };
+  window.dispatchEvent(new CustomEvent<{ envKeys: string[] }>(DOSSIERS_PANEL_OPEN_EVENT, { detail }));
+}
+
+export function readDossiersPanelOpenDetail(event: Event): { envKeys: string[] } {
+  const customEvent = event as CustomEvent<{ envKeys?: unknown }>;
+  const raw = customEvent.detail?.envKeys;
+  const envKeys = Array.isArray(raw)
+    ? raw.filter((key): key is string => typeof key === "string" && key.trim().length > 0)
+    : [];
+  return { envKeys };
+}
+
+/**
+ * Ask `PreviewPanelF3Trigger` to re-run the "Bygg integrationer" (finalize-design)
+ * flow. Dispatched by the Dossiers popover after the user fills the previously
+ * missing env keys, so the single owner of the finalize logic (the trigger)
+ * stays the only place that talks to `/finalize-design`.
+ */
+export const F3_REBUILD_REQUEST_EVENT = "sajtmaskin:f3-rebuild-request";
+
+export function requestF3Rebuild(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(F3_REBUILD_REQUEST_EVENT));
+}
+
 export const PROJECT_ENV_VARS_UPDATED_EVENT = "sajtmaskin:project-env-vars-updated";
 
 export type ProjectEnvVarsUpdatedDetail = {
