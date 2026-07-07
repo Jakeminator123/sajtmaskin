@@ -75,6 +75,20 @@ describe("buildUserPromptContent — attached media", () => {
     expect(isVideoRequestAttachment(notVideo)).toBe(false);
   });
 
+  it("never classifies one attachment as both image and video (mime wins over extension)", () => {
+    // image MIME but a .mp4 filename must resolve to image only
+    const imageMimeVideoExt: RequestAttachment = {
+      url: `${BLOB}/weird.mp4`,
+      filename: "weird.mp4",
+      mimeType: "image/jpeg",
+    };
+    expect(isVideoRequestAttachment(imageMimeVideoExt)).toBe(false);
+
+    const text = textOf(buildUserPromptContent("Använd bilden", [imageMimeVideoExt]));
+    expect(text).toContain("**Images**");
+    expect(text).not.toContain("**Videos**");
+  });
+
   it("normalizeRequestAttachments keeps url + metadata and drops junk", () => {
     const normalized = normalizeRequestAttachments([
       { url: `${BLOB}/a.jpg`, filename: "a.jpg", mimeType: "image/jpeg", size: 1234 },

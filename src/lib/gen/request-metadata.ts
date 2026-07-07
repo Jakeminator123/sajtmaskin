@@ -62,6 +62,10 @@ function isImageAttachment(attachment: RequestAttachment): boolean {
 function isVideoAttachment(attachment: RequestAttachment): boolean {
   const mime = (getAttachmentMediaType(attachment) || "").toLowerCase();
   if (mime.startsWith("video/")) return true;
+  // A known image MIME wins over a filename-extension guess so an attachment is
+  // never classified as both image and video (which would emit conflicting
+  // <Image> + <video> embed instructions for the same URL).
+  if (mime.startsWith("image/")) return false;
   const source = (asTrimmedString(attachment.filename) || attachment.url || "").toLowerCase();
   return /\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(source);
 }
