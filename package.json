@@ -20,8 +20,6 @@
     "dev:clean": "node scripts/dev/clean-next-cache.mjs && npm run dev",
     "clean:orphans": "node scripts/dev/clean-orphans.mjs",
     "clean:orphans:dry": "node scripts/dev/clean-orphans.mjs --dry-run",
-    "clean:scratch": "node scripts/dev/clean-scratch.mjs",
-    "clean:scratch:apply": "node scripts/dev/clean-scratch.mjs --apply",
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",
     "dev:fast": "node scripts/dev/dev-fast.mjs",
     "refresh-token": "node scripts/dev/refresh-token.mjs",
