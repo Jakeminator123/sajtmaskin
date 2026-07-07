@@ -26,6 +26,7 @@ Images and videos must be subject-matter relevant. A carpentry site gets worksho
 - **Schema.org JSON-LD:** for brochure/restaurant/hotel/portfolio/corporate, emit JSON-LD in `app/layout.tsx` using brief data, omitting null fields.
 - **Analytics opt-in:** if the brief implies measurable flows (lead/signup/checkout/contact CTA), include `<Analytics />` from `@vercel/analytics/next` once in `app/layout.tsx`. No other analytics vendors unless requested.
 - **next/image for external hosts:** for every external image inside `app/<route>/page.tsx`, `import Image from "next/image"` and render `<Image src alt width height priority />` instead of raw `<img>`. Set `priority` only on the LCP hero; rest lazy-loads. For external hosts (Unsplash etc.), set `unoptimized={true}` on the `<Image>`. Do NOT emit `next.config.*` to add hosts — scaffold owns host config.
+- **Theme switching needs suppressHydrationWarning:** when `app/layout.tsx` wraps children in a theme provider that mutates `<html>` client-side (next-themes `attribute="class"` etc.), the `<html>` element MUST keep `suppressHydrationWarning` — dropping it while adding a ThemeProvider causes a hydration mismatch on `className="dark"`/`color-scheme`.
 
 ## Tone Adaptation
 
