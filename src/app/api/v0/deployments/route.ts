@@ -568,8 +568,12 @@ export async function POST(req: Request) {
       });
 
       // Pengaväg: track whether the credit debit landed so we can refund it if
-      // the (irreversible) Vercel deploy fails after we charged.
+      // the (irreversible) Vercel deploy fails after we charged. `deploymentDelivered`
+      // flips true the moment Vercel accepts the deploy — after that a later error
+      // (e.g. status/telemetry write) must NOT refund, or the user keeps a live
+      // deploy AND their credits back.
       let creditCharged = false;
+      let deploymentDelivered = false;
 
       try {
         const vercelProjectName = sanitizeVercelProjectName(
@@ -677,6 +681,9 @@ export async function POST(req: Request) {
             files: vercelFiles,
           envVars: envVarsForDeploy,
         });
+        // Vercel accepted the deploy — it's now live/irreversible, so a later
+        // failure below must not refund the charge.
+        deploymentDelivered = true;
 
         if (created.vercelProjectId) {
           const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
@@ -745,9 +752,10 @@ export async function POST(req: Request) {
         // Fas 0 telemetri-hygien: registrera deploy-fel på versionens
         // telemetri-rad innan felet bubblar upp (best-effort).
         await recordDeployResultForVersion(versionId, `${deployTarget}:error`);
-        // Pengaväg: vi debiterade före Vercel-anropet — refundera eftersom
-        // leveransen fallerade (best-effort, får aldrig maskera deploy-felet).
-        if (creditCharged && creditCheck) {
+        // Pengaväg: vi debiterade före Vercel-anropet — refundera BARA om
+        // leveransen aldrig blev live (annars behåller användaren en live deploy
+        // och får krediterna tillbaka). Best-effort; får aldrig maskera felet.
+        if (creditCharged && !deploymentDelivered && creditCheck) {
           try {
             await creditCheck.refund();
           } catch (refundErr) {

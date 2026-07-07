@@ -137,7 +137,7 @@ function BuyCreditsContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { isAuthenticated, diamonds, fetchUser } = useAuth();
+  const { isAuthenticated, isInitialized, diamonds, fetchUser } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
@@ -170,8 +170,11 @@ function BuyCreditsContent() {
   useEffect(() => {
     const success = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
-    if (success === "true" && sessionId && purchaseState === "idle") {
-      // Snapshot the balance now, then poll until it increases (webhook landed).
+    if (success === "true" && sessionId && purchaseState === "idle" && isInitialized) {
+      // Snapshot the balance only once auth has hydrated (isInitialized), so a
+      // pre-hydration 0 isn't mistaken for the baseline — otherwise the persisted
+      // balance rehydrating would look like a purchase. Then poll until it
+      // increases past this baseline (webhook landed).
       purchaseBaselineRef.current = diamonds;
       setPurchaseState("confirming");
       // Strip the params so a refresh can't re-trigger a fake "success".
@@ -221,7 +224,7 @@ function BuyCreditsContent() {
     nextParams.delete("reason");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
-  }, [fetchUser, pathname, router, searchParams, diamonds, purchaseState]);
+  }, [fetchUser, pathname, router, searchParams, diamonds, purchaseState, isInitialized]);
 
   useEffect(() => {
     fetchUser();
@@ -254,10 +257,12 @@ function BuyCreditsContent() {
     };
   }, [purchaseState, fetchUser]);
 
-  // Balance increased past the pre-purchase baseline → webhook landed.
+  // Balance increased past the pre-purchase baseline → webhook landed. Promote
+  // from either "confirming" or "pending_slow" so a webhook that lands after the
+  // poll timeout still flips the UI to success (if the balance later refreshes).
   useEffect(() => {
     if (
-      purchaseState === "confirming" &&
+      (purchaseState === "confirming" || purchaseState === "pending_slow") &&
       purchaseBaselineRef.current !== null &&
       diamonds > purchaseBaselineRef.current
     ) {
