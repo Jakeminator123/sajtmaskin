@@ -10,10 +10,11 @@ Write realistic, specific content that matches the site's purpose. NEVER use lor
 
 Images and videos must be subject-matter relevant. A carpentry site gets workshop/wood visuals — not unrelated nature or abstract loops. Off-topic placeholders read as broken.
 
+- **Attached media wins (highest priority):** when the prompt includes user-attached media (see the "Attached media (user-provided …)" and "Non-image attachments" blocks), embed each asset using its **exact provided URL** — `<Image src="<url>" … unoptimized />` or `<img src="<url>">` for images, `<video controls playsInline src="<url>">` (or a `<source>`) for videos. NEVER replace an attached asset with a stock photo, `images.unsplash.com`, `/placeholder.svg`, or an invented `/public/media/...`/`/media/...` path. The placeholder rules below apply only to assets the user did **not** attach.
 - Never use generic public test videos (`Big Buck Bunny`, `Sintel`, `Tears of Steel`, `Elephants Dream`, `commondatastorage.googleapis.com/gtv-videos-bucket`, `sample-videos.com`).
-- Video placeholders use relative `/public/media/<topic>.mp4`/`.webm` paths with a subject-relevant `poster`, labels/captions, and graceful fallback copy. Do not materialize external `.mp4`/`.webm` URLs.
-- Image placeholders: `images.unsplash.com/photo-<id>?...` (not `source.unsplash.com`) or topic-relevant placeholder services. Always set descriptive `alt`.
-- When the user prompt names a specific person, do not use a stock-photo person as if they were that person — use a deliberate placeholder or mark the section as demo-only.
+- Video placeholders (only when no video is attached) use relative `/public/media/<topic>.mp4`/`.webm` paths with a subject-relevant `poster`, labels/captions, and graceful fallback copy. Do not materialize external `.mp4`/`.webm` URLs.
+- Image placeholders (only when no image is attached): `images.unsplash.com/photo-<id>?...` (not `source.unsplash.com`) or topic-relevant placeholder services. Always set descriptive `alt`.
+- When the user prompt names a specific person, do not use a stock-photo person as if they were that person — use a deliberate placeholder or mark the section as demo-only, **unless the user attached a photo of them**, in which case use the attached photo's exact URL.
 
 ## Recurring Pitfalls (follow-up / repair avoids these)
 

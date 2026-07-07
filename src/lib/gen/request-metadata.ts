@@ -59,6 +59,17 @@ function isImageAttachment(attachment: RequestAttachment): boolean {
   return (getAttachmentMediaType(attachment) || "").startsWith("image/");
 }
 
+function isVideoAttachment(attachment: RequestAttachment): boolean {
+  const mime = (getAttachmentMediaType(attachment) || "").toLowerCase();
+  if (mime.startsWith("video/")) return true;
+  // A known image MIME wins over a filename-extension guess so an attachment is
+  // never classified as both image and video (which would emit conflicting
+  // <Image> + <video> embed instructions for the same URL).
+  if (mime.startsWith("image/")) return false;
+  const source = (asTrimmedString(attachment.filename) || attachment.url || "").toLowerCase();
+  return /\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(source);
+}
+
 /** MIME type for an attachment (filename/url fallback). */
 export function getRequestAttachmentMediaType(
   attachment: RequestAttachment,
@@ -70,8 +81,17 @@ export function isImageRequestAttachment(attachment: RequestAttachment): boolean
   return isImageAttachment(attachment);
 }
 
+export function isVideoRequestAttachment(attachment: RequestAttachment): boolean {
+  return isVideoAttachment(attachment);
+}
+
 function formatNonImageAttachmentDescriptors(attachments: RequestAttachment[]): string {
-  const nonVisual = attachments.filter((a) => !isImageAttachment(a));
+  // Images and videos are handled by formatEmbeddableMediaReferences (they get
+  // explicit "embed with the exact URL" instructions). This block covers the
+  // remaining document/reference files (PDF, text, etc.).
+  const nonVisual = attachments.filter(
+    (a) => !isImageAttachment(a) && !isVideoAttachment(a),
+  );
   if (nonVisual.length === 0) return "";
 
   const lines: string[] = [
@@ -137,14 +157,65 @@ function getVisualReferenceAttachments(
     }));
 }
 
+/**
+ * Emits a text block that hands the model the EXACT URLs of user-attached
+ * images/videos so it can wire them into `<img>`/`next/image`/`<video>` `src`
+ * attributes. Images are also passed on the multimodal (vision) channel, but
+ * the model needs the URL as *text* to reproduce it in code — without this it
+ * fabricates non-existent local paths like `/media/<name>.jpg` (see the
+ * "Attached media wins" rule in config/prompt-core/04-coding-direction.md).
+ */
+function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): string {
+  const images = attachments.filter((a) => isImageAttachment(a));
+  const videos = attachments.filter((a) => isVideoAttachment(a));
+  if (images.length === 0 && videos.length === 0) return "";
+
+  const describe = (a: RequestAttachment, fallback: string): string[] => {
+    const name = asTrimmedString(a.filename) || getFilenameFromUrl(a.url) || fallback;
+    const mime = getAttachmentMediaType(a) || fallback;
+    const purpose = asTrimmedString(a.purpose);
+    return [`- **${name}** (${mime})${purpose ? ` — purpose: ${purpose}` : ""}`, `  - URL: ${a.url}`];
+  };
+
+  const lines: string[] = [
+    "## Attached media (user-provided — use these exact assets)",
+    "",
+    "Embed each asset below using its EXACT URL. Do NOT invent local `/media/...` or `/public/media/...` paths, and do NOT swap in a stock photo or `/placeholder.svg` for an attached asset.",
+    "",
+  ];
+
+  if (images.length > 0) {
+    lines.push(
+      '**Images** — render with `next/image` `<Image src="<url>" … unoptimized />` (or a plain `<img>`); always set a descriptive `alt`:',
+      "",
+    );
+    for (const a of images) lines.push(...describe(a, "image"));
+    lines.push("");
+  }
+
+  if (videos.length > 0) {
+    lines.push(
+      '**Videos** — embed with `<video controls playsInline src="<url>" …>` (or a `<source>` child) using the exact URL; add a subject-relevant `poster` and graceful fallback copy:',
+      "",
+    );
+    for (const a of videos) lines.push(...describe(a, "video"));
+    lines.push("");
+  }
+
+  return lines.join("\n").trimEnd();
+}
+
 export function buildUserPromptContent(
   prompt: string,
   attachments?: RequestAttachment[],
 ): UserPromptContent {
   const list = attachments ?? [];
   const trimmed = prompt.trimEnd();
+  const mediaReferenceBlock = formatEmbeddableMediaReferences(list);
   const descriptorBlock = formatNonImageAttachmentDescriptors(list);
-  const textPrompt = descriptorBlock ? `${trimmed}\n\n${descriptorBlock}` : trimmed;
+  const textPrompt = [trimmed, mediaReferenceBlock, descriptorBlock]
+    .filter((section) => section.length > 0)
+    .join("\n\n");
 
   const visualAttachments = getVisualReferenceAttachments(list);
   if (visualAttachments.length === 0) return textPrompt;
