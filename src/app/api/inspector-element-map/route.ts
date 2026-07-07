@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import { isDisallowedHost } from "@/lib/security/is-disallowed-host";
+import { isDisallowedHost, isLoopbackHost } from "@/lib/security/is-disallowed-host";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -169,20 +169,14 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
-  // Same-origin exemption: the compatibility preview (/api/preview-render) is
-  // expanded to the app's own origin client-side, so in local dev the target
-  // host is the app itself (e.g. localhost:3000). Allow an EXACT host match
-  // (incl. port) so the own-fallback preview keeps working, while arbitrary
-  // private/loopback targets (other ports, metadata IPs) stay blocked.
-  const requestHost = (() => {
-    try {
-      return new URL(req.url).host.toLowerCase();
-    } catch {
-      return "";
-    }
-  })();
-  const isSameOriginPreview = requestHost.length > 0 && target.host.toLowerCase() === requestHost;
-  if (!isSameOriginPreview && isDisallowedHost(target.hostname)) {
+  // Loopback exemption: the compatibility preview (/api/preview-render) is
+  // expanded client-side to the app's own origin, which in local dev is loopback
+  // (e.g. localhost:3000). Re-allow ONLY loopback so the own-fallback preview
+  // keeps working in dev, while private/metadata targets stay blocked. This must
+  // be derived from the parsed target host — NOT from req.url / the Host header,
+  // which is client-controllable and would let a caller forge same-origin and
+  // drive Playwright to a private/metadata host.
+  if (!isLoopbackHost(target.hostname) && isDisallowedHost(target.hostname)) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 

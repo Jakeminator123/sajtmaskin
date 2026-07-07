@@ -61,3 +61,21 @@ export function isDisallowedHost(hostname: string): boolean {
   if (ipVersion === 6) return isPrivateIpv6(host);
   return false;
 }
+
+/**
+ * Narrow loopback check: `localhost` / `*.localhost` / `127.0.0.0/8` / `::1`.
+ *
+ * Used to re-allow the app's OWN origin (which is loopback in local dev) through
+ * the SSRF guard for the compatibility preview, WITHOUT re-allowing other
+ * private/metadata ranges. The argument MUST be derived from a parsed URL host
+ * (e.g. `new URL(body.url).hostname`) — never from the client-controllable
+ * `Host` header, or a caller could forge same-origin and bypass the guard.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  const host = normalizeHost(hostname);
+  if (!host) return false;
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1") return true;
+  if (net.isIP(host) === 4) return host.startsWith("127.");
+  return false;
+}
