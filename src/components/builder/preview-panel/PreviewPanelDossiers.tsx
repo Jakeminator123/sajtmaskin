@@ -21,6 +21,7 @@ import {
 import {
   DOSSIERS_PANEL_OPEN_EVENT,
   dispatchProjectEnvVarsUpdated,
+  openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
   requestF3Rebuild,
 } from "@/lib/builder/project-env-events";
@@ -165,6 +166,18 @@ export function PreviewPanelDossiers({
       setSaveError(null);
     }
   }, []);
+
+  // Reset transient missing-key UI whenever the active chat/version changes, so
+  // keys highlighted for one context can't linger (and be saved against the
+  // next chat's projectId, or trigger the retry CTA for the wrong chat) if the
+  // builder switches while the popover stays open.
+  useEffect(() => {
+    setHighlightKeys([]);
+    setOpenedForMissing(false);
+    setValues({});
+    setSaveError(null);
+    setExpandedId(null);
+  }, [chatId, versionId]);
 
   // Only trust data whose identity matches the current chat/version. On a
   // mismatch (chat/version changed) we render the loading state instead of a
@@ -517,6 +530,21 @@ export function PreviewPanelDossiers({
             </p>
           ) : null}
         </div>
+
+        {/* In F3 the full env editor is mounted and can edit already-set keys,
+            which the inline "fill missing" inputs here cannot. Keep Dossiers as
+            the hub but offer a one-click path to the full panel. */}
+        {stage === "integrations" ? (
+          <div className="border-t border-gray-800 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => openProjectEnvVarsPanel()}
+              className="text-[10px] text-sky-300 hover:text-sky-200"
+            >
+              Redigera alla miljövariabler i panelen
+            </button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
