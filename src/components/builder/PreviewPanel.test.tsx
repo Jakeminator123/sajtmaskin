@@ -201,7 +201,8 @@ describe("PreviewPanel", () => {
     );
 
     renderPreviewPanel();
-    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Footereditor")).toBeTruthy();
@@ -242,7 +243,8 @@ describe("PreviewPanel", () => {
     );
 
     renderPreviewPanel();
-    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Inläggseditor")).toBeTruthy();
@@ -294,7 +296,8 @@ describe("PreviewPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderPreviewPanel({ onFilesSaved });
-    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Footereditor")).toBeTruthy();
@@ -361,7 +364,8 @@ describe("PreviewPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderPreviewPanel({ onFilesSaved });
-    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Inläggseditor")).toBeTruthy();

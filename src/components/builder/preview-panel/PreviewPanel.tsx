@@ -1125,7 +1125,6 @@ export function PreviewPanel({
         handleToggleElementRegistry={handleToggleElementRegistry}
         canShowCode={canShowCode}
         isViewSwitchPending={isViewSwitchPending}
-        showElementRegistry={showElementRegistry}
         handleToggleCode={handleToggleCode}
         viewMode={viewMode}
         onClear={onClear}
