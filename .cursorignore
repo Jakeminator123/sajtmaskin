@@ -126,6 +126,7 @@ data/template-references/repos/**
 data/template-references/_metadata/**
 
 # --- Local scratch / old roots ---
+scratch-*.mjs
 manual_log/
 input_files_for_cursor/
 .preprompt_history.json
