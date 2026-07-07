@@ -35,6 +35,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Vercel-deploy för sajten | Postgres `deployments` (ids + url + status) | `--kinds=deploys` |
 | Vercel **build**-loggar | Vercel-plattformen | MCP `get_deployment_build_logs` |
 | Vercel **runtime**-loggar/fel | Vercel-plattformen | MCP `get_runtime_logs` / `get_runtime_errors` |
+| **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
 
@@ -72,7 +73,7 @@ Kopiera checklistan och bocka av:
 - [ ] 0. Env: prod-snapshot finns, Vercel-ids + Fly-åtkomst upplösta
 - [ ] 1. Hitta senaste sajten (chatId, versionId, projectId, previewUrl, created_at)
 - [ ] 2. Alla prod-DB-loggar för chatId (dump-logs, alla kinds)
-- [ ] 3. Vercel: appens runtime-fel under körningsfönstret + sajtens deploy-loggar
+- [ ] 3. Vercel: appens runtime-fel under körningsfönstret + sajtens deploy-loggar + DB-pool-hälsa (connect-timeout/EMAXCONNSESSION)
 - [ ] 4. Fly: preview-host-loggar för sajtens previewSessionId
 - [ ] 5. Syntes: en rapport om hur körningen gick
 ```
@@ -119,6 +120,12 @@ Vercel-projekt `sajtmaskin-<chatId>`):
 
 Om ingen deploy-rad finns: sajten är sannolikt bara en preview (F2) — notera det och hoppa till steg 4.
 
+**c) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
+
+- Sök i appens runtime-loggar från (a) efter `timeout exceeded when trying to connect` och `EMAXCONNSESSION: max clients reached`. **0 träffar = poolen frisk** (normalläget; koden försvarar sig redan mot svälten).
+- Valfritt live-mått (om Supabase-MCP är inloggad, **read-only**): `pg_stat_activity` — aktiva vs idle backends mot poolerns tak (Pro ~60, Free ~15 sessioner). Detta är *nuläge*, inte körningsfönstret.
+- **Tolkning — vrid inte `POSTGRES_POOL_MAX` blint, de två felen kräver MOTSATT fix:** `timeout exceeded when trying to connect` = per-instans-poolen för liten → *höj* `POSTGRES_POOL_MAX`. `EMAXCONNSESSION` = för många sessioner totalt (instanser × max) → *sänk* den / kör direkt-URL (`POSTGRES_URL_NON_POOLING`). Poolstorlek = samtidighet, **inte** hastighet — fler anslutningar gör inte queries snabbare. Mät vilket fel du har innan du ändrar; är båda 0 = lämna default (3). Bakgrund: backlog **M#db1** + `src/lib/db/client.ts`.
+
 ### 4. Fly preview-host-loggar
 
 Preview-URL:en är `{PREVIEW_BASE_URL}/{chatId}`; runtime-loggarna nycklas på
@@ -163,6 +170,7 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
 | Vercel runtime | felkluster / 5xx | MCP get_runtime_errors/logs |
+| DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = frisk) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
 | Preview (Fly) | boot/install/exit-tail | preview-host-loggar |
 
 Ej tillgängligt: <lista källor som saknades och varför>
