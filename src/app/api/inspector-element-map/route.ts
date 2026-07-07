@@ -2,18 +2,12 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { isDisallowedHost, isLoopbackHost } from "@/lib/security/is-disallowed-host";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
-const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
-const FORCE_WORKER_ONLY = (() => {
-  const raw = process.env.INSPECTOR_FORCE_WORKER_ONLY?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-})();
-const WORKER_TIMEOUT_MS = 15_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
 const IS_SERVERLESS = Boolean(process.env.VERCEL);
@@ -39,47 +33,6 @@ function unavailableResponse(reason: string): NextResponse {
     { success: false, unavailable: true, error: reason },
     { status: 200 },
   );
-}
-
-async function tryWorkerElementMap(
-  url: string,
-  vpW: number,
-  vpH: number,
-  maxElements: number,
-): Promise<NextResponse | null> {
-  if (!WORKER_URL) return null;
-
-  let workerEndpoint: URL;
-  try {
-    workerEndpoint = new URL("/element-map", WORKER_URL);
-  } catch {
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WORKER_TIMEOUT_MS);
-
-  try {
-    const headers: HeadersInit = { "content-type": "application/json" };
-    if (WORKER_TOKEN) headers["x-inspector-token"] = WORKER_TOKEN;
-
-    const response = await fetch(workerEndpoint.toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ url, viewportWidth: vpW, viewportHeight: vpH, maxElements }),
-      signal: controller.signal,
-    });
-
-    const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (response.ok && data) {
-      return NextResponse.json(data);
-    }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 async function localElementMap(
@@ -205,6 +158,28 @@ async function handlePOST(req: Request) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });
   }
 
+  // SSRF guard: localElementMap navigates this URL server-side with Playwright.
+  // Block localhost / private / metadata hosts for an authenticated caller.
+  let target: URL;
+  try {
+    target = new URL(body.url);
+  } catch {
+    return NextResponse.json({ success: false, error: "Ogiltig URL." }, { status: 400 });
+  }
+  if (!["http:", "https:"].includes(target.protocol)) {
+    return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
+  }
+  // Loopback exemption: the compatibility preview (/api/preview-render) is
+  // expanded client-side to the app's own origin, which in local dev is loopback
+  // (e.g. localhost:3000). Re-allow ONLY loopback so the own-fallback preview
+  // keeps working in dev, while private/metadata targets stay blocked. This must
+  // be derived from the parsed target host — NOT from req.url / the Host header,
+  // which is client-controllable and would let a caller forge same-origin and
+  // drive Playwright to a private/metadata host.
+  if (!isLoopbackHost(target.hostname) && isDisallowedHost(target.hostname)) {
+    return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
+  }
+
   const vpW = Math.round(Number(body.viewportWidth) || 1280);
   const vpH = Math.round(Number(body.viewportHeight) || 800);
   const maxElements = body.maxElements || 300;
@@ -214,26 +189,9 @@ async function handlePOST(req: Request) {
     return NextResponse.json(cached.data);
   }
 
-  const workerResult = await tryWorkerElementMap(body.url, vpW, vpH, maxElements);
-  if (workerResult) {
-    const data = await workerResult.json();
-    cache.set(key, { data, ts: Date.now() });
-    return NextResponse.json(data);
-  }
-
-  if (WORKER_URL && FORCE_WORKER_ONLY) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Inspector worker är konfigurerad men kunde inte nås. Lokal fallback är avstängd.",
-      },
-      { status: 503 },
-    );
-  }
-
   if (IS_SERVERLESS) {
     return NextResponse.json(
-      { success: false, error: "Inspector worker is not available. Local Playwright fallback is not supported in serverless." },
+      { success: false, error: "Inspector element map is not available in serverless (local Playwright fallback is unsupported here)." },
       { status: 503 },
     );
   }

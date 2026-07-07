@@ -113,7 +113,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
         setInspectorUnavailable(true);
         if (isOwnEnginePreview) {
           console.info(
-            "[inspector] Own-engine preview — inspector requires Playwright or inspector-worker to be running.",
+            "[inspector] Own-engine preview — map/capture engines require a local Playwright install (not available in serverless).",
           );
         }
         return 0;

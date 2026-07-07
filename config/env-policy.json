@@ -13,8 +13,6 @@
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
-    "INSPECTOR_CAPTURE_WORKER_TOKEN",
-    "INSPECTOR_CAPTURE_WORKER_URL",
     "LOOPIA_API_PASSWORD",
     "LOOPIA_API_USER",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
@@ -116,9 +114,6 @@
     "GOOGLE_CLIENT_SECRET_DEV",
     "IMPLEMENT_UNDERSCORE_CLAW",
     "INBOUND_WEBHOOK_SHARED_SECRET",
-    "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
-    "INSPECTOR_CAPTURE_WORKER_URL",
-    "INSPECTOR_FORCE_WORKER_ONLY",
     "KOSTNADSFRI_API_KEY",
     "KOSTNADSFRI_PASSWORD_SEED",
     "KV_REST_API_TOKEN",
@@ -762,46 +757,6 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Local test password."
-    },
-    {
-      "key": "INSPECTOR_CAPTURE_WORKER_URL",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Can point to localhost in dev and a deployed worker in preview/production."
-    },
-    {
-      "key": "INSPECTOR_CAPTURE_WORKER_TOKEN",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Shared secret for the inspector worker."
-    },
-    {
-      "key": "INSPECTOR_FORCE_WORKER_ONLY",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "May differ between local fallback and deployed worker-only environments."
-    },
-    {
-      "key": "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Timeout tuning for inspector capture."
     },
     {
       "key": "OPENCLAW_GATEWAY_URL",

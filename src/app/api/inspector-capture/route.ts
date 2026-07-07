@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import net from "node:net";
 import type { Page } from "playwright";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { isDisallowedHost } from "@/lib/security/is-disallowed-host";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -15,17 +15,6 @@ const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
 const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
-const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
-const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
-const FORCE_WORKER_ONLY = (() => {
-  const raw = process.env.INSPECTOR_FORCE_WORKER_ONLY?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-})();
-const WORKER_TIMEOUT_MS = (() => {
-  const parsed = Number(process.env.INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS || "7000");
-  if (!Number.isFinite(parsed)) return 7000;
-  return Math.max(1000, Math.min(30_000, Math.round(parsed)));
-})();
 
 type CaptureRequest = {
   url: string;
@@ -64,104 +53,6 @@ function toNumber(value: unknown): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeHost(hostname: string): string {
-  const lowered = hostname.toLowerCase().trim().replace(/\.$/, "");
-  if (lowered.startsWith("[") && lowered.endsWith("]")) {
-    return lowered.slice(1, -1);
-  }
-  return lowered;
-}
-
-function isPrivateIpv4(host: string): boolean {
-  const parts = host.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return true;
-  }
-
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  return false;
-}
-
-function isPrivateIpv6(host: string): boolean {
-  const normalized = host.toLowerCase();
-  if (normalized === "::1") return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (normalized.startsWith("fe80:")) return true;
-  return false;
-}
-
-function isDisallowedHost(hostname: string): boolean {
-  const host = normalizeHost(hostname);
-  if (!host) return true;
-
-  if (
-    host === "localhost" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  const ipVersion = net.isIP(host);
-  if (ipVersion === 4) return isPrivateIpv4(host);
-  if (ipVersion === 6) return isPrivateIpv6(host);
-  return false;
-}
-
-async function tryWorkerCapture(payload: CaptureRequest): Promise<NextResponse | null> {
-  if (!WORKER_URL) return null;
-
-  let captureUrl: URL;
-  try {
-    captureUrl = new URL("/capture", WORKER_URL);
-  } catch {
-    console.warn("[inspector-capture] Invalid INSPECTOR_CAPTURE_WORKER_URL, falling back to local.");
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WORKER_TIMEOUT_MS);
-
-  try {
-    const headers: HeadersInit = { "content-type": "application/json" };
-    if (WORKER_TOKEN) {
-      headers["x-inspector-token"] = WORKER_TOKEN;
-    }
-
-    const response = await fetch(captureUrl.toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (response.ok && data) {
-      return NextResponse.json(data, { status: 200 });
-    }
-
-    const reason = data && typeof data.error === "string" ? data.error : `HTTP ${response.status}`;
-    console.warn(`[inspector-capture] Worker unavailable (${reason}), using local fallback.`);
-    return null;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "unknown worker error";
-    console.warn(`[inspector-capture] Worker request failed (${reason}), using local fallback.`);
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 async function waitForStabilizedPage(page: Page) {
@@ -541,30 +432,9 @@ async function handlePOST(req: Request) {
   const cropWidth = clamp(Math.round(parsed.cropWidth ?? DEFAULT_CROP_WIDTH), 120, viewportWidth);
   const cropHeight = clamp(Math.round(parsed.cropHeight ?? DEFAULT_CROP_HEIGHT), 90, viewportHeight);
 
-  const workerResult = await tryWorkerCapture({
-    url: target.toString(),
-    xPercent,
-    yPercent,
-    viewportWidth,
-    viewportHeight,
-    cropWidth,
-    cropHeight,
-  });
-  if (workerResult) return workerResult;
-
-  if (WORKER_URL && FORCE_WORKER_ONLY) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Inspector worker är konfigurerad men kunde inte nås. Lokal fallback är avstängd.",
-      },
-      { status: 503 },
-    );
-  }
-
   if (IS_SERVERLESS) {
     return NextResponse.json(
-      { success: false, error: "Inspector worker is not available. Local Playwright fallback is not supported in serverless." },
+      { success: false, error: "Inspector capture is not available in serverless (local Playwright fallback is unsupported here)." },
       { status: 503 },
     );
   }
