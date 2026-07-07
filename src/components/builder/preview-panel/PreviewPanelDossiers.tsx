@@ -180,7 +180,14 @@ export function PreviewPanelDossiers({
       string,
       { key: string; dossierLabel: string; enforcement: DossierOverviewEntry["envVars"][number]["enforcement"] }
     >();
+    // Keys the fresh data already reports as satisfied (real value stored), so a
+    // highlighted key that has since been filled is not re-injected below (which
+    // would keep the "fill me" block open forever and block the retry CTA).
+    const satisfiedKeys = new Set<string>();
     for (const dossier of freshData?.dossiers ?? []) {
+      for (const env of dossier.envVars) {
+        if (env.hasRealValue) satisfiedKeys.add(env.key);
+      }
       for (const key of dossier.missingKeys) {
         if (map.has(key)) continue;
         const env = dossier.envVars.find((e) => e.key === key);
@@ -192,7 +199,7 @@ export function PreviewPanelDossiers({
       }
     }
     for (const key of highlightKeys) {
-      if (!map.has(key)) {
+      if (!map.has(key) && !satisfiedKeys.has(key)) {
         map.set(key, { key, dossierLabel: "Integration", enforcement: "build" });
       }
     }
@@ -206,12 +213,16 @@ export function PreviewPanelDossiers({
   ).length;
   // Show the retry CTA once the popover was opened to collect keys and nothing
   // is missing anymore (all keys got real values), as long as there is at least
-  // one heavy integration to build.
+  // one heavy integration to build. Gated to F2: the rebuild event is only
+  // listened for by `PreviewPanelF3Trigger`, which is unmounted in F3
+  // (`lifecycleStage === "integrations"`), so a retry button there would be a
+  // no-op. In F3 the keys are saved and the normal readiness flow takes over.
   const showRetry =
     openedForMissing &&
     Boolean(freshData) &&
     missingEntries.length === 0 &&
-    (freshData?.counts.hard ?? 0) > 0;
+    (freshData?.counts.hard ?? 0) > 0 &&
+    stage !== "integrations";
 
   const handleSaveMissing = useCallback(async () => {
     if (!projectId) return;
@@ -231,13 +242,18 @@ export function PreviewPanelDossiers({
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
+      const savedKeys = vars.map((entry) => entry.key);
       dispatchProjectEnvVarsUpdated({
         projectId,
         chatId,
         versionId,
-        envKeys: vars.map((entry) => entry.key),
+        envKeys: savedKeys,
       });
       setValues({});
+      // Drop just-saved keys from the highlight set so an orphan highlight key
+      // (one not present in any dossier's envVars, hence never reflected by the
+      // refetch) does not keep the "fill me" block open after it is saved.
+      setHighlightKeys((prev) => prev.filter((key) => !savedKeys.includes(key)));
       refetch();
     } catch (err) {
       setSaveError(

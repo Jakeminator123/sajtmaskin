@@ -128,10 +128,11 @@ export function PreviewPanelF3Trigger({
 
   const handleClick = useCallback(async () => {
     // Guard the programmatic (retry-event) path: without a version the finalize
-    // body would be `{}` and the server can't anchor the F3 step; while busy a
-    // second finalize could race the running stream. The button is already
-    // disabled for these, but the event path bypasses `disabled`.
-    if (isBusy || !versionId) return;
+    // body would be `{}` and the server can't anchor the F3 step; while busy or
+    // already loading a second finalize could race the in-flight request. The
+    // button is already disabled for these, but the event path bypasses
+    // `disabled`.
+    if (isLoading || isBusy || !versionId) return;
     if (productBlocked) {
       toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
@@ -212,7 +213,7 @@ export function PreviewPanelF3Trigger({
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, versionId, onReady, onMissingEnv, productBlocked, isBusy]);
+  }, [chatId, versionId, onReady, onMissingEnv, productBlocked, isBusy, isLoading]);
 
   // Re-run the finalize flow when the Dossiers popover asks for a rebuild
   // (after the user fills the previously-missing keys). A ref keeps the
