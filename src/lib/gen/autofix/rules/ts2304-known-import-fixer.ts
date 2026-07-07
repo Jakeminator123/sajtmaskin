@@ -52,6 +52,11 @@ type ResolvedImport = { module: string; kind: "named" | "default" | "type-named"
 
 const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
 
+// Member access on the zod namespace in call (`z.object(`) or generic
+// (`z.infer<`) position. Anything else that happens to be named `z` fails
+// this gate and stays residual for the LLM.
+const ZOD_NAMESPACE_USAGE_RE = /\bz\.[a-zA-Z_$][\w$]*\s*[(<]/;
+
 // `Image` and `Link` live in KNOWN_MODULE_SPECIFIERS but are DEFAULT exports of
 // their modules, so they must be emitted as `import X from "..."` rather than a
 // named import. Resolve them explicitly before the named-specifier scan.
@@ -86,19 +91,32 @@ const CLERK_SERVER_IMPORTS = new Set([
 // (`Cannot find name 'toast'`). The `<Toaster />` wrapper is separately handled
 // via SHADCN_COMPONENTS (`@/components/ui/sonner`). sonner is not a tier-3 SDK,
 // so this resolves in both F2 and F3.
+//
+// `cookies` / `NextResponse`: prod archaeology 2026-07 (14-day window, /logg):
+// auth/integration follow-ups repeatedly ship `cookies()` in server pages with
+// the `next/headers` import commented out, and `NextResponse.json(...)` in API
+// routes with no `next/server` import. Both modules are server-only, so the
+// SERVER_ONLY_MODULES guard keeps them out of `"use client"` files (residual
+// for the LLM there — an import cannot fix a client-side `cookies()` call).
 const NAMED_PACKAGE_IMPORTS: Record<string, string> = {
   toast: "sonner",
+  cookies: "next/headers",
+  NextResponse: "next/server",
 };
 
 // Type-only exports resolved as `import type { X } from "module"` (kind
 // `type-named`). Value-importing these would bind a non-existent runtime
 // export (TS2305 / runtime import error), so they get their own emission
 // path. `LucideIcon` is the recurring prod name (`type Feature = { icon:
-// LucideIcon }`); scope stays narrow on purpose — ambiguous type names that
-// exist in several libraries (e.g. `SVGAttributes`, also in react) are NOT
-// mapped here and stay with the LLM fixer.
+// LucideIcon }`); `FormEvent` is the top missing symbol overall in the 2026-07
+// prod window (`handleSubmit(e: FormEvent<HTMLFormElement>)` in generated
+// auth/contact forms with no react type import). Scope stays narrow on
+// purpose — ambiguous type names that exist in several libraries (e.g.
+// `SVGAttributes`, also in react) are NOT mapped here and stay with the LLM
+// fixer. The value-position guard below applies to every entry.
 const TYPE_NAMED_PACKAGE_IMPORTS: Record<string, string> = {
   LucideIcon: "lucide-react",
+  FormEvent: "react",
 };
 
 /**
@@ -215,6 +233,15 @@ function resolveKnownImportRaw(
   if (CLERK_SERVER_IMPORTS.has(name)) {
     return { module: "@clerk/nextjs/server", kind: "named" };
   }
+  // zod schema namespace — `z.object(...)` / `z.infer<...>` with no zod import
+  // is a top recurring prod fault (2026-07 window: auth route handlers and
+  // form pages). Gated on actual zod-style member usage so an unrelated
+  // undefined variable named `z` (e.g. a 3D coordinate) never gets a zod
+  // import — it stays residual for the LLM. zod is preview-whitelisted and
+  // not tier-3, so this resolves in both F2 and F3.
+  if (name === "z" && fileCode && ZOD_NAMESPACE_USAGE_RE.test(fileCode)) {
+    return { module: "zod", kind: "named" };
+  }
   // Diagnostic-only named package imports (e.g. `toast` → sonner). See the
   // NAMED_PACKAGE_IMPORTS comment: kept out of KNOWN_MODULE_SPECIFIERS so the
   // blind guesser can't mis-attribute unrelated symbols.
@@ -321,7 +348,7 @@ export function classifyCannotFindNameResidual(params: {
  */
 export function isKnownLibraryImportName(name: string): boolean {
   if (DEFAULT_IMPORT_NAMES[name]) return true;
-  if (name === "Stripe" || name === "Resend") return true;
+  if (name === "Stripe" || name === "Resend" || name === "z") return true;
   if (CLERK_SERVER_IMPORTS.has(name)) return true;
   if (NAMED_PACKAGE_IMPORTS[name]) return true;
   if (TYPE_NAMED_PACKAGE_IMPORTS[name]) return true;
@@ -368,7 +395,13 @@ function hasUseClientDirective(code: string): boolean {
 }
 
 /** Modules that must never be imported inside a `"use client"` file. */
-const SERVER_ONLY_MODULES = new Set(["@clerk/nextjs/server", "stripe", "resend"]);
+const SERVER_ONLY_MODULES = new Set([
+  "@clerk/nextjs/server",
+  "stripe",
+  "resend",
+  "next/headers",
+  "next/server",
+]);
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

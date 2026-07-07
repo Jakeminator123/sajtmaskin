@@ -869,4 +869,173 @@ export function IconList() {
     expect(result.addedImports).toEqual([]);
     expect(result.code).toBe(content);
   });
+
+  // Prod archaeology 2026-07 (14-day /logg window): the top recurring
+  // missing-import symbols across generated auth/integration follow-ups were
+  // FormEvent, z (zod), cookies and NextResponse. Deterministic resolutions
+  // below keep those out of the LLM repair loop.
+  describe("2026-07 prod missing-import map", () => {
+    it("resolves FormEvent as an `import type` from react (form handler annotation)", () => {
+      const formFile = "app/register/page.tsx";
+      const content = project(
+        formFile,
+        `"use client";
+
+export default function RegisterPage() {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+  return <form onSubmit={handleSubmit} />;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: formFile, message: "Cannot find name 'FormEvent'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: formFile, name: "FormEvent", module: "react" },
+      ]);
+      expect(result.code).toContain('import type { FormEvent } from "react"');
+      // Never a value import — the type-named emission path must be used.
+      expect(result.code).not.toMatch(/import\s+\{\s*FormEvent/);
+    });
+
+    it("leaves FormEvent residual when used in VALUE position", () => {
+      const content = project(
+        FILE,
+        `const handler = FormEvent;
+
+export default function Page() {
+  return <div>{String(handler)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'FormEvent'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves z to zod when the file uses zod-style members (z.object / z.infer)", () => {
+      const routeFile = "app/api/auth/register/route.ts";
+      const content = project(
+        routeFile,
+        `const registerSchema = z.object({ email: z.string().email() });
+type RegisterInput = z.infer<typeof registerSchema>;
+
+export async function POST(req: Request) {
+  const parsed = registerSchema.safeParse(await req.json());
+  return Response.json({ ok: parsed.success });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
+    it("leaves a non-zod `z` (e.g. an undefined 3D coordinate) residual", () => {
+      const content = project(
+        FILE,
+        `export default function Page() {
+  const position = [1, 2, z];
+  return <div>{position.join(",")}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves cookies to next/headers in a server page (commented-out import prod case)", () => {
+      const serverPage = "app/mina-bokningar/page.tsx";
+      const content = project(
+        serverPage,
+        `// import { cookies } from "next/headers";
+
+export default async function BookingsPage() {
+  const store = await cookies();
+  return <main>{String(store.get("session")?.value)}</main>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: serverPage, message: "Cannot find name 'cookies'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: serverPage, name: "cookies", module: "next/headers" },
+      ]);
+      expect(result.code).toContain('import { cookies } from "next/headers"');
+    });
+
+    it("never injects next/headers into a 'use client' file", () => {
+      const clientFile = "components/session-badge.tsx";
+      const content = project(
+        clientFile,
+        `"use client";
+
+export function SessionBadge() {
+  const store = cookies();
+  return <span>{String(store)}</span>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: clientFile, message: "Cannot find name 'cookies'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves NextResponse to next/server in an API route", () => {
+      const routeFile = "app/api/auth/login/route.ts";
+      const content = project(
+        routeFile,
+        `export async function POST() {
+  return NextResponse.json({ ok: true });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'NextResponse'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: routeFile, name: "NextResponse", module: "next/server" },
+      ]);
+      expect(result.code).toContain('import { NextResponse } from "next/server"');
+    });
+
+    it("never injects next/server into a 'use client' file", () => {
+      const clientFile = "components/login-widget.tsx";
+      const content = project(
+        clientFile,
+        `"use client";
+
+export function LoginWidget() {
+  const res = NextResponse.json({ ok: true });
+  return <div>{String(res)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: clientFile, message: "Cannot find name 'NextResponse'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+  });
 });
