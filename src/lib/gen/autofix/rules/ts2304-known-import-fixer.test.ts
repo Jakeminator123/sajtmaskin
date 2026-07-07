@@ -957,6 +957,47 @@ export async function POST(req: Request) {
       expect(result.code).toBe(content);
     });
 
+    // Bugbot HIGH (PR #389): zod-style usage in one place must not pull a zod
+    // import into a file that ALSO references a bare non-member `z` — the
+    // import would silently bind the unrelated `z` to the zod namespace.
+    it("leaves z residual when zod-style usage is mixed with a bare non-member z", () => {
+      const content = project(
+        FILE,
+        `const schema = z.object({ email: z.string() });
+
+export default function Page() {
+  const position = [1, 2, z];
+  return <div>{position.join(",")}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("does not let Tailwind z-index utilities block the zod resolution", () => {
+      const routeFile = "app/register/page.tsx";
+      const content = project(
+        routeFile,
+        `const schema = z.object({ email: z.string().email() });
+
+export default function RegisterPage() {
+  return <div className="relative z-10 md:z-50">{String(schema)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
     it("resolves cookies to next/headers in a server page (commented-out import prod case)", () => {
       const serverPage = "app/mina-bokningar/page.tsx";
       const content = project(

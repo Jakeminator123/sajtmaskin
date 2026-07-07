@@ -57,6 +57,17 @@ const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
 // this gate and stays residual for the LLM.
 const ZOD_NAMESPACE_USAGE_RE = /\bz\.[a-zA-Z_$][\w$]*\s*[(<]/;
 
+// Bugbot HIGH (PR #389): the positive gate alone matched file-WIDE text, so a
+// file mixing zod-style member usage (or a comment/string that merely mentions
+// `z.object(`) with an UNRELATED bare `z` reference (3D coordinate,
+// destructured axis, object key) would still get the zod import — silently
+// binding the unrelated `z` to the zod namespace instead of leaving the
+// ambiguity to the LLM. This scan finds any bare `z` token that is NOT a
+// member access; one hit blocks the resolution (conservative — residual for
+// the LLM). Tailwind z-index utilities (`z-10`, `z-50`) are excluded so the
+// ubiquitous `className="z-10"` never blocks a legitimate schema fix.
+const BARE_Z_NON_MEMBER_RE = /\bz\b(?!\s*\.)(?!-)/;
+
 // `Image` and `Link` live in KNOWN_MODULE_SPECIFIERS but are DEFAULT exports of
 // their modules, so they must be emitted as `import X from "..."` rather than a
 // named import. Resolve them explicitly before the named-specifier scan.
@@ -235,11 +246,18 @@ function resolveKnownImportRaw(
   }
   // zod schema namespace — `z.object(...)` / `z.infer<...>` with no zod import
   // is a top recurring prod fault (2026-07 window: auth route handlers and
-  // form pages). Gated on actual zod-style member usage so an unrelated
-  // undefined variable named `z` (e.g. a 3D coordinate) never gets a zod
-  // import — it stays residual for the LLM. zod is preview-whitelisted and
-  // not tier-3, so this resolves in both F2 and F3.
-  if (name === "z" && fileCode && ZOD_NAMESPACE_USAGE_RE.test(fileCode)) {
+  // form pages). Double gate (Bugbot HIGH, PR #389): the file must contain
+  // zod-style member usage AND no bare non-member `z` token — a file mixing
+  // `z.object(` with an unrelated bare `z` (3D coordinate etc.) stays
+  // residual for the LLM instead of silently binding that `z` to the zod
+  // namespace. zod is preview-whitelisted and not tier-3, so this resolves
+  // in both F2 and F3.
+  if (
+    name === "z" &&
+    fileCode &&
+    ZOD_NAMESPACE_USAGE_RE.test(fileCode) &&
+    !BARE_Z_NON_MEMBER_RE.test(fileCode)
+  ) {
     return { module: "zod", kind: "named" };
   }
   // Diagnostic-only named package imports (e.g. `toast` → sonner). See the
