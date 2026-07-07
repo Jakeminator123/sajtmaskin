@@ -2,6 +2,15 @@
 
 Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas i din klon).
 
+## Kontrollflöde-konsolidering + Stabilisering 2026-07 (arkiverade 2026-07-07)
+
+Båda initiativens kod är levererad och mergad. Flyttade från `active/` på ägarens begäran 2026-07-07; enda kvarvarande punkten är den delade prod-mätavstämningen (~2026-07-10) + beslutsunderlag.
+
+| Plan | Levererat | Kvar |
+|---|---|---|
+| [`kontrollflode/`](kontrollflode/) | Alla 7 faser (#360–#367): Normalize uppströms, riskScore, en RepairGate, preview-resync, terminologi, eval-svit. Underlag (f.d. `kontrollflödesmapp/`) i [`kontrollflode/underlag/`](kontrollflode/underlag/). | Fas 6 prod-mätning ~2026-07-10 + beslutsunderlag |
+| [`stabilisering-2026-07/`](stabilisering-2026-07/) | Våg 1–4 (#374–#383): init-grön, F3-integrationer hela vägen, preview/DB-P2:or. | Delad mätavstämning ~2026-07-10 |
+
 ## Grandmaster-stabiliseringsplan (2026-06-18 → 2026-06-22)
 
 Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — flyttad hit från `active/` 2026-06-22 (nivå 1–3 bevarade i [`grandmaster/`](grandmaster/); loggbok + closing-handoff i git-historik). Tag: `MILSTOLPE-2026-06-21-grandmaster-stabil`.

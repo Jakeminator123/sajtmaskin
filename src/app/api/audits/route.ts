@@ -1,7 +1,7 @@
 /**
  * API Route: User Audits
- * GET /api/audits - Get user's saved audits
- * POST /api/audits - Save a new audit (called automatically after audit)
+ * GET /api/audits - Get user's saved audits (used by /audits page)
+ * POST /api/audits - Save a new audit (triggered by the "Spara"-button in AuditModal)
  */
 
 import { NextRequest, NextResponse } from "next/server";

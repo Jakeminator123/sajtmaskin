@@ -34,6 +34,7 @@ import {
   Menu,
   X,
   AlertCircle,
+  Search,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -147,6 +148,22 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               Projekt
             </Button>
           </Link>
+          {isAuthenticated && (
+            <Link href="/audits">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`text-sm ${
+                  isActive("/audits")
+                    ? "bg-gray-800/50 text-white"
+                    : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+                }`}
+              >
+                <Search className="mr-1.5 h-4 w-4" />
+                Audits
+              </Button>
+            </Link>
+          )}
           <Link href="/templates">
             <Button
               variant="ghost"
@@ -367,6 +384,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               <FolderOpen className="h-5 w-5" />
               Projekt
             </Link>
+            {isAuthenticated && (
+              <Link
+                href="/audits"
+                onClick={() => setShowMobileMenu(false)}
+                className={`flex items-center gap-2 px-4 py-3 ${
+                  isActive("/audits") ? "bg-gray-800/50 text-white" : "text-gray-400"
+                }`}
+              >
+                <Search className="h-5 w-5" />
+                Audits
+              </Link>
+            )}
             {isAuthenticated && (
               <Link
                 href="/buy-credits"

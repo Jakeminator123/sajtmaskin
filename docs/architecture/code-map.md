@@ -43,6 +43,8 @@ Den här filen är en tunn orientering. Den ska inte ersätta `rg`, IDE-index el
 | Observability | `scripts/observability/`, `backoffice/` |
 | Env | `src/lib/env.ts`, `config/env-policy.json`, `scripts/env/` |
 | Models | `config/ai_models/manifest.json`, `src/lib/models/` |
+| Auth (3 medvetna lager) | `src/lib/auth/session.ts` (anonym gäst-cookie) · `src/lib/auth/auth.ts` (inloggad JWT + OAuth, `getCurrentUser`) · `src/lib/auth/edge-auth.ts` + `src/proxy.ts` (edge-gate). Admin-gate: `src/lib/auth/admin.ts`. UI/klient-state: `src/components/auth/*` + `src/lib/auth/auth-store.ts`. |
+| Templates | Data-kedja `src/lib/templates/template-data.ts` → `template-catalog.ts` → `client.ts` (UI läser lib direkt). Routes: `POST /api/template` (init/mutation), `POST /api/templates/search` (embedding-sök). Embeddings-ägare: `src/lib/templates/template-embeddings-core.ts`. |
 
 ## Sökfraser vid felsökning
 

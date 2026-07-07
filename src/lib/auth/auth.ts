@@ -141,14 +141,6 @@ export async function setAuthCookie(token: string, options?: { secure?: boolean 
 }
 
 /**
- * Get auth token from cookie
- */
-export async function getAuthCookie(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(AUTH_COOKIE_NAME)?.value || null;
-}
-
-/**
  * Clear auth cookie (logout)
  */
 export async function clearAuthCookie(): Promise<void> {

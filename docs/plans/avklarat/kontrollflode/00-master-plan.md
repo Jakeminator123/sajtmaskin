@@ -1,12 +1,14 @@
 ---
 id: kontrollflode-2026-07
 title: "Kontrollflöde-konsolidering: färre, tidigare, mätbara kontroller"
-status: active
+status: avklarad
 created: 2026-07-02
+archived: 2026-07-07
+archived_note: "All kod levererad (Fas 0–6, #360–#367). Fas 6 prod-mätning (~2026-07-10) utestående — flyttad till avklarat på ägarens begäran 2026-07-07. Underlaget (f.d. kontrollflödesmapp/) ligger i underlag/."
 priority: P0-P1
 owner: "orkestrator (Cursor-agent) + Jake (godkännare av fasstart och merge)"
 sources:
-  - kontrollflödesmapp/ (prod-statistik 14 d + extern coach-analys + appendix, 2026-07-02)
+  - underlag/ (f.d. kontrollflödesmapp/ — prod-statistik 14 d + extern coach-analys + appendix, 2026-07-02)
   - kodverifiering mot master 2026-07-02 (två explore-pass, fil:rad-evidens)
 owner_files:
   - src/lib/gen/autofix/**
@@ -33,7 +35,7 @@ Builder-agenter (grind-/cloud-agenter) implementerar och PR:ar per fas.
 ## 1. Bevisläge (verifierat 2026-07-02)
 
 Prod-statistik 14 dagar (115 genereringar, 41 chattar) + kodverifiering mot master samma dag.
-Detaljer: `kontrollflödesmapp/` (tre canvas-HTML + coach-konversation).
+Detaljer: `underlag/` (f.d. `kontrollflödesmapp/` — tre canvas-HTML + coach-konversation).
 
 | Fynd | Värde | Kodverifiering |
 |---|---|---|
@@ -147,7 +149,7 @@ docs-synk + tester + verifiering (`npm run typecheck`, riktad `npx vitest run`, 
 | | |
 |---|---|
 | Mål | Gör effekten av fas 1–4 mätbar; stäng kända mätluckor |
-| Huvudleveranser | Persistera dossier-val i `generation_telemetry`; skriv `deploy_result` (writer saknas helt); ärlig repair-outcome-taxonomi (ersätt "incomplete: 0 errors remain"); frys baslinje-siffrorna (redan exporterade i `kontrollflödesmapp/`) |
+| Huvudleveranser | Persistera dossier-val i `generation_telemetry`; skriv `deploy_result` (writer saknas helt); ärlig repair-outcome-taxonomi (ersätt "incomplete: 0 errors remain"); frys baslinje-siffrorna (redan exporterade i `underlag/`) |
 | Städning | Gamla missvisande outcome-strängar ersätts (inte parallellt namn); dokumentera mappning gammal→ny i fas-doc; läsare (backoffice, control-stats) hanterar historiska rader |
 | Docs | `docs/schemas/quality-gate.md` telemetri-avsnitt; backoffice-sidor som läser outcome-strängar synkas |
 | Tester | telemetri-writer-test; outcome-taxonomi-test |
@@ -265,7 +267,7 @@ listar reserverade filer som ägs av parallella faser.
 
 ## 7. KPI-mål
 
-Baslinje = 14-dagarsfönstret t.o.m. 2026-07-02 (`kontrollflödesmapp/`). Mål efter Fas 1–4.
+Baslinje = 14-dagarsfönstret t.o.m. 2026-07-02 (`underlag/`, f.d. `kontrollflödesmapp/`). Mål efter Fas 1–4.
 
 | Mätvärde | Baslinje | Mål |
 |---|---|---|

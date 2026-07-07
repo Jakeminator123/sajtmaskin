@@ -1,10 +1,12 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
+> **Historik (superseded 2026-07-07):** Detta är en frusen wave-logg. LLM-flödets sanning ligger nu i [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md); buggsanning i [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Länkar nedan till `omtag-2026-04-23/`, `status-archive/`, `docs/reports/` och `2026-04-28-llm-flode-startlinje.md` pekar på filer som konsoliderats bort — använd git-historik vid behov.
+
 Senast uppdaterad: 2026-05-01 efter LLM-plan-konsolidering och VersionHistory-statuspass. Tidigare: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade), 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
 
 ## Roll efter LLM-plan-konsolidering 2026-05-01
 
-Den här filen är **tvärgående kö** för rester som inte ryms i en smal LLM-plan. För LLM-flödet är [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) masterplan och [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) child-plan för promptbudget. `BUG-SWARM-BACKLOG.md` äger buggstatus; den här filen äger bara exekveringsordning när en backloggrad blir ett konkret arbetsspår.
+Den här filen är **tvärgående kö** för rester som inte ryms i en smal LLM-plan. För LLM-flödet är numera [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) kanonisk källa (den gamla masterplanen `2026-04-28-llm-flode-startlinje.md` är konsoliderad bort). `BUG-SWARM-BACKLOG.md` äger buggstatus; den här filen äger bara exekveringsordning när en backloggrad blir ett konkret arbetsspår.
 
 ## Avklarat i OMTAG-waven (2026-04-23)
 

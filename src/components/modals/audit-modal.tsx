@@ -29,6 +29,12 @@ interface AuditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onBuildFromAudit?: (prompt: string) => void;
+  /**
+   * True when the audit is opened from an already-persisted source (e.g. the
+   * /audits list). Starts the modal in the "Sparad" state so re-opening a saved
+   * audit does not expose an active "Spara" action that POSTs a duplicate row.
+   */
+  alreadySaved?: boolean;
 }
 
 type TabId = "overview" | "improvements" | "technical" | "business";
@@ -74,24 +80,26 @@ export function AuditModal({
   isOpen,
   onClose,
   onBuildFromAudit,
+  alreadySaved,
 }: AuditModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showBuildConfirm, setShowBuildConfirm] = useState(false);
   const [showBuildOverlay, setShowBuildOverlay] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(Boolean(alreadySaved));
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Reset state when modal opens with new result
+  // Reset state when modal opens with new result. An already-persisted audit
+  // (opened from /audits) starts as "Sparad" so it cannot POST a duplicate row.
   useEffect(() => {
     if (isOpen && result) {
       setActiveTab("overview");
-      setIsSaved(false);
+      setIsSaved(Boolean(alreadySaved));
       setSaveError(null);
       setShowBuildConfirm(false);
     }
-  }, [isOpen, result]);
+  }, [isOpen, result, alreadySaved]);
 
   // Auto-offer build overlay when audit opens
   useEffect(() => {
