@@ -2,6 +2,8 @@
 
 import {
   AlertCircle,
+  Check,
+  ChevronDown,
   CircleCheck,
   Code2,
   ExternalLink,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/builder/version-status-display";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
+import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
 import type { PreviewRouteInfo } from "./preview-route-helpers";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +59,6 @@ interface PreviewPanelChromeProps {
   handleToggleElementRegistry: () => void;
   canShowCode: boolean;
   isViewSwitchPending: boolean;
-  showElementRegistry: boolean;
   handleToggleCode: () => void;
   viewMode: "preview" | "code" | "registry";
   onClear?: (() => void) | null;
@@ -137,7 +139,6 @@ export function PreviewPanelChrome({
   handleToggleElementRegistry,
   canShowCode,
   isViewSwitchPending,
-  showElementRegistry,
   handleToggleCode,
   viewMode,
   onClear,
@@ -180,6 +181,11 @@ export function PreviewPanelChrome({
 }: PreviewPanelChromeProps) {
   const [addingPage, setAddingPage] = useState(false);
   const [newPagePath, setNewPagePath] = useState("");
+  // Lightweight "Kod" view-switcher menu. Deliberately not a Radix
+  // DropdownMenu: this repo can't drive Radix pointer-event flows in jsdom
+  // (see SeoOptInPanel.test.tsx), and the existing code-view tests need a
+  // synthetic-click-friendly menu item.
+  const [codeMenuOpen, setCodeMenuOpen] = useState(false);
   // Synchronous guard so a double Enter/click cannot dispatch two add flows
   // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
   const submitLockRef = useRef(false);
@@ -515,34 +521,86 @@ export function PreviewPanelChrome({
             <Search className="mr-1 h-4 w-4" />
             Inspektera preview
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleElementRegistry}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
-            )}
-          >
-            <Code2 className="mr-1 h-4 w-4" />
-            Elementregister
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleCode}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
-            )}
-          >
-            <FileText className="mr-1 h-4 w-4" />
-            Kodvy
-          </Button>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCodeMenuOpen((prev) => !prev)}
+              disabled={!canShowCode || isViewSwitchPending}
+              aria-haspopup="menu"
+              aria-expanded={codeMenuOpen}
+              title={
+                canShowCode
+                  ? "Visa kod — Kodvy eller Elementregister"
+                  : "Ingen kod tillgänglig än"
+              }
+              className={cn(
+                "text-gray-400 hover:text-white",
+                viewMode !== "preview" && "bg-gray-800 text-white hover:text-white",
+              )}
+            >
+              <Code2 className="mr-1 h-4 w-4" />
+              Kod
+              <ChevronDown className="ml-1 h-3.5 w-3.5" />
+            </Button>
+            {codeMenuOpen ? (
+              <>
+                <button
+                  type="button"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  className="fixed inset-0 z-40 cursor-default"
+                  onClick={() => setCodeMenuOpen(false)}
+                />
+                <div
+                  role="menu"
+                  aria-label="Kodvyer"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setCodeMenuOpen(false);
+                  }}
+                  className="absolute right-0 z-50 mt-1 min-w-44 rounded-md border border-gray-800 bg-gray-950 p-1 shadow-md"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setCodeMenuOpen(false);
+                      handleToggleCode();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span className="flex-1 text-left">Kodvy</span>
+                    {viewMode === "code" ? (
+                      <Check className="h-4 w-4 text-emerald-400" />
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setCodeMenuOpen(false);
+                      handleToggleElementRegistry();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <Code2 className="h-4 w-4" />
+                    <span className="flex-1 text-left">Elementregister</span>
+                    {viewMode === "registry" ? (
+                      <Check className="h-4 w-4 text-emerald-400" />
+                    ) : null}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+          {chatId ? (
+            <PreviewPanelDossiers
+              chatId={chatId}
+              versionId={versionId ?? null}
+              lifecycleStage={lifecycleStage ?? null}
+            />
+          ) : null}
           {previewUrl && onClear ? (
             <Button
               variant="ghost"
