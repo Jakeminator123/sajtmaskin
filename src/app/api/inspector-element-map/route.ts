@@ -159,8 +159,7 @@ async function handlePOST(req: Request) {
   }
 
   // SSRF guard: localElementMap navigates this URL server-side with Playwright.
-  // Mirror /api/inspector-capture so the local (non-serverless) path cannot be
-  // pointed at localhost / private / metadata hosts by an authenticated caller.
+  // Block localhost / private / metadata hosts for an authenticated caller.
   let target: URL;
   try {
     target = new URL(body.url);
@@ -170,7 +169,20 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
-  if (isDisallowedHost(target.hostname)) {
+  // Same-origin exemption: the compatibility preview (/api/preview-render) is
+  // expanded to the app's own origin client-side, so in local dev the target
+  // host is the app itself (e.g. localhost:3000). Allow an EXACT host match
+  // (incl. port) so the own-fallback preview keeps working, while arbitrary
+  // private/loopback targets (other ports, metadata IPs) stay blocked.
+  const requestHost = (() => {
+    try {
+      return new URL(req.url).host.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  const isSameOriginPreview = requestHost.length > 0 && target.host.toLowerCase() === requestHost;
+  if (!isSameOriginPreview && isDisallowedHost(target.hostname)) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 
