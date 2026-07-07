@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { isDisallowedHost } from "@/lib/security/is-disallowed-host";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -155,6 +156,22 @@ async function handlePOST(req: Request) {
   const body = (await req.json().catch(() => null)) as MapRequest | null;
   if (!body?.url?.trim()) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });
+  }
+
+  // SSRF guard: localElementMap navigates this URL server-side with Playwright.
+  // Mirror /api/inspector-capture so the local (non-serverless) path cannot be
+  // pointed at localhost / private / metadata hosts by an authenticated caller.
+  let target: URL;
+  try {
+    target = new URL(body.url);
+  } catch {
+    return NextResponse.json({ success: false, error: "Ogiltig URL." }, { status: 400 });
+  }
+  if (!["http:", "https:"].includes(target.protocol)) {
+    return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
+  }
+  if (isDisallowedHost(target.hostname)) {
+    return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 
   const vpW = Math.round(Number(body.viewportWidth) || 1280);

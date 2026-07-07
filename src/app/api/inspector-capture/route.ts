@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import net from "node:net";
 import type { Page } from "playwright";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { isDisallowedHost } from "@/lib/security/is-disallowed-host";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -53,60 +53,6 @@ function toNumber(value: unknown): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeHost(hostname: string): string {
-  const lowered = hostname.toLowerCase().trim().replace(/\.$/, "");
-  if (lowered.startsWith("[") && lowered.endsWith("]")) {
-    return lowered.slice(1, -1);
-  }
-  return lowered;
-}
-
-function isPrivateIpv4(host: string): boolean {
-  const parts = host.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return true;
-  }
-
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  return false;
-}
-
-function isPrivateIpv6(host: string): boolean {
-  const normalized = host.toLowerCase();
-  if (normalized === "::1") return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (normalized.startsWith("fe80:")) return true;
-  return false;
-}
-
-function isDisallowedHost(hostname: string): boolean {
-  const host = normalizeHost(hostname);
-  if (!host) return true;
-
-  if (
-    host === "localhost" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  const ipVersion = net.isIP(host);
-  if (ipVersion === 4) return isPrivateIpv4(host);
-  if (ipVersion === 6) return isPrivateIpv6(host);
-  return false;
 }
 
 async function waitForStabilizedPage(page: Page) {
