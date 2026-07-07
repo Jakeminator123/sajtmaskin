@@ -278,11 +278,14 @@ function AuditsPageInner() {
         )}
       </div>
 
-      {/* Reuse the existing audit modal (no build-overlay: onBuildFromAudit omitted) */}
+      {/* Reuse the existing audit modal (no build-overlay: onBuildFromAudit omitted).
+          These are already-persisted audits, so start in the "Sparad" state to
+          avoid re-POSTing a duplicate row via the modal's Spara action. */}
       <AuditModal
         result={openResult}
         auditedUrl={openUrl}
         isOpen={openResult !== null}
+        alreadySaved
         onClose={() => {
           setOpenResult(null);
           setOpenUrl(null);
