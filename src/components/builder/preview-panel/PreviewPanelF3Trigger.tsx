@@ -130,9 +130,17 @@ export function PreviewPanelF3Trigger({
     // Guard the programmatic (retry-event) path: without a version the finalize
     // body would be `{}` and the server can't anchor the F3 step; while busy or
     // already loading a second finalize could race the in-flight request. The
-    // button is already disabled for these, but the event path bypasses
-    // `disabled`.
-    if (isLoading || isBusy || !versionId) return;
+    // button is already disabled for these (so this only trips via the retry
+    // event), but a silent return leaves the user without feedback — surface a
+    // toast when a run is in progress so the retry click is not a no-op.
+    if (isBusy || isLoading) {
+      toast.warning("En annan generering pågår", {
+        description:
+          "Vänta tills den pågående körningen är klar innan du bygger integrationer igen.",
+      });
+      return;
+    }
+    if (!versionId) return;
     if (productBlocked) {
       toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
