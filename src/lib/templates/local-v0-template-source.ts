@@ -4,6 +4,7 @@ import { isAbsolute, resolve } from "node:path";
 import process from "node:process";
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 import blobManifestData from "./template-blob-manifest.json";
 
 const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.jsonl");
@@ -234,6 +235,9 @@ function normalizeImportedPath(rawPath: string): string | null {
   if (!normalized || normalized.includes("\0")) return null;
   if (normalized.split("/").some((segment) => segment === "..")) return null;
   if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
+  // Secret hygiene: never import a real .env from a template archive (#38).
+  const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
+  if (isBlockedEnvImportFilename(basename)) return null;
   return normalized;
 }
 
