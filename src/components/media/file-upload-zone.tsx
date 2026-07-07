@@ -11,9 +11,10 @@
  * All images must be uploaded to Vercel Blob (or similar public storage) BEFORE
  * being included in own-engine prompts.
  *
- * SUPPORTED FILE TYPES:
- * - Images: jpg, jpeg, png, gif, webp, svg
- * - Documents: pdf (for extracting content/inspiration)
+ * SUPPORTED FILE TYPES (kept in sync with the server allow-list):
+ * - Images: jpg, jpeg, png, gif, webp
+ * - Videos: mp4, webm, mov, avi
+ * - Documents: pdf, and text files (txt, md, json, css) for content/inspiration
  *
  * UPLOAD FLOW:
  * 1. User drags files or clicks to select
@@ -28,6 +29,7 @@ import {
   X,
   Image as ImageIcon,
   FileText,
+  Film,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -36,18 +38,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// Accepted file types
+// Accepted file types — kept in sync with the server allow-list in
+// src/app/api/media/upload/route.ts. Anything that passes here must also pass
+// there, so SVG (rejected server-side) is intentionally excluded.
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
+  "image/jpg",
   "image/png",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
 ];
+const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
 const ACCEPTED_DOC_TYPES = ["application/pdf"];
-const ACCEPTED_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOC_TYPES];
-const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB attachment limit
-const MAX_DOC_SIZE = 3 * 1024 * 1024; // 3MB attachment limit
+const ACCEPTED_TEXT_TYPES = ["text/plain", "text/markdown", "application/json", "text/css"];
+const ACCEPTED_TYPES = [
+  ...ACCEPTED_IMAGE_TYPES,
+  ...ACCEPTED_VIDEO_TYPES,
+  ...ACCEPTED_DOC_TYPES,
+  ...ACCEPTED_TEXT_TYPES,
+];
+// The server enforces a 4MB Blob-safe cap for preview reliability; match it.
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 5;
 
 export interface UploadedFile {
@@ -111,16 +122,16 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error: "Filtyp stöds inte. Använd JPG, PNG, GIF, WebP, SVG eller PDF.",
+            error:
+              "Filtyp stöds inte. Använd bild (JPG, PNG, GIF, WebP), video (MP4, WebM, MOV) eller PDF/text.",
           };
           workingFiles = [...workingFiles, errorFile];
           onFilesChange(workingFiles);
           continue;
         }
 
-        // Validate file size (Blob-safe limits for preview reliability)
-        const maxSize = file.type.startsWith("image/") ? MAX_IMAGE_SIZE : MAX_DOC_SIZE;
-        if (file.size > maxSize) {
+        // Validate file size (Blob-safe limit for preview reliability)
+        if (file.size > MAX_FILE_SIZE) {
           const errorFile: UploadedFile = {
             id: `error-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             url: "",
@@ -128,7 +139,7 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error: "Filen är för stor. Max 3 MB för bilagor.",
+            error: "Filen är för stor. Max 4 MB för bilagor.",
           };
           workingFiles = [...workingFiles, errorFile];
           onFilesChange(workingFiles);
@@ -283,6 +294,9 @@ export function FileUploadZone({
     if (mimeType.startsWith("image/")) {
       return <ImageIcon className="h-4 w-4" />;
     }
+    if (mimeType.startsWith("video/")) {
+      return <Film className="h-4 w-4" />;
+    }
     return <FileText className="h-4 w-4" />;
   };
 
@@ -379,7 +393,7 @@ export function FileUploadZone({
               {isDragging ? "Släpp filer här" : "Dra filer hit eller klicka för att välja"}
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              JPG, PNG, GIF, WebP, SVG eller PDF • Max 3MB • Max {MAX_FILES} filer
+              Bild, video, PDF eller text • Max 4MB • Max {MAX_FILES} filer
             </p>
           </div>
         </div>
