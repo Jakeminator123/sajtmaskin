@@ -2,15 +2,15 @@
 /**
  * Manual dev-recovery helper (Windows-first).
  *
- * Frees the ports `npm run dev` needs (Next dev + inspector worker) by killing
- * whatever process *tree* is LISTENING on them. Use when `npm run dev` fails
- * with EADDRINUSE or appears "locked up" by a leftover dev server after a hard
- * Ctrl-C / closed terminal.
+ * Frees the port `npm run dev` needs (Next dev) by killing whatever process
+ * *tree* is LISTENING on it. Use when `npm run dev` fails with EADDRINUSE or
+ * appears "locked up" by a leftover dev server after a hard Ctrl-C / closed
+ * terminal.
  *
  * This is intentionally NOT wired into predev/dev — run it explicitly:
  *   npm run dev:unlock
  * Override / add ports:
- *   node scripts/dev/unlock-dev.mjs 3000 3310 4000
+ *   node scripts/dev/unlock-dev.mjs 3000 4000
  *
  * Safety: it only kills processes that are actually LISTENING on the target
  * ports, so it will not touch unrelated node/build/test processes.
@@ -18,7 +18,7 @@
 import { spawnSync } from "node:child_process";
 
 const IS_WIN = process.platform === "win32";
-const DEFAULT_PORTS = [3000, 3310];
+const DEFAULT_PORTS = [3000];
 
 const argPorts = process.argv
   .slice(2)

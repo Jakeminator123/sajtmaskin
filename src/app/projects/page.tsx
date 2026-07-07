@@ -10,6 +10,7 @@ import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
+import { ProjectThumbnail } from "@/components/projects/project-thumbnail";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -248,11 +249,7 @@ function ProjectsPageInner() {
                         );
                       }
 
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-700">
-                          <Folder className="h-12 w-12" />
-                        </div>
-                      );
+                      return <ProjectThumbnail id={project.id} name={project.name} />;
                     })()}
 
                     {/* Hover overlay */}

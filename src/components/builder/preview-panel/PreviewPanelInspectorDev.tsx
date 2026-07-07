@@ -228,7 +228,7 @@ export function PreviewPanelInspectorDev({
                       {elementMapLoading
                         ? "Laddar karta..."
                         : inspectorUnavailable
-                          ? "Inspector kräver Playwright eller inspector-worker"
+                          ? "Inspector kräver lokal Playwright (ej i serverless)"
                           : `${elementMapCount} element`}
                     </span>
                   ) : null}

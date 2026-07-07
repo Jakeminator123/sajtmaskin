@@ -84,7 +84,6 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 | Service | Command | Notes |
 |---------|---------|-------|
 | Next.js dev | `node scripts/dev/next-runner.mjs dev` | Starts on port 3000. Bypasses `predev` if DB init already done. Full `npm run dev` runs `predev` first (preflight checks, schema-drift, shadcn sync, db:init). |
-| Inspector worker | Starts automatically with dev server | Runs on port 3310 (embedded in `next-runner.mjs`). |
 
 ### Gotchas
 

@@ -9,6 +9,18 @@ supersedes: null
 
 # Inspector ("Inspektera preview") — rendering-arkitektur
 
+> **UPPDATERING 2026-07-07 — Option A borttagen.** Den externa Playwright-workern
+> (`services/inspector-worker/`) och dess infra (`infra/inspector-worker/`) är
+> **raderade**, tillsammans med worker-wiringen i `next-runner.mjs`, worker-env
+> (`INSPECTOR_CAPTURE_WORKER_*`, `INSPECTOR_FORCE_WORKER_ONLY`) och
+> `inspector:*`-npm-scripts. Option A (lyfta workern till ett render-konto) är
+> alltså inte längre möjlig utan att återskapa tjänsten. `/api/inspector-capture`
+> och `/api/inspector-element-map` finns kvar med **enbart** lokal Playwright-
+> fallback (dev; 503 i serverless som tidigare) — de matar fortfarande
+> `map`/`capture`-engines samt placement/Visual Composer. Vägen framåt är
+> **Option B (inspect-bridge)** nedan. Kvar (eget pass): migrera placement/composer
+> till bridge och pensionera `map`/`capture`-engines i UI:t.
+
 Beslutsunderlag för element-markeringen med musen i preview-panelen. Två vägar:
 **A)** lyfta den gamla inspector-workern till ett nytt render-konto (eng. *render account*, hosting-konto), och **B)** en smartare väg utan separat renderinstans. Kod är source of truth; allt nedan är verifierat mot repo 2026-06-19.
 

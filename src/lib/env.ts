@@ -203,12 +203,6 @@ export const serverSchema = z.object({
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
-  // Inspector / capture worker
-  INSPECTOR_CAPTURE_WORKER_URL: z.string().optional(),
-  INSPECTOR_CAPTURE_WORKER_TOKEN: z.string().optional(),
-  INSPECTOR_FORCE_WORKER_ONLY: z.string().optional(),
-  INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS: z.string().optional(),
-
   // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
 

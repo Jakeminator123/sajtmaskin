@@ -15,17 +15,6 @@ const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
 const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
-const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
-const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
-const FORCE_WORKER_ONLY = (() => {
-  const raw = process.env.INSPECTOR_FORCE_WORKER_ONLY?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-})();
-const WORKER_TIMEOUT_MS = (() => {
-  const parsed = Number(process.env.INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS || "7000");
-  if (!Number.isFinite(parsed)) return 7000;
-  return Math.max(1000, Math.min(30_000, Math.round(parsed)));
-})();
 
 type CaptureRequest = {
   url: string;
@@ -118,50 +107,6 @@ function isDisallowedHost(hostname: string): boolean {
   if (ipVersion === 4) return isPrivateIpv4(host);
   if (ipVersion === 6) return isPrivateIpv6(host);
   return false;
-}
-
-async function tryWorkerCapture(payload: CaptureRequest): Promise<NextResponse | null> {
-  if (!WORKER_URL) return null;
-
-  let captureUrl: URL;
-  try {
-    captureUrl = new URL("/capture", WORKER_URL);
-  } catch {
-    console.warn("[inspector-capture] Invalid INSPECTOR_CAPTURE_WORKER_URL, falling back to local.");
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WORKER_TIMEOUT_MS);
-
-  try {
-    const headers: HeadersInit = { "content-type": "application/json" };
-    if (WORKER_TOKEN) {
-      headers["x-inspector-token"] = WORKER_TOKEN;
-    }
-
-    const response = await fetch(captureUrl.toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (response.ok && data) {
-      return NextResponse.json(data, { status: 200 });
-    }
-
-    const reason = data && typeof data.error === "string" ? data.error : `HTTP ${response.status}`;
-    console.warn(`[inspector-capture] Worker unavailable (${reason}), using local fallback.`);
-    return null;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "unknown worker error";
-    console.warn(`[inspector-capture] Worker request failed (${reason}), using local fallback.`);
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 async function waitForStabilizedPage(page: Page) {
@@ -541,30 +486,9 @@ async function handlePOST(req: Request) {
   const cropWidth = clamp(Math.round(parsed.cropWidth ?? DEFAULT_CROP_WIDTH), 120, viewportWidth);
   const cropHeight = clamp(Math.round(parsed.cropHeight ?? DEFAULT_CROP_HEIGHT), 90, viewportHeight);
 
-  const workerResult = await tryWorkerCapture({
-    url: target.toString(),
-    xPercent,
-    yPercent,
-    viewportWidth,
-    viewportHeight,
-    cropWidth,
-    cropHeight,
-  });
-  if (workerResult) return workerResult;
-
-  if (WORKER_URL && FORCE_WORKER_ONLY) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Inspector worker är konfigurerad men kunde inte nås. Lokal fallback är avstängd.",
-      },
-      { status: 503 },
-    );
-  }
-
   if (IS_SERVERLESS) {
     return NextResponse.json(
-      { success: false, error: "Inspector worker is not available. Local Playwright fallback is not supported in serverless." },
+      { success: false, error: "Inspector capture is not available in serverless (local Playwright fallback is unsupported here)." },
       { status: 503 },
     );
   }
