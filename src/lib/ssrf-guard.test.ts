@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isAllowedPreviewHost,
   isDisallowedHost,
+  isLoopbackHost,
   safeFetch,
   validateSsrfTarget,
 } from "./ssrf-guard";
@@ -239,5 +240,38 @@ describe("ssrf-guard", () => {
     expect(res.status).toBe(403);
     expect(await res.text()).toContain("private/internal IP");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isLoopbackHost", () => {
+  it("recognizes the app's own loopback origin (dev preview)", () => {
+    expect(isLoopbackHost("localhost")).toBe(true);
+    expect(isLoopbackHost("127.0.0.1")).toBe(true);
+    expect(isLoopbackHost("127.5.5.5")).toBe(true);
+    expect(isLoopbackHost("::1")).toBe(true);
+    expect(isLoopbackHost("[::1]")).toBe(true);
+    expect(isLoopbackHost("app.localhost")).toBe(true);
+  });
+
+  it("does NOT treat private/metadata targets as loopback", () => {
+    // Security regression guard: a forged same-origin pointing at metadata /
+    // private ranges must not be exempted from the SSRF guard.
+    expect(isLoopbackHost("169.254.169.254")).toBe(false);
+    expect(isLoopbackHost("10.0.0.1")).toBe(false);
+    expect(isLoopbackHost("192.168.0.1")).toBe(false);
+    expect(isLoopbackHost("0.0.0.0")).toBe(false);
+    expect(isLoopbackHost("example.com")).toBe(false);
+  });
+
+  it("keeps the element-map guard combination secure", () => {
+    // The route allows a target only when it is loopback OR not disallowed.
+    // A forged metadata target is loopback=false AND disallowed=true => blocked.
+    const metadata = "169.254.169.254";
+    const allowed = isLoopbackHost(metadata) || !isDisallowedHost(metadata);
+    expect(allowed).toBe(false);
+
+    // The dev preview (loopback) stays allowed.
+    const devPreview = "localhost";
+    expect(isLoopbackHost(devPreview) || !isDisallowedHost(devPreview)).toBe(true);
   });
 });

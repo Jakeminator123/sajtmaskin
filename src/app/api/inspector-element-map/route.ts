@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import { isDisallowedHost, isLoopbackHost } from "@/lib/security/is-disallowed-host";
+import { hostResolvesToPrivate, isDisallowedHost, isLoopbackHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -176,7 +176,10 @@ async function handlePOST(req: Request) {
   // be derived from the parsed target host — NOT from req.url / the Host header,
   // which is client-controllable and would let a caller forge same-origin and
   // drive Playwright to a private/metadata host.
-  if (!isLoopbackHost(target.hostname) && isDisallowedHost(target.hostname)) {
+  if (
+    !isLoopbackHost(target.hostname) &&
+    (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname)))
+  ) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 
