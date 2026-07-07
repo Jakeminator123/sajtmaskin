@@ -15,6 +15,14 @@ import { useAutoFix } from "./useAutoFix";
 export function useChatMessaging(params: ChatMessagingParams): ChatMessagingReturn {
   const { chatId, setMessages } = params;
 
+  // Live ref to the active chatId so a scheduled autofix can verify the user
+  // hasn't switched chats before it streams (see useAutoFix getActiveChatId).
+  const activeChatIdRef = useRef<string | null | undefined>(chatId);
+  useEffect(() => {
+    activeChatIdRef.current = chatId;
+  }, [chatId]);
+  const getActiveChatId = useCallback(() => activeChatIdRef.current, []);
+
   const streamAbortRef = useRef<AbortController | null>(null);
   const lastSentSystemPromptRef = useRef<string | null>(null);
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
@@ -94,7 +102,7 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
 
   const { sendMessage } = useSendMessage(params, { createNewChat, ...sharedDeps });
 
-  const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage);
+  const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage, getActiveChatId);
   useEffect(() => {
     autoFixHandlerRef.current = resolvedAutoFixRef.current;
   });

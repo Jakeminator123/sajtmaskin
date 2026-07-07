@@ -176,6 +176,43 @@ describe("useAutoFix", () => {
     );
   });
 
+  it("skips a scheduled autofix when the active chat changed since scheduling (#8)", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    // Active chat is now a DIFFERENT chat than the payload's chat.
+    const { result } = renderHook(() => useAutoFix(sendMessage, () => "chat_other"));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("still sends when the active chat matches the payload chat (#8 control)", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage, () => "chat_1"));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
