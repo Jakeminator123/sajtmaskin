@@ -66,19 +66,24 @@ function pathIsUnderPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-function hostMatchesSuffix(hostname: string, suffix: string): boolean {
-  const normalizedSuffix = suffix.trim().toLowerCase().replace(/^\./, "");
-  if (!normalizedSuffix) return false;
-  const normalizedHost = hostname.trim().toLowerCase().replace(/\.$/, "");
-  return normalizedHost === normalizedSuffix || normalizedHost.endsWith(`.${normalizedSuffix}`);
+function normalizeHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/^\./, "").replace(/\.$/, "");
 }
 
-function configuredThumbnailAllowlistSuffixes(): string[] {
+/**
+ * Extra allowlist entries are matched as EXACT hostnames, never as suffixes.
+ * The env var is a suffix list for client-side iframe detection, but a suffix
+ * like the documented "fly.dev" covers every public *.fly.dev app — an
+ * attacker-controlled Fly app would pass a suffix match and reach the
+ * server-side Chromium capture (Codex P1 on PR #435). Operators running
+ * multiple preview hosts must list each exact hostname.
+ */
+function configuredThumbnailAllowlistHosts(): string[] {
   const raw = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
   if (!raw) return [];
   return raw
     .split(",")
-    .map((entry) => entry.trim().toLowerCase().replace(/^\./, ""))
+    .map((entry) => normalizeHostname(entry))
     .filter(Boolean);
 }
 
@@ -88,8 +93,8 @@ type PreviewAllowlistDecision =
 
 /**
  * Thumbnails are captured server-side (Chromium in a trusted runtime). Restrict
- * caller-supplied preview URLs to the configured preview-host base URL, with an
- * explicit operator override list for known alternate preview domains.
+ * caller-supplied preview URLs to the configured preview-host origin (+ path
+ * prefix), with an explicit operator list of exact alternate hostnames.
  */
 function assertPreviewUrlAllowed(target: URL): PreviewAllowlistDecision {
   const previewHostBase = getPreviewHostBaseUrl();
@@ -112,14 +117,14 @@ function assertPreviewUrlAllowed(target: URL): PreviewAllowlistDecision {
     };
   }
 
-  const allowlistSuffixes = configuredThumbnailAllowlistSuffixes();
-  if (allowlistSuffixes.some((suffix) => hostMatchesSuffix(target.hostname, suffix))) {
-    return { ok: true };
-  }
-
   const sameOrigin = target.origin === previewHostBaseUrl.origin;
   const requiredPathPrefix = normalizePathPrefix(previewHostBaseUrl.pathname);
   if (sameOrigin && pathIsUnderPrefix(target.pathname, requiredPathPrefix)) {
+    return { ok: true };
+  }
+
+  const targetHost = normalizeHostname(target.hostname);
+  if (configuredThumbnailAllowlistHosts().some((host) => host === targetHost)) {
     return { ok: true };
   }
 
@@ -130,20 +135,15 @@ function assertPreviewUrlAllowed(target: URL): PreviewAllowlistDecision {
   };
 }
 
-function hashedRateLimitSessionId(sessionId: string | null): string | null {
-  if (!sessionId) return null;
-  return createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
-}
-
 export async function POST(req: NextRequest, ctx: RouteParams) {
   const user = await getCurrentUser(req);
   const sessionId = getSessionIdFromRequest(req);
-  const rateLimitOptions = user?.id
-    ? { userId: user.id }
-    : (() => {
-        const sessionKey = hashedRateLimitSessionId(sessionId);
-        return sessionKey ? { sessionId: sessionKey } : undefined;
-      })();
+  // Rate-limit key: verified user id when logged in, else the caller IP.
+  // The guest session id is CLIENT-CONTROLLED (cookie or x-session-id header),
+  // so keying guests on it would let a caller rotate the header and mint a
+  // fresh bucket per request on this expensive Chromium route (Codex P2,
+  // PR #435). IP is the only guest dimension the caller cannot rotate freely.
+  const rateLimitOptions = user?.id ? { userId: user.id } : undefined;
 
   return withRateLimit(
     req,
