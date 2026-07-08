@@ -252,6 +252,60 @@ describe("dep-completer", () => {
     }
   });
 
+  // Dossier wave 2 (capability `database`, 2026-07-08): the capability
+  // backstop resolves the default dossier's manifest deps through
+  // KNOWN_PACKAGES pins (never `latest`); the mongo/neon siblings' deps are
+  // covered via the import-scan pins below since the promptless backstop
+  // always resolves the capability default.
+  it("injects the drizzle/pg stack when database is selected (default dossier)", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
+      "postgres-drizzle",
+    );
+
+    const deps = resolveCapabilityDependencies(["database"]);
+    expect(deps["drizzle-orm"]).toBe(KNOWN_PACKAGES["drizzle-orm"]);
+    expect(deps["drizzle-kit"]).toBe(KNOWN_PACKAGES["drizzle-kit"]);
+    expect(deps.pg).toBe(KNOWN_PACKAGES.pg);
+    expect(deps["@types/pg"]).toBe(KNOWN_PACKAGES["@types/pg"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of ["drizzle-orm", "drizzle-kit", "pg", "@types/pg", "server-only"]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
+  it("selects the sibling database dossiers on explicit provider prompts", () => {
+    const mongoSelection = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "spara produkterna i mongodb",
+    });
+    expect(mongoSelection.selected[0]?.entry.id).toBe("mongodb-atlas");
+
+    const neonSelection = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "använd neon postgres för medlemsdatan",
+    });
+    expect(neonSelection.selected[0]?.entry.id).toBe("neon-postgres");
+  });
+
+  it("pins mongodb and @neondatabase/serverless imports from generated code", () => {
+    const result = runDepCompleter(
+      [
+        'import { MongoClient } from "mongodb";',
+        'import { neon } from "@neondatabase/serverless";',
+      ].join("\n"),
+    );
+
+    expect(result.dependencies.mongodb).toBe(KNOWN_PACKAGES.mongodb);
+    expect(result.dependencies["@neondatabase/serverless"]).toBe(
+      KNOWN_PACKAGES["@neondatabase/serverless"],
+    );
+    expect(result.unknownPackages).not.toContain("mongodb");
+    expect(result.unknownPackages).not.toContain("@neondatabase/serverless");
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [

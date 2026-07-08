@@ -38,13 +38,23 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
         capabilities({
           needsMotion: true,
           needsCharts: true,
-          needsDatabase: true,
           needsEcommerce: true,
           needsPremiumVisuals: true,
           needsThemeToggle: true,
         }),
       ),
     ).toEqual([]);
+  });
+
+  it("bridges needsDatabase to the database dossier capability (no-brief init fallback)", () => {
+    // Codex P1 (#445): a raw init prompt like "booking app that saves bookings
+    // in Postgres" sets needsDatabase; without the bridge no database dossier
+    // is ever selected when the Deep Brief is skipped/empty.
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(
+        capabilities({ needsDatabase: true }),
+      ),
+    ).toEqual(["database"]);
   });
 
   it("preserves the existing capability-id output order", () => {
@@ -114,6 +124,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "needsParallax",
       "needsPayments",
       "needsAuth",
+      "needsDatabase",
       "needsForms",
       "needsCarousel",
       "needsCommandSearch",

@@ -778,6 +778,98 @@ describe("detectFollowUpCapabilities — image-generation", () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 2 — capability `database` (2026-07-08): postgres-drizzle
+// (default) + neon-postgres + mongodb-atlas share the capability; provider
+// disambiguation happens later in select.ts via manifest relevanceKeywords.
+// Detection only needs to say "the user wants a database".
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — database", () => {
+  it("detects a generic Swedish database ask ('spara ... i en databas')", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att bokningar sparas i en databas",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("detects an explicit MongoDB ask", () => {
+    const result = detectFollowUpCapabilities("lägg till mongodb för produkterna");
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("detects an explicit Neon ask (DB-flavoured compound)", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha neon postgres som databas för medlemmarna",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("detects an English database ask ('store orders in a database')", () => {
+    const result = detectFollowUpCapabilities(
+      "add a feature to store orders in a database",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  // Veto: vector stores belong to the coming rag-chat capability.
+  it("does NOT detect database for a vector-store ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en vektor-databas för semantisk sökning",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  // Veto: visitor tracking is an analytics ask even when phrased with "databas".
+  it("does NOT detect database for a tracking ask ('spåra besökare i en databas')", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att vi kan spåra besökare i en databas",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+    expect(result.capabilityIds).toContain("analytics");
+  });
+
+  // Veto: explicit competing ORM/BaaS choice must not inject our stack
+  // (Chart.js precedent from dashboard-charts).
+  it("does NOT detect database for an explicit Prisma choice", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en databas med prisma som orm",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  // Design word "neon" must not be read as the Neon database provider.
+  it("does NOT detect database for neon styling asks", () => {
+    const result = detectFollowUpCapabilities("gör hero-sektionen i neon-stil");
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  // Negation guard: "utan databas" suppresses the capability.
+  it("does NOT detect database when the user explicitly forbids a backend", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en bokningssektion, utan databas eller backend",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  // Bugbot (wave 2 pre-PR pass): a negated PROVIDER must not suppress the
+  // capability — "inte postgres" is a provider preference, and the explicit
+  // MongoDB ask in the same prompt must still reach the dossier selector
+  // (which resolves mongo via relevanceKeywords).
+  it("still detects database when only a provider is negated ('mongodb, inte postgres')", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till mongodb för ordrarna, inte postgres",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("still detects database for 'använd mongodb utan drizzle'", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha mongodb utan drizzle för produktdatan",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+});
+
 describe("detectFollowUpCapabilities — ai-tool-calling", () => {
   it("detects 'tool-calling' as ai-tool-calling (not plain ai-chat)", () => {
     const result = detectFollowUpCapabilities(

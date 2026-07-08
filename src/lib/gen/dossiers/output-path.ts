@@ -27,8 +27,11 @@
  *      (Next.js App Router API routes belong under `app/api/`.)
  *   2. `components/middleware.ts`               → `middleware.ts`
  *      `components/instrumentation.ts`          → `instrumentation.ts`
+ *      `components/drizzle.config.ts`           → `drizzle.config.ts`
  *      `components/sentry.<env>.config.ts`      → `sentry.<env>.config.ts`
- *      (Next.js root-level convention files.)
+ *      (Root-level convention/config files — Drizzle Kit resolves its config
+ *      from the project root, so the postgres-drizzle dossier's config must
+ *      land there, mirroring the Sentry configs.)
  *   3. `components/lib/<rel>`                   → `lib/<rel>`
  *      (SDK init helpers — imported via `@/lib/...`.)
  *   4. Everything else                          → keep `components/<rel>`
@@ -38,6 +41,7 @@
 const ROOT_LEVEL_FILES = new Set([
   "middleware.ts",
   "instrumentation.ts",
+  "drizzle.config.ts",
 ]);
 
 const SENTRY_CONFIG_RE = /^sentry\.(client|server|edge)\.config\.ts$/;

@@ -322,6 +322,11 @@ describe("F2/F3 integration mute (contract-derived + policy residual)", () => {
     "error-tracking",
     "contact-form",
     "newsletter-subscribe",
+    // Dossier wave 2: all three database dossiers ship server-role files
+    // (lib helpers + /api/health/db), so `database` derives into the F3 set
+    // via dossierRequiresF3 — F2 renders seed data instead (see the dossiers'
+    // seed-fallback contract).
+    "database",
   ];
 
   it("mutes all integration capabilities in F2 (design)", () => {

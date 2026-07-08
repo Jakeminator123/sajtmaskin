@@ -242,6 +242,17 @@ export interface OrchestrationInput {
    */
   requestedDossierCapabilities?: string[];
   /**
+   * Provider identity hints from an APPROVED F3 integration proposal
+   * (e.g. `["mongodb"]`, from the consumed continuation marker). The raw
+   * approval reply ("Godkänn"/"bygg integrationer") carries no provider
+   * keyword, so sibling selection under a shared capability (`database` →
+   * postgres-drizzle | mongodb-atlas | neon-postgres) would otherwise fall
+   * back to the capability default and silently swap the approved provider
+   * (Codex P1 on PR #445). Appended to the dossier-selection promptText
+   * surface only — never used for capability detection/filtering.
+   */
+  dossierProviderHints?: string[];
+  /**
    * Plan 06: per-capability specificity tier (`generic` / `specific` /
    * `beyond-dossier`) computed by `detectFollowUpCapabilities`. Surfaced
    * back on `OrchestrationBase.requestedCapabilityTiers` so Plan 07 (3D
@@ -1400,9 +1411,27 @@ export async function resolveOrchestrationBase(
         });
       }
       dossierRequestedCapabilities = capabilityFloor.capabilities;
+      // Same prompt surface as the F2 filter above, PLUS the approved-provider
+      // hints from an F3 approval round: the raw approval text ("Godkänn")
+      // has no provider keyword, so without the hints an approved MongoDB
+      // build would silently receive the postgres-drizzle default under
+      // `database` (Codex P1 on PR #445).
+      const providerHintText = (input.dossierProviderHints ?? [])
+        .filter((hint): hint is string => typeof hint === "string" && hint.trim().length > 0)
+        .join(" ");
+      const dossierSelectionPromptText = [
+        input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+        providerHintText,
+      ]
+        .filter((part) => typeof part === "string" && part.trim().length > 0)
+        .join("\n");
       dossierSelection = selectDossiersForRequest({
         brief,
         requestedCapabilities: capabilityFloor.capabilities,
+        // Lets sibling dossiers under one capability resolve on explicit
+        // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
+        // mongodb-atlas instead of the postgres-drizzle default).
+        promptText: dossierSelectionPromptText,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {

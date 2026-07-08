@@ -281,11 +281,18 @@ function findBackingDossiers(
   return index.matchers.filter((m) => m.matches(def));
 }
 
-const CONFIG_NOTICE_FILE = "components/integration-config-notice.tsx";
+/**
+ * Any `components/**config-notice*.tsx` counts as a config-notice UI — the
+ * shared `integration-config-notice.tsx` AND dossier-specific variants like
+ * mongodb-atlas's `db-config-notice.tsx` (Codex P2 #445: the exact-filename
+ * check made DB approvals take the "none is provided" branch and told the
+ * model NOT to import the notice the dossier actually ships).
+ */
+const CONFIG_NOTICE_FILE_RE = /(?:^|\/)components\/(?:[\w-]*-)?config-notice\.tsx$/;
 
 function backingDossierShipsConfigNotice(backing: DossierBackingMatcher[]): boolean {
   return backing.some((dossier) =>
-    dossier.files.some((f) => f.path === CONFIG_NOTICE_FILE),
+    dossier.files.some((f) => CONFIG_NOTICE_FILE_RE.test(f.path)),
   );
 }
 

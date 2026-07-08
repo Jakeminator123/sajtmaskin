@@ -147,6 +147,170 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 2 (2026-07-08): three dossiers share capability `database`
+// (postgres-drizzle default, neon-postgres + mongodb-atlas siblings). An
+// explicit provider ask in the prompt overrides the default via manifest
+// `relevanceKeywords`; without a prompt (dep-completer backstop, snapshot
+// re-selection) the default always wins.
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — relevanceKeywords disambiguation (database)", () => {
+  it("picks postgres-drizzle (default) for a generic database ask", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en bokningssajt som sparar bokningar i en databas",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+  });
+
+  it("picks postgres-drizzle when no prompt text is supplied", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("picks mongodb-atlas on an explicit MongoDB ask", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "lagra produkterna i MongoDB Atlas",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("picks neon-postgres on an explicit DB-flavoured Neon ask (neon.tech)", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "hosta medlemsregistret på neon.tech",
+    });
+    expect(result.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("does NOT pick neon-postgres for a bare design-word 'neon' ask", () => {
+    // Codex P2 (#445): bare "neon" is a style/brand noun (neon sign, neon
+    // café, neon colours). Only DB-flavoured Neon phrases ("neon postgres",
+    // "neon.tech", …) should override the default — a generic database for a
+    // neon-themed shop must stay on postgres-drizzle.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en databas till mitt neon cafe",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("picks mongodb-atlas even when a competing provider is negated", () => {
+    // Codex P1 (#445): "mongodb ... inte postgres" must not let the negated
+    // "postgres" pull selection to the default. Because the default carries no
+    // relevanceKeywords, only the positive mongo intent matches.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "lägg till mongodb för ordrarna, inte postgres",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("picks mongodb-atlas for 'mongodb utan drizzle'", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "vi vill ha mongodb utan drizzle för produktdatan",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+  });
+
+  it("matches hyphenated provider forms of multi-word keywords (mongodb-atlas)", () => {
+    // Codex P2 (#445): the follow-up vocabulary accepts hyphenated provider
+    // forms ("mongodb-atlas", "neon-postgres"); the relevance matcher must
+    // treat spaces in multi-word keywords as space-or-hyphen so those prompts
+    // reach the intended sibling instead of the postgres-drizzle default.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "sätt upp mongodb-atlas för kunddatan",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("matches hyphenated neon-postgres and neon-db forms", () => {
+    const hyphenPostgres = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "kör neon-postgres för medlemsdatan",
+    });
+    expect(hyphenPostgres.selected[0]?.entry.id).toBe("neon-postgres");
+
+    const hyphenDb = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "spara allt i en neon-db",
+    });
+    expect(hyphenDb.selected[0]?.entry.id).toBe("neon-postgres");
+  });
+
+  it("picks neon-postgres across a preposition ('use Neon for the database')", () => {
+    // Codex P2 (#445): DB-flavoured Neon intent with a connector between the
+    // provider and the database noun must still reach the sibling.
+    const en = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "use Neon for the database",
+    });
+    expect(en.selected[0]?.entry.id).toBe("neon-postgres");
+
+    const sv = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "använd Neon för databasen",
+    });
+    expect(sv.selected[0]?.entry.id).toBe("neon-postgres");
+  });
+
+  it("picks neon-postgres on the natural 'Neon Postgres' phrasing", () => {
+    // The default postgres-drizzle deliberately carries NO relevanceKeywords
+    // (it is the fallback), so the "postgres" in "Neon Postgres" must not pull
+    // selection back to the Drizzle default — the explicit Neon provider intent
+    // wins. Guards against the sibling-vs-default tie-break regressing.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "vi vill ha Neon Postgres som databas för medlemmarna",
+    });
+    expect(result.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("keeps the default for a bare 'postgres'/'drizzle' ask (default needs no keyword)", () => {
+    // A generic Postgres/Drizzle ask has no sibling keyword to override the
+    // default, so postgres-drizzle wins as the capability default — reason is
+    // capability-match, not relevance-keyword.
+    const drizzle = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "spara beställningarna i postgres med drizzle",
+    });
+    expect(drizzle.selected[0]?.entry.id).toBe("postgres-drizzle");
+    expect(drizzle.selected[0]?.reason).toBe("capability-match");
+  });
+
+  it("does NOT let a hyphen compound hit a bare keyword (neon-skylt ≠ Neon)", () => {
+    // "neon-skylt" (neon sign) is a design noun, not a database provider ask.
+    // The keyword matcher treats hyphen as part of the word, so the default
+    // still wins.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en databas för min butik med neon-skyltar",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("keyword override is scoped to the shared capability — other selections untouched", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments", "database"],
+      promptText: "checkout med stripe och spara ordrar i mongodb",
+    });
+    const byId = new Map(result.selected.map((s) => [s.entry.capability, s.entry.id]));
+    expect(byId.get("payments")).toBe("stripe-checkout");
+    expect(byId.get("database")).toBe("mongodb-atlas");
+  });
+});
+
 describe("getAllDossiers", () => {
   it("walks both hard/ and soft/ folders", () => {
     const all = getAllDossiers();
