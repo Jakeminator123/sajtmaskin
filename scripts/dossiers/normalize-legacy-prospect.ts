@@ -298,6 +298,18 @@ async function reviewProspect(
   return JSON.parse(content) as ReviewOutput;
 }
 
+/**
+ * True when `p` is a clean POSIX-relative path rooted at "components/" with no
+ * empty / "." / ".." segments and no backslashes. Guards both keepFiles.to and
+ * (transitively) manifest.files[].path, which must equal a keepFiles.to.
+ */
+function isSafeComponentsRelPath(p: string): boolean {
+  if (typeof p !== "string" || p.includes("\\")) return false;
+  const parts = p.split("/");
+  if (parts[0] !== "components" || parts.length < 2) return false;
+  return parts.every((seg) => seg !== "" && seg !== "." && seg !== "..");
+}
+
 interface MechanicalCheckResult {
   ok: boolean;
   errors: string[];
@@ -333,8 +345,13 @@ function runMechanicalChecks(
     if (!existsSync(join(prospectDir, k.from))) {
       errors.push(`keepFiles.from does not exist in prospect: ${k.from}`);
     }
-    if (!k.to.startsWith("components/")) {
-      errors.push(`keepFiles.to must start with "components/": ${k.to}`);
+    // Path-escape guard: `to` must be a clean POSIX path under components/
+    // with no traversal — otherwise writeDraft's join+cpSync could write
+    // outside the draft dir (e.g. "components/../../REJECTED.md").
+    if (!isSafeComponentsRelPath(k.to)) {
+      errors.push(
+        `keepFiles.to must be a clean "components/..." path (no "\\", ".", ".." segments): ${k.to}`,
+      );
     }
   }
   for (const file of manifest.files ?? []) {
@@ -418,6 +435,12 @@ async function main() {
   const selected = plans.filter((p) => (args.only ? p.legacyId === args.only : true));
   if (selected.length === 0) throw new Error(`No prospect matches --only=${args.only}`);
 
+  // Tracks whether any prospect ended `invalid` (LLM accepted but the draft
+  // failed AJV/mechanical validation). Rejects are a normal outcome and keep
+  // exit 0; an invalid is a real defect, so we exit non-zero at the end so the
+  // backoffice batch buttons don't render a green banner over a failed run.
+  let anyInvalid = false;
+
   const openai = new OpenAI({ apiKey: loadOpenAiKey() });
   const reportPath = join(root, "normalization-report.json");
   const report: Record<string, ReportRow> = existsSync(reportPath)
@@ -474,6 +497,10 @@ async function main() {
       if (validationErrors.length > 0) {
         row.verdict = "invalid";
         row.validationErrors = validationErrors;
+        anyInvalid = true;
+        // Remove any prior draft so a stale (previously-accepted) _v2-draft/
+        // can't linger and be promoted after a later run went invalid.
+        rmSync(join(prospectDir, "_v2-draft"), { recursive: true, force: true });
         console.error(
           `[invalid] ${plan.legacyId} (${elapsed}s): accepted by LLM but failed validation:\n  - ${validationErrors.join("\n  - ")}`,
         );
@@ -494,6 +521,10 @@ async function main() {
   console.log(
     `\n[done] report: ${reportPath}\n  accept: ${rows.filter((r) => r.verdict === "accept").length} · reject: ${rows.filter((r) => r.verdict === "reject").length} · invalid: ${rows.filter((r) => r.verdict === "invalid").length}`,
   );
+  if (anyInvalid) {
+    // Non-zero so callers (backoffice batch buttons) surface it as a failure.
+    process.exitCode = 2;
+  }
 }
 
 main().catch((err) => {

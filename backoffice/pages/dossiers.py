@@ -560,6 +560,10 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
     target_id = entry.get("targetId")
     if klass not in ("hard", "soft") or not target_id:
         return False, "Ogiltig plan-post (saknar targetClass/targetId)."
+    # Kebab-case guard: also the containment guard — a valid kebab-case id has
+    # no "/", "\\" or "." so it cannot escape data/dossiers/<class>/ via `..`.
+    if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", str(target_id)):
+        return False, f"Ogiltigt targetId (måste vara kebab-case): {target_id!r}"
     draft = root / legacy_id / "_v2-draft"
     manifest_path = draft / "manifest.json"
     if not manifest_path.exists():
@@ -567,6 +571,11 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
     manifest = _load_json(manifest_path)
     if not manifest:
         return False, "Utkastets manifest.json kunde inte läsas (ogiltig JSON)."
+    if manifest.get("id") != target_id:
+        return False, (
+            f"Utkastets manifest.id ({manifest.get('id')!r}) matchar inte plan-postens "
+            f"targetId ({target_id!r}). Kör om normaliseringen mot aktuell plan."
+        )
     errors = _validate_manifest(manifest)
     if errors:
         return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
@@ -687,11 +696,19 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
                 ok, output = _run_normalize(pick, run_all=False, force=True, model=model)
             (st.success if ok else st.error)(output[-3000:])
 
+    # Promotion trusts the REPORT verdict (canonical outcome of the latest run),
+    # not merely the presence of a REVIEW.md — a stale draft from an older run
+    # must never enable promote after the latest run went invalid/reject.
     kind, text = _read_prospect_verdict_files(root, pick)
-    if kind == "accept":
-        st.success("Utkast finns (accepterat av normaliseraren).")
-        with st.expander("REVIEW.md — concerns + obligatoriska kodfixar", expanded=False):
-            st.markdown(text)
+    row_report = report.get(pick) or {}
+    report_verdict = row_report.get("verdict")
+    draft_exists = (root / pick / "_v2-draft" / "manifest.json").exists()
+
+    if report_verdict == "accept" and draft_exists:
+        st.success("Utkast finns (accepterat i senaste körningen).")
+        if text:
+            with st.expander("REVIEW.md — concerns + obligatoriska kodfixar", expanded=False):
+                st.markdown(text)
         with single_cols[1]:
             force_overwrite = st.checkbox("Skriv över befintlig", key="prospect_promote_force")
         if st.button("Promota utkast → live-pool", type="primary", key="prospect_promote"):
@@ -699,10 +716,27 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
             (st.success if ok else st.error)(msg)
             if ok:
                 st.cache_data.clear()
-    elif kind == "reject":
+    elif report_verdict == "invalid":
+        st.error(
+            "Senaste körningen blev **invalid** — LLM:en accepterade men utkastet "
+            "föll på schema-/mekanikvalidering. Inget utkast att promota."
+        )
+        val_errors = row_report.get("validationErrors") or []
+        if val_errors:
+            st.markdown("\n".join(f"- {e}" for e in val_errors))
+        st.caption("Kör 'Normalisera denna' igen (ev. efter promptjustering).")
+    elif report_verdict == "reject" or kind == "reject":
         st.error("Normaliseraren avvisade denna prospect.")
-        with st.expander("REJECTED.md — motivering", expanded=True):
-            st.markdown(text)
+        if text:
+            with st.expander("REJECTED.md — motivering", expanded=True):
+                st.markdown(text)
+        elif row_report.get("reason"):
+            st.markdown(f"> {row_report['reason']}")
+    elif draft_exists:
+        st.warning(
+            "Ett utkast finns men senaste verdict är inte 'accept' — kör om "
+            "normaliseringen innan du promotar."
+        )
     else:
         st.info("Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast.")
 
