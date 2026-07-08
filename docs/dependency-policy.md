@@ -89,11 +89,11 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
 
 ## Auto-merge — förutsättning (branch protection)
 
-Auto-merge (`gh pr merge --auto`) är **säkert bara om** `master` kräver gröna status checks innan merge. Just nu (skrivet 2026-07-08) har repot rulesetet **"Protect master"** som kräver PR + 1 godkännande + code owner review, men **inga required status checks**. Därför är den faktiska auto-merge-åtgärden i workflow:et **avstängd som default** (bakom repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED`); workflow:et sätter i default-läge bara label/metadata på kvalificerade patch-PR:ar.
+Auto-merge (`gh pr merge --auto`) är **säkert bara om** `master` kräver gröna status checks innan merge. Sedan 2026-07-08 har rulesetet **"Protect master"** både PR + 1 godkännande + code owner review **och required status checks** (`quality`, `backoffice-tests`, `schema-drift`). Auto-merge-åtgärden i workflow:et är ändå **avstängd som default** (bakom repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED`) — förutsättningen (required checks) är nu uppfylld, men själva på-slaget är ett separat medvetet val; i default-läge sätter workflow:et bara label/metadata på kvalificerade patch-PR:ar.
 
 För att slå på auto-merge på riktigt:
 
-1. Lägg till **required status checks** (minst CI-jobben `quality`, `backoffice-tests`, `schema-drift`) i rulesetet "Protect master".
-2. Sätt repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED = true`.
+1. ~~Lägg till **required status checks** (minst CI-jobben `quality`, `backoffice-tests`, `schema-drift`) i rulesetet "Protect master".~~ ✅ Gjort 2026-07-08.
+2. Sätt repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED = true` (kvarvarande steg — medvetet av tills auto-merge aktivt önskas).
 
-Utan steg 1 ska auto-merge inte aktiveras — annars kan en PR mergas utan att CI faktiskt verifierat den (false-green-risk).
+Required checks finns nu, så false-green-risken vid `--auto` är stängd; variabeln hålls ändå av tills auto-merge aktivt önskas.

@@ -5,10 +5,10 @@ name: Dependabot safe auto-merge
 # =============================================================================
 # The actual merge step (`gh pr merge --auto`) is ONLY safe when the `master`
 # branch requires GREEN status checks before a merge is allowed. As of
-# 2026-07-08 the "Protect master" ruleset requires a PR review but does NOT
-# configure any required status checks. With no required checks, `--auto` would
-# let a Dependabot PR merge as soon as review requirements are met WITHOUT CI
-# having verified it (false-green risk).
+# 2026-07-08 the "Protect master" ruleset requires a PR review AND required
+# status checks (quality, backoffice-tests, schema-drift, added 2026-07-08),
+# so the false-green window is closed. The merge step is still gated OFF by
+# default — the actual on-switch is a separate deliberate choice.
 #
 # Therefore the merge step is GATED behind the repository variable
 # DEPENDABOT_AUTOMERGE_ENABLED and is OFF by default. In the default (off)
@@ -16,8 +16,8 @@ name: Dependabot safe auto-merge
 # merges anything.
 #
 # To turn real auto-merge ON:
-#   1. Add required status checks to the "Protect master" ruleset — at minimum
-#      the CI jobs: quality, backoffice-tests, schema-drift.
+#   1. [DONE 2026-07-08] Required status checks (quality, backoffice-tests,
+#      schema-drift) are configured on the "Protect master" ruleset.
 #   2. Set the repository variable DEPENDABOT_AUTOMERGE_ENABLED = true.
 # See docs/dependency-policy.md for the full policy.
 # =============================================================================
