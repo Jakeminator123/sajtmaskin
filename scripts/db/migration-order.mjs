@@ -49,6 +49,11 @@ export const MIGRATION_ORDER = [
   // the catalog-based drop (PR #431), so already-migrated DBs would never
   // re-run it. The new filename is pending there and forces one re-run.
   "drop-deployments-legacy-fks-v2.sql",
+  // Converts TIMESTAMP WITHOUT TIME ZONE → TIMESTAMPTZ for tables whose
+  // original migration SQL used bare TIMESTAMP. Guards via information_schema
+  // so it is a no-op on fresh installs (where the source SQL already uses
+  // TIMESTAMPTZ after this PR).
+  "fix-timestamp-tz.sql",
 ];
 
 /**

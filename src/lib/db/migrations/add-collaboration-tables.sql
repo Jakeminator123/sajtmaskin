@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS version_comments (
   author_name TEXT,
   content TEXT NOT NULL,
   resolved BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS version_approvals (
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS version_approvals (
   approver_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
   comment TEXT,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_version_comments_version ON version_comments(version_id);

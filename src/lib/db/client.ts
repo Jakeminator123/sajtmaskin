@@ -212,6 +212,17 @@ if (pool) {
       console.error("[db/client] Unexpected pool error:", msg);
     }
   });
+
+  // Defense-in-depth: ensure every connection uses UTC as the session timezone
+  // so that TIMESTAMP WITHOUT TIME ZONE columns and NOW() casts always return
+  // UTC — regardless of how the Postgres server's TimeZone GUC is configured.
+  // This prevents the 2 h drift seen in prod (confirmed 2026-07-08) where
+  // DEFAULT NOW() on a TIMESTAMP (no tz) column stored Swedish local time.
+  pool.on("connect", (client) => {
+    client.query("SET TIME ZONE 'UTC'").catch((err: unknown) => {
+      console.error("[db/client] Failed to SET TIME ZONE UTC on new connection:", err);
+    });
+  });
 }
 
 export const db = connectionString
