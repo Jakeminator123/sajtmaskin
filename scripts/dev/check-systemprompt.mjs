@@ -31,11 +31,16 @@ function checkManifestFile(manifestPath) {
   for (const rel of fr) {
     // Segmentbaserad (PR #396-klassen): speglar hasTraversalSegment() i
     // src/lib/utils/path-utils.ts (kan inte importeras från .mjs).
-    if (typeof rel !== "string" || rel.split("/").some((s) => s === ".." || s === ".")) {
+    // Backslashes normaliseras först (Bugbot: `prompt-core\..\x.md` skulle
+    // annars smita förbi segment-splitten och resolva utanför config/ på
+    // Windows) — samma normalisering som safeConfigFragmentPath i
+    // static-core-loader.ts.
+    const norm = typeof rel === "string" ? rel.replace(/\\/g, "/") : null;
+    if (norm === null || norm.split("/").some((s) => s === ".." || s === ".")) {
       console.error("[check-systemprompt] Bad fragment entry:", rel);
       process.exit(1);
     }
-    const fp = path.join(root, "config", ...rel.split("/"));
+    const fp = path.join(root, "config", ...norm.split("/"));
     if (!fs.existsSync(fp)) {
       console.error("[check-systemprompt] Missing fragment:", rel);
       process.exit(1);
