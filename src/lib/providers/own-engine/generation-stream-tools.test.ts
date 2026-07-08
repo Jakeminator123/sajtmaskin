@@ -187,6 +187,105 @@ describe("emitOwnEngineToolCallSse", () => {
     expect(toolCallNames.size).toBe(0);
   });
 
+  // C1 (empty-output tool feedback fix): the malformed-call counter must
+  // fire in BOTH lanes so `handleEmptyGeneration` can tell "model tried to
+  // signal something but it was garbage" apart from a truly silent round —
+  // regardless of whether the drop happens via the F2 early defense-in-depth
+  // branch or the deeper F3 validation branch.
+  it("fires registerMalformedIntegrationToolCall for a malformed suggestIntegration in F2", () => {
+    const toolCallNames = new Set<string>();
+    let malformedCount = 0;
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: vi.fn(),
+        toolCallNames,
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        registerMalformedIntegrationToolCall: () => {
+          malformedCount += 1;
+        },
+        lifecycleStage: "design",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: { name: "integration" },
+      },
+    );
+    expect(toolCallNames.size).toBe(0);
+    expect(malformedCount).toBe(1);
+  });
+
+  it("fires registerMalformedIntegrationToolCall for a malformed suggestIntegration in F3", () => {
+    const toolCallNames = new Set<string>();
+    let malformedCount = 0;
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: vi.fn(),
+        toolCallNames,
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        registerMalformedIntegrationToolCall: () => {
+          malformedCount += 1;
+        },
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: { name: "integration" },
+      },
+    );
+    expect(toolCallNames.size).toBe(0);
+    expect(malformedCount).toBe(1);
+  });
+
+  it("does not fire registerMalformedIntegrationToolCall for a well-formed suggestIntegration", () => {
+    let malformedCount = 0;
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: vi.fn(),
+        toolCallNames: new Set(),
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        registerMalformedIntegrationToolCall: () => {
+          malformedCount += 1;
+        },
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "suggestIntegration",
+        args: { provider: "stripe", name: "Stripe", envVars: ["STRIPE_SECRET_KEY"] },
+      },
+    );
+    expect(malformedCount).toBe(0);
+  });
+
+  it("fires registerMalformedIntegrationToolCall for a malformed requestEnvVar (missing key) in F3", () => {
+    let malformedCount = 0;
+    const chunks: Uint8Array[] = [];
+    emitOwnEngineToolCallSse(
+      {
+        enc: new TextEncoder(),
+        safeEnqueue: (d) => chunks.push(d),
+        toolCallNames: new Set(),
+        toolSignaledProviders: new Set(),
+        setBlockingToolCall: () => {},
+        registerMalformedIntegrationToolCall: () => {
+          malformedCount += 1;
+        },
+        lifecycleStage: "integrations",
+      },
+      {
+        toolName: "requestEnvVar",
+        args: { description: "Needed for thing" },
+      },
+    );
+    expect(chunks).toHaveLength(0);
+    expect(malformedCount).toBe(1);
+  });
+
   it("drops requestEnvVar SSE in F2 (lifecycleStage='design')", () => {
     const chunks: Uint8Array[] = [];
     const enc = new TextEncoder();

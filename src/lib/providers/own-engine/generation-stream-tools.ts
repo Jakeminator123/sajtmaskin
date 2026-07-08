@@ -31,6 +31,17 @@ export type OwnEngineToolSseBridge = {
    * those tools through. See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
   lifecycleStage?: PreviewLifecycleStage;
+  /**
+   * C1 (empty-output tool feedback, prod chat e298da50 "Bygg integrationer
+   * nu"): fired whenever a `suggestIntegration`/`requestEnvVar` call is
+   * dropped for being MALFORMED (missing provider/name, empty key, …) —
+   * both in F2 (early defense-in-depth branch) and F3 (deep validation).
+   * A malformed call never reaches `toolCallNames`, so a round that ONLY
+   * produced one still looked like a truly silent generation to
+   * `handleEmptyGeneration` in `generation-stream.ts`, which fell into the
+   * generic "no code, try again" dead end instead of something useful.
+   */
+  registerMalformedIntegrationToolCall?: (toolName: string) => void;
 };
 
 const ENV_TOOLS_F2_BLOCKED = new Set(["suggestIntegration", "requestEnvVar"]);
@@ -108,6 +119,8 @@ export function emitOwnEngineToolCallSse(
     // registreras inte (VADE-fynd: samma validering i F2 som i F3).
     if (isWellFormedEnvToolCall(toolName, toolArgs)) {
       bridge.toolCallNames.add(toolName);
+    } else {
+      bridge.registerMalformedIntegrationToolCall?.(toolName);
     }
     warnLog("engine", "Dropped F2 env/integration tool-call (defense-in-depth)", {
       toolName,
@@ -135,6 +148,7 @@ export function emitOwnEngineToolCallSse(
       key: providerKey,
     });
     if (!isWellFormedEnvToolCall(toolName, toolArgs)) {
+      bridge.registerMalformedIntegrationToolCall?.(toolName);
       warnLog("engine", "Dropped malformed suggestIntegration tool-call (defense-in-depth)", {
         lifecycleStage,
         hasProvider,
@@ -188,6 +202,7 @@ export function emitOwnEngineToolCallSse(
   if (toolName === "requestEnvVar") {
     const envKey = typeof toolArgs.key === "string" ? toolArgs.key.trim() : "";
     if (!envKey) {
+      bridge.registerMalformedIntegrationToolCall?.(toolName);
       debugLog("engine", "Tool: requestEnvVar skipped (missing key)", {});
       return;
     }

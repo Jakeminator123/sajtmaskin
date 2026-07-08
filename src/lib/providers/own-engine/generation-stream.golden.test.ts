@@ -450,6 +450,151 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(addMessageMock).not.toHaveBeenCalled();
   });
 
+  // ── C1/C3 (empty-output tool feedback fix, prod chat e298da50) ───────────
+  it("F2 (fidelity2, default lane): malformed-only suggestIntegration call gets a helpful awaiting-input response instead of the generic 'no code' dead end", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_f2_malformed", null),
+    );
+    // Reproduces the prod bug: free chat text ("Bygg integrationer nu") with
+    // no lifecycleStage meta runs the default F2 lane. The model emits ONLY
+    // a malformed suggestIntegration call (no provider/name, no envVars) —
+    // the #375 guard drops it silently before it reaches toolCallNames, so
+    // this round looked completely silent to `handleEmptyGeneration` and
+    // fell into the generic "Försök igen med samma prompt" dead end.
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: { name: "integration" },
+      }) + formatSSEEvent("done", { promptTokens: 2, completionTokens: 0 });
+
+    const out = createOwnEngineGenerationStream({
+      chatId: "chat_f2_malformed",
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "Bygg integrationer nu",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.toolCalls).toEqual([]);
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.awaitingInput).toBe(true);
+    expect(doneData.reason).toBe("malformed_integration_tool_call_empty_generation");
+    expect(String(doneData.awaitingInputPrompt)).toContain("kunde inte tolkas");
+    expect(String(doneData.awaitingInputPrompt)).toContain("F3");
+    expect(String(doneData.awaitingInputPrompt)).not.toContain(
+      "Försök igen med samma prompt",
+    );
+    const contentPayload = events
+      .filter((e) => e.event === "content")
+      .map((e) => e.data)
+      .join("");
+    expect(contentPayload).toContain("kunde inte tolkas");
+
+    // No F3-continuation marker: this is the F2 lane, so the reply must
+    // not inherit the integrations stage (same contract as the well-formed
+    // F2 tool-only test above).
+    expect(addMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("F3 (fidelity3): malformed-only suggestIntegration call still takes the silent-F3 loop-breaker path (regression guard, unchanged by C1)", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_f3_malformed", null),
+    );
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: { name: "integration" },
+      }) + formatSSEEvent("done", { promptTokens: 2, completionTokens: 0 });
+
+    const out = createOwnEngineGenerationStream({
+      chatId: "chat_f3_malformed",
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "Bygg integrationer nu utifrån den finaliserade designversionen.",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+      lifecycleParentVersionId: "ver_f2_parent",
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    // Unchanged from the pre-C1 contract: F3's own isSilentF3NoCode branch
+    // (f3-continuation.ts) owns this case, with an F3-continuation marker —
+    // the malformed-call counter added by C1 must not short-circuit it.
+    expect(doneData.reason).toBe("f3_empty_no_code_generation");
+    expect(doneData.awaitingInput).toBe(true);
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+  });
+
   // ── P2 F3-loop: loop-breaker rounds (BUG-SWARM-BACKLOG åtgärd 3) ─────────
   const f3ToolOnlyBuildSpec = {
     buildIntent: "website",

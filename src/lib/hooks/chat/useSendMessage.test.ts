@@ -206,4 +206,56 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(meta.engineBaseVersionId).toBe("ver_old");
     expect(meta.engineLatestKnownVersionId).toBeUndefined();
   });
+
+  // C2 (empty-output tool feedback fix): verifies the UI→server leg of the
+  // "Bygg integrationer" chain — `BuilderShellContent.onF3Ready` calls
+  // `sendMessage(..., { lifecycleStageOverride: "integrations", ... })`, and
+  // the request body must actually carry `meta.lifecycleStage: "integrations"`
+  // + `meta.parentVersionId` for the server (`parseChatRequestMeta.ts` →
+  // `orchestrate.ts` → `buildSpec.previewPolicy: "fidelity3"`) to route the
+  // stream into the F3 lane instead of silently defaulting to F2.
+  it("forwards lifecycleStageOverride + parentVersionIdOverride as meta.lifecycleStage/parentVersionId (F3 'Bygg integrationer' kick)", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({
+      activeVersionId: "ver_f2_parent",
+      latestKnownVersionId: "ver_f2_parent",
+    });
+
+    await send(result, "Bygg integrationer nu utifrån den finaliserade designversionen.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+    });
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.lifecycleStage).toBe("integrations");
+    expect(meta.parentVersionId).toBe("ver_f2_parent");
+    expect(meta.engineBaseVersionId).toBe("ver_f2_parent");
+  });
+
+  // Regular follow-ups (free text, no F3 button) must NOT carry a
+  // lifecycleStage at all — the server default ("design"/F2) is what makes
+  // the malformed-tool-call fix (C1/C3) reachable in the first place.
+  it("omits meta.lifecycleStage on a regular follow-up (defaults to F2 server-side)", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({
+      activeVersionId: "ver_current",
+      latestKnownVersionId: "ver_current",
+    });
+
+    await send(result, "Bygg integrationer nu");
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.lifecycleStage).toBeUndefined();
+  });
 });
