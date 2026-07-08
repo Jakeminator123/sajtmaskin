@@ -24,6 +24,9 @@ const APP_CATEGORY_IDS = [
   "blog-and-portfolio",
   "design-systems",
   "layouts",
+  "landing-pages",
+  "dashboards",
+  "e-commerce",
   "website-templates",
   "apps-and-games",
 ];
