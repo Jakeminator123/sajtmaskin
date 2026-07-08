@@ -248,6 +248,49 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
+  // C1/C3 (empty-output tool feedback fix, prod chat e298da50): a done event
+  // with `awaitingInput: true` + `awaitingInputPrompt` must surface that
+  // prompt as the assistant message content and skip the generic
+  // "no version or preview" failure toast — the server already streamed the
+  // explanation via a `content` event before `done`.
+  it("surfaces the malformed-integration awaiting-input message instead of the generic empty-generation failure", async () => {
+    const helpfulMessage =
+      "Integrationsförslaget kunde inte tolkas — försök igen eller starta F3-bygget via knappen.";
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: helpfulMessage }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            reason: "malformed_integration_tool_call_empty_generation",
+            awaitingInput: true,
+            awaitingInputPrompt: helpfulMessage,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    const result = await handleSseStream(
+      new Response(null),
+      ctx,
+      new AbortController().signal,
+    );
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(store.getMessages()[0]?.content).toContain(helpfulMessage);
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+  });
+
   it("sets preview prod-build state on preview-ready with prodBuildVerified", async () => {
     const setPreviewProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(

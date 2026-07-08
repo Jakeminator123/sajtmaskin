@@ -33,6 +33,26 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 type UrlMap = Record<string, string>;
 
 /**
+ * `done`-event reason for a round whose only tool-call activity was a
+ * MALFORMED suggestIntegration/requestEnvVar call (C1, prod chat e298da50).
+ * Distinct from `tool_only_empty_generation` (well-formed signal) and
+ * `f3_empty_no_code_generation` (truly silent F3 round, `f3-continuation.ts`)
+ * — this is "the model tried to signal something but the call was garbage".
+ */
+const MALFORMED_INTEGRATION_TOOL_CALL_REASON = "malformed_integration_tool_call_empty_generation";
+
+/**
+ * User-facing copy for {@link MALFORMED_INTEGRATION_TOOL_CALL_REASON} (C1/C3).
+ * Points the user at a concrete next step instead of the generic "no code,
+ * try the same prompt again" dead end — same copy whether the malformed call
+ * happened in F2 (free-text "Bygg integrationer" outside the button flow) or
+ * F3 (isSilentF3NoCode already handles zero-tool-call F3 rounds separately;
+ * this only fires when F2's own tool-only branch doesn't apply).
+ */
+const MALFORMED_INTEGRATION_TOOL_CALL_MESSAGE =
+  "Integrationsförslaget kunde inte tolkas — försök igen eller starta F3-bygget via knappen.";
+
+/**
  * Pulls a non-negative reasoning-token count out of whatever shape the
  * upstream pipeline forwarded in its `done` event. Both the OpenAI
  * Responses API (`usage.reasoning_tokens`) and the AI-SDK wrappers
@@ -190,6 +210,12 @@ export function createOwnEngineGenerationStream(
       const allSignaledProviders = new Set<string>();
       const toolCallNames = new Set<string>();
       let sawBlockingToolCall = false;
+      // C1 (empty-output tool feedback, prod chat e298da50 "Bygg
+      // integrationer nu" as free text): counts suggestIntegration/
+      // requestEnvVar calls dropped for being MALFORMED — these never reach
+      // `toolCallNames`, so a round that only produced garbage tool-call
+      // JSON still looked completely silent to `handleEmptyGeneration`.
+      let malformedIntegrationToolCallCount = 0;
       const suspense = new SuspenseLineProcessor(undefined, { urlMap });
       const toolOnlyIntegrationTools = new Set(["suggestIntegration", "requestEnvVar"]);
 
@@ -361,6 +387,24 @@ export function createOwnEngineGenerationStream(
               userMessage: awaitingInputPrompt,
             },
           );
+          return;
+        }
+
+        // C1/C3 (empty-output tool feedback, prod chat e298da50): the F3
+        // branch above already owns "zero surviving tool calls" via
+        // `isSilentF3NoCode`, so this only fires for F2 (or a `previewPolicy`
+        // that never entered F3 at all) — exactly the reported bug, where
+        // free chat text like "Bygg integrationer nu" runs the default F2
+        // lane and a malformed suggestIntegration call gets dropped silently.
+        // Replaces the generic "Försök igen med samma prompt" dead end with
+        // a message that tells the user what actually happened and points
+        // them at the F3 button.
+        if (toolCalls.length === 0 && malformedIntegrationToolCallCount > 0) {
+          await finishWithoutVersion(MALFORMED_INTEGRATION_TOOL_CALL_REASON, {
+            awaitingInput: true,
+            awaitingInputPrompt: MALFORMED_INTEGRATION_TOOL_CALL_MESSAGE,
+            userMessage: MALFORMED_INTEGRATION_TOOL_CALL_MESSAGE,
+          });
           return;
         }
 
@@ -555,6 +599,9 @@ export function createOwnEngineGenerationStream(
                     allSignaledProviders,
                     setBlockingToolCall: () => {
                       sawBlockingToolCall = true;
+                    },
+                    registerMalformedIntegrationToolCall: () => {
+                      malformedIntegrationToolCallCount += 1;
                     },
                     lifecycleStage:
                       buildSpec.previewPolicy === "fidelity3"
