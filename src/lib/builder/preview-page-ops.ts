@@ -277,13 +277,40 @@ function hrefValuePattern(escapedRoute: string): string {
 type JsxLinkMatch = { tag: string; element: string; start: number; end: number };
 
 /**
+ * A JSX component tag name, including member-expression components such as
+ * `Tooltip.Trigger` (Radix/shadcn namespace exports) — not just a single
+ * `\w+` identifier.
+ */
+const JSX_TAG_NAME_SOURCE = "[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*";
+
+/**
+ * Whitespace and/or JSX comments (`{/* … *\/}`) — "filler" that can sit
+ * between a wrapper's opening tag and its child, or between the child and the
+ * closing tag, without adding a second rendered child. A naive `^\s*$` check
+ * would treat a comment-only gap as "not empty" and skip sole-child
+ * detection, leaving a would-be-empty Slot wrapper undetected.
+ */
+const JSX_FILLER_SOURCE = "(?:\\s|\\{\\s*/\\*[\\s\\S]*?\\*/\\s*\\})*";
+
+/**
+ * Non-capturing guard for "this `>` does not close a self-closing tag",
+ * tolerating whitespace before the `/` (TypeScript/JSX accepts
+ * `<Link … / >`). JS lookbehind (unlike e.g. Python's `re`) supports
+ * variable-length patterns, so `\s*` here is safe.
+ */
+const NOT_SELF_CLOSING_GT_SOURCE = "(?<!/\\s*)";
+
+/**
  * All literal internal `<Link>`/`<a>` elements in `content`, with positions.
- * The `(?<!/)>` guard keeps the open-tag match from swallowing a self-closing
- * `<Link … />` and spanning to some LATER `</Link>` (which would mis-anchor
- * inserts and removals).
+ * The `NOT_SELF_CLOSING_GT_SOURCE` guard keeps the open-tag match from
+ * swallowing a self-closing `<Link … />` (or `<Link … / >`) and spanning to
+ * some LATER `</Link>` (which would mis-anchor inserts and removals).
  */
 function collectJsxInternalLinks(content: string): JsxLinkMatch[] {
-  const re = /<(Link|a)\b[^>]*?href=\{?["'`]\/[^"'`]*["'`]\}?[^>]*?(?<!\/)>[\s\S]*?<\/\1>/g;
+  const re = new RegExp(
+    `<(Link|a)\\b[^>]*?href=\\{?["'\`]/[^"'\`]*["'\`]\\}?[^>]*?${NOT_SELF_CLOSING_GT_SOURCE}>[\\s\\S]*?<\\/\\1>`,
+    "g",
+  );
   const links: JsxLinkMatch[] = [];
   let match: RegExpExecArray | null;
   while ((match = re.exec(content)) !== null) {
@@ -305,25 +332,32 @@ function collectJsxInternalLinks(content: string): JsxLinkMatch[] {
  * crashes the preview at runtime with "Slot failed to slot onto its children"
  * — callers must operate on the wrapper range instead.
  */
+function asChildOpenTagRegex(): RegExp {
+  return new RegExp(`<(${JSX_TAG_NAME_SOURCE})\\b[^>]*\\basChild\\b[^>]*>`, "g");
+}
+
 function asChildWrapperRange(
   content: string,
   start: number,
   end: number,
 ): { start: number; end: number } | null {
   const before = content.slice(0, start);
-  const openRe = /<(\w+)\b[^>]*\basChild\b[^>]*>/g;
+  const openRe = asChildOpenTagRegex();
+  const fillerOnlyRe = new RegExp(`^${JSX_FILLER_SOURCE}$`);
   let open: RegExpExecArray | null;
   let wrapper: { tag: string; start: number } | null = null;
   while ((open = openRe.exec(before)) !== null) {
     const openEnd = open.index + open[0].length;
-    // Only whitespace between the wrapper's opening tag and the link ⇒ the
-    // link is its first (and, checked below, only) child.
-    if (/^\s*$/.test(content.slice(openEnd, start))) {
+    // Only whitespace/comments between the wrapper's opening tag and the link
+    // ⇒ the link is its first (and, checked below, only) child.
+    if (fillerOnlyRe.test(content.slice(openEnd, start))) {
       wrapper = { tag: open[1]!, start: open.index };
     }
   }
   if (!wrapper) return null;
-  const closeMatch = content.slice(end).match(new RegExp(`^\\s*</${wrapper.tag}>`));
+  const closeMatch = content
+    .slice(end)
+    .match(new RegExp(`^${JSX_FILLER_SOURCE}</${escapeRegExp(wrapper.tag)}>`));
   if (!closeMatch) return null;
   return { start: wrapper.start, end: end + closeMatch[0].length };
 }
@@ -404,12 +438,17 @@ export function stripRouteFromContent(content: string, route: string): string {
   // 2) JSX elements linking to the route — paired and self-closing. Expand each
   //    hit through ALL nested sole-child asChild wrappers to the outermost one
   //    (removing only an inner wrapper would leave the outer Slot childless).
-  //    The paired pattern's `(?<!/)>` guard keeps it from starting at a
-  //    self-closing `<Link … />` and spanning to a LATER `</Link>` (which would
-  //    sweep unrelated siblings into the removal range).
+  //    The paired pattern's NOT_SELF_CLOSING_GT_SOURCE guard keeps it from
+  //    starting at a self-closing `<Link … />` (or spaced `<Link … / >`) and
+  //    spanning to a LATER `</Link>` (which would sweep unrelated siblings
+  //    into the removal range); the self-closing pattern mirrors that spacing
+  //    tolerance so it still matches the spaced form.
   const jsxLinkRes = [
-    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?(?<!/)>[\\s\\S]*?<\\/\\1>`, "g"),
-    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/>`, "g"),
+    new RegExp(
+      `<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?${NOT_SELF_CLOSING_GT_SOURCE}>[\\s\\S]*?<\\/\\1>`,
+      "g",
+    ),
+    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/\\s*>`, "g"),
   ];
   const removals: Array<{ start: number; end: number }> = [];
   for (const re of jsxLinkRes) {
@@ -456,6 +495,32 @@ function looksLikeNavFile(name: string): boolean {
   return /(header|nav|navbar|navigation|footer|menu|sidebar)/i.test(name);
 }
 
+/**
+ * Escape a value for safe interpolation inside a double-quoted JS string
+ * literal (`"…"`), as used by both `insertDataNavEntry` and
+ * `insertJsxNavLink` for the `href`/label values they splice in. Without
+ * this, a label or route containing `"` or `\` breaks out of the string
+ * literal — corrupting the file's JS/JSX, not just rendering oddly.
+ */
+function escapeJsDoubleQuoted(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, "\\n");
+}
+
+/**
+ * Escape a value for safe interpolation as literal JSX text content (a
+ * `<Link>…</Link>` child), as opposed to inside a JS string. `{`/`}` open a
+ * JS expression and `<` opens a tag — unescaped, a label containing them
+ * would corrupt the surrounding JSX.
+ */
+function escapeJsxText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\{/g, "&#123;")
+    .replace(/\}/g, "&#125;");
+}
+
 /** Try to insert a new entry into a `{ …, href }` data array. */
 function insertDataNavEntry(content: string, route: string, label: string): string | null {
   // Find a representative existing entry with an internal href that is an ARRAY
@@ -483,7 +548,7 @@ function insertDataNavEntry(content: string, route: string, label: string): stri
     }
   }
 
-  const newEntry = `{ ${labelKey}: "${label}", href: "${route}" }`;
+  const newEntry = `{ ${labelKey}: "${escapeJsDoubleQuoted(label)}", href: "${escapeJsDoubleQuoted(route)}" }`;
   const insertAt = (entryMatch.index ?? 0) + template.length;
   const before = content.slice(0, insertAt);
   const after = content.slice(insertAt);
@@ -497,7 +562,8 @@ function insertDataNavEntry(content: string, route: string, label: string): stri
  * no matching close is found.
  */
 function matchingCloseEnd(content: string, tag: string, openEnd: number): number | null {
-  const re = new RegExp(`<${tag}\\b[^>]*?(/?)>|</${tag}>`, "g");
+  const escapedTag = escapeRegExp(tag);
+  const re = new RegExp(`<${escapedTag}\\b[^>]*?(/?)>|</${escapedTag}>`, "g");
   re.lastIndex = openEnd;
   let depth = 1;
   let match: RegExpExecArray | null;
@@ -526,7 +592,7 @@ function outermostAsChildWrapperEnd(content: string, start: number, end: number)
   let outer: number | null = null;
   for (let guard = 0; guard < 32; guard += 1) {
     const before = content.slice(0, curStart);
-    const openRe = /<(\w+)\b[^>]*\basChild\b[^>]*>/g;
+    const openRe = asChildOpenTagRegex();
     let open: RegExpExecArray | null;
     let nearest: { start: number; end: number } | null = null;
     while ((open = openRe.exec(before)) !== null) {
@@ -562,7 +628,7 @@ function insertJsxNavLink(content: string, route: string, label: string): string
   ) {
     return null;
   }
-  const newElement = `<${last.tag} href="${route}">${label}</${last.tag}>`;
+  const newElement = `<${last.tag} href="${escapeJsDoubleQuoted(route)}">${escapeJsxText(label)}</${last.tag}>`;
   const wrapperEnd = outermostAsChildWrapperEnd(content, last.start, last.end);
   const insertAt = wrapperEnd ?? last.end;
   return `${content.slice(0, insertAt)}\n      ${newElement}${content.slice(insertAt)}`;

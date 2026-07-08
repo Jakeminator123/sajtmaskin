@@ -292,6 +292,65 @@ describe("stripRouteFromContent", () => {
     expect(next).toContain('<Link href="/about">Om</Link>');
     expect(next).toContain("</nav>");
   });
+
+  // A#5 (audit swarm, PR #420/#423 follow-up): a JSX comment between the
+  // wrapper's opening tag and its sole-child link must not defeat sole-child
+  // detection — a naive `^\s*$` gap check treats the comment as "not empty"
+  // and leaves an emptied `<Button asChild></Button>` that still crashes
+  // Radix Slot at runtime.
+  it("removes an asChild wrapper even with a JSX comment between the wrapper and its sole-child link", () => {
+    const content = `<nav>
+      <Button asChild>{/* nav item */}
+        <Link href="/blog">Blogg</Link>
+      </Button>
+      <Link href="/about">Om</Link>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    expect(next).not.toContain("<Button asChild>");
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
+
+  // Codex/VADE P2 on PR #420: TypeScript/JSX accepts whitespace before the
+  // closing slash (`<Link … / >`). The old `(?<!/)` guard only rejected a
+  // slash immediately before `>`, so this spaced form was misread as a paired
+  // open tag and swept a later, unrelated `</Link>` into the removal range.
+  it("removes a self-closing link with whitespace before the closing slash ('<Link … / >')", () => {
+    const content = `<nav><Link href="/blog" / ><Link href="/about">Om</Link></nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain("/blog");
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
+
+  // Codex/VADE P2 on PR #420: exact repro from the review comment — the
+  // route's link is the sole child through TWO nested asChild wrappers
+  // (`TooltipTrigger > Button > Link`). Removing only the innermost wrapper
+  // leaves the outer Slot childless (same runtime crash class as #420).
+  it("removes the full nested chain for the TooltipTrigger > Button > Link repro", () => {
+    const content =
+      '<nav><TooltipTrigger asChild><Button asChild><Link href="/blog">Blog</Link></Button></TooltipTrigger><Link href="/about">About</Link></nav>';
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain("/blog");
+    expect(next).not.toContain("<TooltipTrigger asChild>");
+    expect(next).not.toContain("<Button asChild>");
+    expect(next).toContain('<Link href="/about">About</Link>');
+    expect(next).toContain("</nav>");
+  });
+
+  // Codex/VADE P2 on PR #420: Radix namespace/member-expression components
+  // (`<Tooltip.Trigger asChild>`) were not recognized by the `\w+`-only tag
+  // regex, so the wrapper was treated as ordinary markup instead of a Slot —
+  // leaving an emptied `<Tooltip.Trigger asChild></Tooltip.Trigger>`.
+  it("removes an asChild wrapper defined via a member-expression component (Tooltip.Trigger)", () => {
+    const content =
+      '<nav><Tooltip.Trigger asChild><Link href="/blog">Blog</Link></Tooltip.Trigger><Link href="/about">About</Link></nav>';
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain("/blog");
+    expect(next).not.toContain("Tooltip.Trigger");
+    expect(next).toContain('<Link href="/about">About</Link>');
+  });
 });
 
 describe("buildRemoveNavLinkOps", () => {
@@ -471,6 +530,99 @@ const navItems = [
       const content = result.ops[0].content;
       // Neither Slot may gain a second child.
       expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Tooltip>"));
+    }
+  });
+
+  // Codex/VADE P2 on PR #420: member-expression components (`Tooltip.Trigger`)
+  // must be recognized as asChild wrappers on the INSERT path too, or the new
+  // link lands inside the Slot and gives it a second child.
+  it("inserts after a member-expression asChild wrapper (Tooltip.Trigger), never inside it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Tooltip.Trigger asChild>
+        <Link href="/kontakt-oss">Kontakt</Link>
+      </Tooltip.Trigger>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      const wrapperInner =
+        content.match(/<Tooltip\.Trigger asChild>([\s\S]*?)<\/Tooltip\.Trigger>/)?.[1] ?? "";
+      expect(wrapperInner).not.toContain("/skidor");
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Tooltip.Trigger>"));
+    }
+  });
+
+  // A#17 (audit swarm): label/route were interpolated unescaped into both the
+  // JSX text and the JS string literal. A quote/brace in a page name could
+  // corrupt the surrounding JSX/JS instead of just rendering oddly.
+  it("escapes special characters in the label when inserting a JSX nav link", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H(){return <nav><Link href="/">Home</Link><Link href="/blog">Blog</Link></nav>;}`,
+      },
+    ];
+    const label = 'A "quote" & <tag> {expr}';
+    const result = buildAddNavLinkOps(files, "/kontakt", label);
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      // The raw special characters must never appear as literal JSX/JS —
+      // they must be escaped, not passed through verbatim.
+      expect(content).not.toContain("<tag>");
+      expect(content).not.toContain("{expr}");
+      expect(content).toContain("&amp;");
+      expect(content).toContain("&lt;tag&gt;");
+      expect(content).toContain("&#123;expr&#125;");
+    }
+  });
+
+  it("escapes a double-quote in the route when inserting a JSX nav link (defense in depth)", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H(){return <nav><Link href="/">Home</Link><Link href="/blog">Blog</Link></nav>;}`,
+      },
+    ];
+    const route = '/kontakt" onmouseover="x';
+    const result = buildAddNavLinkOps(files, route, "Kontakt");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      const escapedRoute = route.replace(/"/g, '\\"');
+      expect(content).not.toContain(`href="${route}"`);
+      expect(content).toContain(`href="${escapedRoute}"`);
+    }
+  });
+
+  it("escapes a double-quote in the label when inserting a data nav entry", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `const navItems = [
+  { label: "Home", href: "/" },
+  { label: "Blog", href: "/blog" },
+];`,
+      },
+    ];
+    const label = 'Om "oss"';
+    const result = buildAddNavLinkOps(files, "/kontakt", label);
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      const jsEscapedLabel = label.replace(/"/g, '\\"');
+      expect(content).not.toContain(`label: "${label}"`);
+      expect(content).toContain(`label: "${jsEscapedLabel}"`);
     }
   });
 });
