@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS generation_telemetry (
   scaffold_retry_suggested TEXT,
   user_feedback TEXT,
   meta JSONB,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_gen_telemetry_chat ON generation_telemetry(chat_id);

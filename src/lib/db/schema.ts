@@ -12,6 +12,14 @@ import {
   serial,
 } from "drizzle-orm/pg-core";
 
+// Re-export timestamptz helper so call-sites use the correct Drizzle type.
+// All timestamp columns in this repo must be TIMESTAMPTZ (with timezone) so that
+// NOW() and explicit JS Date writes are stored as UTC regardless of the DB session
+// timezone. Using bare timestamp() (TIMESTAMP WITHOUT TIME ZONE) causes 2 h drift
+// when the Postgres session timezone differs from UTC (confirmed prod bug — see
+// fix-timestamp-tz.sql migration).
+const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
+
 export const projects = pgTable(
   "projects",
   {
@@ -19,8 +27,8 @@ export const projects = pgTable(
     userId: text("user_id"),
     v0ProjectId: text("v0_project_id").notNull(),
     name: varchar("name", { length: 255 }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     // Unique constraint to prevent duplicate projects per user+v0ProjectId
@@ -36,8 +44,8 @@ export const chats = pgTable(
     v0ChatId: text("v0_chat_id").notNull().unique(),
     v0ProjectId: text("v0_project_id").notNull(),
     webUrl: text("web_url"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     projectIdx: index("idx_chats_project").on(table.projectId),
@@ -56,8 +64,8 @@ export const versions = pgTable(
     demoUrl: text("demo_url"),
     metadata: jsonb("metadata"),
     pinned: boolean("pinned").default(false).notNull(),
-    pinnedAt: timestamp("pinned_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    pinnedAt: timestamptz("pinned_at"),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     // OBS: Indexnamnet matchar den runtime-skapade versionen i db-init.mjs
@@ -86,7 +94,7 @@ export const versionErrorLogs = pgTable(
     category: text("category"),
     message: text("message").notNull(),
     meta: jsonb("meta"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     chatIdx: index("idx_version_error_logs_chat_id").on(table.chat_id),
@@ -116,8 +124,8 @@ export const deployments = pgTable(
     url: text("url"),
     domain: text("domain"),
     status: varchar("status", { length: 50 }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     chatIdx: index("idx_deployments_chat_id").on(table.chatId),
@@ -151,8 +159,8 @@ export const appProjects = pgTable(
      */
     vercel_project_id: text("vercel_project_id"),
     vercel_project_name: text("vercel_project_name"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("idx_app_projects_user_id").on(table.user_id),
@@ -169,8 +177,8 @@ export const promptHandoffs = pgTable(
     project_id: text("project_id"),
     user_id: text("user_id"),
     session_id: text("session_id"),
-    consumed_at: timestamp("consumed_at"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    consumed_at: timestamptz("consumed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     createdIdx: index("idx_prompt_handoffs_created_at").on(table.created_at),
@@ -202,7 +210,7 @@ export const promptLogs = pgTable(
     thinking: boolean("thinking"),
     attachments_count: integer("attachments_count"),
     meta: jsonb("meta"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     createdIdx: index("idx_prompt_logs_created_at").on(table.created_at),
@@ -221,8 +229,8 @@ export const projectData = pgTable("project_data", {
   files: jsonb("files"),
   messages: jsonb("messages"),
   meta: jsonb("meta"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamptz("created_at").defaultNow().notNull(),
+  updated_at: timestamptz("updated_at").defaultNow().notNull(),
 });
 
 export const projectFiles = pgTable(
@@ -234,7 +242,7 @@ export const projectFiles = pgTable(
       .references(() => appProjects.id, { onDelete: "cascade" }),
     path: text("path").notNull(),
     size_bytes: integer("size_bytes"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     projectIdx: index("idx_project_files_project").on(table.project_id),
@@ -253,7 +261,7 @@ export const images = pgTable(
     original_name: text("original_name"),
     mime_type: text("mime_type"),
     size_bytes: integer("size_bytes"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     projectIdx: index("idx_images_project").on(table.project_id),
@@ -275,7 +283,7 @@ export const mediaLibrary = pgTable(
     description: text("description"),
     tags: jsonb("tags"),
     project_id: text("project_id"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("idx_media_library_user_id").on(table.user_id),
@@ -301,10 +309,10 @@ export const users = pgTable(
     tier: text("tier"),
     email_verified: boolean("email_verified").default(false).notNull(),
     verification_token: text("verification_token"),
-    verification_token_expires: timestamp("verification_token_expires"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
-    last_login_at: timestamp("last_login_at"),
+    verification_token_expires: timestamptz("verification_token_expires"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    last_login_at: timestamptz("last_login_at"),
   },
   (table) => ({
     emailIdx: uniqueIndex("users_email_idx").on(table.email),
@@ -325,9 +333,9 @@ export const userIntegrations = pgTable(
     status: text("status").default("pending").notNull(),
     env_vars: jsonb("env_vars"),
     install_url: text("install_url"),
-    installed_at: timestamp("installed_at"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    installed_at: timestamptz("installed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userProjectTypeIdx: uniqueIndex("user_integrations_owner_project_type_idx").on(
@@ -353,7 +361,7 @@ export const transactions = pgTable(
     description: text("description"),
     stripe_payment_intent: text("stripe_payment_intent"),
     stripe_session_id: text("stripe_session_id"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     // Idempotency guard for Stripe webhooks: a given session id may only
@@ -377,8 +385,8 @@ export const guestUsage = pgTable(
     session_id: text("session_id").notNull(),
     generations_used: integer("generations_used").default(0).notNull(),
     refines_used: integer("refines_used").default(0).notNull(),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     sessionIdx: uniqueIndex("guest_usage_session_idx").on(table.session_id),
@@ -410,8 +418,8 @@ export const companyProfiles = pgTable(
     research_sources: text("research_sources"),
     inspiration_sites: text("inspiration_sites"),
     voice_transcript: text("voice_transcript"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     projectIdx: index("idx_company_profiles_project").on(table.project_id),
@@ -430,8 +438,8 @@ export const templateCache = pgTable(
     code: text("code"),
     files_json: text("files_json"),
     model: text("model"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    expires_at: timestamp("expires_at").notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    expires_at: timestamptz("expires_at").notNull(),
   },
   (table) => ({
     templateUserIdx: uniqueIndex("template_cache_template_user_idx").on(
@@ -449,8 +457,8 @@ export const registryCache = pgTable(
     source: text("source").notNull(),
     index_json: jsonb("index_json").notNull(),
     item_status: jsonb("item_status"),
-    fetched_at: timestamp("fetched_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    fetched_at: timestamptz("fetched_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     unique_cache: uniqueIndex("registry_cache_source_style_idx").on(
@@ -471,7 +479,7 @@ export const pageViews = pgTable(
     ip_address: text("ip_address"),
     user_agent: text("user_agent"),
     referrer: text("referrer"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     createdIdx: index("idx_page_views_created_at").on(table.created_at),
@@ -495,7 +503,7 @@ export const userAudits = pgTable(
     score_performance: integer("score_performance"),
     score_security: integer("score_security"),
     audit_result: text("audit_result").notNull(),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("idx_user_audits_user_id").on(table.user_id),
@@ -521,10 +529,10 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
   contact_name: text("contact_name"),
   extra_data: jsonb("extra_data"),
   status: text("status").default("active"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-  expires_at: timestamp("expires_at"),
-  consumed_at: timestamp("consumed_at"),
+  created_at: timestamptz("created_at").defaultNow().notNull(),
+  updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  expires_at: timestamptz("expires_at"),
+  consumed_at: timestamptz("consumed_at"),
 });
 
 // ---------------------------------------------------------------------------
@@ -540,8 +548,8 @@ export const engineChats = pgTable("engine_chats", {
   scaffoldId: text("scaffold_id"),
   /** Last successful generation: sanitized SSE meta + version id for follow-up continuity (K-019). */
   orchestrationSnapshot: jsonb("orchestration_snapshot").$type<Record<string, unknown> | null>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamptz("created_at").defaultNow().notNull(),
+  updatedAt: timestamptz("updated_at").defaultNow().notNull(),
 });
 
 export const engineMessages = pgTable(
@@ -562,7 +570,7 @@ export const engineMessages = pgTable(
      * fast-tier responses, etc.).
      */
     thinking: text("thinking"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     /**
@@ -590,8 +598,8 @@ export const engineVersions = pgTable(
     releaseState: text("release_state").notNull().default("draft"),
     verificationState: text("verification_state").notNull().default("pending"),
     verificationSummary: text("verification_summary"),
-    repairAvailableAt: timestamp("repair_available_at"),
-    promotedAt: timestamp("promoted_at"),
+    repairAvailableAt: timestamptz("repair_available_at"),
+    promotedAt: timestamptz("promoted_at"),
     /**
      * Parent version this row was forked from. Set by the F3 ("Bygg
      * integrationer") trigger so the integrations build is implicitly
@@ -617,7 +625,7 @@ export const engineVersions = pgTable(
      * orchestration snapshot.
      */
     lifecycleStage: text("lifecycle_stage").notNull().default("design"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     chatVersionUnique: uniqueIndex("engine_versions_chat_version_unique").on(
@@ -654,9 +662,9 @@ export const engineVersionJobs = pgTable(
     kind: text("kind").notNull(),
     runId: text("run_id").notNull(),
     status: text("status").notNull().default("running"),
-    leaseExpiresAt: timestamp("lease_expires_at").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    leaseExpiresAt: timestamptz("lease_expires_at").notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     // Only ONE active (running) lease per version, regardless of kind. This
@@ -680,7 +688,7 @@ export const engineGenerationLogs = pgTable(
     durationMs: integer("duration_ms"),
     success: boolean("success").notNull().default(true),
     errorMessage: text("error_message"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     chatCreatedIdx: index("idx_engine_generation_logs_chat_created").on(
@@ -705,7 +713,7 @@ export const engineVersionErrorLogs = pgTable(
     category: text("category"),
     message: text("message").notNull(),
     meta: jsonb("meta"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     chatIdx: index("idx_engine_version_error_logs_chat_id").on(table.chat_id),
@@ -738,7 +746,7 @@ export const ocDebugFindings = pgTable(
     build_result: text("build_result"),
     repair_outcome: text("repair_outcome"),
     meta: jsonb("meta"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     runIdx: index("idx_oc_debug_findings_run_id").on(table.run_id),
@@ -781,7 +789,7 @@ export const generationTelemetry = pgTable(
     scaffoldRetrySuggested: text("scaffold_retry_suggested"),
     userFeedback: text("user_feedback"),
     meta: jsonb("meta"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     chatIdx: index("idx_generation_telemetry_chat").on(table.chatId),
@@ -800,8 +808,8 @@ export const versionComments = pgTable(
     authorName: text("author_name"),
     content: text("content").notNull(),
     resolved: boolean("resolved").default(false).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     versionIdx: index("idx_version_comments_version").on(table.versionId),
@@ -819,7 +827,7 @@ export const versionApprovals = pgTable(
     approverName: text("approver_name"),
     status: text("status").notNull().default("pending"),
     comment: text("comment"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
     versionIdx: index("idx_version_approvals_version").on(table.versionId),
@@ -842,8 +850,8 @@ export const domainOrders = pgTable(
     status: text("status"),
     years: integer("years"),
     domain_added_to_project: boolean("domain_added_to_project").default(false).notNull(),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     projectIdx: index("idx_domain_orders_project").on(table.project_id),
