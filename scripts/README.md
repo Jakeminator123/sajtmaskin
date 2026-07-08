@@ -31,7 +31,7 @@ Delad logik ligger i `backoffice/shared.py`. `config/dashboard/` håller bara `d
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt`, `check-unicode-regex` (npm `predev` / `dev` / `build` / `preflight:common`) |
 | [`embeddings/`](embeddings/) | Mall- och scaffold-embeddings (template-library-embeddings borttagen 2026-04-17) |
 | [`dossiers/`](dossiers/) | AI-curate dossiers från klonade referens-repos (`curate-from-reference.ts`) + legacy-import-kedja (`inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts`) |
-| [`v0-templates/`](v0-templates/) | Separat v0/runtime/workflow-spår: lokal sync, validering och local refresh av mallkatalog |
+| [`v0-templates/`](v0-templates/) | v0-mallarnas Blob-spår: upload + katalog-generering (`upload-mallar-blob.mjs`, enda skrivvägen), validering (`validate-templates.mjs`), manifest-/kompatibilitetsgranskning (`verify-mallar-blob.mjs`, `audit-template-repos.mjs`) |
 | [`scaffolds/`](scaffolds/) | Variant-embeddings, variant-patterns, manifest-validering |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
