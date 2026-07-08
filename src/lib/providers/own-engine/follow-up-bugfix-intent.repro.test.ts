@@ -41,6 +41,17 @@ describe("BUGG A — negation of a plain 'design'/'utseende'/'layout' redesign t
     // fix must not over-suppress it.
     expect(hasNegatedRedesignIntent("gör om designen helt")).toBe(false);
   });
+
+  it("does NOT suppress redesign for emphasis-negation 'Inte bara designen, gör om från grunden'", () => {
+    // Codex P2 on #447: "inte bara"/"not just" is emphasis, not preservation.
+    expect(hasNegatedRedesignIntent("Inte bara designen, gör om från grunden")).toBe(false);
+  });
+
+  it("does NOT suppress redesign for 'Not just the design, start over from scratch'", () => {
+    expect(hasNegatedRedesignIntent("Not just the design, start over from scratch")).toBe(
+      false,
+    );
+  });
 });
 
 describe("BUGG A — a 'don't touch the design' bugfix prompt must not become clear-redesign", () => {

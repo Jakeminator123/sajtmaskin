@@ -29,9 +29,28 @@
  * `å/ä/ö` boundary correctly — see `.cursor/rules/unicode-regex.mdc`.
  */
 
-/** Removal verbs, Swedish + English. Presence is REQUIRED before any match. */
+/**
+ * Removal verbs, Swedish + English. Presence is REQUIRED before any match.
+ * `drop` excludes the UI noun `drop-down`/`drop down` (Codex P2 on #447).
+ */
 const REMOVAL_VERB_RE =
-  /(?<![\p{L}\p{N}_])(?:ta\s+bort|tag\s+bort|ta\s+väck|plocka\s+bort|radera|släng(?:\s+ut)?|slänga(?:\s+ut)?|bli\s+av\s+med|remove|delete|drop|strip\s+out|get\s+rid\s+of|rip\s+out)(?![\p{L}\p{N}_])/iu;
+  /(?<![\p{L}\p{N}_])(?:ta\s+bort|tag\s+bort|ta\s+väck|plocka\s+bort|radera|släng(?:\s+ut)?|slänga(?:\s+ut)?|bli\s+av\s+med|remove|delete|drop(?!\s*-?\s*down)|strip\s+out|get\s+rid\s+of|rip\s+out)(?![\p{L}\p{N}_])/giu;
+
+/**
+ * Additive/replacement verbs. An integration term whose NEAREST preceding verb
+ * is additive sits in an add/replace clause ("… och lägg till Stripe", "… och
+ * använd Klarna i stället") and must not shrink the capability (Codex P2 ×2 on
+ * #447: compound add+remove and provider swap).
+ */
+const ADDITIVE_VERB_RE =
+  /(?<![\p{L}\p{N}_])(?:lägg(?:a)?\s+till|addera|add|skapa|create|inför|installera|install|använd(?:a)?|byt(?:a)?\s+(?:till|ut\s+mot)|switch\s+to|use|ersätt(?:a)?\s+med|replace\s+with|i\s?stället|istället|instead)(?![\p{L}\p{N}_])/giu;
+
+/**
+ * UI-control guard: "ta bort checkout-knappen" / "betalningsknappen" is a
+ * layout edit, not an integration removal (Codex P2 on #447). Tested against
+ * the matched term plus a short tail of following characters.
+ */
+const UI_CONTROL_RE = /(?:knapp|button|länk|\blink\b|ikon|icon)/iu;
 
 interface RemovalCapabilityEntry {
   /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */
@@ -107,32 +126,80 @@ function uniquePreservingOrder<T>(values: Iterable<T>): T[] {
   return out;
 }
 
+function verbStartPositions(text: string, re: RegExp): number[] {
+  re.lastIndex = 0;
+  return [...text.matchAll(re)].map((m) => m.index ?? 0);
+}
+
+/** Nearest verb position strictly BEFORE `index`, or null when none precedes. */
+function nearestPreceding(positions: readonly number[], index: number): number | null {
+  let best: number | null = null;
+  for (const position of positions) {
+    if (position < index && (best === null || position > best)) best = position;
+  }
+  return best;
+}
+
 /**
  * Detect explicit integration-capability removals in a follow-up prompt.
  *
+ * Clause-scoping (Codex P2s on #447): each integration term is attributed to
+ * its NEAREST preceding verb. A term governed by an additive verb ("lägg till
+ * Stripe", "använd Klarna i stället") marks the capability as replaced/added
+ * — the capability is only reported removed when at least one term sits in a
+ * removal clause AND no term of the same capability sits in an additive one.
+ * UI-control compounds (checkout-knappen) never count as integration removal.
+ *
  * @returns Empty result unless the prompt contains BOTH a removal verb and at
- *          least one integration term. The caller (orchestrate) removes the
- *          returned ids from the capability floor + dossier selection and
- *          deletes the corresponding dossier files from the merged output.
+ *          least one integration term in removal context. The caller
+ *          (orchestrate) removes the returned ids from the capability floor +
+ *          dossier selection.
  */
 export function detectCapabilityRemoval(message: string): CapabilityRemovalDetection {
   const trimmed = String(message ?? "").trim();
-  if (!trimmed || !REMOVAL_VERB_RE.test(trimmed)) {
+  if (!trimmed) {
     return { removedCapabilities: [], matchedKeywords: [] };
   }
+  const removalPositions = verbStartPositions(trimmed, REMOVAL_VERB_RE);
+  if (removalPositions.length === 0) {
+    return { removedCapabilities: [], matchedKeywords: [] };
+  }
+  const additivePositions = verbStartPositions(trimmed, ADDITIVE_VERB_RE);
 
   const removedCapabilities: string[] = [];
   const matchedKeywords: string[] = [];
   for (const entry of REMOVAL_CAPABILITY_TERMS) {
-    let matched = false;
+    let removalMatched = false;
+    let additiveMatched = false;
+    const entryKeywords: string[] = [];
     for (const pattern of entry.patterns) {
-      const m = trimmed.match(pattern);
-      if (m && typeof m[0] === "string") {
-        matched = true;
-        matchedKeywords.push(m[0]);
+      const globalPattern = new RegExp(
+        pattern.source,
+        pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+      );
+      for (const m of trimmed.matchAll(globalPattern)) {
+        const matchedText = m[0];
+        if (typeof matchedText !== "string" || matchedText.length === 0) continue;
+        const index = m.index ?? 0;
+        // UI-control compound ("checkout-knappen", "betalningsknappen") —
+        // a layout edit, never an integration removal.
+        const tail = trimmed.slice(index, index + matchedText.length + 16);
+        if (UI_CONTROL_RE.test(tail)) continue;
+        const removalVerb = nearestPreceding(removalPositions, index);
+        if (removalVerb === null) continue;
+        const additiveVerb = nearestPreceding(additivePositions, index);
+        if (additiveVerb !== null && additiveVerb > removalVerb) {
+          additiveMatched = true;
+          continue;
+        }
+        removalMatched = true;
+        entryKeywords.push(matchedText);
       }
     }
-    if (matched) removedCapabilities.push(entry.capability);
+    if (removalMatched && !additiveMatched) {
+      removedCapabilities.push(entry.capability);
+      matchedKeywords.push(...entryKeywords);
+    }
   }
 
   return {

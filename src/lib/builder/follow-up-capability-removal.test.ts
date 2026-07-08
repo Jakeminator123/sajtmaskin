@@ -80,3 +80,39 @@ describe("detectCapabilityRemoval — must NOT over-trigger", () => {
     expect(detectCapabilityRemoval("").removedCapabilities).toEqual([]);
   });
 });
+
+describe("detectCapabilityRemoval — clause scoping (Codex on #447)", () => {
+  it("does not report an ADDED integration as removed in a compound add+remove prompt", () => {
+    expect(
+      detectCapabilityRemoval("Ta bort hero-sektionen och lägg till Stripe-betalning")
+        .removedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("keeps payments on a provider swap ('Ta bort Stripe och använd Klarna i stället')", () => {
+    expect(
+      detectCapabilityRemoval("Ta bort Stripe och använd Klarna i stället")
+        .removedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("does not treat a checkout BUTTON removal as a payments-capability removal", () => {
+    expect(
+      detectCapabilityRemoval("Ta bort checkout-knappen från pris-sektionen")
+        .removedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("does not treat 'drop-down' as a removal verb", () => {
+    expect(
+      detectCapabilityRemoval("Add a drop-down checkout selector").removedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("still detects removal when the removal clause comes last", () => {
+    expect(
+      detectCapabilityRemoval("Gör hero-rubriken större och ta bort Stripe-betalningen")
+        .removedCapabilities,
+    ).toEqual(["payments"]);
+  });
+});

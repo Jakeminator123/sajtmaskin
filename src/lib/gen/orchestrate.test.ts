@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  enforceFollowUpCapabilityFloor,
   filterDossierCapabilitiesForPrompt,
   inheritQualityTargetFromPriorVersion,
   resolveBuildIntentPromotion,
@@ -32,6 +33,33 @@ function makeBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
     ...overrides,
   } satisfies BuildSpec;
 }
+
+// Blocking-lane coverage for the Bugg B floor-shrink (Codex P1 on #447: the
+// stability copy of this contract lives in a non-default vitest config; this
+// duplicate keeps the shrink behaviour gated by the ordinary test:ci lane too).
+describe("enforceFollowUpCapabilityFloor — explicit removal shrink (blocking lane)", () => {
+  it("drops an explicitly removed integration from both resolved set and floor", () => {
+    const decision = enforceFollowUpCapabilityFloor({
+      resolvedMode: "followUp",
+      resolvedCapabilities: ["hero", "payments"],
+      contractCapabilities: ["payments", "hero"],
+      removedCapabilities: ["payments"],
+    });
+    expect(decision.capabilities).toEqual(["hero"]);
+    expect(decision.restoredCapabilities).toEqual([]);
+    expect(decision.floorApplied).toBe(false);
+  });
+
+  it("keeps pure can-only-grow when removedCapabilities is absent", () => {
+    const decision = enforceFollowUpCapabilityFloor({
+      resolvedMode: "followUp",
+      resolvedCapabilities: ["hero"],
+      contractCapabilities: ["payments"],
+    });
+    expect(decision.capabilities).toEqual(["hero", "payments"]);
+    expect(decision.floorApplied).toBe(true);
+  });
+});
 
 describe("inheritQualityTargetFromPriorVersion (P22)", () => {
   it("inherits prior qualityTarget upward (e.g. standard base, premium prior)", () => {
