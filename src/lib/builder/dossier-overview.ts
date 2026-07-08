@@ -18,6 +18,18 @@ export interface DossierOverviewEnvVar {
   required: boolean;
   enforcement: "build" | "feature-runtime" | "warn-only";
   purpose: string;
+  /**
+   * True when the user has stored a non-empty real value for this key
+   * (`project_data.meta.projectEnvVars`). Lets the UI show "Ifylld" without a
+   * second round-trip.
+   */
+  hasRealValue: boolean;
+  /**
+   * True when the key is covered by an auto-injected placeholder in F2
+   * (`loadPlaceholderKeySet()`), so the preview boots without a real value.
+   * Distinguishes "auto-stubbat i F2" from "du måste fylla i".
+   */
+  placeholderCovered: boolean;
 }
 
 export interface DossierOverviewEntry {
@@ -39,6 +51,12 @@ export interface DossierOverviewEntry {
 
 export interface DossierOverviewResponse {
   success: true;
+  /**
+   * App-project id that owns the stored env vars, so the panel can write keys
+   * via `POST /api/v0/projects/[projectId]/env-vars` without an extra lookup.
+   * Null when the chat has no linked app project (keys cannot be stored yet).
+   */
+  projectId: string | null;
   versionId: string | null;
   lifecycleStage: "design" | "integrations";
   /** False when the version's files could not be read (build status unknown). */
@@ -99,4 +117,41 @@ export function describeDossierStatus(
             : "Tung integration renderas som mockup i F2. Bygg den via 'Bygg integrationer'.",
       };
   }
+}
+
+/**
+ * Per-key value-state label + tone, shared so every surface that shows an env
+ * key uses the same vocabulary. Precedence: a stored real value wins; then a
+ * build-enforced key with no value is a hard requirement; then placeholder
+ * coverage (auto-stubbed in F2); otherwise it is optional.
+ */
+export function describeEnvKeyValueState(
+  env: Pick<DossierOverviewEnvVar, "enforcement" | "hasRealValue" | "placeholderCovered">,
+): DossierStatusDescriptor {
+  if (env.hasRealValue) {
+    return {
+      label: "Ifylld",
+      tone: "success",
+      hint: "Ett riktigt värde är sparat för den här nyckeln.",
+    };
+  }
+  if (env.enforcement === "build") {
+    return {
+      label: "Kräver riktigt värde",
+      tone: "warning",
+      hint: "Nödvändig nyckel — integrationsbygget (F3) blockeras tills ett riktigt värde finns.",
+    };
+  }
+  if (env.placeholderCovered) {
+    return {
+      label: "Auto-placeholder i F2",
+      tone: "muted",
+      hint: "Täcks av en automatisk platshållare i F2-previewn — inget riktigt värde krävs för att bygga.",
+    };
+  }
+  return {
+    label: "Valfri",
+    tone: "muted",
+    hint: "Funktionen aktiveras när ett värde fylls i, men krävs inte.",
+  };
 }

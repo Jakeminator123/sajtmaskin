@@ -34,7 +34,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
-import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
   buildPromptSourceMessage,
@@ -1007,15 +1007,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
               onF3MissingEnv={(payload) => {
-                // F2-mute caveat: the user is still in F2 when finalize-design
-                // returns 412, and `ProjectEnvVarsPanel` only mounts in F3
-                // (gated above on `lifecycleStage === "integrations"`). The
-                // event therefore has no listener until lifecycle flips —
-                // the toast in `PreviewPanelF3Trigger` is the primary user
-                // signal here. We still dispatch so the panel auto-opens with
-                // the right keys *if* it happens to be mounted (e.g. the
-                // operator already moved the version to F3 in another tab).
-                openProjectEnvVarsPanel(
+                // finalize-design returns 412 while the user is still in F2.
+                // `ProjectEnvVarsPanel` only mounts in F3, so instead we open
+                // the "Dossiers" popover (mounted in the preview chrome in both
+                // F2 and F3) with the missing keys highlighted. This is
+                // F2-mute-safe: the popover only opens because the user just
+                // clicked "Bygg integrationer" — it is not a system-initiated
+                // env prompt. From there the user fills the keys and re-runs
+                // the build via the popover's retry CTA.
+                openDossiersPanel(
                   payload.missingByIntegration.flatMap((entry) => entry.missing),
                 );
               }}

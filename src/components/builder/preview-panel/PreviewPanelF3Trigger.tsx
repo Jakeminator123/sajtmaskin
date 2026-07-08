@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -126,6 +127,26 @@ export function PreviewPanelF3Trigger({
   }, [chatId, versionId]);
 
   const handleClick = useCallback(async () => {
+    // Guard the programmatic (retry-event) path: without a version the finalize
+    // body would be `{}` and the server can't anchor the F3 step; while busy or
+    // already loading a second finalize could race the in-flight request. The
+    // button is already disabled for these (so this only trips via the retry
+    // event), but a silent return leaves the user without feedback — surface a
+    // toast when a run is in progress so the retry click is not a no-op.
+    if (isBusy || isLoading) {
+      toast.warning("En annan generering pågår", {
+        description:
+          "Vänta tills den pågående körningen är klar innan du bygger integrationer igen.",
+      });
+      return;
+    }
+    if (!versionId) {
+      toast.warning("Ingen aktiv version än", {
+        description:
+          "Vänta tills första versionen är skapad innan du bygger integrationer.",
+      });
+      return;
+    }
     if (productBlocked) {
       toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
@@ -206,7 +227,22 @@ export function PreviewPanelF3Trigger({
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, versionId, onReady, onMissingEnv, productBlocked]);
+  }, [chatId, versionId, onReady, onMissingEnv, productBlocked, isBusy, isLoading]);
+
+  // Re-run the finalize flow when the Dossiers popover asks for a rebuild
+  // (after the user fills the previously-missing keys). A ref keeps the
+  // listener stable while always calling the latest `handleClick`.
+  const handleClickRef = useRef(handleClick);
+  useEffect(() => {
+    handleClickRef.current = handleClick;
+  }, [handleClick]);
+  useEffect(() => {
+    const handler = () => {
+      void handleClickRef.current();
+    };
+    window.addEventListener(F3_REBUILD_REQUEST_EVENT, handler);
+    return () => window.removeEventListener(F3_REBUILD_REQUEST_EVENT, handler);
+  }, []);
 
   // Block the click if we don't yet have a concrete versionId — otherwise
   // the request body becomes `{}` and the server can't anchor the F3 step

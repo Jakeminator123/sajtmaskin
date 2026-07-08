@@ -169,16 +169,43 @@ describe("GET dossiers overview", () => {
     const body = (await res.json()) as DossierOverviewResponse;
 
     expect(body.versionFilesAvailable).toBe(true);
+    expect(body.projectId).toBe("proj_1");
     expect(body.counts).toMatchObject({ total: 2, hard: 1, soft: 1, builtNeedsKeys: 1 });
 
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.requiresF3).toBe(true);
     expect(stripe?.status).toBe("built-needs-keys");
     expect(stripe?.missingKeys).toEqual(["STRIPE_SECRET_KEY"]);
+    // No stored value and no placeholder coverage → the UI must ask for it.
+    expect(stripe?.envVars[0]).toMatchObject({
+      key: "STRIPE_SECRET_KEY",
+      hasRealValue: false,
+      placeholderCovered: false,
+    });
 
     const faq = body.dossiers.find((d) => d.id === "faq-accordion");
     expect(faq?.requiresF3).toBe(false);
     expect(faq?.status).toBe("self-contained");
+  });
+
+  it("flags stored real values and placeholder coverage per env key", async () => {
+    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
+    loadPlaceholderKeySet.mockReturnValue(new Set<string>(["STRIPE_SECRET_KEY"]));
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.status).toBe("built-ready");
+    expect(stripe?.envVars[0]).toMatchObject({
+      key: "STRIPE_SECRET_KEY",
+      hasRealValue: true,
+      placeholderCovered: true,
+    });
   });
 
   it("marks a hard dossier not-built when no matching integration is detected", async () => {

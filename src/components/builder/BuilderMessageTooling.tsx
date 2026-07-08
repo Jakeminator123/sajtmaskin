@@ -11,6 +11,7 @@ import {
 } from "@/components/ai-elements/tool";
 import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/builder/messageAdapter";
 import {
+  openDossiersPanel,
   openIntegrationsPanel,
   openProjectEnvVarsPanel,
 } from "@/lib/builder/project-env-events";
@@ -727,8 +728,8 @@ export function CompactToolParts({
             {isIntegrations ? (
               <div className="mt-2 flex flex-wrap gap-2">
                 {!replyPrompt && projectEnvKeys.length > 0 && (
-                  <Button size="sm" onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}>
-                    Konfigurera miljövariabler
+                  <Button size="sm" onClick={() => openDossiersPanel(projectEnvKeys)}>
+                    Öppna Dossiers
                   </Button>
                 )}
                 {!replyPrompt && (

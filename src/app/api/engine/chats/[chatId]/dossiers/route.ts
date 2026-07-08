@@ -126,13 +126,23 @@ async function buildDossierOverview(
       : null;
   const versionFilesAvailable = spec !== null;
 
+  // Fetch the stored env-var map + placeholder set once. Both are needed for
+  // the per-key `hasRealValue` / `placeholderCovered` flags on every dossier
+  // (not just detected ones), so we resolve them up front rather than inside
+  // the readiness branch below.
+  const projectEnvVars = chat.project_id
+    ? await getStoredProjectEnvVarMap(chat.project_id).catch(
+        () => ({}) as Record<string, string>,
+      )
+    : ({} as Record<string, string>);
+  const placeholderKeySet = loadPlaceholderKeySet();
+  const hasRealEnvValue = (key: string): boolean => {
+    const value = projectEnvVars[key];
+    return typeof value === "string" && value.trim().length > 0;
+  };
+
   let missingByKey = new Map<string, string[]>();
   if (spec && spec.requirements.length > 0 && version) {
-    const projectEnvVars = chat.project_id
-      ? await getStoredProjectEnvVarMap(chat.project_id).catch(
-          () => ({}) as Record<string, string>,
-        )
-      : ({} as Record<string, string>);
     // Mirror the readiness route's env gate: placeholder values only count as
     // "satisfied" once the version is in F3 (`integrations`). Accepting them in
     // F2 would let this panel show `built-ready` while the canonical readiness /
@@ -143,7 +153,7 @@ async function buildDossierOverview(
         : false;
     const readiness = validateTier3Readiness(spec, projectEnvVars, {
       allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
-      placeholderEnvKeys: loadPlaceholderKeySet(),
+      placeholderEnvKeys: placeholderKeySet,
     });
     missingByKey = new Map(
       readiness.missingByIntegration.map((m) => [m.key, m.missing]),
@@ -186,6 +196,8 @@ async function buildDossierOverview(
         required: env.required,
         enforcement: env.enforcement ?? "build",
         purpose: env.purpose,
+        hasRealValue: hasRealEnvValue(env.key),
+        placeholderCovered: placeholderKeySet.has(env.key),
       })),
       status,
       missingKeys,
@@ -206,6 +218,7 @@ async function buildDossierOverview(
     ok: true,
     response: {
       success: true,
+      projectId: chat.project_id ?? null,
       versionId: version?.id ?? null,
       lifecycleStage,
       versionFilesAvailable,
