@@ -54,6 +54,15 @@ Självgranskning räcker inte när författaren själv mergar:
 - Dokumentera vald väg i slutrapporten: `bugbot` (Cursor-subagent) eller `manual local bug review`.
 - Full guide: [`AGENTS.md`](../../AGENTS.md) → "Review guidelines".
 
+## GitHub-verklighet (verifierat 2026-07-08)
+
+"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) men **inga required status checks**:
+
+- Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetens syfte.
+- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar allt). Avsett, inte ett kryphål.
+- **Grönt CI är INTE GitHub-tvingat** (inga required checks) → att vänta på grönt är agent-disciplin, inte en teknisk spärr; ett admin-merge med röd CI stoppas inte av GitHub. Därför är bugbot-subagent-passet + denna gate det verkliga skyddet.
+- Aktiva bot-granskare i praktiken: **Cursor "Find critical bugs"** + **Vercel Agent Review** (körde på #449–#451) + **GitGuardian**. Codex är avstängd.
+
 ## Princip
 
-`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad.
+`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad. Och `mergeStateStatus: BLOCKED` = bara att review-kravet inte uppfyllts — inte att CI är rött.

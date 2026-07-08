@@ -15,8 +15,12 @@ ej draft · base master · mergeable · alla checks gröna · Vercel ok/saknas �
 
 `.github/workflows/**`, `package.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/app/api/**`, `src/lib/logging/**`, m.fl. Likaså risk ≥ 3 (CI/runtime/security/false-green) och grandmaster-PR som inte är ren typo/docs.
 
+## Verklighet i nuvarande config (verifierat 2026-07-08)
+
+"Protect master"-ruleset kräver code-owner-review (`@Jakeminator123` via `.github/CODEOWNERS`) och **bara admin kan bypassa** → automationen kan inte själv uppfylla review-kravet. Följd: den **auto-mergar i praktiken ingenting** utan lägger bara en verdict-check (`NEUTRAL`) — sett på #449 (ren docs, risk 1) som **inte** auto-mergades. Manuell `gh pr merge --admin` är den faktiska vägen.
+
 ## Konsekvens
 
-- En grön lågrisk-PR (t.ex. ren docs, risk 1) kan redan vara auto-mergad innan du hinner.
-- Före egen `gh pr merge`: kolla `gh pr view <n> --json state,reviews` — den kan redan ha mergat (undvik dubbel-merge) eller flaggat `NEEDS_HUMAN`.
-- Ersätter inte review-gaten (`pr-merge-review-gate.mdc`): läs alltid dess verdict + ev. Bugbot/Codex-fynd före manuell merge.
+- Räkna inte med att en grön lågrisk-PR redan är mergad — den står oftast kvar (`NEUTRAL`/`NEEDS_HUMAN`) tills någon `--admin`:ar.
+- Före egen `gh pr merge`: kolla `gh pr view <n> --json state,reviews` för att undvika dubbel-merge.
+- Ersätter inte review-gaten (`pr-merge-review-gate.mdc`): läs alltid dess verdict + ev. Bugbot-/Vercel-Agent-fynd före manuell merge.

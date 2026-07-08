@@ -27,4 +27,8 @@ Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säker
 - Föredra läsbara (non-sensitive, `encrypted`-typ) Vercel-env så värden kan inspekteras; markera inte `sensitive` i onödan.
 - Ta inte bort `ENV_VAR_ENCRYPTION_KEY` (lagrade projektEnvVars blir odekrypterbara → tyst dataförlust).
 
+## Publikt repo (obs)
+
+Repot är **publikt** (`gh repo view` → PUBLIC). Committa inga secrets, och var sparsam med publikt exponerad admin-/credit-mekanik och infra-id:n i docs (t.ex. exakt "bli admin → 10 000 diamonds"-recept). "Läsbar env" ovan gäller Vercel-dashboarden — inte en licens att skriva känsligt i git.
+
 Skriv säkerhetsfynd som tydlig backlog om de inte är P0/P1.
