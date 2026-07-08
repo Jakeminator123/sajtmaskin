@@ -247,6 +247,26 @@ describe("stripRouteFromContent", () => {
     expect(next).toContain("<Icon />");
   });
 
+  // Follow-up on #420: NESTED sole-child asChild wrappers. Removing only the
+  // inner wrapper leaves the outer Slot childless — same runtime crash. The
+  // whole wrapper chain must go.
+  it("removes the whole nested asChild wrapper chain with the link", () => {
+    const content = `<nav>
+      <Tooltip asChild>
+        <Button asChild>
+          <Link href="/blog">Blogg</Link>
+        </Button>
+      </Tooltip>
+      <Link href="/about">Om</Link>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    expect(next).not.toContain("<Button asChild>");
+    expect(next).not.toContain("<Tooltip asChild>");
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
+
   // Codex/VADE P2 on PR #420: a self-closing link to the removed route before
   // a paired link must not make the paired-regex span to the LATER </Link> and
   // sweep unrelated markup (e.g. </nav>) into the removal.
