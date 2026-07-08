@@ -3,11 +3,6 @@ import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { getPlacementLabel } from "@/lib/builder/placement-utils";
 import {
-  AI_ELEMENTS_COMPONENT_TARGET,
-  buildAiElementPrompt,
-  type AiElementCatalogItem,
-} from "@/lib/builder/ai-elements-catalog";
-import {
   buildShadcnBlockPrompt,
   buildShadcnComponentPrompt,
 } from "@/lib/shadcn/registry-utils";
@@ -17,7 +12,6 @@ export type PromptSourceKind =
   | "inline"
   | "shadcn-block"
   | "shadcn-component"
-  | "ai-element"
   | "approved-plan"
   | "page-block"
   | "autofix";
@@ -45,14 +39,6 @@ export type ShadcnPromptSource = {
   existingUiComponents?: string[];
 };
 
-export type AiElementPromptSource = {
-  kind: "ai-element";
-  item: AiElementCatalogItem;
-  placement?: PlacementOption;
-  detectedSections?: DetectedSection[];
-  componentTargetPath?: string;
-};
-
 export type ApprovedPlanPromptSource = {
   kind: "approved-plan";
   rawPlan: Record<string, unknown>;
@@ -71,7 +57,6 @@ export type PageBlockPromptSource = {
 export type PromptSource =
   | InlinePromptSource
   | ShadcnPromptSource
-  | AiElementPromptSource
   | ApprovedPlanPromptSource
   | PageBlockPromptSource;
 
@@ -206,32 +191,6 @@ export function buildPromptSourceMessage(
         ),
         meta: {
           sourceKind: "shadcn-component",
-          isTechnical: true,
-          preservePayload: true,
-        },
-      };
-    }
-
-    case "ai-element": {
-      const depsLabel = formatDependencySuffix(source.item.dependencies);
-      const technicalPrompt = buildAiElementPrompt(source.item, {
-        placement: source.placement,
-        detectedSections: source.detectedSections,
-        componentTargetPath: source.componentTargetPath ?? AI_ELEMENTS_COMPONENT_TARGET,
-      });
-      return {
-        title: source.item.label,
-        depsLabel,
-        message: wrapPlacementMessage(
-          "AI‑element",
-          source.item.label,
-          depsLabel,
-          technicalPrompt,
-          source.placement,
-          options,
-        ),
-        meta: {
-          sourceKind: "ai-element",
           isTechnical: true,
           preservePayload: true,
         },

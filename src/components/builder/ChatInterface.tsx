@@ -18,42 +18,20 @@ import {
 } from "@/components/media/file-upload-zone";
 import { MediaDrawer } from "@/components/media/media-drawer";
 import { TextUploader } from "@/components/media/text-uploader";
-import {
-  type ShadcnBlockAction,
-  type ShadcnBlockSelection,
-  PLACEMENT_OPTIONS,
-} from "@/components/builder/UiElementPicker";
-import {
-  UnifiedElementPicker,
-  type UnifiedPickerTab,
-} from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Layers, Loader2, Plus, X } from "lucide-react";
+import { FileText, ImageIcon, Layers, Loader2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
 import {
-  buildPromptSourceMessage,
-  type AiElementPromptSource,
   type PromptSourceMeta,
   type ShadcnPromptSource,
 } from "@/lib/builder/prompt-builder";
-import type { PaletteSelection } from "@/lib/builder/palette";
-import {
-  getPlacementLabel,
-  type PlacementOption,
-} from "@/lib/builder/placement-utils";
-import {
-  DESIGN_THEME_OPTIONS,
-  type DesignTheme,
-} from "@/lib/builder/theme-presets";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
-import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -63,16 +41,11 @@ type MessageOptions = {
   promptSourceMeta?: PromptSourceMeta;
 };
 
-export type VisualPlacementRequest =
-  | {
-      kind: "ui";
-      action: ShadcnBlockAction;
-      source: ShadcnPromptSource;
-    }
-  | {
-      kind: "ai";
-      source: AiElementPromptSource;
-    };
+export type VisualPlacementRequest = {
+  kind: "ui";
+  action: "add" | "start";
+  source: ShadcnPromptSource;
+};
 
 export type VisualPlacementDecision = "handled" | "cancelled" | "fallback";
 
@@ -185,19 +158,12 @@ interface ChatInterfaceProps {
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onRequestPlacement?: (request: VisualPlacementRequest) => Promise<VisualPlacementDecision | void>;
-  onStartFromTemplate?: (templateId: string) => void;
-  onPaletteSelection?: (selection: PaletteSelection) => void;
-  paletteSelections?: PaletteSelection[];
-  designTheme?: DesignTheme;
-  onDesignThemeChange?: (theme: DesignTheme) => void;
   onPromptAssistModeReset?: () => void;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
-  currentCode?: string;
-  existingUiComponents?: string[];
   continuePlanMode?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
@@ -254,20 +220,12 @@ export function ChatInterface({
   initialPrompt,
   onCreateChat,
   onSendMessage,
-  onRequestPlacement,
-  onStartFromTemplate,
-  onPaletteSelection,
-  paletteSelections,
-  designTheme = "blue",
-  onDesignThemeChange,
   onPromptAssistModeReset,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
   isPreparingPrompt = false,
   mediaEnabled = false,
-  currentCode,
-  existingUiComponents,
   continuePlanMode = false,
   followUpBaseInfo,
 }: ChatInterfaceProps) {
@@ -278,7 +236,6 @@ export function ChatInterface({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
-  const [isUiElementAction, setIsUiElementAction] = useState(false);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
@@ -296,9 +253,6 @@ export function ChatInterface({
     },
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
-
-  // Single unified picker state replaces 4 separate picker states
-  const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
@@ -652,177 +606,6 @@ export function ChatInterface({
     await sendMessagePayload(baseMessage);
   };
 
-  const handleDesignSystemAction = async (
-    selection: ShadcnBlockSelection,
-    action: ShadcnBlockAction,
-  ) => {
-    if (!selection.registryItem) return;
-
-    setIsUiElementAction(true);
-    try {
-      const isComponent =
-        selection.itemType === "component" ||
-        (selection.registryItem?.type?.toLowerCase().includes("component") ?? false);
-
-      const source: ShadcnPromptSource = {
-        kind: isComponent ? "shadcn-component" : "shadcn-block",
-        registryItem: selection.registryItem,
-        style: selection.style,
-        displayName: selection.block.title,
-        description: selection.block.description,
-        dependencyItems: selection.dependencyItems,
-        placement: selection.placement,
-        detectedSections: selection.detectedSections,
-        existingUiComponents,
-      };
-      const builtPrompt = buildPromptSourceMessage(source, {
-        placementLabel:
-          PLACEMENT_OPTIONS.find((p) => p.value === selection.placement)?.label ||
-          getPlacementLabel(selection.placement),
-      });
-      const itemTitle = builtPrompt.title || selection.block.title || selection.registryItem.name;
-
-      if (action === "add" && chatId && onRequestPlacement) {
-        setPickerTab(null);
-        const decision = await onRequestPlacement({
-          kind: "ui",
-          action,
-          source,
-        });
-        if (decision !== "fallback") {
-          if (decision !== "cancelled") {
-            onPaletteSelection?.({
-              id: selection.registryItem.name || selection.block.name,
-              label: itemTitle,
-              description: selection.block.description || selection.registryItem.description,
-              source: isComponent ? "shadcn-component" : "shadcn-block",
-              dependencies: selection.registryItem.registryDependencies ?? undefined,
-            });
-          }
-          return;
-        }
-      }
-
-      if (action === "start") {
-        // "Start from block" creates a new chat seeded with the block prompt.
-        // (There is no deterministic registry-scaffold path; the prompt path is
-        // the real, working flow — no dead indirection hook.)
-        if (!onCreateChat) return;
-        await sendMessagePayload(builtPrompt.message, {
-          clearDraft: false,
-          promptSourceMeta: builtPrompt.meta,
-        });
-        onPaletteSelection?.({
-          id: selection.registryItem.name || selection.block.name,
-          label: itemTitle,
-          description: selection.block.description || selection.registryItem.description,
-          source: isComponent ? "shadcn-component" : "shadcn-block",
-          dependencies: selection.registryItem.registryDependencies ?? undefined,
-        });
-        setPickerTab(null);
-        return;
-      }
-
-      if (!onCreateChat && !onSendMessage) return;
-
-      await sendMessagePayload(builtPrompt.message, {
-        clearDraft: false,
-        promptSourceMeta: builtPrompt.meta,
-      });
-      onPaletteSelection?.({
-        id: selection.registryItem.name || selection.block.name,
-        label: itemTitle,
-        description: selection.block.description || selection.registryItem.description,
-        source: isComponent ? "shadcn-component" : "shadcn-block",
-        dependencies: selection.registryItem.registryDependencies ?? undefined,
-      });
-      setPickerTab(null);
-    } finally {
-      setIsUiElementAction(false);
-    }
-  };
-
-  const handleDesignThemeSelect = useCallback(
-    async (theme: DesignTheme) => {
-      if (!onDesignThemeChange) return;
-      onDesignThemeChange(theme);
-      const label =
-        DESIGN_THEME_OPTIONS.find((option) => option.value === theme)?.label || theme;
-      toast.success(
-        theme === "off"
-          ? "Tema avstängt."
-          : `Tema uppdaterat: ${label}.`,
-      );
-      setPickerTab(null);
-    },
-    [onDesignThemeChange],
-  );
-
-  const handleAiElementAction = async (
-    item: AiElementCatalogItem,
-    options: { placement?: PlacementOption; detectedSections?: DetectedSection[] } = {},
-  ) => {
-    if (!onCreateChat && !onSendMessage) return;
-
-    setIsUiElementAction(true);
-    try {
-      const source: AiElementPromptSource = {
-        kind: "ai-element",
-        item,
-        placement: options.placement,
-        detectedSections: options.detectedSections,
-      };
-      const builtPrompt = buildPromptSourceMessage(source, {
-        placementLabel:
-          PLACEMENT_OPTIONS.find((p) => p.value === options.placement)?.label ||
-          getPlacementLabel(options.placement),
-      });
-
-      if (chatId && onRequestPlacement) {
-        setPickerTab(null);
-        const decision = await onRequestPlacement({
-          kind: "ai",
-          source,
-        });
-        if (decision !== "fallback") {
-          if (decision !== "cancelled") {
-            onPaletteSelection?.({
-              id: item.id,
-              label: item.label,
-              description: item.description,
-              source: "ai-element",
-              tags: item.tags,
-              dependencies: item.dependencies,
-            });
-          }
-          return;
-        }
-      }
-
-      await sendMessagePayload(builtPrompt.message, {
-        clearDraft: false,
-        promptSourceMeta: builtPrompt.meta,
-      });
-      onPaletteSelection?.({
-        id: item.id,
-        label: item.label,
-        description: item.description,
-        source: "ai-element",
-        tags: item.tags,
-        dependencies: item.dependencies,
-      });
-      setPickerTab(null);
-    } finally {
-      setIsUiElementAction(false);
-    }
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    if (!onStartFromTemplate) return;
-    onStartFromTemplate(templateId);
-    setPickerTab(null);
-  };
-
   const handleMediaSelect = (item: {
     id: string;
     url: string;
@@ -893,16 +676,6 @@ export function ChatInterface({
             >
               <FileText className="size-3" />
               Plan
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={() => setPickerTab("ui")}
-              disabled={inputDisabled}
-              title="Lägg till element, AI-block, mallar eller tema"
-            >
-              <Plus className="size-3" />
-              Element
             </button>
           </div>
         </PromptInputHeader>
@@ -1128,25 +901,6 @@ export function ChatInterface({
           onClose={() => setIsTextUploaderOpen(false)}
           onContentReady={handleTextContentReady}
           disabled={inputDisabled}
-        />
-      )}
-
-      {pickerTab && (
-        <UnifiedElementPicker
-          open={Boolean(pickerTab)}
-          initialTab={pickerTab}
-          onClose={() => setPickerTab(null)}
-          onUiConfirm={handleDesignSystemAction}
-          onAiConfirm={handleAiElementAction}
-          onTemplateSelect={handleTemplateSelect}
-          onThemeSelect={handleDesignThemeSelect}
-          isBusy={inputDisabled}
-          isSubmitting={isUiElementAction}
-          hasChat={Boolean(chatId)}
-          currentCode={currentCode}
-          paletteSelections={paletteSelections}
-          currentTheme={designTheme}
-          showThemeTab={Boolean(onDesignThemeChange)}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ import {
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
+import { DESIGN_THEME_OPTIONS, type DesignTheme } from "@/lib/builder/theme-presets";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
@@ -47,6 +48,7 @@ import {
   Plus,
   Lightbulb,
   Globe,
+  Palette,
   Rocket,
   Save,
   Settings2,
@@ -64,6 +66,9 @@ export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
   onApplyAnthropicComparePreset: () => void;
+
+  designTheme: DesignTheme;
+  onDesignThemeChange: (theme: DesignTheme) => void;
 
   promptAssistModel: string;
   promptAssistDeep: boolean;
@@ -130,6 +135,8 @@ export function BuilderHeader(props: {
     selectedModelTier,
     onSelectedModelTierChange,
     onApplyAnthropicComparePreset,
+    designTheme,
+    onDesignThemeChange,
     promptAssistModel: _promptAssistModel,
     promptAssistDeep,
     canUseDeepBrief,
@@ -193,6 +200,8 @@ export function BuilderHeader(props: {
       : scaffoldMode === "auto"
         ? "Auto"
         : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
+  const currentThemeLabel =
+    DESIGN_THEME_OPTIONS.find((option) => option.value === designTheme)?.label ?? "Av";
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
@@ -360,6 +369,40 @@ export function BuilderHeader(props: {
                   <span className="text-muted-foreground ml-2 text-xs">
                     {scaffold.description}
                   </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
+                    <Palette className="h-4 w-4" />
+                    <span className="hidden max-w-[140px] truncate sm:inline">
+                      Tema: {currentThemeLabel}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Färgtema som skickas till genereringen (design tokens)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Färgtema</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={designTheme}
+              onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
+            >
+              {DESIGN_THEME_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
