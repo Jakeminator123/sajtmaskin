@@ -1033,8 +1033,21 @@ function trimSnippet(input) {
   return input.slice(input.length - 4000);
 }
 
+// Bump when the install COMMAND policy changes (not just the deps). The
+// fingerprint is mixed with this token so a policy change invalidates every
+// prior `.preview-host-deps.json` on the persistent /data volume and forces a
+// one-time reinstall. Without it, a workspace whose deps were installed under
+// the old `--no-optional`/`--ignore-optional` policy (missing native binaries)
+// would keep matching its cached fingerprint on reuse (e.g. a follow-up edit on
+// an imported template) and skip the corrective reinstall — leaving Tailwind v4
+// crash-looping. (Codex P2 on PR #454.)
+const DEPENDENCY_INSTALL_POLICY = "2026-07-08-optional-and-build-scripts";
+
 function dependencyFingerprint(filesJson) {
   const hash = createHash("sha256");
+  hash.update("policy:");
+  hash.update(DEPENDENCY_INSTALL_POLICY);
+  hash.update("\n");
   for (const key of ["package.json", "package-lock.json", "pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]) {
     if (typeof filesJson[key] === "string") {
       hash.update(key);
@@ -2375,6 +2388,8 @@ module.exports = {
   sweepIdleRuntimes,
   cleanupPreviewHostStorage,
   __testing: {
+    dependencyFingerprint,
+    DEPENDENCY_INSTALL_POLICY,
     patchNextConfigViaAst,
     patchNextConfigViaRegex,
     patchNextConfigForPreviewBasePath,
