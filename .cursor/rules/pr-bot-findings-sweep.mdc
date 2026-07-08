@@ -18,6 +18,8 @@ gh api repos/<owner>/<repo>/pulls/<n>/reviews  --jq '.[] | .user.login + " [" + 
 gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " + .body'
 ```
 
+**Aktiva granskare nu (2026-07):** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks) och `GitGuardian` (secrets). **Codex är avstängd** — dess kommentar är alltid bara "usage limit"; behandla frånvaron som normal, inte ett gap.
+
 ## Svep senaste ~12h PRs (även redan mergade)
 
 Ett bot-fynd på en syskon-/mergad PR kan peka på en reell bugg i delad kod. Lista PRs som rörts senaste 12h och läs deras review-kommentarer med kommandona ovan.
