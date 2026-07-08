@@ -18,7 +18,9 @@ Source-of-truth for the format: docs/contracts/dossier-system.md
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +35,7 @@ HARD_ROOT = DOSSIER_ROOT / "hard"
 SOFT_ROOT = DOSSIER_ROOT / "soft"
 INDEX_ROOT = DOSSIER_ROOT / "_index"
 CAPABILITY_MAP_PATH = INDEX_ROOT / "capability-map.json"
+STRICT_SCHEMA_PATH = REPO_ROOT / "docs" / "schemas" / "strict" / "dossier.schema.json"
 TEMPLATE_REFS_ROOT = REPO_ROOT / "data" / "template-references" / "repos"
 CAPABILITY_TIERS_PATH = (
     REPO_ROOT / "src" / "lib" / "builder" / "follow-up-capability-detection.ts"
@@ -457,6 +460,323 @@ def _section_curate() -> None:
             )
 
 
+# ── Legacy-import (prospect → v2-utkast) ────────────────────────────────────
+# Drives scripts/dossiers/normalize-legacy-prospect.ts from the backoffice so a
+# maintainer can run the strict LLM normalizer, read its verdict/concerns, and
+# promote an accepted draft into the live pool — without touching the terminal.
+# The prospect material lives OUTSIDE the repo (kept out of Cursor's index).
+
+_NORMALIZE_MODELS = ("gpt-5.5", "gpt-5.4-mini")
+
+
+def _npm_binary() -> str:
+    """Resolve the npm launcher cross-platform. On Windows the executable is
+    `npm.cmd`; `shutil.which` finds whichever is on PATH."""
+    found = shutil.which("npm")
+    if found:
+        return found
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
+def _prospect_root() -> Path:
+    """Where the legacy prospect material lives. Override with the
+    `DOSSIER_PROSPECT_ROOT` env var; defaults to a sibling folder next to the
+    repo root (`../dossiers-prospect`). Mirrors the TS script default in
+    scripts/dossiers/normalize-legacy-prospect.ts."""
+    override = os.environ.get("DOSSIER_PROSPECT_ROOT", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return REPO_ROOT.parent / "dossiers-prospect"
+
+
+def _load_prospect_plan(root: Path) -> list[dict[str, Any]]:
+    data = _load_json(root / "prospects.json")
+    if not data or not isinstance(data.get("prospects"), list):
+        return []
+    return [p for p in data["prospects"] if isinstance(p, dict)]
+
+
+def _load_prospect_report(root: Path) -> dict[str, Any]:
+    data = _load_json(root / "normalization-report.json")
+    return data if isinstance(data, dict) else {}
+
+
+def _read_prospect_verdict_files(root: Path, legacy_id: str) -> tuple[str | None, str]:
+    """Return (kind, text) for a prospect's on-disk verdict artifact.
+    kind is 'accept' (from _v2-draft/REVIEW.md), 'reject' (from REJECTED.md),
+    or None when the prospect has not been processed yet."""
+    review = root / legacy_id / "_v2-draft" / "REVIEW.md"
+    rejected = root / legacy_id / "REJECTED.md"
+    if review.exists():
+        return "accept", review.read_text(encoding="utf-8")
+    if rejected.exists():
+        return "reject", rejected.read_text(encoding="utf-8")
+    return None, ""
+
+
+def _run_normalize(only: str | None, run_all: bool, force: bool, model: str) -> tuple[bool, str]:
+    """Invoke `npm run dossiers:normalize-legacy -- ...`. Blocks until done —
+    a single prospect is ~1-2 min, `--all` (12 prospects) can be ~10 min, so
+    the timeout scales with scope."""
+    args = ["run", "dossiers:normalize-legacy", "--"]
+    if run_all:
+        args.append("--all")
+    elif only:
+        args.append(f"--only={only}")
+    else:
+        return False, "Inget att köra (varken --all eller --only angavs)."
+    if force:
+        args.append("--force")
+    if model:
+        args.append(f"--model={model}")
+    timeout = 1800 if run_all else 400
+    try:
+        result = subprocess.run(
+            [_npm_binary(), *args],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+        return result.returncode == 0, (result.stdout or "") + (result.stderr or "")
+    except subprocess.TimeoutExpired:
+        return False, (
+            f"Normaliseringen tog mer än {timeout}s — kör hellre från terminal:\n"
+            "npm run dossiers:normalize-legacy -- --all"
+        )
+    except FileNotFoundError as exc:
+        return False, f"Saknar binär (npm): {exc}"
+
+
+def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[bool, str]:
+    """Copy an accepted `_v2-draft/` into the live pool
+    (`data/dossiers/<class>/<id>/`). Validates the draft manifest first and
+    refuses to overwrite an existing dossier unless `force`. This writes into
+    the live pool but does NOT rebuild the capability map or run the strict AJV
+    validator — the UI surfaces those as explicit follow-up actions, mirroring
+    the draft/review discipline of the AI-curation tab."""
+    legacy_id = str(entry.get("legacyId") or "")
+    klass = entry.get("targetClass")
+    target_id = entry.get("targetId")
+    if klass not in ("hard", "soft") or not target_id:
+        return False, "Ogiltig plan-post (saknar targetClass/targetId)."
+    # Kebab-case guard: also the containment guard — a valid kebab-case id has
+    # no "/", "\\" or "." so it cannot escape data/dossiers/<class>/ via `..`.
+    if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", str(target_id)):
+        return False, f"Ogiltigt targetId (måste vara kebab-case): {target_id!r}"
+    draft = root / legacy_id / "_v2-draft"
+    manifest_path = draft / "manifest.json"
+    if not manifest_path.exists():
+        return False, f"Inget utkast hittades ({manifest_path}). Kör normaliseringen först."
+    manifest = _load_json(manifest_path)
+    if not manifest:
+        return False, "Utkastets manifest.json kunde inte läsas (ogiltig JSON)."
+    if manifest.get("id") != target_id:
+        return False, (
+            f"Utkastets manifest.id ({manifest.get('id')!r}) matchar inte plan-postens "
+            f"targetId ({target_id!r}). Kör om normaliseringen mot aktuell plan."
+        )
+    errors = _validate_manifest(manifest)
+    if errors:
+        return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
+    # Canonical strict-schema gate (additionalProperties:false, kebab/id/label
+    # patterns, enum + length constraints) — the lightweight `_validate_manifest`
+    # above misses these, so a manually-edited draft could otherwise be promoted
+    # into a state the runtime registry (strict AJV) silently excludes.
+    try:
+        from backoffice.shared import validate_json_against_schema
+
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - surface any failure, fail closed
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — promotar inte:\n"
+            + "\n".join(f"- {e}" for e in schema_errors)
+        )
+    target_dir = DOSSIER_ROOT / klass / target_id
+    if target_dir.exists() and not force:
+        rel = target_dir.relative_to(REPO_ROOT)
+        return False, f"Dossier finns redan: `{rel}`. Kryssa i 'Skriv över' för att ersätta."
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(manifest_path, target_dir / "manifest.json")
+    instructions = draft / "instructions.md"
+    if instructions.exists():
+        shutil.copy2(instructions, target_dir / "instructions.md")
+    comp_src = draft / "components"
+    comp_dst = target_dir / "components"
+    if comp_dst.exists():
+        shutil.rmtree(comp_dst)
+    if comp_src.exists():
+        shutil.copytree(comp_src, comp_dst)
+    rel = target_dir.relative_to(REPO_ROOT)
+    return True, (
+        f"Promoterade utkast till `{rel}`.\n\n"
+        "Nästa steg: bygg om capability-map (fliken 'Capability map'), kör "
+        "`npm run dossiers:validate-all`, applicera kodfixarna i REVIEW och "
+        "koppla ev. ny capability i brief-prompten + follow-up-vokabulären."
+    )
+
+
+def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
+    st.subheader("Legacy-import (prospect → v2-utkast)")
+    root = _prospect_root()
+    st.caption(
+        "Kör den strikta LLM-normaliseraren "
+        "(`scripts/dossiers/normalize-legacy-prospect.ts`) som läser gamla "
+        "legacy-dossiers och skriver **v2-utkast** (aldrig direkt till live-poolen). "
+        f"Materialet ligger utanför repot: `{root}` "
+        "(ändras via env `DOSSIER_PROSPECT_ROOT`)."
+    )
+
+    if not (root / "prospects.json").exists():
+        st.info(
+            f"Ingen `prospects.json` i `{root}`.\n\n"
+            "Seed-mappen skapas genom att kopiera valda legacy-dossiers dit och "
+            "lägga en kurationsplan (`prospects.json`). Se README i "
+            "`scripts/dossiers/normalize-legacy-prospect.ts` för formatet."
+        )
+        return
+
+    plan = _load_prospect_plan(root)
+    report = _load_prospect_report(root)
+    live_ids = {(d.get("_class"), d.get("id")) for d in dossiers}
+
+    rows: list[dict[str, Any]] = []
+    for entry in plan:
+        legacy_id = str(entry.get("legacyId") or "")
+        row_report = report.get(legacy_id) or {}
+        draft_exists = (root / legacy_id / "_v2-draft" / "manifest.json").exists()
+        in_live = (entry.get("targetClass"), entry.get("targetId")) in live_ids
+        rows.append(
+            {
+                "legacy": legacy_id,
+                "→ id": entry.get("targetId"),
+                "class": entry.get("targetClass"),
+                "capability": entry.get("targetCapability"),
+                "verdict": row_report.get("verdict") or "—",
+                "concerns": len(row_report.get("concerns") or []),
+                "fixar": len(row_report.get("requiredCodeChanges") or []),
+                "utkast": "✓" if draft_exists else "",
+                "i live-pool": "✓" if in_live else "",
+            }
+        )
+    if rows:
+        st.dataframe(rows, width="stretch", hide_index=True)
+        accepts = sum(1 for r in rows if r["verdict"] == "accept")
+        rejects = sum(1 for r in rows if r["verdict"] == "reject")
+        invalids = sum(1 for r in rows if r["verdict"] == "invalid")
+        st.caption(
+            f"{len(rows)} prospects · accept: {accepts} · reject: {rejects} · "
+            f"invalid: {invalids}. 'fixar' = obligatoriska kodändringar innan promotion."
+        )
+
+    model = st.selectbox("Modell för normalisering", _NORMALIZE_MODELS, key="prospect_model")
+    st.caption(
+        "`gpt-5.5` = bäst omdöme (default). `gpt-5.4-mini` = billigare/snabbare. "
+        "Körningen blockerar UI:t tills den är klar."
+    )
+    batch_cols = st.columns(2)
+    with batch_cols[0]:
+        if st.button("Normalisera saknade", key="prospect_run_missing"):
+            with st.spinner("Kör normaliseraren (hoppar över redan behandlade)…"):
+                ok, output = _run_normalize(None, run_all=True, force=False, model=model)
+            (st.success if ok else st.error)(output[-3000:])
+    with batch_cols[1]:
+        if st.button("Kör om alla (force)", key="prospect_run_all_force"):
+            with st.spinner("Kör om ALLA prospects…"):
+                ok, output = _run_normalize(None, run_all=True, force=True, model=model)
+            (st.success if ok else st.error)(output[-3000:])
+
+    st.divider()
+    st.markdown("**Enskild prospect**")
+    ids = [str(p.get("legacyId") or "") for p in plan if p.get("legacyId")]
+    if not ids:
+        return
+    pick = st.selectbox("Välj prospect", ids, key="prospect_pick")
+    entry = next((p for p in plan if p.get("legacyId") == pick), None)
+    if not entry:
+        return
+
+    st.caption(
+        f"Mål: `{entry.get('targetClass')}/{entry.get('targetId')}` · "
+        f"capability `{entry.get('targetCapability')}`"
+        + (f" · {entry.get('notes')}" if entry.get("notes") else "")
+    )
+
+    single_cols = st.columns(2)
+    with single_cols[0]:
+        if st.button("Normalisera denna", key="prospect_run_one"):
+            with st.spinner(f"Normaliserar {pick}…"):
+                ok, output = _run_normalize(pick, run_all=False, force=True, model=model)
+            (st.success if ok else st.error)(output[-3000:])
+
+    # Promotion trusts the REPORT verdict (canonical outcome of the latest run),
+    # not merely the presence of a REVIEW.md — a stale draft from an older run
+    # must never enable promote after the latest run went invalid/reject.
+    kind, text = _read_prospect_verdict_files(root, pick)
+    row_report = report.get(pick) or {}
+    report_verdict = row_report.get("verdict")
+    draft_exists = (root / pick / "_v2-draft" / "manifest.json").exists()
+
+    if report_verdict == "accept" and draft_exists:
+        st.success("Utkast finns (accepterat i senaste körningen).")
+        if text:
+            with st.expander("REVIEW.md — concerns + obligatoriska kodfixar", expanded=False):
+                st.markdown(text)
+        # Block promotion while REVIEW lists required code changes — the draft's
+        # manifest shape can be valid while the integration code still needs the
+        # fixes (lazy SDK-init, real schema, …). Require an explicit ack so a
+        # maintainer can't one-click known-unfinished code into the live pool.
+        required_changes = row_report.get("requiredCodeChanges") or []
+        fixes_ack = True
+        if required_changes:
+            st.warning(
+                f"{len(required_changes)} obligatorisk(a) kodfix(ar) enligt REVIEW "
+                "innan denna dossier är säker i live-poolen."
+            )
+            fixes_ack = st.checkbox(
+                "Jag har applicerat kodfixarna (eller tar ansvar för att promota ändå)",
+                key="prospect_fixes_ack",
+            )
+        with single_cols[1]:
+            force_overwrite = st.checkbox("Skriv över befintlig", key="prospect_promote_force")
+        if st.button(
+            "Promota utkast → live-pool",
+            type="primary",
+            key="prospect_promote",
+            disabled=not fixes_ack,
+        ):
+            ok, msg = _promote_prospect(root, entry, force=force_overwrite)
+            (st.success if ok else st.error)(msg)
+            if ok:
+                st.cache_data.clear()
+    elif report_verdict == "invalid":
+        st.error(
+            "Senaste körningen blev **invalid** — LLM:en accepterade men utkastet "
+            "föll på schema-/mekanikvalidering. Inget utkast att promota."
+        )
+        val_errors = row_report.get("validationErrors") or []
+        if val_errors:
+            st.markdown("\n".join(f"- {e}" for e in val_errors))
+        st.caption("Kör 'Normalisera denna' igen (ev. efter promptjustering).")
+    elif report_verdict == "reject" or kind == "reject":
+        st.error("Normaliseraren avvisade denna prospect.")
+        if text:
+            with st.expander("REJECTED.md — motivering", expanded=True):
+                st.markdown(text)
+        elif row_report.get("reason"):
+            st.markdown(f"> {row_report['reason']}")
+    elif draft_exists:
+        st.warning(
+            "Ett utkast finns men senaste verdict är inte 'accept' — kör om "
+            "normaliseringen innan du promotar."
+        )
+    else:
+        st.info("Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast.")
+
+
 def render(ctx) -> None:  # ctx kept for backoffice signature parity
     del ctx
     st.title("Dossiers")
@@ -477,6 +797,7 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
             "Capability map",
             "Hälsokoll",
             "AI-kuration",
+            "Legacy-import",
         ]
     )
     with tabs[0]:
@@ -495,3 +816,5 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
         _section_health()
     with tabs[7]:
         _section_curate()
+    with tabs[8]:
+        _section_legacy_prospect(dossiers)
