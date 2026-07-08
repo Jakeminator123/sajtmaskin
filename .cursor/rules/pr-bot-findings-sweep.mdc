@@ -19,10 +19,10 @@ gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " +
 # Check-run output/annotations — HÄR kan Vercel Agent Review (VADE) lägga fynd även vid neutral/success.
 # check-runs är SHA-keyade (inte PR-nr), så hämta head-SHA först (körbar rad):
 $sha = gh pr view <n> --json headRefOid -q .headRefOid
-# id + summary/text per check-run (notera id:t för annotations-steget nedan):
-gh api repos/<owner>/<repo>/commits/$sha/check-runs --jq '.check_runs[] | (.id|tostring) + " " + .name + ": " + (.output.title // "") + "\n" + (.output.summary // "") + (.output.text // "")'
+# id + summary/text per check-run (--paginate: default sidstorlek är 30, annars tappas fynd tyst):
+gh api --paginate -F per_page=100 repos/<owner>/<repo>/commits/$sha/check-runs --jq '.check_runs[] | (.id|tostring) + " " + .name + ": " + (.output.title // "") + "\n" + (.output.summary // "") + (.output.text // "")'
 # annotations ligger på EGEN endpoint per check-run-id (VADE-fynd kan finnas här utan summary/text):
-gh api repos/<owner>/<repo>/check-runs/<check-run-id>/annotations --jq '.[] | .path + ":" + (.start_line|tostring) + " " + .annotation_level + " — " + .message'
+gh api --paginate -F per_page=100 repos/<owner>/<repo>/check-runs/<check-run-id>/annotations --jq '.[] | .path + ":" + (.start_line|tostring) + " " + .annotation_level + " — " + .message'
 ```
 
 **Aktiva granskare nu (2026-07):** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets) och **Codex** (kan vara på/av beroende på credits — av 2026-07-02, tillbaka 2026-07-08). En Codex-kommentar som **bara** är "usage limit" = av → icke-blockerande, inte ett gap. **Men varje Codex-review eller inline-fynd som INTE är usage-limit ska hämtas och triageras** precis som andra bot-fynd — även om PR:en redan mergats (post-merge-triage). Codex-review kan dessutom landa några minuter efter att checks blivit gröna, så re-läs reviews precis före merge.
