@@ -940,6 +940,44 @@ export async function POST(req: Request) {
       expect(result.code).toContain('import { z } from "zod"');
     });
 
+    // Codex P2 (PR #389): a non-zod `z` used ONLY via member calls (so no bare
+    // `z` token exists for the negative gate) must still stay residual — the
+    // positive gate is a zod-API whitelist, not "any z.<member>(".
+    it("leaves a non-zod `z` used only via non-zod member calls residual (z.toFixed)", () => {
+      const content = project(
+        FILE,
+        `export default function Page() {
+  return <div>{z.toFixed(2)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves z to zod for the z.coerce chain (z.coerce.number())", () => {
+      const routeFile = "app/api/bookings/route.ts";
+      const content = project(
+        routeFile,
+        `const querySchema = z.object({ page: z.coerce.number().min(1) });
+
+export async function GET() {
+  return Response.json({ ok: Boolean(querySchema) });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
     it("leaves a non-zod `z` (e.g. an undefined 3D coordinate) residual", () => {
       const content = project(
         FILE,

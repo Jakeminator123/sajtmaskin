@@ -52,10 +52,55 @@ type ResolvedImport = { module: string; kind: "named" | "default" | "type-named"
 
 const CANNOT_FIND_NAME_RE = /Cannot find name '([^']+)'/;
 
-// Member access on the zod namespace in call (`z.object(`) or generic
-// (`z.infer<`) position. Anything else that happens to be named `z` fails
-// this gate and stays residual for the LLM.
-const ZOD_NAMESPACE_USAGE_RE = /\bz\.[a-zA-Z_$][\w$]*\s*[(<]/;
+// Member access on the zod namespace, restricted to ACTUAL zod-API members in
+// call (`z.object(`) or generic (`z.infer<`) position (Codex P2 on PR #389).
+// Matching ANY `z.<member>(` was too broad: an undefined `z` used purely as a
+// non-zod member call — e.g. a numeric coordinate `z.toFixed(2)`, `z.push(...)`
+// — with no bare `z` token elsewhere would pass both gates and get a bogus
+// `import { z } from "zod"`, trading TS2304 for a zod-namespace type error.
+// The whitelist covers the recurring prod zod surface (schema builders, the
+// `infer`/`input`/`output` generics and the `z.coerce.` chain); an unlisted
+// member fails the gate and the name stays residual for the LLM.
+const ZOD_API_MEMBERS = [
+  "object",
+  "string",
+  "number",
+  "boolean",
+  "bigint",
+  "date",
+  "symbol",
+  "undefined",
+  "null",
+  "void",
+  "any",
+  "unknown",
+  "never",
+  "array",
+  "tuple",
+  "record",
+  "map",
+  "set",
+  "enum",
+  "nativeEnum",
+  "literal",
+  "union",
+  "discriminatedUnion",
+  "intersection",
+  "promise",
+  "function",
+  "lazy",
+  "preprocess",
+  "custom",
+  "instanceof",
+  "optional",
+  "nullable",
+  "infer",
+  "input",
+  "output",
+];
+const ZOD_NAMESPACE_USAGE_RE = new RegExp(
+  `\\bz\\.(?:coerce\\.)?(?:${ZOD_API_MEMBERS.join("|")})\\s*[(<]`,
+);
 
 // Bugbot HIGH (PR #389): the positive gate alone matched file-WIDE text, so a
 // file mixing zod-style member usage (or a comment/string that merely mentions
