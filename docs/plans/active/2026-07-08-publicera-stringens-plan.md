@@ -21,9 +21,31 @@ Den här planen gör publicera **stringentare** genom att (1) låsa deploy bakom
 Vercel-projektnamn efter domänkoppling, (4) enhetliga fel-logg-/RAG-vägarna, (5) rätta
 terminologi-drift som skymmer sanningen, och (6) exponera Vercel-loggar + felstate i UI.
 
-**Det här är en plan + agent-underlag. Ingen kod är ändrad ännu.** Exekvering sker via
-subagenter enligt "Exekveringsmodell" nedan, med orkestratören som granskare. Allt landar
-via **en PR mot `master`** (bug-post-check på skyddade paths krävs).
+Exekvering sker via subagenter enligt "Exekveringsmodell" nedan, med orkestratören som
+granskare. Allt landar via **en PR mot `master`** (bug-post-check på skyddade paths krävs).
+
+## Leveransstatus (2026-07-08)
+
+Alla sex lanes levererade på grenen `feat/publicera-stringens`. Orkestratören granskade
+varje lane (diff + riktade tester + typecheck) och rättade småfel.
+
+| Lane | Modell | Commit-typ | Verifiering | Not |
+|---|---|---|---|---|
+| C terminologi/docs | Composer | `docs(rag)` | diff-granskad | Composer felrapporterade "0 ändringar" — innehållet ändå korrekt |
+| B RAG-härdning | Sonnet 5 | `feat(rag)` | 88 tester | additivt/best-effort |
+| A1 ReleaseGate-lås (Ö1) | Fable 5 → **Opus 4.8** | `feat(deploy)` | 52 tester | Fable 5 kapad; kördes på Opus |
+| A2 projektnamn-lås (Ö2) | Opus 4.8 | `feat(deploy)` | 37 tester | — |
+| A3 deploy-repair (Ö3) | Opus 4.8 | `feat(deploy)` | 148 tester | orkestrator-fixade 4 typfel (bare-return + closure-narrowing) |
+| A4 inspectorUrl + felstate | Sonnet 5 | `feat(deploy)` | 4 tester | ren presentation |
+
+**Bug-post-check (bugbot-subagent):** 5 fynd. #1 (dubbelskriven deploy-fel-logg) **fixad**
+(single-writer via `emitVersionErrorLogs`, commit `abf38b6a4`). #2–#5 **loggade** i
+[`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) som `BB#deploy2–5` (reload-persistens,
+implicit domän-orphan, webhook-vs-poll-dubbellogg, orelaterad `repair_available`-no-op). Inga P0.
+
+**Kända begränsningar (baseline, ej denna gren):** två pre-existerande typecheck-fel på master
+(`.next/types/validator.ts` stale artefakt, `src/lib/projects/thumbnail-capture.ts` saknar
+`@sparticuz/chromium` i `package.json`).
 
 ## Verifierade fynd (source of truth)
 
