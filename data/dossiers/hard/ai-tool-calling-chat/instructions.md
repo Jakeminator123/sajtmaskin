@@ -10,7 +10,8 @@
 - Install the listed AI SDK, OpenAI provider, and zod dependencies.
 - Add `OPENAI_API_KEY` to the server environment; never expose it to client components.
 - The route emits at `/api/assistant` (NOT `/api/chat`, which belongs to the plain ai-chat dossier) — point the client transport at `/api/assistant`.
-- Replace the sample `getWeather` and `searchDocs` tools with project-specific server functions.
+- The route is REWRITABLE: replace the sample `getWeather` and `searchDocs` tools with project-specific server functions.
+- When rewriting, ALWAYS keep the route's safety contract: the `OPENAI_API_KEY` guard returning 503, the JSON body try/catch returning 400, a zod `inputSchema` on every tool, and an explicit stop condition.
 - Keep each tool narrow, typed with a zod input schema, and fast enough for interactive use.
 - Keep `stopWhen: stepCountIs(...)` or another explicit stop condition for autonomous tool loops.
 

@@ -3,7 +3,7 @@
   "id": "ai-tool-calling-chat",
   "label": "AI Tool-Calling Chat Route",
   "capability": "ai-tool-calling",
-  "codeFidelity": "verbatim",
+  "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Use when a Next.js App Router project needs a streamed chat endpoint where the Vercel AI SDK can call server-side tools, return structured tool results, and automatically continue the assistant turn for multiple tool-call roundtrips. Pair with an existing chat UI that can render AI SDK UI message parts.",
@@ -24,12 +24,12 @@
     {
       "path": "components/api/assistant/route.ts",
       "role": "server",
-      "injectionMode": "verbatim"
+      "injectionMode": "rewritable"
     }
   ],
   "exposes": [],
   "lastVerified": "2026-04-17",
   "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
-  "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Route lives at /api/assistant so it never collides with openai-chat's verbatim /api/chat when both capabilities are selected. Demo tools are examples — replace before production. Deps unpinned → ONE AI SDK major via KNOWN_PACKAGES. lastVerified = legacy source date until first preview-test.",
-  "promptInstructionMode": "compact"
+  "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Route lives at /api/assistant so it never collides with openai-chat's verbatim /api/chat. REWRITABLE (Codex P1 PR #430): the whole point is replacing the demo tools with project tools, which verbatim-policy would revert — instructions.md carries the must-keep contract (key guard, zod schemas, step limit). lastVerified = legacy source date until first preview-test.",
+  "promptInstructionMode": "selected-sections"
 }
