@@ -12,10 +12,17 @@ source: Chatt-session 2026-07-08 (normalizer byggd + mergad i PR #419); coach-an
 
 Verktyget är klart och mergat (PR #419): en strikt LLM-normalizer gör legacy-dossiers
 (v1, 96 st i arkiv) till v2-utkast, körbar från backoffice (flik **Legacy-import**).
-12 kandidater är normaliserade — **alla accept, 0 promoterade**. Live-poolen är
-oförändrad (8 hard + 17 soft). Kvarvarande arbete = promota kuraterat (en i taget,
-med kodfixar + capability-wiring + preview-test), plus två produktförbättringar
-(F2-synlighet av valda dossiers, nya soft-dossiers från scratch).
+12 kandidater normaliserade — alla accept. **7 promoterade** (alla mergade 2026-07-08):
+`dashboard-charts` (soft, PR #422), våg 1 `ably-realtime` + `fal-image-generation` +
+`ai-tool-calling-chat` (PR #430), våg 2 `postgres-drizzle` + `neon-postgres` +
+`mongodb-atlas` under ny capability `database` (PR #445). Live-poolen är nu
+**14 hard + 18 soft (32)**. **5 utkast kvar** att promota kuraterat (en i taget),
+plus två produktförbättringar (F2-synlighet delvis levererad i PR #439/#441,
+nya soft-dossiers från scratch).
+
+**Gemensam öppen punkt på ALLA 7 promoterade:** ett riktigt preview/generate-test
+som väljer dossiern, sedan bumpa `lastVerified` (står kvar på legacy-källans
+datum tills dess — medvetet, för att inte flagga overifierad kod som grön).
 
 ## Var materialet ligger
 
@@ -28,26 +35,43 @@ med kodfixar + capability-wiring + preview-test), plus två produktförbättring
 | Legacy-arkiv (källa, read-only) | `C:\Users\jakem\dev\projects\dossiers-legacy-2026-04-20\` |
 | Live-pool | `data/dossiers/{hard,soft}/<id>/` |
 
-## 12 utkast — status accept, väntar på promotion
+## 12 utkast — promotionsstatus
 
-| targetId | class | capability | kodfixar | prio |
+| targetId | class | capability | kodfixar | status / prio |
 |---|---|---|---|---|
-| `dashboard-charts` | soft | dashboard-charts | 0 | **börja här** (enklaste promote-testet) |
-| `ably-realtime` | hard | realtime | 2 | medel |
-| `mongodb-atlas` | hard | database | 3 | medel |
-| `fal-image-generation` | hard | image-generation | 3 | medel |
-| `ai-tool-calling-chat` | hard | ai-tool-calling | 3 | medel |
-| `postgres-drizzle` | hard | database | 4 | **hög produktnytta** |
-| `neon-postgres` | hard | database | 4 | alt till postgres-drizzle |
-| `sanity-cms-alt` | hard | cms | 4 | jämför med sanity-cms — promota EN |
-| `rag-chat` | hard | rag-chat | 5 | senare (kräver DB + pgvector) |
+| `dashboard-charts` | soft | dashboard-charts | 0 | ✅ **PROMOTERAD** (PR #422). Kvar: preview-test + `lastVerified`-bump. |
+| `ably-realtime` | hard | realtime | 2 | ✅ **PROMOTERAD** (PR #430, våg 1). Kvar: preview-test. |
+| `fal-image-generation` | hard | image-generation | 3 | ✅ **PROMOTERAD** (PR #430, våg 1). Kvar: preview-test. |
+| `ai-tool-calling-chat` | hard | ai-tool-calling | 3 | ✅ **PROMOTERAD** (PR #430, våg 1). Kvar: preview-test. |
+| `postgres-drizzle` | hard | database (default) | 4 | ✅ **PROMOTERAD** (PR #445, våg 2). Seed-fallback-kontrakt (seedData + DbConfigNotice + 503). Kvar: preview-test + P2 schema-verbatim (backlog). |
+| `neon-postgres` | hard | database | 4 | ✅ **PROMOTERAD** (PR #445, våg 2). Väljs via `relevanceKeywords`. Kvar: preview-test. |
+| `mongodb-atlas` | hard | database | 3 | ✅ **PROMOTERAD** (PR #445, våg 2). Väljs via `relevanceKeywords`. Kvar: preview-test. |
+| `sanity-cms` | hard | cms | 5 | **NÄST** — jämför med `sanity-cms-alt`, **promota EN** (öppet beslut #2) |
+| `sanity-cms-alt` | hard | cms | 4 | alt-källa till samma target — promota EN |
 | `paddle-billing` | hard | subscriptions | 5 | senare |
-| `sanity-cms` | hard | cms | 5 | jämför med sanity-cms-alt |
-| `supabase-auth` | hard | supabase-auth | 6 | senare (ej default-auth) |
+| `supabase-auth` | hard | supabase-auth | 6 | senare (ej default-auth, får ej konkurrera med `clerk-auth`) |
+| `rag-chat` | hard | rag-chat | 5 | **sist** (störst yta; kräver DB + pgvector + migrationer) |
 
 Återkommande kodfix-tema (från REVIEW.md): lazy-init av SDK-klienter (aldrig på
 modulnivå), re-root av `@/lib/...`-importer, 503/config-notice vid saknad env,
 inga exempel-scheman i prod-kod.
+
+## Kvar per dossier (konkret — från normalization-report.json)
+
+De 5 kvarvarande är `hard` (integrationer) och delar samma promote-loop som
+Fas B/C, men med kodfixar och en ny capability-wiring var. Ordnad efter föreslagen
+takt (minst yta först, `rag-chat` sist):
+
+| Dossier | Ny capability att wira? | Kärnfixar (utöver lazy-init) |
+|---|---|---|
+| `sanity-cms` / `sanity-cms-alt` | `cms` (ny) | **Promota EN.** Droppa `app/layout.tsx` (ge som guidance); re-root `@/sanity/lib/*` → `@/lib/sanity/*`; `getSanityClient()`-factory; `server-only` på token-modulen; separera publik/draft-klient |
+| `paddle-billing` | `subscriptions` (ny, ≠ `payments`) | Re-root `@/utils/*` → `@/lib/*`; lazy `supabaseAdmin`; ogiltig signatur → 400/401 (ej 500); kräver `subscriptions`-tabell + user↔Paddle-mappning i host-appen |
+| `supabase-auth` | `supabase-auth` (ny; får EJ konkurrera med `auth`) | Re-root `@/utils/supabase/*` → `@/lib/supabase/*`; sanera öppen `next`-redirect (bara same-origin `/`); `getAll/setAll`-cookie-pattern; lazy env-guard |
+| `rag-chat` | `rag-chat` (ny) | Lazy OpenAI + Postgres; anpassa chat-route till host-appens AI SDK-major; **beror på DB** (pgvector + `documents`/`document_chunks`-tabeller + migrationer) |
+
+Källor per dossier: `dossiers-prospect/<legacyId>/_v2-draft/REVIEW.md` (checklista)
++ `normalization-report.json` (fulla `concerns` + `requiredCodeChanges`).
+`<legacyId>` ≠ `targetId` — mappningen står i `prospects.json`.
 
 ## Arbetsordning
 
@@ -58,29 +82,38 @@ inga exempel-scheman i prod-kod.
    utkast med senaste normalizer inkl. plan-coerce; ~10 min, OpenAI-kostnad).
    **Ej körd** — öppet beslut #3 kvarstår.
 
-### Fas B — första promotion (proof of loop): `dashboard-charts` ✅ (samma PR)
+### Fas B — första promotion (proof of loop): `dashboard-charts` ✅ MERGAD (PR #422, `ed438a5a`)
 1. ~~Promota~~ ✅ `_v2-draft/` kopierad → `data/dossiers/soft/dashboard-charts/`
    (manifest, instructions, components — REVIEW.md medvetet utelämnad, mönster
    från befintlig pool).
-2. ~~validate-all + capability-map~~ ✅ båda gröna/regenererade (25 capabilities).
+2. ~~validate-all + capability-map~~ ✅ båda gröna/regenererade (25 capabilities, 26 dossiers).
 3. ~~Wire capability~~ ✅ brief-schema + prompt (`site-brief-generation.ts`),
-   vokabulär med vetoes för analytics-providers/flödesscheman
+   vokabulär med vetoes för analytics-providers/flödesscheman/chart-libs
    (`follow-up-capability-vocabulary.ts`), regressionstester
-   (`follow-up-capability-detection.test.ts`), samt `@visactor/react-vchart`
-   i `KNOWN_PACKAGES` (`dep-completer.ts`).
-4. Preview-test: **ÅTERSTÅR** — generera sajt som explicit ber om
-   dashboard/charts; bumpa `lastVerified` efter verifierat test.
+   (`follow-up-capability-detection.test.ts` + `dep-completer.test.ts`), samt
+   `@visactor/react-vchart` i `KNOWN_PACKAGES` (`dep-completer.ts`).
+4. **Bot-runda avklarad:** Bugbot (2 medium) + Codex (3×P1, 1×P2) + Vercel VADE
+   (P2) — alla åtgärdade i uppföljningscommits. Notabelt P1: `VisactorChart`
+   propen `option` → `options` (react-vchart-kontrakt); `lastVerified`
+   false-green återställd.
+5. Preview-test: **ÅTERSTÅR (enda öppna punkten)** — generera sajt i prod/preview
+   som explicit ber om dashboard/charts, bekräfta att `dashboard-charts` valdes
+   (via `/logg`), bumpa sedan `lastVerified` → dagens datum i
+   `data/dossiers/soft/dashboard-charts/manifest.json`.
 
-### Fas C — första hard-dossier: `postgres-drizzle`
-1. Applicera de 4 kodfixarna i REVIEW.md (lazy `getDb()`, schema-path,
-   drizzle.config, ta bort users/posts-exemplet).
-2. Överväg F2-degradering: PGlite eller seed-mock när `DATABASE_URL` saknas
-   (användarens önskan om "lättare variant" i F2 — formalisera i kontraktet).
-3. Taxonomi: `postgres-drizzle` + `neon-postgres` delar capability `database`
-   — exakt en får `defaultForCapability: true`.
+### Fas C — databas-vågen ✅ MERGAD (PR #445, våg 2, 2026-07-08)
+1. ~~Kodfixar~~ ✅ lazy `getDb()`/`getSql()`/`getMongoClientPromise()`, schema-path,
+   drizzle.config-emission, users/posts-exemplet ersatt med markerad rewrite-target.
+2. ~~F2-degradering~~ ✅ beslut #1 landade som **seed-fallback-kontraktet**:
+   `isDbConfigured()` (avvisar preview-/placeholder-stubbar) + `seedData` +
+   `<DbConfigNotice />` + 503-health-route. `database` F2-mutas via
+   server-filregeln i `dossierRequiresF3` (medvetet, regressionslåst).
+3. ~~Taxonomi~~ ✅ `postgres-drizzle` är default (utan `relevanceKeywords` — den ÄR
+   fallbacken); syskon väljs via manifest-`relevanceKeywords` i
+   `selectDossiersForRequest`. `needsDatabase` broas i `capability-dossier-bridge`.
 
 ### Fas D — resterande prospects, kuraterat (EN i taget)
-Ordning: `fal-image-generation`/`ably-realtime` → `sanity-cms` (välj en källa) →
+Ordning: `sanity-cms` (välj en källa — öppet beslut #2) →
 `paddle-billing`/`supabase-auth` → `rag-chat` sist (störst yta).
 
 ### Fas E — produktförbättringar (ej legacy, ej påbörjade)
@@ -116,9 +149,10 @@ npx vitest run src/lib/gen/dossiers/
 
 ## Öppna beslut (fråga användaren vid behov)
 
-1. F2 DB-mock: PGlite vs statisk seed vs bara mock-UI?
+1. ~~F2 DB-mock~~ ✅ AVGJORT (PR #445): statisk seed — `seedData` +
+   `<DbConfigNotice />` + 503-health; `database` F2-mutas via server-filregeln.
 2. Sanity: vilken av de två källorna promotas som `sanity-cms`?
-3. Ska `--all --force` köras före promotion (utkasten, utom `mongodb-atlas`,
+3. Ska `--all --force` köras före promotion av de 5 kvarvarande (utkasten
    genererades före Codex-fixarna — giltiga men ej plan-coercade)?
 
 ## Definition of done (per dossier)
