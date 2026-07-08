@@ -46,6 +46,19 @@ const VERCEL_LIVE_HOSTS = {
   connect: ["https://vercel.live", "https://*.pusher.com", "wss://*.pusher.com"],
 } as const;
 
+// First-party surfaces the app itself loads on every page. Google Sign-In pulls
+// the "Google Sans" webfont from fonts.gstatic.com (+ its stylesheet from
+// fonts.googleapis.com), and the Mixpanel client SDK posts events to
+// api-js.mixpanel.com. Without these on the allowlist they flood /api/csp-report
+// with font-src / connect-src violations (report-only today) and would break
+// once CSP_ENFORCE flips on. Mirrors the allowlist documented in
+// next.config.ts headers().
+const THIRD_PARTY_HOSTS = {
+  style: ["https://fonts.googleapis.com"],
+  font: ["https://fonts.gstatic.com"],
+  connect: ["https://api-js.mixpanel.com"],
+} as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -121,6 +134,9 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   // D-ID SDK (bundled npm) needs connect-src for WebRTC signaling on any page
   connectSrc.push("https://*.d-id.com", "https://d-id.com");
 
+  // Mixpanel analytics egress (see THIRD_PARTY_HOSTS)
+  connectSrc.push(...THIRD_PARTY_HOSTS.connect);
+
   if (allowDidEmbed) {
     scriptSrc.push(...DID_EMBED_HOSTS);
     frameSrc.push(...DID_EMBED_HOSTS);
@@ -138,9 +154,9 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
-    `style-src 'self' 'unsafe-inline' ${VERCEL_LIVE_HOSTS.style.join(" ")}`,
+    `style-src 'self' 'unsafe-inline' ${[...VERCEL_LIVE_HOSTS.style, ...THIRD_PARTY_HOSTS.style].join(" ")}`,
     `img-src ${imgSrc.join(" ")}`,
-    `font-src 'self' data: ${VERCEL_LIVE_HOSTS.font.join(" ")}`,
+    `font-src 'self' data: ${[...VERCEL_LIVE_HOSTS.font, ...THIRD_PARTY_HOSTS.font].join(" ")}`,
     `frame-src ${frameSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `media-src ${mediaSrc.join(" ")}`,

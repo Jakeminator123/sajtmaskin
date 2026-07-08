@@ -35,3 +35,15 @@ describe("proxy CSP — Vercel Toolbar / Live allowlist", () => {
     expect(directive(csp, "connect-src")).toContain("wss://*.pusher.com");
   });
 });
+
+describe("proxy CSP — first-party third-party egress allowlist", () => {
+  it("allows Google Sign-In fonts + Mixpanel so they stop flooding /api/csp-report", async () => {
+    const csp = await cspFor("https://sajtmaskin.example/");
+
+    // Google Sign-In "Google Sans" webfont + its stylesheet
+    expect(directive(csp, "font-src")).toContain("https://fonts.gstatic.com");
+    expect(directive(csp, "style-src")).toContain("https://fonts.googleapis.com");
+    // Mixpanel client SDK event egress
+    expect(directive(csp, "connect-src")).toContain("https://api-js.mixpanel.com");
+  });
+});
