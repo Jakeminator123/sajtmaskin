@@ -294,3 +294,5 @@ scratch-*.json
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 # (.vercel is ignored once near the top under "# Vercel".)
+
+.vercel
