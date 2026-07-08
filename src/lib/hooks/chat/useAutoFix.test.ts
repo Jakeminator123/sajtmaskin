@@ -213,6 +213,36 @@ describe("useAutoFix", () => {
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("skips when the user switches chat while the guard requests are in flight (Codex P1)", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    let activeChat = "chat_1";
+    const baseFetch = globalThis.fetch;
+    // Flip the active chat when the `/readiness` guard request fires: that
+    // request runs INSIDE the timer callback, after the pre-await active-chat
+    // sample — so only the post-await re-check can catch the switch.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/readiness")) activeChat = "chat_other";
+        return baseFetch(input);
+      }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage, () => activeChat));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(

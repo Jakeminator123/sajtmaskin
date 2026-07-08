@@ -572,10 +572,18 @@ export function useAutoFix(
                 // Skip if the user navigated to a different chat since this
                 // autofix was scheduled — never apply chat A's fix to chat B.
                 // Fail-open when the active chat is unknown (getter absent/null).
-                const activeChatId = getActiveChatId?.();
-                if (activeChatId != null && activeChatId !== payload.chatId) return;
+                const isActiveChat = () => {
+                  const activeChatId = getActiveChatId?.();
+                  return activeChatId == null || activeChatId === payload.chatId;
+                };
+                if (!isActiveChat()) return;
                 if (!(await isLatestVersionPayload(payload))) return;
                 if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
+                // Re-check AFTER the awaits (Codex P1, PR #393): the two guard
+                // requests above can take long enough for the user to switch
+                // chats while they are in flight — the pre-await sample alone
+                // would then let chat A's autofix stream into chat B.
+                if (!isActiveChat()) return;
                 pendingPayloadKeyRef.current = null;
 
                 // Count the attempt only now that a real send is actually
