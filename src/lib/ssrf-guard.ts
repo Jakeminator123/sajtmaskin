@@ -12,6 +12,28 @@ function normalizeHost(hostname: string): string {
   return lowered;
 }
 
+function parseIpv4Literal(host: string): string | null {
+  const parts = host.split(".");
+  if (parts.length !== 4) return null;
+  const normalized = parts.map((part) => Number(part));
+  if (normalized.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+    return null;
+  }
+  return normalized.join(".");
+}
+
+function extractMappedIpv4FromIpv6(host: string): string | null {
+  const normalized = host.toLowerCase();
+  const dotted = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (dotted) return parseIpv4Literal(dotted[1]);
+
+  const hex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (!hex) return null;
+  const upper = Number.parseInt(hex[1], 16);
+  const lower = Number.parseInt(hex[2], 16);
+  return `${(upper >> 8) & 0xff}.${upper & 0xff}.${(lower >> 8) & 0xff}.${lower & 0xff}`;
+}
+
 function isPrivateIpv4(host: string): boolean {
   const parts = host.split(".").map((part) => Number(part));
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
@@ -31,6 +53,8 @@ function isPrivateIpv4(host: string): boolean {
 
 function isPrivateIpv6(host: string): boolean {
   const normalized = host.toLowerCase();
+  const mappedIpv4 = extractMappedIpv4FromIpv6(normalized);
+  if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
   if (normalized === "::1") return true;
   if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
   if (normalized.startsWith("fe80:")) return true;
@@ -43,8 +67,8 @@ function isResolvedAddressPrivate(address: string): boolean {
   const version = net.isIP(address);
   if (version === 4) return isPrivateIpv4(address);
   if (version === 6) {
-    const mapped = address.toLowerCase().match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
-    if (mapped) return isPrivateIpv4(mapped[1]);
+    const mappedIpv4 = extractMappedIpv4FromIpv6(address);
+    if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
     return isPrivateIpv6(address);
   }
   return true; // unparseable → treat as disallowed (defensive)

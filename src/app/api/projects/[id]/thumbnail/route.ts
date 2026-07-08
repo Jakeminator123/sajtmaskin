@@ -20,6 +20,7 @@ import {
   setProjectThumbnail,
 } from "@/lib/db/services/projects";
 import { deleteCache } from "@/lib/data/redis";
+import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
 import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
@@ -55,15 +56,111 @@ function ownerCacheSegments(userId: string | null, sessionId: string | null): st
   return segments.length > 0 ? Array.from(new Set(segments)) : ["anonymous"];
 }
 
-export async function POST(req: NextRequest, ctx: RouteParams) {
-  return withRateLimit(req, "projects:thumbnail", () => handlePOST(req, ctx));
+function normalizePathPrefix(pathname: string): string {
+  if (!pathname || pathname === "/") return "/";
+  return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
 }
 
-async function handlePOST(req: NextRequest, { params }: RouteParams) {
+function pathIsUnderPrefix(pathname: string, prefix: string): boolean {
+  if (prefix === "/") return true;
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function hostMatchesSuffix(hostname: string, suffix: string): boolean {
+  const normalizedSuffix = suffix.trim().toLowerCase().replace(/^\./, "");
+  if (!normalizedSuffix) return false;
+  const normalizedHost = hostname.trim().toLowerCase().replace(/\.$/, "");
+  return normalizedHost === normalizedSuffix || normalizedHost.endsWith(`.${normalizedSuffix}`);
+}
+
+function configuredThumbnailAllowlistSuffixes(): string[] {
+  const raw = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase().replace(/^\./, ""))
+    .filter(Boolean);
+}
+
+type PreviewAllowlistDecision =
+  | { ok: true }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Thumbnails are captured server-side (Chromium in a trusted runtime). Restrict
+ * caller-supplied preview URLs to the configured preview-host base URL, with an
+ * explicit operator override list for known alternate preview domains.
+ */
+function assertPreviewUrlAllowed(target: URL): PreviewAllowlistDecision {
+  const previewHostBase = getPreviewHostBaseUrl();
+  if (!previewHostBase) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Thumbnail-capture är inte konfigurerad (saknar preview-host-bas).",
+    };
+  }
+
+  let previewHostBaseUrl: URL;
+  try {
+    previewHostBaseUrl = new URL(previewHostBase);
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      error: "Thumbnail-capture är inte konfigurerad (ogiltig preview-host-bas).",
+    };
+  }
+
+  const allowlistSuffixes = configuredThumbnailAllowlistSuffixes();
+  if (allowlistSuffixes.some((suffix) => hostMatchesSuffix(target.hostname, suffix))) {
+    return { ok: true };
+  }
+
+  const sameOrigin = target.origin === previewHostBaseUrl.origin;
+  const requiredPathPrefix = normalizePathPrefix(previewHostBaseUrl.pathname);
+  if (sameOrigin && pathIsUnderPrefix(target.pathname, requiredPathPrefix)) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    status: 403,
+    error: "Otillåten preview-URL för thumbnail-capture.",
+  };
+}
+
+function hashedRateLimitSessionId(sessionId: string | null): string | null {
+  if (!sessionId) return null;
+  return createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
+}
+
+export async function POST(req: NextRequest, ctx: RouteParams) {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  const rateLimitOptions = user?.id
+    ? { userId: user.id }
+    : (() => {
+        const sessionKey = hashedRateLimitSessionId(sessionId);
+        return sessionKey ? { sessionId: sessionKey } : undefined;
+      })();
+
+  return withRateLimit(
+    req,
+    "projects:thumbnail",
+    () => handlePOST(req, ctx, { user, sessionId }),
+    rateLimitOptions,
+  );
+}
+
+async function handlePOST(
+  req: NextRequest,
+  { params }: RouteParams,
+  identity: { user: Awaited<ReturnType<typeof getCurrentUser>>; sessionId: string | null },
+) {
   try {
     const { id } = await params;
-    const user = await getCurrentUser(req);
-    const sessionId = getSessionIdFromRequest(req);
+    const { user, sessionId } = identity;
     if (!user && !sessionId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -99,6 +196,15 @@ async function handlePOST(req: NextRequest, { params }: RouteParams) {
     if (!["http:", "https:"].includes(target.protocol)) {
       return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
     }
+
+    const allowlistDecision = assertPreviewUrlAllowed(target);
+    if (!allowlistDecision.ok) {
+      return NextResponse.json(
+        { success: false, error: allowlistDecision.error },
+        { status: allowlistDecision.status },
+      );
+    }
+
     if (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname))) {
       return NextResponse.json(
         { success: false, error: "Otillåten host för thumbnail." },
@@ -126,10 +232,34 @@ async function handlePOST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const persisted = await setProjectThumbnail(id, uploaded.url, {
-      userId: user?.id ?? null,
-      sessionId,
-    });
+    let persisted: Awaited<ReturnType<typeof setProjectThumbnail>> | null = null;
+    try {
+      persisted = await setProjectThumbnail(id, uploaded.url, {
+        userId: user?.id ?? null,
+        sessionId,
+      });
+    } catch (persistError) {
+      // DB write failed after successful blob upload: avoid orphaned public blobs.
+      await deleteBlob(uploaded.url).catch(() => undefined);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Kunde inte spara thumbnail i projektet.",
+          details: persistError instanceof Error ? persistError.message : "Unknown persistence error",
+        },
+        { status: 500 },
+      );
+    }
+    if (!persisted) {
+      // Ownership-constrained update failed; do not report a green response with
+      // a blob that is not referenced by app_projects.thumbnail_path.
+      await deleteBlob(uploaded.url).catch(() => undefined);
+      return NextResponse.json(
+        { success: false, error: "Kunde inte spara thumbnail i projektet." },
+        { status: 500 },
+      );
+    }
+
     const previous = persisted?.previousThumbnailPath;
     if (previous && previous !== uploaded.url && /^https?:\/\//.test(previous)) {
       // Best-effort: the DB already points at the new blob.
