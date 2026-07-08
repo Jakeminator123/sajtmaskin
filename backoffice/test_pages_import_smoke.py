@@ -1,6 +1,7 @@
 """Smoke-test: alla backoffice-sidor importerar utan fel + har callable render().
 
-Bakgrund: backoffice/pages/__init__.py listar 27 sidor i PAGE_SPECS. När
+Bakgrund: backoffice/pages/__init__.py listar sidorna i PAGE_SPECS (antalet växer
+över tid — läs `len(PAGE_SPECS)` för aktuell siffra, hårdkoda den inte här). När
 någon flyttar en helper, splittar en monolit eller döper om en `BackofficeContext`-attribut
 är det alldeles för lätt att en sida bryter import-tid utan att vi märker det
 förrän operatören klickar in på fliken i Streamlit.

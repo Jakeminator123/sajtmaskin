@@ -2,6 +2,15 @@
 
 > Flyttade `[x]`-rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter 818-svärmens verifiering + batch-fix-PR (branch `fix/bug-swarm-batch-0702`) 2026-07-02. Äldre historik: [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## SSRF-guard-konsolidering (2026-07-08, PR #390)
+
+`is-disallowed-host.ts` fanns inte längre på disk vid en repo-hygien-genomgång 2026-07-08 (read-only dead-code-granskning). Verifierat mot git-historik: PR #390 ("konsolidera SSRF-guard till ssrf-guard.ts") stängde redan båda raderna nedan samma dag, men de blev aldrig flyttade ur Aktiv kö.
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | SSRF-guard duplicerad: `src/lib/security/is-disallowed-host.ts` (skapad i #385) exporterade en egen `isDisallowedHost` som redan fanns i `src/lib/ssrf-guard.ts`. Två parallella guards med samma namn = drift-risk och svagare skydd på inspector-vägen. | MB#385 (merge-gate-review på mergad #385, kodverifierad) | `is-disallowed-host.ts` borttagen; `inspector-capture/route.ts` + `inspector-element-map/route.ts` importerar nu `isDisallowedHost`/`isLoopbackHost`/`hostResolvesToPrivate` direkt från `ssrf-guard.ts`. Commit `9e8924381`, PR #390. |
+| [x] | Fixad | P3 | DNS-rebinding på `/api/inspector-element-map`: den gamla guarden (`is-disallowed-host.ts`) kollade bara den literala hostnamnssträngen, så en publik host som resolvar till privat/metadata-IP kunde passera. | MB#385 (merge-gate-review på mergad #385, kodverifierad) | Löst av samma konsolidering: `ssrf-guard.ts`s `hostResolvesToPrivate()` (DNS-lookup + privat-IP-check) anropas nu från `/api/inspector-element-map` via den delade guarden. Commit `9e8924381`, PR #390. |
+
 ## Fixar flyttade från Aktiv kö
 
 | Klar | Status | Prio | Fynd | Källa | Fix-referens |

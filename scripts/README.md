@@ -9,7 +9,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`master`
 > - **Dossier-pipeline v1** togs bort 2026-04-20 — gamla 16-pipelinens scripts ligger i `archive/dossiers-legacy-2026-04-20/`. Aktiv dossier-pipe är **`npm run dossiers:curate`** som anropar `scripts/dossiers/curate-from-reference.ts`.
 > - **`scaffold_cli.py`-meta-CLI** är borttagen — aktiva scaffold-script är bara `scaffolds:variant-embeddings`, `scaffolds:variant-patterns`, `scaffolds:variant-patterns:dry`, `scaffolds:validate`.
 >
-> Arkitekturreferens för borttagningarna: [`docs/architecture/code-map.md`](../docs/architecture/code-map.md) § Borttaget/legacy.
+> Arkitekturreferens för borttagningarna: git-historik (`docs/architecture/code-map.md` håller sig medvetet slim och listar inte borttaget — se filens egen "Dokumentationsregel").
 
 ## Översikt och inventering
 
@@ -30,7 +30,7 @@ Delad logik ligger i `backoffice/shared.py`. `config/dashboard/` håller bara `d
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt`, `check-unicode-regex` (npm `predev` / `dev` / `build` / `preflight:common`) |
 | [`embeddings/`](embeddings/) | Mall- och scaffold-embeddings (template-library-embeddings borttagen 2026-04-17) |
-| [`dossiers/`](dossiers/) | AI-curate dossiers från klonade referens-repos (`curate-from-reference.ts`) |
+| [`dossiers/`](dossiers/) | AI-curate dossiers från klonade referens-repos (`curate-from-reference.ts`) + legacy-import-kedja (`inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts`) |
 | [`v0-templates/`](v0-templates/) | Separat v0/runtime/workflow-spår: lokal sync, validering och local refresh av mallkatalog |
 | [`scaffolds/`](scaffolds/) | Variant-embeddings, variant-patterns, manifest-validering |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |

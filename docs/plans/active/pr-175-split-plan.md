@@ -8,6 +8,23 @@ source_pr: https://github.com/Jakeminator123/sajtmaskin/pull/175
 
 # PR #175 — beslutsplan: dela upp, ersätt eller stäng
 
+## Status 2026-07-08 (verifierat)
+
+PR #175 är **stängd** (`state: CLOSED`, ej mergad) — rekommendationen i planen är
+alltså genomförd på PR-nivå. Men de två fristående lågrisk-cherry-picksen
+nedan (P1, P2) är **fortfarande inte gjorda**:
+
+- **P1 (font-weight-fix):** finns overifierat på commit `e933d2fe9` ("fix(gen):
+  injicera obligatorisk weight för icke-variabla next/font-typsnitt",
+  Christopher Genberg, 2026-06-20) — **inte** en ancestor till `master`. Fixen
+  är fortfarande relevant (fristående, testtäckt) och väntar bara på att bli
+  en egen liten PR mot dagens master.
+- **P2 (bild-materializer):** ingen matchande commit hittad i historiken —
+  fortfarande overifierat om den ens gjordes på en branch.
+
+Resten av planen (P3–P8, arkitekturbesluten i §6) är oförändrad — inget
+tyder på att `src/viewser/**`-studion eller BFF-routarna migrerats in separat.
+
 ## TL;DR (beslut)
 
 **Stäng inte in #175 som ett block.** Den är `CONFLICTING`, 200 filer,

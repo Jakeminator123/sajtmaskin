@@ -37,6 +37,7 @@ Repo-tvätt-historik: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.m
 | B1 | S3 false-green-lane warn-only → blockerande `test:ci` | lane-arkitekturbeslut |
 | B4 | canvas auto-PR `CANVAS_PR_TOKEN` (ingen CI på `chore/llm-flow-canvas`) | secret-beslut |
 | F4 / F5 | odefinierade bus-emits · manifest `perTier*` ej i Zod | detalj |
+| R1 | Auth: extrahera delad `parseAuthCookie` + en `isAdminEmail`-källa (dubblerad mellan `auth.ts` Node och `edge-auth.ts` Edge) | medveten paus — `edge-auth.ts` måste förbli Edge-säker (Web Crypto), får ej slås ihop rakt av; se `../avklarat/2026-07-07-repo-cleanup.md` |
 
 Detalj: [`../avklarat/grandmaster/_backlog-deferrad.md`](../avklarat/grandmaster/_backlog-deferrad.md).
 
@@ -69,14 +70,18 @@ Längre horisont (ej P1/P2): core-split v2, WebContainers-migration, ÅÄÖ pre-
 
 Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-arkitektur — render-worker vs instrumenterad preview → [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md).
 
-Beslutsunderlag (scope, ej startat): PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
+Beslutsunderlag: PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar). Status 2026-07-08: PR #175 **stängd** (som rekommenderat), men de två fristående lågrisk-vinsterna (P1 font-weight-fix, P2 bild-materializer) är **fortfarande inte cherry-pickade** — P1 finns overifierat kvar på commit `e933d2fe9` (ej i master) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
 
 Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) bryts ut i små PR:ar (batch A #391, B #393, C #395 mergade; kvar: preview/readiness, pipeline, scaffolds, domains/engine-rester) → [`pr-355-parked-bug-swarm-split.md`](pr-355-parked-bug-swarm-split.md).
 
-Repo-cleanup 2026-07-07 (levererat: 4 bevisat-döda ytor raderade; kvar: 3 ägarbeslut C1–C3 + auth-refaktor R1) → [`2026-07-07-repo-cleanup.md`](2026-07-07-repo-cleanup.md).
+Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept, 7 promoterade i två vågor #422/#430/#445; kvar: 5 promotions + preview-test/`lastVerified` för de 7 + F2-synlighet) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
 
-Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept; kvar: kuraterad promotion + capability-wiring + F2-synlighet + nya soft-dossiers) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
+OpenClaw edit-agent 2026-07-01 (2 av 3 spår levererade: mallar→Blob #336 mergad, follow-up-imported-repo-fix i koden; kvar: spår A = PR #346, draft, `[HOLD - MERGA INTE]`) → [`2026-07-01-openclaw-edit-agent-och-followup-fix.md`](2026-07-01-openclaw-edit-agent-och-followup-fix.md).
+
+Backoffice-stringensplan 2026-07-08 (underlag klart: 34 sidor granskade, 2 triviala sanningsfel redan rättade i samma pass; resten väntar på prioritering — domain-map-täckning, dubbla manifest-editorer, scaffold-navigation, testluckor) → [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md).
 
 Levererat (kod): #4 distribuerat per-version-lås (`engine_version_jobs`) för server-verify/repair via **#256** (2026-06-27) + base-bound repair-save/accept via **#265** (2026-06-28, stänger #260 P2 #5) + #260 **P2 #4** (quality-gate höll leasen över verify-budgeten) löst via **#276** och härdat via **#284** (verify-timeout härleds nu från route-budgeten med marginal). #260 är därmed helt stängd i koden. **Enda kvarvarande punkten är ägarens manuella prod-migration av `engine_version_jobs`** (runbook i plan-doc) → [`../avklarat/2026-06-27-server-verify-distributed-lock.md`](../avklarat/2026-06-27-server-verify-distributed-lock.md).
 
 Levererat (2026-06-25, PR #241 + Fly/Vercel-deploy): preview-surface-stabilitet + iframe-fokus (F2) — iframe-tangentbordsfokus, preview-host reset-recovery, HMR-no-storm under reboot, Next stdout/stderr i runtime-logg → [`../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md`](../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md).
+
+Levererat (repo-cleanup 2026-07-07, arkiverad 2026-07-08): 4 bevisat-döda ytor raderade + C1–C3 ägarbeslut alla byggda klart (verifierat kod-för-kod). Enda kvarvarande punkten (R1) ligger nu i hygien-backloggen ovan → [`../avklarat/2026-07-07-repo-cleanup.md`](../avklarat/2026-07-07-repo-cleanup.md).

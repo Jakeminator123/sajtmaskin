@@ -56,7 +56,7 @@ REPAIR_LOOP_HARDCODED = (
         "useErrorLogRag",
         "Phase 3 — vector RAG over error-log + auto-ingest",
         "Producer writes NDJSON, indexer rebuilds TF-IDF snapshot, retriever surfaces `### Lessons from similar past builds` in system-prompt. Auto-rebuilt at npm run dev|build|start.",
-        "NODE_ENV == development",
+        'NODE_ENV != "test" (on in BOTH dev and prod, not dev-only)',
     ),
 )
 

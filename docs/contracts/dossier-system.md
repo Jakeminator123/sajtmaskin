@@ -214,6 +214,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/dossiers/select.ts` | Deterministic capability-driven selection |
 | `src/lib/gen/dossiers/types.ts` | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult` |
 | `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
-| `scripts/dossiers/curate-from-reference.ts` | The single AI-curation script |
+| `scripts/dossiers/curate-from-reference.ts` | AI-curation script (single dossier from a cloned reference repo) |
+| `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`. |
 | `backoffice/pages/dossiers.py` | Backoffice UI for browsing + editing + curating |
-| `archive/dossiers-legacy-2026-04-20/` | Old 96-dossier pool, 16-script pipeline, scaffold-recommendations, embeddings |
+| Old 96-dossier v1 pool, 16-script pipeline, scaffold-recommendations, embeddings | Gitignored local archive (`/archive/` in `.gitignore`), not guaranteed present on every checkout. Current legacy-import work-in-progress state (prospects, normalization reports, drafts) lives outside the repo — see `docs/plans/active/2026-07-08-dossier-legacy-import.md`. |

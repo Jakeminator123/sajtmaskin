@@ -2,22 +2,23 @@
 status: active
 owner: unassigned
 created: 2026-07-01
-topic: OpenClaw edit-agent (reversibel), follow-up preflight-fix och mall→Blob-upload
+updated: 2026-07-08
+topic: OpenClaw edit-agent (reversibel) — spår B/C levererade, spår A väntar i PR #346 [HOLD]
 ---
 
 # OpenClaw edit-agent + follow-up-fix + mall→Blob — plan & sekvens
 
-## TL;DR (beslut som väntar på OK)
+## TL;DR (2026-07-08: 2 av 3 spår klara — bara spår A kvar)
 
 Tre spår, medvetet åtskilda så `master` inte störs och allt är reversibelt:
 
-| Spår | Vad | Leverans | När |
+| Spår | Vad | Leverans | Status |
 |---|---|---|---|
-| **C — mallar→Blob** | Backoffice-upload + Blob-manifest + katalog som styr `Mallar`/Templates | **PR #336** (`feat/mallar-blob-catalog`) — pågår | Nu (upload körs) |
-| **B — follow-up-fix** | Fixa att follow-up i vanliga LLM-flödet blockeras på mall-chattar | **Egen liten PR** (rekommendation) eller in i #336 | Nu, efter upload |
-| **A — OpenClaw edit-agent** | OpenClaw redigerar användarprojekt från en prompt i OpenClaw-chatten → ändringar till VM | **Ny separat branch** `feat/openclaw-edit-agent` (av `master`) | **Senare** — efter att B+C är i mål och efter påminnelse |
+| **C — mallar→Blob** | Backoffice-upload + Blob-manifest + katalog som styr `Mallar`/Templates | PR #336 (`feat/mallar-blob-catalog`) | ✅ **MERGAD** 2026-07-01 |
+| **B — follow-up-fix** | Fixa att follow-up i vanliga LLM-flödet blockeras på mall-chattar | egen PR | ✅ **LEVERERAD** — `imported-repo`-läget finns i koden (`finalize-preflight.ts`, `finalize-version/preflight-phase.ts`, `engine/chats/init/route.ts` + test) |
+| **A — OpenClaw edit-agent** | OpenClaw redigerar användarprojekt från en prompt i OpenClaw-chatten → ändringar till VM | branch `feat/openclaw-edit-agent` | 🟡 **PR #346, draft, [HOLD - MERGA INTE]** — se detaljer nedan |
 
-**Sekvens (låst efter din bekräftelse):** slutför C → gör B → (påminn dig) → skapa branch A → bygg OpenClaw-agenten. Ingen OpenClaw-kod och inga Vercel-env-ändringar skrivs förrän branch A skapas.
+Enda kvarvarande beslutet är om/när PR #346 ska tas av HOLD. Resten av dokumentet nedan (spår B:s rotorsak/fix-detaljer, spår A:s design) är historik/kontext — spår B:s sektion beskriver vad som byggdes, inte längre öppet arbete.
 
 ---
 
