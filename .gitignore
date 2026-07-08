@@ -7,6 +7,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# Explicit root rule (don't rely on pytest's own self-generated .pytest_cache/.gitignore)
+.pytest_cache/
 
 # Node/Next.js
 node_modules/
@@ -50,6 +52,9 @@ env.vercel*.local
 ENV_JAMFORRELSE.txt
 di-d.txt
 logg-meta*.txt
+
+# Användarens personliga publiceringsmaterial (screenshots/anteckningar) — committa ej.
+/publicerings-material/
 
 # Temp commit-message files from local commit workflow
 COMMIT_MSG.tmp
@@ -98,6 +103,14 @@ data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
+
+# --- Dossier-pipeline (local mutable/generated data — spegel av .cursorignore) ---
+data/dossiers/_raw/**
+data/dossiers/_repo-cache/**
+data/dossiers/_index/dossier-embeddings.json
+data/dossiers/_index/master.json
+data/dossiers/_index/by-category.json
+data/dossiers/*/_removed/**
 
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
@@ -259,6 +272,8 @@ data/template-references/_metadata/
 
 # Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
 .cursor/tmp/
+# Ad-hoc one-off debug scripts agents sometimes drop straight under .cursor/ (not .cursor/tmp/)
+.cursor/tmp-*
 
 # Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
 trött_agent.txt

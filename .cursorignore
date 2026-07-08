@@ -161,3 +161,6 @@ next-env.d.ts
 # (se .vscode/settings.json watcherExclude/search.exclude). Fortfarande i git.
 _parkering/
 
+
+# Anvandarens personliga publiceringsmaterial (spegel av .gitignore)
+/publicerings-material/

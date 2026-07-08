@@ -11,7 +11,7 @@ CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
     ),
     (
         "docs/architecture/code-map.md",
-        "repository-and-platform.md — mappar, integrationer, repo (översikt)",
+        "code-map.md — mappar, integrationer, repo (översikt)",
     ),
 )
 

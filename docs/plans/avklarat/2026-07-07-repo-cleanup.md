@@ -1,7 +1,9 @@
 ---
-status: active
+status: avklarad
 owner: unassigned
 created: 2026-07-07
+archived: 2026-07-08
+archived_note: "4 döda ytor raderade + C1-C3 ägarbeslut alla byggda klart (verifierat 2026-07-08, kod läst rad för rad). Enda kvarvarande punkten (R1, auth-parseAuthCookie-refaktor) flyttad till docs/plans/active/README.md's hygien-backlogtabell."
 topic: Repo-cleanup — evidensbaserad radering + kvarvarande ägarbeslut
 source: cleanup.txt (extern granskningsrapport, rot) + egen caller-analys via läs-agenter
 ---
@@ -38,29 +40,17 @@ reasoning, sources, plan, code-block, tool, prompt-input`) och **alla**
 katalog-hints i `ai-elements-catalog.ts` (de är prompt-hints för genererade
 projekt, frikopplade från de lokala filerna — kan re-hämtas via shadcn-registry).
 
-## Kvarvarande ägarbeslut (dina — systemet funkar som det är)
+## Kvarvarande ägarbeslut — UPPDATERAT 2026-07-08: C1–C3 är alla lösta
 
-Inget av detta är en bugg. Det är halvbyggda funktioner eller möjliga externa
-kontrakt där radering är ett *produktval*, inte städning.
+Verifierat vid en repo-hygien-genomgång 2026-07-08 (direkt kodläsning, inte
+namn-träff): alla tre byggdes klart efter att den här planen skrevs. Ingen av
+dem är längre ett öppet beslut.
 
-| ID | Yta | Läge | Rekommendation |
+| ID | Yta | Läge 2026-07-07 | Verklighet 2026-07-08 |
 |---|---|---|---|
-| C1 | `POST /api/auth/github/disconnect` | Route finns, 0 callers (ingen "Koppla från"-knapp) | **Antingen** koppla en disconnect-knapp i `VersionHistory`/inställningar, **eller** radera routen. Låg risk endera vägen. |
-| C2 | `GET /api/templates` (singular route-fil `templates/route.ts`) | 0 callers — UI läser `@/lib/templates/client` direkt. Oautentiserad read-only-dubblett av katalogen | Säker att radera **efter** en prod-loggkoll (extern konsument?). Behåll `templates/search/route.ts`. |
-| C3 | `GET /api/audits` + `GET/DELETE /api/audits/[id]` | 0 callers. `POST /api/audits` (spara) används av `audit-modal.tsx`. "Spara audit" finns men ingen vy för sparade | Produktval: **bygg** "Mina audits"-vy (wire list/hämta/radera) **eller** trimma bort dessa handlers och behåll bara `POST`. |
-
-### Så här slutför du ett beslut (mall)
-
-```powershell
-# Exempel C1 — radera disconnect-routen
-Remove-Item -Recurse -Force "src/app/api/auth/github/disconnect"
-npm run typecheck ; if ($?) { npm run lint }
-# grep-kontroll att inget refererar routen:
-# (Grep-verktyget i Cursor, mönster: /api/auth/github/disconnect)
-```
-
-Vid route-radering: kör en prod-loggkoll först (`/logg` eller
-`vercel logs`) om routen kan nås av externa klienter (gäller särskilt C2).
+| C1 | `POST /api/auth/github/disconnect` | Route fanns, 0 callers | ✅ **Löst (bygg-vägen).** `VersionHistory.tsx:409-432,643-651` har en fullt kopplad "Koppla från"-knapp (confirm-dialog, loading-state, toast) som anropar routen. |
+| C2 | `GET /api/templates` (singular `templates/route.ts`) | 0 callers, dubblett | ✅ **Löst (radera-vägen).** `src/app/api/templates/route.ts` finns inte längre på disk; `templates/search/route.ts` kvar och används. |
+| C3 | `GET /api/audits` + `GET/DELETE /api/audits/[id]` | 0 callers, ingen vy | ✅ **Löst (bygg-vägen).** `src/app/audits/page.tsx` är en fullt byggd "Mina audits"-vy (lista, öppna, radera med `AlertDialog`) som konsumerar `audits-client.ts` → `GET`/`DELETE /api/audits`. |
 
 ## Uppskjuten refaktor (medveten paus)
 
