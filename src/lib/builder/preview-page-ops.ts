@@ -329,6 +329,31 @@ function asChildWrapperRange(
 }
 
 /**
+ * Like `asChildWrapperRange` but walks NESTED sole-child `asChild` wrappers to
+ * the outermost one (`<Tooltip asChild><Button asChild><Link/></Button></Tooltip>`
+ * → the whole Tooltip range). Removing only the inner wrapper would leave the
+ * outer Slot childless and crash the preview the same way. Returns null when
+ * the range is not inside any sole-child asChild wrapper.
+ */
+function outermostSoleChildAsChildWrapperRange(
+  content: string,
+  start: number,
+  end: number,
+): { start: number; end: number } | null {
+  let current: { start: number; end: number } | null = null;
+  for (let guard = 0; guard < 32; guard += 1) {
+    const expanded = asChildWrapperRange(
+      content,
+      current?.start ?? start,
+      current?.end ?? end,
+    );
+    if (!expanded) break;
+    current = expanded;
+  }
+  return current;
+}
+
+/**
  * Remove ranges from `content`, back to front so indices stay valid.
  * Overlapping/nested ranges are merged first — several regex passes (and
  * asChild wrapper expansion) can target the same region, and applying a stale
@@ -377,7 +402,8 @@ export function stripRouteFromContent(content: string, route: string): string {
   next = next.replace(objectEntry, "");
 
   // 2) JSX elements linking to the route — paired and self-closing. Expand each
-  //    hit to its asChild wrapper when the link is the wrapper's sole child.
+  //    hit through ALL nested sole-child asChild wrappers to the outermost one
+  //    (removing only an inner wrapper would leave the outer Slot childless).
   //    The paired pattern's `(?<!/)>` guard keeps it from starting at a
   //    self-closing `<Link … />` and spanning to a LATER `</Link>` (which would
   //    sweep unrelated siblings into the removal range).
@@ -391,7 +417,9 @@ export function stripRouteFromContent(content: string, route: string): string {
     while ((match = re.exec(next)) !== null) {
       const start = match.index;
       const end = start + match[0].length;
-      removals.push(asChildWrapperRange(next, start, end) ?? { start, end });
+      removals.push(
+        outermostSoleChildAsChildWrapperRange(next, start, end) ?? { start, end },
+      );
     }
   }
   next = removeRanges(next, removals);
