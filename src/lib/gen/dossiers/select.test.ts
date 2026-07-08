@@ -189,6 +189,31 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
   });
 
+  it("picks neon-postgres on the natural 'Neon Postgres' phrasing", () => {
+    // The default postgres-drizzle deliberately carries NO relevanceKeywords
+    // (it is the fallback), so the "postgres" in "Neon Postgres" must not pull
+    // selection back to the Drizzle default — the explicit Neon provider intent
+    // wins. Guards against the sibling-vs-default tie-break regressing.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "vi vill ha Neon Postgres som databas för medlemmarna",
+    });
+    expect(result.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("keeps the default for a bare 'postgres'/'drizzle' ask (default needs no keyword)", () => {
+    // A generic Postgres/Drizzle ask has no sibling keyword to override the
+    // default, so postgres-drizzle wins as the capability default — reason is
+    // capability-match, not relevance-keyword.
+    const drizzle = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "spara beställningarna i postgres med drizzle",
+    });
+    expect(drizzle.selected[0]?.entry.id).toBe("postgres-drizzle");
+    expect(drizzle.selected[0]?.reason).toBe("capability-match");
+  });
+
   it("does NOT let a hyphen compound hit a bare keyword (neon-skylt ≠ Neon)", () => {
     // "neon-skylt" (neon sign) is a design noun, not a database provider ask.
     // The keyword matcher treats hyphen as part of the word, so the default

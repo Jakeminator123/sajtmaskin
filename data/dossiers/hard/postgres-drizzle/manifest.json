@@ -6,7 +6,6 @@
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "relevanceKeywords": ["postgres", "postgresql", "drizzle", "drizzle-orm"],
   "summary": "Use when a Next.js app needs a server-side PostgreSQL database layer with Drizzle ORM, migrations, a typed schema module, shared DB client, and a simple health-check route. When DATABASE_URL is missing the app must not crash: pages fall back to static seedData with a discreet config notice, and API routes answer 503. Keep it to persistence infrastructure; application tables and queries should be adapted to the generated app domain.",
   "envVars": [
     {
