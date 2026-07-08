@@ -496,14 +496,30 @@ function looksLikeNavFile(name: string): boolean {
 }
 
 /**
- * Escape a value for safe interpolation inside a double-quoted JS string
- * literal (`"…"`), as used by both `insertDataNavEntry` and
- * `insertJsxNavLink` for the `href`/label values they splice in. Without
- * this, a label or route containing `"` or `\` breaks out of the string
- * literal — corrupting the file's JS/JSX, not just rendering oddly.
+ * Escape a value for safe interpolation inside a double-quoted JS STRING
+ * literal (`"…"`) — the data-array entries in `insertDataNavEntry` and the
+ * curly-brace expression form in `jsxHrefAttribute`. Without this, a label
+ * or route containing `"` or `\` breaks out of the string literal. NOT valid
+ * for plain JSX-quoted attributes (`href="…"`): JSX attribute values are
+ * HTML-like, so `\"` is no escape there — see `jsxHrefAttribute`.
  */
 function escapeJsDoubleQuoted(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, "\\n");
+}
+
+/**
+ * Render a JSX `href` attribute for `route`. A plain `href="…"` JSX attribute
+ * is HTML-like, NOT a JS string — backslash escapes are not interpreted, so a
+ * value containing `"` cannot be expressed in that form at all (the quote
+ * terminates the attribute and the JSX breaks). Such values are emitted as a
+ * curly-brace expression (`href={"…"}`) instead, where JS string escaping IS
+ * correct. Safe values keep the conventional quoted form the surrounding
+ * generated code uses. `\`/newline also route to the expression form so the
+ * emitted attribute always means exactly the intended string.
+ */
+function jsxHrefAttribute(route: string): string {
+  if (!/["\\\r\n]/.test(route)) return `href="${route}"`;
+  return `href={"${escapeJsDoubleQuoted(route)}"}`;
 }
 
 /**
@@ -628,7 +644,7 @@ function insertJsxNavLink(content: string, route: string, label: string): string
   ) {
     return null;
   }
-  const newElement = `<${last.tag} href="${escapeJsDoubleQuoted(route)}">${escapeJsxText(label)}</${last.tag}>`;
+  const newElement = `<${last.tag} ${jsxHrefAttribute(route)}>${escapeJsxText(label)}</${last.tag}>`;
   const wrapperEnd = outermostAsChildWrapperEnd(content, last.start, last.end);
   const insertAt = wrapperEnd ?? last.end;
   return `${content.slice(0, insertAt)}\n      ${newElement}${content.slice(insertAt)}`;
