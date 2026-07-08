@@ -2,7 +2,7 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { getChatByIdForRequest } from "@/lib/tenant";
+import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -106,8 +106,16 @@ export async function setDeploymentDomainForRequest(
     .limit(1);
   if (!deployment) return false;
 
-  const chat = await getChatByIdForRequest(req, deployment.chatId);
-  if (!chat) return false;
+  // `deployments.chat_id` holds an `engine_chats.id` for own-engine publishes
+  // and a legacy `chats.id` for older v0-era deployments. Authorize against both
+  // (engine first), mirroring the deployments GET/link resolution order — the
+  // legacy-only lookup returned 404 for every own-engine domain save, so the
+  // domain was never persisted even though the Vercel link succeeded.
+  const engineChat = await getEngineChatByIdForRequest(req, deployment.chatId);
+  if (!engineChat) {
+    const legacyChat = await getChatByIdForRequest(req, deployment.chatId);
+    if (!legacyChat) return false;
+  }
 
   const result = await db
     .update(deployments)
