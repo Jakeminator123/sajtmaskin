@@ -162,7 +162,6 @@ export async function GET(
 
           sub.subscribe(channel).catch(() => {
             disconnectSubscriber();
-            startPollingFallback();
           });
 
           sub.on("message", (_ch: string, message: string) => {
@@ -178,12 +177,18 @@ export async function GET(
 
           sub.on("error", () => {
             disconnectSubscriber();
-            startPollingFallback();
           });
-
-          return;
         }
 
+        // Active safety net: ALWAYS poll Vercel directly, even when the Redis
+        // subscription is connected. The Redis push only arrives when `POST
+        // /api/webhooks/vercel` runs for this exact deployment — if the
+        // webhook is unconfigured/unregistered on the Vercel project (or a
+        // message is dropped), a push-only stream would sit at "building"
+        // forever even though Vercel already resolved the deploy (confirmed
+        // in prod: rows stuck permanently). Polling is idempotent with the
+        // Redis path — both just re-apply the same (eventually terminal)
+        // status via `send`/`updateDeploymentStatus`.
         startPollingFallback();
       },
     });

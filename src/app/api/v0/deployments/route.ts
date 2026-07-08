@@ -38,6 +38,8 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { getProjectById, getProjectData, setProjectVercelLink } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
@@ -45,6 +47,8 @@ import {
 } from "@/lib/projects/preferences-schema";
 import { resolveDeploySeoOptions } from "./resolve-seo";
 import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
+import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
+import { buildEnvDegradationWarnings } from "./env-degradation-warnings";
 
 export const runtime = "nodejs";
 
@@ -498,7 +502,15 @@ export async function POST(req: Request) {
         );
       }
 
-      const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
+      // The generated placeholder `.env.local` (injected for the shared
+      // verify/quality-gate lane, see `strip-env-local-for-zip.ts`) must never
+      // ship to Vercel: it can shadow the real values configured on the
+      // project. The ZIP/download export already strips it at its boundary;
+      // this is the same strip applied at the deploy-file-assembly boundary.
+      // `env.example` is intentionally kept — Next.js never reads it.
+      const textFiles = codeFiles
+        .filter((f) => !isGeneratedEnvLocalPath(f.path))
+        .map((f) => ({ name: f.path, content: f.content }));
 
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
 
@@ -516,9 +528,30 @@ export async function POST(req: Request) {
         textFiles,
         skipPreDeployAutoFix,
       );
+      // Align with the readiness route (`readiness/route.ts`): pass the
+      // version's ACTUAL lifecycle stage + selected dossiers so deploy counts
+      // env requirements the same way readiness does. Without this, deploy
+      // always evaluated F2 (`design`) env logic — for an F3 (`integrations`)
+      // project that meant tier-3 placeholder-covered keys were silently
+      // treated as "covered" instead of counted toward the real requirement,
+      // so deploy and readiness could disagree on the same version.
+      const lifecycleStage =
+        typeof engineVersion.lifecycle_stage === "string" ? engineVersion.lifecycle_stage : "design";
+      const envGateActive = lifecycleStage === "integrations";
+      const allowPlaceholdersInF3 = envGateActive
+        ? await readAllowPlaceholdersInF3(engineProjectId)
+        : false;
+      const selectedDossiers = resolveSelectedDossiersFromSnapshot(
+        engineChat.orchestration_snapshot,
+      );
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
+        {
+          lifecycleStage: envGateActive ? "integrations" : "design",
+          allowPlaceholdersInF3,
+          selectedDossiers,
+        },
       );
       // Only keys missing from BOTH user config AND preview placeholders block
       // the deploy. Keys that are decorative or covered by harmless/tier-3 stub
@@ -537,6 +570,17 @@ export async function POST(req: Request) {
         preDeployWarnings: [...warnings, ...placeholderCoveredWarnings],
         invalidFilePaths: invalidFiles,
       });
+      // Structured, per-key warning for the UI (product decision: NEVER a
+      // hard block — demo sites with an info sign must stay publishable).
+      // Covers `placeholderCoveredKeys` (fake/tier-3 data) and
+      // `featureRuntimeKeys` (component shows a config banner at runtime).
+      // `missingEnvKeys` is intentionally excluded — those already hard-block
+      // below via `DEPLOY_MISSING_ENV`.
+      const envWarnings = buildEnvDegradationWarnings({
+        placeholderCoveredKeys: envRequirements.placeholderCoveredKeys,
+        featureRuntimeKeys: envRequirements.featureRuntimeKeys,
+        detectedIntegrations: envRequirements.detectedIntegrations,
+      });
 
       if (precheckOnly) {
         return NextResponse.json({
@@ -547,6 +591,7 @@ export async function POST(req: Request) {
           deployReadiness,
           fixesApplied,
           preDeployWarnings: warnings,
+          envWarnings,
           fileCount: fixedFiles.length,
         });
       }
@@ -720,10 +765,24 @@ export async function POST(req: Request) {
           console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
         }
 
+        // `syncEnvVarsToVercelProject` upserts env vars on the Vercel PROJECT
+        // so a later redeploy triggered outside Sajtmaskin (dashboard restart,
+        // git push) still has them — THIS deploy already received the same
+        // values inline via `createVercelDeployment`'s `envVars` above, so a
+        // sync failure never affects what just went live. Runs after
+        // `createVercelDeployment` on purpose: a first-time publish has no
+        // `vercelProjectId` to sync to until Vercel creates the project as
+        // part of that call. Best-effort — surfaced as a warning (not just a
+        // server log) so the caller can tell the user their integrations may
+        // need re-saving after a dashboard-triggered rebuild.
+        const envSyncWarnings: string[] = [];
         if (created.vercelProjectId) {
           const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
           if (envSync.errors.length > 0) {
             console.warn("[deploy] env var project sync errors:", envSync.errors);
+            envSyncWarnings.push(
+              `Miljövariabler kunde inte sparas på Vercel-projektet (gäller framtida ombyggen utanför Sajtmaskin): ${envSync.errors.join(", ")}`,
+            );
           }
         }
 
@@ -767,6 +826,8 @@ export async function POST(req: Request) {
             envVarCount: Object.keys(envVarsForDeploy).length,
             fixesApplied,
             preDeployWarnings: warnings,
+            envWarnings,
+            envSyncWarnings,
             deployReadiness,
             imageStrategyRequested: imageStrategy ?? null,
             imageStrategyUsed: imageAssets.strategyUsed,

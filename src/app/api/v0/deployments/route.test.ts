@@ -4,10 +4,14 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
+const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
+const syncEnvVarsToVercelProject = vi.hoisted(() =>
+  vi.fn(async () => ({ synced: 0, errors: [] as string[] })),
+);
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
@@ -36,7 +40,7 @@ vi.mock("@/lib/vercelDeploy", () => ({
   getVercelDeployment: vi.fn(),
   mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
   sanitizeVercelProjectName: (name: string) => name,
-  syncEnvVarsToVercelProject: vi.fn(async () => ({ errors: [] })),
+  syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles: (files: Array<{ name: string; content: string }>) => files,
 }));
 
@@ -54,6 +58,7 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
+  readAllowPlaceholdersInF3,
 }));
 
 const { POST } = await import("./route");
@@ -65,6 +70,8 @@ describe("POST /api/v0/deployments", () => {
       throw new Error("prepareCredits should not run for precheckOnly tests");
     });
     getStoredProjectEnvVarMap.mockResolvedValue({});
+    readAllowPlaceholdersInF3.mockResolvedValue(false);
+    syncEnvVarsToVercelProject.mockResolvedValue({ synced: 0, errors: [] });
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
     // Tenant-scoped resolver: version + owned engine chat resolve together.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
@@ -137,6 +144,88 @@ describe("POST /api/v0/deployments", () => {
     expect(
       json.deployReadiness?.warnings.some((w) => w.includes("STRIPE_SECRET_KEY")),
     ).toBe(true);
+  });
+
+  // BUG-fix: deploy must align with the readiness route's F2/F3 env logic.
+  // Previously `resolveEnvRequirementsFromVersionFiles` was called WITHOUT
+  // `lifecycleStage`/`selectedDossiers` in the deploy route, so every version
+  // was evaluated with F2 (`design`) logic — an F3 (`integrations`) version's
+  // tier-3-stub-covered key (e.g. Stripe) was silently treated as merely
+  // "placeholder covered" (warning) instead of genuinely missing (blocker),
+  // even though the readiness route already blocked the same version.
+  it("precheckOnly blocks a tier-3 placeholder-covered key for an F3 (integrations) version, matching readiness", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: { id: "ver_1", chat_id: "chat_1", lifecycle_stage: "integrations" },
+    });
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "lib/pay.ts",
+        content:
+          'import Stripe from "stripe";\nexport const x = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
+      },
+    ]);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      deployReadiness?: { ready: boolean; missingEnv: string[] };
+    };
+    // F2 default would have surfaced this as a warning only (see the test
+    // above) — F3 must treat it as genuinely missing, matching readiness.
+    expect(json.deployReadiness?.ready).toBe(false);
+    expect(json.deployReadiness?.missingEnv).toContain("STRIPE_SECRET_KEY");
+  });
+
+  // Product decision: placeholder-covered / feature-runtime env keys must
+  // NEVER hard-block deploy (demo sites with an info sign stay publishable).
+  // They now also carry a structured, per-key warning naming the degraded
+  // integration instead of only a flat joined string.
+  it("precheckOnly surfaces a structured envWarnings entry naming the degraded integration", async () => {
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "lib/pay.ts",
+        content:
+          'import Stripe from "stripe";\nexport const x = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
+      },
+    ]);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      deployReadiness?: { ready: boolean };
+      envWarnings?: Array<{ key: string; integration: string; reason: string; message: string }>;
+    };
+    expect(json.deployReadiness?.ready).toBe(true);
+    expect(json.envWarnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "STRIPE_SECRET_KEY",
+          integration: "Stripe",
+          reason: "placeholder",
+        }),
+      ]),
+    );
   });
 
   it("precheckOnly runs auto-fix by default (K-007): removes pnpm-lock, no skip message in fixesApplied", async () => {
@@ -363,6 +452,86 @@ describe("POST /api/v0/deployments", () => {
       chatId: "chat_1",
       versionId: "ver_1",
     });
+  });
+
+  // BUG-fix: the ZIP/download export already strips the generated F2
+  // placeholder `.env.local` (see `strip-env-local-for-zip.ts`) but the
+  // deploy file-assembly did not, so it could ship to Vercel and shadow the
+  // project's real configured env values. `env.example` must still ship
+  // (Next.js never reads it, so it is harmless documentation).
+  it("never includes the generated .env.local in the Vercel deploy files payload", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://example.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    updateDeploymentStatus.mockResolvedValue(undefined);
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: ".env.local", content: "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\n" },
+      { path: "env.example", content: "STRIPE_SECRET_KEY=\n" },
+    ]);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    const call = createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string }> };
+    const filePaths = call.files.map((f) => f.name);
+    expect(filePaths).not.toContain(".env.local");
+    expect(filePaths).toContain("env.example");
+    expect(filePaths).toContain("package.json");
+  });
+
+  // BUG-fix: env-var project sync errors used to be swallowed into a
+  // `console.warn` only — the caller (and therefore the UI) had no way to
+  // know integrations might not survive a future dashboard-triggered
+  // rebuild. Surface it as a warning in the response instead.
+  it("surfaces syncEnvVarsToVercelProject errors as envSyncWarnings in the response", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://example.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    updateDeploymentStatus.mockResolvedValue(undefined);
+    syncEnvVarsToVercelProject.mockResolvedValue({
+      synced: 0,
+      errors: ["Vercel env sync failed (HTTP 500)"],
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { envSyncWarnings?: string[] };
+    expect(json.envSyncWarnings?.some((w) => w.includes("Vercel env sync failed"))).toBe(true);
   });
 
   it("does NOT refund when Vercel accepted the deploy and a later write fails", async () => {

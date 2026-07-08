@@ -144,16 +144,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignored: true, reason: "unhandled event type", type });
   }
 
+  // Every generated site deploys to its OWN per-customer Vercel project
+  // (`sanitizeVercelProjectName`, e.g. `sajtmaskin-<chatId>`) — never the
+  // shared workspace `VERCEL_PROJECT_ID` (see `resolve-vercel-project.ts`).
+  // A prior version of this handler discarded any webhook whose `projectId`
+  // didn't match `VERCEL_PROJECT_ID`, which silently dropped EVERY webhook
+  // for a customer deployment (confirmed in prod: rows stuck at "building"
+  // forever). The DB lookup below is the real scoping check — a webhook can
+  // only mutate a `deployments` row this app already created, regardless of
+  // which Vercel project it landed in.
   const projectId = extractProjectId(body);
-  const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || null;
-  if (configuredProjectId && projectId && projectId !== configuredProjectId) {
-    return NextResponse.json({
-      ok: true,
-      ignored: true,
-      reason: "project mismatch",
-      projectId,
-    });
-  }
 
   const match = await db
     .select()
