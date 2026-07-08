@@ -9,9 +9,12 @@
  * Resolution order:
  *  1. Engine chat lookup (`getEngineChatByIdForRequest`) — tenant-guarded, so a
  *     missing/foreign chat yields a 404 (never leaks another tenant's project).
- *  2. The chat's `app_projects` row → persisted `vercel_project_id`.
- *  3. Fallback: the most relevant deployment row for the chat that carries a
- *     Vercel project id (covers sites published before the link column existed).
+ *  2. The most recent actual deployment for the chat that carries a Vercel
+ *     project id — the source of truth for where the live site is hosted.
+ *  3. Fallback: the chat's `app_projects` row → persisted `vercel_project_id`
+ *     (a cache; also covers sites whose deployment rows predate the project-id
+ *     column). Used only when there is no deployment fallback, so a stale
+ *     persisted link can no longer win over the newest deployment.
  *  4. No project yet → 409 (the site must be published first).
  */
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
@@ -35,17 +38,25 @@ export async function resolveVercelProjectForChat(
 
   const projectId =
     typeof engineChat.project_id === "string" ? engineChat.project_id.trim() : "";
-  if (projectId) {
-    const project = await getProjectById(projectId).catch(() => null);
-    const linked = project?.vercel_project_id?.trim();
-    if (linked) {
-      return { ok: true, vercelProjectId: linked, source: "app_project" };
-    }
-  }
+  const linked = projectId
+    ? (await getProjectById(projectId).catch(() => null))?.vercel_project_id?.trim() || null
+    : null;
 
-  const deployed = await getLatestVercelProjectIdForChat(chatId).catch(() => null);
-  if (deployed && deployed.trim()) {
-    return { ok: true, vercelProjectId: deployed.trim(), source: "deployment" };
+  // The most recent ACTUAL deployment is the source of truth for where the live
+  // site is hosted; `app_projects.vercel_project_id` is only a cache. That cache
+  // goes stale when `setProjectVercelLink` fails on a re-publish (it is
+  // best-effort in the deploy route): the app_project keeps the OLD Vercel
+  // project id while the newest deployment carries the correct one. Preferring
+  // the deployment stops the domain from attaching to the wrong/old project.
+  // When there is no deployment fallback, the persisted link is the only source
+  // and still wins.
+  const deployed =
+    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+  if (deployed) {
+    return { ok: true, vercelProjectId: deployed, source: "deployment" };
+  }
+  if (linked) {
+    return { ok: true, vercelProjectId: linked, source: "app_project" };
   }
 
   return {

@@ -25,13 +25,13 @@ import {
   getChatByIdForRequest,
   getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
@@ -427,13 +427,24 @@ export async function POST(req: Request) {
         creditCheck = prepared;
       }
 
-      const engineVersion = await getVersionById(versionId);
-      if (!engineVersion) {
+      // Tenant-scoped resolution: the version AND its engine chat must belong to
+      // the caller's own app-project. `getEngineVersionForChatByIdForRequest`
+      // resolves the version, confirms it belongs to `chatId`, and confirms the
+      // chat's `app_projects` row is owned by the requester (via the same guard
+      // as GET/link/verify) — otherwise it returns null. This closes the
+      // orphan-chat hole: previously an attacker who knew a valid
+      // `chatId`+`versionId` for a chat with `project_id = null` could publish
+      // that (another tenant's) version under their OWN body `projectId`,
+      // because only the body project was tenant-checked. The chat/version were
+      // fetched with the unscoped `getChat`/`getVersionById`.
+      const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scoped) {
+        // Generic 404 for "no such version", "version not in chat", orphan chat
+        // and cross-tenant alike — never reveal whether the resource exists for
+        // another tenant.
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      if (engineVersion.chat_id !== chatId) {
-        return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
-      }
+      const { chat: engineChat, version: engineVersion } = scoped;
       // A version that failed the quality gate (typecheck/build) must not be
       // publishable. The readiness UI surfaces this as a blocker; enforce it
       // server-side too so the deploy API can't be called directly with a
@@ -448,29 +459,26 @@ export async function POST(req: Request) {
           { status: 409 },
         );
       }
-      const [engineChat, codeFiles] = await Promise.all([
-        getChat(engineVersion.chat_id),
-        getVersionFiles(versionId),
-      ]);
-      if (!engineChat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-      const requestedProjectId = projectId?.trim() || null;
-      if (requestedProjectId && engineChat.project_id && requestedProjectId !== engineChat.project_id) {
-        return NextResponse.json(
-          { error: "Project does not match chat ownership" },
-          { status: 409 },
-        );
-      }
-      const engineProjectId = requestedProjectId || engineChat.project_id || null;
+      // The engine chat is tenant-guarded, so its `project_id` is an owned
+      // app_projects id. A body `projectId` may only *confirm* that project —
+      // it can never redirect the publish to a different (or foreign) project.
+      const engineProjectId =
+        typeof engineChat.project_id === "string" ? engineChat.project_id.trim() : "";
       if (!engineProjectId) {
         return NextResponse.json(
           { error: "Chat is not linked to a project" },
           { status: 403 },
         );
       }
-      // engineChat.project_id points at `app_projects` (own-engine), so the
-      // tenant guard must query app_projects — not the legacy `projects` table.
+      const requestedProjectId = projectId?.trim() || null;
+      if (requestedProjectId && requestedProjectId !== engineProjectId) {
+        return NextResponse.json(
+          { error: "Project does not match chat ownership" },
+          { status: 409 },
+        );
+      }
+      // Defense-in-depth: re-confirm ownership of the resolved app-project and
+      // fetch its persisted Vercel link (used for project-name reuse below).
       const ownedProject = await getAppProjectByIdForRequest(req, engineProjectId);
       if (!ownedProject) {
         return NextResponse.json(
@@ -482,6 +490,7 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
+      const codeFiles = await getVersionFiles(versionId);
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json(
           { error: "No files found for this version" },

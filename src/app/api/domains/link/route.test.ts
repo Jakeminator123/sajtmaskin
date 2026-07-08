@@ -70,7 +70,12 @@ describe("POST /api/domains/link", () => {
     getLatestVercelProjectIdForChat.mockResolvedValue(null);
   });
 
-  it("links the domain to the project's persisted Vercel project (app_projects)", async () => {
+  it("links the domain to the persisted Vercel project when there is no newer deployment (app_projects)", async () => {
+    // No deployment fallback → the persisted app_projects link is the only
+    // source and still wins. (The deployment lookup now runs first, but returns
+    // nothing here.)
+    getLatestVercelProjectIdForChat.mockResolvedValue(null);
+
     const res = await POST(linkRequest({ domain: "site.example", chatId: "chat_1" }));
 
     expect(res.status).toBe(200);
@@ -79,7 +84,26 @@ describe("POST /api/domains/link", () => {
       "site.example",
       process.env.VERCEL_TEAM_ID,
     );
-    expect(getLatestVercelProjectIdForChat).not.toHaveBeenCalled();
+  });
+
+  // A#4: a stale `app_projects.vercel_project_id` (e.g. setProjectVercelLink
+  // failed on a re-publish) must NOT win over the newest actual deployment.
+  it("prefers the latest deployment's Vercel project over a stale app_projects link", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_stale",
+      vercel_project_name: "sajtmaskin-chat_1",
+    });
+    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+
+    const res = await POST(linkRequest({ domain: "site.example", chatId: "chat_1" }));
+
+    expect(res.status).toBe(200);
+    expect(addDomainToProject).toHaveBeenCalledWith(
+      "vp_fresh",
+      "site.example",
+      process.env.VERCEL_TEAM_ID,
+    );
   });
 
   it("falls back to the latest deployment's Vercel project when the app project has no link", async () => {

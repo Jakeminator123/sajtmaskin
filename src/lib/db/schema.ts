@@ -110,6 +110,9 @@ export const deployments = pgTable(
     vercelDeploymentId: text("vercel_deployment_id"),
     vercelProjectId: text("vercel_project_id"),
     inspectorUrl: text("inspector_url"),
+    // The published deployment URL — glossary term `liveUrl` (published prod
+    // URL), distinct from a version's `previewUrl` (VM link) and `customDomain`.
+    // Column name kept as `url` (DB/runtime contract).
     url: text("url"),
     domain: text("domain"),
     status: varchar("status", { length: 50 }),

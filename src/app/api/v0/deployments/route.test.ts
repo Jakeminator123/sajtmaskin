@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getVersionById = vi.hoisted(() => vi.fn());
-const getChat = vi.hoisted(() => vi.fn());
+const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
@@ -41,17 +40,13 @@ vi.mock("@/lib/vercelDeploy", () => ({
   toVercelFilesFromTextFiles: (files: Array<{ name: string; content: string }>) => files,
 }));
 
-vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getVersionById,
-  getChat,
-}));
-
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
 }));
 
 vi.mock("@/lib/tenant", () => ({
   getAppProjectByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
   getChatByIdForRequest: vi.fn(),
   getChatByV0ChatIdForRequest: vi.fn(),
   getEngineChatByIdForRequest: vi.fn(),
@@ -71,13 +66,10 @@ describe("POST /api/v0/deployments", () => {
     });
     getStoredProjectEnvVarMap.mockResolvedValue({});
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
-    getVersionById.mockResolvedValue({
-      id: "ver_1",
-      chat_id: "chat_1",
-    });
-    getChat.mockResolvedValue({
-      id: "chat_1",
-      project_id: "proj_1",
+    // Tenant-scoped resolver: version + owned engine chat resolve together.
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: { id: "ver_1", chat_id: "chat_1" },
     });
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },
@@ -257,6 +249,120 @@ describe("POST /api/v0/deployments", () => {
     expect(commit).toHaveBeenCalledTimes(1);
     // Kärnan i P1: refund körs trots att updateDeploymentStatus rejectar.
     expect(refund).toHaveBeenCalledTimes(1);
+  });
+
+  // A#2 (tenant/security): the version + its engine chat are resolved through the
+  // tenant-scoped `getEngineVersionForChatByIdForRequest`. When it returns null
+  // (no such version, version not in chat, orphan chat with no owned project, or
+  // a chat owned by another tenant) the deploy must 404 BEFORE any credit charge
+  // or Vercel call — so a known chatId+versionId for a foreign/orphan chat can no
+  // longer be published under the caller's own projectId.
+  it("returns 404 when the version/chat is not owned by the requester (orphan/cross-tenant)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+    prepareCredits.mockImplementation(() => {
+      throw new Error("prepareCredits must not run before the tenant guard resolves");
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "foreign_chat",
+        versionId: "foreign_version",
+        projectId: "my_own_project",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(404);
+    expect(getEngineVersionForChatByIdForRequest).toHaveBeenCalledWith(
+      req,
+      "foreign_chat",
+      "foreign_version",
+    );
+  });
+
+  // A#2: a body `projectId` may only CONFIRM the chat's owned project — it can
+  // never redirect the publish to a different project id.
+  it("returns 409 when body projectId does not match the chat's owned project", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: { id: "ver_1", chat_id: "chat_1" },
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        projectId: "another_project",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error).toMatch(/does not match chat ownership/i);
+  });
+
+  // A#425 #5 (test gap): a version that failed the quality gate must 409 even if
+  // the deploy API is called directly, not just via the readiness UI.
+  it("returns 409 DEPLOY_VERSION_FAILED for a version that failed the quality gate", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: { id: "ver_1", chat_id: "chat_1", verification_state: "failed" },
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { code?: string };
+    expect(json.code).toBe("DEPLOY_VERSION_FAILED");
+  });
+
+  // A#425 #4 (test gap): happy-path POST must insert the deployment row keyed by
+  // the ENGINE ids after the legacy-FK drop, so a FK regression would be caught.
+  it("creates the deployment record with the engine chat/version ids on a successful publish", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://example.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    updateDeploymentStatus.mockResolvedValue(undefined);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(createDeploymentRecord).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+    });
   });
 
   it("does NOT refund when Vercel accepted the deploy and a later write fails", async () => {
