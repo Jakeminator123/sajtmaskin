@@ -17,7 +17,8 @@ gh api repos/<owner>/<repo>/pulls/<n>/reviews  --jq '.[] | .user.login + " [" + 
 # PR-nivå-kommentarer — Vercel-deploy + författarens egna triage-noter
 gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " + .body'
 # Check-run summaries/annotations — HÄR kan Vercel Agent Review (VADE) lägga fynd även vid neutral/success.
-# Hämta head-SHA först (check-runs är SHA-keyade, inte PR-nr): $sha = gh pr view <n> --json headRefOid -q .headRefOid
+# check-runs är SHA-keyade (inte PR-nr), så hämta head-SHA först (körbar rad):
+$sha = gh pr view <n> --json headRefOid -q .headRefOid
 gh api repos/<owner>/<repo>/commits/$sha/check-runs --jq '.check_runs[] | select(((.output.summary // "") + (.output.text // "")) != "") | .name + ": " + (.output.title // "") + "\n" + (.output.summary // "") + (.output.text // "")'
 ```
 
