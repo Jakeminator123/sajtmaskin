@@ -50,7 +50,7 @@ Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**v0-mallar (builderns Mallar-tab, Blob-data):** [`v0-templates/upload-mallar-blob.mjs`](v0-templates/upload-mallar-blob.mjs) (kanonisk), [`v0-templates/sync-blob-catalog.mjs`](v0-templates/sync-blob-catalog.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/audit-template-repos.mjs`](v0-templates/audit-template-repos.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:blob:upload`, `templates:blob:sync`, `templates:validate`, `templates:embeddings`. Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog`. Fullständigt flöde + guardrails: [`docs/architecture/templates.md`](../docs/architecture/templates.md). Legacy v0-auto-fetch (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`, `templates:sync/refresh/local:refresh`, `/api/admin/templates/sync`, `TEMPLATE_SYNC_*`) **togs bort 2026-07-08** — Blob-vägen är enda sättet.
+**v0-mallar (builderns Mallar-tab, Blob-data):** [`v0-templates/upload-mallar-blob.mjs`](v0-templates/upload-mallar-blob.mjs) (kanonisk och **enda** skrivväg till Blob-katalogen), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/verify-mallar-blob.mjs`](v0-templates/verify-mallar-blob.mjs), [`v0-templates/audit-template-repos.mjs`](v0-templates/audit-template-repos.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:blob:upload`, `templates:validate`, `templates:embeddings`. Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog`. Fullständigt flöde + guardrails: [`docs/architecture/templates.md`](../docs/architecture/templates.md). Legacy v0-auto-fetch (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`, `templates:sync/refresh/local:refresh`, `/api/admin/templates/sync`, `TEMPLATE_SYNC_*`) **togs bort 2026-07-08** och parallell-skrivvägen `sync-blob-catalog.mjs` (`templates:blob:sync`) **togs bort 2026-07-09** — Blob-vägen via `upload-mallar-blob.mjs` är enda sättet.
 
 **Externa referenser (dossier-curation):** klonade referens-repon ligger i `data/template-references/repos/`. Kura en dossier från en referens med `npm run dossiers:curate` (anropar [`dossiers/curate-from-reference.ts`](dossiers/curate-from-reference.ts)).
 
@@ -109,8 +109,8 @@ Detta spår är **builderns Mallar-tab / `v0-mallar`** — inte `template-librar
 
 ```bash
 npm run templates:blob:upload -- --upload --write-catalog --source=../mallar  # kanonisk: ladda upp + regenerera katalogen
-npm run templates:blob:sync -- --source=<mapp> --upload --write-manifest      # alternativ intake (äldre colocated-layout)
 npm run templates:validate                                                    # validera templates.json + kategorimappning
+node scripts/v0-templates/verify-mallar-blob.mjs                              # verifiera manifestets arkiv mot preview-host-taken
 node scripts/v0-templates/audit-template-repos.mjs                            # granska mallarnas preview-host-kompatibilitet
 ```
 
