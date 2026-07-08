@@ -32,9 +32,13 @@ export async function POST(request: Request) {
   // Instantiate Stripe AFTER the env guard — a module-level `new Stripe("")`
   // throws at import time and would turn the missing-key path into a route
   // crash instead of the JSON 503 above.
-  const stripe = new Stripe(secretKey, {
-    apiVersion: "2026-01-28.clover",
-  });
+  //
+  // No pinned `apiVersion`: the SDK's config types accept only the *installed*
+  // SDK's own version literal (`apiVersion?: LatestApiVersion`), so a pinned
+  // string drifts against whatever Stripe version the generated site installs
+  // and breaks `next build` with TS2322. Omitting it lets the installed SDK use
+  // its built-in default and keeps the dossier version-agnostic.
+  const stripe = new Stripe(secretKey);
   let body: Body;
   try {
     body = (await request.json()) as Body;
