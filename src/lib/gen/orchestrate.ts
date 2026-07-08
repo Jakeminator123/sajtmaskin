@@ -5,6 +5,7 @@
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
  */
+import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
@@ -786,6 +787,19 @@ export interface FollowUpCapabilityFloorInput {
    * missing capability (legacy behaviour). See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
   previewPolicy?: BuildSpec["previewPolicy"];
+  /**
+   * Bugg B: integration capabilities the follow-up EXPLICITLY asked to remove
+   * (`detectCapabilityRemoval`). Unlike the F2-mute park (which keeps the
+   * capability frozen in the contract), an explicit removal is a genuine
+   * SHRINK: the capability is dropped from BOTH the resolved set and the
+   * restored floor, so an established integration the user removed cannot grow
+   * back via can-only-grow. Optional/back-compat: absent = pure can-only-grow.
+   *
+   * This is the deliberate exception to the 5-5 invariant — a removal is an
+   * explicit user intent, not a silent drop. See
+   * `followup-capabilities.stability.test.ts` for the codified contract change.
+   */
+  removedCapabilities?: string[];
 }
 
 export interface FollowUpCapabilityFloorDecision {
@@ -837,12 +851,17 @@ function normalizeCapabilityList(capabilities: readonly unknown[]): string[] {
 export function enforceFollowUpCapabilityFloor(
   input: FollowUpCapabilityFloorInput,
 ): FollowUpCapabilityFloorDecision {
-  const resolved = normalizeCapabilityList(input.resolvedCapabilities);
+  const removedSet = new Set(normalizeCapabilityList(input.removedCapabilities ?? []));
+  const resolved = normalizeCapabilityList(input.resolvedCapabilities).filter(
+    (capability) => !removedSet.has(capability),
+  );
   // Init never carries a contract floor; keep init capability selection intact.
   if (input.resolvedMode !== "followUp") {
     return { capabilities: resolved, restoredCapabilities: [], floorApplied: false };
   }
-  const floor = normalizeCapabilityList(input.contractCapabilities);
+  const floor = normalizeCapabilityList(input.contractCapabilities).filter(
+    (capability) => !removedSet.has(capability),
+  );
   const resolvedSet = new Set(resolved);
   let restoredCapabilities = floor.filter((capability) => !resolvedSet.has(capability));
   // F2 (design) is integration-mute: do not re-introduce F2-muted integrations
@@ -1353,6 +1372,17 @@ export async function resolveOrchestrationBase(
       // base-version capability (e.g. an init contact-form) can never be
       // silently filtered away just because this follow-up message doesn't
       // mention it. Floor, not ceiling — new caps still flow; init is a no-op.
+      const capabilityRemovalPrompt =
+        input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt ?? "";
+      const { removedCapabilities, matchedKeywords } =
+        detectCapabilityRemoval(capabilityRemovalPrompt);
+      if (removedCapabilities.length > 0) {
+        console.info("[orchestrate] followup_capability_removal", {
+          chatId: input.chatId ?? null,
+          removedCapabilities,
+          matchedKeywords,
+        });
+      }
       const capabilityFloor = enforceFollowUpCapabilityFloor({
         resolvedMode,
         resolvedCapabilities: mergedCaps,
@@ -1360,6 +1390,7 @@ export async function resolveOrchestrationBase(
         // F2-mute: keep F3-only integrations parked (don't restore them into
         // the F2 dossier selection); they return when the project is in F3.
         previewPolicy: buildSpec.previewPolicy,
+        removedCapabilities,
       });
       if (capabilityFloor.floorApplied) {
         emitFollowUpFreezeDrift("capabilities", {
