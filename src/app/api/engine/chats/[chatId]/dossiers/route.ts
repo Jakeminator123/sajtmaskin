@@ -16,6 +16,35 @@
  *  - `validateTier3Readiness(...)` — which built integrations still miss
  *    real env values (so the UI can say "built, needs keys").
  *
+ * ## Reconciliation against F2-mute capability loss
+ *
+ * `resolveSelectedDossiersFromSnapshot` resolves ONLY the capability floor
+ * that drove the MOST RECENT generation round (the snapshot's top-level
+ * `requestedCapabilities`, i.e. `orch.dossierRequestedCapabilities`). F2-mute
+ * (`enforceFollowUpCapabilityFloor` in `orchestrate.ts`) deliberately strips
+ * F3-only capabilities (payments, auth, ai-chat, …) from that floor on every
+ * F2 (design) round — including rounds AFTER an F3 build already injected the
+ * dossier's files. A Stripe dossier built in F3 can therefore vanish from
+ * this list the moment the user sends one more design tweak, even though the
+ * injected code is still sitting in the version — the panel would report
+ * zero dossiers for a chat with a broken, but very much present, Stripe
+ * integration.
+ *
+ * Before building the response we reconcile the snapshot-resolved set
+ * against two independent, F2-mute-immune sources:
+ *  1. `briefSummary.requestedCapabilities` — the raw, UNFILTERED brief intent
+ *     (persisted straight from the Deep Brief, never passed through
+ *     `filterDossierCapabilitiesForPrompt`). Surfaces dossiers the user asked
+ *     for that are still F2-mocked ("planned" integrations).
+ *  2. Requirements actually DETECTED in the version's real files via
+ *     `deriveTier3BuildSpecForVersion` — the regex/manifest detection
+ *     pipeline runs unconditionally, independent of `selectedDossiers`.
+ *     Surfaces dossiers genuinely injected into the codebase regardless of
+ *     what the current capability floor remembers.
+ * This is read-only reporting reconciliation: no dossier selection/injection
+ * logic is touched, only which already-selectable dossiers this route
+ * decides to describe to the user.
+ *
  * Purely informational — no mutation, no F3 trigger. F2-mute safe: it only
  * reports status, it never asks the chat for env keys.
  */
@@ -27,9 +56,12 @@ import {
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
+import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
+  mapProviderKeysToDossierCapabilities,
   validateTier3Readiness,
   type Tier3IntegrationRequirement,
 } from "@/lib/integrations/tier3-build-spec";
@@ -106,7 +138,7 @@ async function buildDossierOverview(
     (await getPreferredVersion(chat.id)) ??
     (await getLatestVersion(chat.id));
 
-  const selectedDossiers = resolveSelectedDossiersFromSnapshot(
+  const initialSelectedDossiers = resolveSelectedDossiersFromSnapshot(
     chat.orchestration_snapshot,
   );
 
@@ -116,14 +148,59 @@ async function buildDossierOverview(
       ? "integrations"
       : "design";
 
+  // Provisional pass: detect requirements from the version's real files
+  // using ONLY the snapshot-resolved dossiers (may already be F2-mute-lossy —
+  // see module doc). Used below purely to discover capabilities the
+  // snapshot floor lost; the authoritative `spec` (with correct env
+  // enforcement tagging) is re-derived after the dossier set is finalized.
+  const provisionalSpec =
+    version && version.chat_id === chat.id
+      ? await deriveTier3BuildSpecForVersion(version.id, initialSelectedDossiers)
+      : null;
+
+  const briefSummary = extractBriefSummaryFromSnapshot(chat.orchestration_snapshot);
+  const initialCapabilities = new Set(
+    initialSelectedDossiers.map((selected) => selected.entry.capability.toLowerCase()),
+  );
+  const plannedCapabilities = (briefSummary?.requestedCapabilities ?? []).map((capability) =>
+    capability.toLowerCase(),
+  );
+  const detectedCapabilities = provisionalSpec
+    ? mapProviderKeysToDossierCapabilities(
+        provisionalSpec.requirements.map((requirement) => requirement.key),
+      )
+    : [];
+  // Capabilities the snapshot floor is missing but that either the raw brief
+  // intent or the version's actual files still vouch for.
+  const extraCapabilities = Array.from(
+    new Set([...plannedCapabilities, ...detectedCapabilities]),
+  ).filter((capability) => !initialCapabilities.has(capability));
+  // Subset of the above that came from FILE detection specifically. Only
+  // this subset can change env-enforcement tagging (brief-only "planned"
+  // capabilities aren't in the files at all, so re-scanning them would
+  // reproduce the exact same `provisionalSpec` — a wasted file read).
+  const newlyDetectedCapabilities = detectedCapabilities.filter(
+    (capability) => !initialCapabilities.has(capability),
+  );
+
+  // Only re-resolve (and re-derive the build spec, one extra file read) when
+  // reconciliation actually found something the snapshot floor missed — the
+  // common, non-buggy case does exactly the same work as before.
+  const selectedDossiers =
+    extraCapabilities.length > 0
+      ? selectDossiersForRequest({
+          requestedCapabilities: [...initialCapabilities, ...extraCapabilities],
+        }).selected
+      : initialSelectedDossiers;
+
   // Derive which integrations are actually wired into the active version's
   // files, plus which of them still miss real env values. When the version
   // (or its files) can't be resolved, we can't determine "built", so hard
   // dossiers fall back to "not-built" and we flag it to the UI.
   const spec =
-    version && version.chat_id === chat.id
+    newlyDetectedCapabilities.length > 0 && version && version.chat_id === chat.id
       ? await deriveTier3BuildSpecForVersion(version.id, selectedDossiers)
-      : null;
+      : provisionalSpec;
   const versionFilesAvailable = spec !== null;
 
   // Fetch the stored env-var map + placeholder set once. Both are needed for

@@ -6,8 +6,11 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
+const selectDossiersForRequest = vi.hoisted(() => vi.fn());
+const extractBriefSummaryFromSnapshot = vi.hoisted(() => vi.fn());
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
+const mapProviderKeysToDossierCapabilities = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
@@ -31,12 +34,21 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot,
 }));
 
+vi.mock("@/lib/gen/dossiers/select", () => ({
+  selectDossiersForRequest,
+}));
+
+vi.mock("@/lib/gen/orchestration-snapshot", () => ({
+  extractBriefSummaryFromSnapshot,
+}));
+
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   deriveTier3BuildSpecForVersion,
 }));
 
 vi.mock("@/lib/integrations/tier3-build-spec", () => ({
   validateTier3Readiness,
+  mapProviderKeysToDossierCapabilities,
 }));
 
 vi.mock("@/lib/project-env-vars", () => ({
@@ -138,6 +150,12 @@ describe("GET dossiers overview", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({});
     readAllowPlaceholdersInF3.mockResolvedValue(false);
     loadPlaceholderKeySet.mockReturnValue(new Set<string>());
+    // Reconciliation sources (F2-mute capability-loss fix) default to "no
+    // extra capabilities found" so existing tests exercise the same
+    // single-pass path they did before the reconciliation was added.
+    extractBriefSummaryFromSnapshot.mockReturnValue(null);
+    mapProviderKeysToDossierCapabilities.mockReturnValue([]);
+    selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
   });
 
   it("returns 404 when the chat is not visible to the caller", async () => {
@@ -235,5 +253,95 @@ describe("GET dossiers overview", () => {
     expect(body.versionFilesAvailable).toBe(false);
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.status).toBe("not-built");
+  });
+
+  it("does not re-resolve (single build-spec derivation) when nothing needs reconciling — empty case", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    extractBriefSummaryFromSnapshot.mockReturnValue(null);
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    expect(body.dossiers).toEqual([]);
+    expect(body.counts.total).toBe(0);
+    // Fast path preserved: no second file read / re-resolution when there is
+    // nothing to reconcile.
+    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
+    expect(selectDossiersForRequest).not.toHaveBeenCalled();
+  });
+
+  // Root-cause regression (F2-mute capability loss): a dossier's files were
+  // genuinely injected in a prior F3 round, but a later F2 follow-up dropped
+  // its capability from the snapshot's resolved floor
+  // (`resolveSelectedDossiersFromSnapshot` → []). Detection from the
+  // version's real files must still resurface it instead of the panel
+  // reporting zero dossiers.
+  it("resurfaces a dossier detected in the version's files when the snapshot capability floor lost it", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    mapProviderKeysToDossierCapabilities.mockReturnValue(["payments"]);
+    selectDossiersForRequest.mockReturnValue({
+      selected: [stripeDossier()],
+      poolSize: 10,
+      byCapability: { payments: ["stripe-checkout"] },
+    });
+    validateTier3Readiness.mockReturnValue({
+      ready: false,
+      missingByIntegration: [
+        { key: "stripe", name: "Stripe", missing: ["STRIPE_SECRET_KEY"] },
+      ],
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    // Re-resolved via the union of capabilities detected in the version's files.
+    expect(selectDossiersForRequest).toHaveBeenCalledWith({
+      requestedCapabilities: ["payments"],
+    });
+    // Re-derives the build spec against the reconciled dossier set so env
+    // enforcement tagging is correct for the resurfaced dossier.
+    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(2);
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe).toBeDefined();
+    expect(stripe?.status).toBe("built-needs-keys");
+    expect(body.counts.total).toBe(1);
+  });
+
+  // Root-cause regression, planned side: a capability the user's brief asked
+  // for is still F2-muted (never built), so `resolveSelectedDossiersFromSnapshot`
+  // (which reads the mute-filtered floor) returns nothing for it — but the
+  // raw brief intent (`briefSummary.requestedCapabilities`) still has it. The
+  // panel must surface it as a planned/not-built integration, not omit it.
+  it("surfaces a brief-planned, F2-muted capability as a planned (not-built) dossier", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    extractBriefSummaryFromSnapshot.mockReturnValue({ requestedCapabilities: ["payments"] });
+    selectDossiersForRequest.mockReturnValue({
+      selected: [stripeDossier()],
+      poolSize: 10,
+      byCapability: { payments: ["stripe-checkout"] },
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    expect(selectDossiersForRequest).toHaveBeenCalledWith({
+      requestedCapabilities: ["payments"],
+    });
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe).toBeDefined();
+    expect(stripe?.status).toBe("not-built");
+    expect(body.counts.notBuilt).toBe(1);
+    expect(body.counts.total).toBe(1);
+    // A brief-only "planned" capability isn't in the files at all, so the
+    // build spec must not be re-derived (would just reproduce the same
+    // empty `requirements` for an extra file read).
+    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
   });
 });
