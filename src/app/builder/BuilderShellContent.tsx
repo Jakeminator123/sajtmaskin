@@ -615,21 +615,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const pendingPlacementItem = pendingPlacementRequest
-    ? pendingPlacementRequest.kind === "ui"
-      ? {
-          title:
-            pendingPlacementRequest.source.displayName ||
-            pendingPlacementRequest.source.registryItem.name ||
-            "Block",
-          description:
-            pendingPlacementRequest.source.description ||
-            pendingPlacementRequest.source.registryItem.description ||
-            null,
-        }
-      : {
-          title: pendingPlacementRequest.source.item.label,
-          description: pendingPlacementRequest.source.item.description,
-        }
+    ? {
+        title:
+          pendingPlacementRequest.source.displayName ||
+          pendingPlacementRequest.source.registryItem.name ||
+          "Block",
+        description:
+          pendingPlacementRequest.source.description ||
+          pendingPlacementRequest.source.registryItem.description ||
+          null,
+      }
     : null;
 
   const latestPendingReply = useMemo(
@@ -722,6 +717,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
         onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
+        designTheme={vm.designTheme}
+        onDesignThemeChange={vm.setDesignTheme}
         promptAssistModel={vm.promptAssistModel}
         promptAssistDeep={vm.promptAssistDeep}
         canUseDeepBrief={!vm.chatId}
@@ -893,19 +890,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onCreateChat={vm.requestCreateChat}
             onSendMessage={vm.sendMessage}
             onRequestPlacement={handleRequestPlacement}
-            onStartFromTemplate={vm.handleStartFromTemplate}
-            onPaletteSelection={vm.handlePaletteSelection}
-            paletteSelections={vm.paletteState.selections}
-            designTheme={vm.designTheme}
-            onDesignThemeChange={vm.setDesignTheme}
             onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}
             isBusy={isBusy}
             isPreparingPrompt={vm.isPreparingPrompt}
             mediaEnabled={vm.mediaEnabled}
-            currentCode={vm.currentPageCode}
-            existingUiComponents={vm.existingUiComponents}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
             followUpBaseInfo={followUpBaseInfo}
           />

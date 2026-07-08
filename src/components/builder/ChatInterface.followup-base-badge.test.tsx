@@ -36,14 +36,6 @@ vi.mock("@/components/media/text-uploader", () => ({
   TextUploader: () => null,
 }));
 
-vi.mock("@/components/builder/UnifiedElementPicker", () => ({
-  UnifiedElementPicker: () => null,
-}));
-
-vi.mock("@/components/builder/UiElementPicker", () => ({
-  PLACEMENT_OPTIONS: [],
-}));
-
 import { ChatInterface } from "./ChatInterface";
 
 describe("ChatInterface follow-up base badge (P19 Steg 3)", () => {
