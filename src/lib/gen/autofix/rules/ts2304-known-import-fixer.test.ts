@@ -869,4 +869,252 @@ export function IconList() {
     expect(result.addedImports).toEqual([]);
     expect(result.code).toBe(content);
   });
+
+  // Prod archaeology 2026-07 (14-day /logg window): the top recurring
+  // missing-import symbols across generated auth/integration follow-ups were
+  // FormEvent, z (zod), cookies and NextResponse. Deterministic resolutions
+  // below keep those out of the LLM repair loop.
+  describe("2026-07 prod missing-import map", () => {
+    it("resolves FormEvent as an `import type` from react (form handler annotation)", () => {
+      const formFile = "app/register/page.tsx";
+      const content = project(
+        formFile,
+        `"use client";
+
+export default function RegisterPage() {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+  return <form onSubmit={handleSubmit} />;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: formFile, message: "Cannot find name 'FormEvent'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: formFile, name: "FormEvent", module: "react" },
+      ]);
+      expect(result.code).toContain('import type { FormEvent } from "react"');
+      // Never a value import — the type-named emission path must be used.
+      expect(result.code).not.toMatch(/import\s+\{\s*FormEvent/);
+    });
+
+    it("leaves FormEvent residual when used in VALUE position", () => {
+      const content = project(
+        FILE,
+        `const handler = FormEvent;
+
+export default function Page() {
+  return <div>{String(handler)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'FormEvent'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves z to zod when the file uses zod-style members (z.object / z.infer)", () => {
+      const routeFile = "app/api/auth/register/route.ts";
+      const content = project(
+        routeFile,
+        `const registerSchema = z.object({ email: z.string().email() });
+type RegisterInput = z.infer<typeof registerSchema>;
+
+export async function POST(req: Request) {
+  const parsed = registerSchema.safeParse(await req.json());
+  return Response.json({ ok: parsed.success });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
+    // Codex P2 (PR #389): a non-zod `z` used ONLY via member calls (so no bare
+    // `z` token exists for the negative gate) must still stay residual — the
+    // positive gate is a zod-API whitelist, not "any z.<member>(".
+    it("leaves a non-zod `z` used only via non-zod member calls residual (z.toFixed)", () => {
+      const content = project(
+        FILE,
+        `export default function Page() {
+  return <div>{z.toFixed(2)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves z to zod for the z.coerce chain (z.coerce.number())", () => {
+      const routeFile = "app/api/bookings/route.ts";
+      const content = project(
+        routeFile,
+        `const querySchema = z.object({ page: z.coerce.number().min(1) });
+
+export async function GET() {
+  return Response.json({ ok: Boolean(querySchema) });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
+    it("leaves a non-zod `z` (e.g. an undefined 3D coordinate) residual", () => {
+      const content = project(
+        FILE,
+        `export default function Page() {
+  const position = [1, 2, z];
+  return <div>{position.join(",")}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    // Bugbot HIGH (PR #389): zod-style usage in one place must not pull a zod
+    // import into a file that ALSO references a bare non-member `z` — the
+    // import would silently bind the unrelated `z` to the zod namespace.
+    it("leaves z residual when zod-style usage is mixed with a bare non-member z", () => {
+      const content = project(
+        FILE,
+        `const schema = z.object({ email: z.string() });
+
+export default function Page() {
+  const position = [1, 2, z];
+  return <div>{position.join(",")}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: FILE, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("does not let Tailwind z-index utilities block the zod resolution", () => {
+      const routeFile = "app/register/page.tsx";
+      const content = project(
+        routeFile,
+        `const schema = z.object({ email: z.string().email() });
+
+export default function RegisterPage() {
+  return <div className="relative z-10 md:z-50">{String(schema)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'z'." },
+      ]);
+
+      expect(result.addedImports).toEqual([{ file: routeFile, name: "z", module: "zod" }]);
+      expect(result.code).toContain('import { z } from "zod"');
+    });
+
+    it("resolves cookies to next/headers in a server page (commented-out import prod case)", () => {
+      const serverPage = "app/mina-bokningar/page.tsx";
+      const content = project(
+        serverPage,
+        `// import { cookies } from "next/headers";
+
+export default async function BookingsPage() {
+  const store = await cookies();
+  return <main>{String(store.get("session")?.value)}</main>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: serverPage, message: "Cannot find name 'cookies'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: serverPage, name: "cookies", module: "next/headers" },
+      ]);
+      expect(result.code).toContain('import { cookies } from "next/headers"');
+    });
+
+    it("never injects next/headers into a 'use client' file", () => {
+      const clientFile = "components/session-badge.tsx";
+      const content = project(
+        clientFile,
+        `"use client";
+
+export function SessionBadge() {
+  const store = cookies();
+  return <span>{String(store)}</span>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: clientFile, message: "Cannot find name 'cookies'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+
+    it("resolves NextResponse to next/server in an API route", () => {
+      const routeFile = "app/api/auth/login/route.ts";
+      const content = project(
+        routeFile,
+        `export async function POST() {
+  return NextResponse.json({ ok: true });
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: routeFile, message: "Cannot find name 'NextResponse'." },
+      ]);
+
+      expect(result.addedImports).toEqual([
+        { file: routeFile, name: "NextResponse", module: "next/server" },
+      ]);
+      expect(result.code).toContain('import { NextResponse } from "next/server"');
+    });
+
+    it("never injects next/server into a 'use client' file", () => {
+      const clientFile = "components/login-widget.tsx";
+      const content = project(
+        clientFile,
+        `"use client";
+
+export function LoginWidget() {
+  const res = NextResponse.json({ ok: true });
+  return <div>{String(res)}</div>;
+}`,
+      );
+
+      const result = fixKnownTs2304Imports(content, [
+        { file: clientFile, message: "Cannot find name 'NextResponse'." },
+      ]);
+
+      expect(result.addedImports).toEqual([]);
+      expect(result.code).toBe(content);
+    });
+  });
 });
