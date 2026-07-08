@@ -604,4 +604,26 @@ describe("detectFollowUpCapabilities — dashboard-charts", () => {
     const result = detectFollowUpCapabilities("rita ett flödesschema för processen");
     expect(result.capabilityIds).not.toContain("dashboard-charts");
   });
+
+  // Bugbot PR #422: a size tweak of an existing chart is a refine, not an add.
+  it("does NOT detect dashboard-charts for 'gör diagrammet större'", () => {
+    const result = detectFollowUpCapabilities("gör diagrammet större");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  it("does NOT detect dashboard-charts for 'gör grafen bredare'", () => {
+    const result = detectFollowUpCapabilities("gör grafen bredare");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Bugbot PR #422: an explicit chart-library choice must not pull in VisActor.
+  it("does NOT detect dashboard-charts for a Chart.js integration ask", () => {
+    const result = detectFollowUpCapabilities("integrera Chart.js på sidan");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  it("does NOT detect dashboard-charts for 'använd recharts för graferna'", () => {
+    const result = detectFollowUpCapabilities("använd recharts för graferna");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
 });

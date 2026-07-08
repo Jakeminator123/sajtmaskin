@@ -325,14 +325,22 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "dashboard-charts",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:dashboard(?:-?(?:sida|page|sektion|section|vy|view))?|kpi-?dashboard|analytics-?dashboard|admin-?dashboard|instrumentpanel(?:en)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:charts?|diagram(?:men|met)?|graf(?:er|erna|en)?|linjediagram|stapeldiagram|cirkeldiagram|line-?charts?|bar-?charts?|pie-?charts?|area-?charts?|sparklines?)(?![\p{L}\p{N}_])/iu,
+      // Bugbot (PR #422): the bare chart/diagram/graf nouns exclude a trailing
+      // size adjective so a refine like "gör diagrammet större" stays a tweak
+      // (same guard class as the cta-section "gör CTA större" fix). "chart"
+      // also refuses a ".js"/"js" suffix so Chart.js routes via the library
+      // veto below instead of matching as a chart-section noun.
+      /(?<![\p{L}\p{N}_])(?:charts?(?!\.?js)|diagram(?:men|met)?|graf(?:er|erna|en)?|linjediagram|stapeldiagram|cirkeldiagram|line-?charts?|bar-?charts?|pie-?charts?|area-?charts?|sparklines?)(?![\p{L}\p{N}_])(?!\s+(?:större|mindre|bredare|smalare|högre|lägre|tjockare|snyggare|bigger|smaller|larger|wider|taller))/iu,
       /(?<![\p{L}\p{N}_])(?:visualisera\s+(?:data|siffror|statistik)|data-?visualisering|data-?visualization)(?![\p{L}\p{N}_])/iu,
     ],
     // Flow/org diagrams are structural drawings, not data charts. Analytics
-    // provider requests route to `analytics`, not a chart section.
+    // provider requests route to `analytics`, not a chart section. An explicit
+    // chart-library name (Chart.js, Recharts, …) means the user has chosen a
+    // stack — injecting the VisActor dossier would fight that choice.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:flow-?charts?|flödesschema(?:t)?|org-?charts?|organisationsschema(?:t)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:chart\.?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
     ],
   },
 ];
