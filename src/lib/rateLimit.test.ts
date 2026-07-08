@@ -37,11 +37,25 @@ describe("rateLimit", () => {
     expect(getClientId(req, { userId: "user_123" })).toBe("user:user_123");
   });
 
-  it("uses verified sessionId when userId is missing", () => {
+  // Codex P2 (PR #435): the guest session id is client-controlled (cookie /
+  // x-session-id header) — rotating it must not mint a fresh rate-limit
+  // bucket. Guests are keyed on IP.
+  it("keys guests on IP and ignores client-supplied session headers", () => {
     const req = new Request("https://example.com", {
-      headers: { "x-forwarded-for": "1.2.3.4" },
+      headers: {
+        "x-session-id": "rotated-session-1",
+        "x-forwarded-for": "1.2.3.4",
+      },
     });
-    expect(getClientId(req, { sessionId: "sess_abc" })).toBe("session:sess_abc");
+    expect(getClientId(req)).toBe("ip:1.2.3.4");
+
+    const rotated = new Request("https://example.com", {
+      headers: {
+        "x-session-id": "rotated-session-2",
+        "x-forwarded-for": "1.2.3.4",
+      },
+    });
+    expect(getClientId(rotated)).toBe(getClientId(req));
   });
 
   it("ignores x-user-id header from request", () => {

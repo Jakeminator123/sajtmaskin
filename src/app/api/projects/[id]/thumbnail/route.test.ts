@@ -159,6 +159,41 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
   });
 
+  // Codex P1 (PR #435): the documented suffix config value "fly.dev" must NOT
+  // open the capture endpoint for arbitrary attacker-controlled *.fly.dev apps.
+  it("rejects attacker-controlled hosts even when the suffix config lists fly.dev", async () => {
+    process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES = "fly.dev";
+    const res = await POST(
+      thumbnailRequest({ previewUrl: "https://attacker-app.fly.dev/" }),
+      routeParams,
+    );
+    expect(res.status).toBe(403);
+    expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("allows an exact extra hostname from the configured list", async () => {
+    process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES =
+      "alt-preview.example.net, .other-host.example.org";
+    const res = await POST(
+      thumbnailRequest({ previewUrl: "https://alt-preview.example.net/chat-9" }),
+      routeParams,
+    );
+    expect(res.status).toBe(200);
+    expect(captureThumbnailScreenshot).toHaveBeenCalledWith(
+      "https://alt-preview.example.net/chat-9",
+    );
+  });
+
+  it("does not treat exact extra hostnames as suffixes", async () => {
+    process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES = "alt-preview.example.net";
+    const res = await POST(
+      thumbnailRequest({ previewUrl: "https://evil.alt-preview.example.net/" }),
+      routeParams,
+    );
+    expect(res.status).toBe(403);
+    expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
+  });
+
   it("rejects IPv4-mapped IPv6 literals (SSRF bypass guard)", async () => {
     const res = await POST(
       thumbnailRequest({ previewUrl: "http://[::ffff:7f00:1]/" }),
@@ -217,17 +252,18 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     );
   });
 
-  it("keys thumbnail rate-limit by hashed session for guests", async () => {
+  // Codex P2 (PR #435): the guest session id is client-controlled — rotating
+  // it must not mint fresh buckets. Guests fall back to IP keying.
+  it("does not key guest rate-limit on the client-controlled session id", async () => {
     getCurrentUser.mockResolvedValue(null);
-    getSessionIdFromRequest.mockReturnValue("super-secret-session-token");
+    getSessionIdFromRequest.mockReturnValue("rotatable-session-token");
     const res = await POST(
       thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
       routeParams,
     );
     expect(res.status).toBe(200);
-    const optionsArg = withRateLimit.mock.calls[0]?.[3] as { sessionId?: string } | undefined;
-    expect(optionsArg?.sessionId).toMatch(/^[0-9a-f]{16}$/);
-    expect(optionsArg?.sessionId).not.toContain("super-secret-session-token");
+    const optionsArg = withRateLimit.mock.calls[0]?.[3];
+    expect(optionsArg).toBeUndefined();
   });
 
   it("rejects non-http(s) URLs", async () => {

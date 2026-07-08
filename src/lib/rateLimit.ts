@@ -170,20 +170,17 @@ function getLimiter(
   return { mode: "upstash", limiter };
 }
 
-function normalizeIdentityPart(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
-}
-
+/**
+ * Rate-limit identity. Only a VERIFIED user id may override the IP key —
+ * guest/session identifiers are client-controlled (cookie / x-session-id
+ * header) and would let callers rotate themselves into fresh buckets.
+ */
 export function getClientId(
   request: Request,
-  identity?: { userId?: string; sessionId?: string },
+  identity?: { userId?: string },
 ): string {
-  const userId = normalizeIdentityPart(identity?.userId);
+  const userId = identity?.userId?.trim();
   if (userId) return `user:${userId}`;
-
-  const sessionId = normalizeIdentityPart(identity?.sessionId);
-  if (sessionId) return `session:${sessionId}`;
 
   const realIp = request.headers.get("x-real-ip")?.trim();
   const forwardedIp = trustForwardedForHeader()
@@ -264,7 +261,7 @@ export async function withRateLimit(
   request: Request,
   endpoint: string,
   handler: () => Promise<Response>,
-  options?: { userId?: string; sessionId?: string },
+  options?: { userId?: string },
 ): Promise<Response> {
   const clientId = getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
