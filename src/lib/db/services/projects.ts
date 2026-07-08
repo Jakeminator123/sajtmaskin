@@ -227,6 +227,38 @@ export async function updateProject(
   return rows[0] ?? null;
 }
 
+/**
+ * Persist the Vercel project a Sajtmaskin project publishes to. Only non-null,
+ * non-empty values overwrite — so a deploy that only knows the used project
+ * name (Vercel didn't return a projectId) doesn't wipe an existing id, and vice
+ * versa. Best-effort caller contract: the publish flow must not fail if this
+ * write throws.
+ */
+export async function setProjectVercelLink(
+  id: string,
+  link: { vercelProjectId?: string | null; vercelProjectName?: string | null },
+): Promise<Project | null> {
+  assertDbConfigured();
+  const updates: Partial<typeof appProjects.$inferInsert> = {};
+  const vercelProjectId =
+    typeof link.vercelProjectId === "string" ? link.vercelProjectId.trim() : "";
+  const vercelProjectName =
+    typeof link.vercelProjectName === "string" ? link.vercelProjectName.trim() : "";
+  if (vercelProjectId) updates.vercel_project_id = vercelProjectId;
+  if (vercelProjectName) updates.vercel_project_name = vercelProjectName;
+
+  if (Object.keys(updates).length === 0) {
+    return getProjectById(id);
+  }
+
+  const rows = await db
+    .update(appProjects)
+    .set({ ...updates, updated_at: new Date() })
+    .where(eq(appProjects.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
 export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {
   assertDbConfigured();
   const existing = scope ? await getProjectByIdForOwner(id, scope) : await getProjectById(id);

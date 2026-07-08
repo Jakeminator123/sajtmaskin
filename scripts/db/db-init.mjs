@@ -125,6 +125,8 @@ const setupQueries = [
     category TEXT,
     description TEXT,
     thumbnail_path TEXT,
+    vercel_project_id TEXT,
+    vercel_project_name TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,

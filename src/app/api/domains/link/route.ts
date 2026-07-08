@@ -3,15 +3,17 @@
  * ===============
  *
  * POST /api/domains/link
- * Body: { domain: string, projectId?: string }
+ * Body: { domain: string, chatId: string }
  *
- * Links a domain to a Vercel project and optionally sets up
- * DNS records via Loopia for Swedish domains (.se/.nu).
+ * Links a domain to the customer's OWN generated project (resolved from the
+ * chat, cross-tenant-safe) and optionally sets up DNS records via Loopia for
+ * Swedish domains (.se/.nu).
  *
  * Flow:
- *  1. Add domain to Vercel project
- *  2. If .se/.nu + Loopia configured: create CNAME record pointing to Vercel
- *  3. Return verification status and DNS instructions
+ *  1. Resolve the customer's project from the chat
+ *  2. Add domain to that project
+ *  3. If .se/.nu + Loopia configured: create records pointing to the platform
+ *  4. Return verification status and DNS instructions
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,6 +21,7 @@ import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-clie
 import { addZoneRecord, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
+import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
 
 export const maxDuration = 15;
 
@@ -38,13 +41,15 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       const domain = (body.domain ?? "").trim().toLowerCase();
-      const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || "";
-      const requestedProjectId = body.projectId?.trim() || "";
-      const projectId = configuredProjectId;
+      const chatId = (body.chatId ?? "").trim();
       const teamId = process.env.VERCEL_TEAM_ID;
 
       if (!domain) {
         return NextResponse.json({ error: "domain is required" }, { status: 400 });
+      }
+
+      if (!chatId) {
+        return NextResponse.json({ error: "chatId is required" }, { status: 400 });
       }
 
       if (!isVercelConfigured()) {
@@ -54,19 +59,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (requestedProjectId && requestedProjectId !== configuredProjectId) {
-        return NextResponse.json(
-          { error: "projectId is not allowed for this workspace" },
-          { status: 403 },
-        );
+      const resolution = await resolveVercelProjectForChat(req, chatId);
+      if (!resolution.ok) {
+        return NextResponse.json({ error: resolution.error }, { status: resolution.status });
       }
-
-      if (!projectId) {
-        return NextResponse.json(
-          { error: "Vercel project is not configured (missing VERCEL_PROJECT_ID)" },
-          { status: 503 },
-        );
-      }
+      const projectId = resolution.vercelProjectId;
 
       let vercelResult;
       try {

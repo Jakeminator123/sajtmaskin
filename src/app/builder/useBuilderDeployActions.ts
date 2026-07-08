@@ -25,6 +25,9 @@ type Args = {
   isDeployNameSaving: boolean;
   appProjectId: string | null;
   appProjectName: string | null;
+  /** Hosting project name hydrated from the deployments API — reused so an
+   * ompublicering keeps the same name (→ same hosting project + stable URL). */
+  hydratedProjectName: string | null;
   applyInstructionsOnce: boolean;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
@@ -67,6 +70,7 @@ export function useBuilderDeployActions({
   isDeployNameSaving,
   appProjectId,
   appProjectName,
+  hydratedProjectName,
   applyInstructionsOnce,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
@@ -92,9 +96,12 @@ export function useBuilderDeployActions({
 }: Args) {
   const handleOpenDeployDialog = useCallback(() => {
     setDeployNameError(null);
-    setDeployNameInput(resolveSuggestedProjectName());
+    // Prefill with the existing hosting project name when known so a
+    // re-publish keeps the same name (stable live address); otherwise fall
+    // back to the suggested project name.
+    setDeployNameInput(hydratedProjectName?.trim() || resolveSuggestedProjectName());
     setDeployNameDialogOpen(true);
-  }, [resolveSuggestedProjectName, setDeployNameError, setDeployNameInput, setDeployNameDialogOpen]);
+  }, [hydratedProjectName, resolveSuggestedProjectName, setDeployNameError, setDeployNameInput, setDeployNameDialogOpen]);
 
   const handleDomainSearch = useCallback(async () => {
     if (!domainQuery.trim()) return;
@@ -249,9 +256,9 @@ export function useBuilderDeployActions({
           setActiveDeploymentId(returnedDeploymentId);
         }
 
-        toast.success(url ? "Publicering startad (Vercel bygger...)" : "Publicering startad");
+        toast.success(url ? "Publicering startad (bygget pågår...)" : "Publicering startad");
         if (url) {
-          toast(`Vercel URL: ${url}`, {
+          toast(`Live-adress: ${url}`, {
             duration: 15000,
             action: deployVercelProjectId
               ? {

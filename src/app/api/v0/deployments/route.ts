@@ -21,9 +21,10 @@ import {
   toVercelFilesFromTextFiles,
 } from "@/lib/vercelDeploy";
 import {
+  getAppProjectByIdForRequest,
   getChatByIdForRequest,
   getChatByV0ChatIdForRequest,
-  getProjectByIdForRequest,
+  getEngineChatByIdForRequest,
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -37,7 +38,7 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
-import { getProjectData } from "@/lib/db/services/projects";
+import { getProjectById, getProjectData, setProjectVercelLink } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
   seoPreferencesSchema,
@@ -468,7 +469,9 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
-      const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
+      // engineChat.project_id points at `app_projects` (own-engine), so the
+      // tenant guard must query app_projects — not the legacy `projects` table.
+      const ownedProject = await getAppProjectByIdForRequest(req, engineProjectId);
       if (!ownedProject) {
         return NextResponse.json(
           {
@@ -576,8 +579,11 @@ export async function POST(req: Request) {
       let deploymentDelivered = false;
 
       try {
+        // Reuse the SAME Vercel project across re-publishes: prefer an explicit
+        // body name, then the name persisted from a previous publish, then the
+        // per-chat fallback. Targeting stays name-based (no new API params).
         const vercelProjectName = sanitizeVercelProjectName(
-          projectName || `sajtmaskin-${chatId}`,
+          projectName || ownedProject.vercel_project_name || `sajtmaskin-${chatId}`,
         );
         const envVarsForDeploy = projectEnv.configuredMap;
         if (fixesApplied.length > 0) {
@@ -689,6 +695,21 @@ export async function POST(req: Request) {
         // Vercel accepted the deploy — it's now live/irreversible, so a later
         // failure below must not refund the charge.
         deploymentDelivered = true;
+
+        // Persist the Vercel project link on the app_projects row so the next
+        // publish reuses this project (name-targeted) and domain-linking can
+        // attach to the customer's own project. Best-effort: the deploy is
+        // already live, so a failed link write must never fail the request or
+        // refund the charge. (We do NOT write app_projects id to
+        // deployments.project_id — that column FKs the legacy projects table.)
+        try {
+          await setProjectVercelLink(engineProjectId, {
+            vercelProjectId: created.vercelProjectId ?? null,
+            vercelProjectName,
+          });
+        } catch (linkErr) {
+          console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
+        }
 
         if (created.vercelProjectId) {
           const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
@@ -804,14 +825,38 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
       }
 
-      let chat = await getChatByV0ChatIdForRequest(req, chatId);
-      if (!chat) chat = await getChatByIdForRequest(req, chatId);
-
-      if (!chat) {
-        return NextResponse.json({ deployments: [] });
+      // Own-engine chats are the primary path: publish writes deployment rows
+      // keyed by the engine chat id (the id the builder passes). Resolve the
+      // engine chat first (tenant-guarded), and fall back to the legacy chat
+      // lookup for older v0-era chats so both keep working after a reload.
+      let internalChatId: string | null = null;
+      let appProjectId: string | null = null;
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      if (engineChat) {
+        internalChatId = engineChat.id;
+        appProjectId =
+          typeof engineChat.project_id === "string" && engineChat.project_id.trim()
+            ? engineChat.project_id.trim()
+            : null;
+      } else {
+        let chat = await getChatByV0ChatIdForRequest(req, chatId);
+        if (!chat) chat = await getChatByIdForRequest(req, chatId);
+        if (chat) internalChatId = chat.id;
       }
 
-      const internalChatId = chat.id;
+      // Contract with the builder UI: top-level `project` carries the persisted
+      // Vercel project link (null-safe; legacy chats have no app_projects row).
+      const appProject = appProjectId
+        ? await getProjectById(appProjectId).catch(() => null)
+        : null;
+      const project = {
+        vercelProjectId: appProject?.vercel_project_id ?? null,
+        vercelProjectName: appProject?.vercel_project_name ?? null,
+      };
+
+      if (!internalChatId) {
+        return NextResponse.json({ deployments: [], project });
+      }
 
       const result = await db
         .select()
@@ -872,6 +917,7 @@ export async function GET(req: Request) {
             updatedAt: d.updatedAt,
           };
         }),
+        project,
       });
     } catch (err) {
       console.error("Get deployments error:", err);

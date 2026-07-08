@@ -236,8 +236,8 @@ export function SeoOptInPanel({
               ) : null}
               <p className="text-[10px] leading-snug text-muted-foreground">
                 Använd din slutgiltiga domän om du har en. Annars
-                Vercel-URL:en (namn.vercel.app). Du kan ändra senare och
-                deploya om.
+                den publicerade adressen (namn.vercel.app). Du kan ändra senare och
+                publicera om.
               </p>
             </div>
           ) : null}

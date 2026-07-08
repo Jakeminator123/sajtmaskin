@@ -80,13 +80,13 @@ export const features = [
     icon: Server,
     title: "Node.js & Edge Functions",
     description:
-      "Serverledd rendering och edge-funktioner som körs på Vercel. Din sajt laddas blixtsnabbt oavsett var i Sverige dina kunder befinner sig.",
+      "Serverledd rendering och edge-funktioner som körs globalt. Din sajt laddas blixtsnabbt oavsett var i Sverige dina kunder befinner sig.",
     shape: "diamond" as ShapeVariant,
     modalSubtitle: "Millisekunder till din kund",
     modalDescription:
-      "Edge Functions körs på Vercels globala nätverk med noder i Stockholm och hela Europa. Cold start under 50ms innebär att din sajt alltid svarar snabbt — oavsett var besökaren befinner sig.",
+      "Edge Functions körs på ett globalt nätverk med noder i Stockholm och hela Europa. Cold start under 50ms innebär att din sajt alltid svarar snabbt — oavsett var besökaren befinner sig.",
     highlights: [
-      "Vercel Edge Runtime — < 50ms kall-start globalt",
+      "Edge runtime — < 50ms kall-start globalt",
       "Automatisk geo-routing till närmaste datacenter",
       "Streaming SSR för progressiv rendering av stora sidor",
       "Proxy (tidigare middleware) för auth, redirects och A/B-tester",
@@ -183,13 +183,13 @@ export const techStack: TechStackItem[] = [
   { name: "TypeScript", category: "Språk", detail: "Strict mode", icon: Braces, glow: "rgba(59, 130, 246, 0.16)" },
   { name: "Tailwind CSS v4", category: "Styling", detail: "Design tokens", icon: Wind, glow: "rgba(45, 212, 191, 0.16)" },
   { name: "Node.js", category: "Runtime", detail: "API & automation", icon: Server, glow: "rgba(74, 222, 128, 0.16)" },
-  { name: "Vercel Edge", category: "Hosting", detail: "Global rendering", icon: Rocket, glow: "rgba(244, 244, 245, 0.12)" },
+  { name: "Edge runtime", category: "Hosting", detail: "Global rendering", icon: Rocket, glow: "rgba(244, 244, 245, 0.12)" },
   { name: "PostgreSQL", category: "Databas", detail: "Relational core", icon: Database, glow: "rgba(96, 165, 250, 0.15)" },
   { name: "Zod", category: "Validering", detail: "Trusted input", icon: ShieldCheck, glow: "rgba(250, 204, 21, 0.15)" },
   { name: "Drizzle ORM", category: "ORM", detail: "Typsäkra SQL-queries", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
   { name: "Stripe", category: "Betalning", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
   { name: "Resend", category: "E-post", detail: "Transactional flows", icon: Send, glow: "rgba(251, 146, 60, 0.15)" },
-  { name: "Vercel Analytics", category: "Insikter", detail: "Analytics + Speed Insights", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
+  { name: "Analytics", category: "Insikter", detail: "Analytics + Speed Insights", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
 ]
 
 export const landingJourneySteps = [
@@ -313,7 +313,7 @@ export const integrations: IntegrationItem[] = [
   { name: "Upstash", detail: "Redis på edge", icon: Zap, glow: "rgba(251, 146, 60, 0.16)" },
   { name: "Redis", detail: "Caching & köer", icon: Database, glow: "rgba(239, 68, 68, 0.14)" },
   { name: "Supabase", detail: "Auth & data", icon: Layers, glow: "rgba(34, 197, 94, 0.16)" },
-  { name: "Vercel", detail: "Preview & deploy", icon: Rocket, glow: "rgba(148, 163, 184, 0.14)" },
+  { name: "Hosting", detail: "Preview & publicering", icon: Rocket, glow: "rgba(148, 163, 184, 0.14)" },
   { name: "Stripe", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
   { name: "Resend", detail: "E-postflöden", icon: Send, glow: "rgba(251, 146, 60, 0.16)" },
   { name: "OpenAI", detail: "Modeller i generering", icon: Sparkles, glow: "rgba(56, 189, 248, 0.14)" },

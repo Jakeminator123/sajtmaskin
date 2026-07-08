@@ -8,8 +8,6 @@
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET_DEV",
     "GITHUB_REDIRECT_URI",
-    "GODADDY_API",
-    "GODADDY_SECRET",
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
@@ -21,8 +19,6 @@
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
-    "OTE_GODADDY_API",
-    "OTE_GODADDY_SECRET",
     "PEXELS_API_KEY",
     "POSTGRES_URL_NON_POOLING",
     "REGISTRY_AUTH_TOKEN",
@@ -999,44 +995,6 @@
         "production"
       ],
       "notes": "Required where Loopia-backed domain flows are used."
-    },
-    {
-      "key": "GODADDY_API",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "GoDaddy production availability API key. Used by src/lib/domains/godaddy-client.ts as a supplementary availability/price source."
-    },
-    {
-      "key": "GODADDY_SECRET",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "GoDaddy production availability API secret. Pairs with GODADDY_API."
-    },
-    {
-      "key": "OTE_GODADDY_API",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview"
-      ],
-      "notes": "GoDaddy OTE (test) availability API key. Used in dev/preview by src/lib/domains/godaddy-client.ts and the standalone tools in scripts/domains/."
-    },
-    {
-      "key": "OTE_GODADDY_SECRET",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview"
-      ],
-      "notes": "GoDaddy OTE (test) availability API secret. Pairs with OTE_GODADDY_API."
     },
     {
       "key": "UNSPLASH_ACCESS_KEY",

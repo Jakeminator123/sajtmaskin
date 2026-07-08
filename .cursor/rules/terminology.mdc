@@ -28,6 +28,8 @@ Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras sem
 | hard fail, blocking, preview-blocking | `Blocker` |
 | product postcheck | `CapabilitySmoke` |
 | `demoUrl` | `previewUrl` |
+| blandad "publicerad URL" | `liveUrl` (publicerad prod-URL) vs `previewUrl` (VM-länk) vs `customDomain` (egen domän) |
+| "Vercel" i användarsynlig copy | leverantörsneutralt: "publicera", "hosting", "domän" |
 | dashboard om adminytan | `backoffice/` eller `sajtmaskin_backoffice.py` |
 | prompt-static | `Core Rules` |
 | tier 2/tier 3 för produktläge | F2 (`fidelity2`) / F3 (`fidelity3`) |

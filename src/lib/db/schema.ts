@@ -139,6 +139,14 @@ export const appProjects = pgTable(
     category: text("category"),
     description: text("description"),
     thumbnail_path: text("thumbnail_path"),
+    /**
+     * Vercel project this Sajtmaskin project publishes to. Persisted on the
+     * first successful publish so re-publishing reuses the same Vercel project
+     * (name-targeted) and custom domains attach to the customer's generated
+     * project — not the workspace's own project. Nullable until first publish.
+     */
+    vercel_project_id: text("vercel_project_id"),
+    vercel_project_name: text("vercel_project_name"),
     created_at: timestamp("created_at").defaultNow().notNull(),
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },

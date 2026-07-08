@@ -59,7 +59,8 @@ type DomainManagerStep = "search" | "connect" | "verify";
 type DomainManagerProps = {
   open: boolean;
   onClose: () => void;
-  projectId: string | null;
+  /** Engine chat id. The server resolves the correct hosting project from it. */
+  chatId: string | null;
   deploymentId?: string | null;
 };
 
@@ -68,7 +69,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
     return (
       <Badge variant="secondary" className="gap-1 text-[10px]">
         <Server className="h-2.5 w-2.5" />
-        Vercel
+        Registrar
       </Badge>
     );
   }
@@ -88,7 +89,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
   );
 }
 
-export function DomainManager({ open, onClose, projectId, deploymentId }: DomainManagerProps) {
+export function DomainManager({ open, onClose, chatId, deploymentId }: DomainManagerProps) {
   const [step, setStep] = useState<DomainManagerStep>("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DomainSearchResult[] | null>(null);
@@ -98,6 +99,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   const [isLinking, setIsLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<LinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<VerifyResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -129,6 +131,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setIsLinking(false);
       setLinkResult(null);
       setLinkError(null);
+      setVerifyError(null);
       setSaveWarning(null);
       setVerifyStatus(null);
       setIsVerifying(false);
@@ -186,16 +189,28 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       }
 
       const poll = async () => {
-        if (!projectId) return;
+        if (!chatId) return;
         setIsVerifying(true);
         try {
           const res = await fetch("/api/domains/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ domain, projectId }),
+            body: JSON.stringify({ domain, chatId }),
           });
-          const data = await res.json();
-          if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (res.status === 409) {
+            // Site not published yet — stop polling and surface it clearly.
+            setVerifyError(
+              "Sajten är inte publicerad ännu. Publicera sajten först för att verifiera domänen.",
+            );
+            if (verifyIntervalRef.current) {
+              clearInterval(verifyIntervalRef.current);
+              verifyIntervalRef.current = null;
+            }
+            return;
+          }
+          if (res.ok && data) {
+            setVerifyError(null);
             setVerifyStatus({ verified: data.verified, verification: data.verification });
             if (data.verified && verifyIntervalRef.current) {
               clearInterval(verifyIntervalRef.current);
@@ -212,11 +227,11 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       void poll();
       verifyIntervalRef.current = setInterval(poll, 10_000);
     },
-    [projectId],
+    [chatId],
   );
 
   const handleLink = useCallback(async () => {
-    if (!selectedDomain || !projectId) return;
+    if (!selectedDomain || !chatId) return;
     setIsLinking(true);
     setLinkError(null);
     setSaveWarning(null);
@@ -226,11 +241,16 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           domain: selectedDomain.domain,
-          projectId,
+          chatId,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Kunde inte koppla domän");
+      const data = await res.json().catch(() => null);
+      if (res.status === 409) {
+        throw new Error(
+          "Sajten är inte publicerad ännu. Publicera sajten först för att koppla en domän.",
+        );
+      }
+      if (!res.ok) throw new Error(data?.error || "Kunde inte koppla domän");
       setLinkResult(data);
 
       if (deploymentId) {
@@ -280,7 +300,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
     } finally {
       setIsLinking(false);
     }
-  }, [selectedDomain, projectId, deploymentId, startVerifyPolling]);
+  }, [selectedDomain, chatId, deploymentId, startVerifyPolling]);
 
   const handleManualVerify = useCallback(() => {
     if (!selectedDomain) return;
@@ -297,7 +317,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
-            {step === "search" && "Koppla egen domän"}
+            {step === "search" && "Hitta eller koppla domän"}
             {step === "connect" && "Koppla domän"}
             {step === "verify" && "Verifiera domän"}
           </DialogTitle>
@@ -454,7 +474,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                 <Separator className="my-3" />
 
                 <p className="text-muted-foreground mb-3 text-sm">
-                  Kopplar domänen till ditt Vercel-projekt och konfigurerar DNS automatiskt
+                  Kopplar domänen till din publicerade sajt och konfigurerar DNS automatiskt
                   {selectedDomain.provider === "loopia" && " via Loopia"}.
                 </p>
 
@@ -466,7 +486,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
 
                 <Button
                   onClick={handleLink}
-                  disabled={isLinking || !projectId}
+                  disabled={isLinking || !chatId}
                   className="w-full"
                 >
                   {isLinking ? (
@@ -477,7 +497,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   Koppla {selectedDomain.domain}
                 </Button>
 
-                {!projectId && (
+                {!chatId && (
                   <p className="text-muted-foreground mt-2 text-center text-xs">
                     Publicera sajten först för att kunna koppla domän.
                   </p>
@@ -509,6 +529,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                 </div>
               </div>
 
+              {verifyError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                  {verifyError}
+                </div>
+              )}
+
               {saveWarning && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400">
                   {saveWarning}
@@ -518,7 +544,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
               {linkResult?.dnsSetup?.success && (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm dark:border-green-900 dark:bg-green-950/50">
                   <p className="font-medium text-green-700 dark:text-green-400">
-                    DNS konfigurerades automatiskt via {linkResult.dnsSetup.method === "loopia" ? "Loopia" : "Vercel"}.
+                    DNS konfigurerades automatiskt via {linkResult.dnsSetup.method === "loopia" ? "Loopia" : "hostingleverantören"}.
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs">
                     Det kan ta upp till 48 timmar för DNS att propagera, men vanligtvis går det snabbare.

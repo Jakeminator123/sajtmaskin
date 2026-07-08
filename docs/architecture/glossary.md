@@ -39,6 +39,17 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |
 
+## Publicering och URL-nivåer
+
+| Term | Kort |
+|---|---|
+| `previewUrl` | Nivå 1: VM-/preview_host-länken ("Öppna" under bygge). Delbar via Publik preview, men aldrig "publicerad sajt". |
+| `liveUrl` | Nivå 2: stabil publicerad produktions-URL för en användarsajt. En per projekt; uppdateras vid ompublicering, byts inte. |
+| `customDomain` | Nivå 3: kundens egen domän, kopplad till samma hosting-projekt som `liveUrl`. |
+| Publicera | Deploy av aktuell version till produktion (skapar/uppdaterar `liveUrl`). Inte GitHub, inte domänköp. |
+| Domänkoppling | Koppla + verifiera en domän mot kundprojektets hosting. Skilj från domänköp, som sker hos extern leverantör (Loopia m.fl.). |
+| GitHubExport | Valfri export av en versions filer till användarens GitHub-repo (user eller org). Power-user-flöde, inte en del av Publicera. |
+
 ## Kontrollbegrepp och kod-legacy
 
 Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nycklar behåller legacy-namnen; mappa dem i text i stället för att döpa om dem.
@@ -69,6 +80,9 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | template-library | `Scaffold`, `Dossier` eller `Mallar-tab` beroende på kontext |
 | shadcn | `shadcn primitive` eller `UI Recipe` |
 | 3D/game | `visual-3d`, `physics-3d` eller `interactive-game` |
+| preview (om Vercels deploy-previews) | `Vercel deploy-preview` — reservera "preview" för VM-previewn |
+| publicerad | bara när `liveUrl` finns; en delad `previewUrl` är inte "publicerad" |
+| Vercel i användar-copy | skriv leverantörsneutralt ("publicera", "hosting", "domän") — Sajtmaskin är varumärket; Vercel är infrastruktur |
 
 ## Legacy / undvik i ny text
 
