@@ -188,6 +188,25 @@ describe("dep-completer", () => {
     expect(deps.resend).toBe(KNOWN_PACKAGES.resend);
   });
 
+  // Codex P1 (PR #422): dependency-handling change without regression coverage.
+  // Selecting the dashboard-charts capability must inject the VisActor package
+  // (pinned via KNOWN_PACKAGES, never falling through to `latest`).
+  it("injects @visactor/react-vchart when dashboard-charts is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["dashboard-charts"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
+      "dashboard-charts",
+    );
+
+    const deps = resolveCapabilityDependencies(["dashboard-charts"]);
+    expect(deps["@visactor/react-vchart"]).toBe(
+      KNOWN_PACKAGES["@visactor/react-vchart"],
+    );
+    expect(deps["@visactor/react-vchart"]).toBeDefined();
+    expect(deps["@visactor/react-vchart"]).not.toBe("latest");
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [

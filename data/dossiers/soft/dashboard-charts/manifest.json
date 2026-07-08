@@ -67,8 +67,8 @@
       "import": "@/lib/utils"
     }
   ],
-  "lastVerified": "2026-07-08",
+  "lastVerified": "2026-04-18",
   "sourceRepoUrl": "https://github.com/mengxi-ream/visactor-next-template",
-  "notes": "Accepted as a soft, self-contained dashboard chart module. Dropped app/layout-style guidance, the brand icon with a missing @/types/types import, and the generic container to keep the dossier narrow.",
+  "notes": "Accepted as a soft, self-contained dashboard chart module. Dropped app/layout-style guidance, the brand icon with a missing @/types/types import, and the generic container to keep the dossier narrow. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (Codex P1 on PR #422: no false-green for an unpreviewed dependency path).",
   "promptInstructionMode": "compact"
 }

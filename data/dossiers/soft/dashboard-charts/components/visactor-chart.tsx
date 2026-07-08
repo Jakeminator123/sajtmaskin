@@ -7,7 +7,7 @@ export type VisactorChartProps = {
   spec: Record<string, unknown>;
   className?: string;
   style?: React.CSSProperties;
-  option?: Record<string, unknown>;
+  options?: Record<string, unknown>;
   onReady?: (instance: unknown) => void;
 };
 
@@ -15,12 +15,12 @@ export function VisactorChart({
   spec,
   className,
   style,
-  option,
+  options,
   onReady,
 }: VisactorChartProps) {
   return (
     <div className={className} style={style}>
-      <VChart spec={spec} option={option} onReady={onReady} />
+      <VChart spec={spec} options={options} onReady={onReady} />
     </div>
   );
 }

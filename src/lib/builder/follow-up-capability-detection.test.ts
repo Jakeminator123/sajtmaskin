@@ -605,6 +605,20 @@ describe("detectFollowUpCapabilities — dashboard-charts", () => {
     expect(result.capabilityIds).not.toContain("dashboard-charts");
   });
 
+  // Codex/VADE P2 PR #422: spaced English forms must also be vetoed — the bare
+  // `chart` noun would otherwise match "flow chart" / "org chart".
+  it("does NOT detect dashboard-charts for spaced 'flow chart' / 'org chart'", () => {
+    expect(
+      detectFollowUpCapabilities("add a flow chart for onboarding").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add an org chart for the team").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add an organizational chart").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
   // Bugbot PR #422: a size tweak of an existing chart is a refine, not an add.
   it("does NOT detect dashboard-charts for 'gör diagrammet större'", () => {
     const result = detectFollowUpCapabilities("gör diagrammet större");

@@ -338,7 +338,10 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // chart-library name (Chart.js, Recharts, …) means the user has chosen a
     // stack — injecting the VisActor dossier would fight that choice.
     vetoes: [
-      /(?<![\p{L}\p{N}_])(?:flow-?charts?|flödesschema(?:t)?|org-?charts?|organisationsschema(?:t)?)(?![\p{L}\p{N}_])/iu,
+      // Codex/VADE P2 (PR #422): also cover the space-separated English forms
+      // ("flow chart", "org chart", "organizational chart"), which the bare
+      // `chart` noun would otherwise match.
+      /(?<![\p{L}\p{N}_])(?:flow[-\s]?charts?|flödesschema(?:t)?|org[-\s]?charts?|organi[sz]ations?[-\s]?charts?|organi[sz]ational[-\s]?charts?|organisationsschema(?:t)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:chart\.?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
     ],
