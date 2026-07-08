@@ -18,6 +18,7 @@ import {
 } from "./quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import { hasTraversalSegment } from "@/lib/utils/path-utils";
 
 export type QualityGateCheckResult = {
   check: string;
@@ -79,8 +80,13 @@ export const QUALITY_GATE_COMMANDS: Record<QualityGateCheck, string> = {
 function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;
   if (filePath.startsWith("/") || filePath.startsWith("\\")) return false;
-  if (filePath.includes("..")) return false;
-  return /^[A-Za-z0-9._/@-]+$/.test(filePath);
+  // Segment-based traversal check + route-convention charset (Codex P1 on
+  // PR #396): the old substring/charset combo silently dropped dynamic
+  // route files (`[slug]`, `[...slug]`, `(group)`) from the verify-lane
+  // file set, so the quality gate could pass without checking the routes
+  // that actually run in preview.
+  if (hasTraversalSegment(filePath)) return false;
+  return /^[A-Za-z0-9._/@[\]()-]+$/.test(filePath);
 }
 
 export function isQualityGateConfigured(): boolean {

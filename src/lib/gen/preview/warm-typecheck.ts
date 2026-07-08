@@ -30,6 +30,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 
 import type { CodeFile } from "@/lib/gen/parser";
+import { hasTraversalSegment } from "@/lib/utils/path-utils";
 
 export type PreVmTypecheckSkipReason =
   | "feature_flag_disabled"
@@ -87,7 +88,11 @@ function writeFilesIntoCache(cacheDir: string, files: CodeFile[]): string[] {
   for (const file of files) {
     if (!file.path || typeof file.content !== "string") continue;
     const safe = file.path.replace(/\\/g, "/");
-    if (safe.includes("..") || safe.startsWith("/")) continue;
+    // Segment-based traversal check (Codex P1 on PR #396): a substring
+    // `includes("..")` silently dropped catch-all route files
+    // (`app/docs/[...slug]/page.tsx`) from the warm cache, so tsc could
+    // report green without ever checking the route that runs in preview.
+    if (hasTraversalSegment(safe) || safe.startsWith("/")) continue;
     const dest = join(cacheDir, safe);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, file.content, "utf8");

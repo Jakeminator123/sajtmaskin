@@ -20,6 +20,20 @@ export function toPosixPath(p: string): string {
 }
 
 /**
+ * True when a relative POSIX-style path contains an actual traversal SEGMENT
+ * (`..` or `.`). Segment-based on purpose (Codex P1 on PR #396): Next.js
+ * catch-all route directories (`[...slug]`, `[[...slug]]`) legitimately
+ * contain the substring `..` but are literal directory names the OS never
+ * resolves specially — a substring `includes("..")` check silently drops
+ * those files from ZIP export, warm verification and the quality gate.
+ */
+export function hasTraversalSegment(p: string): boolean {
+  return p
+    .split("/")
+    .some((segment) => segment === ".." || segment === ".");
+}
+
+/**
  * Sanitize a project file path to prevent directory traversal attacks.
  *
  * @param p - The raw file path from user input or AI response
@@ -27,6 +41,7 @@ export function toPosixPath(p: string): string {
  *
  * @example
  * sanitizeProjectPath("src/app/page.tsx") // "src/app/page.tsx"
+ * sanitizeProjectPath("app/docs/[...slug]/page.tsx") // kept (catch-all route)
  * sanitizeProjectPath("/etc/passwd") // null (absolute path)
  * sanitizeProjectPath("../../../etc/passwd") // null (traversal)
  * sanitizeProjectPath("src/../../../etc/passwd") // null (hidden traversal)
@@ -40,11 +55,13 @@ export function sanitizeProjectPath(p: string): string | null {
   // Reject empty after trimming
   if (!trimmed) return null;
 
-  // Normalize using POSIX (works consistently on all platforms)
+  // Normalize using POSIX (works consistently on all platforms).
+  // NOTE: normalize resolves real `../` segments; it never touches literal
+  // directory names like `[...slug]`.
   const normalized = path.posix.normalize(trimmed);
 
   // Reject if normalization reveals traversal or absolute path
-  if (normalized.includes("..") || normalized.startsWith("/")) return null;
+  if (hasTraversalSegment(normalized) || normalized.startsWith("/")) return null;
 
   // Reject Windows-style drive letters (e.g., "C:")
   if (/^[a-zA-Z]:/.test(normalized)) return null;
