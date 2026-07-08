@@ -162,9 +162,13 @@ async function buildDossierOverview(
   const initialCapabilities = new Set(
     initialSelectedDossiers.map((selected) => selected.entry.capability.toLowerCase()),
   );
-  const plannedCapabilities = (briefSummary?.requestedCapabilities ?? []).map((capability) =>
-    capability.toLowerCase(),
-  );
+  // `extractBriefSummaryFromSnapshot` casts (does not filter) the persisted
+  // array, so legacy/malformed snapshots can carry non-string entries here.
+  // Filter to strings before lowercasing — same tolerant pattern as
+  // `resolveSelectedDossiersFromSnapshot` — instead of 500:ing the route.
+  const plannedCapabilities = (briefSummary?.requestedCapabilities ?? [])
+    .filter((capability): capability is string => typeof capability === "string")
+    .map((capability) => capability.toLowerCase());
   const detectedCapabilities = provisionalSpec
     ? mapProviderKeysToDossierCapabilities(
         provisionalSpec.requirements.map((requirement) => requirement.key),

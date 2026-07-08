@@ -344,4 +344,32 @@ describe("GET dossiers overview", () => {
     // empty `requirements` for an extra file read).
     expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
   });
+
+  // Codex P2 (PR #439): `extractBriefSummaryFromSnapshot` casts (does not
+  // filter) the persisted array, so a legacy/malformed snapshot can carry
+  // non-string entries in `requestedCapabilities`. The route must ignore the
+  // junk (same tolerant pattern as `resolveSelectedDossiersFromSnapshot`)
+  // instead of throwing `toLowerCase is not a function` and 500:ing.
+  it("tolerates non-string entries in briefSummary.requestedCapabilities (legacy/malformed snapshot)", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    extractBriefSummaryFromSnapshot.mockReturnValue({
+      requestedCapabilities: [null, 42, undefined, "payments", { nested: true }],
+    });
+    selectDossiersForRequest.mockReturnValue({
+      selected: [stripeDossier()],
+      poolSize: 10,
+      byCapability: { payments: ["stripe-checkout"] },
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    // Only the valid string capability survives the filter.
+    expect(selectDossiersForRequest).toHaveBeenCalledWith({
+      requestedCapabilities: ["payments"],
+    });
+    expect(body.counts.total).toBe(1);
+  });
 });
