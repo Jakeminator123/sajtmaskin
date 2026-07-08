@@ -6,7 +6,7 @@
     "node": ">=22.14.0 <23"
   },
   "volta": {
-    "node": "22.22.2"
+    "node": "22.23.1"
   },
   "scripts": {
     "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-traversal-guards.mjs && node scripts/dev/check-autofix-risk.mjs && node scripts/dev/check-bug-backlog.mjs && npm run route-timeouts:check",
