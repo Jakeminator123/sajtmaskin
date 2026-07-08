@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const getSessionIdFromRequest = vi.hoisted(() => vi.fn());
@@ -8,6 +8,7 @@ const setProjectThumbnail = vi.hoisted(() => vi.fn());
 const deleteCache = vi.hoisted(() => vi.fn());
 const isDisallowedHost = vi.hoisted(() => vi.fn());
 const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
+const withRateLimit = vi.hoisted(() => vi.fn());
 const uploadBlob = vi.hoisted(() => vi.fn());
 const deleteBlob = vi.hoisted(() => vi.fn());
 const captureThumbnailScreenshot = vi.hoisted(() => vi.fn());
@@ -21,13 +22,15 @@ vi.mock("@/lib/db/services/projects", () => ({
 }));
 vi.mock("@/lib/data/redis", () => ({ deleteCache }));
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
-vi.mock("@/lib/rateLimit", () => ({
-  withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
-}));
+vi.mock("@/lib/rateLimit", () => ({ withRateLimit }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob, deleteBlob }));
 vi.mock("@/lib/projects/thumbnail-capture", () => ({ captureThumbnailScreenshot }));
 
 const { POST } = await import("./route");
+
+const ORIGINAL_PREVIEW_HOST_BASE_URL = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
+const ORIGINAL_TIER2_SUFFIXES = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES;
+const ALLOWED_PREVIEW_URL = "https://preview-host.example.com/chat-1";
 
 function thumbnailRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/projects/proj_1/thumbnail", {
@@ -42,6 +45,8 @@ const routeParams = { params: Promise.resolve({ id: "proj_1" }) };
 describe("POST /api/projects/[id]/thumbnail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    delete process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES;
     getCurrentUser.mockResolvedValue({ id: "user_1" });
     getSessionIdFromRequest.mockReturnValue("sess_1");
     getProjectByIdForOwner.mockResolvedValue({ id: "proj_1", thumbnail_path: null });
@@ -50,18 +55,34 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     deleteCache.mockResolvedValue(undefined);
     isDisallowedHost.mockReturnValue(false);
     hostResolvesToPrivate.mockResolvedValue(false);
+    withRateLimit.mockImplementation(
+      (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
+    );
     uploadBlob.mockResolvedValue({ url: "https://blob.example/thumb.jpg", path: "p", storageType: "blob" });
     deleteBlob.mockResolvedValue(true);
     captureThumbnailScreenshot.mockResolvedValue(Buffer.from("jpeg"));
   });
 
+  afterAll(() => {
+    if (ORIGINAL_PREVIEW_HOST_BASE_URL === undefined) {
+      delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
+    } else {
+      process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = ORIGINAL_PREVIEW_HOST_BASE_URL;
+    }
+    if (ORIGINAL_TIER2_SUFFIXES === undefined) {
+      delete process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES;
+    } else {
+      process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES = ORIGINAL_TIER2_SUFFIXES;
+    }
+  });
+
   it("captures, uploads and persists thumbnail_path (happy path)", async () => {
     const res = await POST(
-      thumbnailRequest({ previewUrl: "https://site.fly.dev/" }),
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
       routeParams,
     );
     expect(res.status).toBe(200);
-    expect(captureThumbnailScreenshot).toHaveBeenCalledWith("https://site.fly.dev/");
+    expect(captureThumbnailScreenshot).toHaveBeenCalledWith(ALLOWED_PREVIEW_URL);
     expect(uploadBlob).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: "proj_1", contentType: "image/jpeg", userId: "user_1" }),
     );
@@ -79,7 +100,7 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     getCurrentUser.mockResolvedValue(null);
     getSessionIdFromRequest.mockReturnValue("super-secret-session-token");
     const res = await POST(
-      thumbnailRequest({ previewUrl: "https://site.fly.dev/" }),
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
       routeParams,
     );
     expect(res.status).toBe(200);
@@ -95,7 +116,7 @@ describe("POST /api/projects/[id]/thumbnail", () => {
       previousThumbnailPath: "https://blob.example/old-thumb.jpg",
     });
     const res = await POST(
-      thumbnailRequest({ previewUrl: "https://site.fly.dev/" }),
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
       routeParams,
     );
     expect(res.status).toBe(200);
@@ -122,7 +143,25 @@ describe("POST /api/projects/[id]/thumbnail", () => {
   it("blocks private/disallowed hosts (SSRF guard)", async () => {
     hostResolvesToPrivate.mockResolvedValue(true);
     const res = await POST(
-      thumbnailRequest({ previewUrl: "https://internal.local/" }),
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(403);
+    expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("rejects preview URLs outside the server-side allowlist", async () => {
+    const res = await POST(
+      thumbnailRequest({ previewUrl: "https://example.com/not-preview-host" }),
+      routeParams,
+    );
+    expect(res.status).toBe(403);
+    expect(captureThumbnailScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("rejects IPv4-mapped IPv6 literals (SSRF bypass guard)", async () => {
+    const res = await POST(
+      thumbnailRequest({ previewUrl: "http://[::ffff:7f00:1]/" }),
       routeParams,
     );
     expect(res.status).toBe(403);
@@ -130,10 +169,12 @@ describe("POST /api/projects/[id]/thumbnail", () => {
   });
 
   it("falls back to stored demo_url when body has no previewUrl", async () => {
-    getProjectData.mockResolvedValue({ demo_url: "https://stored.fly.dev/" });
+    getProjectData.mockResolvedValue({ demo_url: "https://preview-host.example.com/stored-chat" });
     const res = await POST(thumbnailRequest({}), routeParams);
     expect(res.status).toBe(200);
-    expect(captureThumbnailScreenshot).toHaveBeenCalledWith("https://stored.fly.dev/");
+    expect(captureThumbnailScreenshot).toHaveBeenCalledWith(
+      "https://preview-host.example.com/stored-chat",
+    );
   });
 
   it("returns 409 when no preview URL exists at all", async () => {
@@ -145,11 +186,48 @@ describe("POST /api/projects/[id]/thumbnail", () => {
   it("returns 502 when the screenshot fails, without persisting", async () => {
     captureThumbnailScreenshot.mockRejectedValue(new Error("nav timeout"));
     const res = await POST(
-      thumbnailRequest({ previewUrl: "https://site.fly.dev/" }),
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
       routeParams,
     );
     expect(res.status).toBe(502);
     expect(setProjectThumbnail).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 and deletes uploaded blob when DB persist returns null", async () => {
+    setProjectThumbnail.mockResolvedValue(null);
+    const res = await POST(
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(500);
+    expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/thumb.jpg");
+  });
+
+  it("keys thumbnail rate-limit by authenticated user id", async () => {
+    const res = await POST(
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(200);
+    expect(withRateLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      "projects:thumbnail",
+      expect.any(Function),
+      { userId: "user_1" },
+    );
+  });
+
+  it("keys thumbnail rate-limit by hashed session for guests", async () => {
+    getCurrentUser.mockResolvedValue(null);
+    getSessionIdFromRequest.mockReturnValue("super-secret-session-token");
+    const res = await POST(
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(200);
+    const optionsArg = withRateLimit.mock.calls[0]?.[3] as { sessionId?: string } | undefined;
+    expect(optionsArg?.sessionId).toMatch(/^[0-9a-f]{16}$/);
+    expect(optionsArg?.sessionId).not.toContain("super-secret-session-token");
   });
 
   it("rejects non-http(s) URLs", async () => {

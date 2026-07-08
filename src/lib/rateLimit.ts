@@ -170,8 +170,20 @@ function getLimiter(
   return { mode: "upstash", limiter };
 }
 
-export function getClientId(request: Request, userId?: string): string {
+function normalizeIdentityPart(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function getClientId(
+  request: Request,
+  identity?: { userId?: string; sessionId?: string },
+): string {
+  const userId = normalizeIdentityPart(identity?.userId);
   if (userId) return `user:${userId}`;
+
+  const sessionId = normalizeIdentityPart(identity?.sessionId);
+  if (sessionId) return `session:${sessionId}`;
 
   const realIp = request.headers.get("x-real-ip")?.trim();
   const forwardedIp = trustForwardedForHeader()
@@ -252,9 +264,9 @@ export async function withRateLimit(
   request: Request,
   endpoint: string,
   handler: () => Promise<Response>,
-  options?: { userId?: string },
+  options?: { userId?: string; sessionId?: string },
 ): Promise<Response> {
-  const clientId = getClientId(request, options?.userId);
+  const clientId = getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
   const limiter = getLimiter(endpoint, limits);
   const rateLimitMode = limiter.mode;

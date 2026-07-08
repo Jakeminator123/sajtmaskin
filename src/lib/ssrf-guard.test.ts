@@ -40,6 +40,12 @@ describe("ssrf-guard", () => {
     expect(isDisallowedHost("::1")).toBe(true);
     expect(isDisallowedHost("fd00::1")).toBe(true);
     expect(isDisallowedHost("fe80::1")).toBe(true);
+    expect(isDisallowedHost("::ffff:7f00:1")).toBe(true);
+    expect(isDisallowedHost("[::ffff:7f00:1]")).toBe(true);
+  });
+
+  it("allows IPv4-mapped IPv6 literals that map to public IPv4", () => {
+    expect(isDisallowedHost("::ffff:0808:0808")).toBe(false);
   });
 
   it("allows regular public hosts", () => {

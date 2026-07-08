@@ -34,7 +34,14 @@ describe("rateLimit", () => {
     const req = new Request("https://example.com", {
       headers: { "x-forwarded-for": "1.2.3.4" },
     });
-    expect(getClientId(req, "user_123")).toBe("user:user_123");
+    expect(getClientId(req, { userId: "user_123" })).toBe("user:user_123");
+  });
+
+  it("uses verified sessionId when userId is missing", () => {
+    const req = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "1.2.3.4" },
+    });
+    expect(getClientId(req, { sessionId: "sess_abc" })).toBe("session:sess_abc");
   });
 
   it("ignores x-user-id header from request", () => {
