@@ -1,5 +1,5 @@
 /**
- * Error-log producer for the Vector RAG over historical fault/fix events.
+ * Error-log producer for the TF-IDF error-log RAG over historical fault/fix events.
  *
  * Writes append-only NDJSON to `logs/llm-segmentts-and-index/error-log.ndjson`
  * (gitignored; per-machine). The schema mirrors the Fault and Fix Index

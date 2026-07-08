@@ -107,6 +107,38 @@ function triggerDbIndexRefresh(): void {
     });
 }
 
+/**
+ * Best-effort, throttled proactive refresh of the DB-backed index (cold-start
+ * hardening). Without this, a serverless instance only discovers it needs the
+ * DB-backed index (no on-disk snapshot) on its FIRST real
+ * `retrieveSimilarFailures()` call — which is synchronous, so that first call
+ * always misses ([]) while the async refresh is still in flight. Kicking the
+ * SAME throttled refresh off at module load (see the call below) gives the DB
+ * round-trip a head start during cold start, before the request handler does
+ * any real work, so the cache is far more likely to already be warm by the
+ * time a request needs it — including, often, the very request that triggered
+ * the cold start. Reuses `triggerDbIndexRefresh`'s existing 60s throttle, so
+ * repeated calls (e.g. multiple modules importing this one) never spam the DB.
+ * No-op when the feature flag is off or when an on-disk snapshot already
+ * covers retrieval (dev / `npm start`). Exported for tests. Never blocks,
+ * never throws.
+ */
+export function warmErrorLogIndexBestEffort(): void {
+  try {
+    if (!FEATURES.useErrorLogRag) return;
+    if (fs.existsSync(ERROR_LOG_INDEX_PATH)) return;
+    triggerDbIndexRefresh();
+  } catch {
+    // best-effort — must never affect module load or request handling
+  }
+}
+
+// Cold-start head start: fire once per process at module load. Cheap even
+// when it does run (a single throttled, fire-and-forget DB query); a no-op
+// everywhere else (tests keep FEATURES.useErrorLogRag off; dev/`npm start`
+// normally already have an on-disk snapshot).
+warmErrorLogIndexBestEffort();
+
 function loadIndexForRetrieval(): { entry: CacheEntry | null; crossTenant: boolean } {
   // Redact in any multi-tenant environment (production), regardless of whether
   // the index came from the on-disk snapshot OR the DB. `npm start` in prod
