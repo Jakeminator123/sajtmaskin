@@ -218,6 +218,34 @@ describe("stripRouteFromContent", () => {
     expect(next).not.toContain('href: "/x"');
     expect(next).toContain('href: "/"');
   });
+
+  // Radix Slot regression (prod 2026-07-08, chat fb11f6b0): an empty
+  // `<Button asChild></Button>` crashes at runtime with "Slot failed to slot
+  // onto its children" — the wrapper must be removed together with its link.
+  it("removes an asChild wrapper together with its sole-child link", () => {
+    const content = `<nav>
+      <Button asChild>
+        <Link href="/blog">Blogg</Link>
+      </Button>
+      <Button asChild>
+        <Link href="/about">Om</Link>
+      </Button>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // The now-childless wrapper must be gone too — an empty Slot crashes.
+    expect(next.match(/<Button asChild>/g)).toHaveLength(1);
+    expect(next).toContain('href="/about"');
+  });
+
+  it("removes only the link when the asChild wrapper has other children", () => {
+    const content = `<Button asChild><Icon /><Link href="/blog">Blogg</Link></Button>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // Wrapper is NOT the link's sole parent-child pairing → wrapper survives.
+    expect(next).toContain("<Button asChild>");
+    expect(next).toContain("<Icon />");
+  });
 });
 
 describe("buildRemoveNavLinkOps", () => {
@@ -307,6 +335,40 @@ const navItems = [
       expect(result.ops[0].content).toContain('href: "/kontakt"');
       // The standalone object must be untouched.
       expect(result.ops[0].content).toContain('const cta = { label: "Book", href: "/book" };');
+    }
+  });
+
+  // Radix Slot regression (prod 2026-07-08, chat fb11f6b0): inserting a
+  // sibling <Link> INSIDE `<Button asChild>…</Button>` gives Slot two children
+  // and crashes the preview ("Slot failed to slot onto its children" → 500).
+  it("inserts AFTER an asChild wrapper, never inside it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Link href="/">Hem</Link>
+      <Button asChild>
+        <Link href="/kontakt-oss">Kontakt</Link>
+      </Button>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    expect(result.ops[0]?.kind).toBe("replace_content");
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      expect(content).toContain('href="/skidor"');
+      // The wrapper must still have exactly one child: the new link goes
+      // between </Link> and </Button> in NO case.
+      const wrapperInner = content.match(/<Button asChild>([\s\S]*?)<\/Button>/)?.[1] ?? "";
+      expect(wrapperInner).not.toContain("/skidor");
+      // New link lands after the closing wrapper tag instead.
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Button>"));
     }
   });
 });

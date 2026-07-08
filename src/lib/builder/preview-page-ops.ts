@@ -1,16 +1,22 @@
 /**
  * Pure helpers for the preview panel "+/-" page management (no IO, no LLM).
  *
- * These turn a user intent ("add a page at /about", "remove /blog") plus the
- * current version file set into a deterministic list of quick-edit ops. The
- * ops are applied by the Fast Edit Lane (`runQuickEdit`) which persists a new
- * minor version and re-bootstraps the live preview.
+ * Contract (keep in sync with `PreviewPanel` + `PreviewPanelChrome`):
  *
- * Nav-link insertion/removal is best-effort: it covers the two common shapes
- * generated sites use (a `navItems`-style data array of `{ label, href }`
- * objects, and literal `<Link href="…">…</Link>` / `<a href="…">…</a>`
- * elements). When no nav can be located the page file is still created/deleted;
- * the caller surfaces a hint so the user can wire the link via chat.
+ * - **Add page (`+`)** always creates `app/<route>/page.tsx` (or `src/app/…`) via
+ *   `buildNewPageContent` — a blank starter the user fills via chat.
+ * - **Remove page (`−`)** deletes the route subtree (`findRouteFilePaths`) and
+ *   best-effort strips nav links to that route.
+ * - **Nav wiring is best-effort, never crashy:** we mutate nav arrays or JSX only
+ *   when the result stays valid. Radix/shadcn `<Button asChild>` / `Slot` wrappers
+ *   require EXACTLY ONE child — a sibling inserted inside one, or a link deleted
+ *   out of one, crashes the preview at runtime with "Slot failed to slot onto its
+ *   children" (500/black screen). So inserts go AFTER the wrapper and removals
+ *   take the WHOLE wrapper (see `asChildWrapperRange`). When no nav can be
+ *   updated the page is still created and shown as **olänkad** (amber chip in
+ *   the route strip) for chat follow-up — `navUpdated: false`, never a crash.
+ * - Ops are applied by Fast Edit Lane (`runQuickEdit`) → new minor version + preview
+ *   re-bootstrap. Do not route page create/delete through the LLM pipeline.
  */
 import type { QuickEditClientOp } from "@/lib/builder/engine-files-patch";
 
@@ -268,9 +274,71 @@ function hrefValuePattern(escapedRoute: string): string {
   return `["'\`]${escapedRoute}/?(?:[?#][^"'\`]*)?["'\`]`;
 }
 
+type JsxLinkMatch = { tag: string; element: string; start: number; end: number };
+
+/** All literal internal `<Link>`/`<a>` elements in `content`, with positions. */
+function collectJsxInternalLinks(content: string): JsxLinkMatch[] {
+  const re = /<(Link|a)\b[^>]*?href=\{?["'`]\/[^"'`]*["'`]\}?[^>]*?>[\s\S]*?<\/\1>/g;
+  const links: JsxLinkMatch[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content)) !== null) {
+    links.push({
+      tag: match[1]!,
+      element: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+  return links;
+}
+
+/**
+ * Radix `Slot` (shadcn `asChild`) requires EXACTLY ONE child element. If a link
+ * at `start..end` is the sole child of an `asChild` wrapper (e.g.
+ * `<Button asChild><Link …>…</Link></Button>`), returns the full wrapper range;
+ * otherwise null. Deleting only the link, or inserting a sibling next to it,
+ * crashes the preview at runtime with "Slot failed to slot onto its children"
+ * — callers must operate on the wrapper range instead.
+ */
+function asChildWrapperRange(
+  content: string,
+  start: number,
+  end: number,
+): { start: number; end: number } | null {
+  const before = content.slice(0, start);
+  const openRe = /<(\w+)\b[^>]*\basChild\b[^>]*>/g;
+  let open: RegExpExecArray | null;
+  let wrapper: { tag: string; start: number } | null = null;
+  while ((open = openRe.exec(before)) !== null) {
+    const openEnd = open.index + open[0].length;
+    // Only whitespace between the wrapper's opening tag and the link ⇒ the
+    // link is its first (and, checked below, only) child.
+    if (/^\s*$/.test(content.slice(openEnd, start))) {
+      wrapper = { tag: open[1]!, start: open.index };
+    }
+  }
+  if (!wrapper) return null;
+  const closeMatch = content.slice(end).match(new RegExp(`^\\s*</${wrapper.tag}>`));
+  if (!closeMatch) return null;
+  return { start: wrapper.start, end: end + closeMatch[0].length };
+}
+
+/** Remove ranges from `content`, back to front so indices stay valid. */
+function removeRanges(content: string, ranges: Array<{ start: number; end: number }>): string {
+  let next = content;
+  for (const { start, end } of [...ranges].sort((a, b) => b.start - a.start)) {
+    // Also swallow trailing whitespace up to and including one newline.
+    const tail = next.slice(end).match(/^[ \t]*\r?\n?/);
+    next = next.slice(0, start) + next.slice(end + (tail ? tail[0].length : 0));
+  }
+  return next;
+}
+
 /**
  * Remove every internal link to `route` from a single file's content.
  * Handles JSX `<Link>`/`<a>` elements and `{ …, href: "…", … }` data entries.
+ * A link that is the sole child of an `asChild`/Slot wrapper is removed
+ * TOGETHER WITH its wrapper (leaving an empty Slot crashes the preview).
  * Returns the (possibly unchanged) content.
  */
 export function stripRouteFromContent(content: string, route: string): string {
@@ -289,19 +357,22 @@ export function stripRouteFromContent(content: string, route: string): string {
   );
   next = next.replace(objectEntry, "");
 
-  // 2) Paired JSX elements: <Link href="/route" …>…</Link> and <a …>…</a>
-  const pairedLink = new RegExp(
-    `<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?>[\\s\\S]*?<\\/\\1>\\s*`,
-    "g",
-  );
-  next = next.replace(pairedLink, "");
-
-  // 3) Self-closing JSX elements: <Link href="/route" … />
-  const selfClosing = new RegExp(
-    `<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/>\\s*`,
-    "g",
-  );
-  next = next.replace(selfClosing, "");
+  // 2) JSX elements linking to the route — paired and self-closing. Expand each
+  //    hit to its asChild wrapper when the link is the wrapper's sole child.
+  const jsxLinkRes = [
+    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?>[\\s\\S]*?<\\/\\1>`, "g"),
+    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/>`, "g"),
+  ];
+  const removals: Array<{ start: number; end: number }> = [];
+  for (const re of jsxLinkRes) {
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(next)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+      removals.push(asChildWrapperRange(next, start, end) ?? { start, end });
+    }
+  }
+  next = removeRanges(next, removals);
 
   // Collapse any dangling double commas / leading comma left in arrays.
   next = next.replace(/,(\s*,)+/g, ",").replace(/\[\s*,/g, "[").replace(/,(\s*])/g, "$1");
@@ -370,22 +441,26 @@ function insertDataNavEntry(content: string, route: string, label: string): stri
   return `${before}${separator}${newEntry}${after}`;
 }
 
-/** Try to insert a sibling `<Link>`/`<a>` after the last literal internal link. */
+/**
+ * Insert a sibling `<Link>`/`<a>` after the last literal internal link.
+ * `asChild`/Slot-safe: when the anchor link is the sole child of an `asChild`
+ * wrapper, the new element is inserted AFTER the wrapper (a sibling of the
+ * wrapper) — inserting inside the wrapper would give Slot two children and
+ * crash the preview at runtime.
+ */
 function insertJsxNavLink(content: string, route: string, label: string): string | null {
-  const linkRe = /<(Link|a)\b[^>]*?href=\{?["'`]\/[^"'`]*["'`]\}?[^>]*?>[\s\S]*?<\/\1>/g;
-  let last: RegExpExecArray | null = null;
-  let match: RegExpExecArray | null;
-  while ((match = linkRe.exec(content)) !== null) {
-    last = match;
-  }
+  const links = collectJsxInternalLinks(content);
+  const last = links[links.length - 1];
   if (!last) return null;
-  const element = last[0];
-  if (element.includes(`href="${route}"`) || element.includes(`href='${route}'`)) {
+  if (
+    last.element.includes(`href="${route}"`) ||
+    last.element.includes(`href='${route}'`)
+  ) {
     return null;
   }
-  const tag = last[1];
-  const newElement = `<${tag} href="${route}">${label}</${tag}>`;
-  const insertAt = (last.index ?? 0) + element.length;
+  const newElement = `<${last.tag} href="${route}">${label}</${last.tag}>`;
+  const wrapper = asChildWrapperRange(content, last.start, last.end);
+  const insertAt = wrapper ? wrapper.end : last.end;
   return `${content.slice(0, insertAt)}\n      ${newElement}${content.slice(insertAt)}`;
 }
 
