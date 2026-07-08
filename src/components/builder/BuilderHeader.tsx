@@ -712,28 +712,39 @@ export function BuilderHeader(props: {
             );
           }
 
-          // Resolve the live deployment. Hydrated DB state is the source of
-          // truth (survives reloads); the in-session SSE "ready" url covers the
-          // brief window before the post-deploy refetch lands.
+          // Resolve the live deployment. An in-session SSE "ready" deploy is by
+          // definition the newest one, so it wins over hydrated DB state until
+          // the post-deploy refetch lands (otherwise a re-publish would briefly
+          // open the PREVIOUS live URL). After a reload there is no session
+          // deploy and the hydrated state is the source of truth.
           const sessionReadyUrl =
             deploymentStatus === "ready" && deploymentUrl ? deploymentUrl : null;
-          const resolvedLiveUrl = liveDeploymentUrl ?? sessionReadyUrl;
-          const resolvedLiveVersionId = liveDeploymentUrl
-            ? liveDeploymentVersionId ?? null
-            : sessionReadyUrl
-              ? activeVersionId
-              : null;
+          const resolvedLiveUrl = sessionReadyUrl ?? liveDeploymentUrl;
+          const resolvedLiveVersionId =
+            sessionReadyUrl && sessionReadyUrl !== liveDeploymentUrl
+              ? // Fresh deploy whose row hasn't been refetched yet — the active
+                // version is the one that was just published.
+                activeVersionId
+              : liveDeploymentUrl
+                ? liveDeploymentVersionId ?? null
+                : sessionReadyUrl
+                  ? activeVersionId
+                  : null;
           const liveHref = resolvedLiveUrl
             ? resolvedLiveUrl.startsWith("http")
               ? resolvedLiveUrl
               : `https://${resolvedLiveUrl}`
             : null;
           const hasLive = Boolean(liveHref);
+          // Only claim "in sync" (green Publicerad) when the live version is
+          // actually known — an unknown live version must not read as synced
+          // (false-green). `!activeVersionId` only happens while versions are
+          // still loading; treat that brief window as synced to avoid a
+          // flickering "Publicera ändringar".
           const liveMatchesActive =
             hasLive &&
-            (!resolvedLiveVersionId ||
-              !activeVersionId ||
-              resolvedLiveVersionId === activeVersionId);
+            Boolean(resolvedLiveVersionId) &&
+            (!activeVersionId || resolvedLiveVersionId === activeVersionId);
           const hasUnpublishedChanges = hasLive && !liveMatchesActive;
 
           // (a) Published and the live version === the active version.

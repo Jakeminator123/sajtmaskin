@@ -42,10 +42,16 @@ export type LiveDeployment = {
  * lost. Fetches the deployment list once per chat and derives the live
  * deployment (newest row with status "ready") plus the hosting project meta.
  */
+/** Max automatic retries after a failed hydration fetch (transient 5xx/network). */
+const MAX_HYDRATION_RETRIES = 2;
+const RETRY_DELAY_MS = 4000;
+
 export function useDeploymentHistory(chatId: string | null) {
   const [deployments, setDeployments] = useState<DeploymentHistoryRow[]>([]);
   const [project, setProject] = useState<DeploymentHistoryProject | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   const fetchHistory = useCallback(
     async (signal?: AbortSignal) => {
@@ -55,7 +61,12 @@ export function useDeploymentHistory(chatId: string | null) {
         const res = await fetch(`/api/v0/deployments?chatId=${encodeURIComponent(chatId)}`, {
           signal,
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          // A transient failure here would otherwise silently drop the
+          // "Publicerad"/"Publicera ändringar" state after a reload — surface
+          // it so the retry effect below can re-attempt.
+          throw new Error(`Deployment history fetch failed (HTTP ${res.status})`);
+        }
         const data = (await res.json().catch(() => null)) as {
           deployments?: DeploymentHistoryRow[];
           project?: DeploymentHistoryProject | null;
@@ -63,9 +74,11 @@ export function useDeploymentHistory(chatId: string | null) {
         if (signal?.aborted) return;
         setDeployments(Array.isArray(data?.deployments) ? data!.deployments : []);
         setProject(data?.project ?? null);
+        setLoadError(false);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         debugLog("builder", "Failed to load deployment history", error);
+        if (!signal?.aborted) setLoadError(true);
       } finally {
         if (!signal?.aborted) setIsLoading(false);
       }
@@ -77,12 +90,30 @@ export function useDeploymentHistory(chatId: string | null) {
     if (!chatId) {
       setDeployments([]);
       setProject(null);
+      setLoadError(false);
       return;
     }
     const controller = new AbortController();
     void fetchHistory(controller.signal);
     return () => controller.abort();
   }, [chatId, fetchHistory]);
+
+  // Bounded auto-retry on failure. `retryToken` doubles as the attempt count;
+  // it resets when the chat changes (new fetchHistory identity → effect above
+  // re-runs and clears state via the success path).
+  useEffect(() => {
+    if (!loadError || retryToken >= MAX_HYDRATION_RETRIES) return;
+    const timer = setTimeout(() => {
+      setRetryToken((n) => n + 1);
+      setLoadError(false);
+      void fetchHistory();
+    }, RETRY_DELAY_MS * (retryToken + 1));
+    return () => clearTimeout(timer);
+  }, [loadError, retryToken, fetchHistory]);
+
+  useEffect(() => {
+    setRetryToken(0);
+  }, [chatId]);
 
   const refetch = useCallback(() => {
     void fetchHistory();
@@ -100,5 +131,5 @@ export function useDeploymentHistory(chatId: string | null) {
     };
   }, [deployments]);
 
-  return { deployments, project, liveDeployment, isLoading, refetch };
+  return { deployments, project, liveDeployment, isLoading, loadError, refetch };
 }
