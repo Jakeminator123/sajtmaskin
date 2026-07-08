@@ -10,18 +10,19 @@
  * URL source: explicit `previewUrl` in the body, else the stored
  * `project_data.demo_url`. The URL is SSRF-guarded (public http/https only).
  */
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   getProjectByIdForOwner,
   getProjectData,
-  updateProject,
+  setProjectThumbnail,
 } from "@/lib/db/services/projects";
 import { deleteCache } from "@/lib/data/redis";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
-import { uploadBlob } from "@/lib/vercel/blob-service";
+import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
 import { captureThumbnailScreenshot } from "@/lib/projects/thumbnail-capture";
 
 export const runtime = "nodejs";
@@ -30,6 +31,19 @@ export const maxDuration = 60;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * Blob paths are PUBLIC URLs — never embed the raw session cookie value (it is
+ * an ownership credential for guest projects; Codex/VADE P1 on PR #426). Use
+ * the user id when logged in, else an opaque hash of the session id.
+ */
+function blobOwnerSegment(userId: string | null, sessionId: string | null): string {
+  if (userId) return userId;
+  if (sessionId) {
+    return `sess-${createHash("sha256").update(sessionId).digest("hex").slice(0, 12)}`;
+  }
+  return "anonymous";
 }
 
 function ownerCacheSegments(userId: string | null, sessionId: string | null): string[] {
@@ -94,9 +108,12 @@ async function handlePOST(req: NextRequest, { params }: RouteParams) {
 
     const buffer = await captureThumbnailScreenshot(target.toString());
 
+    // Unique filename per capture: Vercel Blob rejects overwrites of an
+    // existing pathname by default, so re-captures need a fresh path. The
+    // superseded blob is deleted below once the DB points at the new one.
     const uploaded = await uploadBlob({
-      userId: user?.id ?? sessionId ?? "anonymous",
-      filename: `thumbnail-${id}.jpg`,
+      userId: blobOwnerSegment(user?.id ?? null, sessionId),
+      filename: `thumbnail-${Date.now()}.jpg`,
       buffer,
       contentType: "image/jpeg",
       projectId: id,
@@ -109,11 +126,15 @@ async function handlePOST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    await updateProject(
-      id,
-      { thumbnail_path: uploaded.url },
-      { userId: user?.id ?? null, sessionId },
-    );
+    const persisted = await setProjectThumbnail(id, uploaded.url, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
+    const previous = persisted?.previousThumbnailPath;
+    if (previous && previous !== uploaded.url && /^https?:\/\//.test(previous)) {
+      // Best-effort: the DB already points at the new blob.
+      await deleteBlob(previous).catch(() => undefined);
+    }
 
     // "Mina projekt" is Redis-cached — invalidate so the new thumbnail shows.
     const ownerKeys = ownerCacheSegments(user?.id ?? null, sessionId);

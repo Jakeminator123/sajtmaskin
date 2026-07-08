@@ -10,8 +10,10 @@ import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier"
  *
  * - Waits a few seconds after the preview URL appears so the generated site
  *   has settled (fonts/images) before the screenshot.
- * - Sends at most once per (project, previewUrl) pair per mount — a new
- *   version with a new preview URL refreshes the thumbnail, re-renders don't.
+ * - Sends at most once per (project, previewUrl, version) per mount. Preview
+ *   URLs are stable per chat on the preview host (Codex P2, PR #426), so the
+ *   version id is part of the key — a new generated version re-captures even
+ *   though the URL did not change; plain re-renders don't.
  * - Never surfaces errors: the thumbnail is cosmetic and must not disturb
  *   the builder flow.
  */
@@ -20,14 +22,15 @@ const CAPTURE_DELAY_MS = 8_000;
 export function useProjectThumbnail(args: {
   appProjectId: string | null;
   previewUrl: string | null;
+  versionId: string | null;
 }) {
-  const { appProjectId, previewUrl } = args;
+  const { appProjectId, previewUrl, versionId } = args;
   const sentKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!appProjectId || !previewUrl) return;
     if (!isTier2LivePreviewUrl(previewUrl)) return;
-    const key = `${appProjectId}:${previewUrl}`;
+    const key = `${appProjectId}:${previewUrl}:${versionId ?? "none"}`;
     if (sentKeysRef.current.has(key)) return;
 
     const timer = setTimeout(() => {
@@ -39,5 +42,5 @@ export function useProjectThumbnail(args: {
       }).catch(() => undefined);
     }, CAPTURE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [appProjectId, previewUrl]);
+  }, [appProjectId, previewUrl, versionId]);
 }

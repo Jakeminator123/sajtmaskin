@@ -321,6 +321,7 @@ export function useBuilderPageController() {
   useProjectThumbnail({
     appProjectId: state.appProjectId,
     previewUrl: state.currentPreviewUrl,
+    versionId: derived.activeVersionId,
   });
 
   // ── Deploy actions ───────────────────────────────────────────────────
