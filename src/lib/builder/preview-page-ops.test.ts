@@ -587,7 +587,12 @@ const navItems = [
     }
   });
 
-  it("escapes a double-quote in the route when inserting a JSX nav link (defense in depth)", () => {
+  // Codex P2 follow-up on PR #436: JSX attribute values are HTML-like, NOT
+  // JS strings — `\"` is no escape inside `href="…"`, so backslash-escaping
+  // the route there produces broken JSX too. A route containing a double
+  // quote must instead be emitted as a curly-brace expression (`href={"…"}`),
+  // where JS string escaping IS correct.
+  it("emits a curly-brace expression href for a route containing a double quote", () => {
     const files = [
       {
         name: "components/site-header.tsx",
@@ -597,11 +602,32 @@ const navItems = [
     const route = '/kontakt" onmouseover="x';
     const result = buildAddNavLinkOps(files, route, "Kontakt");
     expect(result.navUpdated).toBe(true);
+    expect(result.ops[0]?.kind).toBe("replace_content");
     if (result.ops[0]?.kind === "replace_content") {
       const content = result.ops[0].content;
-      const escapedRoute = route.replace(/"/g, '\\"');
+      // Never a raw quote breaking out of a plain quoted attribute…
       expect(content).not.toContain(`href="${route}"`);
-      expect(content).toContain(`href="${escapedRoute}"`);
+      // …and never backslash escapes inside a plain quoted JSX attribute
+      // (the previous, equally broken output shape).
+      expect(content).not.toContain('href="\\');
+      expect(content).not.toContain('href="/kontakt\\"');
+      // The whole value is a JS string expression instead:
+      expect(content).toContain('href={"/kontakt\\" onmouseover=\\"x"}');
+    }
+  });
+
+  it("keeps the plain quoted attribute form for a safe route", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H(){return <nav><Link href="/">Home</Link><Link href="/blog">Blog</Link></nav>;}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      expect(result.ops[0].content).toContain('href="/kontakt"');
+      expect(result.ops[0].content).not.toContain('href={"/kontakt"}');
     }
   });
 
