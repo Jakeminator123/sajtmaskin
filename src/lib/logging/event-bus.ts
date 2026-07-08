@@ -57,7 +57,11 @@ function resolveRunsRootDir(): string {
   if (process.env.VERCEL) {
     return path.join(os.tmpdir(), "sajtmaskin", "data", "runs");
   }
-  return path.join(process.cwd(), "data", "runs");
+  // turbopackIgnore keeps this dev-only cwd() out of Turbopack's NFT file trace.
+  // Without it Turbopack traces the whole project into every route that imports
+  // the event bus (e.g. version-status), bloating the serverless bundle. Same
+  // pattern as outputFileTracingRoot in next.config.ts.
+  return path.join(/* turbopackIgnore: true */ process.cwd(), "data", "runs");
 }
 
 export const RUNS_ROOT_DIR = resolveRunsRootDir();
