@@ -41,13 +41,19 @@ export const MOTION_DOM_COMPAT_PIN = "12.40.0";
 /** First motion-dom minor (within major 12) where the export is gone. */
 const MOTION_DOM_REMOVAL_MINOR = 41;
 
+/**
+ * Lockfiles that the preview host actually HONORS (see
+ * `preview-host/src/runtime.js` `resolveInstallCommand`): pnpm/yarn/package-lock
+ * select frozen installs; anything else falls through to a fresh
+ * `npm install`. Bun locks are deliberately NOT in this list (Codex P2,
+ * PR #424): the preview runtime ignores them, so transitive deps still
+ * resolve fresh and the motion-dom skew can occur — the repair must run.
+ */
 const LOCKFILE_NAMES = new Set([
   "package-lock.json",
   "pnpm-lock.yaml",
   "pnpm-lock.yml",
   "yarn.lock",
-  "bun.lock",
-  "bun.lockb",
 ]);
 
 export type ImportNormalizeResult = {
@@ -93,8 +99,9 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
 
   const dependencies = asRecord(pkg.dependencies);
   const devDependencies = asRecord(pkg.devDependencies);
+  const optionalDependencies = asRecord(pkg.optionalDependencies);
+  const peerDependencies = asRecord(pkg.peerDependencies);
   const overrides = asRecord(pkg.overrides);
-  const resolutions = asRecord(pkg.resolutions);
 
   const framerPin =
     parseExactPin(dependencies["framer-motion"]) ??
@@ -104,11 +111,19 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
   const [major, minor] = framerPin;
   if (major !== 12 || minor >= MOTION_DOM_REMOVAL_MINOR) return { files, applied: [] };
 
+  // A DIRECT motion-dom declaration in ANY dependency field blocks the repair:
+  // npm throws EOVERRIDE when an override conflicts with a direct dependency
+  // spec — optional/peer included (Codex P2, PR #424). An existing override is
+  // the template managing the pin itself. Yarn `resolutions` deliberately does
+  // NOT count as managed (Codex P2): with no lockfile the preview host always
+  // installs with npm, which ignores resolutions — so the skew is still live
+  // and our `overrides` entry is the only thing npm will honor.
   const motionDomAlreadyManaged =
     dependencies["motion-dom"] !== undefined ||
     devDependencies["motion-dom"] !== undefined ||
-    overrides["motion-dom"] !== undefined ||
-    resolutions["motion-dom"] !== undefined;
+    optionalDependencies["motion-dom"] !== undefined ||
+    peerDependencies["motion-dom"] !== undefined ||
+    overrides["motion-dom"] !== undefined;
   if (motionDomAlreadyManaged) return { files, applied: [] };
 
   const nextPkg: Record<string, unknown> = {

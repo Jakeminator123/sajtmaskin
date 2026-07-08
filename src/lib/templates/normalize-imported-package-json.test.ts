@@ -77,12 +77,28 @@ describe("normalizeImportedRepoFiles — motion lockstep repair", () => {
   });
 
   it("skips when a lockfile is present (transitives frozen; npm ci would reject the override)", () => {
-    for (const lockfile of ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb"]) {
+    for (const lockfile of ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]) {
       const result = normalizeImportedRepoFiles([
         pkgFile({ dependencies: { "framer-motion": "12.23.24" } }),
         codeFile(lockfile, "{}"),
       ]);
       expect(result.applied, lockfile).toHaveLength(0);
+    }
+  });
+
+  // Codex P2 (PR #424): the preview host's resolveInstallCommand ignores Bun
+  // locks and runs a fresh `npm install`, so a bun.lock must NOT suppress the
+  // repair — the skew is still live on that install path.
+  it("still repairs when only a Bun lockfile is present (preview host ignores it)", () => {
+    for (const lockfile of ["bun.lock", "bun.lockb"]) {
+      const result = normalizeImportedRepoFiles([
+        pkgFile({ dependencies: { "framer-motion": "12.23.24" } }),
+        codeFile(lockfile, "{}"),
+      ]);
+      expect(result.applied, lockfile).toHaveLength(1);
+      expect(
+        (parsePkg(result.files).overrides as Record<string, string>)["motion-dom"],
+      ).toBe(MOTION_DOM_COMPAT_PIN);
     }
   });
 
@@ -101,6 +117,42 @@ describe("normalizeImportedRepoFiles — motion lockstep repair", () => {
       }),
     ]);
     expect(overridden.applied).toHaveLength(0);
+  });
+
+  // Codex P2 (PR #424): a direct motion-dom declaration in optional/peer deps
+  // makes a conflicting override an npm EOVERRIDE install failure — skip.
+  it("skips when motion-dom is a direct optional/peer dependency", () => {
+    const optional = normalizeImportedRepoFiles([
+      pkgFile({
+        dependencies: { "framer-motion": "12.23.24" },
+        optionalDependencies: { "motion-dom": "^12.23.0" },
+      }),
+    ]);
+    expect(optional.applied).toHaveLength(0);
+
+    const peer = normalizeImportedRepoFiles([
+      pkgFile({
+        dependencies: { "framer-motion": "12.23.24" },
+        peerDependencies: { "motion-dom": "^12.23.0" },
+      }),
+    ]);
+    expect(peer.applied).toHaveLength(0);
+  });
+
+  // Codex P2 (PR #424): with no lockfile the preview host installs with npm,
+  // which IGNORES Yarn `resolutions` — they protect nothing on this path, so
+  // the repair must still run (npm honors only our injected `overrides`).
+  it("still repairs when only Yarn resolutions pin motion-dom (npm ignores them)", () => {
+    const result = normalizeImportedRepoFiles([
+      pkgFile({
+        dependencies: { "framer-motion": "12.23.24" },
+        resolutions: { "motion-dom": "12.39.0" },
+      }),
+    ]);
+    expect(result.applied).toHaveLength(1);
+    expect(
+      (parsePkg(result.files).overrides as Record<string, string>)["motion-dom"],
+    ).toBe(MOTION_DOM_COMPAT_PIN);
   });
 
   it("does not rewrite for an exact-pinned `motion` wrapper alone (framer-motion floats via caret)", () => {
