@@ -50,7 +50,7 @@ Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**v0-mallar (builderns Mallar-tab, Blob-data):** [`v0-templates/upload-mallar-blob.mjs`](v0-templates/upload-mallar-blob.mjs) (kanonisk), [`v0-templates/sync-blob-catalog.mjs`](v0-templates/sync-blob-catalog.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/audit-template-repos.mjs`](v0-templates/audit-template-repos.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:blob:upload`, `templates:blob:sync`, `templates:validate`, `templates:embeddings`. Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog`. Fullständigt flöde + guardrails: [`docs/architecture/templates.md`](../docs/architecture/templates.md). Legacy v0-auto-fetch (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`, `templates:sync/refresh/local:refresh`) är **deprecerad** (borttagning i separat pass — fortfarande nåbar via `/api/admin/templates/sync`).
+**v0-mallar (builderns Mallar-tab, Blob-data):** [`v0-templates/upload-mallar-blob.mjs`](v0-templates/upload-mallar-blob.mjs) (kanonisk), [`v0-templates/sync-blob-catalog.mjs`](v0-templates/sync-blob-catalog.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/audit-template-repos.mjs`](v0-templates/audit-template-repos.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:blob:upload`, `templates:blob:sync`, `templates:validate`, `templates:embeddings`. Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog`. Fullständigt flöde + guardrails: [`docs/architecture/templates.md`](../docs/architecture/templates.md). Legacy v0-auto-fetch (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`, `templates:sync/refresh/local:refresh`, `/api/admin/templates/sync`, `TEMPLATE_SYNC_*`) **togs bort 2026-07-08** — Blob-vägen är enda sättet.
 
 **Externa referenser (dossier-curation):** klonade referens-repon ligger i `data/template-references/repos/`. Kura en dossier från en referens med `npm run dossiers:curate` (anropar [`dossiers/curate-from-reference.ts`](dossiers/curate-from-reference.ts)).
 
@@ -116,7 +116,7 @@ node scripts/v0-templates/audit-template-repos.mjs                            # 
 
 ### Bra att veta
 
-- Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog` från `../mallar`-intaket. Legacy v0-auto-fetch (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`) är **deprecerad** — fortfarande nåbar via admin-routen `/api/admin/templates/sync`; full borttagning i separat pass.
+- Kanonisk katalog-generering: `upload-mallar-blob.mjs --write-catalog` från `../mallar`-intaket. Legacy v0-auto-fetch togs bort 2026-07-08 — Blob-vägen är enda sättet.
 - Mallar som överskrider preview-host-taken (500 filer / 2 MiB per fil / 12 MiB totalt) laddas upp till Blob men **exkluderas ur galleriet** (`previewFits:false`).
 - Dessutom är vissa mallar manuellt exkluderade i `src/lib/templates/template-data.ts` (`EXCLUDED_TEMPLATE_IDS`) för att de inte kan boota (saknar `package.json`/`dev`, eller kraschar på okuvrad env).
 - Import: finns en lokal ZIP i `templates_v0/downloads/` startar mallflödet direkt från den; annars hämtas ZIP:en från Blob-manifestet.

@@ -36,8 +36,7 @@ on:
         default: false
         type: boolean
   schedule:
-    # Every Monday at 04:11 UTC. Offset from `weekly-template-sync` (03:23) so
-    # they don't pile up if both queue.
+    # Every Monday at 04:11 UTC.
     - cron: "11 4 * * 1"
 
 permissions:

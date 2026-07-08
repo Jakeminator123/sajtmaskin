@@ -17,7 +17,6 @@ import type { DatabaseStats } from "./types";
 
 interface AdminDatabaseTabProps {
   dbStats: DatabaseStats | null;
-  templateSyncConfigured: boolean;
   actionLoading: string | null;
   confirmAction: string | null;
   onClearTable: (table: string) => void | Promise<void>;
@@ -33,7 +32,6 @@ interface AdminDatabaseTabProps {
 
 export function AdminDatabaseTab({
   dbStats,
-  templateSyncConfigured,
   actionLoading,
   confirmAction,
   onClearTable,
@@ -278,41 +276,6 @@ export function AdminDatabaseTab({
               )}
               Importera
             </Button>
-            {templateSyncConfigured ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  setActionLoading("trigger-template-sync");
-                  try {
-                    const res = await fetch("/api/admin/templates/sync", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ includeEmbeddings: false }),
-                    });
-                    const data = (await res.json().catch(() => null)) as
-                      | { success?: boolean; error?: string; message?: string }
-                      | null;
-                    if (!res.ok || !data?.success) {
-                      throw new Error(data?.error || "Kunde inte starta template-sync");
-                    }
-                    showMessage(data.message || "Template-sync startad");
-                  } catch (err) {
-                    showMessage(err instanceof Error ? err.message : "Kunde inte starta template-sync");
-                  }
-                  setActionLoading(null);
-                }}
-                disabled={actionLoading === "trigger-template-sync"}
-                className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-white"
-              >
-                {actionLoading === "trigger-template-sync" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Synka v0-templates (GitHub)
-              </Button>
-            ) : null}
             <Button
               variant="outline"
               size="sm"
