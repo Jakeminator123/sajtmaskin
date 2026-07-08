@@ -106,8 +106,8 @@ const setupQueries = [
   `CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,
     project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
-    chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-    version_id TEXT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+    chat_id TEXT NOT NULL,
+    version_id TEXT NOT NULL,
     v0_deployment_id TEXT,
     vercel_deployment_id TEXT,
     vercel_project_id TEXT,
@@ -526,13 +526,15 @@ const cascadeQueries = [
   `ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_project_id_fkey`,
   `ALTER TABLE versions DROP CONSTRAINT IF EXISTS versions_chat_id_fkey`,
   `ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_project_id_fkey`,
+  // deployments.chat_id/version_id hold ids from EITHER the legacy tables
+  // (v0-era chats) OR the engine tables (own-engine publish), so no FK target
+  // is correct — an FK to chats/versions made every own-engine publish fail
+  // with a foreign-key violation. See drop-deployments-legacy-fks.sql.
   `ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_chat_id_fkey`,
   `ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_version_id_fkey`,
   `ALTER TABLE chats ADD CONSTRAINT chats_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
   `ALTER TABLE versions ADD CONSTRAINT versions_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE`,
   `ALTER TABLE deployments ADD CONSTRAINT deployments_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
-  `ALTER TABLE deployments ADD CONSTRAINT deployments_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE`,
-  `ALTER TABLE deployments ADD CONSTRAINT deployments_version_id_fkey FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE`,
 ];
 
 const updatedAtFunction = `

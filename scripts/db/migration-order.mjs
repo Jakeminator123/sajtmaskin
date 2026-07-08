@@ -43,6 +43,7 @@ export const MIGRATION_ORDER = [
   "add-cascade-to-engine-fks.sql",
   "add-oc-debug-findings.sql",
   "add-app-projects-vercel-project.sql",
+  "drop-deployments-legacy-fks.sql",
 ];
 
 /**
