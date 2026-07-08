@@ -24,13 +24,33 @@ updates:
           - "patch"
         patterns:
           - "*"
-        # Baseline-pinned packages are exact-locked (major.minor.patch) in the
-        # scaffold baseline (KNOWN_PACKAGES / project-scaffold.ts); even a patch
-        # breaks project-scaffold-baseline-parity.test.ts unless the pin is synced
-        # in the same commit. Keep them OUT of the auto-groupable patch bundle so
-        # they arrive as isolated manual PRs (see docs/dependency-policy.md
-        # "Baseline-pinnade paket"). E.g. #399 @react-three/fiber 9.6.0->9.6.1.
+        # Two reasons a package is excluded from the grouped patch bundle:
+        #
+        # 1. CORE packages always come as ISOLATED manual PRs
+        #    (docs/dependency-policy.md). Without this the grouped patch PR swept
+        #    them in — #408 bundled next/react/react-dom/ai patches together with
+        #    19 other bumps, defeating the "one reviewed core package per PR"
+        #    intent even though the auto-merge workflow blocks core names.
+        # 2. BASELINE-PINNED packages are exact-locked (major.minor.patch) in the
+        #    scaffold baseline (KNOWN_PACKAGES / project-scaffold.ts); even a patch
+        #    breaks project-scaffold-baseline-parity.test.ts unless the pin is
+        #    synced in the same commit (see "Baseline-pinnade paket"). E.g. #399
+        #    @react-three/fiber 9.6.0->9.6.1.
         exclude-patterns:
+          - "ai"
+          - "@ai-sdk/*"
+          - "next"
+          - "react"
+          - "react-dom"
+          - "typescript"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "eslint"
+          - "@eslint/*"
+          - "@types/node"
+          - "stripe"
+          - "openai"
+          - "recharts"
           - "three"
           - "@react-three/*"
           - "lucide-react"
@@ -40,6 +60,14 @@ updates:
           - "patch"
         patterns:
           - "*"
+        # Dev-side core packages (typescript/eslint/@types/node) must not be
+        # grouped either — a TS or ESLint patch can shift lint/type output and
+        # deserves its own reviewed PR (docs/dependency-policy.md).
+        exclude-patterns:
+          - "typescript"
+          - "eslint"
+          - "@eslint/*"
+          - "@types/node"
       npm-low-risk-minor:
         update-types:
           - "minor"
