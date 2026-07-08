@@ -212,7 +212,13 @@ async function handlePOST(
       );
     }
 
-    const buffer = await captureThumbnailScreenshot(target.toString());
+    // The capture's request gate blocks private hosts per hop, but a redirect
+    // can still land on an arbitrary PUBLIC site — the final main-frame URL
+    // must pass the same allowlist as the initial URL (audit A#6).
+    const buffer = await captureThumbnailScreenshot(target.toString(), {
+      isFinalUrlAllowed: (finalUrl) =>
+        ["http:", "https:"].includes(finalUrl.protocol) && assertPreviewUrlAllowed(finalUrl).ok,
+    });
 
     // Unique filename per capture: Vercel Blob rejects overwrites of an
     // existing pathname by default, so re-captures need a fresh path. The
@@ -260,7 +266,7 @@ async function handlePOST(
       );
     }
 
-    const previous = persisted?.previousThumbnailPath;
+    const previous = persisted.previousThumbnailPath;
     if (previous && previous !== uploaded.url && /^https?:\/\//.test(previous)) {
       // Best-effort: the DB already points at the new blob.
       await deleteBlob(previous).catch(() => undefined);

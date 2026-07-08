@@ -13,7 +13,9 @@
  * redirects and honors JS/meta-refresh navigations to hosts that were never
  * checked. Every request the page makes is therefore intercepted here and
  * aborted unless its host passes the same public-host guard (Bugbot high,
- * PR #426).
+ * PR #426). That guard alone still admits arbitrary PUBLIC sites, so the
+ * final main-frame URL must additionally pass the caller's allowlist before
+ * the screenshot is taken (audit A#6).
  */
 import type { Browser } from "playwright-core";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
@@ -64,8 +66,39 @@ export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boole
   };
 }
 
-/** JPEG screenshot buffer of the page at `url`, or throws on navigation failure. */
-export async function captureThumbnailScreenshot(url: string): Promise<Buffer> {
+/**
+ * Throws unless the final main-frame URL passes the caller's allowlist. The
+ * per-request gate only enforces the public-host SSRF guard, so a redirect or
+ * JS navigation could still land on an arbitrary public site — the URL that
+ * actually gets photographed must satisfy the same allowlist as the initial
+ * URL (audit A#6).
+ * @internal exported for tests.
+ */
+export function assertFinalUrlAllowed(
+  finalUrl: string,
+  isAllowed: (url: URL) => boolean,
+): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(finalUrl);
+  } catch {
+    throw new Error(`Thumbnail capture ended on an unparseable URL: ${finalUrl}`);
+  }
+  if (!isAllowed(parsed)) {
+    throw new Error(
+      `Thumbnail capture navigated off the allowlist: ${parsed.hostname || finalUrl}`,
+    );
+  }
+}
+
+/**
+ * JPEG screenshot buffer of the page at `url`, or throws on navigation failure
+ * or when the page ends up outside `isFinalUrlAllowed`.
+ */
+export async function captureThumbnailScreenshot(
+  url: string,
+  opts: { isFinalUrlAllowed: (finalUrl: URL) => boolean },
+): Promise<Buffer> {
   let browser: Browser | null = null;
   try {
     browser = await launchBrowser();
@@ -119,6 +152,10 @@ export async function captureThumbnailScreenshot(url: string): Promise<Buffer> {
       })
       .catch(() => undefined);
     await page.waitForTimeout(400).catch(() => undefined);
+
+    // Re-check right before the shot: redirects/JS/meta-refresh may have moved
+    // the main frame anywhere public during navigation or the settle waits.
+    assertFinalUrlAllowed(page.url(), opts.isFinalUrlAllowed);
 
     return await page.screenshot({ type: "jpeg", quality: 70, fullPage: false });
   } finally {

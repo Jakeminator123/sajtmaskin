@@ -82,7 +82,10 @@ describe("POST /api/projects/[id]/thumbnail", () => {
       routeParams,
     );
     expect(res.status).toBe(200);
-    expect(captureThumbnailScreenshot).toHaveBeenCalledWith(ALLOWED_PREVIEW_URL);
+    expect(captureThumbnailScreenshot).toHaveBeenCalledWith(
+      ALLOWED_PREVIEW_URL,
+      expect.objectContaining({ isFinalUrlAllowed: expect.any(Function) }),
+    );
     expect(uploadBlob).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: "proj_1", contentType: "image/jpeg", userId: "user_1" }),
     );
@@ -181,6 +184,7 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(res.status).toBe(200);
     expect(captureThumbnailScreenshot).toHaveBeenCalledWith(
       "https://alt-preview.example.net/chat-9",
+      expect.objectContaining({ isFinalUrlAllowed: expect.any(Function) }),
     );
   });
 
@@ -209,7 +213,27 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(res.status).toBe(200);
     expect(captureThumbnailScreenshot).toHaveBeenCalledWith(
       "https://preview-host.example.com/stored-chat",
+      expect.objectContaining({ isFinalUrlAllowed: expect.any(Function) }),
     );
+  });
+
+  // Audit A#6: the capture's per-request gate admits any public host, so the
+  // route must hand the capture a final-URL allowlist that only accepts the
+  // preview-host origin (+ exact configured alternates).
+  it("passes a final-URL gate that rejects redirect targets outside the allowlist", async () => {
+    const res = await POST(
+      thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }),
+      routeParams,
+    );
+    expect(res.status).toBe(200);
+    const opts = captureThumbnailScreenshot.mock.calls[0]![1] as {
+      isFinalUrlAllowed: (finalUrl: URL) => boolean;
+    };
+    expect(opts.isFinalUrlAllowed(new URL("https://preview-host.example.com/chat-1/sida"))).toBe(
+      true,
+    );
+    expect(opts.isFinalUrlAllowed(new URL("https://attacker.example/landing"))).toBe(false);
+    expect(opts.isFinalUrlAllowed(new URL("about:blank"))).toBe(false);
   });
 
   it("returns 409 when no preview URL exists at all", async () => {

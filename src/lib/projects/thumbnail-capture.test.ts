@@ -5,7 +5,7 @@ const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
 
-const { buildCaptureRequestGate } = await import("./thumbnail-capture");
+const { buildCaptureRequestGate, assertFinalUrlAllowed } = await import("./thumbnail-capture");
 
 // Bugbot high (PR #426): the page-level request gate must block redirect/JS
 // navigations to internal hosts — the route's pre-check only covers the
@@ -53,5 +53,25 @@ describe("buildCaptureRequestGate", () => {
   it("blocks unparseable URLs", async () => {
     const gate = buildCaptureRequestGate();
     await expect(gate("not a url")).resolves.toBe(false);
+  });
+});
+
+// Audit A#6: the request gate admits any PUBLIC host, so the final main-frame
+// URL must still pass the caller's allowlist before the screenshot is taken.
+describe("assertFinalUrlAllowed", () => {
+  it("passes when the final URL satisfies the allowlist", () => {
+    expect(() =>
+      assertFinalUrlAllowed("https://site.fly.dev/page", (u) => u.hostname === "site.fly.dev"),
+    ).not.toThrow();
+  });
+
+  it("throws when a redirect/JS navigation left the allowlist", () => {
+    expect(() =>
+      assertFinalUrlAllowed("https://evil.example/landing", (u) => u.hostname === "site.fly.dev"),
+    ).toThrow(/off the allowlist/);
+  });
+
+  it("throws on unparseable final URLs", () => {
+    expect(() => assertFinalUrlAllowed("not a url", () => true)).toThrow(/unparseable/);
   });
 });
