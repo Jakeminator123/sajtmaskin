@@ -133,7 +133,7 @@
     "@ai-sdk/openai": "^3.0.82",
     "@base-ui/react": "^1.2.0",
     "@d-id/client-sdk": "^1.1.52",
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^5.4.0",
     "@paper-design/shaders-react": "^0.0.77",
     "@radix-ui/react-collapsible": "^1.1.16",
     "@radix-ui/react-dialog": "^1.1.19",
