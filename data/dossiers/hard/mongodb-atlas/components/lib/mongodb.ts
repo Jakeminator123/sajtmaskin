@@ -14,7 +14,8 @@ declare global {
  * discreet `<DbConfigNotice />` instead of querying — never crash the page and
  * never surface raw connection errors to visitors.
  *
- * Preview stubs (e.g. `mongodb+srv://preview:preview@placeholder.mongodb.net`)
+ * Preview stubs (connection strings containing `preview` or `placeholder`,
+ * like the tier-3 stub pointing at the fake `placeholder.mongodb.net` host)
  * count as NOT configured — querying them yields timeouts/500s instead of the
  * promised seed-fallback path.
  */

@@ -7,9 +7,9 @@ import { neon } from '@neondatabase/serverless';
  * discreet `<DbConfigNotice />` instead of querying — never crash the page and
  * never surface raw connection errors to visitors.
  *
- * Preview stubs (e.g. `postgresql://preview:preview@127.0.0.1:5432/preview`)
- * count as NOT configured — querying them yields timeouts/500s instead of the
- * promised seed-fallback path.
+ * Preview stubs (connection strings containing `preview` or `placeholder`,
+ * like the tier-3 loopback stub) count as NOT configured — querying them
+ * yields timeouts/500s instead of the promised seed-fallback path.
  */
 export function isDbConfigured(): boolean {
   const url = process.env.DATABASE_URL?.trim();
