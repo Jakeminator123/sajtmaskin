@@ -99,12 +99,13 @@ export const deployments = pgTable(
   {
     id: text("id").primaryKey(),
     projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-    chatId: text("chat_id")
-      .references(() => chats.id, { onDelete: "cascade" })
-      .notNull(),
-    versionId: text("version_id")
-      .references(() => versions.id, { onDelete: "cascade" })
-      .notNull(),
+    // chat_id/version_id intentionally have NO foreign keys: they hold ids
+    // from EITHER the legacy tables (v0-era `chats`/`versions`) OR the engine
+    // tables (`engine_chats`/`engine_versions`, own-engine publish). The old
+    // FKs to the legacy tables made every own-engine publish fail with a
+    // foreign-key violation on insert (see drop-deployments-legacy-fks.sql).
+    chatId: text("chat_id").notNull(),
+    versionId: text("version_id").notNull(),
     v0DeploymentId: text("v0_deployment_id"),
     vercelDeploymentId: text("vercel_deployment_id"),
     vercelProjectId: text("vercel_project_id"),
