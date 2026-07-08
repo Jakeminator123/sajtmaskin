@@ -37,11 +37,13 @@ genom att återaktivera #355 som helhet.
 
 | Kluster | Vidare i | Status |
 |---|---|---|
-| Credits + deploy/pengaväg (batch A) | **#391** `fix(credits/deploy): pengaväg …` | Öppen egen PR (utbruten från #355) |
-| Builder/session-race (batch B, delvis) | **#393** `fix(builder): chat-race guards …` | Öppen egen PR — täcker #8 (autofix fel chat) + #34 (ErrorBoundary reset); #7 kvar |
+| Credits + deploy/pengaväg (batch A) | **#391** `fix(credits/deploy): pengaväg …` | **Mergad till master** 2026-07-08 (utbruten från #355) |
+| Builder/session-race (batch B, delvis) | **#393** `fix(builder): chat-race guards …` | **Mergad till master** 2026-07-08 — täckte #8 (autofix fel chat) + #34 (ErrorBoundary reset); #7 kvar |
+| Domains/templates/landing (batch C) | **#395** `fix(domains/templates/landing): apex A-record …` | **Mergad till master** 2026-07-08 — täckte #32 (apex A-record), #38 (blockera `.env`-import), #26 (orphan-projekt-rollback) |
 
 Batch A motsvarar #355:s kluster **Credits** (#29, #30, #36) samt delar av **Deploy/readiness**.
-Batch B täcker delar av **Builder/session-race** (#8, #34).
+Batch B täckte delar av **Builder/session-race** (#8, #34).
+Batch C täckte delar av **Domains/templates/engine** (#32, #38) samt **Scaffolds/builder** (#26).
 
 ## Kvar att bryta ut
 
@@ -51,10 +53,10 @@ i taget. Fynd-numren nedan är #355:s interna svärm-index (referens, inte GitHu
 | Kluster | Fynd i #355 | Innehåll |
 |---|---|---|
 | **Preview / readiness** | #1, #3, #5, #6 (+ deploy/readiness #10, #11, #13, #14, #15, #16) | Gate tier-2 preview-ready mot VM-lifecycle, håll session vid liv under boot, skilj process-liveness från content-readiness, släng stale preview vid failed latest; delad deploy-block-gate, fail-closed F3-readiness, env/postcheck-paritet, explicit `creditCommitFailed` på 200 |
-| **Builder / session-race** | #7 (#8, #34 → redan i #393 batch B) | Avbryt aktiv generation vid chat-reset (#7 kvar); autofix-mot-fel-chat (#8) och ErrorBoundary-reset (#34) är redan utbrutna i #393 |
+| **Builder / session-race** | #7 (#8, #34 → mergade i #393 batch B) | Avbryt aktiv generation vid chat-reset (#7 kvar); autofix-mot-fel-chat (#8) och ErrorBoundary-reset (#34) är mergade i #393 |
 | **Pipeline** | #19, #20 | Optimistic-concurrency för in-place repair, 409 `stale_base` på `/messages`-fallback |
-| **Scaffolds / builder** | #24, #26, #31, #33 | Intent-gated scaffold-match, orphan-projekt-rollback, gate-alignad env-panel, riktig admin-auth |
-| **Domains / templates / engine** | #32, #38, #40, #41 | Apex A-record (ej CNAME), blockera `.env`-import från mall-zip, best-effort MCP-preview (partial success), ingen failed "preferred" version |
+| **Scaffolds / builder** | #24, #31, #33 | Intent-gated scaffold-match, gate-alignad env-panel, riktig admin-auth (orphan-projekt-rollback #26 mergad i #395) |
+| **Domains / templates / engine** | #40, #41 | Best-effort MCP-preview (partial success), ingen failed "preferred" version (apex A-record #32 + blockera `.env`-import #38 mergade i #395) |
 
 Uteslutna fynd (brus/medvetet/verifiera-senare, per #355): #2, #4, #9, #12, #17, #18,
 #21, #22, #23, #25, #27, #28, #35, #37, #39, #42 — tas **inte** vidare utan ny verifiering.
