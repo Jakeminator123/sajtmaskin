@@ -1,6 +1,6 @@
 {
   "$comment": "View of capability → dossier ids. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-06-25T12:25:41.116Z",
+  "generatedAt": "2026-07-08T04:28:04.790Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -23,6 +23,9 @@
     ],
     "cta-section": [
       "cta-section"
+    ],
+    "dashboard-charts": [
+      "dashboard-charts"
     ],
     "error-tracking": [
       "sentry-error-tracking"

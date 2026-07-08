@@ -573,3 +573,35 @@ describe("detectFollowUpCapabilities — #250 Codex P2 round 2", () => {
     expect(result.capabilityIds).not.toContain("cta-section");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// dashboard-charts — soft dossier promoted from legacy import (2026-07-08)
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — dashboard-charts", () => {
+  it("detects 'lägg till ett diagram' as dashboard-charts", () => {
+    const result = detectFollowUpCapabilities("lägg till ett diagram över försäljningen");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  it("detects an English chart ask ('add a line chart')", () => {
+    const result = detectFollowUpCapabilities("add a line chart with monthly revenue");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  it("detects a dashboard page ask ('lägg till en dashboard-sida med grafer')", () => {
+    const result = detectFollowUpCapabilities("lägg till en dashboard-sida med grafer");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  // Veto: analytics-provider hookups route to `analytics`, not a chart section.
+  it("does NOT detect dashboard-charts for 'koppla på Google Analytics'", () => {
+    const result = detectFollowUpCapabilities("koppla på Google Analytics");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Veto: flow/org diagrams are structural drawings, not data charts.
+  it("does NOT detect dashboard-charts for 'rita ett flödesschema'", () => {
+    const result = detectFollowUpCapabilities("rita ett flödesschema för processen");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+});

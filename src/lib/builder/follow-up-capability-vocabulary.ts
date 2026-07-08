@@ -318,4 +318,21 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:(?:formulär(?:et)?|form|process(?:en)?|flöde[t]?|checkout|onboarding|registrering(?:en)?|guide(?:n)?|wizard|anmälan|ansökan)\s+(?:i|med|på|över|till)?\s*flera\s+steg|flera\s+steg(?:s)?\s+(?:formulär|form|process|flöde|guide|wizard|onboarding|registrering))(?![\p{L}\p{N}_])/iu,
     ],
   },
+  {
+    // Client-side dashboard chart primitives (VisActor wrapper + chart card).
+    // Distinct from `analytics` (visitor tracking) and `stats-counter` (animated
+    // KPI number band) — this is for actual data charts/graphs on the page.
+    capability: "dashboard-charts",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:dashboard(?:-?(?:sida|page|sektion|section|vy|view))?|kpi-?dashboard|analytics-?dashboard|admin-?dashboard|instrumentpanel(?:en)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:charts?|diagram(?:men|met)?|graf(?:er|erna|en)?|linjediagram|stapeldiagram|cirkeldiagram|line-?charts?|bar-?charts?|pie-?charts?|area-?charts?|sparklines?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:visualisera\s+(?:data|siffror|statistik)|data-?visualisering|data-?visualization)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Flow/org diagrams are structural drawings, not data charts. Analytics
+    // provider requests route to `analytics`, not a chart section.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:flow-?charts?|flödesschema(?:t)?|org-?charts?|organisationsschema(?:t)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
 ];
