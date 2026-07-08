@@ -14,7 +14,7 @@ Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 3. Läs reviews/kommentarer:
    - `gh pr view <n> --json reviews,comments`
    - `gh api repos/<owner>/<repo>/pulls/<n>/comments`
-4. Triagera kvarvarande bot-fynd: Cursor Bugbot, Vercel/VADE, GitGuardian (Codex är avstängd — se nedan).
+4. Triagera kvarvarande bot-fynd: Cursor Bugbot, Vercel/VADE (även fynd i check-summary — se `pr-bot-findings-sweep.mdc` för `check-runs`-hämtning), GitGuardian och Codex om en review finns (se nedan). Codex-review kan landa några minuter efter grönt CI → re-läs reviews precis före merge.
 5. P1/High/security/cross-tenant = blockera merge tills åtgärdat.
 6. P2/Medium = fixa, **eller** logga i [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) med fil-ankare/repro. Lämna aldrig tyst.
 7. Low/nit = fixa eller kort notis.
@@ -32,9 +32,9 @@ Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
 
 Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrott — även om CI är grön och PR:n redan mergats. Gäller särskilt funktions-/säkerhetsfynd (de "ser-grönt-men-går-sönder").
 
-## Bugg-efterkontroll: PR-författaren äger den (Codex avstängd)
+## Bugg-efterkontroll: PR-författaren äger den (oberoende av Codex)
 
-**Codex-review (`chatgpt-codex-connector`) är avstängd — credits slut sedan 2026-07-02.** Vänta aldrig på den och räkna inte dess frånvaro som ett gap. I stället är det **agenten som skapade PR:en** som kör bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
+**Codex-review (`chatgpt-codex-connector`) kan vara på eller av beroende på credits** (av 2026-07-02, tillbaka 2026-07-08). Vänta aldrig på att den ska dyka upp och räkna inte dess frånvaro som ett gap — men **finns en Codex-review ska den läsas och triageras** (den kan landa strax efter grönt CI). Oavsett Codex är det **agenten som skapade PR:en** som äger bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
 
 - Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) eller använd `review-bugbot`-skillen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
 - Är Bugbot otillgänglig: gör en strukturerad manuell diff-granskning + repo-verifieringar och dokumentera fynd med fil-/radreferenser.
@@ -43,7 +43,7 @@ Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrot
 
 Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät.
 
-Dyker en Codex-review ändå upp (t.ex. om credits fylls på senare): behandla den som bonussignal och triagera fynden på samma sätt — men blockera aldrig på att den saknas.
+Finns en Codex-review (credits återställdes 2026-07-08): behandla den som fullvärdig signal och triagera fynden på samma sätt — men blockera aldrig på att den saknas.
 
 ## Author-is-merger (blind-spot-regel)
 
@@ -56,13 +56,14 @@ Självgranskning räcker inte när författaren själv mergar:
 
 ## GitHub-verklighet (verifierat 2026-07-08)
 
-"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) men **inga required status checks**:
+"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08):
 
 - Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetens syfte.
-- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar allt). Avsett, inte ett kryphål.
-- **Grönt CI är INTE GitHub-tvingat** (inga required checks) → att vänta på grönt är agent-disciplin, inte en teknisk spärr; ett admin-merge med röd CI stoppas inte av GitHub. Därför är bugbot-subagent-passet + denna gate det verkliga skyddet.
-- Aktiva bot-granskare i praktiken: **Cursor "Find critical bugs"** + **Vercel Agent Review** (körde på #449–#451) + **GitGuardian**. Codex är avstängd.
+- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar **allt**, inklusive required checks). Avsett, inte ett kryphål.
+- De tre required-checks är nu **GitHub-tvingade** för icke-admin-merge — en extern PR kan inte merge:as med dem röda. Ett **admin**-merge kan dock överstyra även röda checks, så "vänta på grönt" är fortsatt agent-disciplin vid `--admin`.
+- Checks som INTE är required (`stability` är warn-only, plus runtime-kontrakt) + bugbot-subagent-passet är därför fortfarande verkligt skydd utöver de tre.
+- Aktiva bot-granskare i praktiken: **Cursor "Find critical bugs"** + **Vercel Agent Review** + **GitGuardian**. **Codex** kan vara på eller av beroende på credits (av 2026-07-02, tillbaka 2026-07-08) — läs och triagera alltid dess review om den finns.
 
 ## Princip
 
-`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad. Och `mergeStateStatus: BLOCKED` = bara att review-kravet inte uppfyllts — inte att CI är rött.
+`mergeable: true` = inga gitkonflikter. Det betyder inte att PR är säker eller granskad. `mergeStateStatus: BLOCKED` betyder att ett gate-krav saknas — numera antingen review-kravet **eller** en röd/väntande required check (`quality`/`backoffice-tests`/`schema-drift`).
