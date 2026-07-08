@@ -84,6 +84,31 @@ export async function getLatestVercelProjectIdForChat(
   return (ready ?? rows[0]).vercelProjectId ?? null;
 }
 
+/**
+ * Den senaste icke-null `deployments.domain` för en chat, eller `null` om
+ * ingen custom-domän är kopplad. Används av deploy-route:n (A2) för att låsa
+ * Vercel-projektnamnet så länge en domän sitter kopplad — vi läser DB i
+ * stället för att slå mot Vercel-API:t i deploy-hot-path:en.
+ *
+ * Tenant-säkerhet: anroparen har redan bekräftat ägarskap av `chatId` (via
+ * `getEngineVersionForChatByIdForRequest` i deploy-route:n) innan denna
+ * läsning körs — precis som `getLatestVercelProjectIdForChat` ovan, som också
+ * är chat-scopad utan egen req-guard.
+ */
+export async function getLinkedDomainForChat(
+  chatId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ domain: deployments.domain })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), isNotNull(deployments.domain)))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1);
+  if (rows.length === 0) return null;
+  const domain = rows[0].domain?.trim();
+  return domain ? domain : null;
+}
+
 export async function setDeploymentDomain(
   deploymentId: string,
   domain: string,

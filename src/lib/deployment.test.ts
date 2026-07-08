@@ -9,7 +9,13 @@ vi.mock("@/lib/db/client", () => ({
   db: {
     select: () => ({
       from: () => ({
-        where: () => ({ limit: selectLimit }),
+        // `where().limit()` (setDeploymentDomainForRequest) och
+        // `where().orderBy().limit()` (getLinkedDomainForChat) delar samma
+        // `selectLimit`-mock — varje test sätter sitt eget returvärde.
+        where: () => ({
+          limit: selectLimit,
+          orderBy: () => ({ limit: selectLimit }),
+        }),
       }),
     }),
     update: () => ({
@@ -23,7 +29,7 @@ vi.mock("@/lib/tenant", () => ({
   getChatByIdForRequest,
 }));
 
-const { setDeploymentDomainForRequest } = await import("./deployment");
+const { setDeploymentDomainForRequest, getLinkedDomainForChat } = await import("./deployment");
 
 function req() {
   return new Request("http://localhost/api/domains/save", { method: "POST" });
@@ -90,5 +96,37 @@ describe("setDeploymentDomainForRequest (A#3: engine + legacy chat resolution)",
     const result = await setDeploymentDomainForRequest(req(), "dep_1", "site.example");
 
     expect(result).toBe(false);
+  });
+});
+
+// A2 (Ö2): read-helper som deploy-route:n använder för projektnamn-låset. Den
+// returnerar senaste icke-null `deployments.domain` för chatten, eller null.
+describe("getLinkedDomainForChat (A2: domain project-name lock)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns null when the chat has no domain-carrying deployment", async () => {
+    selectLimit.mockResolvedValue([]);
+
+    const result = await getLinkedDomainForChat("chat_1");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns the latest linked domain for the chat", async () => {
+    selectLimit.mockResolvedValue([{ domain: "mysite.example" }]);
+
+    const result = await getLinkedDomainForChat("chat_1");
+
+    expect(result).toBe("mysite.example");
+  });
+
+  it("treats a whitespace-only domain value as no linked domain", async () => {
+    selectLimit.mockResolvedValue([{ domain: "   " }]);
+
+    const result = await getLinkedDomainForChat("chat_1");
+
+    expect(result).toBeNull();
   });
 });
