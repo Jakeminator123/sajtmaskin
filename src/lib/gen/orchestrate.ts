@@ -1372,6 +1372,11 @@ export async function resolveOrchestrationBase(
       dossierSelection = selectDossiersForRequest({
         brief,
         requestedCapabilities: capabilityFloor.capabilities,
+        // Same prompt surface as the F2 filter above: lets sibling dossiers
+        // under one capability resolve on explicit provider intent via
+        // manifest relevanceKeywords (e.g. "MongoDB" → mongodb-atlas instead
+        // of the postgres-drizzle default for `database`).
+        promptText: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {

@@ -143,6 +143,16 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@ai-sdk/openai": "^4",
   "@ai-sdk/fal": "^3",
   "@ai-sdk/react": "^4",
+  // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
+  // postgres-drizzle (default), neon-postgres, mongodb-atlas. Majors verified
+  // against the npm registry 2026-07-08 (`npm view <pkg> version`).
+  "drizzle-orm": "^0.45",
+  "drizzle-kit": "^0.31",
+  "pg": "^8",
+  "@types/pg": "^8",
+  "server-only": "0.0.1",
+  "@neondatabase/serverless": "^1",
+  "mongodb": "^7",
 };
 
 /**

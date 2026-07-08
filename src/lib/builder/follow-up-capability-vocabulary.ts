@@ -234,6 +234,37 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Persistent server-side data storage (Postgres/Drizzle default;
+    // mongodb-atlas / neon-postgres siblings resolve via manifest
+    // relevanceKeywords in select.ts). NOT vector stores (rag-chat comes
+    // later) and NOT analytics/tracking — those route to `analytics`.
+    capability: "database",
+    patterns: [
+      // Core nouns, Swedish + English inflections.
+      /(?<![\p{L}\p{N}_])(?:databas(?:en|er|erna)?|databases?|sql[-\s]?databas(?:en)?|sql\s+database)(?![\p{L}\p{N}_])/iu,
+      // Provider / stack names that unambiguously mean a database layer.
+      // Bare "neon" is intentionally NOT matched — it is a common design word
+      // (neonfärger, neon-skyltar); Neon-the-provider needs a DB-flavoured
+      // compound or the neon.tech domain.
+      /(?<![\p{L}\p{N}_])(?:postgres(?:ql)?|drizzle(?:-?orm)?|mongo(?:db)?(?:[-\s]?atlas)?|neon[-\s]?(?:postgres(?:ql)?|db|databas(?:en)?|database)|neon\.tech)(?![\p{L}\p{N}_])/iu,
+      // Verb phrases: "lagra/spara ... i (en) databas", "store/save ... in a database".
+      /(?<![\p{L}\p{N}_])(?:lagra(?:r|de)?|spara(?:r|de)?|persistera(?:r|de)?)[\s\S]{0,60}i\s+(?:en\s+)?databas(?:en)?(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:store|save|persist)[\s\S]{0,60}(?:in|to)\s+(?:a\s+|the\s+)?database(?![\p{L}\p{N}_])/iu,
+    ],
+    // Vetoes:
+    //  - Vector stores are the coming `rag-chat` capability, not this dossier.
+    //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
+    //    databas" is a visitor-tracking request, not a persistence layer.
+    //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,
+    //    Firebase, …) must not pull in the Drizzle/Mongo-driver stack — same
+    //    precedent as the Chart.js veto on `dashboard-charts`.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|pgvector|pinecone|weaviate|qdrant|chroma(?:db)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics|webbanalys|webb-?analys|besöksstatistik(?:en)?|spåra\s+besökare|track\s+visitors?|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:prisma|mongoose|sequelize|typeorm|kysely|supabase|firebase|firestore|planetscale)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "contact-form",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:kontaktform(?:ulär)?|contact[-\s]?form|kontaktsida\s+med\s+formulär|skicka\s+e-?post|skicka\s+mail|email[-\s]?form|resend)(?![\p{L}\p{N}_])/iu,

@@ -49,6 +49,12 @@
       "default": false,
       "description": "When two dossiers share the same capability, the one with defaultForCapability=true wins selection. Set true for the canonical implementation (e.g. Stripe over Klarna for 'payments')."
     },
+    "relevanceKeywords": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 2, "maxLength": 40 },
+      "maxItems": 12,
+      "description": "Optional lowercase keywords/phrases that mark an EXPLICIT ask for this specific dossier when several dossiers share one capability (e.g. 'mongodb' on mongodb-atlas under 'database'). When the user's prompt hits a keyword (Unicode word-boundary match, hyphen treated as part of the word), that dossier overrides the defaultForCapability pick — see pickForCapability in src/lib/gen/dossiers/select.ts. Keep keywords provider-specific and high-precision; generic nouns belong in the capability vocabulary, not here."
+    },
     "summary": {
       "type": "string",
       "minLength": 30,

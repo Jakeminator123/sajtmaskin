@@ -43,6 +43,11 @@ describe("mapDossierPathToOutput", () => {
     expect(mapDossierPathToOutput("components/instrumentation.ts")).toBe(
       "instrumentation.ts",
     );
+    // Dossier wave 2 (postgres-drizzle): Drizzle Kit resolves its config from
+    // the project root, so the dossier config must land there.
+    expect(mapDossierPathToOutput("components/drizzle.config.ts")).toBe(
+      "drizzle.config.ts",
+    );
     expect(mapDossierPathToOutput("components/sentry.client.config.ts")).toBe(
       "sentry.client.config.ts",
     );

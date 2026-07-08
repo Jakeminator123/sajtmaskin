@@ -147,6 +147,70 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 2 (2026-07-08): three dossiers share capability `database`
+// (postgres-drizzle default, neon-postgres + mongodb-atlas siblings). An
+// explicit provider ask in the prompt overrides the default via manifest
+// `relevanceKeywords`; without a prompt (dep-completer backstop, snapshot
+// re-selection) the default always wins.
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — relevanceKeywords disambiguation (database)", () => {
+  it("picks postgres-drizzle (default) for a generic database ask", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en bokningssajt som sparar bokningar i en databas",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+  });
+
+  it("picks postgres-drizzle when no prompt text is supplied", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("picks mongodb-atlas on an explicit MongoDB ask", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "lagra produkterna i MongoDB Atlas",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("picks neon-postgres on an explicit Neon ask", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "använd Neon som databas för medlemsregistret",
+    });
+    expect(result.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("does NOT let a hyphen compound hit a bare keyword (neon-skylt ≠ Neon)", () => {
+    // "neon-skylt" (neon sign) is a design noun, not a database provider ask.
+    // The keyword matcher treats hyphen as part of the word, so the default
+    // still wins.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en databas för min butik med neon-skyltar",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("keyword override is scoped to the shared capability — other selections untouched", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments", "database"],
+      promptText: "checkout med stripe och spara ordrar i mongodb",
+    });
+    const byId = new Map(result.selected.map((s) => [s.entry.capability, s.entry.id]));
+    expect(byId.get("payments")).toBe("stripe-checkout");
+    expect(byId.get("database")).toBe("mongodb-atlas");
+  });
+});
+
 describe("getAllDossiers", () => {
   it("walks both hard/ and soft/ folders", () => {
     const all = getAllDossiers();

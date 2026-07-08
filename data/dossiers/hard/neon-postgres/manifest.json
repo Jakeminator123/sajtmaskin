@@ -1,0 +1,70 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "neon-postgres",
+  "label": "Neon Postgres",
+  "capability": "database",
+  "codeFidelity": "verbatim",
+  "complexity": "simple",
+  "defaultForCapability": false,
+  "relevanceKeywords": ["neon", "neon postgres", "neon.tech"],
+  "summary": "Use when a Next.js app needs server-side access to a hosted Neon Postgres database through the Neon serverless driver. Provides a lazy shared SQL client helper and a DB connectivity health route; when DATABASE_URL is missing the app must fall back to static seedData with a discreet config notice instead of crashing. Pair with separate migration or ORM tooling when schema management is needed.",
+  "envVars": [
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "Neon Postgres connection string used by the server-side database helper. Get it from the Neon project dashboard, preferably the pooled/serverless connection string with SSL enabled. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "@neondatabase/serverless"
+  ],
+  "files": [
+    {
+      "path": "components/lib/db.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/seed-data.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/db-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/api/health/db/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "getSql",
+      "type": "function",
+      "import": "@/lib/db"
+    },
+    {
+      "name": "isDbConfigured",
+      "type": "function",
+      "import": "@/lib/db"
+    },
+    {
+      "name": "seedData",
+      "type": "constant",
+      "import": "@/lib/seed-data"
+    },
+    {
+      "name": "DbConfigNotice",
+      "type": "component",
+      "import": "@/components/db-config-notice"
+    }
+  ],
+  "lastVerified": "2026-04-17",
+  "sourceRepoUrl": "https://github.com/neondatabase/mcp-server-neon",
+  "notes": "Neon-specific alternative under capability 'database' (postgres-drizzle is default; this is picked on explicit Neon intent via relevanceKeywords). Legacy import wave 2: lazy getSql() (never module-level), health route re-rooted to @/lib/db and no longer returns raw DB errors, F2 seed-fallback contract added. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green).",
+  "promptInstructionMode": "selected-sections"
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "mongodb-atlas",
+  "label": "MongoDB Atlas",
+  "capability": "database",
+  "codeFidelity": "verbatim",
+  "complexity": "simple",
+  "defaultForCapability": false,
+  "relevanceKeywords": ["mongodb", "mongo", "mongodb atlas"],
+  "summary": "Use when a Next.js App Router project explicitly needs MongoDB Atlas as its server-side database. Provides a lazy reusable MongoDB client helper and a lightweight health-check route for validating Atlas connectivity from server code only; when MONGODB_URI is missing the app must fall back to static seedData with a discreet config notice instead of crashing.",
+  "envVars": [
+    {
+      "key": "MONGODB_URI",
+      "required": true,
+      "purpose": "MongoDB Atlas connection string used by the server helper to connect to the cluster. Get it from Atlas Connect > Drivers and store it only in server-side environment variables. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "mongodb"
+  ],
+  "files": [
+    {
+      "path": "components/lib/mongodb.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/seed-data.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/db-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/api/health/db/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "getMongoDb",
+      "type": "function",
+      "import": "@/lib/mongodb"
+    },
+    {
+      "name": "getMongoClientPromise",
+      "type": "function",
+      "import": "@/lib/mongodb"
+    },
+    {
+      "name": "isDbConfigured",
+      "type": "function",
+      "import": "@/lib/mongodb"
+    },
+    {
+      "name": "seedData",
+      "type": "constant",
+      "import": "@/lib/seed-data"
+    },
+    {
+      "name": "DbConfigNotice",
+      "type": "component",
+      "import": "@/components/db-config-notice"
+    }
+  ],
+  "lastVerified": "2026-04-17",
+  "sourceRepoUrl": "https://github.com/mongodb-developer/nextjs-template-mongodb",
+  "notes": "Non-relational alternative under capability 'database' — only picked on explicit MongoDB/Atlas intent via relevanceKeywords (postgres-drizzle is default). Legacy import wave 2: lazy client init (never module-level connect), dev hot-reload cache on global preserved, concurrent requests share the pending connection promise, F2 seed-fallback contract added. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green).",
+  "promptInstructionMode": "selected-sections"
+}

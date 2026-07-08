@@ -84,6 +84,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 | `summary` | ✓ | 1-3 sentences. Used in prompt + backoffice. |
 | `lastVerified` | ✓ | ISO date YYYY-MM-DD when a human last validated the dossier. |
 | `defaultForCapability` | optional (default `false`) | Tie-breaker when two dossiers share the same capability. |
+| `relevanceKeywords` | optional | Provider-specific keywords/phrases (max 12) marking an EXPLICIT ask for this dossier when several share one capability — e.g. `"mongodb"` on `mongodb-atlas` under `database`. A prompt hit overrides the `defaultForCapability` pick (Unicode word-boundary match, hyphen counts as part of the word). Keep high-precision; generic nouns belong in the follow-up capability vocabulary. |
 | `envVars` | optional | External secrets needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — required for F3 build), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value). See [glossary](../architecture/glossary.md). |
 | `dependencies` | optional | npm packages added to `package.json`. |
 | `files` | optional | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`. |
@@ -121,7 +122,7 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
 2. For each capability, find dossiers via `getDossiersByCapability(cap)`.
-3. If multiple match, pick the one with `defaultForCapability=true`. Else the first by id-sort.
+3. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
 4. For hard dossiers, check `process.env` for required envVars → mark `configured: true|false`.
 5. Eagerly load `instructions.md` for selected dossiers.
 

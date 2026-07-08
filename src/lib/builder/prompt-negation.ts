@@ -34,6 +34,10 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   payments: PAYMENT_TERMS,
   "contact-form": BACKEND_TERMS,
   "newsletter-subscribe": BACKEND_TERMS,
+  // Dossier wave 2: "lägg inte till backend/databas" must suppress the
+  // database capability the same way it already suppresses the other
+  // backend-flavoured integrations.
+  database: BACKEND_TERMS,
   analytics: INTEGRATION_TERMS,
   "error-tracking": INTEGRATION_TERMS,
 };

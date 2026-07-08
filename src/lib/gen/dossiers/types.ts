@@ -92,6 +92,13 @@ export interface DossierEntry {
   complexity: DossierComplexity;
   /** Tie-breaker when two dossiers share the same capability. */
   defaultForCapability: boolean;
+  /**
+   * Optional provider-specific keywords that mark an EXPLICIT ask for this
+   * dossier when several dossiers share one capability (e.g. "mongodb" on
+   * mongodb-atlas under `database`). A prompt hit overrides the
+   * `defaultForCapability` pick — see `pickForCapability` in `select.ts`.
+   */
+  relevanceKeywords?: string[];
   /** 1-3 sentences describing the dossier. */
   summary: string;
   envVars?: DossierEnvVar[];
@@ -112,7 +119,7 @@ export interface DossierEntry {
 export interface SelectedDossier {
   entry: DossierEntry;
   /** Why this dossier was picked. */
-  reason: "capability-match" | "default-fallback";
+  reason: "capability-match" | "default-fallback" | "relevance-keyword";
   /**
    * True if all required envVars are present in `process.env`.
    * Soft dossiers (no envVars) are always configured.

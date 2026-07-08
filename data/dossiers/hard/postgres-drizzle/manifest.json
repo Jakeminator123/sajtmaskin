@@ -1,0 +1,89 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "postgres-drizzle",
+  "label": "Postgres + Drizzle",
+  "capability": "database",
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "relevanceKeywords": ["postgres", "postgresql", "drizzle", "drizzle-orm"],
+  "summary": "Use when a Next.js app needs a server-side PostgreSQL database layer with Drizzle ORM, migrations, a typed schema module, shared DB client, and a simple health-check route. When DATABASE_URL is missing the app must not crash: pages fall back to static seedData with a discreet config notice, and API routes answer 503. Keep it to persistence infrastructure; application tables and queries should be adapted to the generated app domain.",
+  "envVars": [
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "PostgreSQL connection string used by the Drizzle client, database health route, and Drizzle Kit migrations. Get it from the Postgres provider, preferably a pooled connection URL. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "drizzle-orm",
+    "drizzle-kit",
+    "pg",
+    "@types/pg",
+    "server-only"
+  ],
+  "files": [
+    {
+      "path": "components/lib/db/schema.ts",
+      "role": "server",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/lib/db/index.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/db/seed-data.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/db-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/health/db/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "getDb",
+      "type": "function",
+      "import": "@/lib/db"
+    },
+    {
+      "name": "getPool",
+      "type": "function",
+      "import": "@/lib/db"
+    },
+    {
+      "name": "isDbConfigured",
+      "type": "function",
+      "import": "@/lib/db"
+    },
+    {
+      "name": "seedData",
+      "type": "constant",
+      "import": "@/lib/db/seed-data"
+    },
+    {
+      "name": "DbConfigNotice",
+      "type": "component",
+      "import": "@/components/db-config-notice"
+    }
+  ],
+  "lastVerified": "2026-04-17",
+  "sourceRepoUrl": "https://github.com/drizzle-team/drizzle-orm",
+  "notes": "Core database dossier (default for capability 'database'). Schema + seed data are rewrite targets for the app domain. Legacy import wave 2: lazy getDb()/getPool() (never module-level), schema path fixed for v2 emission, users/posts example schema removed, F2 seed-fallback contract added. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green, same rule as PR #422/#430).",
+  "promptInstructionMode": "selected-sections"
+}
