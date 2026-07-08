@@ -15,6 +15,7 @@ import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
+import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
 
 export const runtime = "nodejs";
 
@@ -458,6 +459,17 @@ export async function POST(req: Request) {
             { status: 400 },
           ),
         );
+      }
+
+      // Normalize: safe deterministic package.json repairs (same pass as the
+      // template route — e.g. framer-motion / motion-dom lockstep skew).
+      const importNormalize = normalizeImportedRepoFiles(importedFiles);
+      if (importNormalize.applied.length > 0) {
+        console.info(
+          "[API /engine/chats/init] Normalize applied on import:",
+          importNormalize.applied.join("; "),
+        );
+        importedFiles = importNormalize.files;
       }
 
       const creditCheck = await prepareCredits(

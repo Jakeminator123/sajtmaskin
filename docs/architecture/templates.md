@@ -20,7 +20,7 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
   → skapar projekt, navigerar /builder?templateId=<id>&buildIntent=template
   → useBuilderEffects auto-POSTar POST /api/template  ({ templateId, quality })
   → getLocalV0TemplateSourceById(id)      # lokal disk-override → annars Blob
-  → loadLocalV0TemplateFiles(id)          # ZIP → CodeFile[] VERBATIM
+  → loadLocalV0TemplateFiles(id)          # ZIP → CodeFile[] (verbatim + Normalize, se §4b)
   → createDraftVersion(..., editKind: "imported_repo")
   → startPreviewSession(files, { skipRepair: true, skipProjectScaffold: true })
   → preview-host (Fly VM): skriv filer → npm/pnpm/yarn install → npm run dev
@@ -48,6 +48,15 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 | Provenance | `editKind: "imported_repo"` | normal |
 
 **Vid follow-up-redigering** av en importerad mall körs `buildCompleteProject`, som mergar mot baselinen men **bara force-pinnar** `next`, `react`, `react-dom`, `lucide-react` (`BASELINE_PINNED_DEPS`). Allt annat (inkl. `tailwindcss`) behåller mallens version, och scaffold-filer injiceras bara om de **saknas**. Project-sanity-fel nedgraderas till varningar för `imported_repo`; render-safety-gates (home-route, merged-syntax) är kvar.
+
+### 4b. Normalize vid import (enda undantaget från verbatim)
+
+`normalizeImportedRepoFiles` (`src/lib/templates/normalize-imported-package-json.ts`) körs på både template-importen (`loadLocalV0TemplateFiles`) och ZIP/GitHub-importen (`/api/engine/chats/init`) och gör **en** deterministisk repair på rot-`package.json`:
+
+- **Motion lockstep-skew:** om `framer-motion` är exakt-pinnad `< 12.41.0` **utan** lockfil och utan egen `motion-dom`-deklaration injiceras `"overrides": { "motion-dom": "12.40.0" }`. Bakgrund: motion-paketen publiceras i lockstep; `motion-dom@12.41.0` tog bort interna `activeAnimations` som äldre `framer-motion` fortfarande importerar, så en färsk `npm install` ger `Export activeAnimations doesn't exist in target module` och previewn dör på boot (upstream: motiondivision/motion#3744, resend/react-email#3599).
+- Mallar **med** lockfil lämnas orörda (transitiva deps frysta; `npm ci` skulle avvisa en override som lockfilen inte speglar).
+
+Allt annat innehåll är fortfarande verbatim.
 
 ## 5. Hur katalogen genereras (kanonisk väg)
 
