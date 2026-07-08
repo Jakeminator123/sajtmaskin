@@ -777,6 +777,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         canSaveProject={Boolean(vm.chatId)}
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
+        deploymentInspectorUrl={vm.deploymentInspectorUrl}
         onRepublishWithFix={vm.republishWithFix}
         isRepublishRepairing={vm.isRepublishRepairing}
         liveDeploymentUrl={vm.liveDeploymentUrl}

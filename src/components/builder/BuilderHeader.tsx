@@ -126,6 +126,8 @@ export function BuilderHeader(props: {
   canSaveProject: boolean;
   deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
   deploymentUrl?: string | null;
+  /** A4: Vercels byggloggs-URL för den senaste (failade) publiceringen. */
+  deploymentInspectorUrl?: string | null;
   /** A3: kör manuell deploy-repair ("Publicera om med fix") vid build-fel. */
   onRepublishWithFix?: () => void;
   /** A3: sant medan deploy-repair körs (knappen visar spinner). */
@@ -193,6 +195,7 @@ export function BuilderHeader(props: {
     canSaveProject,
     deploymentStatus,
     deploymentUrl,
+    deploymentInspectorUrl,
     onRepublishWithFix,
     isRepublishRepairing,
     liveDeploymentUrl,
@@ -780,11 +783,35 @@ export function BuilderHeader(props: {
           </TooltipProvider>
         ) : null}
 
+        {/* A4: tydlig felstate när en publicering failat asynkront (Vercel-
+            build-fel). Ren presentation — visas oavsett om repair-knappen
+            (A3) är tillgänglig. Länken till byggloggarna är valfri (finns
+            inte alltid inspectorUrl). */}
+        {deploymentStatus === "error" ? (
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                Publiceringen misslyckades
+              </span>
+              {deploymentInspectorUrl ? (
+                <a
+                  href={deploymentInspectorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground text-[11px] underline underline-offset-2 hover:text-foreground"
+                >
+                  Visa byggloggar på Vercel
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {/* A3: en publicering som failat asynkront (Vercel-build-fel) får en
             MANUELL "Publicera om med fix"-knapp. Den kör en repair mot den
             failade versionen och guidar till accept + ompublicering — den
-            redeployar ALDRIG automatiskt (Ö3). Inget felkort/inspectorUrl här
-            (det gör A4). */}
+            redeployar ALDRIG automatiskt (Ö3). */}
         {deploymentStatus === "error" && onRepublishWithFix ? (
           <TooltipProvider>
             <Tooltip>
