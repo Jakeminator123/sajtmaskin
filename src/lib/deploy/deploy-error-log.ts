@@ -16,9 +16,8 @@
  * status-uppdatering. Auto-triggar ALDRIG någon repair (Ö3: repair körs bara på
  * manuell knapp). No-op om chatId/versionId saknas (t.ex. legacy-rader).
  */
-import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
-import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { emitVersionErrorLogs } from "@/lib/logging/event-bus-error-log-sink";
 
 /** Kort slug som binder ihop deploy-felets alla loggvägar. */
 export const DEPLOY_BUILD_ERROR_FAULT = "vercel-build-error";
@@ -61,25 +60,29 @@ export async function logDeployError(params: LogDeployErrorParams): Promise<void
     inspectorUrl: params.inspectorUrl ?? null,
   };
 
-  // 1) Durabel DB-rad. Kort lock-timeout så en samtidig verify/lease på
-  //    engine_versions-raden inte 500:ar den här best-effort-skrivningen.
+  // 1) Durabel DB-rad + observerbar signal via ETT bus-event. OMTAG-06:
+  //    `engine_version_error_logs` har en enda skrivare — bus-sinken
+  //    (`installDbErrorLogSubscriber`). Vi emit:ar därför via
+  //    `emitVersionErrorLogs` i stället för att BÅDE skriva direkt OCH emit:a
+  //    `version.build.error` (det gav två rader när sinken var laddad i samma
+  //    process). Att importera sink-modulen auto-installerar subscribern, så
+  //    raden skrivs pålitligt även i webhook-/poll-processen. Emit:en är också
+  //    den observerbara `version.build.error`-signalen. Triggar INTE någon
+  //    auto-repair (Ö3: repair körs bara på manuell knapp).
   try {
-    await createEngineVersionErrorLogs(
-      [
-        {
-          chatId,
-          versionId,
-          level: "error",
-          category: "deploy",
-          message,
-          meta,
-        },
-      ],
-      { lockTimeoutMs: 1500 },
-    );
+    emitVersionErrorLogs([
+      {
+        chatId,
+        versionId,
+        level: "error",
+        category: "deploy",
+        message,
+        meta,
+      },
+    ]);
   } catch (err) {
     console.warn(
-      "[deploy-error-log] Kunde inte spara engine_version_error_logs-rad (best-effort):",
+      "[deploy-error-log] Kunde inte logga deploy-fel via bus (best-effort):",
       err instanceof Error ? err.message : err,
     );
   }
@@ -99,27 +102,4 @@ export async function logDeployError(params: LogDeployErrorParams): Promise<void
     chatId,
     versionId,
   });
-
-  // 3) Bus-event — samma signal som preview-VM-build-felet. `emit` sväljer
-  //    disk-/subscriber-fel själv. Detta triggar INTE någon auto-repair; det
-  //    är enbart en observerbar signal (Ö3: repair körs bara på knapptryck).
-  try {
-    emitBusEvent({
-      t: "version.build.error",
-      versionId,
-      chatId,
-      error: {
-        stage: "vercel-deploy",
-        message,
-        failureCode: null,
-      },
-      level: "error",
-      category: "deploy",
-    });
-  } catch (err) {
-    console.warn(
-      "[deploy-error-log] Kunde inte emit:a version.build.error (best-effort):",
-      err instanceof Error ? err.message : err,
-    );
-  }
 }
