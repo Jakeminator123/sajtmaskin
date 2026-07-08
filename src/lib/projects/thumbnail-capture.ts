@@ -74,18 +74,31 @@ export async function captureThumbnailScreenshot(url: string): Promise<Buffer> {
       deviceScaleFactor: 1,
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      // VADE (PR #426): service-worker requests bypass route interception —
+      // block SWs outright (a thumbnail never needs them).
+      serviceWorkers: "block",
     });
 
-    // Abort every request (navigation, redirect hop, subresource) whose host
-    // fails the public-host guard — Chromium must never reach cloud metadata
-    // or other internal endpoints from the serverless runtime.
+    // Abort every request whose host fails the public-host guard — Chromium
+    // must never reach cloud metadata or other internal endpoints from the
+    // serverless runtime. Details (VADE findings, PR #426):
+    //  - CONTEXT-level routing so popup windows are covered too, not only the
+    //    main page.
+    //  - `route.fetch({ maxRedirects: 0 })` + fulfill: Playwright does NOT
+    //    re-intercept internal redirect hops, so redirects must not be
+    //    followed inside one interception. Fulfilling the raw 3xx makes the
+    //    browser issue the next hop as a NEW request, which goes through this
+    //    handler (and the host gate) again.
     const gate = buildCaptureRequestGate();
-    await page.route("**/*", async (route) => {
-      const allowed = await gate(route.request().url());
-      if (allowed) {
-        await route.continue().catch(() => undefined);
-      } else {
-        await route.abort("blockedbyclient").catch(() => undefined);
+    await page.context().route("**/*", async (route) => {
+      try {
+        if (!(await gate(route.request().url()))) {
+          return await route.abort("blockedbyclient");
+        }
+        const response = await route.fetch({ maxRedirects: 0 });
+        return await route.fulfill({ response });
+      } catch {
+        return route.abort("failed").catch(() => undefined);
       }
     });
 
