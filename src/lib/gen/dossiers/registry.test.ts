@@ -67,9 +67,25 @@ describe("isSafeDossierPath", () => {
     expect(isSafeDossierPath("hard", "stripe-checkout", "components/foo.ts")).toBe(true);
   });
 
+  // PR #396-klassen: literala Next.js catch-all-kataloger innehåller
+  // substrängen `..` men är inte traversal — en substring-check tappade
+  // dem tyst. Segment-checken ska släppa igenom dem.
+  it("accepts literal catch-all directory names ([...slug])", () => {
+    expect(
+      isSafeDossierPath("hard", "stripe-checkout", "files/app/docs/[...slug]/page.tsx"),
+    ).toBe(true);
+    expect(
+      isSafeDossierPath("hard", "stripe-checkout", "files/app/[[...slug]]/page.tsx"),
+    ).toBe(true);
+  });
+
   it("rejects parent traversal", () => {
     expect(isSafeDossierPath("hard", "stripe-checkout", "../bar")).toBe(false);
     expect(isSafeDossierPath("hard", "stripe-checkout", "components/../../../etc")).toBe(false);
+    // Traversal gömd EFTER en legitim catch-all-katalog ska fortfarande stoppas.
+    expect(
+      isSafeDossierPath("hard", "stripe-checkout", "files/app/[...slug]/../../../etc/passwd"),
+    ).toBe(false);
   });
 
   it("rejects absolute paths", () => {

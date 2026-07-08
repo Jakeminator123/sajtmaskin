@@ -11,7 +11,9 @@ const DEFAULT_TIER3_STUB_FRAGMENT = "41-tier3-stub-placeholders.env.txt";
 export type PlaceholderTier = "harmless" | "tier3-stub";
 
 function safeFragmentName(name: string): string {
-  if (name.includes("..") || name.startsWith("/") || name.startsWith("\\")) {
+  // Plain filename under config/ai_models/ (manifest-styrd, aldrig genererad
+  // kod) — konservativ substring-avvisning kan inte tappa legitima filer.
+  if (name.includes("..") || name.startsWith("/") || name.startsWith("\\")) { // traversal-substring-allow
     throw new Error(
       `[sajtmaskin] generatedSiteIntegrationPlaceholders fragment must be a plain filename under config/ai_models/: got "${name}"`,
     );

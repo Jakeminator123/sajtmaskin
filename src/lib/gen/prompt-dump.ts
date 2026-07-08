@@ -114,11 +114,13 @@ export function writeLatestPromptDump(
   }
 
   mkdirSync(dir, { recursive: true });
+  // Dump-namn är platta filnamn (`/` och `\` avvisas), så substring-`..`
+  // kan aldrig tappa en legitim fil — konservativ avvisning OK.
   const writtenFiles = Object.keys(files).filter(
-    (name) => name && !name.includes("..") && !name.includes("/") && !name.includes("\\"),
+    (name) => name && !name.includes("..") && !name.includes("/") && !name.includes("\\"), // traversal-substring-allow
   );
   for (const [name, content] of Object.entries(files)) {
-    if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) continue;
+    if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) continue; // traversal-substring-allow
     writeFileSync(join(dir, name), content, "utf8");
   }
   writePromptDumpMeta(dir, {

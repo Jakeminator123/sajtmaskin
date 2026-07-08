@@ -29,7 +29,9 @@ function checkManifestFile(manifestPath) {
 
   const parts = [];
   for (const rel of fr) {
-    if (typeof rel !== "string" || rel.includes("..")) {
+    // Segmentbaserad (PR #396-klassen): speglar hasTraversalSegment() i
+    // src/lib/utils/path-utils.ts (kan inte importeras från .mjs).
+    if (typeof rel !== "string" || rel.split("/").some((s) => s === ".." || s === ".")) {
       console.error("[check-systemprompt] Bad fragment entry:", rel);
       process.exit(1);
     }

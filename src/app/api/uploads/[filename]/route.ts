@@ -19,8 +19,10 @@ export async function GET(
   try {
     const { filename } = await params;
 
-    // Security: Prevent directory traversal
-    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+    // Security: Prevent directory traversal. Substring check is safe here:
+    // `/` and `\` are rejected on the same line, so no path segments can
+    // exist and the conservative match cannot drop legit route files.
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) { // traversal-substring-allow
       return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
     }
 
