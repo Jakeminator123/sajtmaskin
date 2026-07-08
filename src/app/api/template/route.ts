@@ -25,6 +25,7 @@ import {
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 
 // Allow 5 minutes for own-engine generation
@@ -205,6 +206,45 @@ async function initializeLocalTemplateProject(params: {
       "[API /template] Preview session failed — version saved without live preview:",
       previewSessionStarted.error.stage,
       previewSessionStarted.error.message,
+    );
+  }
+
+  // Imported templates skip the generation preflight (skipRepair +
+  // skipProjectScaffold), so run the hydration-risk detector here too and log a
+  // best-effort advisory. This surfaces v0 templates that render with
+  // Math.random()/Date.now() (hydration mismatch) as a builder warning instead
+  // of leaving the user with only an opaque console error. Never throws.
+  try {
+    const hydrationIssues = runHydrationPreflightChecks(
+      imported.files.map((f) => ({ path: f.path, content: f.content, language: "tsx" })),
+    );
+    if (hydrationIssues.length > 0) {
+      const { createEngineVersionErrorLogs } = await import(
+        "@/lib/db/services/version-errors"
+      );
+      await createEngineVersionErrorLogs(
+        [
+          {
+            chatId: chat.id,
+            versionId: version.id,
+            level: "warning",
+            category: "preview",
+            message: `Importerad mall använder icke-deterministisk render (${hydrationIssues
+              .map((i) => i.pattern)
+              .join(", ")}) och kan ge hydration-fel i previewn.`,
+            meta: {
+              source: "template-import.hydration-preflight",
+              issues: hydrationIssues.slice(0, 20),
+            },
+          },
+        ],
+        { lockTimeoutMs: 1500 },
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "[API /template] Hydration advisory logging failed (non-blocking):",
+      error instanceof Error ? error.message : error,
     );
   }
 
