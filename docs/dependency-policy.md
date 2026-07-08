@@ -58,6 +58,8 @@ Dessa kan **aldrig** auto-mergas — **inte ens en patch**. En version-bump krä
 
 Därför är samma paket blockerade i `core_regex`-blocklistan i auto-merge-workflow:et — en Dependabot-patch på ett baseline-pinnat paket labelas aldrig som `dependabot-patch-safe` och tas manuellt. Bakgrund: PR #399 (`@react-three/fiber` 9.6.0→9.6.1, patch) föll på just detta parity-test.
 
+Samma paket är dessutom **uteslutna ur Dependabots grupperingar** (`exclude-patterns` i `npm-production-patch` och `npm-low-risk-minor` i [`.github/dependabot.yml`](../.github/dependabot.yml)) så att deras bumpar kommer som **isolerade PR:ar** i stället för att dra en "ren" grupp-PR röd. Annars skapar Dependabot varje vecka en grupp-PR som alltid går rött på parity-testet — motsatsen till låg risk (t.ex. #401 där `lucide-react`-minorn låg i `npm-low-risk-minor`-gruppen).
+
 ## Manuell månadsrutin
 
 En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:

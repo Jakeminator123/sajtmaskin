@@ -24,6 +24,16 @@ updates:
           - "patch"
         patterns:
           - "*"
+        # Baseline-pinned packages are exact-locked (major.minor.patch) in the
+        # scaffold baseline (KNOWN_PACKAGES / project-scaffold.ts); even a patch
+        # breaks project-scaffold-baseline-parity.test.ts unless the pin is synced
+        # in the same commit. Keep them OUT of the auto-groupable patch bundle so
+        # they arrive as isolated manual PRs (see docs/dependency-policy.md
+        # "Baseline-pinnade paket"). E.g. #399 @react-three/fiber 9.6.0->9.6.1.
+        exclude-patterns:
+          - "three"
+          - "@react-three/*"
+          - "lucide-react"
       npm-development-patch:
         dependency-type: "development"
         update-types:
@@ -35,7 +45,6 @@ updates:
           - "minor"
         patterns:
           - "@radix-ui/*"
-          - "lucide-react"
           - "nanoid"
           - "swr"
           - "tailwind-merge"
@@ -59,6 +68,9 @@ updates:
           - "stripe"
           - "openai"
           - "recharts"
+          # Baseline-pinned (exact major.minor.patch): its minors must be pin-synced
+          # manually, never grouped as "low-risk" (see "Baseline-pinnade paket").
+          - "lucide-react"
     # Majors are handled manually per domain (see docs/dependency-policy.md).
     # Security updates are exempt from version-update ignores and still surface.
     ignore:
