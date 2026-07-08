@@ -242,7 +242,18 @@ export function validateDossierImportClosure(
 ): ImportClosureIssue[] {
   const issues: ImportClosureIssue[] = [];
   const manifestFiles = manifest.files ?? [];
-  const dossierFileSet = new Set(manifestFiles.map((f) => normalizeFilePath(f.path)));
+  // Match both the staged dossier path (components/lib/x.ts) AND the emitted
+  // user-project path (lib/x.ts via mapDossierPathToOutput). Imports in
+  // dossier code target the EMITTED location (`@/lib/...`), same contract the
+  // exposes cross-check above already validates against — without the mapped
+  // set, any dossier that imports its own components/lib/ helper would
+  // false-fail closure (surfaced by ably-realtime / fal-image-generation).
+  const dossierFileSet = new Set(
+    manifestFiles.flatMap((f) => [
+      normalizeFilePath(f.path),
+      normalizeFilePath(mapDossierPathToOutput(f.path)),
+    ]),
+  );
   const normalizedScaffoldSet = new Set(Array.from(scaffoldFileSet, normalizeFilePath));
 
   for (const fileEntry of manifestFiles) {

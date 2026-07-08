@@ -134,6 +134,15 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@stripe/stripe-js": "^8",
   "@clerk/nextjs": "^6",
   "resend": "^6",
+  // Dossier wave 1 (legacy import 2026-07-08): ably-realtime,
+  // fal-image-generation, ai-tool-calling-chat. `ai` + `@ai-sdk/*` are pinned
+  // to the same generation so a generated site always gets ONE consistent
+  // AI SDK major (ai-tool-calling-chat REVIEW requirement).
+  "ably": "^2",
+  "ai": "^7",
+  "@ai-sdk/openai": "^4",
+  "@ai-sdk/fal": "^3",
+  "@ai-sdk/react": "^4",
 };
 
 /**

@@ -349,4 +349,44 @@ export function Foo() {
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
+
+  // Dossier wave 1 (2026-07-08): a dossier file staged at components/lib/x.ts
+  // EMITS to lib/x.ts (mapDossierPathToOutput), so sibling code imports it via
+  // `@/lib/x`. The closure check must resolve against the emitted path too —
+  // pre-fix, ably-realtime's provider importing `@/lib/ably/client` (staged at
+  // components/lib/ably/client.ts) false-failed with not_in_files.
+  it("resolverar imports mot den emitterade sökvägen (components/lib → lib)", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "dossier-import-closure-"));
+    try {
+      mkdirSync(join(tempRoot, "components/lib"), { recursive: true });
+      writeFileSync(
+        join(tempRoot, "components/lib/helper.ts"),
+        `export const helper = () => 42;\n`,
+        "utf8",
+      );
+      writeFileSync(
+        join(tempRoot, "components/widget.tsx"),
+        `import { helper } from "@/lib/helper";
+
+export function Widget() {
+  return <span>{helper()}</span>;
+}
+`,
+        "utf8",
+      );
+      const issues = validateDossierImportClosure(
+        {
+          files: [
+            { path: "components/lib/helper.ts", role: "shared" },
+            { path: "components/widget.tsx", role: "client" },
+          ],
+        },
+        tempRoot,
+        new Set(["app/page.tsx", "app/layout.tsx"]),
+      );
+      expect(issues).toEqual([]);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
 });
