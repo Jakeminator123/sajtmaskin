@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isServerVerifyExpectedForLifecycle,
+  resolveDeployReleaseGate,
   resolveEngineVersionLifecycleStatus,
   resolveEngineVersionVerificationSurfaceStatus,
   canExposeEnginePreview,
@@ -94,6 +95,92 @@ describe("resolveEngineVersionVerificationSurfaceStatus", () => {
     expect(resolveEngineVersionVerificationSurfaceStatus({ releaseState: "promoted" })).toBe(
       "verified",
     );
+  });
+});
+
+// Publicera-lås (Ö1): hård gate för F3/integrations (endast bevisat grön —
+// passed eller promoted), mjuk för F2/design (bara failed blockerar).
+describe("resolveDeployReleaseGate", () => {
+  const notGreenStates = ["pending", "verifying", "repairing", "repair_available"] as const;
+
+  it("blocks every not-yet-green F3 (integrations) state with DEPLOY_RELEASE_GATE_NOT_GREEN", () => {
+    for (const state of notGreenStates) {
+      const gate = resolveDeployReleaseGate({
+        lifecycle_stage: "integrations",
+        verification_state: state,
+      });
+      expect(gate.allowed).toBe(false);
+      expect(gate.code).toBe("DEPLOY_RELEASE_GATE_NOT_GREEN");
+      expect(gate.message).toMatch(/ReleaseGate/);
+    }
+  });
+
+  it("allows F3 when verification_state is passed", () => {
+    expect(
+      resolveDeployReleaseGate({ lifecycle_stage: "integrations", verification_state: "passed" }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("allows F3 when release_state is promoted (even if verification_state is not passed)", () => {
+    expect(
+      resolveDeployReleaseGate({
+        lifecycle_stage: "integrations",
+        release_state: "promoted",
+        verification_state: "pending",
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("blocks failed F3 with DEPLOY_VERSION_FAILED — even when promoted", () => {
+    const gate = resolveDeployReleaseGate({
+      lifecycle_stage: "integrations",
+      verification_state: "failed",
+    });
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe("DEPLOY_VERSION_FAILED");
+
+    const promotedButFailed = resolveDeployReleaseGate({
+      lifecycle_stage: "integrations",
+      release_state: "promoted",
+      verification_state: "failed",
+    });
+    expect(promotedButFailed.allowed).toBe(false);
+    expect(promotedButFailed.code).toBe("DEPLOY_VERSION_FAILED");
+  });
+
+  it("allows every non-failed F2 (design) state — soft gate, server-verify never runs", () => {
+    for (const state of [...notGreenStates, "passed"] as const) {
+      expect(
+        resolveDeployReleaseGate({ lifecycle_stage: "design", verification_state: state }),
+      ).toEqual({ allowed: true });
+    }
+  });
+
+  it("blocks failed F2 with DEPLOY_VERSION_FAILED", () => {
+    const gate = resolveDeployReleaseGate({
+      lifecycle_stage: "design",
+      verification_state: "failed",
+    });
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe("DEPLOY_VERSION_FAILED");
+  });
+
+  it("treats legacy rows without lifecycle_stage as design (soft)", () => {
+    expect(resolveDeployReleaseGate({ verification_state: "pending" })).toEqual({ allowed: true });
+    expect(resolveDeployReleaseGate({})).toEqual({ allowed: true });
+    expect(resolveDeployReleaseGate(null)).toEqual({ allowed: true });
+    expect(resolveDeployReleaseGate(undefined)).toEqual({ allowed: true });
+  });
+
+  it("reads camelCase fields too", () => {
+    expect(
+      resolveDeployReleaseGate({ lifecycleStage: "integrations", verificationState: "verifying" })
+        .allowed,
+    ).toBe(false);
+    expect(
+      resolveDeployReleaseGate({ lifecycleStage: "integrations", releaseState: "promoted" })
+        .allowed,
+    ).toBe(true);
   });
 });
 

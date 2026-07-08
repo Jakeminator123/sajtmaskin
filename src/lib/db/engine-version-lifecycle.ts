@@ -147,6 +147,57 @@ export function resolveEngineVersionVerificationSurfaceStatus(
   return "unverified";
 }
 
+export type DeployReleaseGateResult = {
+  allowed: boolean;
+  code?: "DEPLOY_VERSION_FAILED" | "DEPLOY_RELEASE_GATE_NOT_GREEN";
+  message?: string;
+};
+
+/**
+ * Publicera-lås (Ö1): avgör om en version får publiceras via
+ * `POST /api/v0/deployments`.
+ *
+ * - F3 (`integrations`): hård gate — deploy tillåts ENDAST när versionen är
+ *   bevisat grön, dvs. `verification_state === "passed"` ELLER
+ *   `release_state === "promoted"`. Allt annat (pending/verifying/repairing/
+ *   repair_available) blockeras med `DEPLOY_RELEASE_GATE_NOT_GREEN` —
+ *   ReleaseGate (typecheck + build + lint) måste passera först.
+ * - F2 (`design`): mjuk gate — server-verify körs aldrig
+ *   (`design_preview_skip_verify`), så staten stannar typiskt `pending`.
+ *   Endast `verification_state === "failed"` blockerar.
+ * - `failed` blockerar i BÅDA stadierna (även om raden råkar vara promoted):
+ *   en underkänd quality gate får aldrig publiceras.
+ */
+export function resolveDeployReleaseGate(
+  version: EngineVersionLifecycleLike | null | undefined,
+): DeployReleaseGateResult {
+  const verificationState = version?.verificationState ?? version?.verification_state ?? null;
+  const releaseState = version?.releaseState ?? version?.release_state ?? null;
+
+  if (verificationState === "failed") {
+    return {
+      allowed: false,
+      code: "DEPLOY_VERSION_FAILED",
+      message:
+        "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
+    };
+  }
+
+  if (resolveEngineVersionLifecycleStage(version) === "integrations") {
+    if (verificationState === "passed" || releaseState === "promoted") {
+      return { allowed: true };
+    }
+    return {
+      allowed: false,
+      code: "DEPLOY_RELEASE_GATE_NOT_GREEN",
+      message:
+        'Integrationsversionen (F3) har inte passerat ReleaseGate (typecheck + build + lint) ännu och kan inte publiceras. Kör "Bygg integrationer" eller verifiera om, och publicera när versionen är grön.',
+    };
+  }
+
+  return { allowed: true };
+}
+
 export function canExposeEnginePreview(
   version: EngineVersionLifecycleLike | null | undefined,
 ): boolean {

@@ -33,6 +33,7 @@ import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
+import { resolveDeployReleaseGate } from "@/lib/db/engine-version-lifecycle";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
@@ -449,16 +450,22 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
       const { chat: engineChat, version: engineVersion } = scoped;
-      // A version that failed the quality gate (typecheck/build) must not be
-      // publishable. The readiness UI surfaces this as a blocker; enforce it
-      // server-side too so the deploy API can't be called directly with a
-      // failed version (preview is unaffected — this is the publish path).
-      if (engineVersion.verification_state === "failed") {
+      // Publicera-lås (Ö1): hård ReleaseGate för F3/integrations — endast
+      // bevisat gröna versioner (`verification_state === "passed"` eller
+      // `release_state === "promoted"`) får publiceras. F2/design behåller
+      // det mjuka beteendet: bara `failed` blockerar. Preview påverkas inte —
+      // detta är publish-vägen. `precheckOnly` rapporterar F3-gate-status i
+      // svaret (`releaseGate`) i stället för att kasta, men `failed` ger
+      // alltid 409 precis som tidigare.
+      const releaseGate = resolveDeployReleaseGate(engineVersion);
+      if (
+        !releaseGate.allowed &&
+        (releaseGate.code === "DEPLOY_VERSION_FAILED" || !precheckOnly)
+      ) {
         return NextResponse.json(
           {
-            error:
-              "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
-            code: "DEPLOY_VERSION_FAILED",
+            error: releaseGate.message,
+            code: releaseGate.code,
           },
           { status: 409 },
         );
@@ -589,6 +596,10 @@ export async function POST(req: Request) {
           versionId,
           projectId: engineProjectId,
           deployReadiness,
+          // Publicera-låsets status (Ö1): en skarp deploy av samma version
+          // skulle 409:a när `allowed` är false — precheck rapporterar i
+          // stället så UI:t kan visa blockern tillsammans med env-status.
+          releaseGate,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,
