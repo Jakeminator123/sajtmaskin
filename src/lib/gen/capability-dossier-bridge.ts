@@ -11,6 +11,10 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needsParallax", dossierCapabilities: ["parallax-scroll", "parallax-pointer"] },
   { flag: "needsPayments", dossierCapabilities: ["payments"] },
   { flag: "needsAuth", dossierCapabilities: ["auth"] },
+  // Codex P1 (#445): without this bridge a no-brief init ("booking app that
+  // saves bookings in Postgres") sets needsDatabase but selects no database
+  // dossier at all — unlike the auth/payments fallback path.
+  { flag: "needsDatabase", dossierCapabilities: ["database"] },
   { flag: "needsForms", dossierCapabilities: ["contact-form"] },
   { flag: "needsCarousel", dossierCapabilities: ["carousel"] },
   { flag: "needsCommandSearch", dossierCapabilities: ["command-search"] },

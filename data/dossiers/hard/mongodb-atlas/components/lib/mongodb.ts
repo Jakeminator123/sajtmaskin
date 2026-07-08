@@ -8,14 +8,20 @@ declare global {
 }
 
 /**
- * True when a MongoDB Atlas connection string is configured. Server code MUST
- * branch on this before touching the database: when it returns false, render
- * static fallback content (`seedData` from `@/lib/seed-data`) with a discreet
- * `<DbConfigNotice />` instead of querying — never crash the page and never
- * surface raw connection errors to visitors.
+ * True when a REAL MongoDB Atlas connection string is configured. Server code
+ * MUST branch on this before touching the database: when it returns false,
+ * render static fallback content (`seedData` from `@/lib/seed-data`) with a
+ * discreet `<DbConfigNotice />` instead of querying — never crash the page and
+ * never surface raw connection errors to visitors.
+ *
+ * Preview stubs (e.g. `mongodb+srv://preview:preview@placeholder.mongodb.net`)
+ * count as NOT configured — querying them yields timeouts/500s instead of the
+ * promised seed-fallback path.
  */
 export function isDbConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI && process.env.MONGODB_URI.trim().length > 0);
+  const uri = process.env.MONGODB_URI?.trim();
+  if (!uri) return false;
+  return !/preview|placeholder/i.test(uri);
 }
 
 let productionClientPromise: Promise<MongoClient> | null = null;

@@ -248,6 +248,22 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
     expect(hyphenDb.selected[0]?.entry.id).toBe("neon-postgres");
   });
 
+  it("picks neon-postgres across a preposition ('use Neon for the database')", () => {
+    // Codex P2 (#445): DB-flavoured Neon intent with a connector between the
+    // provider and the database noun must still reach the sibling.
+    const en = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "use Neon for the database",
+    });
+    expect(en.selected[0]?.entry.id).toBe("neon-postgres");
+
+    const sv = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "använd Neon för databasen",
+    });
+    expect(sv.selected[0]?.entry.id).toBe("neon-postgres");
+  });
+
   it("picks neon-postgres on the natural 'Neon Postgres' phrasing", () => {
     // The default postgres-drizzle deliberately carries NO relevanceKeywords
     // (it is the fallback), so the "postgres" in "Neon Postgres" must not pull

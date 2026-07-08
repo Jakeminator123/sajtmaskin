@@ -6,14 +6,20 @@ import { Pool } from 'pg';
 import * as schema from './schema';
 
 /**
- * True when a PostgreSQL connection string is configured. Server code MUST
- * branch on this before touching the database: when it returns false, render
- * static fallback content (`seedData` from `@/lib/db/seed-data`) with a
- * discreet `<DbConfigNotice />` instead of querying — never crash the page
+ * True when a REAL PostgreSQL connection string is configured. Server code
+ * MUST branch on this before touching the database: when it returns false,
+ * render static fallback content (`seedData` from `@/lib/db/seed-data`) with
+ * a discreet `<DbConfigNotice />` instead of querying — never crash the page
  * and never surface raw connection errors to visitors.
+ *
+ * Preview stubs (e.g. `postgresql://preview:preview@127.0.0.1:5432/preview`)
+ * count as NOT configured — querying them yields timeouts/500s instead of the
+ * promised seed-fallback path.
  */
 export function isDbConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim().length > 0);
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) return false;
+  return !/preview|placeholder/i.test(url);
 }
 
 type Db = NodePgDatabase<typeof schema>;
