@@ -131,5 +131,15 @@ export function useDeploymentHistory(chatId: string | null) {
     };
   }, [deployments]);
 
-  return { deployments, project, liveDeployment, isLoading, loadError, refetch };
+  const hydrationFailed = loadError && retryToken >= MAX_HYDRATION_RETRIES;
+
+  return {
+    deployments,
+    project,
+    liveDeployment,
+    isLoading,
+    loadError,
+    hydrationFailed,
+    refetch,
+  };
 }

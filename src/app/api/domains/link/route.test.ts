@@ -122,4 +122,31 @@ describe("POST /api/domains/link", () => {
     expect(res.status).toBe(404);
     expect(addDomainToProject).not.toHaveBeenCalled();
   });
+
+  it("returns linked=true with success=false when automatic DNS setup fails", async () => {
+    isLoopiaConfigured.mockReturnValue(true);
+    addZoneRecord.mockResolvedValueOnce("OK").mockResolvedValueOnce("ZONE_ERROR");
+
+    const res = await POST(linkRequest({ domain: "mittforetag.se", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.linked).toBe(true);
+    expect(body.success).toBe(false);
+    expect(body.dnsSetup).toMatchObject({ success: false, method: "loopia" });
+    expect(body.dnsInstructions).not.toBeNull();
+  });
+
+  it("returns success=true when automatic DNS setup succeeds", async () => {
+    isLoopiaConfigured.mockReturnValue(true);
+    addZoneRecord.mockResolvedValue("OK");
+
+    const res = await POST(linkRequest({ domain: "mittforetag.se", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.linked).toBe(true);
+    expect(body.success).toBe(true);
+    expect(body.dnsSetup).toMatchObject({ success: true, method: "loopia" });
+  });
 });

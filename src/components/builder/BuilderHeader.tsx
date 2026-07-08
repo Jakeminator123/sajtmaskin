@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertTriangle,
   Bot,
   ChevronDown,
   Download,
@@ -129,6 +130,9 @@ export function BuilderHeader(props: {
    * "Publicera ändringar" together with `activeVersionId`. */
   liveDeploymentUrl?: string | null;
   liveDeploymentVersionId?: string | null;
+  /** True when publish-state hydration failed after automatic retries. */
+  deploymentHistoryHydrationFailed?: boolean;
+  onRetryDeploymentHistory?: () => void;
   deployDisabledReason?: string | null;
 }) {
   const {
@@ -187,6 +191,8 @@ export function BuilderHeader(props: {
     deploymentUrl,
     liveDeploymentUrl,
     liveDeploymentVersionId,
+    deploymentHistoryHydrationFailed,
+    onRetryDeploymentHistory,
     deployDisabledReason,
   } = props;
 
@@ -742,6 +748,31 @@ export function BuilderHeader(props: {
           <Globe className="h-4 w-4" />
           <span className="hidden sm:inline">Domän</span>
         </Button>
+
+        {deploymentHistoryHydrationFailed ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-500/60 text-amber-600 dark:text-amber-400"
+                  onClick={() => onRetryDeploymentHistory?.()}
+                  aria-label="Kunde inte hämta publiceringsstatus"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Status</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-sm text-xs">
+                <p>
+                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan
+                  visa fel läge tills du försöker igen.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
 
         {(() => {
           // In-session build always wins (SSE), so the button reflects the
