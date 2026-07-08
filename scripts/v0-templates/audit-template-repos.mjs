@@ -47,6 +47,21 @@ const INTEGRATION_MAP = {
 // cross-framework markers (v0 "kitchen sink" package.json)
 const CROSS_FRAMEWORK = [/^svelte$/, /^@sveltejs\//, /^vue$/, /^vue-router$/, /^@remix-run\//, /^solid-js$/, /^@angular\//, /^nuxt$/, /^@builder\.io\/qwik$/];
 
+// Packages published in LOCKSTEP with internal cross-package imports. `framer-motion`/
+// `motion` import internals (e.g. `activeAnimations`) from their sibling `motion-dom`,
+// which is only guaranteed to match AT THE SAME VERSION. If the top-level parent is
+// EXACT-pinned while `motion-dom` is left to float transitively (`^`), a later sibling
+// release can drop an internal the pinned parent still imports -> Turbopack build dies
+// with `Export X doesn't exist in target module … motion-dom`. Since imports run verbatim
+// (skipRepair/skipProjectScaffold) and install is lockfile/registry-driven with no dep
+// pinning, this breaks the preview on start. Detect the exact-pin-without-sibling shape.
+const MOTION_PARENTS = ["framer-motion", "motion"];
+const MOTION_LOCKSTEP = new Set([...MOTION_PARENTS, "motion-dom", "motion-utils"]);
+function isExactPin(range) {
+  // exact = a bare semver (optionally `=`-prefixed). `^`/`~`/`>=`/`*`/`latest`/`x` are ranges.
+  return typeof range === "string" && /^\s*=?\d+\.\d+\.\d+(?:[-+].*)?\s*$/.test(range);
+}
+
 // Env keys sajtmaskin auto-fills into preview .env.local (harmless + tier3-stub layers,
 // src/lib/gen/preview/env-local.ts) + deterministic project-preview tokens
 // (src/lib/gen/preview/project-preview-env.ts). Any referenced key OUTSIDE this set is
@@ -192,6 +207,7 @@ async function analyzeZipBuffer(buffer, meta) {
     hasDevScript: false, devScript: null, lockfile: "none",
     nextVersion: null, reactVersion: null, tailwindVersion: null, tailwindSignal: "unknown", tsVersion: null,
     depCount: 0, crossFrameworkDeps: [], integrations: {},
+    motionDeps: {}, motionDomExplicit: false, lockstepPinRisk: [],
     envRefCount: 0, envUncovered: [], envUncoveredServer: [], envFilesShipped: [],
     envPlacement: "none", envPlacementDetail: [],
     issues: [],
@@ -258,12 +274,25 @@ async function analyzeZipBuffer(buffer, meta) {
       else if (rec.tailwindVersion) rec.tailwindSignal = `v${twMajor ?? "?"}`;
       else rec.tailwindSignal = "none";
       const intAcc = {};
-      for (const name of Object.keys(deps)) {
+      const motionAcc = {};
+      for (const [name, ver] of Object.entries(deps)) {
         const b = bucketForDep(name);
         if (b) (intAcc[b] ||= []).push(name);
         if (CROSS_FRAMEWORK.some((re) => re.test(name))) rec.crossFrameworkDeps.push(name);
+        if (MOTION_LOCKSTEP.has(name)) motionAcc[name] = ver;
       }
       rec.integrations = intAcc;
+      rec.motionDeps = motionAcc;
+      rec.motionDomExplicit = Boolean(motionAcc["motion-dom"]);
+      // Risk = a motion PARENT is exact-pinned AND `motion-dom` is not explicitly listed
+      // (so it floats transitively to whatever the registry ships at install time).
+      if (!rec.motionDomExplicit) {
+        for (const parent of MOTION_PARENTS) {
+          if (motionAcc[parent] && isExactPin(motionAcc[parent])) {
+            rec.lockstepPinRisk.push(`${parent}@${motionAcc[parent]}`);
+          }
+        }
+      }
     } catch { rec.issues.push("package-json-unparseable"); }
   }
 
@@ -334,6 +363,7 @@ async function analyzeZipBuffer(buffer, meta) {
   if (reactMajor !== null && reactMajor !== BASELINE.react) rec.issues.push(`react-major-drift(${reactMajor}!=${BASELINE.react})`);
   if (rec.tailwindSignal === "v3") rec.issues.push("tailwind-v3-drift");
   if (rec.crossFrameworkDeps.length) rec.issues.push(`kitchen-sink(${rec.crossFrameworkDeps.length})`);
+  if (rec.lockstepPinRisk.length) rec.issues.push(`lockstep-pin-risk(${rec.lockstepPinRisk.join(",")})`);
   const intBuckets = Object.keys(rec.integrations);
   if (intBuckets.length) rec.issues.push(`needs-backend(${intBuckets.join("/")})`);
   if (rec.envUncoveredServer.length) rec.issues.push(`env-missing-server(${rec.envUncoveredServer.length})`);
@@ -490,6 +520,30 @@ async function main() {
 
   const kitchen = countIssue(records, "kitchen-sink");
   L(`\n-- 'Kitchen-sink' cross-framework deps (svelte/vue/remix in a Next app): ${kitchen}  ${pct(kitchen, total)} --`);
+
+  L("\n-- Lockstep dep skew (framer-motion/motion exact-pinned, motion-dom floats -> build crash) --");
+  const usesMotion = records.filter((r) => Object.keys(r.motionDeps || {}).length > 0);
+  const motionParentUsers = records.filter((r) => MOTION_PARENTS.some((p) => (r.motionDeps || {})[p]));
+  const lockstepRisk = records.filter((r) => (r.lockstepPinRisk || []).length > 0);
+  const lockstepRiskVisible = lockstepRisk.filter((r) => r.galleryVisible === true);
+  const domExplicit = motionParentUsers.filter((r) => r.motionDomExplicit);
+  L(`  uses any motion package .................... ${usesMotion.length}  ${pct(usesMotion.length, total)}`);
+  L(`  uses framer-motion/motion (parent) ........ ${motionParentUsers.length}  ${pct(motionParentUsers.length, total)}`);
+  L(`  EXACT-pin risk (parent pinned, no motion-dom) ${lockstepRisk.length}  (klickbara: ${lockstepRiskVisible.length})`);
+  L(`  parent + explicit motion-dom (safer) ...... ${domExplicit.length}`);
+  const pinTally = {};
+  for (const r of lockstepRisk) for (const p of r.lockstepPinRisk) pinTally[p] = (pinTally[p] || 0) + 1;
+  const topPins = Object.entries(pinTally).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  if (topPins.length) {
+    L("  most common exact pins at risk:");
+    for (const [k, n] of topPins) L(`     ${String(k).padEnd(24)} ${n}`);
+  }
+  if (lockstepRiskVisible.length) {
+    L("  gallery-visible templates at risk (first 20):");
+    for (const r of lockstepRiskVisible.slice(0, 20)) {
+      L(`     [${String(r.category || "?").padEnd(16)}] ${String(r.id).padEnd(14)} :: ${r.lockstepPinRisk.join(", ")}`);
+    }
+  }
 
   L("\n-- ENV: reads process.env & is it auto-filled? --");
   const readsEnv = records.filter((r) => (r.envRefCount || 0) > 0).length;

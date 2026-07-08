@@ -5,6 +5,7 @@ import process from "node:process";
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
+import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
 import blobManifestData from "./template-blob-manifest.json";
 
 const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.jsonl");
@@ -374,10 +375,21 @@ export async function loadLocalV0TemplateFiles(
   if (!source) return null;
 
   const buffer = await readArchiveBuffer(source);
-  const files = await extractImportedFilesFromZip(buffer);
-  if (files.length === 0) {
+  const extracted = await extractImportedFilesFromZip(buffer);
+  if (extracted.length === 0) {
     throw new Error("No supported text files found in local template archive");
   }
 
-  return { source, files };
+  // Normalize: safe deterministic package.json repairs (e.g. the
+  // framer-motion / motion-dom lockstep skew) before the files reach the
+  // draft version + preview host. Everything else stays verbatim.
+  const normalized = normalizeImportedRepoFiles(extracted);
+  if (normalized.applied.length > 0) {
+    console.info(
+      `[local-v0-template-source] Normalize applied for template ${templateId}:`,
+      normalized.applied.join("; "),
+    );
+  }
+
+  return { source, files: normalized.files };
 }
