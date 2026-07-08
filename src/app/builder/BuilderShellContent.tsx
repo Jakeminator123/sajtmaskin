@@ -779,6 +779,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentUrl={vm.deploymentUrl}
         liveDeploymentUrl={vm.liveDeploymentUrl}
         liveDeploymentVersionId={vm.liveDeploymentVersionId}
+        deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}
+        onRetryDeploymentHistory={vm.refetchDeploymentHistory}
         deployDisabledReason={deployDisabledReason}
       />
       <ModelTraceOverlay

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { ExternalLink, Github, Loader2 } from "lucide-react";
 
 type GitHubExportDialogProps = {
@@ -78,6 +79,8 @@ function GitHubExportDialogForm({
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const privateId = useId();
 
   const oauthReturnTo =
@@ -112,7 +115,12 @@ function GitHubExportDialogForm({
       if (!res.ok) {
         throw new Error(data?.error || `Export misslyckades (HTTP ${res.status})`);
       }
-      setSuccessUrl(data?.repoUrl || null);
+      if (!data?.repoUrl) {
+        throw new Error(
+          "Exporten lyckades men inget repo returnerades. Försök igen om en stund.",
+        );
+      }
+      setSuccessUrl(data.repoUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunde inte exportera till GitHub");
     } finally {
@@ -132,13 +140,38 @@ function GitHubExportDialogForm({
       {!isAuthenticated ? (
         <div className="space-y-3">
           <p className="text-muted-foreground text-sm">
-            Logga in för att kunna exportera till GitHub.
+            Logga in eller skapa ett konto för att exportera koden till GitHub.
           </p>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Stäng
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAuthMode("login");
+                setShowAuthModal(true);
+              }}
+            >
+              Logga in
+            </Button>
+            <Button
+              onClick={() => {
+                setAuthMode("register");
+                setShowAuthModal(true);
+              }}
+            >
+              Skapa gratis konto
+            </Button>
           </div>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => {
+              setShowAuthModal(false);
+              onClose();
+            }}
+            defaultMode={authMode}
+          />
         </div>
       ) : !hasGitHub ? (
         <div className="space-y-3">

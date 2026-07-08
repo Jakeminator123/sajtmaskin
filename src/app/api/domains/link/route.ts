@@ -130,8 +130,12 @@ export async function POST(req: NextRequest) {
           }
         : null;
 
+      const dnsSetupFailed = dnsSetup !== null && !dnsSetup.success;
+
       return NextResponse.json({
-        success: true,
+        // `linked` = domain added to hosting project; `success` = no partial DNS failure.
+        linked: true,
+        success: !dnsSetupFailed,
         domain: vercelResult.name,
         verified: vercelResult.verified,
         dnsSetup,

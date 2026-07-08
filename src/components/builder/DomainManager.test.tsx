@@ -344,6 +344,62 @@ describe("DomainManager error/status surfacing", () => {
     expect(screen.queryByText(/kunde inte sparas på publiceringen/i)).toBeNull();
   });
 
+  it("surfaces DNS setup failure warning when link succeeds but auto-DNS fails", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/domains/check")) {
+        return json({ results: [AVAILABLE_RESULT] }, 200);
+      }
+      if (url.includes("/api/domains/link")) {
+        return json(
+          {
+            linked: true,
+            success: false,
+            domain: AVAILABLE_RESULT.domain,
+            verified: false,
+            dnsSetup: { success: false, method: "loopia", error: "ZONE_ERROR" },
+            dnsInstructions: {
+              message: "Peka din domän manuellt:",
+              records: [
+                { type: "CNAME", host: "www", value: "cname.vercel-dns.com", ttl: 3600 },
+              ],
+            },
+          },
+          200,
+        );
+      }
+      if (url.includes("/api/domains/verify")) {
+        return json({ verified: false, verification: [] }, 200);
+      }
+      return json({}, 200);
+    });
+
+    render(
+      <DomainManager open onClose={() => {}} chatId="chat_1" deploymentId="dep_1" />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
+      target: { value: "mittforetag.se" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Sök/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Koppla" })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Koppla" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Koppla mittforetag\.se/i }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Koppla mittforetag\.se/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/automatisk DNS-konfiguration misslyckades/i)).toBeTruthy();
+    });
+    expect(screen.getByText(/Väntar på DNS-propagering/i)).toBeTruthy();
+  });
+
   it("shows linkError and stays on connect step when link fails", async () => {
     mockFetch((url) => {
       if (url.includes("/api/domains/check")) {

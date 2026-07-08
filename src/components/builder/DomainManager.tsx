@@ -35,6 +35,7 @@ type DnsRecord = {
 
 type LinkResult = {
   success: boolean;
+  linked?: boolean;
   domain: string;
   verified: boolean;
   dnsSetup: { success: boolean; method: string; error?: string } | null;
@@ -549,6 +550,16 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                   <p className="text-muted-foreground mt-1 text-xs">
                     Det kan ta upp till 48 timmar för DNS att propagera, men vanligtvis går det snabbare.
                   </p>
+                </div>
+              )}
+
+              {linkResult?.dnsSetup && !linkResult.dnsSetup.success && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400">
+                  Domänen kopplades men automatisk DNS-konfiguration misslyckades.
+                  {linkResult.dnsSetup.error ? ` ${linkResult.dnsSetup.error}` : ""}
+                  {linkResult.dnsInstructions
+                    ? " Konfigurera DNS manuellt enligt instruktionerna nedan."
+                    : ""}
                 </div>
               )}
 

@@ -312,6 +312,7 @@ export function useBuilderPageController() {
   const {
     project: hydratedProject,
     liveDeployment,
+    hydrationFailed: deploymentHistoryHydrationFailed,
     refetch: refetchDeploymentHistory,
   } = useDeploymentHistory(chatHooksChatId);
   const hydratedVercelProjectName = hydratedProject?.vercelProjectName ?? null;
@@ -1750,6 +1751,8 @@ export function useBuilderPageController() {
     liveDeploymentUrl: liveDeployment?.url ?? null,
     liveDeploymentVersionId: liveDeployment?.versionId ?? null,
     liveDeploymentId: liveDeployment?.deploymentId ?? null,
+    deploymentHistoryHydrationFailed,
+    refetchDeploymentHistory,
     hydratedVercelProjectId: hydratedProject?.vercelProjectId ?? null,
     hydratedVercelProjectName,
     deployReadiness,
