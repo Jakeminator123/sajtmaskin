@@ -26,6 +26,18 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  componentDidUpdate(prevProps: Props) {
+    // Reset the boundary when the user switches chats. Otherwise a single
+    // render error in one chat leaves the builder stuck on the fallback until
+    // a full page reload, even after navigating to a healthy chat/version.
+    if (
+      this.state.hasError &&
+      (prevProps.chatId !== this.props.chatId || prevProps.versionId !== this.props.versionId)
+    ) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     const { chatId, versionId } = this.props;
