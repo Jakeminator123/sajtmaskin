@@ -178,8 +178,9 @@ export function renderRoutePlanBlock(params: {
     }
   }
 
-  // Phase 3.4 — Vector RAG block. When enabled, retrieves top-K
-  // similar past failures from the deterministic TF-IDF index built
+  // Phase 3.4 — Error-log RAG (TF-IDF) block. When enabled, retrieves
+  // top-K similar past failures — cosine similarity on term frequencies,
+  // not vector embeddings — from the deterministic TF-IDF index built
   // by `scripts/observability/index-error-log-rag.mjs` and renders
   // them as `### Lessons from similar past builds`. Auto-rebuilt at
   // npm run dev|build|start (see scripts/dev/next-runner.mjs hook).
