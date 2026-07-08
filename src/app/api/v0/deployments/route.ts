@@ -28,6 +28,7 @@ import {
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
+import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
@@ -566,6 +567,14 @@ export async function POST(req: Request) {
         versionId,
       });
 
+      // Pengaväg: track whether the credit debit landed so we can refund it if
+      // the (irreversible) Vercel deploy fails after we charged. `deploymentDelivered`
+      // flips true the moment Vercel accepts the deploy — after that a later error
+      // (e.g. status/telemetry write) must NOT refund, or the user keeps a live
+      // deploy AND their credits back.
+      let creditCharged = false;
+      let deploymentDelivered = false;
+
       try {
         const vercelProjectName = sanitizeVercelProjectName(
           projectName || `sajtmaskin-${chatId}`,
@@ -633,12 +642,53 @@ export async function POST(req: Request) {
 
         const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
 
+        // Pengaväg: charge BEFORE the irreversible Vercel deploy. The guard runs
+        // inside the FOR UPDATE lock, so N concurrent deploys on a balance-for-1
+        // yield one 402 (not overdraft, not a free deploy). A DB/charge failure
+        // also fails closed here rather than silently delivering for free.
+        if (creditCheck) {
+          try {
+            await creditCheck.commit({ rejectIfNegative: true });
+            creditCharged = true;
+          } catch (chargeErr) {
+            // Best-effort: får inte skugga 402-svaret nedan om skrivningen kastar.
+            try {
+              await updateDeploymentStatus(deploymentId, "error");
+            } catch (statusErr) {
+              console.error("[deploy] Failed to mark deployment as error:", statusErr);
+            }
+            if (chargeErr instanceof InsufficientCreditsError) {
+              return NextResponse.json(
+                {
+                  error: `Du behöver ${chargeErr.required} credits för att publicera. Du har ${chargeErr.available}.`,
+                  code: "DEPLOY_INSUFFICIENT_CREDITS",
+                  insufficientCredits: true,
+                  required: chargeErr.required,
+                  current: chargeErr.available,
+                },
+                { status: 402 },
+              );
+            }
+            console.error("[credits] Failed to charge deploy (pre-deploy):", chargeErr);
+            return NextResponse.json(
+              {
+                error: "Kunde inte reservera credits för publicering. Försök igen.",
+                code: "DEPLOY_CREDIT_CHARGE_FAILED",
+              },
+              { status: 402 },
+            );
+          }
+        }
+
         const created = await createVercelDeployment({
             projectName: vercelProjectName,
             target: deployTarget,
             files: vercelFiles,
           envVars: envVarsForDeploy,
         });
+        // Vercel accepted the deploy — it's now live/irreversible, so a later
+        // failure below must not refund the charge.
+        deploymentDelivered = true;
 
         if (created.vercelProjectId) {
           const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
@@ -673,14 +723,6 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl ?? null,
         });
 
-        try {
-          if (creditCheck) {
-            await creditCheck.commit();
-          }
-        } catch (error) {
-          console.error("[credits] Failed to charge deploy:", error);
-        }
-
         return NextResponse.json({
             id: deploymentId,
             chatId,
@@ -711,9 +753,28 @@ export async function POST(req: Request) {
             : { applied: false },
         });
       } catch (deployErr) {
-        await updateDeploymentStatus(deploymentId, "error");
+        // Pengaväg: vi debiterade före Vercel-anropet — refundera BARA om
+        // leveransen aldrig blev live (annars behåller användaren en live deploy
+        // och får krediterna tillbaka). Refunden körs FÖRE alla best-effort
+        // status-/telemetri-skrivningar (Codex P1): om en sådan skrivning
+        // kastar får den aldrig hoppa över refunden — då vore användaren
+        // debiterad för en deploy som aldrig nådde Vercel.
+        if (creditCharged && !deploymentDelivered && creditCheck) {
+          try {
+            await creditCheck.refund();
+          } catch (refundErr) {
+            console.error("[credits] Failed to refund deploy after deploy error:", refundErr);
+          }
+        }
+        // Best-effort status-skrivning — får varken maskera deploy-felet
+        // eller (ovan) blockera refunden.
+        try {
+          await updateDeploymentStatus(deploymentId, "error");
+        } catch (statusErr) {
+          console.error("[deploy] Failed to mark deployment as error:", statusErr);
+        }
         // Fas 0 telemetri-hygien: registrera deploy-fel på versionens
-        // telemetri-rad innan felet bubblar upp (best-effort).
+        // telemetri-rad innan felet bubblar upp (best-effort, sväljer internt).
         await recordDeployResultForVersion(versionId, `${deployTarget}:error`);
         throw deployErr;
       }
