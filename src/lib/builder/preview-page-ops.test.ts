@@ -218,6 +218,60 @@ describe("stripRouteFromContent", () => {
     expect(next).not.toContain('href: "/x"');
     expect(next).toContain('href: "/"');
   });
+
+  // Radix Slot regression (prod 2026-07-08, chat fb11f6b0): an empty
+  // `<Button asChild></Button>` crashes at runtime with "Slot failed to slot
+  // onto its children" — the wrapper must be removed together with its link.
+  it("removes an asChild wrapper together with its sole-child link", () => {
+    const content = `<nav>
+      <Button asChild>
+        <Link href="/blog">Blogg</Link>
+      </Button>
+      <Button asChild>
+        <Link href="/about">Om</Link>
+      </Button>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // The now-childless wrapper must be gone too — an empty Slot crashes.
+    expect(next.match(/<Button asChild>/g)).toHaveLength(1);
+    expect(next).toContain('href="/about"');
+  });
+
+  it("removes only the link when the asChild wrapper has other children", () => {
+    const content = `<Button asChild><Icon /><Link href="/blog">Blogg</Link></Button>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // Wrapper is NOT the link's sole parent-child pairing → wrapper survives.
+    expect(next).toContain("<Button asChild>");
+    expect(next).toContain("<Icon />");
+  });
+
+  // Codex/VADE P2 on PR #420: a self-closing link to the removed route before
+  // a paired link must not make the paired-regex span to the LATER </Link> and
+  // sweep unrelated markup (e.g. </nav>) into the removal.
+  it("handles a self-closing route link preceding a paired sibling link", () => {
+    const content = `<nav><Link href="/blog" /><Link href="/about">Om</Link></nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // The unrelated sibling and the surrounding markup must survive intact.
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
+
+  it("merges overlapping removal ranges without deleting trailing markup", () => {
+    // Both the paired and the self-closing pass can hit the same self-closing
+    // element; overlapping ranges must be merged, never applied twice.
+    const content = `<nav>
+      <Link href="/blog" />
+      <Link href="/blog">Blogg</Link>
+      <Link href="/about">Om</Link>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain("/blog");
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
 });
 
 describe("buildRemoveNavLinkOps", () => {
@@ -307,6 +361,96 @@ const navItems = [
       expect(result.ops[0].content).toContain('href: "/kontakt"');
       // The standalone object must be untouched.
       expect(result.ops[0].content).toContain('const cta = { label: "Book", href: "/book" };');
+    }
+  });
+
+  // Radix Slot regression (prod 2026-07-08, chat fb11f6b0): inserting a
+  // sibling <Link> INSIDE `<Button asChild>…</Button>` gives Slot two children
+  // and crashes the preview ("Slot failed to slot onto its children" → 500).
+  it("inserts AFTER an asChild wrapper, never inside it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Link href="/">Hem</Link>
+      <Button asChild>
+        <Link href="/kontakt-oss">Kontakt</Link>
+      </Button>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    expect(result.ops[0]?.kind).toBe("replace_content");
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      expect(content).toContain('href="/skidor"');
+      // The wrapper must still have exactly one child: the new link goes
+      // between </Link> and </Button> in NO case.
+      const wrapperInner = content.match(/<Button asChild>([\s\S]*?)<\/Button>/)?.[1] ?? "";
+      expect(wrapperInner).not.toContain("/skidor");
+      // New link lands after the closing wrapper tag instead.
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Button>"));
+    }
+  });
+
+  // Bugbot follow-up: the anchor link has a SIBLING inside the asChild wrapper.
+  // `sole child` detection must not be required — insertion still has to land
+  // after the whole wrapper, not between the link and </Button>.
+  it("inserts after the wrapper even when the link has a sibling inside it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Button asChild>
+        <Icon />
+        <Link href="/kontakt-oss">Kontakt</Link>
+      </Button>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      const wrapperInner = content.match(/<Button asChild>([\s\S]*?)<\/Button>/)?.[1] ?? "";
+      expect(wrapperInner).not.toContain("/skidor");
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Button>"));
+    }
+  });
+
+  // Nested asChild wrappers: the new link must land after the OUTERMOST one.
+  it("inserts after the outermost wrapper for nested asChild wrappers", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Tooltip asChild>
+        <Button asChild>
+          <Link href="/kontakt-oss">Kontakt</Link>
+        </Button>
+      </Tooltip>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      // Neither Slot may gain a second child.
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Tooltip>"));
     }
   });
 });
