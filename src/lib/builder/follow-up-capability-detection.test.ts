@@ -850,6 +850,24 @@ describe("detectFollowUpCapabilities — database", () => {
     );
     expect(result.capabilityIds).not.toContain("database");
   });
+
+  // Bugbot (wave 2 pre-PR pass): a negated PROVIDER must not suppress the
+  // capability — "inte postgres" is a provider preference, and the explicit
+  // MongoDB ask in the same prompt must still reach the dossier selector
+  // (which resolves mongo via relevanceKeywords).
+  it("still detects database when only a provider is negated ('mongodb, inte postgres')", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till mongodb för ordrarna, inte postgres",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("still detects database for 'använd mongodb utan drizzle'", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha mongodb utan drizzle för produktdatan",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
 });
 
 describe("detectFollowUpCapabilities — ai-tool-calling", () => {

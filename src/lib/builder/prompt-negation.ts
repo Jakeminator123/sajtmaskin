@@ -29,15 +29,23 @@ const INTEGRATION_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:integration(?:er)?|integrations?|externa\s+tjänster|external\s+services|backend|api[-\s]?routes?|api)(?![\p{L}\p{N}_])/iu,
 ];
 
+// Narrow on purpose (Bugbot, dossier wave 2): only GENERIC database/backend
+// nouns — no provider names. "använd mongodb, inte postgres" negates a
+// provider choice, not the database capability itself; provider preference is
+// resolved later by relevanceKeywords in select.ts. Only "utan databas /
+// no database / utan backend" should suppress the capability.
+const DATABASE_TERMS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:databas(?:en|er|erna)?|databases?|datalager|backend|persist(?:ed|ence)?)(?![\p{L}\p{N}_])/iu,
+];
+
 const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   auth: AUTH_TERMS,
   payments: PAYMENT_TERMS,
   "contact-form": BACKEND_TERMS,
   "newsletter-subscribe": BACKEND_TERMS,
-  // Dossier wave 2: "lägg inte till backend/databas" must suppress the
-  // database capability the same way it already suppresses the other
-  // backend-flavoured integrations.
-  database: BACKEND_TERMS,
+  // Dossier wave 2: "utan databas/backend" suppresses the capability, but a
+  // negated PROVIDER ("inte postgres") must not — see DATABASE_TERMS.
+  database: DATABASE_TERMS,
   analytics: INTEGRATION_TERMS,
   "error-tracking": INTEGRATION_TERMS,
 };
