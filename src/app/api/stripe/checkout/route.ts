@@ -1,6 +1,8 @@
 /**
- * API Route: Create Stripe Checkout Session
- * POST /api/stripe/checkout
+ * API Route: Stripe Checkout
+ * POST /api/stripe/checkout — create a checkout session
+ * GET  /api/stripe/checkout?session_id=cs_… — has the webhook credited this
+ *      session yet? (purchase confirmation, #36/Codex P2)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,10 +10,48 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getPackageById } from "@/lib/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
+import { getTransactionByStripeSession } from "@/lib/db/services/transactions";
 import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
+
+/**
+ * Purchase confirmation for the buy-credits redirect (#36, Codex P2 on PR
+ * #391): the client cannot reliably confirm a purchase by watching its own
+ * balance — if the webhook lands before the baseline is captured, the balance
+ * never "increases past baseline" and the UI stays stuck in confirming. This
+ * endpoint answers the authoritative question instead: has the webhook
+ * recorded a transaction for this checkout session (unique
+ * `transactions.stripe_session_id`)? Scoped to the logged-in user so one user
+ * cannot probe another user's session ids.
+ */
+export async function GET(req: NextRequest) {
+  return withRateLimit(req, "stripe:checkout", async () => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Inte inloggad" }, { status: 401 });
+    }
+    const sessionId = req.nextUrl.searchParams.get("session_id");
+    if (!sessionId || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+      return NextResponse.json(
+        { success: false, error: "Ogiltigt session-id" },
+        { status: 400 },
+      );
+    }
+    try {
+      const transaction = await getTransactionByStripeSession(sessionId);
+      const credited = Boolean(transaction && transaction.user_id === user.id);
+      return NextResponse.json({ success: true, credited });
+    } catch (error) {
+      console.error("[Stripe/checkout] Confirmation lookup failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Kunde inte verifiera köpet" },
+        { status: 500 },
+      );
+    }
+  });
+}
 
 export async function POST(req: NextRequest) {
   // Rate-limit checkout sessions to prevent abuse: a logged-in (or

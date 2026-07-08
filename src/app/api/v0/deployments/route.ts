@@ -651,7 +651,12 @@ export async function POST(req: Request) {
             await creditCheck.commit({ rejectIfNegative: true });
             creditCharged = true;
           } catch (chargeErr) {
-            await updateDeploymentStatus(deploymentId, "error");
+            // Best-effort: får inte skugga 402-svaret nedan om skrivningen kastar.
+            try {
+              await updateDeploymentStatus(deploymentId, "error");
+            } catch (statusErr) {
+              console.error("[deploy] Failed to mark deployment as error:", statusErr);
+            }
             if (chargeErr instanceof InsufficientCreditsError) {
               return NextResponse.json(
                 {
@@ -748,13 +753,12 @@ export async function POST(req: Request) {
             : { applied: false },
         });
       } catch (deployErr) {
-        await updateDeploymentStatus(deploymentId, "error");
-        // Fas 0 telemetri-hygien: registrera deploy-fel på versionens
-        // telemetri-rad innan felet bubblar upp (best-effort).
-        await recordDeployResultForVersion(versionId, `${deployTarget}:error`);
         // Pengaväg: vi debiterade före Vercel-anropet — refundera BARA om
         // leveransen aldrig blev live (annars behåller användaren en live deploy
-        // och får krediterna tillbaka). Best-effort; får aldrig maskera felet.
+        // och får krediterna tillbaka). Refunden körs FÖRE alla best-effort
+        // status-/telemetri-skrivningar (Codex P1): om en sådan skrivning
+        // kastar får den aldrig hoppa över refunden — då vore användaren
+        // debiterad för en deploy som aldrig nådde Vercel.
         if (creditCharged && !deploymentDelivered && creditCheck) {
           try {
             await creditCheck.refund();
@@ -762,6 +766,16 @@ export async function POST(req: Request) {
             console.error("[credits] Failed to refund deploy after deploy error:", refundErr);
           }
         }
+        // Best-effort status-skrivning — får varken maskera deploy-felet
+        // eller (ovan) blockera refunden.
+        try {
+          await updateDeploymentStatus(deploymentId, "error");
+        } catch (statusErr) {
+          console.error("[deploy] Failed to mark deployment as error:", statusErr);
+        }
+        // Fas 0 telemetri-hygien: registrera deploy-fel på versionens
+        // telemetri-rad innan felet bubblar upp (best-effort, sväljer internt).
+        await recordDeployResultForVersion(versionId, `${deployTarget}:error`);
         throw deployErr;
       }
     } catch (err) {

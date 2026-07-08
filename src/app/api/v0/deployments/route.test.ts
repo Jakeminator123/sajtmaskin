@@ -5,6 +5,10 @@ const getChat = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
+const prepareCredits = vi.hoisted(() => vi.fn());
+const createDeploymentRecord = vi.hoisted(() => vi.fn());
+const updateDeploymentStatus = vi.hoisted(() => vi.fn());
+const createVercelDeployment = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
@@ -20,9 +24,21 @@ vi.mock("@/lib/botProtection", () => ({
 }));
 
 vi.mock("@/lib/credits/server", () => ({
-  prepareCredits: vi.fn(() => {
-    throw new Error("prepareCredits should not run for precheckOnly tests");
-  }),
+  prepareCredits,
+}));
+
+vi.mock("@/lib/deployment", () => ({
+  createDeploymentRecord,
+  updateDeploymentStatus,
+}));
+
+vi.mock("@/lib/vercelDeploy", () => ({
+  createVercelDeployment,
+  getVercelDeployment: vi.fn(),
+  mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
+  sanitizeVercelProjectName: (name: string) => name,
+  syncEnvVarsToVercelProject: vi.fn(async () => ({ errors: [] })),
+  toVercelFilesFromTextFiles: (files: Array<{ name: string; content: string }>) => files,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -49,6 +65,9 @@ const { POST } = await import("./route");
 describe("POST /api/v0/deployments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prepareCredits.mockImplementation(() => {
+      throw new Error("prepareCredits should not run for precheckOnly tests");
+    });
     getStoredProjectEnvVarMap.mockResolvedValue({});
     getProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
     getVersionById.mockResolvedValue({
@@ -209,5 +228,64 @@ describe("POST /api/v0/deployments", () => {
     };
     expect(json.deployReadiness?.invalidFiles).toEqual(["package.json"]);
     expect(json.deployReadiness?.warnings?.some((w) => w.includes("package.json"))).toBe(true);
+  });
+
+  // Pengaväg (Codex P1 på PR #391): refunden får ALDRIG hoppas över för att en
+  // best-effort status-/telemetri-skrivning kastar i deploy-catch:en. Charge
+  // lyckas → Vercel-anropet fejlar (aldrig live) → status-skrivningen fejlar
+  // OCKSÅ → refunden ska ändå köras.
+  it("refunds the pre-deploy charge even when the error-status write rejects (Codex P1)", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockRejectedValue(new Error("Vercel exploded"));
+    updateDeploymentStatus.mockRejectedValue(new Error("status write failed"));
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(commit).toHaveBeenCalledTimes(1);
+    // Kärnan i P1: refund körs trots att updateDeploymentStatus rejectar.
+    expect(refund).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT refund when Vercel accepted the deploy and a later write fails", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: null,
+      url: "https://example.vercel.app",
+      inspectorUrl: null,
+      readyState: "QUEUED",
+    });
+    // Status-skrivningen EFTER lyckad deploy kastar → felet bubblar, men
+    // deployen är live: ingen refund (annars gratis deploy).
+    updateDeploymentStatus.mockRejectedValue(new Error("status write failed"));
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(refund).not.toHaveBeenCalled();
   });
 });

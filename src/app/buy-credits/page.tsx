@@ -143,12 +143,15 @@ function BuyCreditsContent() {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // #36: don't assert purchase success from the URL alone. After Stripe
-  // redirects back we poll the real balance until the webhook has credited
-  // the account, and only then show success.
+  // redirects back we poll the server until the webhook has recorded the
+  // session's transaction, and only then show success. (Codex P2: a balance
+  // baseline is unreliable — if the webhook credits the account before the
+  // baseline is captured, the balance never rises past it and the UI would
+  // stay stuck in "confirming". The session lookup is authoritative.)
   const [purchaseState, setPurchaseState] = useState<
     "idle" | "confirming" | "confirmed" | "pending_slow"
   >("idle");
-  const purchaseBaselineRef = useRef<number | null>(null);
+  const purchaseSessionIdRef = useRef<string | null>(null);
 
   // ─── SajtStudio form state ────────────────────────────────────
   const [formStep, setFormStep] = useState(0);
@@ -171,11 +174,10 @@ function BuyCreditsContent() {
     const success = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
     if (success === "true" && sessionId && purchaseState === "idle" && isInitialized) {
-      // Snapshot the balance only once auth has hydrated (isInitialized), so a
-      // pre-hydration 0 isn't mistaken for the baseline — otherwise the persisted
-      // balance rehydrating would look like a purchase. Then poll until it
-      // increases past this baseline (webhook landed).
-      purchaseBaselineRef.current = diamonds;
+      // Remember the checkout session and verify it server-side (the webhook
+      // writes a transaction row keyed on the session id) instead of guessing
+      // from balance movement.
+      purchaseSessionIdRef.current = sessionId;
       setPurchaseState("confirming");
       // Strip the params so a refresh can't re-trigger a fake "success".
       const cleaned = new URLSearchParams(searchParams.toString());
@@ -224,51 +226,65 @@ function BuyCreditsContent() {
     nextParams.delete("reason");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
-  }, [fetchUser, pathname, router, searchParams, diamonds, purchaseState, isInitialized]);
+  }, [fetchUser, pathname, router, searchParams, purchaseState, isInitialized]);
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
-  // #36: while confirming a purchase, poll the balance until the webhook
-  // credits the account (or give up after ~16s and show a soft "kan dröja").
+  // #36: while confirming a purchase, poll the server-side session lookup
+  // until the webhook has recorded the transaction (or give up after ~16s and
+  // show a soft "kan dröja"). Confirmed → refresh the balance for the header.
   useEffect(() => {
     if (purchaseState !== "confirming") return;
+    const sessionId = purchaseSessionIdRef.current;
+    if (!sessionId) return;
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 8;
-    const poll = () => {
-      void fetchUser();
+    const poll = async () => {
+      try {
+        const response = await fetch(
+          `/api/stripe/checkout?session_id=${encodeURIComponent(sessionId)}`,
+        );
+        if (!response.ok) return false;
+        const data = (await response.json().catch(() => null)) as
+          | { credited?: boolean }
+          | null;
+        return data?.credited === true;
+      } catch {
+        return false;
+      }
     };
-    poll();
-    const interval = setInterval(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const stop = () => {
+      if (interval !== null) clearInterval(interval);
+      interval = null;
+    };
+    const tick = async () => {
+      const credited = await poll();
       if (cancelled) return;
-      attempts += 1;
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        setPurchaseState((s) => (s === "confirming" ? "pending_slow" : s));
+      if (credited) {
+        stop();
+        setPurchaseState("confirmed");
+        void fetchUser();
         return;
       }
-      poll();
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        stop();
+        setPurchaseState((s) => (s === "confirming" ? "pending_slow" : s));
+      }
+    };
+    void tick();
+    interval = setInterval(() => {
+      void tick();
     }, 2000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      stop();
     };
   }, [purchaseState, fetchUser]);
-
-  // Balance increased past the pre-purchase baseline → webhook landed. Promote
-  // from either "confirming" or "pending_slow" so a webhook that lands after the
-  // poll timeout still flips the UI to success (if the balance later refreshes).
-  useEffect(() => {
-    if (
-      (purchaseState === "confirming" || purchaseState === "pending_slow") &&
-      purchaseBaselineRef.current !== null &&
-      diamonds > purchaseBaselineRef.current
-    ) {
-      setPurchaseState("confirmed");
-    }
-  }, [diamonds, purchaseState]);
 
   // ─── Stripe checkout handler ──────────────────────────────────
   const handlePurchase = async (packageId: string) => {
