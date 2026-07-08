@@ -2,9 +2,8 @@
 // `templates.json` + `template-categories.json` are GENERATED from the Vercel Blob
 // manifest by `scripts/v0-templates/upload-mallar-blob.mjs --write-catalog`
 // (the "mallar" → Blob intake; the data's own `_source`/`_discoveryMode` confirms this).
-// The legacy v0-auto-fetch path (`sync-v0-templates.mjs`, `templates_v0/out`,
-// `templates:sync/refresh`) is DEPRECATED — still reachable via
-// `/api/admin/templates/sync`, pending a separate removal decision.
+// Blob is the ONLY catalog-generation path — the legacy v0-auto-fetch path
+// (sync-v0-templates.mjs, /api/admin/templates/sync, TEMPLATE_SYNC_*) was removed 2026-07-08.
 // Canonical flow + guardrails: docs/architecture/templates.md
 
 import templatesData from "./templates.json";

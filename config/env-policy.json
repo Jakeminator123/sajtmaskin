@@ -230,12 +230,6 @@
     "SUPERADMIN_DIAMONDS",
     "SUPERADMIN_EMAIL",
     "SUPERADMIN_PASSWORD",
-    "TEMPLATE_SYNC_GITHUB_TOKEN",
-    "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS",
-    "TEMPLATE_SYNC_REF",
-    "TEMPLATE_SYNC_REPO_NAME",
-    "TEMPLATE_SYNC_REPO_OWNER",
-    "TEMPLATE_SYNC_WORKFLOW_FILE",
     "TYPESENSE_API_KEY",
     "TYPESENSE_HOST",
     "UPSTASH_REDIS_REST_TOKEN",
@@ -698,13 +692,13 @@
       "key": "GITHUB_TOKEN",
       "classification": "local_only",
       "recommendedVercelTargets": [],
-      "notes": "Local GitHub API fallback for tooling/template sync. Prefer TEMPLATE_SYNC_GITHUB_TOKEN for deployed template sync."
+      "notes": "Local GitHub API token for tooling (gh/scripts). Not used by any deployed runtime path."
     },
     {
       "key": "GITHUB_WORKFLOW_TOKEN",
       "classification": "local_only",
       "recommendedVercelTargets": [],
-      "notes": "Local GitHub workflow-dispatch fallback for template sync. Prefer TEMPLATE_SYNC_GITHUB_TOKEN for deployed template sync."
+      "notes": "Local GitHub workflow-dispatch token for tooling. Not used by any deployed runtime path."
     },
     {
       "key": "DATA_DIR",
@@ -1392,56 +1386,6 @@
         "production"
       ],
       "notes": "Cutoff timestamp for legacy email auto-verify behavior."
-    },
-    {
-      "key": "TEMPLATE_SYNC_REPO_OWNER",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Template-sync target repo owner (GitHub workflow dispatch)."
-    },
-    {
-      "key": "TEMPLATE_SYNC_REPO_NAME",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Template-sync target repo name."
-    },
-    {
-      "key": "TEMPLATE_SYNC_WORKFLOW_FILE",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Template-sync workflow file to dispatch."
-    },
-    {
-      "key": "TEMPLATE_SYNC_REF",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Template-sync git ref to dispatch against."
-    },
-    {
-      "key": "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
-      "notes": "Template-sync flag: include embeddings in the dispatched job."
     },
     {
       "key": "GITHUB_CLIENT_SECRET_DEV",

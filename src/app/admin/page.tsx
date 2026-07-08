@@ -30,7 +30,6 @@ import type {
   EnvStatusPayload,
   FrontlogsPayload,
   IntegrationStatus,
-  TemplateSyncStatus,
   TeamStatus,
   VercelEnvVar,
   VercelProject,
@@ -73,8 +72,6 @@ export default function AdminPage() {
   const [selectedFrontlogSlug, setSelectedFrontlogSlug] = useState<string | null>(null);
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
   const [teamStatusLoading, setTeamStatusLoading] = useState(false);
-  const [templateSyncStatus, setTemplateSyncStatus] = useState<TemplateSyncStatus | null>(null);
-
   const handlePrintCurrentTab = () => {
     if (typeof window === "undefined") return;
 
@@ -254,20 +251,6 @@ export default function AdminPage() {
     }
   };
 
-  const fetchTemplateSyncStatus = async () => {
-    try {
-      const response = await fetch("/api/admin/templates/sync");
-      const data = await response.json();
-      if (data.success) {
-        setTemplateSyncStatus(data as TemplateSyncStatus);
-      } else {
-        setTemplateSyncStatus(null);
-      }
-    } catch {
-      setTemplateSyncStatus(null);
-    }
-  };
-
   useEffect(() => {
     const stored = localStorage.getItem("admin-auth");
     if (stored === "true") {
@@ -284,7 +267,6 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === "database" && isAuthenticated) {
       fetchDbStats();
-      fetchTemplateSyncStatus();
     }
   }, [activeTab, isAuthenticated]);
 
@@ -366,7 +348,6 @@ export default function AdminPage() {
     setStats(null);
     setDbStats(null);
     setFrontlogs(null);
-    setTemplateSyncStatus(null);
     localStorage.removeItem("admin-auth");
   };
 
@@ -647,7 +628,6 @@ export default function AdminPage() {
         <TabsContent value="database" className="admin-print-panel" data-admin-tab="database">
           <AdminDatabaseTab
             dbStats={dbStats}
-            templateSyncConfigured={Boolean(templateSyncStatus?.configured)}
             actionLoading={actionLoading}
             confirmAction={confirmAction}
             onClearTable={handleClearTable}

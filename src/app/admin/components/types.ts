@@ -141,12 +141,3 @@ export interface TeamStatus {
   }>;
   warnings: string[];
 }
-
-export interface TemplateSyncStatus {
-  configured: boolean;
-  missingRequiredKeys: string[];
-  workflowFile: string;
-  ref: string;
-  includeEmbeddingsDefault: boolean;
-  repository: string | null;
-}
