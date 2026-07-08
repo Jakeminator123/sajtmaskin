@@ -273,6 +273,7 @@ data/runs/
 .tmp/
 # Ad-hoc log-analysis scratch scripts vid repo-roten — disposabla per maskin.
 scratch-*.mjs
+scratch-*.json
 
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
