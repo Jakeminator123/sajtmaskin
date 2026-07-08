@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 
 import type { CodeFile } from "@/lib/gen/parser";
 import { parseLintOutput, type ParsedLintIssue } from "@/lib/gen/verify/lint-output";
+import { hasTraversalSegment } from "@/lib/utils/path-utils";
 
 export type PreVmEslintSkipReason =
   | "feature_flag_disabled"
@@ -93,7 +94,9 @@ function writeFilesIntoCache(cacheDir: string, files: CodeFile[]): string[] {
   for (const file of files) {
     if (!file.path || typeof file.content !== "string") continue;
     const safe = file.path.replace(/\\/g, "/");
-    if (safe.includes("..") || safe.startsWith("/")) continue;
+    // Segment-based traversal check (Codex P1 on PR #396) — keep catch-all
+    // route files (`[...slug]`) in the warm lint cache; see warm-typecheck.
+    if (hasTraversalSegment(safe) || safe.startsWith("/")) continue;
     const dest = join(cacheDir, safe);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, file.content, "utf8");
