@@ -75,6 +75,8 @@ Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) b
 
 Repo-cleanup 2026-07-07 (levererat: 4 bevisat-döda ytor raderade; kvar: 3 ägarbeslut C1–C3 + auth-refaktor R1) → [`2026-07-07-repo-cleanup.md`](2026-07-07-repo-cleanup.md).
 
+Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept; kvar: kuraterad promotion + capability-wiring + F2-synlighet + nya soft-dossiers) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
+
 Levererat (kod): #4 distribuerat per-version-lås (`engine_version_jobs`) för server-verify/repair via **#256** (2026-06-27) + base-bound repair-save/accept via **#265** (2026-06-28, stänger #260 P2 #5) + #260 **P2 #4** (quality-gate höll leasen över verify-budgeten) löst via **#276** och härdat via **#284** (verify-timeout härleds nu från route-budgeten med marginal). #260 är därmed helt stängd i koden. **Enda kvarvarande punkten är ägarens manuella prod-migration av `engine_version_jobs`** (runbook i plan-doc) → [`../avklarat/2026-06-27-server-verify-distributed-lock.md`](../avklarat/2026-06-27-server-verify-distributed-lock.md).
 
 Levererat (2026-06-25, PR #241 + Fly/Vercel-deploy): preview-surface-stabilitet + iframe-fokus (F2) — iframe-tangentbordsfokus, preview-host reset-recovery, HMR-no-storm under reboot, Next stdout/stderr i runtime-logg → [`../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md`](../avklarat/2026-06-25-preview-surface-stability-och-iframe-fokus.md).

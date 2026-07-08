@@ -125,6 +125,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "rehype-highlight": "^7",
   "chart.js": "^4",
   "react-chartjs-2": "^5",
+  "@visactor/react-vchart": "^2",
   "d3": "^7",
   "visx": "^3",
   "mathjs": "^13",

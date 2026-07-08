@@ -573,3 +573,110 @@ describe("detectFollowUpCapabilities — #250 Codex P2 round 2", () => {
     expect(result.capabilityIds).not.toContain("cta-section");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// dashboard-charts — soft dossier promoted from legacy import (2026-07-08)
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — dashboard-charts", () => {
+  it("detects 'lägg till ett diagram' as dashboard-charts", () => {
+    const result = detectFollowUpCapabilities("lägg till ett diagram över försäljningen");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  it("detects an English chart ask ('add a line chart')", () => {
+    const result = detectFollowUpCapabilities("add a line chart with monthly revenue");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  it("detects a dashboard page ask ('lägg till en dashboard-sida med grafer')", () => {
+    const result = detectFollowUpCapabilities("lägg till en dashboard-sida med grafer");
+    expect(result.capabilityIds).toContain("dashboard-charts");
+  });
+
+  // Veto: analytics-provider hookups route to `analytics`, not a chart section.
+  it("does NOT detect dashboard-charts for 'koppla på Google Analytics'", () => {
+    const result = detectFollowUpCapabilities("koppla på Google Analytics");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Veto: flow/org diagrams are structural drawings, not data charts.
+  it("does NOT detect dashboard-charts for 'rita ett flödesschema'", () => {
+    const result = detectFollowUpCapabilities("rita ett flödesschema för processen");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Codex/VADE P2 PR #422: spaced English forms must also be vetoed — the bare
+  // `chart` noun would otherwise match "flow chart" / "org chart".
+  it("does NOT detect dashboard-charts for spaced 'flow chart' / 'org chart'", () => {
+    expect(
+      detectFollowUpCapabilities("add a flow chart for onboarding").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add an org chart for the team").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add an organizational chart").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
+  // Bugbot PR #422: a size tweak of an existing chart is a refine, not an add.
+  it("does NOT detect dashboard-charts for 'gör diagrammet större'", () => {
+    const result = detectFollowUpCapabilities("gör diagrammet större");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  it("does NOT detect dashboard-charts for 'gör grafen bredare'", () => {
+    const result = detectFollowUpCapabilities("gör grafen bredare");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Bugbot PR #422: an explicit chart-library choice must not pull in VisActor.
+  it("does NOT detect dashboard-charts for a Chart.js integration ask", () => {
+    const result = detectFollowUpCapabilities("integrera Chart.js på sidan");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  it("does NOT detect dashboard-charts for 'använd recharts för graferna'", () => {
+    const result = detectFollowUpCapabilities("använd recharts för graferna");
+    expect(result.capabilityIds).not.toContain("dashboard-charts");
+  });
+
+  // Codex P2 round 2 (PR #422): an intensity adverb between the noun and the
+  // size adjective must not defeat the refine-guard.
+  it("does NOT detect dashboard-charts for adverbial size tweaks", () => {
+    expect(
+      detectFollowUpCapabilities("gör diagrammet mycket större").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("gör grafen lite bredare").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("make the chart way bigger").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("make the chart a bit smaller").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
+  // Codex P2 round 2 (PR #422): spaced/hyphenated Chart.js spellings are still
+  // an explicit library choice — must not inject VisActor.
+  it("does NOT detect dashboard-charts for spaced 'chart js' spellings", () => {
+    expect(
+      detectFollowUpCapabilities("lägg till chart js på sidan").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add chart-js to the page").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
+  // Guard sanity: the widened lookaheads must not eat real adds that happen to
+  // contain an adverb or "js" further on in the sentence.
+  it("still detects real chart adds despite the widened guards", () => {
+    expect(
+      detectFollowUpCapabilities("lägg till ett diagram med mycket data").capabilityIds,
+    ).toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add a chart showing js framework popularity").capabilityIds,
+    ).toContain("dashboard-charts");
+  });
+});

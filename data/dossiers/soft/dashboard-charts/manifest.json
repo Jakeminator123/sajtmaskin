@@ -1,0 +1,74 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "dashboard-charts",
+  "label": "Dashboard Charts",
+  "capability": "dashboard-charts",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Use when a generated site needs reusable client-side dashboard chart primitives: a VisActor/VChart React wrapper, a neutral chart card container, a sample line-chart spec, and small formatting/classname helpers. Best for analytics sections or dashboard pages, not full app shells or data backends.",
+  "envVars": [],
+  "dependencies": [
+    "@visactor/react-vchart",
+    "clsx",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/visactor-chart.tsx",
+      "role": "client",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/chart-card.tsx",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/lib/visactor-specs.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "VisactorChart",
+      "type": "component",
+      "import": "@/components/visactor-chart"
+    },
+    {
+      "name": "ChartCard",
+      "type": "component",
+      "import": "@/components/chart-card"
+    },
+    {
+      "name": "salesLineSpec",
+      "type": "constant",
+      "import": "@/lib/visactor-specs"
+    },
+    {
+      "name": "cn",
+      "type": "function",
+      "import": "@/lib/utils"
+    },
+    {
+      "name": "addThousandsSeparator",
+      "type": "function",
+      "import": "@/lib/utils"
+    },
+    {
+      "name": "numberToPercentage",
+      "type": "function",
+      "import": "@/lib/utils"
+    }
+  ],
+  "lastVerified": "2026-04-18",
+  "sourceRepoUrl": "https://github.com/mengxi-ream/visactor-next-template",
+  "notes": "Accepted as a soft, self-contained dashboard chart module. Dropped app/layout-style guidance, the brand icon with a missing @/types/types import, and the generic container to keep the dossier narrow. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (Codex P1 on PR #422: no false-green for an unpreviewed dependency path).",
+  "promptInstructionMode": "compact"
+}

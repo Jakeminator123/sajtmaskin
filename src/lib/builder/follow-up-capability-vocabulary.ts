@@ -318,4 +318,37 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:(?:formulär(?:et)?|form|process(?:en)?|flöde[t]?|checkout|onboarding|registrering(?:en)?|guide(?:n)?|wizard|anmälan|ansökan)\s+(?:i|med|på|över|till)?\s*flera\s+steg|flera\s+steg(?:s)?\s+(?:formulär|form|process|flöde|guide|wizard|onboarding|registrering))(?![\p{L}\p{N}_])/iu,
     ],
   },
+  {
+    // Client-side dashboard chart primitives (VisActor wrapper + chart card).
+    // Distinct from `analytics` (visitor tracking) and `stats-counter` (animated
+    // KPI number band) — this is for actual data charts/graphs on the page.
+    capability: "dashboard-charts",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:dashboard(?:-?(?:sida|page|sektion|section|vy|view))?|kpi-?dashboard|analytics-?dashboard|admin-?dashboard|instrumentpanel(?:en)?)(?![\p{L}\p{N}_])/iu,
+      // Bugbot (PR #422): the bare chart/diagram/graf nouns exclude a trailing
+      // size adjective so a refine like "gör diagrammet större" stays a tweak
+      // (same guard class as the cta-section "gör CTA större" fix). Codex P2
+      // round 2: the guard also skips an intensity adverb ("gör diagrammet
+      // MYCKET större" / "make the chart WAY bigger"). "chart" also refuses a
+      // ".js"/" js"/"-js" suffix so Chart.js (any spelling) routes via the
+      // library veto below instead of matching as a chart-section noun.
+      /(?<![\p{L}\p{N}_])(?:charts?(?![-.\s]?js(?![\p{L}\p{N}_]))|diagram(?:men|met)?|graf(?:er|erna|en)?|linjediagram|stapeldiagram|cirkeldiagram|line-?charts?|bar-?charts?|pie-?charts?|area-?charts?|sparklines?)(?![\p{L}\p{N}_])(?!\s+(?:mycket\s+|lite\s+(?:grann\s+)?|något\s+|betydligt\s+|rejält\s+|väldigt\s+|aningen\s+|much\s+|way\s+|slightly\s+|a\s+(?:bit|little)\s+)?(?:större|mindre|bredare|smalare|högre|lägre|tjockare|snyggare|bigger|smaller|larger|wider|taller))/iu,
+      /(?<![\p{L}\p{N}_])(?:visualisera\s+(?:data|siffror|statistik)|data-?visualisering|data-?visualization)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Flow/org diagrams are structural drawings, not data charts. Analytics
+    // provider requests route to `analytics`, not a chart section. An explicit
+    // chart-library name (Chart.js, Recharts, …) means the user has chosen a
+    // stack — injecting the VisActor dossier would fight that choice.
+    vetoes: [
+      // Codex/VADE P2 (PR #422): also cover the space-separated English forms
+      // ("flow chart", "org chart", "organizational chart"), which the bare
+      // `chart` noun would otherwise match.
+      /(?<![\p{L}\p{N}_])(?:flow[-\s]?charts?|flödesschema(?:t)?|org[-\s]?charts?|organi[sz]ations?[-\s]?charts?|organi[sz]ational[-\s]?charts?|organisationsschema(?:t)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics)(?![\p{L}\p{N}_])/iu,
+      // Codex P2 round 2: cover spaced/hyphenated Chart.js spellings too
+      // ("chart js", "chart-js") — the bare noun guard alone must not be the
+      // only thing standing between an explicit library choice and VisActor.
+      /(?<![\p{L}\p{N}_])(?:chart[-.\s]?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
 ];
