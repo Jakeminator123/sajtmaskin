@@ -285,7 +285,7 @@ describe("dep-completer", () => {
 
     const neonSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
-      promptText: "använd neon för medlemsdatan",
+      promptText: "använd neon postgres för medlemsdatan",
     });
     expect(neonSelection.selected[0]?.entry.id).toBe("neon-postgres");
   });

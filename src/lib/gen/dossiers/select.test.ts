@@ -180,13 +180,45 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
   });
 
-  it("picks neon-postgres on an explicit Neon ask", () => {
+  it("picks neon-postgres on an explicit DB-flavoured Neon ask (neon.tech)", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["database"],
-      promptText: "använd Neon som databas för medlemsregistret",
+      promptText: "hosta medlemsregistret på neon.tech",
     });
     expect(result.selected[0]?.entry.id).toBe("neon-postgres");
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("does NOT pick neon-postgres for a bare design-word 'neon' ask", () => {
+    // Codex P2 (#445): bare "neon" is a style/brand noun (neon sign, neon
+    // café, neon colours). Only DB-flavoured Neon phrases ("neon postgres",
+    // "neon.tech", …) should override the default — a generic database for a
+    // neon-themed shop must stay on postgres-drizzle.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "en databas till mitt neon cafe",
+    });
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+  });
+
+  it("picks mongodb-atlas even when a competing provider is negated", () => {
+    // Codex P1 (#445): "mongodb ... inte postgres" must not let the negated
+    // "postgres" pull selection to the default. Because the default carries no
+    // relevanceKeywords, only the positive mongo intent matches.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "lägg till mongodb för ordrarna, inte postgres",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("picks mongodb-atlas for 'mongodb utan drizzle'", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "vi vill ha mongodb utan drizzle för produktdatan",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
   });
 
   it("picks neon-postgres on the natural 'Neon Postgres' phrasing", () => {

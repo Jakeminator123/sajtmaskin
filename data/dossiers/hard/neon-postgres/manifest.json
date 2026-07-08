@@ -6,7 +6,7 @@
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
-  "relevanceKeywords": ["neon", "neon postgres", "neon.tech"],
+  "relevanceKeywords": ["neon postgres", "neon postgresql", "neon.tech", "neondatabase", "neon serverless", "neon database", "neon databas", "neon db"],
   "summary": "Use when a Next.js app needs server-side access to a hosted Neon Postgres database through the Neon serverless driver. Provides a lazy shared SQL client helper and a DB connectivity health route; when DATABASE_URL is missing the app must fall back to static seedData with a discreet config notice instead of crashing. Pair with separate migration or ORM tooling when schema management is needed.",
   "envVars": [
     {
