@@ -1,0 +1,35 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-tool-calling-chat",
+  "label": "AI Tool-Calling Chat Route",
+  "capability": "ai-tool-calling",
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Use when a Next.js App Router project needs a streamed chat endpoint where the Vercel AI SDK can call server-side tools, return structured tool results, and automatically continue the assistant turn for multiple tool-call roundtrips. Pair with an existing chat UI that can render AI SDK UI message parts.",
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Authenticates the OpenAI provider used by the chat route. Create an API key in the OpenAI dashboard and expose it only to the server runtime.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "ai",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/api/chat/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [],
+  "lastVerified": "2026-04-17",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
+  "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Demo tools are examples — replace before production. Deps are unpinned so the generated app gets ONE consistent AI SDK major via KNOWN_PACKAGES. lastVerified = legacy source date until first preview-test (no-false-green, PR #422).",
+  "promptInstructionMode": "compact"
+}

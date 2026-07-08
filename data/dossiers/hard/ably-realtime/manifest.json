@@ -1,0 +1,53 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ably-realtime",
+  "label": "Ably Realtime for Next.js",
+  "capability": "realtime",
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Use when a Next.js App Router project needs authenticated Ably realtime messaging from browser components, including pub/sub, presence, notifications, chat, or collaborative updates. Provides a server token-auth route plus a browser-side singleton Realtime client and optional provider wiring.",
+  "envVars": [
+    {
+      "key": "ABLY_API_KEY",
+      "required": true,
+      "purpose": "Server-only Ably API key used by the Next.js auth route to create token requests for browser clients. Get it from the Ably dashboard for the target app; do not expose it with NEXT_PUBLIC_.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "ably"
+  ],
+  "files": [
+    {
+      "path": "components/lib/ably/client.ts",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/AblyClientProvider.tsx",
+      "role": "client",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/api/ably/auth/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "getAblyClient",
+      "type": "function",
+      "import": "@/lib/ably/client"
+    },
+    {
+      "name": "AblyClientProvider",
+      "type": "component",
+      "import": "@/components/AblyClientProvider"
+    }
+  ],
+  "lastVerified": "2026-04-18",
+  "notes": "Keep the API key server-only. The auth route returns 503 when ABLY_API_KEY is missing, so the integration degrades at feature runtime rather than build time. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (same no-false-green rule as PR #422).",
+  "promptInstructionMode": "selected-sections"
+}

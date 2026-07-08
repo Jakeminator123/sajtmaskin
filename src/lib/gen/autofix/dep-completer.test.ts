@@ -207,6 +207,51 @@ describe("dep-completer", () => {
     expect(deps["@visactor/react-vchart"]).not.toBe("latest");
   });
 
+  // Dossier wave 1 (legacy import 2026-07-08): each new hard dossier's manifest
+  // dependencies must resolve through KNOWN_PACKAGES pins, never `latest`.
+  it("injects ably when realtime is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["realtime"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("ably-realtime");
+
+    const deps = resolveCapabilityDependencies(["realtime"]);
+    expect(deps.ably).toBe(KNOWN_PACKAGES.ably);
+    expect(deps.ably).not.toBe("latest");
+  });
+
+  it("injects ai + @ai-sdk/fal when image-generation is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["image-generation"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
+      "fal-image-generation",
+    );
+
+    const deps = resolveCapabilityDependencies(["image-generation"]);
+    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
+    expect(deps["@ai-sdk/fal"]).toBe(KNOWN_PACKAGES["@ai-sdk/fal"]);
+    expect(deps.ai).not.toBe("latest");
+    expect(deps["@ai-sdk/fal"]).not.toBe("latest");
+  });
+
+  it("injects ai + @ai-sdk/openai + zod when ai-tool-calling is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["ai-tool-calling"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
+      "ai-tool-calling-chat",
+    );
+
+    const deps = resolveCapabilityDependencies(["ai-tool-calling"]);
+    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
+    expect(deps["@ai-sdk/openai"]).toBe(KNOWN_PACKAGES["@ai-sdk/openai"]);
+    expect(deps.zod).toBe(KNOWN_PACKAGES.zod);
+    for (const pkg of ["ai", "@ai-sdk/openai", "zod"]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [

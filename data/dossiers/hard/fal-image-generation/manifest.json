@@ -1,0 +1,60 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "fal-image-generation",
+  "label": "Fal Image Generation",
+  "capability": "image-generation",
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Use when a Next.js App Router project needs a focused server-side text-to-image endpoint backed by Fal through the Vercel AI SDK. Provides a POST API route, shared request types, a single-provider config, and client-side helpers for previewing, sharing, or downloading returned base64 images.",
+  "envVars": [
+    {
+      "key": "FAL_API_KEY",
+      "required": true,
+      "purpose": "Fal API key used only by the server API route to authenticate image generation requests. Create or copy it from the Fal dashboard/account settings.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": [
+    "ai",
+    "@ai-sdk/fal"
+  ],
+  "files": [
+    {
+      "path": "components/api/generate-images/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/api-types.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/provider-config.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/image-helpers.ts",
+      "role": "client",
+      "injectionMode": "rewritable"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "imageHelpers",
+      "type": "constant",
+      "import": "@/lib/image-helpers"
+    },
+    {
+      "name": "providerConfig",
+      "type": "constant",
+      "import": "@/lib/provider-config"
+    }
+  ],
+  "lastVerified": "2026-04-18",
+  "sourceRepoUrl": "https://github.com/vercel-labs/vercel-fal-image-generator",
+  "notes": "Focused Fal-only extraction; omit template UI, analytics, layout, provider matrices. Route uses `generateImage` from ai v7 (renamed from experimental_generateImage). lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green rule from PR #422).",
+  "promptInstructionMode": "compact"
+}

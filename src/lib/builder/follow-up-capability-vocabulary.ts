@@ -157,10 +157,80 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // AI assistant that executes server-side tools (function-calling roundtrips).
+    // Listed BEFORE `ai-chat` so a tool-calling ask wins the more specific
+    // capability; a plain conversational chatbot stays `ai-chat`. Requires an
+    // explicit tool/function/action cue — "ai-chat som kan söka i våra dokument"
+    // style phrasing — never bare "chatbot".
+    capability: "ai-tool-calling",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:ai|llm|chatt?bot|assistent(?:en)?|assistant)[\s\S]{0,60}(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner|api:?er)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:agent(?:isk)?\s+(?:chat|chatt|assistent|assistant)|ai-?agent\s+som\s+(?:kan\s+)?(?:utför|bokar|söker|hämtar|slår\s+upp))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:assistent|assistant|chatt?bot|ai)[\s\S]{0,80}(?:som\s+kan\s+(?:utföra|boka|slå\s+upp|hämta\s+(?:live|real)-?(?:data|tid))|that\s+can\s+(?:perform|execute|look\s+up|book|fetch\s+live))(?![\p{L}\p{N}_])/iu,
+    ],
+    // A plain conversational AI chat (no tool/action cue) must stay `ai-chat`;
+    // these vetoes keep the generic chat vocabulary from being shadowed when
+    // the user explicitly says "vanlig chatbot" / "simple chatbot".
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:vanlig|enkel|simpel|basic|simple|plain)\s+(?:ai-?)?(?:chatt?bot|chatt|chat|assistent|assistant)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "ai-chat",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:ai-?chatt|ai-?chat|chattbot|chatbot|ai-?assistent|ai-?bot|llm-?chat|chat[-\s]?ui|chat[-\s]?widget)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:openai\s+chat|gpt-?chat|claude-?chat|chatgpt-?widget)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Both `openai-chat` and `ai-tool-calling-chat` ship an `/api/chat` route —
+    // injecting both dossiers would collide. When the prompt carries an explicit
+    // tool/function-calling cue the more specific `ai-tool-calling` entry above
+    // wins and this generic chat entry is suppressed (parallax-pointer/scroll
+    // precedent).
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Realtime infrastructure (Ably pub/sub, presence, live updates between
+    // clients). NOT "live-feeling" animations and NOT real-time analytics —
+    // those route to `analytics` / ordinary page content.
+    capability: "realtime",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:ably|pusher|websockets?|web-?sockets?|socket\.io|pub\/?sub|pubsub)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:realtids?-?(?:chat|chatt|meddelanden|notiser|uppdateringar|funktion(?:er)?)|real-?time\s+(?:chat|messaging|notifications?|updates?|collaboration))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:live-?(?:chat|chatt)|presence|närvaro-?(?:status|indikator)|vem\s+som\s+är\s+online|collaborative\s+(?:editing|cursors?)|multiplayer)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:live-?(?:notiser|notifikationer|uppdateringar)|live\s+(?:notifications?|updates?))(?![\p{L}\p{N}_])/iu,
+    ],
+    // "real-time analytics" / "realtidsstatistik" is an analytics/dashboard
+    // ask, not realtime messaging infrastructure — those route to `analytics`
+    // or `dashboard-charts`, never the Ably dossier. Swedish definite forms
+    // (dashboarden, statistiken) are covered so inflection can't dodge the veto.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:real-?time|realtids?)[-\s]?(?:analytics|analys(?:en)?|statistik(?:en)?|dashboard(?:s|en|erna)?|rapporter(?:ing(?:en)?)?|metrics)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Server-side AI text-to-image generation (Fal). NOT image galleries,
+    // lightboxes, carousels or stock imagery — the site must GENERATE images.
+    capability: "image-generation",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:text-?(?:till|to)-?(?:bild|image)|ai-?(?:bild|image)-?(?:generator|generering|generation)|image-?generation|bildgenerering|bildgenerator)(?![\p{L}\p{N}_])/iu,
+      // Visitor-facing generation ("användare kan generera bilder") or an
+      // explicit with-AI clause. Bare "generera bilder" is NOT enough — that
+      // phrasing also covers asking Sajtmaskin for page imagery assets.
+      /(?<![\p{L}\p{N}_])(?:användar(?:e|na)?|besökar(?:e|na)?|users?|visitors?|kunder(?:na)?)[\s\S]{0,50}(?:generera(?:r)?\s+bilder|generate\s+images?|skapa(?:r)?\s+bilder)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:generera(?:r)?|skapa(?:r)?)\s+bilder\s+(?:med|via)\s+ai(?![\p{L}\p{N}_])|(?<![\p{L}\p{N}_])(?:generate|create)\s+images?\s+(?:with|using|via)\s+ai(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:fal(?:\.ai)?|flux(?:-?schnell|-?pro)?|dall-?e|stable\s+diffusion|midjourney)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Gallery/lightbox/carousel asks are about SHOWING images, not generating
+    // them — route those to their own capabilities. "AI-genererade bilder" as
+    // page imagery (assets) is also not an in-site generator tool. Swedish
+    // definite/plural inflections included so "bildgalleriet" can't dodge.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:bild-?galleri(?:et|er|erna)?|foto-?galleri(?:et|er|erna)?|image[-\s]?galler(?:y|ies)|photo[-\s]?galler(?:y|ies)|lightbox(?:en)?|karusell(?:en|er)?|carousel|bildspel(?:et)?|slideshow)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:stock-?(?:bilder|foton|photos?|images?)|hero-?(?:bild|image)|bakgrundsbild(?:er)?|background\s+images?)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

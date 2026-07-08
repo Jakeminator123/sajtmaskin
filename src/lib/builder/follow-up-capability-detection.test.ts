@@ -680,3 +680,141 @@ describe("detectFollowUpCapabilities — dashboard-charts", () => {
     ).toContain("dashboard-charts");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 1 — hard integration capabilities promoted from legacy import
+// (2026-07-08): realtime (ably-realtime), image-generation
+// (fal-image-generation), ai-tool-calling (ai-tool-calling-chat).
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — realtime", () => {
+  it("detects 'realtidschat' as realtime", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en realtidschat mellan besökarna",
+    );
+    expect(result.capabilityIds).toContain("realtime");
+  });
+
+  it("detects an explicit Ably/websocket ask", () => {
+    const result = detectFollowUpCapabilities("koppla på ably för live-notiser");
+    expect(result.capabilityIds).toContain("realtime");
+  });
+
+  it("detects English 'real-time notifications'", () => {
+    const result = detectFollowUpCapabilities("add real-time notifications for new orders");
+    expect(result.capabilityIds).toContain("realtime");
+  });
+
+  it("detects presence ('vem som är online')", () => {
+    const result = detectFollowUpCapabilities(
+      "visa vem som är online, vi vill ha närvaro-status i chatten",
+    );
+    expect(result.capabilityIds).toContain("realtime");
+  });
+
+  // Veto: real-time ANALYTICS is an analytics/dashboard ask, not messaging infra.
+  it("does NOT detect realtime for 'real-time analytics dashboard'", () => {
+    const result = detectFollowUpCapabilities("add a real-time analytics dashboard");
+    expect(result.capabilityIds).not.toContain("realtime");
+  });
+
+  it("does NOT detect realtime for 'realtidsstatistik över besökare'", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till realtidsstatistik över besökare på sidan",
+    );
+    expect(result.capabilityIds).not.toContain("realtime");
+  });
+
+  // Veto exercise: a genuine live-updates phrase is suppressed when the
+  // surrounding ask is a realtime DASHBOARD (analytics/statistics surface).
+  it("vetoes live-uppdateringar when tied to a realtime dashboard", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till live-uppdateringar på realtids-dashboarden",
+    );
+    expect(result.capabilityIds).not.toContain("realtime");
+  });
+});
+
+describe("detectFollowUpCapabilities — image-generation", () => {
+  it("detects 'AI-bildgenerator' as image-generation", () => {
+    const result = detectFollowUpCapabilities("lägg till en AI-bildgenerator på sidan");
+    expect(result.capabilityIds).toContain("image-generation");
+  });
+
+  it("detects a visitor-facing generation ask", () => {
+    const result = detectFollowUpCapabilities(
+      "användare ska kunna generera bilder från en textprompt",
+    );
+    expect(result.capabilityIds).toContain("image-generation");
+  });
+
+  it("detects English 'text-to-image' and Fal model names", () => {
+    expect(
+      detectFollowUpCapabilities("add a text-to-image tool").capabilityIds,
+    ).toContain("image-generation");
+    expect(
+      detectFollowUpCapabilities("lägg till fal flux-schnell för bildgenerering").capabilityIds,
+    ).toContain("image-generation");
+  });
+
+  // Veto: galleries/lightboxes SHOW images — they do not generate them.
+  it("does NOT detect image-generation for a gallery/lightbox ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bildgalleri där man kan förstora bilder",
+    );
+    expect(result.capabilityIds).not.toContain("image-generation");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+  });
+
+  it("does NOT detect image-generation for a photo carousel ask", () => {
+    const result = detectFollowUpCapabilities("lägg till en karusell med foton");
+    expect(result.capabilityIds).not.toContain("image-generation");
+  });
+
+  it("does NOT detect image-generation for stock/hero imagery requests", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till stock-bilder och en hero-bild på startsidan",
+    );
+    expect(result.capabilityIds).not.toContain("image-generation");
+  });
+});
+
+describe("detectFollowUpCapabilities — ai-tool-calling", () => {
+  it("detects 'tool-calling' as ai-tool-calling (not plain ai-chat)", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en ai-chat med tool-calling mot vårt api",
+    );
+    expect(result.capabilityIds).toContain("ai-tool-calling");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects an assistant that uses tools ('assistent som använder verktyg')", () => {
+    const result = detectFollowUpCapabilities(
+      "vi behöver en ai-assistent som använder verktyg för att slå upp ordersstatus",
+    );
+    expect(result.capabilityIds).toContain("ai-tool-calling");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects English 'function calling' chat", () => {
+    const result = detectFollowUpCapabilities(
+      "add a chatbot with function-calling so it can execute tools",
+    );
+    expect(result.capabilityIds).toContain("ai-tool-calling");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  // Veto/control: a plain conversational chatbot stays ai-chat.
+  it("does NOT detect ai-tool-calling for a plain chatbot ask", () => {
+    const result = detectFollowUpCapabilities("lägg till en ai-chatt-widget");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  it("does NOT detect ai-tool-calling for an explicitly simple chatbot", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha en enkel chatbot som svarar på vanliga frågor",
+    );
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+});
