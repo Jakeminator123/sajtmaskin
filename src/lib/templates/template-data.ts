@@ -59,17 +59,25 @@ export interface Template {
  * so re-including a template later just means removing its id from this set.
  */
 export const EXCLUDED_TEMPLATE_IDS = new Set<string>([
-  // Broken: no runnable project
+  // Broken: no runnable project (no package.json / no dev script / non-Next)
   "CirmLMhUoF0", // Car rental website clone — no package.json
   "mEefgKyVifq", // enhanced-travel-website — single-file, no package.json
   "YEBQHPfbqc0", // PrintLess Eco Metrics — single-file, no package.json
   "YZqzCqeqEat", // PWA Subscription Tracker — no dev script
   "rhQ1SQjfhor", // Doppel Template — Vite project, not Next.js
-  // Env crash-on-load: reads an uncovered key at module scope in the render path
-  "7YygHkO1oj4", // Grok Creative Studio
-  "GB2Aln8GBDP", // Shadcn registry generator
-  "Ln5i4EVw63N", // Sign In with X
-  "t02Cx1KfaCS", // AI Components Generator
+  // Env crash-on-load: module-scope read of an uncovered env key in the render path
+  // (function-scope-aware detection incl. `new Client({ apiKey: process.env.X })`).
+  "350IE4ojQXK", // NEON_AUTH_* (apps-and-games)
+  "7YygHkO1oj4", // Grok Creative Studio — MUX_* / MIXEDBREAD_API_KEY
+  "a9HJA3gXB4w", // LANGCACHE_* (ai)
+  "GB2Aln8GBDP", // Shadcn registry generator — NEON_DATABASE_URL
+  "hkRpZoLOrJC", // AI_GATEWAY / SUPABASE_SERVICE_ROLE_KEY / VERCEL_OAUTH_* (ai)
+  "hO33zwNmsQF", // AI_GATEWAY / SUPABASE_SERVICE_ROLE_KEY / VERCEL_OAUTH_* (ai)
+  "jSYDGSkRBFX", // QStash / KV / Neon / Stack / XAI (login-and-sign-up)
+  "kz69KY1ux5H", // FAL_KEY / PRODIA_TOKEN / XAI_API_KEY (ai)
+  "Ln5i4EVw63N", // Sign In with X — X_CLIENT_* / JWT_SECRET
+  "t02Cx1KfaCS", // AI Components Generator — FIRECRAWL_API_KEY
+  "xbwwZ9kD745", // FAL_API_KEY (ai)
 ]);
 
 // Filter out category placeholder entries that are not real templates

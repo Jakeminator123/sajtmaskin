@@ -134,6 +134,45 @@ function stripNoise(src) {
   return out;
 }
 
+// Is the `{` at `bracePos` a FUNCTION body (defers execution) vs an object
+// literal / control block (runs at module eval)? Only function bodies defer, so
+// `new Client({ apiKey: process.env.X })` at module scope must still count as
+// module-eval (crash-on-load), even though the read sits inside `{}`.
+function isFunctionBrace(src, bracePos) {
+  let j = bracePos - 1;
+  while (j >= 0 && /\s/.test(src[j])) j--;
+  if (j < 0) return false;
+  if (src[j] === ">" && j - 1 >= 0 && src[j - 1] === "=") return true; // arrow `=> {`
+  if (src[j] === ")") {
+    let depth = 0;
+    let k = j;
+    for (; k >= 0; k--) {
+      if (src[k] === ")") depth++;
+      else if (src[k] === "(") { depth--; if (depth === 0) break; }
+    }
+    if (k < 0) return false;
+    let t = k - 1;
+    while (t >= 0 && /\s/.test(src[t])) t--;
+    const end = t;
+    while (t >= 0 && /[A-Za-z0-9_$]/.test(src[t])) t--;
+    const word = src.slice(t + 1, end + 1);
+    // control blocks execute at module load — NOT a deferred function body
+    return !["if", "for", "while", "switch", "catch", "return"].includes(word);
+  }
+  return false; // preceded by `=`, `(`, `,`, `:`, `[`, keyword → object literal / block
+}
+
+// Count enclosing FUNCTION bodies before `index`. 0 ⇒ runs at module eval.
+function functionDepthBefore(src, index) {
+  const stack = [];
+  for (let i = 0; i < index; i++) {
+    const ch = src[i];
+    if (ch === "{") stack.push(isFunctionBrace(src, i));
+    else if (ch === "}") stack.pop();
+  }
+  return stack.reduce((n, isFn) => n + (isFn ? 1 : 0), 0);
+}
+
 // Where does a file sit relative to the initially-rendered homepage?
 function fileRole(path) {
   if (/(?:^|\/)(?:app|src\/app)\/.*route\.(?:t|j)sx?$/.test(path)) return "route";
@@ -252,9 +291,10 @@ async function analyzeZipBuffer(buffer, meta) {
     while ((m = ENV_REF_RE.exec(stripped)) !== null) {
       const key = m[1] || m[2];
       if (!key || BUILTIN_ENV_KEYS.has(key)) continue;
-      let depth = 0;
-      for (let i = 0; i < m.index; i++) { const ch = stripped[i]; if (ch === "{") depth++; else if (ch === "}") depth--; }
-      envRefsDetailed.push({ key, topLevel: depth <= 0, role });
+      // top-level = runs at module eval = NOT inside any function body (object
+      // literals / control blocks at module scope still count as module-eval).
+      const topLevel = functionDepthBefore(stripped, m.index) === 0;
+      envRefsDetailed.push({ key, topLevel, role });
     }
   }
   const envRefs = new Set(envRefsDetailed.map((d) => d.key));
