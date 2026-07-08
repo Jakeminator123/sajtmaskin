@@ -18,6 +18,8 @@ Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras sem
 | generatorn, v0-motorn | `own-engine` |
 | sandbox, demo | `preview` / `VM` / `preview_host` |
 | mallar/templates för runtime-startpunkter | `scaffolds` |
+| "templates" om capability-moduler | `dossiers` — templates (= v0-mallar, Blob-galleriet) är ett helt separat system |
+| "dossier" om galleri-mallar | `Template (v0-mall)` — dossiers har inga kategorier/thumbnails |
 | scaffold family, style direction | `scaffold variant` |
 | blandad “brief” | `Deep Brief` för init, `Snapshot-Brief` för follow-up |
 | blandad “autofix”, mekanisk autofix, url-expand, deterministisk import-repair | `Normalize` |

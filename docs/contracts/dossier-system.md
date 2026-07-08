@@ -6,6 +6,8 @@
 
 A dossier is a **reusable building block** the codegen LLM can drop into a generated site. The pipeline is **deterministic and capability-driven**: the brief declares which capabilities the site needs (`payments`, `auth`, `ai-chat`, `pricing-section`, …), and each capability resolves to exactly one dossier (or none).
 
+**Dossiers are NOT templates.** "Templates" (= v0-mallar, the Blob-backed gallery on `/templates` / the Mallar tab) are complete sites imported verbatim — a separate system with its own categories and thumbnails (see `docs/architecture/templates.md`). Dossiers have neither. The similarly-named `data/template-references/` is dossier-curation input, not gallery content.
+
 No embeddings. No fuzzy matching. No category boost. No domain veto. What the brief asks for is what gets injected.
 
 ## Two classes (path-encoded)

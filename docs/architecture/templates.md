@@ -100,6 +100,15 @@ node scripts/v0-templates/audit-template-repos.mjs --dir <mapp med zip:ar>
 
 Skriptet läser bara `package.json` + struktur + `process.env`-referenser ur varje ZIP och aggregerar (dumpar aldrig repo-innehåll). Full per-mall-data skrivs till `--out` (default `scratch-template-audit.json`).
 
-## 9. Termer
+## 9. Termer — Template ≠ Scaffold ≠ Dossier
 
-`v0-mallar` / Mallar-tab ≠ `template-library` ≠ Vercel-mallar ≠ runtime `scaffolds`. `/api/v0/` = API-versionering, inte den externa v0-providern.
+**"Templates" och "v0-mallar" är samma sak** (historiskt skrapade från v0.dev, numera Blob-hostade). Fyra begrepp som inte får blandas:
+
+| Begrepp | Vad | Var | Används av |
+|---|---|---|---|
+| **Template (v0-mall)** | Färdig sajt-ZIP, importeras **verbatim** | Vercel Blob (`template-blob-manifest.json`) | `/templates`, Mallar-tab, `POST /api/template` |
+| **Scaffold** | Runtime-startpunkt för fritext-generering | `src/lib/gen/scaffolds/` | own-engine init |
+| **Dossier** | Capability-modul som injiceras i own-engine-prompten | `data/dossiers/{hard,soft}/` | dossier-pipelinen (`select.ts`) |
+| **Template-referens** | Klonat upstream-repo, input till dossier-kuration | `data/template-references/` | `dossiers:curate` |
+
+Dossiers har inga kategorier, inga thumbnails och syns aldrig i template-galleriet. Template-referenser hör till dossier-systemet trots namnet. `/api/v0/` = API-versionering, inte den externa v0-providern.

@@ -15,7 +15,9 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Scaffold Variant | Visuellt uttryck inom scaffold: typografi, theme, motif, prompt hints. |
 | Variant-Lock | Follow-up återanvänder tidigare variant för att undvika design drift. |
 | Capability | Intentnyckel som kan mappas till dossier, t.ex. `auth`, `payments`, `visual-3d`. |
-| Dossier | Återanvändbar capability-modul med manifest, instruktioner och ev. filer. |
+| Dossier | Återanvändbar capability-modul med manifest, instruktioner och ev. filer (`data/dossiers/{hard,soft}/`). Injiceras i own-engine-prompten. **Inte** en galleri-mall. |
+| Template (v0-mall) | Färdig v0-mall i galleriet (`/templates`, builderns Mallar-tab). "Templates" och "v0-mallar" är samma sak. Blob är enda källan i prod; importeras verbatim, ingen LLM vid init. Inte scaffold, inte dossier. |
+| Template-referens | Klonat upstream-repo under `data/template-references/` — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
 | BuildSpec | Runtime-policy för generationens scope, kvalitet, preview, verifiering och budget. |
 | Dynamic Context | Request-specifik promptdel. |
 | Core Rules | Statiska produktregler i `config/prompt-core/`. |
@@ -77,7 +79,8 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | blocking / hard fail | `Blocker` |
 | product postcheck | `CapabilitySmoke` |
 | sandbox | `preview`, `VM` eller `preview_host` |
-| template-library | `Scaffold`, `Dossier` eller `Mallar-tab` beroende på kontext |
+| template-library | `Scaffold`, `Dossier` eller `Template (v0-mall)` beroende på kontext |
+| mall / template (ospecificerat) | `Template (v0-mall)` för galleriet · `Scaffold` för runtime-startpunkt · `Dossier` för capability-modul · `Template-referens` för dossier-kurationsinput |
 | shadcn | `shadcn primitive` eller `UI Recipe` |
 | 3D/game | `visual-3d`, `physics-3d` eller `interactive-game` |
 | preview (om Vercels deploy-previews) | `Vercel deploy-preview` — reservera "preview" för VM-previewn |
