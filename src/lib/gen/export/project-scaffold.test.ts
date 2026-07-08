@@ -81,7 +81,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies["lucide-react"]).toBe("0.563.0");
     expect(merged.dependencies["@react-three/fiber"]).toBe("9.6.0");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(merged.dependencies.three).toBe("0.182.0");
+    expect(merged.dependencies.three).toBe("0.185.1");
   });
 });
 
@@ -340,7 +340,7 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.next).toBe("16.2.9");
     expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(pkg.dependencies.three).toBe("0.182.0");
+    expect(pkg.dependencies.three).toBe("0.185.1");
   });
 
   it("prunes the 3D stack from package.json when no file imports it (capability false-positive bloat)", () => {
@@ -395,7 +395,7 @@ describe("buildCompleteProject", () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
-    expect(pkg.dependencies.three).toBe("0.182.0");
+    expect(pkg.dependencies.three).toBe("0.185.1");
   });
 
   it("detects scoped @radix-ui imports via dep-completer in buildCompleteProject", () => {
