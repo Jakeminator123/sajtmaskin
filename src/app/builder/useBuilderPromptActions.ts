@@ -26,6 +26,7 @@ export type TemplateSwitchDialogState =
 
 type Args = {
   chatId: string | null;
+  templateId: string | null;
   scaffoldMode: ScaffoldMode;
   customInstructions: string;
   applyInstructionsOnce: boolean;
@@ -68,6 +69,7 @@ type Args = {
 
 export function useBuilderPromptActions({
   chatId,
+  templateId,
   scaffoldMode: _scaffoldMode,
   customInstructions,
   applyInstructionsOnce,
@@ -217,6 +219,19 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       const isNewChat = !chatId;
+      // Template entries receive their chat + imported files from
+      // POST /api/template (useBuilderEffects), never from a blank init. While
+      // that import is still running — or after it failed — chatId is null.
+      // Creating a chat here would run a full from-scratch init that silently
+      // discards the template and generates an unrelated site (the "allt pajjar"
+      // report). Block it: the template import re-runs on reload while
+      // templateId stays in the URL.
+      if (isNewChat && templateId) {
+        toast.error(
+          "Mallen laddas fortfarande eller kunde inte startas. Vänta ett ögonblick, eller ladda om sidan för att försöka igen.",
+        );
+        return false;
+      }
       if (
         isNewChat &&
         (createPreparationInFlightRef.current || isPreparingPrompt || isCreatingChat || isAnyStreaming)
@@ -249,6 +264,7 @@ export function useBuilderPromptActions({
       applyDynamicInstructionsForNewChat,
       captureInstructionSnapshot,
       chatId,
+      templateId,
       createNewChat,
       isAnyStreaming,
       isCreatingChat,

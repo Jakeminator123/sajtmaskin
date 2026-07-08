@@ -23,6 +23,7 @@ function makeArgs(
 ): Parameters<typeof useBuilderPromptActions>[0] {
   return {
     chatId: null,
+    templateId: null,
     scaffoldMode: "auto",
     customInstructions: "",
     applyInstructionsOnce: false,
@@ -98,6 +99,53 @@ describe("useBuilderPromptActions", () => {
     brief.resolve("");
     await act(async () => {
       await first;
+    });
+
+    expect(createNewChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a blank init while a template entry has no chat yet (template import owns chat creation)", async () => {
+    const createNewChat = vi.fn(async () => true);
+    const generateDynamicInstructions = vi.fn(async () => "");
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          templateId: "some-v0-template",
+          chatId: null,
+          createNewChat,
+          generateDynamicInstructions,
+        }),
+      ),
+    );
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.requestCreateChat("Gör hero-sektionen blå");
+    });
+
+    // A template's chat comes from POST /api/template, never a from-scratch
+    // init here — so the guard must short-circuit before any init work.
+    expect(outcome).toBe(false);
+    expect(createNewChat).not.toHaveBeenCalled();
+    expect(generateDynamicInstructions).not.toHaveBeenCalled();
+  });
+
+  it("still creates a chat for a non-template entry with no chat", async () => {
+    const createNewChat = vi.fn(async () => true);
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          templateId: null,
+          chatId: null,
+          createNewChat,
+        }),
+      ),
+    );
+
+    await act(async () => {
+      await result.current.requestCreateChat("En sajt för pizzaälskare");
     });
 
     expect(createNewChat).toHaveBeenCalledTimes(1);
