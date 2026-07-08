@@ -57,6 +57,16 @@ const SAFE_WRAPPER_RES: RegExp[] = [
 ];
 
 /**
+ * JSX event-handler attributes (`onClick={…}`, `onChange={…}`, any
+ * `on[A-Z]…={…}`). Handler bodies never run during SSR/hydration — React only
+ * attaches them after hydration — and handler values are not serialized into
+ * the server HTML, so non-determinism inside the braces cannot cause a
+ * mismatch. The pattern ends on the opening `{`; the range is closed by
+ * balanced-brace scanning so multiline handlers are covered.
+ */
+const JSX_EVENT_HANDLER_RE = /\bon[A-Z]\w*\s*=\s*\{/g;
+
+/**
  * Replace comments and string/template literals with same-length whitespace so
  * token/brace scanning never matches inside them. Newlines are preserved so
  * line numbers stay accurate.
@@ -139,6 +149,23 @@ function findBalancedParenEnd(source: string, fromIndex: number): number | null 
   return null;
 }
 
+/**
+ * Given the index of an opening `{` in already-blanked source, return the
+ * inclusive end index of the balanced `{...}` (or null when unbalanced).
+ */
+function findBalancedBraceEnd(blanked: string, openIndex: number): number | null {
+  let depth = 0;
+  for (let i = openIndex; i < blanked.length; i++) {
+    const ch = blanked[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
+}
+
 /** Ranges (in blanked source) whose contents run client-only post-hydration. */
 function collectSafeRanges(blanked: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
@@ -152,6 +179,15 @@ function collectSafeRanges(blanked: string): Array<{ start: number; end: number 
       const end = findBalancedParenEnd(blanked, parenIdx);
       if (end !== null) ranges.push({ start: m.index, end });
     }
+  }
+  // JSX event handlers: the pattern ends on the attribute's opening `{`;
+  // balance it so multiline handler bodies are fully covered.
+  const handlerRe = new RegExp(JSX_EVENT_HANDLER_RE.source, "g");
+  let hm: RegExpExecArray | null;
+  while ((hm = handlerRe.exec(blanked)) !== null) {
+    const braceIdx = hm.index + hm[0].length - 1;
+    const end = findBalancedBraceEnd(blanked, braceIdx);
+    if (end !== null) ranges.push({ start: hm.index, end });
   }
   return ranges;
 }

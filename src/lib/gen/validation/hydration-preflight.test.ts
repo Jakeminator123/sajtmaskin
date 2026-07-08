@@ -79,6 +79,44 @@ export default function P() {
     expect(issues[0].pattern).toBe("Math.random()");
   });
 
+  it("does NOT flag calls inside a JSX event handler (never runs during SSR/hydration)", () => {
+    const src = `"use client"
+import { useState } from "react"
+export default function Page() {
+  const [seed, setSeed] = useState(1)
+  return <button onClick={() => setSeed(Math.random())}>{seed}</button>
+}`;
+    expect(detectNonDeterministicRenderInSource("app/page.tsx", src)).toHaveLength(0);
+  });
+
+  it("does NOT flag calls inside a multiline JSX event handler", () => {
+    const src = `"use client"
+export default function Form() {
+  return (
+    <input
+      onChange={(e) => {
+        const id = crypto.randomUUID()
+        const ts = Date.now()
+        console.log(id, ts, e.target.value, new Date())
+      }}
+    />
+  )
+}`;
+    expect(detectNonDeterministicRenderInSource("app/page.tsx", src)).toHaveLength(0);
+  });
+
+  it("flags render-scope call even when another call is safely inside an event handler", () => {
+    const src = `"use client"
+export default function P() {
+  const seed = Math.random()
+  return <div style={{ opacity: seed }} onMouseEnter={() => console.log(Math.random())} />
+}`;
+    const issues = detectNonDeterministicRenderInSource("app/page.tsx", src);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].pattern).toBe("Math.random()");
+    expect(issues[0].line).toBe(3);
+  });
+
   it("dedupes to one issue per pattern per file", () => {
     const src = `export default function P() {
   const a = Math.random(); const b = Math.random(); const c = Math.random()
