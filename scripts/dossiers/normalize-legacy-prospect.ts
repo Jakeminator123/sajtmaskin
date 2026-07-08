@@ -342,12 +342,18 @@ function runMechanicalChecks(
   if (keeps.length === 0) errors.push("verdict=accept but keepFiles is empty");
   const keepTargets = new Set(keeps.map((k) => k.to));
   for (const k of keeps) {
-    if (!existsSync(join(prospectDir, k.from))) {
+    // Path-escape guard on BOTH ends: `from` is read (join(prospectDir, from))
+    // and `to` is written (join(draftDir, to)). A traversal segment on either
+    // (e.g. "components/../../secret") could read/write outside the intended
+    // roots — legacy file bodies are in the prompt, so a prompt-injected
+    // mapping must not turn normalization into arbitrary local file copy.
+    if (!isSafeComponentsRelPath(k.from)) {
+      errors.push(
+        `keepFiles.from must be a clean "components/..." path (no "\\", ".", ".." segments): ${k.from}`,
+      );
+    } else if (!existsSync(join(prospectDir, k.from))) {
       errors.push(`keepFiles.from does not exist in prospect: ${k.from}`);
     }
-    // Path-escape guard: `to` must be a clean POSIX path under components/
-    // with no traversal — otherwise writeDraft's join+cpSync could write
-    // outside the draft dir (e.g. "components/../../REJECTED.md").
     if (!isSafeComponentsRelPath(k.to)) {
       errors.push(
         `keepFiles.to must be a clean "components/..." path (no "\\", ".", ".." segments): ${k.to}`,
@@ -485,9 +491,23 @@ async function main() {
         "utf-8",
       );
       console.log(`[reject] ${plan.legacyId} (${elapsed}s): ${output.reason}`);
+    } else if (!output.manifest || typeof output.manifest !== "object") {
+      // The response schema only requires `verdict`; an accept with no manifest
+      // must fail THIS prospect (not throw on the `.id =` write below and abort
+      // the whole run before later prospects/report rows are processed).
+      row.verdict = "invalid";
+      row.validationErrors = ["verdict=accept but no manifest object emitted"];
+      anyInvalid = true;
+      rmSync(join(prospectDir, "_v2-draft"), { recursive: true, force: true });
+      console.error(`[invalid] ${plan.legacyId} (${elapsed}s): accepted with no manifest object`);
     } else {
-      // AJV (same validator as runtime/CI) + mechanical guards.
-      (output.manifest as Record<string, unknown>).id = plan.targetId;
+      // Coerce plan-owned fields (id + capability + default flag) so the LLM
+      // cannot drift the fixed identity in prospects.json past validation and
+      // land a dossier the runtime would select under the wrong capability.
+      const manifest = output.manifest as Record<string, unknown>;
+      manifest.id = plan.targetId;
+      manifest.capability = plan.targetCapability;
+      manifest.defaultForCapability = plan.defaultForCapability;
       const ajv = validateDossierManifest(output.manifest, {
         expectedId: plan.targetId,
         class: plan.targetClass,

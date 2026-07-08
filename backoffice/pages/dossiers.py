@@ -35,6 +35,7 @@ HARD_ROOT = DOSSIER_ROOT / "hard"
 SOFT_ROOT = DOSSIER_ROOT / "soft"
 INDEX_ROOT = DOSSIER_ROOT / "_index"
 CAPABILITY_MAP_PATH = INDEX_ROOT / "capability-map.json"
+STRICT_SCHEMA_PATH = REPO_ROOT / "docs" / "schemas" / "strict" / "dossier.schema.json"
 TEMPLATE_REFS_ROOT = REPO_ROOT / "data" / "template-references" / "repos"
 CAPABILITY_TIERS_PATH = (
     REPO_ROOT / "src" / "lib" / "builder" / "follow-up-capability-detection.ts"
@@ -579,6 +580,21 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
     errors = _validate_manifest(manifest)
     if errors:
         return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
+    # Canonical strict-schema gate (additionalProperties:false, kebab/id/label
+    # patterns, enum + length constraints) — the lightweight `_validate_manifest`
+    # above misses these, so a manually-edited draft could otherwise be promoted
+    # into a state the runtime registry (strict AJV) silently excludes.
+    try:
+        from backoffice.shared import validate_json_against_schema
+
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - surface any failure, fail closed
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — promotar inte:\n"
+            + "\n".join(f"- {e}" for e in schema_errors)
+        )
     target_dir = DOSSIER_ROOT / klass / target_id
     if target_dir.exists() and not force:
         rel = target_dir.relative_to(REPO_ROOT)
@@ -709,9 +725,29 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
         if text:
             with st.expander("REVIEW.md — concerns + obligatoriska kodfixar", expanded=False):
                 st.markdown(text)
+        # Block promotion while REVIEW lists required code changes — the draft's
+        # manifest shape can be valid while the integration code still needs the
+        # fixes (lazy SDK-init, real schema, …). Require an explicit ack so a
+        # maintainer can't one-click known-unfinished code into the live pool.
+        required_changes = row_report.get("requiredCodeChanges") or []
+        fixes_ack = True
+        if required_changes:
+            st.warning(
+                f"{len(required_changes)} obligatorisk(a) kodfix(ar) enligt REVIEW "
+                "innan denna dossier är säker i live-poolen."
+            )
+            fixes_ack = st.checkbox(
+                "Jag har applicerat kodfixarna (eller tar ansvar för att promota ändå)",
+                key="prospect_fixes_ack",
+            )
         with single_cols[1]:
             force_overwrite = st.checkbox("Skriv över befintlig", key="prospect_promote_force")
-        if st.button("Promota utkast → live-pool", type="primary", key="prospect_promote"):
+        if st.button(
+            "Promota utkast → live-pool",
+            type="primary",
+            key="prospect_promote",
+            disabled=not fixes_ack,
+        ):
             ok, msg = _promote_prospect(root, entry, force=force_overwrite)
             (st.success if ok else st.error)(msg)
             if ok:
