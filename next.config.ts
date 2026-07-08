@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["esbuild", "pg"],
+  // playwright/@sparticuz/chromium: native browser launchers for the project
+  // thumbnail capture — must stay external so the bundler doesn't inline them
+  // (NFT traces the chromium binary into the function instead).
+  serverExternalPackages: ["esbuild", "pg", "playwright", "playwright-core", "@sparticuz/chromium"],
   // Monorepo tracing root: use cwd (project root at build time), not __dirname, to avoid NFT
   // pulling next.config into odd dependency graphs with Turbopack.
   outputFileTracingRoot: path.join(/* turbopackIgnore: true */ process.cwd(), "./"),
