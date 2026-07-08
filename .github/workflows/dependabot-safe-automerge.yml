@@ -105,8 +105,10 @@ jobs:
 
       - name: Enable auto-merge (GATED — OFF unless required checks + variable are set)
         # Requires BOTH: an eligible patch PR AND the explicit opt-in variable.
-        # Do NOT set DEPENDABOT_AUTOMERGE_ENABLED=true until "Protect master"
-        # enforces required green status checks (see SAFETY NOTE above).
+        # Required status checks are now enforced on "Protect master" (since
+        # 2026-07-08), so the false-green risk is closed; keep
+        # DEPENDABOT_AUTOMERGE_ENABLED unset until you deliberately want
+        # Dependabot patch PRs to self-merge (see SAFETY NOTE above).
         if: ${{ steps.classify.outputs.eligible == 'true' && vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
