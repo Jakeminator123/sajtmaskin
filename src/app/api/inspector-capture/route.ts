@@ -3,7 +3,7 @@ import type { Page } from "playwright";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import { isDisallowedHost } from "@/lib/security/is-disallowed-host";
+import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -418,7 +418,7 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
-  if (isDisallowedHost(target.hostname)) {
+  if (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname))) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
 
