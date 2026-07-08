@@ -1,23 +1,73 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
-    reviewers:
-      - jakem
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Madrid"
+    open-pull-requests-limit: 5
     labels:
       - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
     groups:
-      dev-dependencies:
-        dependency-type: development
-      production-dependencies:
-        dependency-type: production
+      npm-production-patch:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+        patterns:
+          - "*"
+      npm-development-patch:
+        dependency-type: "development"
+        update-types:
+          - "patch"
+        patterns:
+          - "*"
+      npm-low-risk-minor:
+        update-types:
+          - "minor"
+        patterns:
+          - "@radix-ui/*"
+          - "lucide-react"
+          - "nanoid"
+          - "swr"
+          - "tailwind-merge"
+          - "date-fns"
+          - "zustand"
+          - "prettier"
+          - "dotenv"
+          - "ajv"
+        exclude-patterns:
+          - "ai"
+          - "@ai-sdk/*"
+          - "next"
+          - "react"
+          - "react-dom"
+          - "typescript"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "eslint"
+          - "@eslint/*"
+          - "@types/node"
+          - "stripe"
+          - "openai"
+          - "recharts"
+    # Majors are handled manually per domain (see docs/dependency-policy.md).
+    # Security updates are exempt from version-update ignores and still surface.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
-  - package-ecosystem: github-actions
-    directory: /
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: weekly
+      interval: "weekly"
     open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
