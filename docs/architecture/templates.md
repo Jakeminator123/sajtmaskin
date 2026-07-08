@@ -64,7 +64,15 @@ Allt annat innehåll är fortfarande verbatim.
 npm run templates:blob:upload -- --upload --write-catalog --source=../mallar
 ```
 
-`upload-mallar-blob.mjs` läser "mallar"-intaket, laddar upp ZIP:ar till Blob och (med `--write-catalog`) skriver **alla tre** filerna: `template-blob-manifest.json` + `templates.json` + `template-categories.json`. Datans egna metadata bekräftar källan (`_source: template-blob-manifest.json`, `_discoveryMode: blob-manifest`).
+`upload-mallar-blob.mjs` läser "mallar"-intaket, laddar upp ZIP:ar **och en stillbild per mall** till Blob och (med `--write-catalog`) skriver **alla tre** filerna: `template-blob-manifest.json` + `templates.json` + `template-categories.json`. Datans egna metadata bekräftar källan (`_source: template-blob-manifest.json`, `_discoveryMode: blob-manifest`).
+
+**Kategori härleds i prioritetsordning** (fältet `categorySource` i manifestet visar vilken som vann):
+
+1. `v0-title` — v0:s egen primärkategori ur mallsidans `ogTitle` ("… - Components Templates - v0 by Vercel") i `out/template-metadata/<id>.json`. Auktoritativ: det är mallens egen taxonomi.
+2. `source-slugs` — v0-listsidor ur `downloaded.jsonl` (`sourceSlugs`, exkl. browse-all).
+3. `intake-folder` — mappnamnet i intaget (legacy-beteendet). Mappen säger bara vilken listsida skrapern råkade stå på, därför sist.
+
+**Stillbilder:** en bild per mall (listing-bild föredras, annars första detail-skärmdump) laddas till Blob under `v0-templates/images/<id>/still.<ext>` och skrivs som `preview_still_url` + `preview_image_url` i katalogen. `/api/template-image/<id>` finns kvar enbart som lokal dev-fallback (`templates_v0/` är gitignored och når aldrig prod).
 
 Uploadern exkluderar mallar som överskrider preview-host-taken från galleriet (`previewFits:false`) men behåller dem i Blob.
 

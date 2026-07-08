@@ -21,6 +21,7 @@ import {
   Lock,
   Palette,
   Gamepad2,
+  ShoppingCart,
   Edit,
   Play,
   HelpCircle,
@@ -52,6 +53,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Palette,
   Layout,
   Gamepad2,
+  ShoppingCart,
   HelpCircle,
 };
 

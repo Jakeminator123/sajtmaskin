@@ -9,11 +9,26 @@
  *   (downloads/<cat>/<slug>__<id>/template.zip + metadata.json + listing/detail).
  *   The "mallar" intake folder uses the *split* layout instead:
  *     <source>/out/downloaded.jsonl             templateId -> logged zip path (source of truth)
- *     <source>/out/template-metadata/<id>.json  title metadata
+ *     <source>/out/template-metadata/<id>.json  title + v0 category metadata
  *     <source>/downloads/<swedish-cat>/<id>/*.zip
+ *     <source>/downloads/template-images/<cat>/<id>/{listing,detail}/*.jpg|png|webp
  *   The logged category spelling can drift from the on-disk folder
  *   (e.g. "webbplatsmallar" vs "webplatsmallar"), so we locate zips by the
  *   <templateId> folder, not by the logged path.
+ *
+ * Category derivation (most-authoritative first):
+ *   1. v0's own primary category parsed from the template page's ogTitle
+ *      ("<Title> - <Category> Templates - v0 by Vercel") in template-metadata.
+ *   2. sourceSlugs from downloaded.jsonl (v0 listing pages the template was
+ *      found on, excluding the browse-all catch-all).
+ *   3. The on-disk intake folder name (legacy behavior, spelling-drift-safe).
+ *   The intake folder reflects WHICH v0 listing page the scraper happened to
+ *   be on, so it routinely mislabels cross-listed templates — that is why the
+ *   template's own metadata wins.
+ *
+ * A still image (listing image preferred, first detail screenshot otherwise)
+ * is uploaded to Blob per template so the gallery shows real thumbnails in
+ * prod (templates_v0/ is gitignored, so local files never reach prod).
  *
  * Outputs (consumed by the app):
  *   - src/lib/templates/template-blob-manifest.json  (runtime blob source,
@@ -93,12 +108,15 @@ const APP_CATEGORY_ID_LIST = [
   "blog-and-portfolio",
   "design-systems",
   "layouts",
+  "landing-pages",
+  "dashboards",
+  "e-commerce",
   "website-templates",
   "apps-and-games",
 ];
 const APP_CATEGORY_IDS = new Set(APP_CATEGORY_ID_LIST);
 
-// Swedish (and English) source-folder names -> app category id.
+// Swedish (and English) source-folder names AND v0 sourceSlugs -> app category id.
 const SOURCE_TO_APP_CATEGORY = {
   ai: "ai",
   agents: "ai",
@@ -120,15 +138,43 @@ const SOURCE_TO_APP_CATEGORY = {
   "website-templates": "website-templates",
   webbplatsmallar: "website-templates",
   webplatsmallar: "website-templates",
-  "landing-pages": "website-templates",
-  landningssidor: "website-templates",
-  ecommerce: "website-templates",
-  "e-handel": "website-templates",
-  dashboards: "apps-and-games",
-  instrumentpaneler: "apps-and-games",
+  "landing-pages": "landing-pages",
+  landningssidor: "landing-pages",
+  ecommerce: "e-commerce",
+  "e-commerce": "e-commerce",
+  "e-handel": "e-commerce",
+  dashboards: "dashboards",
+  instrumentpaneler: "dashboards",
   "apps-and-games": "apps-and-games",
   "appar-och-spel": "apps-and-games",
   "alla-mallar": "website-templates",
+};
+
+// v0's own category label from the template page's ogTitle
+// ("<Title> - <Category> Templates - v0 by Vercel") -> app category id.
+const V0_TITLE_CATEGORY_TO_APP = {
+  ai: "ai",
+  agents: "ai",
+  animations: "animations",
+  components: "components",
+  "login & sign up": "login-and-sign-up",
+  "blog & portfolio": "blog-and-portfolio",
+  "design systems": "design-systems",
+  layouts: "layouts",
+  "landing pages": "landing-pages",
+  dashboards: "dashboards",
+  commerce: "e-commerce",
+  "e-commerce": "e-commerce",
+  "website templates": "website-templates",
+  "apps & games": "apps-and-games",
+};
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+const IMAGE_CONTENT_TYPES = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
 };
 
 const argv = process.argv.slice(2);
@@ -189,6 +235,42 @@ function mapAppCategory(sourceCategory) {
   const key = normalizeCategoryKey(sourceCategory);
   const mapped = SOURCE_TO_APP_CATEGORY[key];
   return mapped && APP_CATEGORY_IDS.has(mapped) ? mapped : "website-templates";
+}
+
+/** v0's own primary category from ogTitle/twitterTitle, or null. */
+function parseV0TitleCategory(metadata) {
+  const candidates = [metadata?.ogTitle, metadata?.twitterTitle];
+  for (const raw of candidates) {
+    const match = /[-\u2013]\s*([^-\u2013]+?)\s*Templates?\s*[-\u2013]\s*v0/i.exec(String(raw || ""));
+    if (!match) continue;
+    const mapped = V0_TITLE_CATEGORY_TO_APP[match[1].trim().toLowerCase()];
+    if (mapped && APP_CATEGORY_IDS.has(mapped)) return mapped;
+  }
+  return null;
+}
+
+/** First mappable non-browse-all sourceSlug from downloaded.jsonl, or null. */
+function mapSourceSlugsCategory(sourceSlugs) {
+  for (const slug of Array.isArray(sourceSlugs) ? sourceSlugs : []) {
+    const key = normalizeCategoryKey(slug);
+    if (!key || key === "browse-all" || key === "alla-mallar") continue;
+    const mapped = SOURCE_TO_APP_CATEGORY[key];
+    if (mapped && APP_CATEGORY_IDS.has(mapped)) return mapped;
+  }
+  return null;
+}
+
+/**
+ * Category priority: template's own v0 metadata (ogTitle) -> v0 listing slugs
+ * -> intake folder. The folder only says which listing page the scraper was
+ * on, so cross-listed templates end up in the wrong folder — metadata wins.
+ */
+function deriveAppCategory({ metadata, sourceSlugs, sourceCategory }) {
+  const fromTitle = parseV0TitleCategory(metadata);
+  if (fromTitle) return { category: fromTitle, categorySource: "v0-title" };
+  const fromSlugs = mapSourceSlugsCategory(sourceSlugs);
+  if (fromSlugs) return { category: fromSlugs, categorySource: "source-slugs" };
+  return { category: mapAppCategory(sourceCategory), categorySource: "intake-folder" };
 }
 
 function normalizeTitle(raw, fallbackId) {
@@ -257,7 +339,7 @@ async function readExistingManifestItems() {
   return byId;
 }
 
-/** templateId -> { preferredBasename } from downloaded.jsonl (last row wins). */
+/** templateId -> { preferredBasename, sourceSlugs } from downloaded.jsonl (last row wins). */
 async function readCanonicalDownloadRows(sourceRoot) {
   const logPath = resolve(sourceRoot, "out/downloaded.jsonl");
   if (!(await fileExists(logPath))) {
@@ -269,7 +351,11 @@ async function readCanonicalDownloadRows(sourceRoot) {
     const templateId = typeof row?.templateId === "string" ? row.templateId.trim() : "";
     const rowPath = typeof row?.path === "string" ? row.path.trim() : "";
     if (!templateId || !rowPath) continue;
-    byId.set(templateId, { templateId, preferredBasename: basenameOf(rowPath) });
+    byId.set(templateId, {
+      templateId,
+      preferredBasename: basenameOf(rowPath),
+      sourceSlugs: Array.isArray(row?.sourceSlugs) ? row.sourceSlugs : [],
+    });
   }
   return byId;
 }
@@ -311,10 +397,67 @@ async function locateZip(sourceRoot, templateId, preferredBasename) {
   return null;
 }
 
-async function readTitle(sourceRoot, templateId) {
-  const metadata = await readJson(resolve(sourceRoot, "out/template-metadata", `${templateId}.json`), null);
+async function readTemplateMetadata(sourceRoot, templateId) {
+  return readJson(resolve(sourceRoot, "out/template-metadata", `${templateId}.json`), null);
+}
+
+function titleFromMetadata(metadata, templateId) {
   if (!metadata) return templateId;
   return normalizeTitle(metadata.ogTitle || metadata.h1 || metadata.twitterTitle || "", templateId);
+}
+
+/**
+ * Locate the best still image for a template: a curated listing image if one
+ * exists, otherwise the first detail screenshot (D001_… sorts first). Scans
+ * every category folder under downloads/template-images/ (spelling-drift safe).
+ */
+async function locateStillImage(sourceRoot, templateId) {
+  const imagesRoot = resolve(sourceRoot, "downloads", "template-images");
+  let categoryEntries;
+  try {
+    categoryEntries = await readdir(imagesRoot, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const categoryEntry of categoryEntries) {
+    if (!categoryEntry.isDirectory()) continue;
+    const templateDir = resolve(imagesRoot, categoryEntry.name, templateId);
+    if (!(await fileExists(templateDir))) continue;
+    for (const subdir of ["listing", "detail"]) {
+      let files;
+      try {
+        files = await readdir(resolve(templateDir, subdir), { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      const images = files
+        .filter((f) => f.isFile() && IMAGE_EXTENSIONS.has(extnameLower(f.name)))
+        .map((f) => f.name)
+        .sort((a, b) => a.localeCompare(b));
+      if (images.length > 0) {
+        return resolve(templateDir, subdir, images[0]);
+      }
+    }
+  }
+  return null;
+}
+
+function extnameLower(fileName) {
+  const idx = fileName.lastIndexOf(".");
+  return idx >= 0 ? fileName.slice(idx).toLowerCase() : "";
+}
+
+async function uploadStillImage(templateId, absolutePath, buffer) {
+  const ext = extnameLower(absolutePath);
+  const key = `${blobPrefix}/images/${templateId}/still${ext}`;
+  if (dryRun) return { url: `blob-dry-run://${key}` };
+  const blob = await put(key, buffer, {
+    access: "public",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: IMAGE_CONTENT_TYPES[ext] || "application/octet-stream",
+  });
+  return { url: blob.url };
 }
 
 function stripCommonArchiveRoot(paths) {
@@ -407,15 +550,24 @@ function buildCatalogFiles(items) {
   // Exclude templates that would be rejected by the preview host so the gallery
   // never exposes a clickable template that can't open in the VM.
   const catalogItems = items.filter((item) => item.previewFits !== false);
-  const templates = catalogItems.map((item) => ({
-    id: item.id,
-    title: item.title || item.id,
-    slug: item.id,
-    preview_image_url: `/api/template-image/${item.id}`,
-    archive_url: item.archiveUrl,
-    image_filename: `${item.id}.jpg`,
-    category: APP_CATEGORY_IDS.has(item.category) ? item.category : "website-templates",
-  }));
+  const templates = catalogItems.map((item) => {
+    const stillUrl =
+      typeof item.stillImageUrl === "string" && item.stillImageUrl.startsWith("http")
+        ? item.stillImageUrl
+        : null;
+    return {
+      id: item.id,
+      title: item.title || item.id,
+      slug: item.id,
+      // Blob still image when available; local-disk API route only as fallback
+      // (templates_v0/ is gitignored, so the route always falls back in prod).
+      preview_image_url: stillUrl ?? `/api/template-image/${item.id}`,
+      preview_still_url: stillUrl,
+      archive_url: item.archiveUrl,
+      image_filename: `${item.id}.jpg`,
+      category: APP_CATEGORY_IDS.has(item.category) ? item.category : "website-templates",
+    };
+  });
 
   const categoryMap = Object.fromEntries(APP_CATEGORY_ID_LIST.map((id) => [id, []]));
   for (const item of catalogItems) {
@@ -468,11 +620,19 @@ async function main() {
       console.warn(`[mallar-blob] Skipping ${templateId}: archive ${info.size} bytes over import limit`);
       continue;
     }
+    const metadata = await readTemplateMetadata(sourceRoot, templateId);
+    const derived = deriveAppCategory({
+      metadata,
+      sourceSlugs: row.sourceSlugs,
+      sourceCategory: located.sourceCategory,
+    });
     candidates.push({
       templateId,
       absolutePath: located.absolutePath,
       sourceCategory: located.sourceCategory,
-      appCategory: mapAppCategory(located.sourceCategory),
+      appCategory: derived.category,
+      categorySource: derived.categorySource,
+      title: titleFromMetadata(metadata, templateId),
       sizeBytes: info.size,
     });
   }
@@ -490,8 +650,11 @@ async function main() {
   let uploadedCount = 0;
   let skippedCount = 0;
   let previewBlockedCount = 0;
+  let imageUploadedCount = 0;
+  let imageSkippedCount = 0;
+  let imageMissingCount = 0;
   for (const candidate of selected) {
-    const title = await readTitle(sourceRoot, candidate.templateId);
+    const title = candidate.title;
     const buffer = await readFile(candidate.absolutePath);
     const archiveSha256 = createHash("sha256").update(buffer).digest("hex");
     const previewFit = await computePreviewFit(buffer);
@@ -526,16 +689,45 @@ async function main() {
       );
     }
 
+    // Still image: sha-based incremental, same discipline as the archive.
+    let stillImageUrl =
+      existing && typeof existing.stillImageUrl === "string" ? existing.stillImageUrl : null;
+    let stillImageSha256 =
+      existing && typeof existing.stillImageSha256 === "string" ? existing.stillImageSha256 : null;
+    const stillPath = await locateStillImage(sourceRoot, candidate.templateId);
+    if (stillPath) {
+      const imageBuffer = await readFile(stillPath);
+      const imageSha = createHash("sha256").update(imageBuffer).digest("hex");
+      const imageAlreadyUploaded =
+        !overwrite &&
+        stillImageUrl &&
+        stillImageUrl.startsWith("http") &&
+        stillImageSha256 === imageSha;
+      if (imageAlreadyUploaded) {
+        imageSkippedCount += 1;
+      } else {
+        const uploadedImage = await uploadStillImage(candidate.templateId, stillPath, imageBuffer);
+        stillImageUrl = uploadedImage.url;
+        stillImageSha256 = imageSha;
+        imageUploadedCount += 1;
+      }
+    } else if (!stillImageUrl) {
+      imageMissingCount += 1;
+    }
+
     mergedById.set(candidate.templateId, {
       id: candidate.templateId,
       title,
       slug: candidate.templateId,
       category: candidate.appCategory,
+      categorySource: candidate.categorySource,
       sourceCategory: candidate.sourceCategory,
       source: "v0-blob",
       archiveUrl,
       archiveSizeBytes: candidate.sizeBytes,
       archiveSha256,
+      stillImageUrl,
+      stillImageSha256,
       previewFits: previewFit.fits,
       previewMaxFileBytes: previewFit.maxFileBytes,
       previewTotalBytes: previewFit.totalBytes,
@@ -545,6 +737,9 @@ async function main() {
   const items = [...mergedById.values()].sort((a, b) => a.id.localeCompare(b.id));
 
   console.log(`[mallar-blob] Uploaded: ${uploadedCount} | Skipped (already uploaded): ${skippedCount}`);
+  console.log(
+    `[mallar-blob] Still images — uploaded: ${imageUploadedCount} | skipped (same sha): ${imageSkippedCount} | missing on disk: ${imageMissingCount}`,
+  );
   console.log(`[mallar-blob] Preview-blocked (excluded from catalog): ${previewBlockedCount}`);
   console.log(`[mallar-blob] Manifest total after merge: ${items.length}`);
 
