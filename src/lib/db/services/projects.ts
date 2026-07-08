@@ -228,6 +228,38 @@ export async function updateProject(
 }
 
 /**
+ * Persist the project thumbnail and return the PREVIOUS path so the caller
+ * can delete the superseded blob (each capture uploads under a unique name —
+ * Vercel Blob rejects overwrites by default).
+ *
+ * Note on `updated_at`: the capture always targets the project the user has
+ * open in the builder right after a preview became ready, so a recency bump
+ * is semantically fine — and unavoidable anyway: the `set_updated_at_app_projects`
+ * DB trigger bumps `updated_at` unconditionally on every UPDATE.
+ */
+export async function setProjectThumbnail(
+  id: string,
+  thumbnailPath: string,
+  scope: ProjectOwnerScope,
+): Promise<{ previousThumbnailPath: string | null } | null> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  if (!ownerCondition) return null;
+  const existing = await db
+    .select({ thumbnail_path: appProjects.thumbnail_path })
+    .from(appProjects)
+    .where(and(eq(appProjects.id, id), ownerCondition))
+    .limit(1);
+  if (existing.length === 0) return null;
+
+  await db
+    .update(appProjects)
+    .set({ thumbnail_path: thumbnailPath, updated_at: new Date() })
+    .where(and(eq(appProjects.id, id), ownerCondition));
+  return { previousThumbnailPath: existing[0]?.thumbnail_path ?? null };
+}
+
+/**
  * Persist the Vercel project a Sajtmaskin project publishes to. Only non-null,
  * non-empty values overwrite — so a deploy that only knows the used project
  * name (Vercel didn't return a projectId) doesn't wipe an existing id, and vice

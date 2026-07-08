@@ -42,6 +42,7 @@ import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { useDeploymentHistory } from "./useDeploymentHistory";
+import { useProjectThumbnail } from "./useProjectThumbnail";
 import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
 import {
@@ -314,6 +315,14 @@ export function useBuilderPageController() {
     refetch: refetchDeploymentHistory,
   } = useDeploymentHistory(chatHooksChatId);
   const hydratedVercelProjectName = hydratedProject?.vercelProjectName ?? null;
+
+  // ── Project thumbnail (Mina projekt) ─────────────────────────────────
+  // Fire-and-forget: screenshot the live preview → app_projects.thumbnail_path.
+  useProjectThumbnail({
+    appProjectId: state.appProjectId,
+    previewUrl: state.currentPreviewUrl,
+    versionId: derived.activeVersionId,
+  });
 
   // ── Deploy actions ───────────────────────────────────────────────────
   const deployActions = useBuilderDeployActions({

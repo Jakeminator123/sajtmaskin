@@ -63,6 +63,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "github:export": { maxRequests: 8, windowMs: 60 * 1000 },
   "fetch:html": { maxRequests: 12, windowMs: 60 * 1000 },
   "inspector:capture": { maxRequests: 12, windowMs: 60 * 1000 },
+  // Launches serverless Chromium (up to 60s) — must stay far below default.
+  "projects:thumbnail": { maxRequests: 4, windowMs: 60 * 1000 },
   "inspector:element-map": { maxRequests: 20, windowMs: 60 * 1000 },
   "inspector:ai-match": { maxRequests: 10, windowMs: 60 * 1000 },
   read: { maxRequests: 150, windowMs: 60 * 1000 },
