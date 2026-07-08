@@ -93,6 +93,16 @@ export function useBuilderEffects({
             setCurrentPreviewUrl(n);
           }
         }
+        // Advisory from the server: the import succeeded but the preview VM
+        // never booted. Surface it instead of leaving the user with a silent,
+        // empty preview panel.
+        if (data?.previewStartFailed) {
+          toast.warning(
+            typeof data?.previewStartError === "string" && data.previewStartError.trim()
+              ? data.previewStartError
+              : "Mallen importerades, men förhandsvisningen kunde inte startas just nu. Försök igen om en stund.",
+          );
+        }
         if (data?.chatId && appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,

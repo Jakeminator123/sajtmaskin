@@ -222,6 +222,8 @@ describe("POST /api/template", () => {
     });
     expect(typeof json.source.ageSeconds).toBe("number");
     expect(json.source.ageSeconds).toBeGreaterThanOrEqual(0);
+    expect(json).not.toHaveProperty("previewStartFailed");
+    expect(json).not.toHaveProperty("previewStartError");
     expect(devLogAppend).not.toHaveBeenCalled();
     expect(chatRepoCreateDraftVersion).toHaveBeenCalledWith(
       "chat_import",
@@ -261,7 +263,7 @@ describe("POST /api/template", () => {
     expect(commitCredits).toHaveBeenCalled();
   });
 
-  it("succeeds with previewUrl: null when preview-host is unavailable", async () => {
+  it("succeeds with previewUrl: null and a previewStartFailed advisory when preview-host is unavailable", async () => {
     getLocalV0TemplateSourceById.mockResolvedValue({
       templateId: "tmpl_1",
       archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
@@ -311,7 +313,12 @@ describe("POST /api/template", () => {
       projectId: "proj_new",
       versionId: "ver_import",
       previewUrl: null,
+      previewStartFailed: true,
     });
+    expect(typeof json.previewStartError).toBe("string");
+    expect(json.previewStartError.length).toBeGreaterThan(0);
+    // Vendor-neutral user-facing copy: never leak host/provider names.
+    expect(json.previewStartError).not.toMatch(/fly|vercel/i);
     expect(chatRepoCreateDraftVersion).toHaveBeenCalled();
     expect(chatRepoUpdateVersionPreviewUrl).not.toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();

@@ -150,6 +150,11 @@ async function persistTemplateProjectData(params: {
   });
 }
 
+// Advisory user-facing copy when the import succeeded but the preview VM
+// never booted. Vendor-neutral by design (no host/provider names).
+const PREVIEW_START_FAILED_MESSAGE =
+  "Mallen importerades, men förhandsvisningen kunde inte startas just nu. Försök igen om en stund.";
+
 async function initializeLocalTemplateProject(params: {
   projectId: string;
   template: Template;
@@ -158,6 +163,8 @@ async function initializeLocalTemplateProject(params: {
   projectId: string;
   versionId: string;
   previewUrl: string | null;
+  previewStartFailed: boolean;
+  previewStartError: string | null;
   files: LegacyTemplateFile[];
   code: string;
   model: string;
@@ -189,6 +196,8 @@ async function initializeLocalTemplateProject(params: {
   );
 
   let previewUrl: string | null = null;
+  let previewStartFailed = false;
+  let previewStartError: string | null = null;
   const previewSessionStarted = await startPreviewSession(imported.files, {
     chatId: chat.id,
     appProjectId: projectId,
@@ -202,6 +211,10 @@ async function initializeLocalTemplateProject(params: {
       await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
     }
   } else {
+    // Advisory, never blocks the import: the version is saved and the user can
+    // keep working, but the client must be told there is no live preview.
+    previewStartFailed = true;
+    previewStartError = PREVIEW_START_FAILED_MESSAGE;
     console.warn(
       "[API /template] Preview session failed — version saved without live preview:",
       previewSessionStarted.error.stage,
@@ -270,6 +283,8 @@ async function initializeLocalTemplateProject(params: {
     projectId,
     versionId: version.id,
     previewUrl,
+    previewStartFailed,
+    previewStartError,
     files,
     code: mainCode,
     model: String(engineModel),
@@ -431,6 +446,12 @@ export async function POST(request: NextRequest) {
           projectId: imported.projectId,
           versionId: imported.versionId,
           ...previewUrlField(imported.previewUrl),
+          ...(imported.previewStartFailed
+            ? {
+                previewStartFailed: true,
+                previewStartError: imported.previewStartError,
+              }
+            : {}),
           model: imported.model,
           cached: false,
           source: sourceMetadata,
