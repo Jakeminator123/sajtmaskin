@@ -18,6 +18,12 @@
 -- constraint name (Postgres default `deployments_chat_id_fkey` or Drizzle
 -- `deployments_chat_id_chats_id_fk`). Safe to re-run.
 -- Canonical body also lives in src/lib/db/deployments-legacy-fk-drop.ts.
+--
+-- NOTE: this body was upgraded from hardcoded names to the catalog loop AFTER
+-- the file was already applied+recorded in schema_migrations on some DBs.
+-- The ledger tracks filenames only, so those DBs never re-run this file —
+-- drop-deployments-legacy-fks-v2.sql (same body, new filename) forces the
+-- re-run there.
 DO $$
 DECLARE
   r RECORD;

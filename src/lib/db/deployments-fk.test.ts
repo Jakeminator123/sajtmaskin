@@ -13,6 +13,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MIGRATION_ORDER } from "../../../scripts/db/migration-order.mjs";
+import { diffPendingMigrations } from "../../../scripts/db/migration-ledger.mjs";
 import {
   DEPLOYMENTS_FK_DROP_COLUMNS,
   DROP_DEPLOYMENTS_LEGACY_FKS_SQL,
@@ -26,8 +28,8 @@ const DROP_MIGRATION = readFileSync(
   join(REPO_ROOT, "src/lib/db/migrations/drop-deployments-legacy-fks.sql"),
   "utf8",
 );
-const MIGRATION_ORDER_SRC = readFileSync(
-  join(REPO_ROOT, "scripts/db/migration-order.mjs"),
+const DROP_MIGRATION_V2 = readFileSync(
+  join(REPO_ROOT, "src/lib/db/migrations/drop-deployments-legacy-fks-v2.sql"),
   "utf8",
 );
 
@@ -72,15 +74,34 @@ describe("deployments legacy-FK guard", () => {
     );
   });
 
-  it("the drop migration is registered and matches the shared catalog-drop SQL", () => {
-    expect(MIGRATION_ORDER_SRC).toContain('"drop-deployments-legacy-fks.sql"');
-    expect(normalizeSql(DROP_MIGRATION)).toContain(
-      normalizeSql(DROP_DEPLOYMENTS_LEGACY_FKS_SQL),
+  it("both drop migrations are registered and match the shared catalog-drop SQL", () => {
+    expect(MIGRATION_ORDER).toContain("drop-deployments-legacy-fks.sql");
+    expect(MIGRATION_ORDER).toContain("drop-deployments-legacy-fks-v2.sql");
+    expect(
+      MIGRATION_ORDER.indexOf("drop-deployments-legacy-fks-v2.sql"),
+    ).toBeGreaterThan(MIGRATION_ORDER.indexOf("drop-deployments-legacy-fks.sql"));
+    for (const migration of [DROP_MIGRATION, DROP_MIGRATION_V2]) {
+      expect(normalizeSql(migration)).toContain(
+        normalizeSql(DROP_DEPLOYMENTS_LEGACY_FKS_SQL),
+      );
+      expect(migration).toMatch(/information_schema\.table_constraints/);
+      expect(migration).not.toMatch(
+        /DROP CONSTRAINT IF EXISTS deployments_chat_id_fkey/,
+      );
+    }
+  });
+
+  it("ledger reports v2 as pending on DBs that already recorded v1", () => {
+    // The scenario from the Codex finding on PR #431: a database migrated
+    // BEFORE the catalog-based rewrite has every old filename (incl. v1)
+    // recorded in schema_migrations. The v2 filename must surface as pending
+    // there, so db:migrate/db:migrate:check force one re-run of the drop.
+    const preV2Ledger = new Set(
+      MIGRATION_ORDER.filter((f) => f !== "drop-deployments-legacy-fks-v2.sql"),
     );
-    expect(DROP_MIGRATION).toMatch(/information_schema\.table_constraints/);
-    expect(DROP_MIGRATION).not.toMatch(
-      /DROP CONSTRAINT IF EXISTS deployments_chat_id_fkey/,
-    );
+    expect(diffPendingMigrations(preV2Ledger)).toEqual([
+      "drop-deployments-legacy-fks-v2.sql",
+    ]);
   });
 
   it("catalog selection drops Postgres-default and Drizzle-named FK constraints", () => {
