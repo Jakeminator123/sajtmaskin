@@ -44,6 +44,11 @@ export const MIGRATION_ORDER = [
   "add-oc-debug-findings.sql",
   "add-app-projects-vercel-project.sql",
   "drop-deployments-legacy-fks.sql",
+  // v2 exists ONLY because the ledger tracks filenames: v1 was applied +
+  // recorded with hardcoded constraint names before its body was upgraded to
+  // the catalog-based drop (PR #431), so already-migrated DBs would never
+  // re-run it. The new filename is pending there and forces one re-run.
+  "drop-deployments-legacy-fks-v2.sql",
 ];
 
 /**
