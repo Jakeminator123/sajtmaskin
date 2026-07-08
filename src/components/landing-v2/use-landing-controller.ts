@@ -11,7 +11,7 @@ import {
 } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createProject } from "@/lib/project-client"
+import { createProject, deleteProject } from "@/lib/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import {
   categories,
@@ -164,6 +164,11 @@ export function useLandingController({
 
       setIsSubmitting(true)
 
+      // Track the just-created project so we can roll it back if a later step
+      // (prompt-save) fails — otherwise a failed submit leaves an orphan project
+      // behind on the user's dashboard (#26). Cleared once we're about to navigate.
+      let createdProjectId: string | null = null
+
       try {
         const categoryLabel = categories.find((category) => category.id === targetCategory)?.label ?? "Sajt"
         const project = await createProject(
@@ -171,6 +176,7 @@ export function useLandingController({
           routeTarget.buildMethod,
           prompt ? prompt.slice(0, 100) : undefined,
         )
+        createdProjectId = project.id
 
         const params = new URLSearchParams()
         params.set("project", project.id)
@@ -206,9 +212,19 @@ export function useLandingController({
           params.set("promptId", data.promptId)
         }
 
+        // Reached the navigation step — the project is now in use, so don't roll
+        // it back if router.push were to throw.
+        createdProjectId = null
         router.push(`/builder?${params.toString()}`)
       } catch (error) {
         console.error("[LandingV2] Failed to start builder flow:", error)
+        // Roll back the orphaned project created above (best-effort) so a failed
+        // submit doesn't leave an empty project behind (#26).
+        if (createdProjectId) {
+          void deleteProject(createdProjectId).catch((cleanupErr) => {
+            console.error("[LandingV2] Failed to roll back orphan project:", cleanupErr)
+          })
+        }
         toast.error(error instanceof Error ? error.message : "Kunde inte starta buildern")
       } finally {
         setIsSubmitting(false)

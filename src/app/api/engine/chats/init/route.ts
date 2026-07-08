@@ -14,6 +14,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 
 export const runtime = "nodejs";
 
@@ -214,6 +215,8 @@ function normalizeImportedPath(rawPath: string): string | null {
   if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
   const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
   if (SKIPPED_IMPORT_FILENAMES.has(basename)) return null;
+  // Secret hygiene: never import a real .env from a template archive (#38).
+  if (isBlockedEnvImportFilename(basename)) return null;
   return normalized;
 }
 
