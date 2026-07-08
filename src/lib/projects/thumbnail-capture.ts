@@ -9,9 +9,14 @@
  *  - Local/dev: the repo's `playwright` devDependency (same engine the
  *    inspector-capture route uses).
  *
- * Callers are responsible for SSRF-guarding the URL BEFORE calling this.
+ * SSRF: the route pre-checks the INITIAL URL, but headless Chromium follows
+ * redirects and honors JS/meta-refresh navigations to hosts that were never
+ * checked. Every request the page makes is therefore intercepted here and
+ * aborted unless its host passes the same public-host guard (Bugbot high,
+ * PR #426).
  */
 import type { Browser } from "playwright-core";
+import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 
 const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
@@ -35,6 +40,30 @@ async function launchBrowser(): Promise<Browser> {
   return pw.launch({ headless: true }) as unknown as Browser;
 }
 
+/**
+ * Per-capture request gate: allows only http(s) requests to hosts that pass
+ * the public-host SSRF guard. Verdicts are cached per host so each host is
+ * DNS-checked once per capture.
+ * @internal exported for tests.
+ */
+export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boolean> {
+  const hostVerdicts = new Map<string, boolean>();
+  return async (requestUrl: string): Promise<boolean> => {
+    try {
+      const parsed = new URL(requestUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) return false;
+      const cached = hostVerdicts.get(parsed.hostname);
+      if (cached !== undefined) return cached;
+      const allowed =
+        !isDisallowedHost(parsed.hostname) && !(await hostResolvesToPrivate(parsed.hostname));
+      hostVerdicts.set(parsed.hostname, allowed);
+      return allowed;
+    } catch {
+      return false;
+    }
+  };
+}
+
 /** JPEG screenshot buffer of the page at `url`, or throws on navigation failure. */
 export async function captureThumbnailScreenshot(url: string): Promise<Buffer> {
   let browser: Browser | null = null;
@@ -46,6 +75,20 @@ export async function captureThumbnailScreenshot(url: string): Promise<Buffer> {
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
     });
+
+    // Abort every request (navigation, redirect hop, subresource) whose host
+    // fails the public-host guard — Chromium must never reach cloud metadata
+    // or other internal endpoints from the serverless runtime.
+    const gate = buildCaptureRequestGate();
+    await page.route("**/*", async (route) => {
+      const allowed = await gate(route.request().url());
+      if (allowed) {
+        await route.continue().catch(() => undefined);
+      } else {
+        await route.abort("blockedbyclient").catch(() => undefined);
+      }
+    });
+
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
     // Best-effort settle: network idle + fonts, same pattern as inspector-capture.
     await page
