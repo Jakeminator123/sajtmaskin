@@ -246,6 +246,32 @@ describe("stripRouteFromContent", () => {
     expect(next).toContain("<Button asChild>");
     expect(next).toContain("<Icon />");
   });
+
+  // Codex/VADE P2 on PR #420: a self-closing link to the removed route before
+  // a paired link must not make the paired-regex span to the LATER </Link> and
+  // sweep unrelated markup (e.g. </nav>) into the removal.
+  it("handles a self-closing route link preceding a paired sibling link", () => {
+    const content = `<nav><Link href="/blog" /><Link href="/about">Om</Link></nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain('href="/blog"');
+    // The unrelated sibling and the surrounding markup must survive intact.
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
+
+  it("merges overlapping removal ranges without deleting trailing markup", () => {
+    // Both the paired and the self-closing pass can hit the same self-closing
+    // element; overlapping ranges must be merged, never applied twice.
+    const content = `<nav>
+      <Link href="/blog" />
+      <Link href="/blog">Blogg</Link>
+      <Link href="/about">Om</Link>
+    </nav>`;
+    const next = stripRouteFromContent(content, "/blog");
+    expect(next).not.toContain("/blog");
+    expect(next).toContain('<Link href="/about">Om</Link>');
+    expect(next).toContain("</nav>");
+  });
 });
 
 describe("buildRemoveNavLinkOps", () => {

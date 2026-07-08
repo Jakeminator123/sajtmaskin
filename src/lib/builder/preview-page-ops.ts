@@ -276,9 +276,14 @@ function hrefValuePattern(escapedRoute: string): string {
 
 type JsxLinkMatch = { tag: string; element: string; start: number; end: number };
 
-/** All literal internal `<Link>`/`<a>` elements in `content`, with positions. */
+/**
+ * All literal internal `<Link>`/`<a>` elements in `content`, with positions.
+ * The `(?<!/)>` guard keeps the open-tag match from swallowing a self-closing
+ * `<Link … />` and spanning to some LATER `</Link>` (which would mis-anchor
+ * inserts and removals).
+ */
 function collectJsxInternalLinks(content: string): JsxLinkMatch[] {
-  const re = /<(Link|a)\b[^>]*?href=\{?["'`]\/[^"'`]*["'`]\}?[^>]*?>[\s\S]*?<\/\1>/g;
+  const re = /<(Link|a)\b[^>]*?href=\{?["'`]\/[^"'`]*["'`]\}?[^>]*?(?<!\/)>[\s\S]*?<\/\1>/g;
   const links: JsxLinkMatch[] = [];
   let match: RegExpExecArray | null;
   while ((match = re.exec(content)) !== null) {
@@ -323,10 +328,24 @@ function asChildWrapperRange(
   return { start: wrapper.start, end: end + closeMatch[0].length };
 }
 
-/** Remove ranges from `content`, back to front so indices stay valid. */
+/**
+ * Remove ranges from `content`, back to front so indices stay valid.
+ * Overlapping/nested ranges are merged first — several regex passes (and
+ * asChild wrapper expansion) can target the same region, and applying a stale
+ * overlapping range after a larger removal would delete unrelated markup.
+ */
 function removeRanges(content: string, ranges: Array<{ start: number; end: number }>): string {
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const range of [...ranges].sort((a, b) => a.start - b.start || b.end - a.end)) {
+    const last = merged[merged.length - 1];
+    if (last && range.start <= last.end) {
+      last.end = Math.max(last.end, range.end);
+    } else {
+      merged.push({ ...range });
+    }
+  }
   let next = content;
-  for (const { start, end } of [...ranges].sort((a, b) => b.start - a.start)) {
+  for (const { start, end } of merged.reverse()) {
     // Also swallow trailing whitespace up to and including one newline.
     const tail = next.slice(end).match(/^[ \t]*\r?\n?/);
     next = next.slice(0, start) + next.slice(end + (tail ? tail[0].length : 0));
@@ -359,8 +378,11 @@ export function stripRouteFromContent(content: string, route: string): string {
 
   // 2) JSX elements linking to the route — paired and self-closing. Expand each
   //    hit to its asChild wrapper when the link is the wrapper's sole child.
+  //    The paired pattern's `(?<!/)>` guard keeps it from starting at a
+  //    self-closing `<Link … />` and spanning to a LATER `</Link>` (which would
+  //    sweep unrelated siblings into the removal range).
   const jsxLinkRes = [
-    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?>[\\s\\S]*?<\\/\\1>`, "g"),
+    new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?(?<!/)>[\\s\\S]*?<\\/\\1>`, "g"),
     new RegExp(`<(Link|a)\\b[^>]*?href=\\{?${href}\\}?[^>]*?/>`, "g"),
   ];
   const removals: Array<{ start: number; end: number }> = [];
