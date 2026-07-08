@@ -3,6 +3,15 @@ const NEGATION_TERM_RE =
 
 const REDESIGN_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:redesign|omdesign|gör\s+om|designa\s+om|ny\s+design|redesigna)(?![\p{L}\p{N}_])/iu,
+  // Bugg A / A2: plain `design`/`utseende`/`layout` targets so a negation such
+  // as "Rör inte designen", "ändra inte utseendet" or "do not change the
+  // design" actually suppresses redesign classification. Without these a
+  // bugfix prompt that happened to pair a redesign verb+noun ("byt … designen")
+  // was misclassified as clear-redesign and got the aggressive redesign lines
+  // injected even though the user explicitly asked us to leave the design
+  // alone. Only fires inside a negation window (see `negatedWindows`), so a
+  // genuine "gör om designen" (no negation) still classifies as a redesign.
+  /(?<![\p{L}\p{N}_])(?:design(?:en|erna|s)?|utseende(?:t|n|na)?|layout(?:en|er|erna|s)?)(?![\p{L}\p{N}_])/iu,
 ];
 
 const AUTH_TERMS: RegExp[] = [

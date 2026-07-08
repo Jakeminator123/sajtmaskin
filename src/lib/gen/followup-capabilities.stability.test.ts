@@ -98,6 +98,18 @@ describe("5-5 capabilities can-only-grow — enforceFollowUpCapabilityFloor (uni
     expect(decision.restoredCapabilities).toEqual(["stripe-checkout"]);
     expect(decision.floorApplied).toBe(true);
   });
+
+  it("shrinks the floor when the follow-up explicitly removes an integration (Bugg B)", () => {
+    const decision = enforceFollowUpCapabilityFloor({
+      resolvedMode: "followUp",
+      resolvedCapabilities: ["hero"],
+      contractCapabilities: ["payments", "hero"],
+      removedCapabilities: ["payments"],
+    });
+    expect(decision.capabilities).toEqual(["hero"]);
+    expect(decision.restoredCapabilities).toEqual([]);
+    expect(decision.floorApplied).toBe(false);
+  });
 });
 
 describe("5-5 capabilities can-only-grow — filter + floor (proves the bug fix deterministically)", () => {
