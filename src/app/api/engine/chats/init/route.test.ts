@@ -140,4 +140,36 @@ describe("POST /api/engine/chats/init", () => {
     expect(saveProjectData).toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();
   });
+
+  // A#7 (P1): yarn.lock has no recognised extension in TEXT_EXTENSIONS, so it
+  // was silently dropped before the TEXT_BASENAMES fix. Without it the preview
+  // host falls back to `npm install` instead of `yarn install --frozen-lockfile`.
+  it("preserves yarn.lock from ZIP so the preview host selects yarn install", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", 'export default function Page() { return <div>Hi</div>; }');
+    zip.file("repo-root/package.json", '{ "name": "yarn-repo" }');
+    zip.file("repo-root/yarn.lock", "# yarn lockfile v1\n");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", content: buffer.toString("base64") },
+          message: "Make this a portfolio",
+          lockConfigFiles: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createDraftVersion).toHaveBeenCalledWith(
+      "chat_import",
+      "msg_assistant",
+      expect.stringContaining('"path":"yarn.lock"'),
+      undefined,
+      { editKind: "imported_repo" },
+    );
+  });
 });

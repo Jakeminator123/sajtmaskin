@@ -76,6 +76,17 @@ const TEXT_BASENAMES = new Set([
   ".env.test",
   "readme",
   "license",
+  // Lockfiles without a recognised extension. package-lock.json / pnpm-lock.yaml
+  // / pnpm-lock.yml are already caught by TEXT_EXTENSIONS (.json/.yaml/.yml).
+  // yarn.lock and bun.lock* have no extension in TEXT_EXTENSIONS — without an
+  // explicit basename entry the route drops them, so the preview-host falls back
+  // to `npm install` even when the imported repo ships a yarn.lock (A#7, P1).
+  // bun.lock/bun.lockb are included for preservation; the preview-host ignores
+  // them at install-command selection time (see normalize-imported-package-json.ts
+  // LOCKFILE_NAMES) but they round-trip cleanly as text.
+  "yarn.lock",
+  "bun.lock",
+  "bun.lockb",
 ]);
 
 type GitHubRepoRef = {

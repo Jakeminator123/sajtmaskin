@@ -52,9 +52,15 @@ const CROSS_FRAMEWORK = [/^svelte$/, /^@sveltejs\//, /^vue$/, /^vue-router$/, /^
 // which is only guaranteed to match AT THE SAME VERSION. If the top-level parent is
 // EXACT-pinned while `motion-dom` is left to float transitively (`^`), a later sibling
 // release can drop an internal the pinned parent still imports -> Turbopack build dies
-// with `Export X doesn't exist in target module … motion-dom`. Since imports run verbatim
-// (skipRepair/skipProjectScaffold) and install is lockfile/registry-driven with no dep
-// pinning, this breaks the preview on start. Detect the exact-pin-without-sibling shape.
+// with `Export X doesn't exist in target module … motion-dom`.
+//
+// NOTE (PR #424): the runtime Normalize step (`normalizeImportedRepoFiles`) now injects
+// a safe `overrides.motion-dom` pin at import time whenever the exact-pin-without-sibling
+// shape is detected AND no honored lockfile is present. The audit still detects and
+// reports this shape, but it is a *post-normalize residual* (background data / potential
+// future risk) rather than an active P1 blocker for repos imported via the ZIP/GitHub
+// flow. Blob-template imports (local-v0-template-source.ts) run the same Normalize pass.
+// Detect the exact-pin-without-sibling shape for monitoring purposes.
 const MOTION_PARENTS = ["framer-motion", "motion"];
 const MOTION_LOCKSTEP = new Set([...MOTION_PARENTS, "motion-dom", "motion-utils"]);
 function isExactPin(range) {
@@ -521,7 +527,8 @@ async function main() {
   const kitchen = countIssue(records, "kitchen-sink");
   L(`\n-- 'Kitchen-sink' cross-framework deps (svelte/vue/remix in a Next app): ${kitchen}  ${pct(kitchen, total)} --`);
 
-  L("\n-- Lockstep dep skew (framer-motion/motion exact-pinned, motion-dom floats -> build crash) --");
+  L("\n-- Lockstep dep skew (framer-motion/motion exact-pinned, motion-dom floats) --");
+  L("   [Runtime Normalize (PR #424) injects overrides.motion-dom at import — post-normalize residual only]");
   const usesMotion = records.filter((r) => Object.keys(r.motionDeps || {}).length > 0);
   const motionParentUsers = records.filter((r) => MOTION_PARENTS.some((p) => (r.motionDeps || {})[p]));
   const lockstepRisk = records.filter((r) => (r.lockstepPinRisk || []).length > 0);
@@ -529,8 +536,8 @@ async function main() {
   const domExplicit = motionParentUsers.filter((r) => r.motionDomExplicit);
   L(`  uses any motion package .................... ${usesMotion.length}  ${pct(usesMotion.length, total)}`);
   L(`  uses framer-motion/motion (parent) ........ ${motionParentUsers.length}  ${pct(motionParentUsers.length, total)}`);
-  L(`  EXACT-pin risk (parent pinned, no motion-dom) ${lockstepRisk.length}  (klickbara: ${lockstepRiskVisible.length})`);
-  L(`  parent + explicit motion-dom (safer) ...... ${domExplicit.length}`);
+  L(`  exact-pin shape (post-normalize residual) .. ${lockstepRisk.length}  (gallery-visible: ${lockstepRiskVisible.length})`);
+  L(`  parent + explicit motion-dom (no repair needed) ${domExplicit.length}`);
   const pinTally = {};
   for (const r of lockstepRisk) for (const p of r.lockstepPinRisk) pinTally[p] = (pinTally[p] || 0) + 1;
   const topPins = Object.entries(pinTally).sort((a, b) => b[1] - a[1]).slice(0, 15);
