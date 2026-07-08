@@ -105,7 +105,7 @@ function DeployNameDialogForm({
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>Publicera till Vercel</DialogTitle>
+        <DialogTitle>Publicera din sajt</DialogTitle>
         <DialogDescription>
           Namnet används i URL:en (namn.vercel.app) och normaliseras automatiskt.
         </DialogDescription>
@@ -120,7 +120,7 @@ function DeployNameDialogForm({
           />
           {deployNameError && <div className="text-xs text-red-400">{deployNameError}</div>}
           <p className="text-muted-foreground text-xs">
-            Vercel har inga mappar. Använd gärna prefix för gruppering om du vill hålla ordning.
+            Publiceringen har inga mappar. Använd gärna prefix för gruppering om du vill hålla ordning.
           </p>
         </div>
         <SeoOptInPanel

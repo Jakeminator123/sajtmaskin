@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getVersionById = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
-const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
+const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
@@ -51,9 +51,10 @@ vi.mock("@/lib/gen/version-manager", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  getProjectByIdForRequest,
+  getAppProjectByIdForRequest,
   getChatByIdForRequest: vi.fn(),
   getChatByV0ChatIdForRequest: vi.fn(),
+  getEngineChatByIdForRequest: vi.fn(),
 }));
 
 vi.mock("@/lib/project-env-vars", () => ({
@@ -69,7 +70,7 @@ describe("POST /api/v0/deployments", () => {
       throw new Error("prepareCredits should not run for precheckOnly tests");
     });
     getStoredProjectEnvVarMap.mockResolvedValue({});
-    getProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
+    getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
     getVersionById.mockResolvedValue({
       id: "ver_1",
       chat_id: "chat_1",

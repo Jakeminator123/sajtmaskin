@@ -501,7 +501,7 @@ export function FileUploadZone({
 
       {/* Help text */}
       <p className="text-xs text-gray-500">
-        💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i preview.
+        💡 Bilder laddas upp till bildlagring för publika adresser som fungerar i preview.
       </p>
     </div>
   );

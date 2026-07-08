@@ -35,6 +35,7 @@ import {
   ChevronDown,
   Download,
   FolderGit2,
+  Github,
   HelpCircle,
   Image as ImageIcon,
   Layers,
@@ -102,6 +103,7 @@ export function BuilderHeader(props: {
   activeVersionId: string | null;
 
   onOpenImport: () => void;
+  onExportGitHub: () => void;
   onDeployProduction: () => void;
   onDomainSearch: () => void;
   onGoHome: () => void;
@@ -118,6 +120,10 @@ export function BuilderHeader(props: {
   canSaveProject: boolean;
   deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
   deploymentUrl?: string | null;
+  /** Hydrated live deployment (survives reloads). Drives "Publicerad" vs
+   * "Publicera ändringar" together with `activeVersionId`. */
+  liveDeploymentUrl?: string | null;
+  liveDeploymentVersionId?: string | null;
   deployDisabledReason?: string | null;
 }) {
   const {
@@ -156,6 +162,7 @@ export function BuilderHeader(props: {
     chatId,
     activeVersionId,
     onOpenImport,
+    onExportGitHub,
     onDeployProduction,
     onDomainSearch,
     onGoHome,
@@ -171,6 +178,8 @@ export function BuilderHeader(props: {
     canSaveProject,
     deploymentStatus,
     deploymentUrl,
+    liveDeploymentUrl,
+    liveDeploymentVersionId,
     deployDisabledReason,
   } = props;
 
@@ -455,7 +464,7 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Kopierar externa bildadresser till Vercel Blob vid publicering. Stäng av om du vill
+                    Kopierar externa bildadresser till bildlagring vid publicering. Stäng av om du vill
                     behålla externa länkar som de är.
                   </p>
                 </TooltipContent>
@@ -621,6 +630,16 @@ export function BuilderHeader(props: {
               <Download className="mr-2 h-4 w-4" />
               Ladda ner som ZIP
             </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!chatId || !activeVersionId || isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                runDeferredAction(onExportGitHub);
+              }}
+            >
+              <Github className="mr-2 h-4 w-4" />
+              Exportera till GitHub
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -675,64 +694,111 @@ export function BuilderHeader(props: {
           variant="outline"
           onClick={() => runDeferredAction(onDomainSearch)}
           disabled={!canManageDomain || isBusy}
-          title="Sök & köp domän"
+          title="Hitta eller koppla domän"
         >
           <Globe className="h-4 w-4" />
           <span className="hidden sm:inline">Domän</span>
         </Button>
 
-        {deploymentStatus === "building" ? (
-          <Button size="sm" variant="outline" disabled>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="hidden sm:inline">Bygger...</span>
-          </Button>
-        ) : deploymentStatus === "ready" && deploymentUrl ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-green-500 text-green-600"
-            onClick={() =>
-              window.open(
-                deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`,
-                "_blank",
-                "noopener,noreferrer",
-              )
-            }
-          >
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">Publicerad</span>
-          </Button>
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0}>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      runDeferredAction(() => {
-                        void onDeployProduction();
-                      })
-                    }
-                    disabled={!canDeploy || isBusy || isDeploying}
-                  >
-                    {isDeploying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Rocket className="h-4 w-4" />
-                    )}
-                    <span className="hidden sm:inline">Publicera</span>
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!canDeploy && deployDisabledReason ? (
-                <TooltipContent side="bottom" className="max-w-sm text-xs">
-                  <p>{deployDisabledReason}</p>
-                </TooltipContent>
-              ) : null}
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {(() => {
+          // In-session build always wins (SSE), so the button reflects the
+          // live deploy while it is running.
+          if (deploymentStatus === "building") {
+            return (
+              <Button size="sm" variant="outline" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="hidden sm:inline">Bygger...</span>
+              </Button>
+            );
+          }
+
+          // Resolve the live deployment. Hydrated DB state is the source of
+          // truth (survives reloads); the in-session SSE "ready" url covers the
+          // brief window before the post-deploy refetch lands.
+          const sessionReadyUrl =
+            deploymentStatus === "ready" && deploymentUrl ? deploymentUrl : null;
+          const resolvedLiveUrl = liveDeploymentUrl ?? sessionReadyUrl;
+          const resolvedLiveVersionId = liveDeploymentUrl
+            ? liveDeploymentVersionId ?? null
+            : sessionReadyUrl
+              ? activeVersionId
+              : null;
+          const liveHref = resolvedLiveUrl
+            ? resolvedLiveUrl.startsWith("http")
+              ? resolvedLiveUrl
+              : `https://${resolvedLiveUrl}`
+            : null;
+          const hasLive = Boolean(liveHref);
+          const liveMatchesActive =
+            hasLive &&
+            (!resolvedLiveVersionId ||
+              !activeVersionId ||
+              resolvedLiveVersionId === activeVersionId);
+          const hasUnpublishedChanges = hasLive && !liveMatchesActive;
+
+          // (a) Published and the live version === the active version.
+          if (hasLive && liveMatchesActive && liveHref) {
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-green-500 text-green-600"
+                onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
+              >
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">Publicerad</span>
+              </Button>
+            );
+          }
+
+          // (b) A newer/other version than the live one → "Publicera ändringar"
+          //     (with an indicator dot). (c) Nothing live yet → "Publicera".
+          //     Both use the same deploy action + gating.
+          const label = hasUnpublishedChanges ? "Publicera ändringar" : "Publicera";
+          const publishTooltip = !canDeploy
+            ? deployDisabledReason
+            : hasUnpublishedChanges
+              ? "Du har ändringar som inte är publicerade ännu. Publicera för att uppdatera den live-sajten."
+              : null;
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        runDeferredAction(() => {
+                          void onDeployProduction();
+                        })
+                      }
+                      disabled={!canDeploy || isBusy || isDeploying}
+                      className="relative"
+                    >
+                      {isDeploying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Rocket className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">{label}</span>
+                      {hasUnpublishedChanges && (
+                        <span
+                          className="ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2"
+                          aria-hidden
+                        />
+                      )}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {publishTooltip ? (
+                  <TooltipContent side="bottom" className="max-w-sm text-xs">
+                    <p>{publishTooltip}</p>
+                  </TooltipContent>
+                ) : null}
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })()}
       </div>
 
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>

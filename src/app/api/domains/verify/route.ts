@@ -3,9 +3,10 @@
  * =================
  *
  * POST /api/domains/verify
- * Body: { domain: string, projectId?: string }
+ * Body: { domain: string, chatId: string }
  *
- * Triggers domain verification on Vercel and returns the current status.
+ * Triggers verification of a domain on the customer's OWN generated project
+ * (resolved from the chat, cross-tenant-safe) and returns the current status.
  * If the domain is not yet verified, returns DNS configuration instructions.
  */
 
@@ -13,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getVercelToken } from "@/lib/vercel";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
+import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
 
 export const maxDuration = 15;
 
@@ -31,28 +33,22 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       const domain = (body.domain ?? "").trim().toLowerCase();
-      const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || "";
-      const requestedProjectId = body.projectId?.trim() || "";
-      const projectId = configuredProjectId;
+      const chatId = (body.chatId ?? "").trim();
       const teamId = process.env.VERCEL_TEAM_ID;
 
       if (!domain) {
         return NextResponse.json({ error: "domain is required" }, { status: 400 });
       }
 
-      if (requestedProjectId && requestedProjectId !== configuredProjectId) {
-        return NextResponse.json(
-          { error: "projectId is not allowed for this workspace" },
-          { status: 403 },
-        );
+      if (!chatId) {
+        return NextResponse.json({ error: "chatId is required" }, { status: 400 });
       }
 
-      if (!projectId) {
-        return NextResponse.json(
-          { error: "Vercel project is not configured (missing VERCEL_PROJECT_ID)" },
-          { status: 503 },
-        );
+      const resolution = await resolveVercelProjectForChat(req, chatId);
+      if (!resolution.ok) {
+        return NextResponse.json({ error: resolution.error }, { status: resolution.status });
       }
+      const projectId = resolution.vercelProjectId;
 
       let token: string;
       try {

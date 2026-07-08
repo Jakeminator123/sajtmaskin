@@ -41,6 +41,7 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+import { useDeploymentHistory } from "./useDeploymentHistory";
 import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
 import {
@@ -303,6 +304,17 @@ export function useBuilderPageController() {
     setAuthModalReason,
   });
 
+  // ── Publish-state hydration (DB) ────────────────────────────────────
+  // Rehydrate the "published"/"publish changes" state on mount so a reload
+  // knows the live deployment + hosting project. The SSE stream (below) still
+  // drives the in-session build/ready transitions and takes precedence.
+  const {
+    project: hydratedProject,
+    liveDeployment,
+    refetch: refetchDeploymentHistory,
+  } = useDeploymentHistory(chatHooksChatId);
+  const hydratedVercelProjectName = hydratedProject?.vercelProjectName ?? null;
+
   // ── Deploy actions ───────────────────────────────────────────────────
   const deployActions = useBuilderDeployActions({
     selectedVersionIdRef,
@@ -318,6 +330,7 @@ export function useBuilderPageController() {
     isDeployNameSaving: state.isDeployNameSaving,
     appProjectId: state.appProjectId,
     appProjectName: state.appProjectName,
+    hydratedProjectName: hydratedVercelProjectName,
     applyInstructionsOnce: state.applyInstructionsOnce,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
@@ -345,6 +358,20 @@ export function useBuilderPageController() {
 
   // ── Deployment status SSE ──────────────────────────────────────────
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
+
+  // After an in-session deploy completes (SSE "ready"), refetch the history so
+  // the hydrated live deployment (URL + versionId) becomes the source of truth
+  // and the header settles on the correct "Publicerad"/"Publicera ändringar".
+  const deployReadyRefetchedRef = useRef(false);
+  useEffect(() => {
+    if (deploymentStatus.status !== "ready") {
+      deployReadyRefetchedRef.current = false;
+      return;
+    }
+    if (deployReadyRefetchedRef.current) return;
+    deployReadyRefetchedRef.current = true;
+    refetchDeploymentHistory();
+  }, [deploymentStatus.status, refetchDeploymentHistory]);
 
   // ── Sandbox preview (Vercel VM) + session recover ───────────────────
   const vmPreview = useBuilderVmPreview({
@@ -1709,6 +1736,12 @@ export function useBuilderPageController() {
     deploymentStatus: deploymentStatus.status,
     deploymentUrl: deploymentStatus.url,
     deploymentInspectorUrl: deploymentStatus.inspectorUrl,
+    // Hydrated publish state (survives reloads; see useDeploymentHistory).
+    liveDeploymentUrl: liveDeployment?.url ?? null,
+    liveDeploymentVersionId: liveDeployment?.versionId ?? null,
+    liveDeploymentId: liveDeployment?.deploymentId ?? null,
+    hydratedVercelProjectId: hydratedProject?.vercelProjectId ?? null,
+    hydratedVercelProjectName,
     deployReadiness,
     isDeployReadinessLoading,
     externalProjectId: state.externalProjectId,
@@ -1732,6 +1765,7 @@ export function useBuilderPageController() {
     currentPageCode: state.currentPageCode,
     existingUiComponents: state.existingUiComponents,
     appProjectId: state.appProjectId,
+    appProjectName: state.appProjectName,
 
     // Setters the shell needs for onChange handlers
     setSelectedModelTier: state.setSelectedModelTier,

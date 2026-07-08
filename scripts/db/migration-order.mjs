@@ -42,6 +42,7 @@ export const MIGRATION_ORDER = [
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",
   "add-oc-debug-findings.sql",
+  "add-app-projects-vercel-project.sql",
 ];
 
 /**

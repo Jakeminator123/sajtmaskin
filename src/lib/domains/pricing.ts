@@ -3,8 +3,8 @@
  * ==================================================
  *
  * Single source of truth for the markup applied on top of the wholesale
- * price returned by registrar APIs (Vercel, GoDaddy). The customer-facing
- * price is always rendered in SEK.
+ * price returned by the registrar API (Vercel). The customer-facing price is
+ * always rendered in SEK.
  *
  * Markup currently 5x — set explicitly so a single edit here propagates to
  * every domain pricing surface (`/api/domains/check`, `/api/vercel/domains/price`).

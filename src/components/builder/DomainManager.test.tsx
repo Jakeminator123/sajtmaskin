@@ -57,7 +57,7 @@ describe("DomainManager error/status surfacing", () => {
       return json({}, 200);
     });
 
-    render(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+    render(<DomainManager open onClose={() => {}} chatId="chat_1" />);
 
     fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
       target: { value: "mittforetag.se" },
@@ -78,7 +78,7 @@ describe("DomainManager error/status surfacing", () => {
       return json({}, 200);
     });
 
-    render(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+    render(<DomainManager open onClose={() => {}} chatId="chat_1" />);
 
     fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
       target: { value: "mittforetag.se" },
@@ -111,7 +111,7 @@ describe("DomainManager error/status surfacing", () => {
       return json({}, 200);
     });
 
-    render(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+    render(<DomainManager open onClose={() => {}} chatId="chat_1" />);
 
     const input = screen.getByPlaceholderText(/mittforetag\.se/i);
     fireEvent.change(input, { target: { value: "mittforetag.se" } });
@@ -162,7 +162,7 @@ describe("DomainManager error/status surfacing", () => {
     });
 
     const { rerender } = render(
-      <DomainManager open onClose={() => {}} projectId="proj_1" />,
+      <DomainManager open onClose={() => {}} chatId="chat_1" />,
     );
 
     fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
@@ -178,8 +178,8 @@ describe("DomainManager error/status surfacing", () => {
     });
 
     // Close while the search is still pending, then reopen fresh.
-    rerender(<DomainManager open={false} onClose={() => {}} projectId="proj_1" />);
-    rerender(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+    rerender(<DomainManager open={false} onClose={() => {}} chatId="chat_1" />);
+    rerender(<DomainManager open onClose={() => {}} chatId="chat_1" />);
 
     // Type a fresh query; the button must be enabled again (isSearching reset).
     fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
@@ -227,7 +227,7 @@ describe("DomainManager error/status surfacing", () => {
       <DomainManager
         open
         onClose={() => {}}
-        projectId="proj_1"
+        chatId="chat_1"
         deploymentId="dep_1"
       />,
     );
@@ -317,7 +317,7 @@ describe("DomainManager error/status surfacing", () => {
     };
 
     const { rerender } = render(
-      <DomainManager open onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+      <DomainManager open onClose={() => {}} chatId="chat_1" deploymentId="dep_1" />,
     );
 
     // Session 1: link → verify, save #1 is still pending.
@@ -325,10 +325,10 @@ describe("DomainManager error/status surfacing", () => {
 
     // Close (resets + bumps the save generation), then reopen fresh.
     rerender(
-      <DomainManager open={false} onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+      <DomainManager open={false} onClose={() => {}} chatId="chat_1" deploymentId="dep_1" />,
     );
     rerender(
-      <DomainManager open onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+      <DomainManager open onClose={() => {}} chatId="chat_1" deploymentId="dep_1" />,
     );
 
     // Session 2: a new link whose save succeeds.
@@ -355,7 +355,7 @@ describe("DomainManager error/status surfacing", () => {
       return json({}, 200);
     });
 
-    render(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+    render(<DomainManager open onClose={() => {}} chatId="chat_1" />);
 
     fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
       target: { value: "mittforetag.se" },

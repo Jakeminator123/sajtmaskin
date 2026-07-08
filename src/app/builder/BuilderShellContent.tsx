@@ -29,10 +29,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
+import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
-import { useAuthStore } from "@/lib/auth/auth-store";
+import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
@@ -242,6 +243,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
+  // A publication exists if there's a live deployment or a known hosting
+  // project — either from this session or hydrated from the DB on reload. The
+  // domain manager (link/verify) needs a published site; before that we only
+  // offer the search dialog.
+  const hasPublication = Boolean(
+    vm.liveDeploymentUrl || vm.hydratedVercelProjectId || vm.lastDeployVercelProjectId,
+  );
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
   const canDeploy = Boolean(
     vm.chatId &&
@@ -264,7 +272,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     deployReadinessBlocker?.action === "env" && baseDeployDisabledReason
       ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
       : baseDeployDisabledReason;
+  const { hasGitHub, user: authUser } = useAuth();
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+  const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
@@ -746,9 +756,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onOpenImport={() => {
           vm.setIsImportModalOpen(true);
         }}
+        onExportGitHub={() => setGithubExportOpen(true)}
         onDeployProduction={vm.handleOpenDeployDialog}
         onDomainSearch={() => {
-          if (vm.lastDeployVercelProjectId) {
+          // A publication exists if there is a live deployment or a known
+          // hosting project — from the current session OR hydrated on reload.
+          if (hasPublication) {
             vm.setDomainManagerOpen(true);
           } else {
             vm.setDomainSearchOpen(true);
@@ -767,6 +780,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         canSaveProject={Boolean(vm.chatId)}
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
+        liveDeploymentUrl={vm.liveDeploymentUrl}
+        liveDeploymentVersionId={vm.liveDeploymentVersionId}
         deployDisabledReason={deployDisabledReason}
       />
       <ModelTraceOverlay
@@ -950,8 +965,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           <DomainManager
             open={vm.domainManagerOpen}
             onClose={() => vm.setDomainManagerOpen(false)}
-            projectId={vm.lastDeployVercelProjectId}
-            deploymentId={vm.activeDeploymentId}
+            chatId={vm.chatId}
+            deploymentId={vm.activeDeploymentId ?? vm.liveDeploymentId}
+          />
+
+          <GitHubExportDialog
+            open={githubExportOpen}
+            onClose={() => setGithubExportOpen(false)}
+            chatId={vm.chatId}
+            versionId={vm.activeVersionId}
+            hasGitHub={hasGitHub}
+            isAuthenticated={vm.isAuthenticated}
+            suggestedRepoName={vm.appProjectName ?? null}
+            githubUsername={authUser?.github_username ?? null}
           />
         </div>
 

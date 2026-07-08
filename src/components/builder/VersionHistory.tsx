@@ -46,6 +46,7 @@ import {
 import { VersionDiagnosticsDialog } from "@/components/builder/VersionDiagnosticsDialog";
 import { VersionCompareDialog } from "@/components/builder/VersionCompareDialog";
 import { VersionCollaboration } from "@/components/builder/VersionCollaboration";
+import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -171,11 +172,6 @@ type BlobExportResponse = {
   error?: string;
 };
 
-type GitHubExportResponse = {
-  repoUrl?: string;
-  error?: string;
-};
-
 type PinVersionResponse = {
   error?: string;
 };
@@ -262,7 +258,7 @@ export function VersionHistory({
   );
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
-  const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
+  const [githubExportVersionId, setGithubExportVersionId] = useState<string | null>(null);
   const [disconnectingGitHub, setDisconnectingGitHub] = useState(false);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [diagnosticsVersionId, setDiagnosticsVersionId] = useState<string | null>(null);
@@ -393,7 +389,7 @@ export function VersionHistory({
       if (url) {
         window.open(url, "_blank", "noopener,noreferrer");
       }
-      toast.success("Exported to Blob");
+      toast.success("Bilder exporterade till bildlagring");
     } catch (error) {
       console.error("Blob export error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to export");
@@ -402,56 +398,12 @@ export function VersionHistory({
     }
   };
 
-  const handleExportToGitHub = async (e: React.MouseEvent, version: VersionSummary) => {
+  const handleOpenGitHubExport = (e: React.MouseEvent, version: VersionSummary) => {
     e.stopPropagation();
-    if (!chatId) return;
-    if (!isAuthenticated) {
-      toast.error("Logga in för att exportera till GitHub");
-      return;
-    }
-    if (!hasGitHub) {
-      toast.error("Koppla GitHub för att exportera");
-      return;
-    }
-
     const versionId = version.id || version.versionId || null;
     if (!versionId) return;
-    const suggestedRepo = `sajtmaskin-${chatId.slice(0, 8)}`;
-    const repoInput = window.prompt("GitHub repo (owner/name eller bara namn)", suggestedRepo);
-    if (!repoInput) return;
-
-    const makePrivate = window.confirm("Skapa som privat repo? (OK = privat, Avbryt = public)");
-
-    setExportingGitHubVersionId(versionId);
-    try {
-      const res = await fetch("/api/github/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId,
-          versionId,
-          repo: repoInput,
-          private: makePrivate,
-        }),
-      });
-
-      const data = (await res.json().catch(() => null)) as GitHubExportResponse | null;
-      if (!res.ok) {
-        const message = data?.error || `GitHub export failed (HTTP ${res.status})`;
-        throw new Error(String(message));
-      }
-
-      const url = data?.repoUrl;
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
-      toast.success("Exported to GitHub");
-    } catch (error) {
-      console.error("GitHub export error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to export to GitHub");
-    } finally {
-      setExportingGitHubVersionId(null);
-    }
+    // The dialog handles the login / not-connected / repo-name / privacy flow.
+    setGithubExportVersionId(versionId);
   };
 
   const handleDisconnectGitHub = async () => {
@@ -757,7 +709,6 @@ export function VersionHistory({
                   : undefined;
             const isDownloading = downloadingVersionId === internalVersionId;
             const isExporting = exportingVersionId === internalVersionId;
-            const isExportingGitHub = exportingGitHubVersionId === internalVersionId;
             const isPinning = pinningVersionId === internalVersionId;
             const isRestoring = restoringVersionId === internalVersionId;
             const isSelected = selectedVersionId === selectableVersionId;
@@ -1186,8 +1137,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleExportToBlob(e, version)}
                       disabled={isExporting}
-                      title="Export to Vercel Blob"
-                      aria-label="Export to Vercel Blob"
+                      title="Exportera bilder till bildlagring"
+                      aria-label="Exportera bilder till bildlagring"
                       className="h-7 w-7"
                     >
                       {isExporting ? (
@@ -1199,17 +1150,12 @@ export function VersionHistory({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={(e) => handleExportToGitHub(e, version)}
-                      disabled={isExportingGitHub}
-                      title="Export to GitHub"
-                      aria-label="Export to GitHub"
+                      onClick={(e) => handleOpenGitHubExport(e, version)}
+                      title="Exportera till GitHub"
+                      aria-label="Exportera till GitHub"
                       className="h-7 w-7"
                     >
-                      {isExportingGitHub ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <GitBranch className="h-3 w-3" />
-                      )}
+                      <GitBranch className="h-3 w-3" />
                     </Button>
                     {canPin && (
                       <Button
@@ -1296,6 +1242,15 @@ export function VersionHistory({
         onOpenChange={(open) => {
           if (!open) setCompareVersionId(null);
         }}
+      />
+      <GitHubExportDialog
+        open={Boolean(githubExportVersionId)}
+        onClose={() => setGithubExportVersionId(null)}
+        chatId={chatId}
+        versionId={githubExportVersionId}
+        hasGitHub={hasGitHub}
+        isAuthenticated={isAuthenticated}
+        githubUsername={user?.github_username ?? null}
       />
       <Dialog
         open={Boolean(collaborationVersionId)}

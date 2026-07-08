@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest } from "@/lib/tenant";
 
@@ -60,6 +60,28 @@ export async function updateDeploymentStatus(
     .update(deployments)
     .set(nextValues)
     .where(eq(deployments.id, deploymentId));
+}
+
+/**
+ * The Vercel project id from the most relevant deployment of a chat. Fallback
+ * source for domain-linking when the app_projects row has no persisted link
+ * yet (e.g. sites published before the link column existed). Prefers a `ready`
+ * deployment; otherwise takes the most recent one that carries a project id.
+ */
+export async function getLatestVercelProjectIdForChat(
+  chatId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({
+      vercelProjectId: deployments.vercelProjectId,
+      status: deployments.status,
+    })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), isNotNull(deployments.vercelProjectId)))
+    .orderBy(desc(deployments.createdAt));
+  if (rows.length === 0) return null;
+  const ready = rows.find((r) => r.status === "ready");
+  return (ready ?? rows[0]).vercelProjectId ?? null;
 }
 
 export async function setDeploymentDomain(

@@ -36,7 +36,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
     return (
       <span className="inline-flex items-center gap-1 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/60 dark:bg-white/10">
         <Server className="h-2.5 w-2.5" />
-        Vercel
+        Registrar
       </span>
     );
   }
@@ -69,10 +69,10 @@ export function DomainSearchDialog({
     <Dialog open={open} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sök &amp; köp domän</DialogTitle>
+          <DialogTitle>Hitta eller koppla domän</DialogTitle>
           <DialogDescription>
             Sök efter en ledig domän. Svenska domäner (.se/.nu) kontrolleras
-            via Loopia, övriga via Vercel.
+            via Loopia, övriga via en internationell registrar.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

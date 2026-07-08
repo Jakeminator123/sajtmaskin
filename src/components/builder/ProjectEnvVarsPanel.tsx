@@ -1199,8 +1199,8 @@ export function ProjectEnvVarsPanel({
                   </div>
                   {strategy && (
                     <div className="text-muted-foreground mt-1 text-[11px]">
-                      Du hanterar och bekostar integrationen själv. Koppla valfri provider till ditt
-                      Vercel-projekt via Marketplace vid behov.
+                      Du hanterar och bekostar integrationen själv. Koppla valfri provider till din
+                      publicerade sajt vid behov.
                     </div>
                   )}
                   {marketplaceOptionsInfo.isFilteredSubset && (
