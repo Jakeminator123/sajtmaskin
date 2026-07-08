@@ -106,12 +106,14 @@ export function useBuilderEffects({
         console.error("[Builder] Template init failed:", error);
         if (isActive) {
           toast.error(message);
-          // Prevent repeated auto-init loops on failed template startup
-          // (e.g. insufficient credits or temporary API errors).
-          const params = new URLSearchParams(searchParams.toString());
-          params.delete("templateId");
-          const query = params.toString();
-          router.replace(query ? `/builder?${query}` : "/builder");
+          // Keep `templateId` in the URL on failure so this stays a template
+          // entry: the send path (useBuilderPromptActions) then blocks a blank
+          // from-scratch init that would silently discard the template, and a
+          // page reload re-runs this import. Repeated AUTO-init loops are
+          // already prevented by `templateInitAttemptKeyRef` (set to `initKey`
+          // above, only cleared when `templateId` leaves the URL) — stripping
+          // the param here is unnecessary for that and only opened the
+          // silent-blank-init hole.
         }
       } finally {
         if (isActive) {
