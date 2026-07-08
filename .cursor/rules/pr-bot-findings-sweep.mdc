@@ -16,9 +16,11 @@ gh api repos/<owner>/<repo>/pulls/<n>/comments --jq '.[] | .user.login + " " + .
 gh api repos/<owner>/<repo>/pulls/<n>/reviews  --jq '.[] | .user.login + " [" + .state + "] " + (.body // "")'
 # PR-nivå-kommentarer — Vercel-deploy + författarens egna triage-noter
 gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " + .body'
+# Check-run summaries/annotations — HÄR kan Vercel Agent Review (VADE) lägga fynd även vid neutral/success
+gh api repos/<owner>/<repo>/commits/<head-sha>/check-runs --jq '.check_runs[] | select((.output.summary // "") != "") | .name + ": " + (.output.title // "") + " — " + .output.summary'
 ```
 
-**Aktiva granskare nu (2026-07):** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks) och `GitGuardian` (secrets). **Codex är avstängd** — dess kommentar är alltid bara "usage limit"; behandla frånvaron som normal, inte ett gap.
+**Aktiva granskare nu (2026-07):** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets) och **Codex** (kan vara på/av beroende på credits — av 2026-07-02, tillbaka 2026-07-08). En Codex-kommentar som **bara** är "usage limit" = av → icke-blockerande, inte ett gap. **Men varje Codex-review eller inline-fynd som INTE är usage-limit ska hämtas och triageras** precis som andra bot-fynd — även om PR:en redan mergats (post-merge-triage). Codex-review kan dessutom landa några minuter efter att checks blivit gröna, så re-läs reviews precis före merge.
 
 ## Svep senaste ~12h PRs (även redan mergade)
 
