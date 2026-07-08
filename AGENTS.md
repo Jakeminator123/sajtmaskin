@@ -75,7 +75,7 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 
 ### Environment
 
-- Node.js 22.22.2 (pinned via Volta in `package.json`). The `.cursor/Dockerfile` builds from `node:22.22.2-bookworm`.
+- Node.js 22.23.1 (pinned via Volta in `package.json`). The `.cursor/Dockerfile` builds from `node:22.23.1-bookworm`.
 - Package manager: **npm** (lockfile: `package-lock.json`). Use `npm ci --no-audit --no-fund` to install.
 - `.env.local` is gitignored. Secrets are injected as environment variables by the Cloud Agent platform; write them to `.env.local` before running the app (Next.js reads from dotenv).
 
