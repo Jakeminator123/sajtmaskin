@@ -22,7 +22,7 @@
   ],
   "files": [
     {
-      "path": "components/api/chat/route.ts",
+      "path": "components/api/assistant/route.ts",
       "role": "server",
       "injectionMode": "verbatim"
     }
@@ -30,6 +30,6 @@
   "exposes": [],
   "lastVerified": "2026-04-17",
   "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
-  "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Demo tools are examples — replace before production. Deps are unpinned so the generated app gets ONE consistent AI SDK major via KNOWN_PACKAGES. lastVerified = legacy source date until first preview-test (no-false-green, PR #422).",
+  "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Route lives at /api/assistant so it never collides with openai-chat's verbatim /api/chat when both capabilities are selected. Demo tools are examples — replace before production. Deps unpinned → ONE AI SDK major via KNOWN_PACKAGES. lastVerified = legacy source date until first preview-test.",
   "promptInstructionMode": "compact"
 }

@@ -42,6 +42,11 @@
       "import": "@/lib/ably/client"
     },
     {
+      "name": "closeAblyClient",
+      "type": "function",
+      "import": "@/lib/ably/client"
+    },
+    {
       "name": "AblyClientProvider",
       "type": "component",
       "import": "@/components/AblyClientProvider"

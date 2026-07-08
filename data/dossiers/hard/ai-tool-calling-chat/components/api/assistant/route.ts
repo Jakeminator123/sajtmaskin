@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai';
+import { streamText, tool, convertToModelMessages, stepCountIs, type UIMessage } from 'ai';
 import { z } from 'zod';
 
 export const maxDuration = 30;
@@ -36,7 +36,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { messages } = await req.json();
+  let messages: UIMessage[];
+  try {
+    const body = (await req.json()) as { messages?: UIMessage[] };
+    messages = body.messages ?? [];
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
