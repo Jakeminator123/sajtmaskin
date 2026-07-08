@@ -252,11 +252,16 @@ export async function setProjectThumbnail(
     .limit(1);
   if (existing.length === 0) return null;
 
-  await db
+  // RETURNING as rowcount check: the row can vanish (delete/claim) between the
+  // SELECT above and this UPDATE — a 0-row UPDATE must not report success
+  // (audit A#19 false-green).
+  const updated = await db
     .update(appProjects)
     .set({ thumbnail_path: thumbnailPath, updated_at: new Date() })
-    .where(and(eq(appProjects.id, id), ownerCondition));
-  return { previousThumbnailPath: existing[0]?.thumbnail_path ?? null };
+    .where(and(eq(appProjects.id, id), ownerCondition))
+    .returning({ id: appProjects.id });
+  if (updated.length === 0) return null;
+  return { previousThumbnailPath: existing[0].thumbnail_path ?? null };
 }
 
 /**
