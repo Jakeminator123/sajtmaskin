@@ -530,8 +530,25 @@ const cascadeQueries = [
   // (v0-era chats) OR the engine tables (own-engine publish), so no FK target
   // is correct — an FK to chats/versions made every own-engine publish fail
   // with a foreign-key violation. See drop-deployments-legacy-fks.sql.
-  `ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_chat_id_fkey`,
-  `ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_version_id_fkey`,
+  `DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT tc.constraint_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_schema = kcu.constraint_schema
+     AND tc.constraint_name = kcu.constraint_name
+     AND tc.table_schema = kcu.table_schema
+    WHERE tc.table_schema = 'public'
+      AND tc.table_name = 'deployments'
+      AND tc.constraint_type = 'FOREIGN KEY'
+      AND kcu.column_name IN ('chat_id', 'version_id')
+  LOOP
+    EXECUTE format('ALTER TABLE deployments DROP CONSTRAINT IF EXISTS %I', r.constraint_name);
+  END LOOP;
+END $$`,
   `ALTER TABLE chats ADD CONSTRAINT chats_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
   `ALTER TABLE versions ADD CONSTRAINT versions_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE`,
   `ALTER TABLE deployments ADD CONSTRAINT deployments_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
