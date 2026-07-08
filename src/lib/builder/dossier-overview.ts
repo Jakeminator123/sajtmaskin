@@ -109,12 +109,12 @@ export function describeDossierStatus(
     case "not-built":
     default:
       return {
-        label: lifecycleStage === "integrations" ? "Ej byggd" : "Ej byggd (F2)",
+        label: lifecycleStage === "integrations" ? "Ej byggd" : "Planerad (F2-mockup)",
         tone: "muted",
         hint:
           lifecycleStage === "integrations"
             ? "Tung integration som ännu inte wire:ats in i versionen."
-            : "Tung integration renderas som mockup i F2. Bygg den via 'Bygg integrationer'.",
+            : "Planerad integration — kräver F3 (\"Bygg integrationer\") och riktiga env-nycklar. Visas som mockup/infoskylt i F2-previewn tills den byggs.",
       };
   }
 }
