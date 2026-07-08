@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   // Monorepo tracing root: use cwd (project root at build time), not __dirname, to avoid NFT
   // pulling next.config into odd dependency graphs with Turbopack.
   outputFileTracingRoot: path.join(/* turbopackIgnore: true */ process.cwd(), "./"),
+  // Playwright-core >=1.60 loads browsers.json via dynamic path resolution, which
+  // NFT may miss in serverless traces. Force-include runtime assets for the
+  // thumbnail capture route so Chromium can launch on Vercel.
+  outputFileTracingIncludes: {
+    "/api/projects/*/thumbnail": [
+      "./node_modules/playwright-core/browsers.json",
+      "./node_modules/@sparticuz/chromium/bin/**",
+    ],
+  },
   outputFileTracingExcludes: {
     "*": [
       "./data/external-template-pipeline/**",
