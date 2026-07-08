@@ -640,4 +640,43 @@ describe("detectFollowUpCapabilities — dashboard-charts", () => {
     const result = detectFollowUpCapabilities("använd recharts för graferna");
     expect(result.capabilityIds).not.toContain("dashboard-charts");
   });
+
+  // Codex P2 round 2 (PR #422): an intensity adverb between the noun and the
+  // size adjective must not defeat the refine-guard.
+  it("does NOT detect dashboard-charts for adverbial size tweaks", () => {
+    expect(
+      detectFollowUpCapabilities("gör diagrammet mycket större").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("gör grafen lite bredare").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("make the chart way bigger").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("make the chart a bit smaller").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
+  // Codex P2 round 2 (PR #422): spaced/hyphenated Chart.js spellings are still
+  // an explicit library choice — must not inject VisActor.
+  it("does NOT detect dashboard-charts for spaced 'chart js' spellings", () => {
+    expect(
+      detectFollowUpCapabilities("lägg till chart js på sidan").capabilityIds,
+    ).not.toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add chart-js to the page").capabilityIds,
+    ).not.toContain("dashboard-charts");
+  });
+
+  // Guard sanity: the widened lookaheads must not eat real adds that happen to
+  // contain an adverb or "js" further on in the sentence.
+  it("still detects real chart adds despite the widened guards", () => {
+    expect(
+      detectFollowUpCapabilities("lägg till ett diagram med mycket data").capabilityIds,
+    ).toContain("dashboard-charts");
+    expect(
+      detectFollowUpCapabilities("add a chart showing js framework popularity").capabilityIds,
+    ).toContain("dashboard-charts");
+  });
 });
