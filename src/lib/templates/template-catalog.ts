@@ -24,7 +24,11 @@ export type TemplateCatalogItem = {
   demoUrl?: string | null;
 };
 
-const APP_CATEGORIES = new Set(["apps-and-games", "login-and-sign-up"]);
+// Categories whose templates behave like apps (not marketing sites). Keep in
+// sync with APP_CATEGORY_ID_LIST in scripts/v0-templates/upload-mallar-blob.mjs:
+// "dashboards" split out of "apps-and-games" in the v0-metadata category
+// derivation and must keep app intent.
+const APP_CATEGORIES = new Set(["apps-and-games", "login-and-sign-up", "dashboards"]);
 
 function inferBuildIntent(category?: string | null): BuildIntent {
   if (!category) return "template";
