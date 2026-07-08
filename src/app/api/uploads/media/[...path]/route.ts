@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { getUploadsDir } from "@/lib/db/services/shared";
+import { hasTraversalSegment } from "@/lib/utils/path-utils";
 import { existsSync } from "fs";
 
 interface RouteParams {
@@ -60,8 +61,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const [userId, ...filenameParts] = pathSegments;
     const filename = filenameParts.join("/");
 
-    // Validate userId and filename (basic sanitation)
-    if (!userId || !filename || userId.includes("..") || filename.includes("..")) {
+    // Validate userId and filename (basic sanitation). Segment-based (PR #396
+    // class): a stored filename that merely CONTAINS `..` (e.g. `img..png`)
+    // is legit — only real `..` segments are traversal. Backslashes are
+    // normalized first so `a\..\b` cannot smuggle a segment past the check on
+    // Windows; the path.relative() check below stays the authoritative
+    // escape guard on every platform.
+    if (
+      !userId ||
+      !filename ||
+      hasTraversalSegment(userId.replace(/\\/g, "/")) ||
+      hasTraversalSegment(filename.replace(/\\/g, "/"))
+    ) {
       return NextResponse.json({ error: "Ogiltig sökväg" }, { status: 400 });
     }
 

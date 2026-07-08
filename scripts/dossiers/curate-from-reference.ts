@@ -333,8 +333,10 @@ async function main() {
 
   // Path-traversal guard on --reference. The script is local-only but CI/cron
   // could pass user input; reject anything that escapes template-references/repos/.
+  // Enstaka katalognamn (`/` och `\` avvisas nedan) — konservativ
+  // substring-avvisning kan inte tappa legitima referenser.
   if (
-    args.reference.includes("..") ||
+    args.reference.includes("..") || // traversal-substring-allow
     args.reference.includes("/") ||
     args.reference.includes("\\")
   ) {

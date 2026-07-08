@@ -9,7 +9,7 @@
     "node": "22.22.2"
   },
   "scripts": {
-    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-autofix-risk.mjs && node scripts/dev/check-bug-backlog.mjs && npm run route-timeouts:check",
+    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-traversal-guards.mjs && node scripts/dev/check-autofix-risk.mjs && node scripts/dev/check-bug-backlog.mjs && npm run route-timeouts:check",
     "route-timeouts:sync": "node scripts/ai-models/sync-route-timeouts.mjs --write",
     "route-timeouts:check": "node scripts/ai-models/sync-route-timeouts.mjs --check",
     "check:terms": "node scripts/dev/check-term-coverage.mjs",

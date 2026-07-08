@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { toPosixPath } from "@/lib/utils/path-utils";
+import { hasTraversalSegment, toPosixPath } from "@/lib/utils/path-utils";
 
 /**
  * Own-engine Core Rules loader.
@@ -39,7 +39,9 @@ let cache: Cache = null;
 
 function safeConfigFragmentPath(rel: string): string | null {
   const normalized = rel.replace(/\\/g, "/").trim();
-  if (!normalized || normalized.includes("..") || normalized.startsWith("/")) {
+  // Segment-based (PR #396 class) så ett fragmentnamn som bara INNEHÅLLER
+  // `..` inte avvisas i onödan; äkta `..`-segment stoppas fortfarande.
+  if (!normalized || hasTraversalSegment(normalized) || normalized.startsWith("/")) {
     return null;
   }
   return join(getConfigDir(), /* turbopackIgnore: true */ ...normalized.split("/"));

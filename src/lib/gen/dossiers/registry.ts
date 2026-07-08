@@ -12,6 +12,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { hasTraversalSegment } from "@/lib/utils/path-utils";
 import { dossierRequiresF3, type DossierClass, type DossierEntry } from "./types";
 import { validateDossierManifest } from "./validate-manifest";
 
@@ -181,7 +182,11 @@ export function getDossierFileContent(
   relPath: string,
 ): string | null {
   const norm = relPath.replace(/\\/g, "/");
-  if (norm.includes("..") || norm.startsWith("/")) return null;
+  // Segment-based (PR #396 class): a dossier file under a literal catch-all
+  // directory (`files/app/docs/[...slug]/page.tsx`) contains the substring
+  // `..` but is not traversal — the resolve-prefix check below is the
+  // authoritative escape guard.
+  if (hasTraversalSegment(norm) || norm.startsWith("/")) return null;
   const dir = resolve(ROOT, klass, id);
   const path = resolve(dir, ...norm.split("/"));
   if (path !== dir && !path.startsWith(dir + (process.platform === "win32" ? "\\" : "/"))) {
@@ -271,7 +276,7 @@ export function clearDossierRegistryCache(): void {
  */
 export function isSafeDossierPath(klass: DossierClass, id: string, relPath: string): boolean {
   const norm = relPath.replace(/\\/g, "/");
-  if (norm.includes("..") || norm.startsWith("/")) return false;
+  if (hasTraversalSegment(norm) || norm.startsWith("/")) return false;
   const dir = resolve(ROOT, klass, id);
   const path = resolve(dir, ...norm.split("/"));
   const rel = path.slice(dir.length);
