@@ -331,6 +331,7 @@ export function useBuilderPageController() {
     latestVersionIdRef,
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
+    activeDeploymentId: state.activeDeploymentId,
     deployReadiness,
     isDeploying: state.isDeploying,
     isMediaEnabled: state.isMediaEnabled,
@@ -1845,6 +1846,9 @@ export function useBuilderPageController() {
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,
     handleDomainSearch: deployActions.handleDomainSearch,
     handleConfirmDeploy: deployActions.handleConfirmDeploy,
+    // A3: manuell deploy-repair ("Publicera om med fix") + dess laddningsstate.
+    republishWithFix: deployActions.republishWithFix,
+    isRepublishRepairing: deployActions.isRepublishRepairing,
 
     // Prompt actions
     handlePromptAssistModeReset: promptActions.clearPromptAssistMode,

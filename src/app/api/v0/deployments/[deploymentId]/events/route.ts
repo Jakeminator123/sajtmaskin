@@ -4,6 +4,7 @@ import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
 import { updateDeploymentStatus } from "@/lib/deployment";
+import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
 import { getChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -48,6 +49,9 @@ export async function GET(
       async start(controller) {
         let closed = false;
         let pollStarted = false;
+        // A3: logga ett asynkront deploy-fel högst en gång per stream (poll kan
+        // annars återbesöka error innan close()).
+        let deployErrorLogged = false;
         let sub: ReturnType<typeof createRedisSubscriber> = null;
 
         function send(data: Record<string, unknown>) {
@@ -127,6 +131,22 @@ export async function GET(
                     error: persistErr instanceof Error ? persistErr.message : String(persistErr),
                   },
                 );
+              }
+
+              // A3: ett asynkront Vercel-build-fel som fångas via poll (Redis
+              // saknas/tappade meddelandet) loggas ordentligt (DB + RAG + bus),
+              // precis som webhook-vägen. Best-effort, en gång per stream.
+              if (mapped.status === "error" && !deployErrorLogged) {
+                deployErrorLogged = true;
+                await logDeployError({
+                  chatId: deployment.chatId,
+                  versionId: deployment.versionId,
+                  deploymentId,
+                  vercelDeploymentId,
+                  inspectorUrl: vd.inspectorUrl,
+                  message: "Vercel-bygget misslyckades (fångat via statuspoll).",
+                  source: "poll",
+                }).catch(() => {});
               }
 
               if (TERMINAL_STATUSES.has(mapped.status)) {

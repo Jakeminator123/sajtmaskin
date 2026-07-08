@@ -43,4 +43,10 @@ export const ROUTE_TIMEOUT_TARGETS = [
     rel: "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
     manifestField: "verifyRepairRouteMaxDurationSeconds",
   },
+  {
+    // A3: manuell deploy-repair ("Publicera om med fix") kör samma
+    // lease-hållande repair-loop som engine-repair, så samma budget-tak.
+    rel: "src/app/api/v0/deployments/repair/route.ts",
+    manifestField: "verifyRepairRouteMaxDurationSeconds",
+  },
 ];

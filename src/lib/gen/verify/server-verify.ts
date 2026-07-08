@@ -608,6 +608,26 @@ function isAutoRepairBuildErrorEnabled(): boolean {
  * server-verify, so we never run two repair loops on the same version
  * concurrently regardless of which path triggered them.
  */
+/**
+ * Utfall från `triggerBuildErrorRepair`. `void`-returen behölls tidigare (alla
+ * finalize/preview-anropare kör fire-and-forget), men A3:s manuella
+ * deploy-repair-endpoint behöver veta om en `repair_available`-version faktiskt
+ * producerades för att kunna svara UI:t.
+ */
+export type BuildErrorRepairOutcome = {
+  /** Sant om repair-loopen faktiskt kördes (klarade eligibility + fick lease). */
+  started: boolean;
+  /** Sant om en repair sparades (`repair_available`) — `onRepairAvailable` fyrade. */
+  repairAvailable: boolean;
+  /** Varför loopen inte kördes, när `started === false`. */
+  skippedReason?:
+    | "auto_repair_disabled"
+    | "not_eligible"
+    | "lease_busy"
+    | "not_latest"
+    | "no_files";
+};
+
 export async function triggerBuildErrorRepair(params: {
   chatId: string;
   versionId: string;
@@ -619,15 +639,46 @@ export async function triggerBuildErrorRepair(params: {
   /** Fas 3 (RepairGate): finalize's ledger + scope — see triggerServerVerification. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * A3: kringgå `isAutoRepairBuildErrorEnabled()`-env-gaten. Sätts av den
+   * MANUELLA deploy-repair-endpointen ("Publicera om med fix") — knappen ska
+   * fungera oavsett auto-repair-flaggan (auto-redeploy förblir av; detta är ett
+   * explicit knapptryck, inte auto-trigger).
+   */
+  force?: boolean;
+  /**
+   * A3: absolut `Date.now()`-deadline som binder repair-loopen till den anropande
+   * route:ns `maxDuration` (deploy-repair-endpointen är synkron, till skillnad
+   * från finalize/preview som är fire-and-forget). Trädas ner i `runRepairLoop`.
+   * Utelämnad → obundet (dagens bakgrundsbeteende).
+   */
+  repairDeadlineEpochMs?: number;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
-}): Promise<void> {
-  if (!isAutoRepairBuildErrorEnabled()) return;
+}): Promise<BuildErrorRepairOutcome> {
+  const { force = false, repairDeadlineEpochMs } = params;
+  if (!force && !isAutoRepairBuildErrorEnabled()) {
+    return { started: false, repairAvailable: false, skippedReason: "auto_repair_disabled" };
+  }
   const { chatId, versionId, buildError, onRepairAvailable, repairLedger, repairScopeId } = params;
-  if (!isServerVerifyEligible(versionId)) return;
+  if (!isServerVerifyEligible(versionId)) {
+    return { started: false, repairAvailable: false, skippedReason: "not_eligible" };
+  }
+  // A3: fånga om en repair faktiskt sparades (repair_available) så det manuella
+  // endpointet kan svara UI:t, utan att ändra callback-kontraktet för de
+  // befintliga fire-and-forget-anroparna.
+  let repairAvailable = false;
+  const trackedOnRepairAvailable = (payload: {
+    versionId: string;
+    summary: string | null;
+    repairAvailableAt: string | null;
+  }): void => {
+    repairAvailable = true;
+    onRepairAvailable?.(payload);
+  };
   // OMTAG-06 / Codex P2: surface the preview-VM build error as a first-class bus
   // event BEFORE acquiring the lease, so the signal (and its error-log
   // projection) is never dropped when another job already owns the version —
@@ -652,9 +703,12 @@ export async function triggerBuildErrorRepair(params: {
     // Another live lease already owns this version — the build-error event is
     // already emitted above; skip only the mutating repair to avoid racing it.
     inflight.delete(versionId);
-    return;
+    return { started: false, repairAvailable: false, skippedReason: "lease_busy" };
   }
   const runId = lease.runId;
+  // A3-utfall: sätts när loopen faktiskt körs / hoppas över inuti try/finally.
+  let started = false;
+  let skippedReason: BuildErrorRepairOutcome["skippedReason"];
   let supersededByUserEdit = false;
   // #260 Codex P2: this loop is always build-originated; carry that into the
   // post-supersede re-verify so the current files' gate keeps `build`.
@@ -664,9 +718,16 @@ export async function triggerBuildErrorRepair(params: {
   // staleness and schedule a re-verify instead of leaving B stuck in `repairing`.
   let baseFilesJsonForRecovery: string | null = null;
   try {
-    if (!(await isLatestVersionForChat(chatId, versionId))) return;
+    if (!(await isLatestVersionForChat(chatId, versionId))) {
+      skippedReason = "not_latest";
+      return { started, repairAvailable, skippedReason };
+    }
     const snapshot = await getVersionFilesSnapshot(versionId);
-    if (!snapshot || snapshot.files.length === 0) return;
+    if (!snapshot || snapshot.files.length === 0) {
+      skippedReason = "no_files";
+      return { started, repairAvailable, skippedReason };
+    }
+    started = true;
     const codeFiles = snapshot.files;
     const baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
@@ -694,10 +755,13 @@ export async function triggerBuildErrorRepair(params: {
       firstFailureCheck: "build",
       jobStartedAt: null,
       jobFinishedAt: null,
-      onRepairAvailable,
+      onRepairAvailable: trackedOnRepairAvailable,
       runId,
       // #260 Codex P2 (forced build gate): this path is always build-originated.
       forceBuildGate: true,
+      // A3: bind loopen till den synkrona endpointens maxDuration (utelämnad för
+      // fire-and-forget-anroparna → obundet, dagens beteende).
+      repairDeadlineEpochMs,
       repairLedger,
       repairScopeId,
     });
@@ -730,12 +794,14 @@ export async function triggerBuildErrorRepair(params: {
     await triggerServerVerification({
       chatId,
       versionId,
-      onRepairAvailable,
+      onRepairAvailable: trackedOnRepairAvailable,
       forceBuildCheck: reverifyForceBuildCheck,
       repairLedger,
       repairScopeId,
     });
   }
+
+  return { started, repairAvailable, skippedReason };
 }
 
 /**
@@ -791,6 +857,13 @@ async function tryServerRepairLoop(params: {
    * build. `triggerBuildErrorRepair` always passes `true`.
    */
   forceBuildGate?: boolean;
+  /**
+   * A3: absolut `Date.now()`-deadline som trädas ner i `runRepairLoop` så en
+   * SYNKRON anropare (deploy-repair-endpointen) kan binda loopen till sin
+   * route-`maxDuration`. Utelämnad → obundet (bakgrundskörning: server-verify /
+   * post-finalize auto-repair, dagens beteende).
+   */
+  repairDeadlineEpochMs?: number;
   /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
@@ -809,6 +882,7 @@ async function tryServerRepairLoop(params: {
     runId,
     previewPolicy,
     forceBuildGate = false,
+    repairDeadlineEpochMs,
   } = params;
   // Fas 3: without a finalize handover, use a fresh per-run ledger + a
   // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
@@ -1057,6 +1131,9 @@ async function tryServerRepairLoop(params: {
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
     llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
     llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
+    // A3: bunden till anroparens route-maxDuration för synkron deploy-repair;
+    // undefined för bakgrundskörning (obundet, dagens beteende).
+    repairDeadlineEpochMs,
     fixerModel,
     fixerThinking: fixerThinking?.thinking,
     fixerReasoningEffort: fixerThinking?.reasoningEffort,

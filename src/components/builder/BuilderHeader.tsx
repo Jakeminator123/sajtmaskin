@@ -126,6 +126,10 @@ export function BuilderHeader(props: {
   canSaveProject: boolean;
   deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
   deploymentUrl?: string | null;
+  /** A3: kör manuell deploy-repair ("Publicera om med fix") vid build-fel. */
+  onRepublishWithFix?: () => void;
+  /** A3: sant medan deploy-repair körs (knappen visar spinner). */
+  isRepublishRepairing?: boolean;
   /** Hydrated live deployment (survives reloads). Drives "Publicerad" vs
    * "Publicera ändringar" together with `activeVersionId`. */
   liveDeploymentUrl?: string | null;
@@ -189,6 +193,8 @@ export function BuilderHeader(props: {
     canSaveProject,
     deploymentStatus,
     deploymentUrl,
+    onRepublishWithFix,
+    isRepublishRepairing,
     liveDeploymentUrl,
     liveDeploymentVersionId,
     deploymentHistoryHydrationFailed,
@@ -768,6 +774,41 @@ export function BuilderHeader(props: {
                 <p>
                   Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan
                   visa fel läge tills du försöker igen.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
+        {/* A3: en publicering som failat asynkront (Vercel-build-fel) får en
+            MANUELL "Publicera om med fix"-knapp. Den kör en repair mot den
+            failade versionen och guidar till accept + ompublicering — den
+            redeployar ALDRIG automatiskt (Ö3). Inget felkort/inspectorUrl här
+            (det gör A4). */}
+        {deploymentStatus === "error" && onRepublishWithFix ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-500 text-red-600 dark:text-red-400"
+                  onClick={() => runDeferredAction(onRepublishWithFix)}
+                  disabled={isBusy || isRepublishRepairing}
+                >
+                  {isRepublishRepairing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wrench className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Publicera om med fix</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-sm text-xs">
+                <p>
+                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den
+                  failade versionen — granska och acceptera reparationen, publicera
+                  sedan om.
                 </p>
               </TooltipContent>
             </Tooltip>
