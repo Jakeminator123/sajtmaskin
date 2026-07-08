@@ -221,6 +221,33 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
     expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
   });
 
+  it("matches hyphenated provider forms of multi-word keywords (mongodb-atlas)", () => {
+    // Codex P2 (#445): the follow-up vocabulary accepts hyphenated provider
+    // forms ("mongodb-atlas", "neon-postgres"); the relevance matcher must
+    // treat spaces in multi-word keywords as space-or-hyphen so those prompts
+    // reach the intended sibling instead of the postgres-drizzle default.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "sätt upp mongodb-atlas för kunddatan",
+    });
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("matches hyphenated neon-postgres and neon-db forms", () => {
+    const hyphenPostgres = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "kör neon-postgres för medlemsdatan",
+    });
+    expect(hyphenPostgres.selected[0]?.entry.id).toBe("neon-postgres");
+
+    const hyphenDb = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "spara allt i en neon-db",
+    });
+    expect(hyphenDb.selected[0]?.entry.id).toBe("neon-postgres");
+  });
+
   it("picks neon-postgres on the natural 'Neon Postgres' phrasing", () => {
     // The default postgres-drizzle deliberately carries NO relevanceKeywords
     // (it is the fallback), so the "postgres" in "Neon Postgres" must not pull

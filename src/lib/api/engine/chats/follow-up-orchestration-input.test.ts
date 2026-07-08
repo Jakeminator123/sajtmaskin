@@ -191,6 +191,28 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     });
   });
 
+  it("forwards approved F3 providers as dossierProviderHints (Codex P1 #445)", () => {
+    const withProviders = buildFollowUpOrchestrationInput(
+      baseParams({
+        mode: "codegen",
+        additionalDossierCapabilities: ["database"],
+        approvedProviders: ["mongodb"],
+      }),
+    );
+    expect(withProviders.requestedDossierCapabilities).toEqual(["database"]);
+    expect(withProviders.dossierProviderHints).toEqual(["mongodb"]);
+
+    const withoutProviders = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "codegen", approvedProviders: null }),
+    );
+    expect(withoutProviders.dossierProviderHints).toBeUndefined();
+
+    const emptyProviders = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "codegen", approvedProviders: [] }),
+    );
+    expect(emptyProviders.dossierProviderHints).toBeUndefined();
+  });
+
   it("hasFollowUpBase=false suppresses follow-up-only signals on both modes", () => {
     const params = baseParams({
       hasFollowUpBase: false,

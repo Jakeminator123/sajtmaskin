@@ -1445,6 +1445,12 @@ export async function handleMessageStreamRequest(
           followUpCapabilityDetection,
           followUpIntent,
           additionalDossierCapabilities: f3ApprovedDossierCapabilities,
+          // Codex P1 (#445): keep the approved provider identity through
+          // sibling selection — the approval text has no provider keyword.
+          approvedProviders:
+            f3ApprovalBuildRound && f3ContinuationDecision
+              ? f3ContinuationDecision.markerSuggestedProviders
+              : null,
           orchestrationSnapshot:
             engineChat.orchestration_snapshot as Record<string, unknown> | null,
           // Q5a + MB-3: budget scales to the generator-phase model's context

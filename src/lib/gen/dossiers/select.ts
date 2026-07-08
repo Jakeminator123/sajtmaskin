@@ -78,12 +78,15 @@ function escapeRegExp(value: string): string {
  * standalone word/phrase. Unicode-aware boundaries; the hyphen is treated as
  * part of the word on purpose so a compound like "neon-skylt" (neon sign)
  * does NOT hit the bare "neon" keyword, while "Neon Postgres", "neon.tech"
- * and "använd Neon" still do. Precision over recall — a miss falls back to
- * the capability default, which is always a working implementation.
+ * and "använd Neon" still do. Spaces inside a multi-word keyword match
+ * space-or-hyphen so hyphenated provider forms ("mongodb-atlas",
+ * "neon-postgres") hit the same keyword as the spaced form (Codex P2 on
+ * PR #445). Precision over recall — a miss falls back to the capability
+ * default, which is always a working implementation.
  */
 function matchesRelevanceKeyword(entry: DossierEntry, promptText: string): boolean {
   for (const keyword of entry.relevanceKeywords ?? []) {
-    const source = escapeRegExp(keyword.trim());
+    const source = escapeRegExp(keyword.trim()).replace(/ +/g, "[\\s-]+");
     if (!source) continue;
     const re = new RegExp(`(?<![\\p{L}\\p{N}_-])${source}(?![\\p{L}\\p{N}_-])`, "iu");
     if (re.test(promptText)) return true;

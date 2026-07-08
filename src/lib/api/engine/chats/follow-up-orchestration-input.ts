@@ -53,6 +53,13 @@ export interface BuildFollowUpOrchestrationInputParams {
    * this the build round would run without the hard-dossier templates.
    */
   additionalDossierCapabilities?: string[];
+  /**
+   * Provider keys from the same APPROVED F3 proposal (e.g. `["mongodb"]`).
+   * Forwarded as `dossierProviderHints` so sibling selection under a shared
+   * capability keeps the approved provider — the approval reply text alone
+   * would fall back to the capability default (Codex P1 on PR #445).
+   */
+  approvedProviders?: string[] | null;
   orchestrationSnapshot: Record<string, unknown> | null;
   engineModelId: string;
   persistedVariantId?: string | null;
@@ -155,6 +162,10 @@ export function buildFollowUpOrchestrationInput(
       );
       return merged.length > 0 ? merged : undefined;
     })(),
+    dossierProviderHints:
+      params.approvedProviders && params.approvedProviders.length > 0
+        ? params.approvedProviders
+        : undefined,
     requestedCapabilityTiers: detectedDossierCapabilities
       ? params.followUpCapabilityDetection.tierByCapability
       : undefined,
