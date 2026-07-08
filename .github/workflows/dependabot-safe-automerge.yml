@@ -65,7 +65,16 @@ jobs:
           # tailwindcss, @tailwindcss/*, eslint, @eslint/*, @types/node, stripe,
           # openai, recharts. Matching is fail-closed: anything uncertain stays
           # manual.
-          core_regex='^(ai|openai|stripe|recharts|typescript|next|react|react-dom|@types/node)$|^@ai-sdk/|^tailwindcss$|^@tailwindcss/|^eslint$|^@eslint/'
+          #
+          # Baseline-pinned packages are ALSO blocked: three, @react-three/*
+          # and lucide-react are pinned at exact major.minor.patch in the scaffold
+          # baseline (KNOWN_PACKAGES in src/lib/gen/autofix/dep-completer.ts /
+          # project-scaffold.ts). Even a patch bump breaks
+          # project-scaffold-baseline-parity.test.ts unless the pin is updated in
+          # the same commit, so these can never auto-merge (e.g. #399 @react-three/
+          # fiber 9.6.0->9.6.1). See docs/dependency-policy.md "Baseline-pinnade
+          # paket".
+          core_regex='^(ai|openai|stripe|recharts|typescript|next|react|react-dom|@types/node|three|lucide-react)$|^@ai-sdk/|^tailwindcss$|^@tailwindcss/|^eslint$|^@eslint/|^@react-three/'
           IFS=',' read -ra names <<< "$DEP_NAMES"
           for raw in "${names[@]}"; do
             name="$(echo "$raw" | xargs)"

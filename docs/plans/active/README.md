@@ -71,6 +71,8 @@ Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-ar
 
 Beslutsunderlag (scope, ej startat): PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
 
+Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) bryts ut i små PR:ar (batch A #391, B #393, C #395 mergade; kvar: preview/readiness, pipeline, scaffolds, domains/engine-rester) → [`pr-355-parked-bug-swarm-split.md`](pr-355-parked-bug-swarm-split.md).
+
 Repo-cleanup 2026-07-07 (levererat: 4 bevisat-döda ytor raderade; kvar: 3 ägarbeslut C1–C3 + auth-refaktor R1) → [`2026-07-07-repo-cleanup.md`](2026-07-07-repo-cleanup.md).
 
 Levererat (kod): #4 distribuerat per-version-lås (`engine_version_jobs`) för server-verify/repair via **#256** (2026-06-27) + base-bound repair-save/accept via **#265** (2026-06-28, stänger #260 P2 #5) + #260 **P2 #4** (quality-gate höll leasen över verify-budgeten) löst via **#276** och härdat via **#284** (verify-timeout härleds nu från route-budgeten med marginal). #260 är därmed helt stängd i koden. **Enda kvarvarande punkten är ägarens manuella prod-migration av `engine_version_jobs`** (runbook i plan-doc) → [`../avklarat/2026-06-27-server-verify-distributed-lock.md`](../avklarat/2026-06-27-server-verify-distributed-lock.md).

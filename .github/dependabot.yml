@@ -10,9 +10,12 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+    # Dependabot appends the scope itself ("(deps)"/"(deps-dev)") when
+    # include: "scope" is set, so the prefix must NOT already contain "(deps)"
+    # or PR titles double up as "chore(deps)(deps): ...".
     commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
+      prefix: "chore"
+      prefix-development: "chore"
       include: "scope"
     groups:
       npm-production-patch:
@@ -71,3 +74,10 @@ updates:
     labels:
       - dependencies
       - github-actions
+    # Actions policy is patch/minor only; majors are handled manually (same as
+    # npm above). Security updates are exempt from version-update ignores and
+    # still surface. Prevents cases like fetch-metadata 2->3 (major) slipping in.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
