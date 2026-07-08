@@ -442,11 +442,65 @@ function insertDataNavEntry(content: string, route: string, label: string): stri
 }
 
 /**
+ * End index (just past `</tag>`) of the element opened at `openEnd` for `tag`,
+ * balancing nested same-tag elements and ignoring self-closing ones. Null when
+ * no matching close is found.
+ */
+function matchingCloseEnd(content: string, tag: string, openEnd: number): number | null {
+  const re = new RegExp(`<${tag}\\b[^>]*?(/?)>|</${tag}>`, "g");
+  re.lastIndex = openEnd;
+  let depth = 1;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content)) !== null) {
+    if (match[0].startsWith("</")) {
+      depth -= 1;
+      if (depth === 0) return match.index + match[0].length;
+    } else if (match[1] !== "/") {
+      depth += 1; // nested non-self-closing open of the same tag
+    }
+  }
+  return null;
+}
+
+/**
+ * Range of the OUTERMOST `asChild`/Slot wrapper that encloses `start..end`
+ * (walking through nested `asChild` wrappers), or null when the range is not
+ * inside any. Unlike `asChildWrapperRange` this does NOT require the range to be
+ * the wrapper's sole child — a link with siblings inside a Slot still counts.
+ * Insertion must land AFTER this range so the new element becomes a sibling of
+ * the whole wrapper chain instead of a second child of a Slot.
+ */
+function outermostAsChildWrapperEnd(content: string, start: number, end: number): number | null {
+  let curStart = start;
+  let curEnd = end;
+  let outer: number | null = null;
+  for (let guard = 0; guard < 32; guard += 1) {
+    const before = content.slice(0, curStart);
+    const openRe = /<(\w+)\b[^>]*\basChild\b[^>]*>/g;
+    let open: RegExpExecArray | null;
+    let nearest: { start: number; end: number } | null = null;
+    while ((open = openRe.exec(before)) !== null) {
+      const tag = open[1]!;
+      const openEnd = open.index + open[0].length;
+      const closeEnd = matchingCloseEnd(content, tag, openEnd);
+      if (closeEnd !== null && closeEnd >= curEnd) {
+        nearest = { start: open.index, end: closeEnd }; // keep the closest (largest index)
+      }
+    }
+    if (!nearest) break;
+    outer = nearest.end;
+    curStart = nearest.start;
+    curEnd = nearest.end;
+  }
+  return outer;
+}
+
+/**
  * Insert a sibling `<Link>`/`<a>` after the last literal internal link.
- * `asChild`/Slot-safe: when the anchor link is the sole child of an `asChild`
- * wrapper, the new element is inserted AFTER the wrapper (a sibling of the
- * wrapper) — inserting inside the wrapper would give Slot two children and
- * crash the preview at runtime.
+ * `asChild`/Slot-safe: if the anchor link sits inside one or more `asChild`
+ * wrappers (with or without siblings), the new element is inserted AFTER the
+ * outermost wrapper so it becomes a sibling of the wrapper chain. Inserting
+ * inside a Slot would give it a second child and crash the preview at runtime.
  */
 function insertJsxNavLink(content: string, route: string, label: string): string | null {
   const links = collectJsxInternalLinks(content);
@@ -459,8 +513,8 @@ function insertJsxNavLink(content: string, route: string, label: string): string
     return null;
   }
   const newElement = `<${last.tag} href="${route}">${label}</${last.tag}>`;
-  const wrapper = asChildWrapperRange(content, last.start, last.end);
-  const insertAt = wrapper ? wrapper.end : last.end;
+  const wrapperEnd = outermostAsChildWrapperEnd(content, last.start, last.end);
+  const insertAt = wrapperEnd ?? last.end;
   return `${content.slice(0, insertAt)}\n      ${newElement}${content.slice(insertAt)}`;
 }
 

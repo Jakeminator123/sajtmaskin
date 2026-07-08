@@ -371,4 +371,60 @@ const navItems = [
       expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Button>"));
     }
   });
+
+  // Bugbot follow-up: the anchor link has a SIBLING inside the asChild wrapper.
+  // `sole child` detection must not be required — insertion still has to land
+  // after the whole wrapper, not between the link and </Button>.
+  it("inserts after the wrapper even when the link has a sibling inside it", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Button asChild>
+        <Icon />
+        <Link href="/kontakt-oss">Kontakt</Link>
+      </Button>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      const wrapperInner = content.match(/<Button asChild>([\s\S]*?)<\/Button>/)?.[1] ?? "";
+      expect(wrapperInner).not.toContain("/skidor");
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Button>"));
+    }
+  });
+
+  // Nested asChild wrappers: the new link must land after the OUTERMOST one.
+  it("inserts after the outermost wrapper for nested asChild wrappers", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `export function H() {
+  return (
+    <nav>
+      <Tooltip asChild>
+        <Button asChild>
+          <Link href="/kontakt-oss">Kontakt</Link>
+        </Button>
+      </Tooltip>
+    </nav>
+  );
+}`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/skidor", "Skidor");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const content = result.ops[0].content;
+      // Neither Slot may gain a second child.
+      expect(content.indexOf('href="/skidor"')).toBeGreaterThan(content.indexOf("</Tooltip>"));
+    }
+  });
 });
