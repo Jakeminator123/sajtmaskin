@@ -55,7 +55,6 @@
     "test:deploy-smoke:e2e": "playwright test -c playwright.deploy-smoke.config.ts",
     "templates:validate": "node scripts/v0-templates/validate-templates.mjs",
     "templates:blob:upload": "node scripts/v0-templates/upload-mallar-blob.mjs",
-    "templates:blob:sync": "node scripts/v0-templates/sync-blob-catalog.mjs",
     "templates:embeddings": "npx tsx scripts/embeddings/generate-template-embeddings.ts",
     "scaffolds:embeddings": "npx tsx scripts/embeddings/generate-scaffold-embeddings.ts",
     "scaffolds:embeddings:check": "npx tsx scripts/embeddings/check-scaffold-embeddings.ts",

@@ -77,6 +77,8 @@ npm run templates:blob:upload -- --upload --write-catalog --source=../mallar
 Uploadern exkluderar mallar som överskrider preview-host-taken från galleriet (`previewFits:false`) men behåller dem i Blob.
 
 > **Legacy borttagen (2026-07-08):** v0-auto-fetch-vägen (`sync-v0-templates.mjs`, `refresh-local-v0-catalog.mjs`, npm-scripten `templates:sync/refresh/local:refresh`, `.github/workflows/weekly-template-sync.yml`, admin-routen `/api/admin/templates/sync` och `TEMPLATE_SYNC_*`-env) är raderad. **Blob-vägen via `upload-mallar-blob.mjs` är enda sättet att generera katalogen.** Den lokala `templates_v0/`-disken finns kvar enbart som dev-override för arkivkällan (§3) och thumbnail-fallback.
+>
+> **Legacy borttagen (2026-07-09):** den parallella skrivvägen `sync-blob-catalog.mjs` (`templates:blob:sync`, äldre colocated-intake i `test_förslag_templates_blob/`) är raderad tillsammans med intake-mappen. Den ersatte hela manifestet utan merge, med annat nyckelformat och färre kategorier — en skrivkörning kunde kollapsa katalogen (tappa thumbnails/kategorier). `upload-mallar-blob.mjs` är nu enda skrivvägen till alla tre katalogfilerna och Blob-katalogpaths.
 
 ## 6. Preview-host-guardrails (vad en mall måste klara)
 

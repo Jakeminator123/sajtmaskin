@@ -93,6 +93,17 @@ export function useBuilderEffects({
             setCurrentPreviewUrl(n);
           }
         }
+        // Advisory from the server: the import succeeded but the server-side
+        // preview boot failed. The client still runs its own preview bootstrap
+        // (useBuilderVmPreview) once chatId lands, so this is not necessarily
+        // final — the copy says a retry happens automatically instead of
+        // claiming a definitive failure (bugbot medium på #458). Panelens
+        // empty-state äger det slutgiltiga felläget om även retryn failar.
+        if (data?.previewStartFailed) {
+          toast.warning(
+            "Mallen importerades, men förhandsvisningen startade inte på första försöket. Ett nytt försök görs automatiskt — ladda om sidan om panelen förblir tom.",
+          );
+        }
         if (data?.chatId && appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,

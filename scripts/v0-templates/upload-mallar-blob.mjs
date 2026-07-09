@@ -4,10 +4,11 @@
  * Blob and (re)write the blob catalog so the on-site "Mallar"/templates gallery
  * shows exactly the uploaded templates.
  *
- * Why a dedicated uploader:
- *   sync-blob-catalog.mjs expects the older *colocated* layout
- *   (downloads/<cat>/<slug>__<id>/template.zip + metadata.json + listing/detail).
- *   The "mallar" intake folder uses the *split* layout instead:
+ * This is the ONLY write path for the Blob catalog (the older parallel
+ * sync-blob-catalog.mjs, which replaced the whole manifest without merging,
+ * was removed 2026-07-09).
+ *
+ * Intake layout ("mallar" split layout):
  *     <source>/out/downloaded.jsonl             templateId -> logged zip path (source of truth)
  *     <source>/out/template-metadata/<id>.json  title + v0 category metadata
  *     <source>/downloads/<swedish-cat>/<id>/*.zip
