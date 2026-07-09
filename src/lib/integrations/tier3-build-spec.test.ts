@@ -418,10 +418,14 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
   });
 
-  it("does NOT map supabase approval to subscriptions (paddle infra deps only)", () => {
+  it("does NOT map generic supabase (data) approval to subscriptions or auth", () => {
+    // paddle infra deps (@supabase/*) and supabase-auth's id-prefix both
+    // strict-back the generic "supabase" DATA provider — neither may inject
+    // off a plain Supabase approval (Codex P1 dossier-batch). Both capabilities
+    // enter only via explicit capability selection.
     const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
     expect(caps).not.toContain("subscriptions");
-    expect(caps).toContain("supabase-auth");
+    expect(caps).not.toContain("supabase-auth");
   });
 
   it("does NOT map openai approval to rag-chat (shared @ai-sdk/openai dep only)", () => {

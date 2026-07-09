@@ -74,12 +74,12 @@
       "injectionMode": "verbatim"
     },
     {
-      "path": "components/lib/supabase/admin.ts",
+      "path": "components/lib/paddle/supabase-admin.ts",
       "role": "server",
       "injectionMode": "verbatim"
     },
     {
-      "path": "components/lib/supabase/server.ts",
+      "path": "components/lib/paddle/supabase-server.ts",
       "role": "server",
       "injectionMode": "verbatim"
     },
@@ -103,12 +103,12 @@
     {
       "name": "createSupabaseServerClient",
       "type": "function",
-      "import": "@/lib/supabase/server"
+      "import": "@/lib/paddle/supabase-server"
     },
     {
       "name": "getSupabaseAdmin",
       "type": "function",
-      "import": "@/lib/supabase/admin"
+      "import": "@/lib/paddle/supabase-admin"
     },
     {
       "name": "SubscriptionConfigNotice",

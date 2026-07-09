@@ -338,6 +338,17 @@ function explicitlyRequestsCarousel(prompt: string): boolean {
 }
 
 /**
+ * Explicit one-off / card-checkout intent (stripe-checkout `payments`). Used to
+ * KEEP `payments` when a prompt asks for both memberships and a one-off purchase
+ * (Codex P2 dossier-batch) — the subscriptions/payments dedup only drops
+ * `payments` when it was inferred, never when the shopper explicitly asked to
+ * buy something once. Unicode-safe lookarounds (not \b) so åäö-adjacent words
+ * are handled correctly.
+ */
+const EXPLICIT_ONE_OFF_PAYMENT_RE =
+  /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment|betala\s+en\s+g(?:å|a)ng|k(?:ö|o)p\s+(?:en\s+)?(?:produkt|vara|artikel)|one-?off\s+checkout)(?![\p{L}\p{N}_])/iu;
+
+/**
  * Non-secret integration capabilities that F2 mutes by POLICY
  * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
  * build-enforced env secret AND no server-file surface — today only
@@ -421,13 +432,17 @@ export function filterDossierCapabilitiesForPrompt(params: {
   if (result.includes("supabase-auth") && result.includes("auth")) {
     result = result.filter((capability) => capability !== "auth");
   }
-  // Same explicit-provider rule for money flows (bugbot high, dossier-batch):
-  // a recurring/subscriptions ask can drag generic `payments` along (brief,
-  // inferred `needsPayments`, or a prompt that mentions both "prenumeration"
-  // and "betala med kort"). stripe-checkout (payments) and paddle-billing
-  // (subscriptions) both ship checkout CTAs + route wiring — injecting both
-  // collides. The explicit recurring intent wins: drop generic `payments`.
-  if (result.includes("subscriptions") && result.includes("payments")) {
+  // Money-flow dedup (bugbot high, dossier-batch): a recurring/subscriptions ask
+  // can drag generic `payments` along (brief, inferred `needsPayments`, or a
+  // prompt mentioning both "prenumeration" and "betala med kort"). stripe-checkout
+  // (payments) and paddle-billing (subscriptions) ship DISTINCT output paths (no
+  // build collision, Codex P2), so we drop `payments` only when it was inferred/
+  // ambiguous — an EXPLICIT one-off checkout ask alongside memberships keeps both.
+  if (
+    result.includes("subscriptions") &&
+    result.includes("payments") &&
+    !EXPLICIT_ONE_OFF_PAYMENT_RE.test(params.prompt ?? "")
+  ) {
     result = result.filter((capability) => capability !== "payments");
   }
   return result;

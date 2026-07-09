@@ -973,6 +973,14 @@ describe("detectFollowUpCapabilities — subscriptions", () => {
     expect(result.capabilityIds).toContain("payments");
     expect(result.capabilityIds).not.toContain("subscriptions");
   });
+
+  // Veto (Codex P2 dossier-batch): a bare "subscribe form" is an email signup,
+  // not recurring billing — the bare English "subscribe" token was removed from
+  // the subscriptions pattern so it no longer competes with newsletter-subscribe.
+  it("does NOT detect subscriptions for a plain 'subscribe form'", () => {
+    const result = detectFollowUpCapabilities("add a subscribe form to the footer");
+    expect(result.capabilityIds).not.toContain("subscriptions");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

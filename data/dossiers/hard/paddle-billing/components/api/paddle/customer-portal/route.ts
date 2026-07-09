@@ -2,9 +2,9 @@ import { NextRequest } from 'next/server';
 import {
   createSupabaseServerClient,
   isSupabaseServerConfigured,
-} from '@/lib/supabase/server';
+} from '@/lib/paddle/supabase-server';
 import { getPaddleInstance, isPaddleConfigured } from '@/lib/paddle/get-paddle-instance';
-import { getSupabaseAdmin, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { getSupabaseAdmin, isSupabaseAdminConfigured } from '@/lib/paddle/supabase-admin';
 
 function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;

@@ -162,13 +162,20 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "subscriptions",
     patterns: [
       /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?|subscribe)(?![\p{L}\p{N}_])/iu,
+      // NOTE: no bare English "subscribe" token — it collides with newsletter
+      // "subscribe form" / email-signup (Codex P2 dossier-batch). Billing intent
+      // comes from "subscription(s)" and the Swedish prenumeration/abonnemang
+      // nouns; a bare "subscribe form" stays with newsletter-subscribe.
+      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:medlemskap(?:et|en)?|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning(?:ar|en)?|debitering(?:ar|en)?)|recurring\s+(?:payment(?:s)?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
     ],
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:nyhetsbrev(?:et)?|newsletter)(?![\p{L}\p{N}_])/iu,
+      // Email-signup / "subscribe form" belongs to newsletter-subscribe, not
+      // billing (Codex P2 dossier-batch).
+      /(?<![\p{L}\p{N}_])(?:e-?post|e-?mail|email)[-\s]?(?:formul(?:ä|a)r|form|signup|sign[-\s]?up|lista|list)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

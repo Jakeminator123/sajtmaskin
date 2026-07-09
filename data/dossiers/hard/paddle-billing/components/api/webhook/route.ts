@@ -5,7 +5,7 @@ import {
   isPaddleConfigured,
   isPaddleWebhookConfigured,
 } from '@/lib/paddle/get-paddle-instance';
-import { isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { isSupabaseAdminConfigured } from '@/lib/paddle/supabase-admin';
 
 // ProcessWebhook is env-free at construction (it lazy-inits the Supabase admin
 // client only when it actually writes), so instantiating it at module scope is

@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/paddle/supabase-admin';
 
 type PaddleWebhookEvent = {
   eventType?: string;
@@ -21,7 +21,11 @@ function getSubscriptionId(data: Record<string, unknown>) {
 }
 
 function getCustomerId(data: Record<string, unknown>) {
-  const customer = data.customer_id;
+  // The Paddle Node SDK normalizes verified webhook payloads to camelCase
+  // (`customerId`); accept the snake_case `customer_id` too for raw/forwarded
+  // payloads (Codex P1 dossier-batch: reading only snake_case stored null and
+  // made the customer-portal route return no-paddle-customer-for-user).
+  const customer = data.customerId ?? data.customer_id;
   return typeof customer === 'string' ? customer : null;
 }
 

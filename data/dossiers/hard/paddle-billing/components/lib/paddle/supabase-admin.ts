@@ -31,8 +31,10 @@ export function isSupabaseAdminConfigured(): boolean {
 let adminClient: SupabaseClient | null = null;
 
 /**
- * Lazy, server-only Supabase admin (service-role) client. NEVER constructed at
- * module import time: a module-level createClient() with empty env throws at
+ * Lazy, server-only Supabase admin (service-role) client. Paddle-namespaced
+ * under `lib/paddle/` so it does not collide with the supabase-auth dossier's
+ * `lib/supabase/*` when both are co-selected. NEVER constructed at module
+ * import time: a module-level createClient() with empty env throws at
  * import/build and would make the route's env guard (503) unreachable. Callers
  * MUST check isSupabaseAdminConfigured() first; this throws a recognizable
  * error otherwise (defensive).

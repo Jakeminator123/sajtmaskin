@@ -34,4 +34,4 @@
 - Replay the same subscription event and confirm handling is idempotent (upsert on `paddle_subscription_id`).
 - With env unset, confirm `/api/webhook` and the customer-portal route return 503 (`subscriptions-not-configured`) and the site does not 500.
 - Sign in and confirm the customer-portal route returns a portal URL; call it signed out and confirm 401.
-- Confirm server-only modules (`admin.ts`) are never imported by client components.
+- Confirm server-only modules (`lib/paddle/supabase-admin.ts`) are never imported by client components.

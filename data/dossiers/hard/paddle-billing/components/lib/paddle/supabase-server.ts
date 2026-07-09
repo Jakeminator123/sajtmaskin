@@ -25,10 +25,12 @@ export function isSupabaseServerConfigured(): boolean {
 }
 
 /**
- * Server-side Supabase auth client (anon key) for reading the signed-in user in
- * route handlers / server components. Requires NEXT_PUBLIC_SUPABASE_URL and
- * NEXT_PUBLIC_SUPABASE_ANON_KEY — callers that must degrade gracefully when
- * Supabase is unconfigured should guard on isSupabaseServerConfigured() first.
+ * Paddle-namespaced server-side Supabase auth client (anon key) for reading the
+ * signed-in user in the customer-portal route. Lives under `lib/paddle/` (NOT
+ * `lib/supabase/`) so it does not collide with the required supabase-auth
+ * dossier's own `lib/supabase/server.ts` when both are co-selected (Codex P1
+ * dossier-batch). Reads the same session cookies the auth dossier's middleware
+ * refreshes. Callers must guard on isSupabaseServerConfigured() first.
  */
 export async function createSupabaseServerClient() {
   if (!isSupabaseServerConfigured()) {

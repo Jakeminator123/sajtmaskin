@@ -340,6 +340,11 @@ function isSuppressedProviderBacking(
 ): boolean {
   if (providerCompact === "supabase" && capability === "subscriptions") return true;
   if (providerCompact === "openai" && capability === "rag-chat") return true;
+  // supabase-auth's id ("supabase-*") id-prefix-matches the generic "supabase"
+  // DATA provider, so approving Supabase for storage/database would otherwise
+  // inject auth middleware/callback/client (Codex P1 dossier-batch). Supabase
+  // Auth enters only via explicit `supabase-auth` capability selection.
+  if (providerCompact === "supabase" && capability === "supabase-auth") return true;
   return false;
 }
 

@@ -281,6 +281,32 @@ describe("filterDossierCapabilitiesForPrompt (dossier wave 3: supabase-auth vs a
   });
 });
 
+describe("filterDossierCapabilitiesForPrompt (subscriptions vs payments dedup)", () => {
+  // Inferred/ambiguous `payments` is dropped when `subscriptions` is present so
+  // a recurring ask does not also inject Stripe checkout (bugbot high).
+  it("drops inferred payments when subscriptions is present (F3)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["subscriptions", "payments"],
+      prompt: "lägg till återkommande medlemskap med paddle",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("subscriptions");
+    expect(result).not.toContain("payments");
+  });
+
+  // Codex P2 dossier-batch: an EXPLICIT one-off checkout alongside memberships
+  // keeps both — the two dossiers ship distinct output paths (no collision).
+  it("keeps explicit one-off payments alongside subscriptions (F3)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["subscriptions", "payments"],
+      prompt: "medlemskap med paddle och en engångsbetalning för merch-köp",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("subscriptions");
+    expect(result).toContain("payments");
+  });
+});
+
 describe("dossierRequiresF3 (single F3 signal: build envVars OR server-file surface)", () => {
   const envVar = (
     key: string,
