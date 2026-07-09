@@ -241,7 +241,18 @@ const MessageListComponent = ({
       approveIndex,
       F3_CONTINUATION_APPROVE_OPTION,
       { planMode: false },
-    );
+    ).then(() => {
+      // The auto-send has settled (VADE på PR #460). On success the
+      // continuation stream has closed or produced a NEW marker (different
+      // key), so clearing this key is a visual no-op. On failure — rejected
+      // send OR a send that resolved without new content — this SAME marker
+      // is still the latest pending reply: clearing the optimistic key drops
+      // the perpetual spinner and lets the inline quick-replies render so the
+      // user can continue manually. `autoFiredF3KeyRef` stays set on purpose:
+      // no automatic retry loop. The `current === key`-guard avoids clobbering
+      // a newer marker's spinner if the next F3 round already started.
+      setF3AutoContinueKey((current) => (current === key ? null : current));
+    });
   }, [messages, pendingReply, onQuickReply, quickReplyDisabled, sendQuickReply]);
 
   useEffect(() => {

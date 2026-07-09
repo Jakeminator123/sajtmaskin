@@ -171,7 +171,16 @@ describe("MessageList", () => {
     // Live scenario: the marker arrives mid-session (its key was not present at
     // mount), so it auto-continues exactly once — no popup, just a calm status
     // row. The server loop-breaker caps repeats (round 3 closes terminally).
-    const onQuickReply = vi.fn(async () => {});
+    // The send is a controllable deferred so we can assert the spinner while
+    // pending AND the fallback after it settles without new content (VADE #460:
+    // a failed/contentless auto-send must not leave a perpetual spinner).
+    let resolveSend: (() => void) | undefined;
+    const onQuickReply = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
     const before: ChatMessage[] = [
       { id: "user_f3_kick_live", role: "user", content: "Bygg integrationer nu." },
     ];
@@ -201,9 +210,21 @@ describe("MessageList", () => {
     await waitFor(() => {
       expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
     });
-    // Auto-fires exactly once, no dialog, calm status row instead.
+    // Auto-fires exactly once, no dialog, calm status row while sending.
     expect(onQuickReply).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
     expect(screen.getByText("Integrationsbygget fortsätter automatiskt…")).toBeTruthy();
+
+    // The send settles WITHOUT producing new chat content (the same marker is
+    // still latest) — the spinner must clear and the manual inline
+    // quick-replies must take over. No automatic retry (still 1 call).
+    resolveSend?.();
+    await waitFor(() => {
+      expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
+    });
+    expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+    expect(onQuickReply).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 });
