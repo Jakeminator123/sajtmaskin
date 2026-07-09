@@ -153,6 +153,13 @@ export interface PreviewPanelProps {
       requiredRealEnvKeys: string[];
     }>;
   }) => void;
+  /**
+   * Called when the user picks a dossier from the Byggblock-panelens
+   * katalog-tab ("Bläddra katalog"). Threaded down to
+   * `PreviewPanelDossiers` so selecting a catalog row can send a normal
+   * chat message (`vm.sendMessage`) instead of duplicating the send path.
+   */
+  onRequestDossier?: (label: string) => void;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

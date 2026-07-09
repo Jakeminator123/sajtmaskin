@@ -30,7 +30,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
-import { openDossiersPanel } from "@/lib/builder/project-env-events";
+import { dispatchVersionStatusRefreshed, openDossiersPanel } from "@/lib/builder/project-env-events";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
@@ -188,6 +188,30 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     };
   }, [activeVersionIsLatest, activeVersionSummary, latestVersionSummary, vm.activeVersionId, vm.latestVersionId]);
   const sendMessage = vm.sendMessage;
+
+  // Byggblock-panelen (PreviewPanelDossiers) refetchar sin "inkopplade"-lista
+  // på versionId-byte + popover-open + env-var-sparning, men INTE när en ny
+  // version landar medan popovern redan är öppen (t.ex. mitt i en generation).
+  // `versionStatusNonce` bumpas när en generations post-check-flöde är klart
+  // (`runPostGenerationChecks`), så vi speglar den ändringen som ett fönster-
+  // event i stället för att tråda nonce genom hela preview-panel-kedjan.
+  const isFirstVersionStatusNonceRef = useRef(true);
+  useEffect(() => {
+    if (isFirstVersionStatusNonceRef.current) {
+      isFirstVersionStatusNonceRef.current = false;
+      return;
+    }
+    dispatchVersionStatusRefreshed();
+  }, [vm.versionStatusNonce]);
+
+  const handleRequestDossier = useCallback(
+    (label: string) => {
+      const trimmed = label.trim();
+      if (!trimmed) return;
+      void sendMessage(`Lägg till byggblocket ${trimmed}`);
+    },
+    [sendMessage],
+  );
 
   const handleComposerAiFallback = useCallback(
     async (payload: ComposerAiFallbackPayload) => {
@@ -894,6 +918,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
+              onRequestDossier={handleRequestDossier}
               onF3MissingEnv={(payload) => {
                 // finalize-design returns 412 while the user is still in F2.
                 // `ProjectEnvVarsPanel` only mounts in F3, so instead we open

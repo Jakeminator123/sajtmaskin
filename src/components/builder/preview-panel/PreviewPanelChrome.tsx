@@ -118,6 +118,8 @@ interface PreviewPanelChromeProps {
       requiredRealEnvKeys: string[];
     }>;
   }) => void;
+  /** Forwarded to the Byggblock-panelens katalog-tab. See preview-panel-types.ts. */
+  onRequestDossier?: (label: string) => void;
 }
 
 export function PreviewPanelChrome({
@@ -179,6 +181,7 @@ export function PreviewPanelChrome({
   isBusy = false,
   onF3MissingEnv,
   onF3Ready,
+  onRequestDossier,
 }: PreviewPanelChromeProps) {
   const [addingPage, setAddingPage] = useState(false);
   const [newPagePath, setNewPagePath] = useState("");
@@ -645,6 +648,7 @@ export function PreviewPanelChrome({
               chatId={chatId}
               versionId={versionId ?? null}
               lifecycleStage={lifecycleStage ?? null}
+              onRequestDossier={onRequestDossier}
             />
           ) : null}
           {previewUrl && onClear ? (

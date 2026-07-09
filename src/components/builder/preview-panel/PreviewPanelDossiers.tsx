@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   describeDossierStatus,
@@ -18,9 +19,11 @@ import {
   type DossierOverviewResponse,
   type DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
+import type { DossierCatalogEntry, DossierCatalogResponse } from "@/lib/builder/dossier-catalog";
 import {
   DOSSIERS_PANEL_OPEN_EVENT,
   PROJECT_ENV_VARS_UPDATED_EVENT,
+  VERSION_STATUS_REFRESHED_EVENT,
   dispatchProjectEnvVarsUpdated,
   openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
@@ -38,7 +41,18 @@ export interface PreviewPanelDossiersProps {
   versionId: string | null;
   lifecycleStage?: "design" | "integrations" | null;
   className?: string;
+  /**
+   * Called when the user picks a dossier from the "Bläddra katalog"-tab.
+   * Threaded from `BuilderShellContent` down to `vm.sendMessage` so picking
+   * a catalog row sends `"Lägg till byggblocket <label>"` through the
+   * existing chat flow instead of a separate mutation path. When absent
+   * (e.g. this component rendered without the callback wired up), catalog
+   * rows are shown but not selectable.
+   */
+  onRequestDossier?: (label: string) => void;
 }
+
+type PanelTab = "wired" | "catalog";
 
 const TONE_BADGE_CLASS: Record<DossierStatusDescriptor["tone"], string> = {
   neutral: "border-sky-500/40 bg-sky-500/10 text-sky-200",
@@ -75,8 +89,10 @@ export function PreviewPanelDossiers({
   versionId,
   lifecycleStage,
   className,
+  onRequestDossier,
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>("wired");
   const [data, setData] = useState<DossierOverviewResponse | null>(null);
   // Identity (`chatId::versionId`) the held `data` was fetched for, so we can
   // ignore it when the builder switches chat/version while the popover holds
@@ -164,6 +180,16 @@ export function PreviewPanelDossiers({
     return () => window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler);
   }, [chatId, load]);
 
+  // Keep the "Inkopplade"-list fresh when a NEW version lands while the
+  // popover is already open (e.g. mid-generation). The panel otherwise only
+  // refetches on versionId-change/open/env-save — none of which fire for a
+  // version that finishes streaming while the popover stays open.
+  useEffect(() => {
+    const handler = () => void load();
+    window.addEventListener(VERSION_STATUS_REFRESHED_EVENT, handler);
+    return () => window.removeEventListener(VERSION_STATUS_REFRESHED_EVENT, handler);
+  }, [load]);
+
   // Let other builder surfaces (finalize-design 412 handler, integration chat
   // cards) open this popover and highlight the keys that still need values.
   useEffect(() => {
@@ -199,6 +225,35 @@ export function PreviewPanelDossiers({
     setExpandedId(null);
   }, [chatId, versionId]);
 
+  // Full dossier CATALOG ("Bläddra katalog"-tab) — static registry data, so
+  // it is fetched once (per mount) and cached in state across popover opens
+  // instead of refetching every time like the per-version "Inkopplade" list.
+  const [catalogData, setCatalogData] = useState<DossierCatalogResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      const res = await fetch("/api/dossiers/catalog");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as DossierCatalogResponse;
+      setCatalogData(json);
+    } catch (err) {
+      setCatalogError(
+        err instanceof Error
+          ? `Kunde inte hämta katalogen: ${err.message}`
+          : "Kunde inte hämta katalogen.",
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!open || catalogData || catalogLoading) return;
+    void loadCatalog();
+  }, [open, catalogData, catalogLoading, loadCatalog]);
+
   // Only trust data whose identity matches the current chat/version. On a
   // mismatch (chat/version changed) we render the loading state instead of a
   // stale context's dossiers until the in-flight refetch resolves.
@@ -206,6 +261,28 @@ export function PreviewPanelDossiers({
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+
+  // Nothing wired yet: default the popover straight to "Bläddra katalog"
+  // instead of an empty "Inkopplade"-tab, once per chat/version context.
+  // Never fights a manual tab switch afterwards.
+  const hasAutoSwitchedTabRef = useRef(false);
+  useEffect(() => {
+    hasAutoSwitchedTabRef.current = false;
+  }, [chatId, versionId]);
+  useEffect(() => {
+    if (hasAutoSwitchedTabRef.current || !freshData) return;
+    hasAutoSwitchedTabRef.current = true;
+    if (freshData.counts.total === 0) setActiveTab("catalog");
+  }, [freshData]);
+
+  const handleSelectCatalogDossier = useCallback(
+    (entry: DossierCatalogEntry) => {
+      if (!onRequestDossier) return;
+      onRequestDossier(entry.label);
+      handleOpenChange(false);
+    },
+    [onRequestDossier, handleOpenChange],
+  );
 
   // Attention badge (dossiers-hub-primary): any hard (F3) dossier that still
   // misses real env keys. Drives the amber dot on the toolbar button so the
@@ -481,6 +558,30 @@ export function PreviewPanelDossiers({
           ) : null}
         </div>
 
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as PanelTab)}
+          className="w-full gap-0"
+        >
+          <TabsList
+            variant="line"
+            className="mx-3 mt-2 h-7 w-auto gap-1 border-b border-gray-800 bg-transparent p-0"
+          >
+            <TabsTrigger
+              value="wired"
+              className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
+            >
+              Inkopplade
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalog"
+              className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
+            >
+              Bläddra katalog
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="wired" className="mt-0">
         {missingEntries.length > 0 ? (
           <div className="space-y-2 border-b border-gray-800 bg-amber-500/[0.06] px-3 py-2.5">
             <p className="text-[11px] font-semibold text-amber-200">
@@ -584,6 +685,72 @@ export function PreviewPanelDossiers({
             </p>
           ) : null}
         </div>
+          </TabsContent>
+
+          <TabsContent value="catalog" className="mt-0">
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              {catalogLoading && !catalogData ? (
+                <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Läser katalogen…
+                </div>
+              ) : catalogError ? (
+                <p className="px-1 py-3 text-[11px] text-rose-300">{catalogError}</p>
+              ) : catalogData && catalogData.groups.length === 0 ? (
+                <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(catalogData?.groups ?? []).map((group) => (
+                    <div key={group.id} className="space-y-1.5">
+                      <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                        {group.label}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {group.dossiers.map((entry) => (
+                          <li key={entry.id}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectCatalogDossier(entry)}
+                              disabled={!onRequestDossier}
+                              title={
+                                onRequestDossier
+                                  ? `Lägg till byggblocket ${entry.label}`
+                                  : undefined
+                              }
+                              className="flex w-full items-start gap-2 rounded-md border border-gray-800 bg-black/20 px-2.5 py-2 text-left hover:bg-gray-800/40 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="truncate text-[12px] font-medium text-gray-100">
+                                    {entry.label}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "shrink-0 text-[9px]",
+                                      entry.class === "hard"
+                                        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                                        : "border-gray-600/50 bg-gray-500/10 text-gray-300",
+                                    )}
+                                  >
+                                    {entry.class === "hard" ? "Hård" : "Mjuk"}
+                                  </Badge>
+                                </span>
+                                <span className="mt-0.5 block truncate text-[10px] text-gray-500">
+                                  {entry.summary}
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* In F3 the full env editor is mounted and can edit already-set keys,
             which the inline "fill missing" inputs here cannot. Keep Dossiers as
