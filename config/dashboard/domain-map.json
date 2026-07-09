@@ -158,7 +158,7 @@
       ]
     },
     "Scaffold Lifecycle": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold. Dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Dossiers (legoklossar)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, beroendevaliderad scaffold-radering samt Baseline-flik (fabriksåterställning av scaffold-ytorna till git-taggen scaffold-baseline-v1). Variantens sourceTemplateIds slås upp mot Blob-manifestet (v0-mallar) — legacy-katalogen är avvecklad. Variants är det visuella uttrycket inom en scaffold. Dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Dossiers (legoklossar)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
@@ -177,6 +177,25 @@
         "src/lib/gen/scaffold-variants/matcher.ts",
         "scripts/scaffolds/auto-curate-variant-patterns.ts",
         "scripts/scaffolds/generate-variant-embeddings.ts"
+      ]
+    },
+    "Scaffold Wizard": {
+      "summary": "Pedagogisk steg-för-steg-wizard: välj en v0-mall i Vercel Blob (template-blob-manifest.json) som INSPIRATION, låt en OpenAI-persona (vision: stillbild + kodutdrag ur zippen) skriva ett utkast, granska/justera, validera mot det strikta variant-schemat och skapa en scaffold-variant eller ny scaffold + startvariant. Inget persisteras förrän checklistan är grön; utkast sparas gitignorerat i data/scaffold-wizard-drafts/. Mallens filer kopieras aldrig — ny scaffold klonar alltid filshell från en befintlig scaffold så stacken förblir kompatibel.",
+      "canonicalPaths": [
+        "backoffice/pages/scaffold_wizard.py",
+        "backoffice/wizard_support.py",
+        "src/lib/templates/template-blob-manifest.json",
+        "config/scaffold-variants/",
+        "data/scaffold-wizard-drafts/"
+      ],
+      "docsPaths": [
+        "docs/schemas/strict/scaffold-variant.schema.json",
+        ".cursor/rules/scaffold-rules.mdc"
+      ],
+      "codeReaders": [
+        "backoffice/pages/scaffold_wizard.py",
+        "backoffice/pages/scaffold_lifecycle.py",
+        "src/lib/gen/scaffold-variants/registry.ts"
       ]
     },
     "Preview och versioner": {

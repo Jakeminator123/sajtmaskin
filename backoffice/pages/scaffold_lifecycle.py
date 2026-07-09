@@ -243,39 +243,73 @@ def _variants_by_scaffold(variants: list[dict[str, Any]]) -> dict[str, list[dict
     return grouped
 
 
-def _load_template_catalog_lookup(
-    ctx: BackofficeContext,
-) -> tuple[dict[str, dict[str, Any]], str | None]:
-    """Load the **template-reference catalog** used by variants'
-    ``sourceTemplateIds``.
+BLOB_MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 
-    NOTE: These are catalog entries from
-    ``data/external-template-pipeline/reference-library/catalog.json`` —
-    *not* runtime dossiers from ``data/dossiers/{hard,soft}``. Backoffice
-    used to label this lookup "dossier" which made it look like the
-    runtime dossier pool was being validated; the rename here keeps the
-    UI honest about which artifact each id resolves against.
+
+def _load_inspiration_lookup(
+    ctx: BackofficeContext,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Resolve variants' ``sourceTemplateIds`` against the **canonical
+    inspiration sources**:
+
+    1. The committed Blob manifest (``template-blob-manifest.json``) — v0-mallar
+       som ligger i Vercel Blob. Detta är den aktiva källan; Scaffold Wizard
+       skriver Blob-id:n hit.
+    2. The legacy external-template catalog
+       (``data/external-template-pipeline/reference-library/catalog.json``) om
+       den råkar finnas lokalt (gitignorerad, avvecklad pipeline). Gamla id:n
+       som bara fanns där visas som *legacy-referens* — de är ofarliga
+       inspirationsetiketter, inte brutna runtime-länkar.
+
+    NOTE: Ingen av källorna är runtime-dossiers (``data/dossiers/{hard,soft}``).
     """
-    source_path = ctx.catalog_json
-    if not source_path.is_file():
-        return {}, None
-    try:
-        payload = read_json(source_path)
-    except Exception:
-        return {}, None
-    if not isinstance(payload, dict):
-        return {}, None
-    entries = payload.get("entries")
-    if not isinstance(entries, list):
-        return {}, None
-    lookup = {
-        str(entry.get("id")).strip(): entry
-        for entry in entries
-        if isinstance(entry, dict) and str(entry.get("id", "")).strip()
-    }
-    if lookup:
-        return lookup, source_path.relative_to(ctx.repo_root).as_posix()
-    return {}, None
+    lookup: dict[str, dict[str, Any]] = {}
+    sources: list[str] = []
+
+    blob_path = ctx.repo_root / BLOB_MANIFEST_REL
+    if blob_path.is_file():
+        try:
+            payload = read_json(blob_path)
+            templates = payload.get("templates") if isinstance(payload, dict) else None
+            if isinstance(templates, list):
+                for entry in templates:
+                    if not isinstance(entry, dict):
+                        continue
+                    entry_id = str(entry.get("id", "")).strip()
+                    if not entry_id:
+                        continue
+                    lookup[entry_id] = {
+                        "title": entry.get("title", entry_id),
+                        "categorySlug": entry.get("category", ""),
+                        "qualityScore": "",
+                        "_source": "blob",
+                    }
+                if lookup:
+                    sources.append(BLOB_MANIFEST_REL)
+        except Exception:
+            pass
+
+    legacy_path = ctx.catalog_json
+    if legacy_path.is_file():
+        try:
+            payload = read_json(legacy_path)
+            entries = payload.get("entries") if isinstance(payload, dict) else None
+            if isinstance(entries, list):
+                added_legacy = False
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    entry_id = str(entry.get("id", "")).strip()
+                    if not entry_id or entry_id in lookup:
+                        continue
+                    lookup[entry_id] = {**entry, "_source": "katalog (legacy)"}
+                    added_legacy = True
+                if added_legacy:
+                    sources.append(legacy_path.relative_to(ctx.repo_root).as_posix())
+        except Exception:
+            pass
+
+    return lookup, sources
 
 
 def _count_runtime_dossiers(ctx: BackofficeContext) -> dict[str, int]:
@@ -297,75 +331,6 @@ def _count_runtime_dossiers(ctx: BackofficeContext) -> dict[str, int]:
             if entry.is_dir() and not entry.name.startswith("_")
         )
     return counts
-
-
-def _load_structural_priority_rules(ctx: BackofficeContext) -> tuple[list[tuple[re.Pattern, int]], int]:
-    config_path = ctx.config_dir / "structural-file-priorities.json"
-    if config_path.is_file():
-        try:
-            raw = read_json(config_path)
-            if isinstance(raw, dict) and isinstance(raw.get("rules"), list):
-                rules = [
-                    (re.compile(str(r.get("pattern", "")), re.IGNORECASE), int(r.get("priority", -1)))
-                    for r in raw["rules"]
-                    if isinstance(r, dict) and r.get("pattern")
-                ]
-                return rules, int(raw.get("defaultPriority", -1))
-        except Exception:
-            pass
-    return [
-        (re.compile(r"(?:src/)?app/layout\.[jt]sx?$", re.IGNORECASE), 50),
-        (re.compile(r"middleware\.[jt]sx?$", re.IGNORECASE), 45),
-        (re.compile(r"(?:src/)?app/page\.[jt]sx?$", re.IGNORECASE), 40),
-        (re.compile(r"layout\.[jt]sx?$", re.IGNORECASE), 30),
-        (re.compile(r"page\.[jt]sx?$", re.IGNORECASE), 25),
-    ], -1
-
-
-def _structural_file_priority(path_value: str, rules: list[tuple[re.Pattern, int]], default_prio: int) -> int:
-    normalized = path_value.replace("\\", "/")
-    for pattern, priority in rules:
-        if pattern.search(normalized):
-            return priority
-    return default_prio
-
-
-def _collect_structural_selected_files(
-    dossier: dict[str, Any],
-    priority_rules: list[tuple[re.Pattern, int]] | None = None,
-    default_priority: int = -1,
-) -> list[dict[str, Any]]:
-    selected_files = dossier.get("selectedFiles")
-    if not isinstance(selected_files, list):
-        return []
-    rows: list[dict[str, Any]] = []
-    for item in selected_files:
-        if not isinstance(item, dict):
-            continue
-        path_value = str(item.get("path", "")).strip()
-        if not path_value:
-            continue
-        if priority_rules is not None:
-            prio = _structural_file_priority(path_value, priority_rules, default_priority)
-        else:
-            normalized = path_value.replace("\\", "/").lower()
-            if re.search(r"(^|/)(?:middleware\.(?:[jt]sx?)|layout\.(?:[jt]sx?)|page\.(?:[jt]sx?))$", normalized):
-                prio = 25
-            else:
-                prio = -1
-        if prio < 0:
-            continue
-        excerpt = str(item.get("excerpt", "") or "")
-        rows.append(
-            {
-                "path": path_value,
-                "priority": prio,
-                "reason": str(item.get("reason", "") or ""),
-                "truncated": "// ... truncated" in excerpt,
-            }
-        )
-    rows.sort(key=lambda r: -r["priority"])
-    return rows
 
 
 def _unescape_ts_string(value: str) -> str:
@@ -615,45 +580,49 @@ def _render_tree_view(
     ctx: BackofficeContext,
     manifests: list[dict[str, Any]],
     variants_by_scaffold: dict[str, list[dict[str, Any]]],
-    catalog_lookup: dict[str, dict[str, Any]],
-    catalog_source_label: str | None,
+    inspiration_lookup: dict[str, dict[str, Any]],
+    inspiration_sources: list[str],
     runtime_dossier_counts: dict[str, int],
 ) -> None:
-    priority_rules, default_prio = _load_structural_priority_rules(ctx)
     total_links = sum(
         len(variant.get("sourceTemplateIds", []) or [])
         for variants in variants_by_scaffold.values()
         for variant in variants
         if isinstance(variant, dict)
     )
-    missing_links = sorted(
+    unresolved_links = sorted(
         {
             template_id
             for variants in variants_by_scaffold.values()
             for variant in variants
             for template_id in (variant.get("sourceTemplateIds", []) or [])
-            if template_id not in catalog_lookup
+            if template_id not in inspiration_lookup
         }
     )
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Scaffolds", len(manifests))
     c2.metric("Varianter", sum(len(variants) for variants in variants_by_scaffold.values()))
-    c3.metric("Katalog-länkar (sourceTemplateIds)", total_links)
-    c4.metric("Saknade katalog-ID:n", len(missing_links))
+    c3.metric("Inspirationsreferenser (sourceTemplateIds)", total_links)
+    c4.metric("Oupplösta referenser", len(unresolved_links))
 
     runtime_total = runtime_dossier_counts.get("hard", 0) + runtime_dossier_counts.get("soft", 0)
     st.caption(
-        "**Katalog ≠ runtime dossiers.** Variantens `sourceTemplateIds` pekar på poster i "
-        "`data/external-template-pipeline/reference-library/catalog.json` (kuratoriskt arkiv), "
-        "inte på runtime-dossiers under `data/dossiers/{hard,soft}/`. "
-        f"Runtime-pool just nu: {runtime_total} dossiers "
+        "**Inspirationsreferenser ≠ runtime dossiers.** Variantens `sourceTemplateIds` är "
+        "inspirationsetiketter som slås upp mot Blob-manifestet "
+        f"(`{BLOB_MANIFEST_REL}`, v0-mallarna i Vercel Blob). Oupplösta id:n är oftast "
+        "kvarvarande etiketter från den avvecklade legacy-katalogen — ofarliga, inget "
+        "injiceras från dem. Runtime-dossiers under `data/dossiers/{hard,soft}/` är en "
+        f"separat pool: {runtime_total} dossiers "
         f"(hard={runtime_dossier_counts.get('hard', 0)}, soft={runtime_dossier_counts.get('soft', 0)}). "
         "Se `Dossiers` i backoffice för runtime-poolen."
     )
 
-    if catalog_source_label:
-        st.caption(f"Katalogmetadata laddas från `{catalog_source_label}`.")
+    if inspiration_sources:
+        st.caption(
+            "Referensmetadata laddas från: "
+            + ", ".join(f"`{source}`" for source in inspiration_sources)
+        )
 
     overview_rows = []
     for manifest in manifests:
@@ -669,9 +638,9 @@ def _render_tree_view(
                 "scaffold": scaffold_id,
                 "label": manifest.get("label", ""),
                 "variants": len(variants),
-                "catalogLinks": len(linked_ids),
-                "missingCatalogIds": sum(
-                    1 for template_id in linked_ids if template_id not in catalog_lookup
+                "referenser": len(linked_ids),
+                "oupplösta": sum(
+                    1 for template_id in linked_ids if template_id not in inspiration_lookup
                 ),
             }
         )
@@ -679,9 +648,17 @@ def _render_tree_view(
     if overview_rows:
         st.dataframe(pd.DataFrame(overview_rows), width="stretch", hide_index=True)
 
-    if missing_links:
-        with st.expander(f"Saknade sourceTemplateIds ({len(missing_links)})", expanded=False):
-            for template_id in missing_links:
+    if unresolved_links:
+        with st.expander(
+            f"Oupplösta sourceTemplateIds ({len(unresolved_links)}) — legacy-etiketter, ofarliga",
+            expanded=False,
+        ):
+            st.caption(
+                "Id:n som varken finns i Blob-manifestet eller i en lokal legacy-katalog. "
+                "De påverkar inte runtime (bara en textrad i prompten) och kan bytas ut mot "
+                "Blob-id:n via Scaffold Wizard när varianten ändå uppdateras."
+            )
+            for template_id in unresolved_links:
                 st.markdown(f"- `{template_id}`")
 
     for manifest in manifests:
@@ -711,42 +688,18 @@ def _render_tree_view(
                     )
 
                 if source_ids:
-                    catalog_rows = []
-                    structural_rows = []
+                    reference_rows = []
                     for template_id in source_ids:
-                        catalog_entry = catalog_lookup.get(template_id)
-                        catalog_rows.append(
+                        entry = inspiration_lookup.get(template_id)
+                        reference_rows.append(
                             {
                                 "id": template_id,
-                                "title": catalog_entry.get("title", "saknas i katalog")
-                                if catalog_entry
-                                else "saknas i katalog",
-                                "category": catalog_entry.get("categorySlug", "")
-                                if catalog_entry
-                                else "",
-                                "qualityScore": catalog_entry.get("qualityScore", "")
-                                if catalog_entry
-                                else "",
+                                "title": entry.get("title", "") if entry else "oupplöst (legacy-etikett)",
+                                "category": entry.get("categorySlug", "") if entry else "",
+                                "källa": entry.get("_source", "") if entry else "—",
                             }
                         )
-                        if catalog_entry:
-                            for structural in _collect_structural_selected_files(catalog_entry, priority_rules, default_prio):
-                                structural_rows.append(
-                                    {
-                                        "sourceId": template_id,
-                                        "sourceTitle": catalog_entry.get("title", template_id),
-                                        "path": structural["path"],
-                                        "priority": structural["priority"],
-                                        "reason": structural["reason"],
-                                        "truncated": structural["truncated"],
-                                    }
-                                )
-                    st.dataframe(pd.DataFrame(catalog_rows), width="stretch", hide_index=True)
-                    if structural_rows:
-                        st.caption("Strukturella filer som skulle kunna injiceras för varianten.")
-                        st.dataframe(pd.DataFrame(structural_rows), width="stretch", hide_index=True)
-                    else:
-                        st.caption("Inga strukturella `layout.tsx`/`page.tsx`/`middleware.ts`-utdrag hittades för variantens sourceTemplateIds.")
+                    st.dataframe(pd.DataFrame(reference_rows), width="stretch", hide_index=True)
 
                 with st.expander("Visa variant-JSON", expanded=False):
                     st.json(
@@ -1118,6 +1071,20 @@ def _render_delete_variant(
         st.error("Den valda varianten saknar filpath och kan inte raderas.")
         return
 
+    if len(variants) <= 1:
+        st.error(
+            "Det här är scaffoldens **sista** variant. En scaffold utan varianter är "
+            "ogiltig — radera hela scaffolden i fliken **Radera scaffold** i stället, "
+            "eller skapa en ersättningsvariant först."
+        )
+        return
+
+    if selected_variant.get("default"):
+        st.warning(
+            "Varianten är markerad `default`. Konventionen är exakt en default per "
+            "scaffold — markera en syskonvariant som default efter raderingen."
+        )
+
     st.caption(f"Fil: `{variant_path.relative_to(ctx.repo_root).as_posix()}`")
     confirm = st.checkbox(
         "Jag vill radera den här variant-filen",
@@ -1216,6 +1183,47 @@ def _update_embedding_locale_for_created_scaffold(
         write_text(path, updated)
 
 
+def _variant_schema_path(ctx: BackofficeContext) -> Path:
+    return ctx.repo_root / "docs" / "schemas" / "strict" / "scaffold-variant.schema.json"
+
+
+def _update_variant_schema_enum(ctx: BackofficeContext, scaffold_id: str, *, add: bool) -> None:
+    """Keep the strict variant schema's ``scaffoldId`` enum in sync when a
+    scaffold is created/deleted. Without this, variants of a new scaffold fail
+    schema validation (both in backoffice validate-on-save and in
+    ``test_validate_matching_config``) even though the scaffold is valid.
+
+    Uses a targeted text edit (not full JSON re-serialization) so the rest of
+    the schema file keeps its committed formatting.
+    """
+    path = _variant_schema_path(ctx)
+    if not path.is_file():
+        return
+    text = read_text(path)
+    anchor = text.find('"scaffoldId": {')
+    if anchor < 0:
+        return
+    enum_start = text.find('"enum": [', anchor)
+    enum_end = text.find("]", enum_start)
+    if enum_start < 0 or enum_end < 0:
+        return
+    block = text[enum_start:enum_end]
+    entry = f'"{scaffold_id}"'
+
+    if add:
+        if entry in block:
+            return
+        trimmed = block.rstrip()
+        updated_block = f"{trimmed},\n        {entry}\n      "
+    else:
+        if entry not in block:
+            return
+        lines = [line for line in block.split("\n") if entry not in line]
+        updated_block = re.sub(r",(\s*)$", r"\1", "\n".join(lines))
+
+    write_text(path, text[:enum_start] + updated_block + text[enum_end:])
+
+
 def _create_scaffold(
     ctx: BackofficeContext,
     *,
@@ -1251,6 +1259,9 @@ def _create_scaffold(
         _registry_path(ctx): read_text(_registry_path(ctx)),
         _embedding_locale_path(ctx): read_text(_embedding_locale_path(ctx)),
     }
+    schema_path = _variant_schema_path(ctx)
+    if schema_path.is_file():
+        originals[schema_path] = read_text(schema_path)
 
     try:
         scaffold_dir.mkdir(parents=True, exist_ok=False)
@@ -1288,6 +1299,7 @@ def _create_scaffold(
             description=description,
             tags=tags,
         )
+        _update_variant_schema_enum(ctx, scaffold_id, add=True)
 
         if create_start_variant:
             variant_dir.mkdir(parents=True, exist_ok=False)
@@ -1481,6 +1493,13 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         return
     if not allowed_build_intents:
         st.error("Välj minst ett build intent.")
+        return
+    if not create_start_variant:
+        st.error(
+            "En scaffold måste ha minst en variant för att kunna väljas av matchern. "
+            "Låt 'Create neutral starter variant' vara ikryssad — eller skapa scaffolden "
+            "via **Scaffold Wizard**, som alltid skriver en startvariant."
+        )
         return
 
     features = _normalize_lines(features_text)
@@ -1854,6 +1873,7 @@ def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
     _update_types_for_deleted_scaffold(ctx, scaffold_id)
     _update_registry_for_deleted_scaffold(ctx, scaffold_id)
     _update_embedding_locale_for_deleted_scaffold(ctx, scaffold_id)
+    _update_variant_schema_enum(ctx, scaffold_id, add=False)
     _clean_generated_scaffold_artifacts(ctx, scaffold_id)
 
 
@@ -1943,6 +1963,172 @@ def _run_repo_command(ctx: BackofficeContext, command: list[str], *, timeout: in
     return output.strip() or "(no output)"
 
 
+BASELINE_TAG = "scaffold-baseline-v1"
+BASELINE_PATHS = (
+    "src/lib/gen/scaffolds",
+    "config/scaffold-variants",
+    "docs/schemas/strict/scaffold-variant.schema.json",
+)
+
+
+def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> tuple[int, str]:
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        cwd=str(ctx.repo_root),
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    output = (result.stdout or "") + (("\n" + result.stderr) if result.stderr else "")
+    return result.returncode, output.strip()
+
+
+def _baseline_tag_exists(ctx: BackofficeContext) -> bool:
+    code, output = _run_git(ctx, ["tag", "--list", BASELINE_TAG])
+    return code == 0 and BASELINE_TAG in output.splitlines()
+
+
+def _baseline_drift(ctx: BackofficeContext) -> dict[str, list[str]]:
+    """Files that differ from the baseline tag within the scaffold surfaces."""
+    _, changed_raw = _run_git(
+        ctx, ["diff", "--name-status", BASELINE_TAG, "--", *BASELINE_PATHS]
+    )
+    _, untracked_raw = _run_git(
+        ctx, ["ls-files", "--others", "--exclude-standard", "--", *BASELINE_PATHS]
+    )
+    changed = [line for line in changed_raw.splitlines() if line.strip()]
+    untracked = [line for line in untracked_raw.splitlines() if line.strip()]
+    added = [
+        line.split("\t", 1)[1]
+        for line in changed
+        if line.startswith("A") and "\t" in line
+    ]
+    return {"changed": changed, "untracked": untracked, "added_since_tag": added}
+
+
+def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
+    """Reset the scaffold surfaces to the baseline tag. Returns log lines."""
+    log: list[str] = []
+    drift = _baseline_drift(ctx)
+
+    for rel in drift["added_since_tag"] + drift["untracked"]:
+        target = ctx.repo_root / rel
+        if target.is_file():
+            target.unlink()
+            log.append(f"raderade {rel}")
+
+    code, output = _run_git(
+        ctx,
+        ["restore", "--source", BASELINE_TAG, "--worktree", "--", *BASELINE_PATHS],
+        timeout=120,
+    )
+    if code != 0:
+        raise RuntimeError(f"git restore misslyckades: {output}")
+    log.append(f"git restore --source {BASELINE_TAG} klar")
+
+    # Sopa bort tomma kataloger som blev kvar efter raderade filer.
+    for base_rel in BASELINE_PATHS:
+        base = ctx.repo_root / base_rel
+        if not base.is_dir():
+            continue
+        for directory in sorted(
+            (d for d in base.rglob("*") if d.is_dir()),
+            key=lambda d: len(d.parts),
+            reverse=True,
+        ):
+            try:
+                directory.rmdir()
+                log.append(f"tog bort tom mapp {directory.relative_to(ctx.repo_root).as_posix()}")
+            except OSError:
+                pass
+    return log
+
+
+def _render_baseline_tab(ctx: BackofficeContext) -> None:
+    st.caption(
+        "**Version 1 — standard.** Baselinen är en git-tag "
+        f"(`{BASELINE_TAG}`) som fryser scaffold-ytorna: "
+        + ", ".join(f"`{path}`" for path in BASELINE_PATHS)
+        + ". Fabriksåterställning återställer exakt dessa ytor till taggen — "
+        "experimentera fritt i wizarden och backa hit om något blir fel."
+    )
+
+    if not _baseline_tag_exists(ctx):
+        st.warning(f"Taggen `{BASELINE_TAG}` finns inte ännu.")
+        if st.button("Skapa baseline-tag av nuvarande läge", type="primary"):
+            code, output = _run_git(ctx, ["tag", BASELINE_TAG])
+            if code == 0:
+                st.success(f"Skapade `{BASELINE_TAG}`.")
+                st.rerun()
+            else:
+                st.error(output)
+        return
+
+    drift = _baseline_drift(ctx)
+    total_drift = len(drift["changed"]) + len(drift["untracked"])
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Ändrade/raderade vs baseline", len(drift["changed"]))
+    c2.metric("Nya ospårade filer", len(drift["untracked"]))
+    c3.metric("Totalt avvikande", total_drift)
+
+    if total_drift == 0:
+        st.success("Scaffold-ytorna är identiska med baselinen. Inget att återställa.")
+    else:
+        with st.expander(f"Avvikande filer ({total_drift})", expanded=False):
+            for line in drift["changed"]:
+                st.markdown(f"- `{line}`")
+            for line in drift["untracked"]:
+                st.markdown(f"- `?? {line}` (ospårad)")
+
+        st.error(
+            "Fabriksåterställningen raderar filer som tillkommit efter baselinen och "
+            "återställer alla ändringar i scaffold-ytorna — även sådant andra "
+            "agenter/personer inte hunnit committa. Dubbelkolla listan ovan först."
+        )
+        with st.form("baseline_reset_form"):
+            acknowledge = st.checkbox(
+                "Jag har läst listan och förstår att avvikelserna ovan försvinner."
+            )
+            typed = st.text_input(
+                "Bekräfta genom att skriva taggens namn",
+                help=f"Skriv exakt `{BASELINE_TAG}`.",
+            )
+            submitted = st.form_submit_button("Fabriksåterställ scaffold-ytorna", type="primary")
+        if submitted:
+            if not acknowledge:
+                st.error("Du måste bekräfta att du läst listan.")
+                return
+            if typed.strip() != BASELINE_TAG:
+                st.error(f"Bekräftelsetexten måste vara exakt `{BASELINE_TAG}`.")
+                return
+            try:
+                log = _factory_reset_to_baseline(ctx)
+            except RuntimeError as error:
+                st.error(str(error))
+                return
+            st.success("Återställt till baselinen.")
+            for line in log[:50]:
+                st.markdown(f"- {line}")
+            st.rerun()
+
+    st.divider()
+    with st.expander("Uppdatera baselinen (gör nuvarande läge till nya 'standard')", expanded=False):
+        st.caption(
+            "Flyttar taggen till nuvarande commit (`git tag -f`). Gör detta när ett "
+            "experiment blivit godkänt och committat och ska bli den nya fabriksinställningen."
+        )
+        confirm_move = st.checkbox("Jag vill flytta baselinen till nuvarande läge.")
+        if st.button("Flytta baseline-taggen", disabled=not confirm_move):
+            code, output = _run_git(ctx, ["tag", "-f", BASELINE_TAG])
+            if code == 0:
+                st.success(f"`{BASELINE_TAG}` pekar nu på nuvarande commit.")
+                st.rerun()
+            else:
+                st.error(output)
+
+
 def _render_pipeline_tools(ctx: BackofficeContext) -> None:
     st.caption(
         "Här kör du variantshärledning och relevanta scaffold/template-artifacts utan att lämna lifecycle-vyn."
@@ -1965,20 +2151,21 @@ def render(ctx: BackofficeContext) -> None:
     scaffold_ids = [str(manifest.get("id", "")).strip() for manifest in manifests if manifest.get("id")]
     variants = _load_variants(ctx)
     variants_by_scaffold = _variants_by_scaffold(variants)
-    catalog_lookup, catalog_source_label = _load_template_catalog_lookup(ctx)
+    inspiration_lookup, inspiration_sources = _load_inspiration_lookup(ctx)
     runtime_dossier_counts = _count_runtime_dossiers(ctx)
 
     st.header("Scaffold Lifecycle")
     render_where_panel("Scaffold Lifecycle", domain_map)
     st.info(
         "Den här sidan binder ihop runtime-scaffolds, scaffold-variants och deras "
-        "katalogreferenser (`sourceTemplateIds` → `data/external-template-pipeline/reference-library/catalog.json`). "
+        f"inspirationsreferenser (`sourceTemplateIds` → v0-mallarna i `{BLOB_MANIFEST_REL}`). "
         "Själva varianten är det visuella uttrycket inom en scaffold, inte ett separat runtime-lager. "
-        "Runtime-dossiers under `data/dossiers/{hard,soft}` är en **separat** pool som hanteras i sidan **Dossiers**."
+        "Runtime-dossiers under `data/dossiers/{hard,soft}` är en **separat** pool som hanteras i sidan **Dossiers**. "
+        "Vill du skapa nytt med AI-stöd? Använd **Scaffold Wizard**."
     )
 
-    overview_tab, create_tab, variants_tab, delete_tab, pipeline_tab = st.tabs(
-        ["Översikt", "Skapa scaffold", "Varianter", "Radera scaffold", "Pipeline"]
+    overview_tab, create_tab, variants_tab, delete_tab, pipeline_tab, baseline_tab = st.tabs(
+        ["Översikt", "Skapa scaffold", "Varianter", "Radera scaffold", "Pipeline", "Baseline"]
     )
 
     with overview_tab:
@@ -1986,8 +2173,8 @@ def render(ctx: BackofficeContext) -> None:
             ctx,
             manifests,
             variants_by_scaffold,
-            catalog_lookup,
-            catalog_source_label,
+            inspiration_lookup,
+            inspiration_sources,
             runtime_dossier_counts,
         )
 
@@ -2016,3 +2203,7 @@ def render(ctx: BackofficeContext) -> None:
     with pipeline_tab:
         st.subheader("Scaffold/variant-pipeline")
         _render_pipeline_tools(ctx)
+
+    with baseline_tab:
+        st.subheader("Baseline / fabriksåterställning")
+        _render_baseline_tab(ctx)
