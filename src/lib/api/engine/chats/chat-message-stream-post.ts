@@ -12,6 +12,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
+import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
@@ -1038,6 +1039,16 @@ export async function handleMessageStreamRequest(
         });
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
+        }
+        // Preview prewarm (FEATURES.previewPrewarm, default OFF): only when this
+        // chat has NO versions yet (post-contract-gate first generation, or a
+        // retry of a versionless chat) — the primary init flow is prewarmed in
+        // create-chat-stream-post.ts instead. Placed AFTER auth, the 409 guard
+        // and the credit gate so a blocked/aborted request never boots a VM.
+        // Fire-and-forget + self-gating (flag / tier-2 / dedup); follow-ups
+        // (versions present) already have a warm workspace and are skipped.
+        if (existingVersionsForChat.length === 0) {
+          void prewarmPreviewSession(chatId);
         }
         try {
           const metaPayload =

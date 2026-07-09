@@ -76,6 +76,7 @@ import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
+import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
 import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
@@ -879,6 +880,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           type: "site.chatId",
           chatId: engineChat.id,
         });
+        // Preview prewarm (FEATURES.previewPrewarm, default OFF): this is the
+        // primary init/create path — the chat is created, credits already
+        // passed the `prompt.create` gate above, and heavy codegen streaming is
+        // about to start. Warm the preview host now so `npm install` overlaps
+        // LLM streaming. Fire-and-forget + self-gating (flag / tier-2 / dedup);
+        // never blocks or throws. Only the own-engine generation path reaches
+        // here (plan-mode and the contract-clarification gate return earlier and
+        // do not generate a site yet). See src/lib/gen/preview/preview-prewarm.ts.
+        void prewarmPreviewSession(engineChat.id);
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,

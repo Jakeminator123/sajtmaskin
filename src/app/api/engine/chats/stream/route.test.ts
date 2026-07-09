@@ -24,6 +24,11 @@ const failVersionVerification = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const getUnsignaledDetectedIntegrations = vi.hoisted(() => vi.fn());
+const prewarmPreviewSession = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
+  prewarmPreviewSession,
+}));
 
 vi.mock("@/lib/streaming", () => ({
   createSSEHeaders: () => ({ "Content-Type": "text/event-stream" }),
@@ -654,6 +659,10 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         abortSignal: request.signal,
       }),
     );
+    // Preview prewarm is fired fire-and-forget with the freshly created chat id
+    // on the primary init/create path (self-gating on flag/tier-2/dedup inside
+    // the module; default OFF makes it a no-op).
+    expect(prewarmPreviewSession).toHaveBeenCalledWith("engine_chat_1");
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {
