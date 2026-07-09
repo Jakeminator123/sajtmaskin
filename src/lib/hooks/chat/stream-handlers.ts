@@ -421,11 +421,76 @@ export async function handleSseStream(
   const parseDonePreflight = (doneData: Record<string, unknown>): PreviewPreflightState | null =>
     readPreviewPreflight(doneData);
 
+  // ── rAF-batched streaming-text flush (content/thinking) ───────────────────
+  // Accumulation stays synchronous (merge, stats and the progressive-preview
+  // detection below are unchanged); only the React `setMessages` for the
+  // growing text is coalesced to ~1 frame so a fast token stream stops
+  // thrashing layout + markdown re-parse on every delta. Any NON-text event
+  // flushes first (see the callback head) and the `finally` flushes the tail,
+  // so ordering/precedence vs the done/parts/error handlers is identical to the
+  // pre-batch (synchronous) behavior and the final text is never dropped. A
+  // setTimeout fallback keeps SSR/test environments without rAF working.
+  let pendingContentFlush = false;
+  let pendingThinkingFlush = false;
+  let streamingTextFrame: number | null = null;
+
+  const scheduleStreamingTextFrame =
+    typeof requestAnimationFrame === "function"
+      ? (cb: () => void): number => requestAnimationFrame(cb)
+      : (cb: () => void): number => setTimeout(cb, 16) as unknown as number;
+  const cancelStreamingTextFrame =
+    typeof cancelAnimationFrame === "function"
+      ? (handle: number): void => cancelAnimationFrame(handle)
+      : (handle: number): void => clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+
+  const applyStreamingText = () => {
+    streamingTextFrame = null;
+    const flushContent = pendingContentFlush;
+    const flushThinking = pendingThinkingFlush;
+    pendingContentFlush = false;
+    pendingThinkingFlush = false;
+    if (!flushContent && !flushThinking) return;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === assistantMessageId
+          ? {
+              ...m,
+              ...(flushContent ? { content: accumulatedContent } : {}),
+              ...(flushThinking ? { thinking: accumulatedThinking } : {}),
+              isStreaming: true,
+            }
+          : m,
+      ),
+    );
+  };
+
+  const requestStreamingTextFlush = (kind: "content" | "thinking") => {
+    if (kind === "content") pendingContentFlush = true;
+    else pendingThinkingFlush = true;
+    if (streamingTextFrame === null) {
+      streamingTextFrame = scheduleStreamingTextFrame(applyStreamingText);
+    }
+  };
+
+  const flushStreamingTextNow = () => {
+    if (streamingTextFrame !== null) {
+      cancelStreamingTextFrame(streamingTextFrame);
+      streamingTextFrame = null;
+    }
+    applyStreamingText();
+  };
+
   try {
     await consumeSseResponse(
       response,
       (event, data) => {
         touchStreamSafetyTimer();
+        // Commit any batched streaming text before a non-text event so its
+        // handler (done/parts/error/preview-ready/…) sees and can overwrite the
+        // exact message state it would have in the pre-batch synchronous flow.
+        if (event !== "content" && event !== "thinking") {
+          flushStreamingTextNow();
+        }
         switch (event) {
           case "meta": {
             const meta = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
@@ -564,13 +629,7 @@ export async function handleSseStream(
               recordStreamText(streamStats, "thinking", previous, mergedThought, incoming.length);
               if (mergedThought !== accumulatedThinking) {
                 accumulatedThinking = mergedThought;
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessageId
-                      ? { ...m, thinking: accumulatedThinking, isStreaming: true }
-                      : m,
-                  ),
-                );
+                requestStreamingTextFlush("thinking");
               }
             }
             break;
@@ -593,13 +652,7 @@ export async function handleSseStream(
               const merged = mergeStreamingText(previous, incoming);
               recordStreamText(streamStats, "content", previous, merged, incoming.length);
               accumulatedContent = merged;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, content: accumulatedContent, isStreaming: true }
-                    : m,
-                ),
-              );
+              requestStreamingTextFlush("content");
 
               if (!progressivePreviewFired && accumulatedContent.includes("\n```\n")) {
                 const fileBlockCount = (accumulatedContent.match(/```\w+\s+file="[^"]+"/g) || []).length;
@@ -1175,6 +1228,10 @@ export async function handleSseStream(
       { signal },
     );
   } finally {
+    // Guaranteed final flush: commit any streaming text that arrived after the
+    // last non-text event (incl. success/error/abort paths) before the stream
+    // winds down, so the last delta is never dropped.
+    flushStreamingTextNow();
     streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? effectiveChatId ?? null;
     streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
     streamStats.abortedByClient = signal.aborted;
