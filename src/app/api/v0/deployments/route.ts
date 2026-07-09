@@ -546,7 +546,7 @@ export async function POST(req: Request) {
             error:
               `Projektnamnet är låst så länge domänen "${linkedDomain}" är kopplad. ` +
               `Publicera med samma namn ("${currentVercelProjectName}") eller koppla bort domänen först — ` +
-              "ett nytt projektnamn skulle skapa ett nytt Vercel-projekt och lämna domänen kvar på det gamla.",
+              "ett nytt projektnamn skulle skapa ett nytt hosting-projekt och lämna domänen kvar på det gamla.",
             code: "DEPLOY_DOMAIN_LOCKED_PROJECT_NAME",
             projectNameLock,
           },
@@ -874,7 +874,7 @@ export async function POST(req: Request) {
           if (envSync.errors.length > 0) {
             console.warn("[deploy] env var project sync errors:", envSync.errors);
             envSyncWarnings.push(
-              `Miljövariabler kunde inte sparas på Vercel-projektet (gäller framtida ombyggen utanför Sajtmaskin): ${envSync.errors.join(", ")}`,
+              `Miljövariabler kunde inte sparas på hosting-projektet (gäller framtida ombyggen utanför Sajtmaskin): ${envSync.errors.join(", ")}`,
             );
           }
         }
@@ -898,7 +898,7 @@ export async function POST(req: Request) {
             deploymentId,
             vercelDeploymentId: created.vercelDeploymentId,
             inspectorUrl: created.inspectorUrl ?? null,
-            message: "Vercel-bygget misslyckades direkt vid publiceringen.",
+            message: "Hosting-bygget misslyckades direkt vid publiceringen.",
             source: "refresh",
           }).catch(() => {});
         }
@@ -1079,7 +1079,7 @@ export async function GET(req: Request) {
               deploymentId: latestRefreshCandidate.id,
               vercelDeploymentId: latestRefreshCandidate.vercelDeploymentId,
               inspectorUrl: vercel.inspectorUrl ?? null,
-              message: "Vercel-bygget misslyckades (fångat vid statusuppdatering).",
+              message: "Hosting-bygget misslyckades (fångat vid statusuppdatering).",
               source: "refresh",
             }).catch(() => {});
           }

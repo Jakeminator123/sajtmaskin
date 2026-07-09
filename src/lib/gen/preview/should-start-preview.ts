@@ -22,6 +22,13 @@ export interface VerifierFinding {
  *   - `undefined-jsx-symbol` and `autofix-preview-blocking`
  *   - `r3f-client-boundary` — a runtime-fatal R3F `<Canvas>` missing
  *     `"use client"` (passes typecheck, crashes the preview)
+ *   - import name-resolution failures: `import-name-collision` and
+ *     `build-*-import` finding ids, plus TS2440 / "conflicts with" /
+ *     "shadows" / "collides with" / "no import for" / "is not imported"
+ *     details (prod incident 2026-07-09: an `import-name-collision` finding
+ *     — `Uint8Array` imported from `@/components/uint8-array` while used as
+ *     the global typed array — stayed advisory and the version was promoted
+ *     as "verified", though `/api/assistant` would have crashed in prod).
  *
  * Design quality findings (e.g. `navigation-placeholder-actions`,
  * `footer-dead-links`, motion-reduce / reduced-motion-stub), eslint
@@ -36,12 +43,51 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
   /\bTS2304\b/,
   /\bTS2307\b/,
   /\bTS2552\b/,
+  // Import name-resolution / collision class (all break the build).
+  // `conflicts with`, `collides with` and `shadows` are anchored to an
+  // import/name-resolution context word in the same sentence so verifier
+  // DESIGN copy is never misclassified as build-breaking. Adjective-prone
+  // words (`global`, `name`, `type`) are deliberately NOT accepted as
+  // pre-anchors and `global` not as a bare post-anchor either — "global
+  // spacing conflicts with the mobile grid" / "the sticky header conflicts
+  // with the global nav" are layout copy (Bugbot on #481). The context word
+  // may sit before OR after the verb ("import of X conflicts with the
+  // global typed array", "TS2440: Import declaration conflicts with local
+  // declaration").
+  /\bTS2440\b/,
+  /\b(?:import(?:ed|s)?|identifier|declaration|binding)\b[^.]*\bconflicts with\b/i,
+  /\bconflicts with\b[^.]*\b(?:import(?:ed|s)?|identifier|declaration|binding|module|typed array)\b/i,
+  /\bconflicting\s+(?:identifier|import|declaration|binding)\b/i,
+  /\bshadows\b[^.]*\b(?:global|import(?:ed|s)?|binding|declaration|module|built-in)\b/i,
+  /\b(?:import(?:ed|s)?|identifier|declaration|binding)\b[^.]*\bcollides with\b/i,
+  /\bcollides with\b[^.]*\b(?:import(?:ed|s)?|identifier|declaration|binding|module|typed array)\b/i,
+  /\bno import for\b/i,
+  /\bis not imported\b/i,
 ];
+
+// Import-related finding ids that always break the build. `import-name-collision`
+// is the LLM verifier's own id; `build-invalid-import` / `build-missing-import`
+// (and any `build-*-import` sibling) are the build-lane variants. Ids are
+// LLM-emitted and can vary in casing, so matching is case-insensitive.
+const BUILD_BREAKING_IMPORT_ID_RE = /^build-[a-z-]*import$/i;
+
+/**
+ * Import name-resolution finding ids that always break the build. Shared with
+ * `verifier-pass.ts` (FORCE-BLOCKING promotion) so a finding the LLM drops in
+ * the `quality` bucket is still routed to the blocking lane that this
+ * classifier gates on — single source of truth for the id class.
+ */
+export function isBuildBreakingImportFindingId(id: string): boolean {
+  const normalized = id.toLowerCase();
+  if (normalized === "import-name-collision") return true;
+  return BUILD_BREAKING_IMPORT_ID_RE.test(normalized);
+}
 
 export function isBuildBreakingFinding(finding: VerifierFinding): boolean {
   if (finding.id === "build-breaking-missing-imports") return true;
   if (finding.id === "undefined-jsx-symbol") return true;
   if (finding.id === "autofix-preview-blocking") return true;
+  if (isBuildBreakingImportFindingId(finding.id)) return true;
   // `r3f-client-boundary` is a deterministic RUNTIME blocker: a React Three
   // Fiber `<Canvas>` in a file without `"use client"` passes typecheck but
   // crashes the preview in Next App Router (server-component / client-hook

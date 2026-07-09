@@ -18,6 +18,7 @@ import fs from "node:fs";
 import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 
 const useProd = process.argv.includes("--prod");
 const PROD_ENV_FILE = ".env.vercel.production.pulled";
@@ -90,6 +91,7 @@ function line(label, value) {
 
 try {
   console.log(`db:latest -> ${url.hostname}/${url.pathname.replace(/^\//, "") || "postgres"}`);
+  console.log(LOG_TIMESTAMP_NOTE);
 
   if (!(await tableExists("engine_versions"))) {
     console.log("Tabellen engine_versions saknas i denna databas.");
@@ -118,7 +120,7 @@ try {
 
   for (const v of versions) {
     console.log("\n" + "=".repeat(70));
-    console.log(`SIDA: ${v.title || "(namnlös)"}  ·  ${new Date(v.created_at).toISOString()}`);
+    console.log(`SIDA: ${v.title || "(namnlös)"}  ·  ${formatLogTimestamp(v.created_at)}`);
     console.log("=".repeat(70));
     line("chatId", v.chat_id);
     line("projectId", v.project_id);
@@ -184,7 +186,9 @@ try {
       if (errs.length > 0) {
         console.log(`  -- engine_version_error_logs (${errs.length}) --`);
         for (const e of errs) {
-          console.log(`    [${e.level}${e.category ? "/" + e.category : ""}] ${String(e.message).slice(0, 160)}`);
+          console.log(
+            `    [${formatLogTimestamp(e.created_at)}] [${e.level}${e.category ? "/" + e.category : ""}] ${String(e.message).slice(0, 160)}`,
+          );
         }
       }
     }
@@ -202,7 +206,9 @@ try {
         console.log(`  -- error_log_events / RAG (${rag.length}) --`);
         for (const r of rag) {
           const fix = r.fix_text ? ` -> fix: ${String(r.fix_text).slice(0, 80)}` : "";
-          console.log(`    [${r.generation_mode ?? "?"}] ${r.fault} (${r.result ?? "-"})${fix}`);
+          console.log(
+            `    [${formatLogTimestamp(r.created_at)}] [${r.generation_mode ?? "?"}] ${r.fault} (${r.result ?? "-"})${fix}`,
+          );
         }
       }
     }
@@ -224,7 +230,7 @@ try {
       console.log(`SENASTE PROMPTS (prompt_logs, ${prompts.length})`);
       console.log("=".repeat(70));
       for (const p of prompts) {
-        console.log(`\n[${new Date(p.created_at).toISOString()}] event=${p.event}`);
+        console.log(`\n[${formatLogTimestamp(p.created_at)}] event=${p.event}`);
         line("buildIntent", p.build_intent);
         line("buildMethod", p.build_method);
         line("modelTier", p.model_tier);

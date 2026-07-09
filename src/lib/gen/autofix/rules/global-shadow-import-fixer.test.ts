@@ -154,6 +154,25 @@ export function stamp() {
     expect(result.code).toContain("Date.now()");
   });
 
+  // Fix 4 (review swarm on prod incident 2026-07-09): SHADOWABLE_GLOBALS is
+  // derived from the shared JS_BUILTIN_GLOBAL_NAMES, so typed arrays are
+  // covered — a hallucinated `import Uint8Array from "@/components/uint8-array"`
+  // is dropped and the global typed array resolves again.
+  it("removes a local import that shadows a typed-array global (Uint8Array)", () => {
+    const code = `import Uint8Array from "@/components/uint8-array";
+
+export async function POST() {
+  const stream = new ReadableStream<Uint8Array>();
+  return new Response(stream);
+}
+`;
+    const result = fixGlobalShadowingImports(code, "app/api/assistant/route.ts");
+    expect(result.fixed).toBe(true);
+    expect(result.removed).toContain("Uint8Array");
+    expect(result.code).not.toContain('from "@/components/uint8-array"');
+    expect(result.code).toContain("ReadableStream<Uint8Array>");
+  });
+
   it("gives multiple shadowing JSX components distinct aliases", () => {
     const code = `import Date from "@/components/date";
 import Map from "@/components/map";

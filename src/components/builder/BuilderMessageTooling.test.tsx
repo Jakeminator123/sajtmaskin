@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildAgentLogItems,
@@ -148,6 +148,89 @@ describe("StructuredToolParts", () => {
 
     expect(screen.getByText("Integration: Stripe")).toBeTruthy();
     expect(screen.queryByText("Integration: Integration")).toBeNull();
+  });
+
+  it("suppresses its own quick-reply buttons while ANY pendingReply exists (Codex P1 på #482)", () => {
+    // A quick action sends a plain user message, and the pending gate
+    // consumes the NEXT user message as its answer
+    // (`collectConfirmedContractAnswers`) — clicking an unrelated card
+    // button while a clarification waits would silently mis-answer the
+    // gate. The inline block at the list bottom owns the pending
+    // interaction; every card's quick actions stay hidden until it is
+    // answered.
+    const onQuickReply = vi.fn(async () => true);
+    render(
+      <CompactToolParts
+        messageId="msg_guard_regression"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              toolName: "Integration suggestion",
+              toolCallId: "integration:stripe_guard",
+              state: "approval-requested",
+              output: {
+                question: "Vill du konfigurera Stripe nu?",
+                options: ["Godkänn förslag", "Avvisa förslag"],
+                provider: "stripe",
+                name: "Stripe",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={{
+          key: "other_message:0:Some other question",
+          messageId: "other_message",
+          question: "Some other question",
+          options: ["Ja", "Nej"],
+        }}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={onQuickReply}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+  });
+
+  it("fires quick-reply as usual when no pendingReply exists", () => {
+    const onQuickReply = vi.fn(async () => true);
+    render(
+      <CompactToolParts
+        messageId="msg_guard_regression_2"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              toolName: "Integration suggestion",
+              toolCallId: "integration:stripe_guard_2",
+              state: "approval-requested",
+              output: {
+                question: "Vill du konfigurera Stripe nu?",
+                options: ["Godkänn förslag", "Avvisa förslag"],
+                provider: "stripe",
+                name: "Stripe",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={onQuickReply}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn förslag" }));
+    expect(onQuickReply).toHaveBeenCalledWith(
+      "msg_guard_regression_2",
+      0,
+      "Godkänn förslag",
+      { planMode: false },
+    );
   });
 
   it("keeps integration/env tool parts actionable in compact mode", () => {

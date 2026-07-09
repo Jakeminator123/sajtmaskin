@@ -10,13 +10,6 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-e
 import { Sources, SourcesContent, SourcesTrigger, Source } from "@/components/ai-elements/sources";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Plan,
   PlanAction,
   PlanContent,
@@ -122,8 +115,16 @@ const MessageListComponent = ({
   const isIntegrations = lifecycleStage === "integrations";
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
-  const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
-  const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
+  // Owner beslut 2026-07-09: "Svar krävs för att fortsätta" ska ALDRIG vara
+  // en blockerande dialog-overlay. Frågan renderas i stället inline i chatten
+  // (samma mönster som F3-continuation nedan) och `pendingReplyBlockRef`
+  // låter den flytande ankarknappen scrolla dit i stället för att öppna en
+  // overlay. `firstPendingOptionRef` flyttar tangentbordsfokus till första
+  // svarsalternativet när en NY fråga landar — tillgänglighetsersättning för
+  // dialogens borttagna fokus-fälla.
+  const pendingReplyBlockRef = useRef<HTMLDivElement | null>(null);
+  const firstPendingOptionRef = useRef<HTMLButtonElement | null>(null);
+  const lastFocusedPendingKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
   // Auto-continue plumbing for the F3-continuation marker (owner never wants
   // the "Svar krävs"-popup): any marker present in the FIRST non-empty
@@ -286,25 +287,20 @@ const MessageListComponent = ({
 
   const isF3Continuation = pendingReply?.kind === F3_CONTINUATION_KIND;
 
+  // A11y: when a NEW pending question arrives (key change), move keyboard
+  // focus to its first option button — once per question, so focus is never
+  // re-stolen mid-typing on later re-renders. F3-continuation is excluded
+  // (it auto-continues or renders calm inline replies).
   useEffect(() => {
-    const pendingKey = pendingReply?.key ?? null;
-    if (!pendingKey) {
-      setIsReplyDialogOpen(false);
-      lastAutoOpenedReplyKeyRef.current = null;
+    const key = pendingReply?.key ?? null;
+    if (!key || isF3Continuation) {
+      if (!key) lastFocusedPendingKeyRef.current = null;
       return;
     }
-    // F3-continuation never opens the "Svar krävs"-dialog: live markers
-    // auto-continue (see effect below), reloaded markers fall back to the
-    // inline quick-replies. Suppress the auto-open here for that kind.
-    if (pendingReply?.kind === F3_CONTINUATION_KIND) {
-      lastAutoOpenedReplyKeyRef.current = pendingKey;
-      setIsReplyDialogOpen(false);
-      return;
-    }
-    if (lastAutoOpenedReplyKeyRef.current === pendingKey) return;
-    lastAutoOpenedReplyKeyRef.current = pendingKey;
-    setIsReplyDialogOpen(true);
-  }, [pendingReply?.key, pendingReply?.kind]);
+    if (lastFocusedPendingKeyRef.current === key) return;
+    lastFocusedPendingKeyRef.current = key;
+    firstPendingOptionRef.current?.focus();
+  }, [pendingReply?.key, isF3Continuation]);
 
   // F3-continuation auto-approve (owner never wants the popup). A marker that
   // arrives LIVE (its key was not present at mount) auto-sends the approve
@@ -373,14 +369,11 @@ const MessageListComponent = ({
     openProjectEnvVarsPanel(requirement.envKeys);
   }, [latestEnvRequirement, isIntegrations]);
 
-  const handleModalQuickReply = async (option: string, optionIndex: number) => {
+  const handlePendingReplyClick = async (option: string, optionIndex: number) => {
     if (!pendingReply) return;
-    const success = await sendQuickReply(pendingReply.messageId, optionIndex, option, {
+    await sendQuickReply(pendingReply.messageId, optionIndex, option, {
       planMode: pendingReply.planMode,
     });
-    if (success) {
-      setIsReplyDialogOpen(false);
-    }
   };
 
   if (!chatId && messages.length === 0) {
@@ -602,28 +595,68 @@ const MessageListComponent = ({
             </Message>
           );
           })}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
 
-      {pendingReply && !isF3Continuation && (
-        <>
-          <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="font-semibold text-amber-300">
-                  Svar krävs för att fortsätta
-                </DialogTitle>
-                <DialogDescription>
-                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
-                  exempel integrationer, innehåll, designval eller planblockerare.
-                </DialogDescription>
-              </DialogHeader>
+          {/* Owner beslut 2026-07-09: "Svar krävs" ska ALDRIG blockera med en
+              dialog-overlay. Frågan renderas som SISTA elementet i
+              konversationsflödet (inuti Conversation-scrollen, så den aldrig
+              klipps av wrapperns overflow) och en icke-blockerande, flytande
+              ankarknapp scrollar hit i stället för att öppna en overlay. */}
+          {pendingReply && !isF3Continuation && (
+            <div
+              ref={pendingReplyBlockRef}
+              className="border-border bg-card mt-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs"
+              aria-live="polite"
+            >
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                Svar krävs
+              </p>
+              <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
+              {pendingReply.options.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {pendingReply.options.map((option, optionIndex) => {
+                    const replyKey = `${pendingReply.messageId}:${optionIndex}:${option}`;
+                    const isPending = pendingQuickReplyKey === replyKey;
+                    const canReply = Boolean(onQuickReply) && !quickReplyDisabled;
+                    return (
+                      <Button
+                        key={replyKey}
+                        ref={optionIndex === 0 ? firstPendingOptionRef : undefined}
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canReply || pendingQuickReplyKey !== null}
+                        onClick={() => void handlePendingReplyClick(option, optionIndex)}
+                      >
+                        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        {option}
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground mt-2">
+                  Svara i chatten för att fortsätta genereringen.
+                </p>
+              )}
+            </div>
+          )}
 
-              <div className="space-y-3">
+          {/* F3-continuation: never a dialog. A live marker auto-continues with a
+              calm status row; a reloaded marker shows inline quick-replies so the
+              user can still choose (no auto-fire on old history). */}
+          {pendingReply && isF3Continuation && (
+            f3AutoContinueKey === pendingReply.key ? (
+              <div
+                className="text-muted-foreground bg-muted/40 mt-2 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+                aria-live="polite"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Integrationsbygget fortsätter automatiskt…</span>
+              </div>
+            ) : (
+              <div className="border-border bg-card mt-2 rounded-md border p-3 text-xs">
                 <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
                 {pendingReply.options.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {pendingReply.options.map((option, optionIndex) => {
                       const replyKey = `${pendingReply.messageId}:${optionIndex}:${option}`;
                       const isPending = pendingQuickReplyKey === replyKey;
@@ -634,7 +667,7 @@ const MessageListComponent = ({
                           size="sm"
                           variant="secondary"
                           disabled={!canReply || pendingQuickReplyKey !== null}
-                          onClick={() => void handleModalQuickReply(option, optionIndex)}
+                          onClick={() => void handlePendingReplyClick(option, optionIndex)}
                         >
                           {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                           {option}
@@ -642,65 +675,28 @@ const MessageListComponent = ({
                       );
                     })}
                   </div>
-                ) : (
-                  <p className="text-muted-foreground text-xs">
-                    Svara i chatten för att fortsätta genereringen.
-                  </p>
-                )}
+                ) : null}
               </div>
-            </DialogContent>
-          </Dialog>
-
-          {!isReplyDialogOpen && (
-            <Button
-              type="button"
-              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
-              onClick={() => setIsReplyDialogOpen(true)}
-            >
-              Svar krävs
-            </Button>
+            )
           )}
-        </>
-      )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-      {/* F3-continuation: never a dialog. A live marker auto-continues with a
-          calm status row; a reloaded marker shows inline quick-replies so the
-          user can still choose (no auto-fire on old history). */}
-      {pendingReply && isF3Continuation && (
-        f3AutoContinueKey === pendingReply.key ? (
-          <div
-            className="text-muted-foreground bg-muted/40 mt-2 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
-            aria-live="polite"
-          >
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Integrationsbygget fortsätter automatiskt…</span>
-          </div>
-        ) : (
-          <div className="border-border bg-card mt-2 rounded-md border p-3 text-xs">
-            <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
-            {pendingReply.options.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {pendingReply.options.map((option, optionIndex) => {
-                  const replyKey = `${pendingReply.messageId}:${optionIndex}:${option}`;
-                  const isPending = pendingQuickReplyKey === replyKey;
-                  const canReply = Boolean(onQuickReply) && !quickReplyDisabled;
-                  return (
-                    <Button
-                      key={replyKey}
-                      size="sm"
-                      variant="secondary"
-                      disabled={!canReply || pendingQuickReplyKey !== null}
-                      onClick={() => void handleModalQuickReply(option, optionIndex)}
-                    >
-                      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      {option}
-                    </Button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        )
+      {/* Flytande, icke-blockerande ankare: scrollar konversationen till
+          frågan (blocket ligger INUTI scroll-containern, så scrollIntoView
+          rullar Conversation-viewporten). */}
+      {pendingReply && !isF3Continuation && (
+        <Button
+          type="button"
+          variant="outline"
+          className="fixed bottom-6 right-6 z-40 border-amber-500/60 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+          onClick={() =>
+            pendingReplyBlockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+          }
+        >
+          Svar krävs
+        </Button>
       )}
     </>
   );

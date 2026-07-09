@@ -132,6 +132,8 @@ export function PreviewPanel({
   isBusy = false,
   onF3MissingEnv,
   onF3Ready,
+  onRequestDossier,
+  catalogPickDisabled = false,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -1164,6 +1166,8 @@ export function PreviewPanel({
         isBusy={isBusy}
         onF3MissingEnv={onF3MissingEnv}
         onF3Ready={onF3Ready}
+        onRequestDossier={onRequestDossier}
+        catalogPickDisabled={catalogPickDisabled}
       />
 
       {isCodeView ? (

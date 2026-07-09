@@ -34,6 +34,8 @@ import {
   detectFollowUpCapabilities,
   type FollowUpCapabilityDetection,
 } from "@/lib/builder/follow-up-capability-detection";
+import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
+import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { isShellPageContent } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
@@ -800,9 +802,19 @@ export async function handleMessageStreamRequest(
         // when intent classification is suppressed (auto-repair / payload
         // preservation passes) — those re-enter the same pipeline and would
         // otherwise re-trigger capability injection on every repair pass.
+        // Katalogval från Byggblock-panelen skickar det deterministiska
+        // formatet `Lägg till byggblocket "<label>" (id: <dossier-id>)`.
+        // De flesta manifest-etiketter matchar ingen vokabulär, så utan
+        // id-pre-detektorn vore ett katalogval en tyst no-op (ingen
+        // capability begärd → ingen dossier injicerad). Id:t slås upp mot
+        // registret; okända id:n ignoreras fail-safe.
         const followUpCapabilityDetection: FollowUpCapabilityDetection =
           hasFollowUpBase && !skipIntentClassification
-            ? detectFollowUpCapabilities(followUpIntentMessage)
+            ? mergeDossierIdCapabilities(
+                detectFollowUpCapabilities(followUpIntentMessage),
+                followUpIntentMessage,
+                (id) => getDossierById(id)?.capability ?? null,
+              )
             : {
                 capabilities: [],
                 capabilityIds: [],

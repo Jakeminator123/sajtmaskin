@@ -79,7 +79,7 @@ describe("dep-completer", () => {
     expect(result.dependencies["@react-three/drei"]).toBe(KNOWN_PACKAGES["@react-three/drei"]);
   });
 
-  it("adds Vercel Analytics from the curated allowlist", () => {
+  it("adds besöksstatistik (@vercel/analytics) from the curated allowlist", () => {
     const result = runDepCompleter(
       'import { Analytics } from "@vercel/analytics/react";\n',
     );

@@ -27,8 +27,19 @@
 export const FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR =
   "deterministic import repair added the missing known import";
 
-/** The LLM verifier-fixer rewrote the offending file(s). */
+/** The LLM verifier-fixer rewrote the offending file(s) and cleared every blocker. */
 export const FIX_LESSON_VERIFIER_FIXER_REWRITE = "verifier-fixer rewrote the offending file(s)";
+
+/**
+ * The LLM verifier-fixer reduced but did NOT clear the blocking findings. The
+ * counts are machine-generated (never user text), so the cross-tenant allowlist
+ * matches this via an anchored, digit-only pattern (see
+ * `CROSS_TENANT_SAFE_LESSON_PATTERNS`). Paired with a `still-failing` result so
+ * the RAG row never claims a clean fix that did not happen.
+ */
+export function verifierFixerPartialFixLesson(before: number, after: number): string {
+  return `verifier-fixer reduced blocking findings from ${before} to ${after} but did not clear them`;
+}
 
 /** The repair loop's deterministic pass resolved the quality-gate failure. */
 export const FIX_LESSON_REPAIR_LOOP_DETERMINISTIC =
@@ -52,6 +63,7 @@ const CROSS_TENANT_SAFE_LESSONS: ReadonlySet<string> = new Set([
  */
 const CROSS_TENANT_SAFE_LESSON_PATTERNS: readonly RegExp[] = [
   /^repair-loop LLM fixer resolved the quality-gate failure after [0-9]+ pass\(es\)$/u,
+  /^verifier-fixer reduced blocking findings from [0-9]+ to [0-9]+ but did not clear them$/u,
 ];
 
 /**

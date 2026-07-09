@@ -44,6 +44,28 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
     expect(result.selected[0]?.reason).toBe("capability-match");
   });
 
+  // Bugbot on #482: a Byggblock-catalog pick sends the dossier id verbatim
+  // (`Lägg till byggblocket "Plausible" (id: plausible-analytics)`). The id
+  // must count as explicit sibling intent so the pick beats the capability
+  // default (vercel-analytics) even when no manifest relevanceKeyword appears
+  // in the label.
+  it("picks an explicitly id-referenced sibling over the capability default", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["analytics"],
+      promptText: 'Lägg till byggblocket "Plausible" (id: plausible-analytics)',
+    });
+    expect(result.selected[0]?.entry.id).toBe("plausible-analytics");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("still picks the capability default when the default's own id is referenced", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["analytics"],
+      promptText: 'Lägg till byggblocket "Besöksstatistik" (id: vercel-analytics)',
+    });
+    expect(result.selected[0]?.entry.id).toBe("vercel-analytics");
+  });
+
   it("marks hard dossier as unconfigured when env var is missing", () => {
     delete process.env.STRIPE_SECRET_KEY;
     delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;

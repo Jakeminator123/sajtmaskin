@@ -721,13 +721,13 @@
       {
         "kind": "integration",
         "provider": "Vercel Analytics",
-        "name": "Vercel Analytics",
+        "name": "Besöksstatistik",
         "envVars": [],
         "matchPatterns": [
           "\\bvercel analytics\\b"
         ],
         "status": "optional",
-        "reason": "Prompten nämner Vercel Analytics som möjlig tracking-baseline."
+        "reason": "Prompten nämner besöksstatistik (Vercel Analytics) som möjlig tracking-baseline."
       }
     ]
   },

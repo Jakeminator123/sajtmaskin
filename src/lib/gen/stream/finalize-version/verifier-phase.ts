@@ -13,6 +13,15 @@
  *   copied `repaired.success` as-is, which produced false-positive
  *   `success: true` rows when findings actually grew (postmortem
  *   2026-04-28 run `20260428-041927-freeform`).
+ *
+ * RAG fix-event honesty (prod incident 2026-07-09):
+ *   The per-finding `verifier-fixer` RAG row only reports `result: "fixed"`
+ *   with the "rewrote the offending file(s)" lesson when the re-run is FULLY
+ *   clean (0 blockers). An improved-but-not-clean re-run stays
+ *   `result: "still-failing"` with an honest "reduced N→M but did not clear
+ *   them" lesson. Residual blockers remain in `verifierBlockingFindings`
+ *   (the re-run set), so downstream F2/F3 gating still sees them — the fixer
+ *   never green-lights a version whose blockers it only partially cleared.
  */
 
 import type { BuildSpec } from "@/lib/gen/build-spec";
@@ -31,6 +40,7 @@ import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import {
   FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
   FIX_LESSON_VERIFIER_FIXER_REWRITE,
+  verifierFixerPartialFixLesson,
 } from "@/lib/logging/error-log-fix-lessons";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -430,8 +440,20 @@ export async function runVerifierPhase(params: {
         // blocking finding so future RAG queries see what worked.
         // `rerunBlockingCount === null` (rerun crashed) is unverified, not
         // fixed — earlier code mapped it to "fixed" which lied to RAG.
+        //
+        // Honesty (prod incident 2026-07-09): only report `result: "fixed"` +
+        // the "rewrote the offending file(s)" lesson when the rerun is FULLY
+        // clean (0 blockers). An improved-but-not-clean rerun logs
+        // `still-failing` rows with an explicit "reduced N→M but did not
+        // clear them" lesson — and those rows are logged per RESIDUAL finding
+        // (the rerun set), not per original finding, so faults the fixer DID
+        // clear are never stamped still-failing.
         if (fixerImproved) {
-          for (const finding of findings.blocking.slice(0, 5)) {
+          const rerunCleared = rerunBlockingCount === 0;
+          const rowFindings = rerunCleared
+            ? findings.blocking.slice(0, 5)
+            : verifierBlockingFindings;
+          for (const finding of rowFindings) {
             appendErrorLogEvent({
               phase: "post-gen",
               subphase: "verifier-fixer",
@@ -440,12 +462,17 @@ export async function runVerifierPhase(params: {
               severity: "warning",
               fault: finding.id,
               faultText: finding.detail,
-              fixText: FIX_LESSON_VERIFIER_FIXER_REWRITE,
+              fixText: rerunCleared
+                ? FIX_LESSON_VERIFIER_FIXER_REWRITE
+                : verifierFixerPartialFixLesson(
+                    findings.blocking.length,
+                    rerunBlockingCount ?? findings.blocking.length,
+                  ),
               modelTier: resolvedTier ?? null,
               model,
               provider: "own-engine",
               repairPassIndex,
-              result: rerunBlockingCount === 0 ? "fixed" : "still-failing",
+              result: rerunCleared ? "fixed" : "still-failing",
               chatId,
               versionId: null,
               scaffoldId: resolvedScaffold?.id ?? null,
@@ -456,10 +483,22 @@ export async function runVerifierPhase(params: {
             });
           }
         }
+        // SSE honesty mirrors the RAG rows: `fixed` only on a fully clean
+        // rerun. `fix-partial` = strictly fewer blockers but not zero;
+        // `fix-failed` = no improvement (or rerun crashed/unverified). The
+        // UI copy generator (stream-handlers.ts) only renders start/done/
+        // error/skipped for this step, so the phase strings here feed raw
+        // SSE/observatory consumers without inventing UI states.
         onProgress?.("verifier", {
-          phase: "fixed",
+          phase:
+            rerunBlockingCount === 0
+              ? "fixed"
+              : fixerImproved
+                ? "fix-partial"
+                : "fix-failed",
           durationMs: Date.now() - verifierFixStartedAt,
           findingsBefore: findings.blocking.length,
+          findingsAfter: verifierBlockingFindings.length,
           fixerImproved,
         });
       } catch (verifierFixErr) {

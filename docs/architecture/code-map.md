@@ -31,6 +31,7 @@ Den här filen är en tunn orientering. Den ska inte ersätta `rg`, IDE-index el
 | Finalize design / F3 | `src/app/api/engine/chats/[chatId]/finalize-design/` |
 | Preview session | `src/app/api/engine/chats/[chatId]/preview-session/` |
 | Quick edit route | `src/app/api/engine/chats/[chatId]/quick-edit/` |
+| Byggblock-panel (dossiers) | `GET /api/engine/chats/[chatId]/dossiers` (inkopplade per version) · `GET /api/dossiers/catalog` (hela katalogen, statisk) · UI: `src/components/builder/preview-panel/PreviewPanelDossiers.tsx` |
 | Builder UI | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
 
 ## Persistens och drift

@@ -47,7 +47,9 @@ describe("MessageList", () => {
     });
     expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
-    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+    // No blocking dialog exists anywhere in this component anymore (owner
+    // beslut 2026-07-09: "Svar krävs" är alltid inline, aldrig en overlay).
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows the actual awaiting-input question without synthetic approval buttons", async () => {
@@ -73,8 +75,11 @@ describe("MessageList", () => {
 
     render(<MessageList chatId="chat_1" messages={messages} />);
 
+    // Rendered inline (no dialog) — the amber "Svar krävs" heading anchors
+    // the question directly in the chat flow. (Matches twice: the inline
+    // heading AND the floating scroll-to anchor button — both by design.)
     await waitFor(() => {
-      expect(screen.getByText("Svar krävs för att fortsätta")).toBeTruthy();
+      expect(screen.getAllByText("Svar krävs").length).toBeGreaterThan(0);
     });
 
     expect(
@@ -85,9 +90,10 @@ describe("MessageList", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("sends the selected quick reply from the awaiting-input dialog", async () => {
+  it("sends the selected quick reply from the inline awaiting-input block", async () => {
     const onQuickReply = vi.fn(async () => {});
     const messages: ChatMessage[] = [
       {
@@ -119,6 +125,97 @@ describe("MessageList", () => {
 
     await waitFor(() => {
       expect(onQuickReply).toHaveBeenCalledWith("Design", { planMode: false });
+    });
+  });
+
+  it("renders a clear-redesign/scope question INLINE with clickable options (the exact path the modal used to own)", async () => {
+    const onQuickReply = vi.fn(async () => {});
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_scope",
+        role: "assistant",
+        content: "Din förfrågan låter som en större omgörning.",
+        uiParts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Scope-fråga",
+            toolCallId: "awaiting-input:assistant_scope",
+            state: "input-available",
+            output: {
+              kind: "scope",
+              question: "Hur vill du gå vidare med designen?",
+              options: [
+                "Förfina nuvarande design",
+                "Gör en tydlig redesign i samma projekt",
+                "Starta om från en ny grund",
+              ],
+              awaitingInput: true,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <MessageList chatId="chat_scope" messages={messages} onQuickReply={onQuickReply} />,
+    );
+
+    // All three options render inline; no dialog overlay exists.
+    const redesignButton = await screen.findByRole("button", {
+      name: "Gör en tydlig redesign i samma projekt",
+    });
+    expect(screen.getByRole("button", { name: "Förfina nuvarande design" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Starta om från en ny grund" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // A11y: keyboard focus lands on the FIRST option when the question arrives
+    // (replacement for the removed dialog focus-trap).
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Förfina nuvarande design" }),
+      );
+    });
+
+    fireEvent.click(redesignButton);
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Gör en tydlig redesign i samma projekt", {
+        planMode: false,
+      });
+    });
+  });
+
+  it("propagates planMode: true for a plan-blocker pending question", async () => {
+    const onQuickReply = vi.fn(async () => {});
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_plan_blocker",
+        role: "assistant",
+        content: "Planen har blockerare som kräver svar.",
+        uiParts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Planfråga",
+            toolCallId: "awaiting-input:assistant_plan_blocker",
+            state: "input-available",
+            output: {
+              question: "Vill du fortsätta trots blockeraren?",
+              options: ["Ja, fortsätt", "Nej, avbryt"],
+              planBlockers: ["Saknar betalleverantör"],
+              awaitingInput: true,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <MessageList chatId="chat_plan" messages={messages} onQuickReply={onQuickReply} />,
+    );
+
+    const continueButton = await screen.findByRole("button", { name: "Ja, fortsätt" });
+    fireEvent.click(continueButton);
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Ja, fortsätt", { planMode: true });
     });
   });
 

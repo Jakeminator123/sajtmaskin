@@ -129,7 +129,7 @@ blockera på det som verkligen kräver en riktig integration.
   `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
   riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
-  Dossiers-panelen i previewpanelen — aldrig mot chatten (env-frågor hör inte
+  Byggblock-panelen i previewpanelen — aldrig mot chatten (env-frågor hör inte
   hemma i F2/F3-chatten, se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
 
 ## Sources of truth at a glance

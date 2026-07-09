@@ -14,7 +14,7 @@ alwaysApply: false
 
 # Env-flöde i F2 är tyst
 
-F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3 via env-panelen (Dossiers-ytan), aldrig i chatten.
+F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3 via env-panelen (Byggblock-ytan (dossiers)), aldrig i chatten.
 
 F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Tystnaden gäller env-*trafik i chatten*, inte den visuella ytan.
 

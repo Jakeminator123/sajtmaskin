@@ -506,4 +506,127 @@ describe("checkCrossFileImports", () => {
     expect(updated?.content ?? "").not.toContain("web-gl-renderer");
     expect(updated?.content ?? "").not.toContain("canvas-error-boundary");
   });
+
+  // Prod incident 2026-07-09: a stub `import Uint8Array from
+  // "@/components/uint8-array"` collided with `new ReadableStream<Uint8Array>`
+  // in an API route. JS/Web globals must never be stubbed.
+  it("strips denylisted JS-global default imports (Uint8Array) without stubbing", () => {
+    const route: CodeFile = {
+      path: "app/api/assistant/route.ts",
+      language: "tsx",
+      content: [
+        'import Uint8Array from "@/components/uint8-array";',
+        "export async function POST() {",
+        "  return new Response(new ReadableStream<Uint8Array>());",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([route]);
+
+    expect(result.files.some((f) => f.path === "components/uint8-array.tsx")).toBe(false);
+    const updated = result.files.find((f) => f.path === "app/api/assistant/route.ts");
+    expect(updated?.content ?? "").not.toContain("@/components/uint8-array");
+  });
+
+  it("strips a denylisted JS-global import even when the LLM co-emitted the target file", () => {
+    // Review-swarm gap: when the LLM emits BOTH components/uint8-array.tsx AND
+    // the import, the import resolves and previously survived Normalize — the
+    // F2 gate then blocks the version with no mechanical repair path. The
+    // denylist strip must apply regardless of resolved status; the co-emitted
+    // file may remain as a harmless orphan.
+    const stub: CodeFile = {
+      path: "components/uint8-array.tsx",
+      language: "tsx",
+      content: [
+        "export default function Uint8Array() {",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    };
+    const route: CodeFile = {
+      path: "app/api/assistant/route.ts",
+      language: "tsx",
+      content: [
+        'import Uint8Array from "@/components/uint8-array";',
+        "export async function POST() {",
+        "  return new Response(new ReadableStream<Uint8Array>());",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([stub, route]);
+
+    const updated = result.files.find((f) => f.path === "app/api/assistant/route.ts");
+    expect(updated?.content ?? "").not.toContain("@/components/uint8-array");
+    // The global usage survives untouched.
+    expect(updated?.content ?? "").toContain("ReadableStream<Uint8Array>");
+  });
+
+  it("keeps a RESOLVED global-named import when the component is actually rendered as JSX", () => {
+    // Bugbot on #481: a real custom <Error /> boundary at @/components/error
+    // must keep its import — stripping it would leave the JSX referencing the
+    // JS global Error. The strip only applies when the name is never used as
+    // JSX in the importing file (the Uint8Array incident class).
+    const errorComponent: CodeFile = {
+      path: "components/error.tsx",
+      language: "tsx",
+      content: [
+        "export default function Error({ message }: { message?: string }) {",
+        '  return <div role="alert">{message ?? "Något gick fel"}</div>;',
+        "}",
+      ].join("\n"),
+    };
+    const page: CodeFile = {
+      path: "app/checkout/page.tsx",
+      language: "tsx",
+      content: [
+        'import Error from "@/components/error";',
+        "export default function CheckoutPage() {",
+        "  return <Error message=\"Betalningen misslyckades\" />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([errorComponent, page]);
+
+    const updated = result.files.find((f) => f.path === "app/checkout/page.tsx");
+    expect(updated?.content ?? "").toContain('import Error from "@/components/error"');
+    expect(updated?.content ?? "").toContain("<Error ");
+  });
+
+  it("does NOT strip a package import that reuses a global name (next/error)", () => {
+    const page: CodeFile = {
+      path: "app/error-page.tsx",
+      language: "tsx",
+      content: [
+        'import Error from "next/error";',
+        "export default function Page() {",
+        "  return <Error statusCode={404} />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    const updated = result.files.find((f) => f.path === "app/error-page.tsx");
+    expect(updated?.content ?? "").toContain('from "next/error"');
+  });
+
+  it("strips a single-uppercase-letter (TS generic) default import without stubbing", () => {
+    const page: CodeFile = {
+      path: "app/reports/page.tsx",
+      language: "tsx",
+      content: [
+        'import T from "@/components/t";',
+        "export default function Page() { return null; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    expect(result.files.some((f) => f.path === "components/t.tsx")).toBe(false);
+    const updated = result.files.find((f) => f.path === "app/reports/page.tsx");
+    expect(updated?.content ?? "").not.toContain("@/components/t");
+  });
 });

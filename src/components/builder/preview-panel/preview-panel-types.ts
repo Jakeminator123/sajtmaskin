@@ -153,6 +153,23 @@ export interface PreviewPanelProps {
       requiredRealEnvKeys: string[];
     }>;
   }) => void;
+  /**
+   * Called when the user picks a dossier from the Byggblock-panelens
+   * katalog-tab ("Bläddra katalog"). Threaded down to
+   * `PreviewPanelDossiers` so selecting a catalog row can send a normal
+   * chat message (`vm.sendMessage`) instead of duplicating the send path.
+   * The id feeds the deterministic `(id: …)`-marker in the prompt (see
+   * `buildAddDossierMessage`); the label keeps sibling-keyword
+   * disambiguation working.
+   */
+  onRequestDossier?: (payload: { id: string; label: string }) => void;
+  /**
+   * True when a catalog pick must wait: a generation is streaming (sending
+   * would abort it — useSendMessage cancels the active stream) or an
+   * unanswered pending question exists (a pick would silently dismiss it).
+   * Rows are disabled with a short Swedish hint while true.
+   */
+  catalogPickDisabled?: boolean;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

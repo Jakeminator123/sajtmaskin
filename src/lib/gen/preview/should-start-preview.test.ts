@@ -163,6 +163,86 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(true);
   });
 
+  // Prod incident 2026-07-09: an `import-name-collision` finding (Uint8Array
+  // imported from `@/components/uint8-array` while used as the global typed
+  // array) fell through the classifier and the version was promoted as
+  // "verified" — /api/assistant would have crashed in prod.
+  it("classifies the LLM import-name-collision finding id", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "import-name-collision",
+        detail:
+          "app/api/assistant/route.ts imports Uint8Array from @/components/uint8-array but uses the global Uint8Array in new ReadableStream<Uint8Array>.",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies build-*-import finding ids", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "build-invalid-import",
+        detail: "app/api/chat/route.ts uses openai() with no import.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "build-missing-import",
+        detail: "no import for openai in app/api/chat/route.ts",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies import-collision compiler/detail phrasings", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "typecheck",
+        detail:
+          "app/api/assistant/route.ts(3,8): error TS2440: Import declaration conflicts with local declaration of 'Uint8Array'.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "The imported name Uint8Array shadows the global typed array.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "openai is used in app/api/chat/route.ts but is not imported.",
+      }),
+    ).toBe(true);
+    // Context word BEFORE the verb.
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "import of Uint8Array conflicts with the global typed array",
+      }),
+    ).toBe(true);
+    // `built-in` phrasing for shadowing.
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "app/api/assistant/route.ts: the local import shadows the built-in Uint8Array.",
+      }),
+    ).toBe(true);
+  });
+
+  it("matches build-*-import ids case-insensitively (LLM ids vary casing)", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "Build-Invalid-Import",
+        detail: "app/api/chat/route.ts uses openai() with no import.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "Import-Name-Collision",
+        detail: "Uint8Array imported from @/components/uint8-array shadows the global.",
+      }),
+    ).toBe(true);
+  });
+
   it("does NOT classify quality / design findings", () => {
     expect(
       isBuildBreakingFinding({
@@ -170,6 +250,77 @@ describe("isBuildBreakingFinding", () => {
         detail: "components/turtle-game.tsx imports GameStatus but also declares a local type GameStatus.",
       }),
     ).toBe(false);
+  });
+
+  it("does NOT classify the advisory navigation-placeholder-actions finding", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "navigation-placeholder-actions",
+        detail: "src/app/page.tsx: hero CTA href is empty",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify CSS box-shadow design findings as import shadowing", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "The card shadows are too subtle and blend into the background.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify design copy that says 'conflicts with' without name-resolution context", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "app/page.tsx: the hero conflicts with the footer rhythm.",
+      }),
+    ).toBe(false);
+  });
+
+  // Bugbot on #481: `global` as a layout ADJECTIVE (pre-anchor) or a bare
+  // design noun (post-anchor) must not trip the build-breaking classifier.
+  it("does NOT misclassify layout copy where 'global' is an adjective", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "app/page.tsx: global spacing conflicts with the mobile grid.",
+      }),
+    ).toBe(false);
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "the sticky header conflicts with the global nav.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify unanchored 'collides with' design copy", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "the CTA color collides with the background overlay.",
+      }),
+    ).toBe(false);
+  });
+
+  it("classifies anchored collision phrasings (conflicting identifier / collides with import)", () => {
+    // Exact incident phrasing (ragevent 98): "creating a conflicting
+    // identifier likely to fail type checking".
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail:
+          "app/api/assistant/route.ts imports Uint8Array while using the global typed array, creating a conflicting identifier likely to fail type checking.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "Uint8Array collides with the imported binding in app/api/assistant/route.ts.",
+      }),
+    ).toBe(true);
   });
 
   it("does NOT classify suspicious-nonstandard findings", () => {

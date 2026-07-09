@@ -33,6 +33,7 @@ import {
   summarizeTarget,
 } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
+import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -72,6 +73,25 @@ const kindsArg = (argValue("kinds", "prompts,generations,versions,telemetry,erro
 function emitError(message) {
   if (wantJson) process.stdout.write(JSON.stringify({ error: message }));
   else console.error(message);
+}
+
+function formatCell(key, value) {
+  if (value === null || value === undefined) return "";
+  if (key === "created_at" || key === "updated_at") return formatLogTimestamp(value);
+  const s = value instanceof Date ? value.toISOString() : String(value);
+  return s.length > 120 ? `${s.slice(0, 117)}…` : s;
+}
+
+function printHumanRows(kind, rows) {
+  for (const row of rows) {
+    const parts = Object.entries(row)
+      .map(([k, v]) => {
+        const cell = formatCell(k, v);
+        return cell ? `${k}=${cell}` : null;
+      })
+      .filter(Boolean);
+    console.log(`    ${parts.join("  ")}`);
+  }
 }
 
 // kind -> { table, chatColumn, columns[] }. `chatColumn` is the column used to
@@ -230,9 +250,11 @@ try {
   if (wantJson) process.stdout.write(JSON.stringify(payload));
   else {
     console.log(`Target ${targetLabel}${inspection.isProdLike ? " (PROD-LIKE)" : ""} — limit ${limit}`);
+    console.log(LOG_TIMESTAMP_NOTE);
     for (const kind of kinds) {
       const note = skipped[kind] ? ` (skipped: ${skipped[kind]})` : "";
-      console.log(`  ${kind}: ${counts[kind]} rader${note}`);
+      console.log(`\n[${kind}] ${counts[kind]} rader${note}`);
+      if (counts[kind] > 0) printHumanRows(kind, data[kind]);
     }
   }
   process.exit(0);
