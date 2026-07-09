@@ -358,7 +358,10 @@ function gatherImportMeta(
 /**
  * Removes local imports whose target file is missing when they duplicate a binding
  * already satisfied by a resolved import (e.g. package `type RapierRigidBody` vs
- * bogus `@/components/rapier-rigid-body`), or when the default import name is denylisted.
+ * bogus `@/components/rapier-rigid-body`). Local imports whose DEFAULT name is
+ * denylisted (JS globals, DOM types, runtime classes — see
+ * `isDenylistedStubDefaultName`) are removed regardless of whether the target
+ * file exists, since such a binding always shadows the real global.
  */
 function stripCollidingMissingImports(
   content: string,
@@ -381,13 +384,26 @@ function stripCollidingMissingImports(
 
   const toRemove = new Set<ts.ImportDeclaration>();
   for (const m of metas) {
-    if (m.resolved) continue;
+    // Denylisted default-import names (JS/Web globals, DOM types, runtime
+    // classes, single-letter generics) are stripped from LOCAL imports even
+    // when the target file EXISTS: a local "component" named after a JS
+    // global is never legitimate, and when the LLM co-emits the stub file
+    // (`components/uint8-array.tsx` + the import) the import resolves,
+    // survives Normalize, and shadows the global — a build-breaking collision
+    // the F2 gate now blocks with no mechanical repair path. Package imports
+    // (`import Image from "next/image"`, `import Error from "next/error"`)
+    // are never touched — the guard applies to local specifiers only.
     const ic = m.decl.importClause;
     const defaultName = ic?.name?.text;
-    if (defaultName && isDenylistedStubDefaultName(defaultName)) {
+    if (
+      defaultName &&
+      isLocalImport(m.moduleSpecifier) &&
+      isDenylistedStubDefaultName(defaultName)
+    ) {
       toRemove.add(m.decl);
       continue;
     }
+    if (m.resolved) continue;
     if (m.names.some((n) => resolvedNames.has(n))) {
       toRemove.add(m.decl);
     }

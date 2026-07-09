@@ -529,6 +529,58 @@ describe("checkCrossFileImports", () => {
     expect(updated?.content ?? "").not.toContain("@/components/uint8-array");
   });
 
+  it("strips a denylisted JS-global import even when the LLM co-emitted the target file", () => {
+    // Review-swarm gap: when the LLM emits BOTH components/uint8-array.tsx AND
+    // the import, the import resolves and previously survived Normalize — the
+    // F2 gate then blocks the version with no mechanical repair path. The
+    // denylist strip must apply regardless of resolved status; the co-emitted
+    // file may remain as a harmless orphan.
+    const stub: CodeFile = {
+      path: "components/uint8-array.tsx",
+      language: "tsx",
+      content: [
+        "export default function Uint8Array() {",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    };
+    const route: CodeFile = {
+      path: "app/api/assistant/route.ts",
+      language: "tsx",
+      content: [
+        'import Uint8Array from "@/components/uint8-array";',
+        "export async function POST() {",
+        "  return new Response(new ReadableStream<Uint8Array>());",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([stub, route]);
+
+    const updated = result.files.find((f) => f.path === "app/api/assistant/route.ts");
+    expect(updated?.content ?? "").not.toContain("@/components/uint8-array");
+    // The global usage survives untouched.
+    expect(updated?.content ?? "").toContain("ReadableStream<Uint8Array>");
+  });
+
+  it("does NOT strip a package import that reuses a global name (next/error)", () => {
+    const page: CodeFile = {
+      path: "app/error-page.tsx",
+      language: "tsx",
+      content: [
+        'import Error from "next/error";',
+        "export default function Page() {",
+        "  return <Error statusCode={404} />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    const updated = result.files.find((f) => f.path === "app/error-page.tsx");
+    expect(updated?.content ?? "").toContain('from "next/error"');
+  });
+
   it("strips a single-uppercase-letter (TS generic) default import without stubbing", () => {
     const page: CodeFile = {
       path: "app/reports/page.tsx",

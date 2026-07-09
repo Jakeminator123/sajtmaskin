@@ -473,6 +473,35 @@ export async function POST() {
     expect(fixes).toHaveLength(0);
   });
 
+  it("inserts no component import into a plain .ts file OUTSIDE app/api (non-JSX surface)", () => {
+    const code = `
+export function makeStream() {
+  return new ReadableStream<Uint8Array>();
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "lib/stream.ts");
+    expect(out).toBe(code);
+    expect(out).not.toMatch(/@\/components\//);
+    expect(fixes).toHaveLength(0);
+  });
+
+  it("does not stub-import a literal self-closing <T /> tag (single-letter guard)", () => {
+    // Pinned behavior: even when `<T className="x" />` is written as literal
+    // JSX in a .tsx file, the single-uppercase-letter guard treats `T` as a
+    // TS generic parameter and never fabricates `@/components/t`. The
+    // undefined-JSX-symbol verifier lane owns this case instead.
+    const code = `
+export default function Page() {
+  return <T className="x" />;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
+    expect(out).not.toMatch(/@\/components\/t"/);
+    expect(fixes.some((f) => f.description === "Added missing import for <T>")).toBe(
+      false,
+    );
+  });
+
   it("does not phantom-import single-letter generics or Promise<T>", () => {
     const code = `
 export default function Page<T>() {

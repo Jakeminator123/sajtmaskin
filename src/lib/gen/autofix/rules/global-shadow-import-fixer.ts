@@ -28,44 +28,36 @@
  */
 
 import ts from "typescript";
-import { createTsxSourceFile } from "./import-binding-ast";
+import { createTsxSourceFile, JS_BUILTIN_GLOBAL_NAMES } from "./import-binding-ast";
 
 /**
  * Globals worth guarding: commonly used as runtime values via `new X()`,
  * `X()`, or `X.method()`, so shadowing them with a local import causes real
  * runtime/typecheck breakage rather than a harmless name clash.
+ *
+ * Derived from the shared `JS_BUILTIN_GLOBAL_NAMES` (typed arrays, Date,
+ * Error, URL, TextEncoder, …) — single source of truth with jsx-checker and
+ * the stub denylist — plus value-globals that only matter for shadowing
+ * (fundamental constructors like Object/Number and DOM constructors like
+ * Image/Worker that are legitimate component names in npm packages, so they
+ * do not belong in the stub denylist).
  */
 const SHADOWABLE_GLOBALS = new Set<string>([
-  "Date",
+  ...JS_BUILTIN_GLOBAL_NAMES,
   "Map",
   "Set",
-  "WeakMap",
-  "WeakSet",
   "Promise",
   "Array",
   "Object",
   "Number",
   "String",
   "Boolean",
-  "Symbol",
-  "RegExp",
-  "Error",
   "Math",
   "JSON",
-  "Proxy",
-  "Reflect",
   "BigInt",
   "Image",
   "Audio",
   "Event",
-  "URL",
-  "URLSearchParams",
-  "Request",
-  "Response",
-  "Headers",
-  "FormData",
-  "Blob",
-  "File",
   "Worker",
   "Notification",
 ]);
