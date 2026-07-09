@@ -144,17 +144,40 @@ const MessageListComponent = ({
   // the history lands, so late-hydrated old markers fall back to the inline
   // quick-replies instead of silently burning credits.
   const hasStreamedThisSessionRef = useRef(false);
-  if (isStreaming) hasStreamedThisSessionRef.current = true;
 
   // Chat switch without remount: reset the auto-continue bookkeeping so a
   // marker in the NEXT chat's freshly loaded history is re-snapshotted as
   // history (and never mistaken for a live marker from the previous chat).
+  //
+  // Message restore is gated on `isAnyStreaming` (see usePersistedChatMessages),
+  // so switching chats MID-STREAM keeps the PREVIOUS chat's streaming messages
+  // mounted until that stream ends — meaning `isStreaming` here can still
+  // describe the OLD chat for several renders after `chatId` flips. The old
+  // `hasStreamedThisSessionRef.current = isStreaming` seeded the new chat's
+  // "live" signal with that leftover `true`, letting a reloaded marker in the
+  // new chat auto-fire and burn credits in the wrong chat. Fix: reset the
+  // signal to `false` on switch, and — when a stream is still running at switch
+  // time (it belongs to the previous chat) — defer crediting ANY stream to the
+  // new chat until that foreign stream clears. `hasStreamedThisSessionRef` is
+  // then armed below only once we are settled on this chat, so the per-render
+  // `if (isStreaming)` can no longer re-arm it off the leaking foreign stream.
   const f3ChatIdRef = useRef(chatId);
+  const f3AwaitingStreamSettleRef = useRef(false);
   if (f3ChatIdRef.current !== chatId) {
     f3ChatIdRef.current = chatId;
     f3MountKeyRef.current = undefined;
     autoFiredF3KeyRef.current = null;
-    hasStreamedThisSessionRef.current = isStreaming;
+    hasStreamedThisSessionRef.current = false;
+    f3AwaitingStreamSettleRef.current = isStreaming;
+  }
+  // The deferred foreign stream has ended → messages now belong to this chat.
+  if (f3AwaitingStreamSettleRef.current && !isStreaming) {
+    f3AwaitingStreamSettleRef.current = false;
+  }
+  // A generation stream is this chat's "live" signal only once we are settled
+  // on this chat (never while a previous chat's stream is winding down).
+  if (isStreaming && !f3AwaitingStreamSettleRef.current) {
+    hasStreamedThisSessionRef.current = true;
   }
 
   const sendQuickReply = useCallback(

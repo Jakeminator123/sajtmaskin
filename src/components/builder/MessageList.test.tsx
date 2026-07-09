@@ -286,4 +286,81 @@ describe("MessageList", () => {
     expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
+
+  it("does NOT auto-approve a reloaded marker after switching chats mid-stream (cross-chat credit burn)", async () => {
+    // Regression: message restore is gated on `isAnyStreaming`
+    // (usePersistedChatMessages), so switching chats WHILE a generation stream
+    // is active keeps the previous chat's streaming messages mounted until that
+    // stream ends. The old `hasStreamedThisSessionRef = isStreaming` on chat
+    // switch (plus the per-render `if (isStreaming)` re-arm) credited that
+    // foreign stream to the NEW chat, so a reloaded F3 marker in the new chat's
+    // freshly hydrated history auto-fired and burned credits in the wrong chat.
+    const onQuickReply = vi.fn(async () => {});
+
+    // Chat A is actively streaming (no F3 marker of its own).
+    const chatAStreaming: ChatMessage[] = [
+      { id: "user_a", role: "user", content: "Bygg sida A." },
+      { id: "assistant_a", role: "assistant", content: "Genererar…", isStreaming: true },
+    ];
+    const { rerender } = render(
+      <MessageList
+        chatId="chat_A"
+        messages={chatAStreaming}
+        onQuickReply={onQuickReply}
+        isStreaming
+      />,
+    );
+
+    // User switches to chat B while A is STILL streaming. Restore is gated on
+    // isAnyStreaming, so B momentarily shows A's streaming messages — modeled
+    // here as a DISTINCT array (a further stream delta) so the history-baseline
+    // snapshot runs against A's markerless messages under chat B (i.e. B's
+    // reloaded marker later is NOT caught by the mount-snapshot, leaving the
+    // "streamed this session" gate as the deciding factor — the actual bug).
+    const chatAStreamingDelta: ChatMessage[] = [
+      { id: "user_a", role: "user", content: "Bygg sida A." },
+      { id: "assistant_a", role: "assistant", content: "Genererar mer…", isStreaming: true },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_B"
+        messages={chatAStreamingDelta}
+        onQuickReply={onQuickReply}
+        isStreaming
+      />,
+    );
+
+    // A's stream ends and B's canonical history (incl. an OLD F3 marker) lands.
+    const chatBHistory: ChatMessage[] = [
+      { id: "user_b", role: "user", content: "Bygg integrationer nu." },
+      {
+        id: "assistant_b_marker",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_b_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_B"
+        messages={chatBHistory}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+      />,
+    );
+
+    // The marker is chat B's RELOADED history — no stream ran on B in this
+    // session — so it must fall back to the inline quick-replies, never
+    // auto-fire.
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
+  });
 });
