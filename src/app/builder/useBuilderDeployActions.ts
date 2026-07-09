@@ -362,8 +362,8 @@ export function useBuilderDeployActions({
   // om. Redeployar ALDRIG automatiskt (Ö3).
   const [isRepublishRepairing, setIsRepublishRepairing] = useState(false);
   const republishWithFix = useCallback(async () => {
-    if (!chatId || !activeVersionId) {
-      toast.error("Ingen version vald");
+    if (!chatId) {
+      toast.error("Ingen chat vald");
       return;
     }
     if (!activeDeploymentId) {
@@ -373,12 +373,14 @@ export function useBuilderDeployActions({
     if (isRepublishRepairing) return;
     setIsRepublishRepairing(true);
     try {
+      // Ingen versionId skickas: servern reparerar den version som
+      // deployment-raden pekar på (den som failade), inte klientens aktiva —
+      // efter en follow-up/reload kan de skilja sig (bugbot high, #456).
       const res = await fetch("/api/v0/deployments/repair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId,
-          versionId: activeVersionId,
           deploymentId: activeDeploymentId,
         }),
       });
@@ -412,7 +414,7 @@ export function useBuilderDeployActions({
     } finally {
       setIsRepublishRepairing(false);
     }
-  }, [chatId, activeVersionId, activeDeploymentId, isRepublishRepairing, mutateVersions, mutateChat]);
+  }, [chatId, activeDeploymentId, isRepublishRepairing, mutateVersions, mutateChat]);
 
   const triggerAutoFix = useCallback((payload: {
     chatId: string;

@@ -97,6 +97,24 @@ describe("POST /api/v0/deployments/repair", () => {
     // version (delegated to runDeployBuildRepair, which never redeploys).
   });
 
+  it("repairs the DEPLOYMENT's version even when the client's active version drifted", async () => {
+    // Efter en follow-up (eller reload-hydrering) kan klientens aktiva version
+    // vara nyare än den som failade på Vercel. Repairen ska rikta versionen
+    // från deployment-raden — ett klient-`versionId` ignoreras/strippas.
+    const res = await POST(
+      repairRequest({ chatId: "chat_1", versionId: "ver_NEWER", deploymentId: "dep_1" }),
+    );
+    expect(res.status).toBe(200);
+    expect(getEngineVersionForChatByIdForRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      "chat_1",
+      "ver_1",
+    );
+    expect(runDeployBuildRepair).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId: "ver_1" }),
+    );
+  });
+
   it("is idempotent: a second call on an already-repaired version is a no-op", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1", project_id: "proj_1" },

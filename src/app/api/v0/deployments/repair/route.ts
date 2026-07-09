@@ -14,9 +14,12 @@ export const runtime = "nodejs";
 // under detta tak så leasen alltid hinner släppas före platform-kill.
 export const maxDuration = 800;
 
+// OBS: ingen `versionId` i kontraktet — repairen riktar ALLTID den version som
+// deployment-raden pekar på (den som faktiskt failade på Vercel). Klientens
+// aktiva version kan vara en nyare follow-up och får inte styra repairen.
+// Okända fält (t.ex. ett gammalt klient-`versionId`) strippas av zod.
 const requestSchema = z.object({
   chatId: z.string().min(1, "chatId is required"),
-  versionId: z.string().min(1, "versionId is required"),
   deploymentId: z.string().min(1, "deploymentId is required"),
 });
 
@@ -45,29 +48,28 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      const { chatId, versionId, deploymentId } = parsed.data;
+      const { chatId, deploymentId } = parsed.data;
 
-      // Tenant-guard: versionen OCH dess engine-chat måste ägas av anroparen.
-      // Generic 404 för okänd/främmande version — avslöja aldrig existens.
-      const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-      if (!scoped) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
-      }
-
-      // Deployment-guard: raden måste finnas OCH tillhöra exakt denna chat +
-      // version. Slås upp per id men verifieras mot den tenant-scopade chatten,
-      // så ett främmande/felmatchat deploymentId ger 404 (aldrig cross-tenant).
+      // Deployment-raden är källan till VILKEN version som failade. Klientens
+      // aktiva version kan ha hunnit bli en nyare follow-up (särskilt efter
+      // reload-hydreringen av `activeDeploymentId`) — att kräva att den matchar
+      // gjorde "Publicera om med fix" till en 404-no-op (bugbot high, #456).
       const rows = await db
         .select()
         .from(deployments)
         .where(eq(deployments.id, deploymentId))
         .limit(1);
       const deployment = rows[0];
-      if (
-        !deployment ||
-        deployment.chatId !== scoped.chat.id ||
-        deployment.versionId !== versionId
-      ) {
+      if (!deployment || !deployment.versionId) {
+        return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
+      }
+      const versionId = deployment.versionId;
+
+      // Tenant-guard: den deployade versionen OCH dess engine-chat måste ägas
+      // av anroparen, och deployment-raden måste tillhöra exakt den chatten.
+      // Generic 404 för främmande/felmatchade id:n — avslöja aldrig existens.
+      const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scoped || deployment.chatId !== scoped.chat.id) {
         return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
       }
 
