@@ -147,7 +147,7 @@
       "type": "array",
       "items": { "type": "string" },
       "maxItems": 6,
-      "description": "Vercel template IDs from template-library that inspired this variant. Used by resolveTemplateGuidance()."
+      "description": "Inspiration reference ids: v0-mall Blob ids (template-blob-manifest.json, written by the backoffice Scaffold Wizard) or harmless legacy labels. Rendered as a prompt line only — nothing is injected."
     },
     "default": {
       "type": "boolean",

@@ -20,7 +20,6 @@ const nextConfig: NextConfig = {
   },
   outputFileTracingExcludes: {
     "*": [
-      "./data/external-template-pipeline/**",
       "./templates_v0/**",
       "./archive/**",
       "./output/**",

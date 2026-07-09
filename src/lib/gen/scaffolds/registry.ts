@@ -4,9 +4,9 @@
  * by matchScaffoldAuto() during code generation.
  *
  * Per-integration guidance reaches runtime via the dossier pipeline
- * (`src/lib/gen/dossiers/`). The legacy template-library pipeline
- * (`scripts/template-library/`, `data/external-template-pipeline/`) is
- * deprecated and stashed under `legacy-stuff/` outside this repo.
+ * (`src/lib/gen/dossiers/`). The legacy template-library pipeline was
+ * fully removed 2026-07-09; an archive copy lives in the sibling folder
+ * `gamla-skript-till-scaffolds/` outside this repo (and in git history).
  */
 import type { ScaffoldManifest, ScaffoldId } from "./types";
 import { baseNextjsManifest } from "./base-nextjs/manifest";

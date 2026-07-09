@@ -177,6 +177,6 @@ def render(ctx: BackofficeContext) -> None:
 
     st.info(
         "Detta är observability/översikt över runtime-scaffolds. "
-        "Builderns Mallar-tab och external-template-pipelinen är separata lager."
+        "Builderns Mallar-tab (v0-mallar i Blob) är ett separat lager."
     )
 

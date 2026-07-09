@@ -30,7 +30,6 @@ class BackofficeContext:
     scaffolds_dir: Path
     research_json: Path
     embeddings_json: Path
-    catalog_json: Path
     eval_latest: Path
     schema_md: Path
     error_log_csv: Path
@@ -102,11 +101,6 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         scaffolds_dir=scaffolds_dir,
         research_json=scaffolds_dir / "scaffold-research.generated.json",
         embeddings_json=scaffolds_dir / "scaffold-embeddings.json",
-        catalog_json=root
-        / "data"
-        / "external-template-pipeline"
-        / "reference-library"
-        / "catalog.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
         schema_md=root / "docs" / "architecture" / "scaffold-system.md",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",

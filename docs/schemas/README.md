@@ -24,7 +24,6 @@ all references move in the same change.
 | `preview-session-contract.md` | Preview/session identifiers, preview URLs, verify-lane boundary, sandbox wording policy. |
 | `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks. |
 | `llm-role-matrix.md` | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant. |
-| `external-template-pipeline-contract.md` | Legacy external-template research contract; not the runtime scaffold or dossier path. |
 | `integrations-and-data.md` | DB tables, request validation, integration/data schema surfaces. |
 | `chat-message-ui-parts.md` | Structured builder message parts (plan-review cards) in own-engine chat storage. |
 | `strict/` | Machine-oriented schemas. See [`strict/README.md`](strict/README.md) for the complete list. |
@@ -32,6 +31,9 @@ all references move in the same change.
 > **Pensionerat:** `plan-file.schema.json` är **borttaget** (grandmaster-område 8) —
 > planering är en regel, inte ett schema. Se
 > [`.cursor/rules/plan-lifecycle.mdc`](../../.cursor/rules/plan-lifecycle.mdc).
+> `external-template-pipeline-contract.md` (legacy extern mall-research) togs bort
+> 2026-07-09 tillsammans med pipelinens sista spår — arkivkopia med skripten finns
+> i syskonmappen `../gamla-skript-till-scaffolds/` utanför repot samt i git-historiken.
 
 Only stable, canonical schema docs belong in this folder. Exploratory schema
 notes belong in `docs/plans/active/` until they are promoted here or

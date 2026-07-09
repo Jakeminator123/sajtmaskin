@@ -249,19 +249,14 @@ BLOB_MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 def _load_inspiration_lookup(
     ctx: BackofficeContext,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    """Resolve variants' ``sourceTemplateIds`` against the **canonical
-    inspiration sources**:
+    """Resolve variants' ``sourceTemplateIds`` against the canonical
+    inspiration source: the committed Blob manifest
+    (``template-blob-manifest.json``) — v0-mallarna i Vercel Blob. Scaffold
+    Wizard skriver Blob-id:n hit. Id:n som inte finns där är ofarliga
+    legacy-etiketter från den borttagna external-template-pipelinen
+    (arkiverad utanför repot i ``gamla-skript-till-scaffolds/``).
 
-    1. The committed Blob manifest (``template-blob-manifest.json``) — v0-mallar
-       som ligger i Vercel Blob. Detta är den aktiva källan; Scaffold Wizard
-       skriver Blob-id:n hit.
-    2. The legacy external-template catalog
-       (``data/external-template-pipeline/reference-library/catalog.json``) om
-       den råkar finnas lokalt (gitignorerad, avvecklad pipeline). Gamla id:n
-       som bara fanns där visas som *legacy-referens* — de är ofarliga
-       inspirationsetiketter, inte brutna runtime-länkar.
-
-    NOTE: Ingen av källorna är runtime-dossiers (``data/dossiers/{hard,soft}``).
+    NOTE: Källan är inte runtime-dossiers (``data/dossiers/{hard,soft}``).
     """
     lookup: dict[str, dict[str, Any]] = {}
     sources: list[str] = []
@@ -286,26 +281,6 @@ def _load_inspiration_lookup(
                     }
                 if lookup:
                     sources.append(BLOB_MANIFEST_REL)
-        except Exception:
-            pass
-
-    legacy_path = ctx.catalog_json
-    if legacy_path.is_file():
-        try:
-            payload = read_json(legacy_path)
-            entries = payload.get("entries") if isinstance(payload, dict) else None
-            if isinstance(entries, list):
-                added_legacy = False
-                for entry in entries:
-                    if not isinstance(entry, dict):
-                        continue
-                    entry_id = str(entry.get("id", "")).strip()
-                    if not entry_id or entry_id in lookup:
-                        continue
-                    lookup[entry_id] = {**entry, "_source": "katalog (legacy)"}
-                    added_legacy = True
-                if added_legacy:
-                    sources.append(legacy_path.relative_to(ctx.repo_root).as_posix())
         except Exception:
             pass
 

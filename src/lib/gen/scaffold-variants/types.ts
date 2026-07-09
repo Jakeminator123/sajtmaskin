@@ -72,9 +72,11 @@ export interface ScaffoldVariant {
   signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
   /**
-   * Curated dossier ids associated with this variant. Historically used by
-   * the legacy structural-files pipeline (removed 2026-04-17). Kept for
-   * backoffice display + cross-referencing in `data/dossiers/`.
+   * Inspiration reference ids. New entries are v0-mall Blob ids resolved
+   * against `src/lib/templates/template-blob-manifest.json` (written by the
+   * backoffice Scaffold Wizard); older entries are harmless legacy labels
+   * from the removed external-template pipeline. Runtime only renders them
+   * as a "Derived from curated references" prompt line — nothing is injected.
    */
   sourceTemplateIds?: string[];
   default?: boolean;

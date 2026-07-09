@@ -98,7 +98,6 @@ Paths in the table below are relative to `src/lib/gen/` unless noted otherwise.
 |------|------|----------------|
 | `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata overlaid into runtime scaffold manifests. | Generated locally, gitignored, do not hand-edit unless you are deliberately repairing a bad artifact. |
 | `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated locally, gitignored, only used by semantic scaffold fallback/debugging. |
-| `../../data/external-template-pipeline/reports/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
 
 The legacy `template-library/template-library.generated.json` + embeddings file is no longer present in this folder; the pipeline was deprecated 2026-04-17 (see `scaffolds/registry.ts`). Use the dossier pipeline (`dossiers/`) for per-integration runtime guidance.
 
