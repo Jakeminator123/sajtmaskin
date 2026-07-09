@@ -32,6 +32,7 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - `node scripts/dev/check-unicode-regex.mjs` om du rört regex
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
+- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör `/granska-diff` före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
 
 ## Vercel-åtkomst (CLI + MCP) — inloggat läge
 
@@ -51,6 +52,9 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 - Flag F2/F3 status that goes green **without** real verification as **P1**.
 - Flag **missing tests as P1** when the change touches pipeline, preview, DB, autofix, dependency handling, or any runtime contract.
 - Ignore taste/style unless it is a real UX/runtime/maintainability risk. Keep comments to concrete, merge-blocking problems.
+- **Proportionality (the gate protects, it does not brake):** a well-motivated improvement is **never** held back by style nits — log the nit (P2/backlog) and merge. Restrictive on real breakage (P0/P1, security, broken schema/policy/test/contract, false-green), generous on value. A nitpicky/flaky gate that catches no real risk → log + merge, fix the gate separately. Canonical table: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Proportionalitet".
+
+**Before opening the PR:** run `/granska-diff` (8 `composer-2.5-fast` subagents on your own diff) as a pre-filter — also before any push to master. See [`git.mdc`](.cursor/rules/git.mdc). It does **not** replace the post-check below.
 
 **Bug post-check (run by the PR author, before or right after opening the PR):**
 
@@ -58,11 +62,13 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 2. If Bugbot is unavailable, do a structured manual review of the diff: read `git diff`, identify changed owners/files, hunt for regressions / missing tests / env-DB-preview risk / false-green / broken contracts, run the repo verifications (`npm run typecheck`, targeted `npx vitest run`, `npm run lint`, `npm run db:schema-drift`, …), and summarize findings with file/line refs.
 3. Document the outcome in the PR (which path was used + finding triage) so the merging agent does not redo the pass — the merger's job is to verify the post-check is documented, checks are green, and no P0/P1 is open.
 
+**7-min external-review window:** after opening the PR, wait up to 7 min for a Codex review to land; if none does, run the `bugbot` subagent (above). Never merge a PR younger than 7 min (`gh pr view <n> --json createdAt`) — external reviewers need time to look. Detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Minsta granskning innan merge".
+
 **Author-is-merger rule:** re-reading your own diff is never review. The `bugbot` subagent pass (a separate agent) is the minimum on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't route around the Cursor PR Auto-Merger's `NEEDS_HUMAN` with a self-approval.
 
 **Merge-ready criteria:**
 
-- The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed → merge-ready.
+- The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed, PR ≥ 7 min old with the external-review window satisfied → merge-ready.
 - Codex may be present or absent depending on credits — never block *waiting* for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 - Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).

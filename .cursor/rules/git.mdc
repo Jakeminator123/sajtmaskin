@@ -11,3 +11,12 @@ alwaysApply: true
 - Vid oklar working tree-status: visa `git status --short` och fråga.
 - Om du bedömer att PR behövs: förklara varför och invänta OK.
 - Om användaren ber om merge: följ `pr-merge-review-gate.mdc` först.
+- Före PR-skapande **och** före push till master: kör `/granska-diff` (buggsvärm på egen diff). Se `.cursor/skills/granska-diff/SKILL.md`.
+- `gh pr merge --admin` bara när merge-grinden i `auto-merge-automation.mdc` är uppfylld (alla required checks gröna + `/granska-diff` körd + minst en extern buggkoll + PR ≥ 7 min). Aldrig som genväg förbi röda/väntande checks eller utebliven granskning.
+
+## Branch-modell — master är trunk
+
+- **Alla PR:er går mot `master`** (base = master). `master` är den enda långlivade branchen och ska alltid vara grön och deploybar.
+- Arbeta på en feature-branch (`fix/...`, `feat/...`, `chore/...`), pusha den, öppna PR mot master, merga in. Se `agent-worktree.mdc` (flera agenter → egen worktree).
+- Ingen direktcommit/-push till master. Feature-branchen är bara mellanlager tills grinden passerar — den "ligger inte efter" master, den väntar på merge.
+- Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel: commit/push/PR sker bara på explicit begäran.

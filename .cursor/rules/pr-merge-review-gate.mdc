@@ -7,6 +7,19 @@ alwaysApply: false
 
 Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 
+## Proportionalitet — grinden skyddar, den bromsar inte
+
+Grinden finns för att stoppa riktig skada, inte för att hålla kvar bra arbete på nit. Restriktivt mot brott, generöst mot värde:
+
+| Blockerar merge (fixa först) | Blockerar ALDRIG (logga/notera, merga ändå) |
+|---|---|
+| P0/P1, säkerhet, cross-tenant, secret-läcka | Smak, stil, namn-preferens, formattering |
+| Brutet kontrakt: schema/policy/typer/tester rött | "Skulle kunna vara snyggare/DRY:are" |
+| False-green, körtidsregression | Hypotetisk kant utan repro |
+| Protected path utan oberoende granskning | Nit som inte fångar verklig risk |
+
+En **välmotiverad förbättring stoppas aldrig av smaknit** — logga niten (P2/backlog) och merga. Är en gate/check nitisk eller flaky utan att fånga verklig risk: logga + merga, och fixa gaten separat. Grinden får inte bli en broms som dödar features med värde.
+
 ## Steg
 
 1. `gh pr checks <n>` — relevanta checks ska passera.
@@ -19,6 +32,15 @@ Innan merge av någon PR: verifiera checks och bot-fynd. Grönt CI räcker inte.
 6. P2/Medium = fixa, **eller** logga i [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) med fil-ankare/repro. Lämna aldrig tyst.
 7. Low/nit = fixa eller kort notis.
 8. Efter fix: pusha och låt botar/checks köra om innan merge.
+
+## Minsta granskning innan merge (7-min-fönster + PR-ålder)
+
+Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit köra. Detta är ett merge-grind-villkor i `auto-merge-automation.mdc`, inte valfritt.
+
+1. **PR ≥ 7 min gammal.** Merga aldrig sekunder efter att PR öppnats — externa granskare (Codex/Vercel Agent) hinner inte titta. Verifiera: `gh pr view <n> --json createdAt`.
+2. **Codex-fönster = 7 min.** Har det gått 7 min från PR-skapandet utan att en Codex-review/-rekommendation landat (`chatgpt-codex-connector`) → vänta inte längre. Kör i stället **Cursor-bugbot-subagenten** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) på diffen och dokumentera fynden i PR:en.
+3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); då krävs ingen separat bugbot — men kör bugbot ändå på protected paths.
+4. `/granska-diff` (buggsvärm på egen diff) ska redan ha körts **före** PR:en skapades (se `workflow.mdc`/`git.mdc`). Det för-filtret ersätter inte den externa buggkollen ovan.
 
 ## Spårningskrav (varje fynd, inget tappas)
 
@@ -59,7 +81,7 @@ Självgranskning räcker inte när författaren själv mergar:
 "Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08):
 
 - Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetens syfte.
-- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar **allt**, inklusive required checks). Avsett, inte ett kryphål.
+- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar **allt**, inklusive required checks). Avsett — men bara **efter** att merge-grinden i `auto-merge-automation.mdc` är uppfylld (grönt + `/granska-diff` + extern buggkoll + PR ≥ 7 min). `--admin` är inte en genväg förbi granskning.
 - De tre required-checks är nu **GitHub-tvingade** för icke-admin-merge — en extern PR kan inte merge:as med dem röda. Ett **admin**-merge kan dock överstyra även röda checks, så "vänta på grönt" är fortsatt agent-disciplin vid `--admin`.
 - Checks som INTE är required (`stability` är warn-only, plus runtime-kontrakt) + bugbot-subagent-passet är därför fortfarande verkligt skydd utöver de tre.
 - Aktiva bot-granskare i praktiken: **Cursor "Find critical bugs"** + **Vercel Agent Review** + **GitGuardian**. **Codex** kan vara på eller av beroende på credits (av 2026-07-02, tillbaka 2026-07-08) — läs och triagera alltid dess review om den finns.
