@@ -17,6 +17,8 @@ Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
 
 `.github/workflows/**`, `package.json`/`package-lock.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/lib/tenant/**`, `src/lib/gen/**`, `src/lib/providers/**`, `src/lib/integrations/**`, `src/lib/logging/**`, `src/app/api/**`, `migrations/**`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`, m.fl. Likaså risk ≥ 3 (CI/runtime/security/false-green) och grandmaster-PR som inte är ren typo/docs.
 
+`NEEDS_HUMAN` betyder **kräver oberoende bugbot-subagent-pass + uttrycklig agent/människa-bedömning** — inte att PR:en är omergbar. Merge-agenten uppfyller det kravet och **får** merga protected-path/risk ≥ 3-PR:er efter passet (annars kunde ingen riktig PR någonsin mergas — de flesta rör `src/lib/**` eller `src/app/api/**`). En helt automatisk mergare (om påslagen) kan däremot inte uppfylla kravet → avstår.
+
 ## `gh pr merge --admin` — förbjudet före grinden
 
 Admin-bypass kringgår **allt** (required checks + code-owner-review). En agent får därför **inte** `--admin`:a en PR förrän hela merge-grinden ovan är uppfylld och dokumenterad i PR:en. Grönt CI räcker inte: grönt ≠ granskat, och admin-merge överstyr även röda/väntande checks. `--admin` är inte en genväg förbi en utebliven granskning eller ett 7-min-fönster som inte gått ut.
