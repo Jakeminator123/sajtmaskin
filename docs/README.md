@@ -90,10 +90,8 @@ Not runtime dependencies:
 
 - Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
 - historical helper references under `tools/` / `doc-browser` when reading older docs or git history; there is no active `tools/` directory in the current tree
-- raw discovery under `data/external-template-pipeline/raw-discovery/current/`
-- local shallow clone cache under `data/external-template-pipeline/repo-cache/`
 - raw local `_sidor` datasets
-- local template-library generation helpers and embeddings artifacts when they are only used for curation/validation
+- local generation helpers and embeddings artifacts when they are only used for curation/validation
 
 ## Key navigation
 
@@ -116,7 +114,7 @@ Not runtime dependencies:
 | Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Kodkarta (mappar + kodytor) | [`code-map.md`](architecture/code-map.md) |
-| Vercel Templates discovery + Playwright + scaffolds | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md), [`docs/schemas/external-template-pipeline-contract.md`](schemas/external-template-pipeline-contract.md) |
+| Vercel Templates discovery + Playwright + scaffolds (legacy, borttaget) | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) — arkiv i syskonmappen `gamla-skript-till-scaffolds/` utanför repot |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |

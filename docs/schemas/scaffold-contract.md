@@ -22,9 +22,9 @@ only scaffold source used directly by generation.
 
 Do not confuse runtime scaffolds with:
 
-- `src/lib/templates/` template-gallery items
-- external Vercel templates
-- curated external references in `data/external-template-pipeline/reference-library/`
+- `src/lib/templates/` template-gallery items (v0-mallar in Blob)
+- external Vercel templates (legacy pipeline removed 2026-07-09; archive in the
+  sibling folder `gamla-skript-till-scaffolds/` outside the repo)
 
 ## What a scaffold actually contains
 

@@ -84,9 +84,9 @@ Prompt / Deep Brief
 | Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
 | Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
 
-Legacy external-template/template-library-flöden är historik; se
-[`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md)
-om du behöver läsa äldre research-data.
+Legacy external-template/template-library-flöden är historik. Kontraktsdokumentet
+och skripten togs bort ur repot 2026-07-09 — arkivkopia finns i syskonmappen
+`../gamla-skript-till-scaffolds/` utanför repot och i git-historiken (`4ba06d96e`).
 
 ---
 

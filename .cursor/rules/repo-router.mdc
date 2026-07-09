@@ -22,7 +22,7 @@ Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommi
 | Variants | `config/scaffold-variants/<scaffold>/<variant>.json` |
 | Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` |
 | Dossier tooling/index | `data/dossiers/_index/capability-map.json`, `scripts/dossiers/`, `backoffice/pages/dossiers.py` |
-| Template references | `data/template-references/repos/` och `data/external-template-pipeline/reference-library/catalog.json` |
+| Template references | `data/template-references/repos/` (extern pipeline borttagen 2026-07-09 — arkiv i syskonmappen `gamla-skript-till-scaffolds/`) |
 | Backoffice | `sajtmaskin_backoffice.py`, `backoffice/pages/*.py` |
 | Terminologi | `.cursor/rules/terminology.mdc`, full lista i `docs/architecture/glossary.md` |
 

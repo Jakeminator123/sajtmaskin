@@ -3,7 +3,6 @@ description: "Dossier-regler: skilj runtime dossiers från template references o
 globs:
   - data/dossiers/**
   - data/template-references/**
-  - data/external-template-pipeline/**
   - scripts/dossiers/**
   - backoffice/pages/dossiers.py
   - src/lib/gen/dossiers/**
@@ -24,7 +23,7 @@ Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGE
 | Dossier scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
 | Backoffice | `backoffice/pages/dossiers.py` | Adminvy för runtime dossiers |
 | Template reference repos | `data/template-references/repos/<id>/` | Rå input till AI-kuration (gitignorerad, lokal) |
-| Reference catalog (LEGACY) | `data/external-template-pipeline/reference-library/catalog.json` | **Borttagen 2026-04-20, gitignorerad, läses ej i runtime.** Endast backoffice (`scaffold_lifecycle.py`) rör den för `sourceTemplateIds`-QA. Skapa inget nytt beroende hit. |
+| Reference catalog (LEGACY) | *(helt borttagen 2026-07-09)* | `sourceTemplateIds` slås numera upp mot `src/lib/templates/template-blob-manifest.json` (v0-mallar i Blob). Arkiv av gamla pipeline-skripten: syskonmappen `gamla-skript-till-scaffolds/` utanför repot. Skapa inget nytt beroende mot legacy-katalogen. |
 | Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Visuellt uttryck (eget subsystem, ej dossier); `sourceTemplateIds` är proveniens-etikett, ingen runtime-join |
 
 ## Regler

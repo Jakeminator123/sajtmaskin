@@ -154,7 +154,7 @@ Kanonisk plats: `scripts/env/`.
 
 ## ~~build-template-library.ts / import-template-discovery.ts / hydrate-template-library-cache.ts / generate-template-library-embeddings.ts / scaffolds:curate / promote-to-scaffold.ts / full_template_refresh.py / artifacts:rebuild~~
 
-**Borttaget 2026-04-17.** Hela template-library-pipelinen togs bort i `4ba06d96e` — externa Vercel-mall-research, dossier-mellanlager, scaffold-promotion-flödet, `npm run template-*`-kommandon och `npm run artifacts:rebuild*`. Den nya dossier-pipen (manuell curation per referens via `npm run dossiers:curate`) ersätter både template-library- och scaffold-research-spåren. Historik finns i `data/external-template-pipeline/` (gitignored) och `archive/dossiers-legacy-2026-04-20/`.
+**Borttaget 2026-04-17.** Hela template-library-pipelinen togs bort i `4ba06d96e` — externa Vercel-mall-research, dossier-mellanlager, scaffold-promotion-flödet, `npm run template-*`-kommandon och `npm run artifacts:rebuild*`. Den nya dossier-pipen (manuell curation per referens via `npm run dossiers:curate`) ersätter både template-library- och scaffold-research-spåren. Sista spåren (kontraktsdoc + ignore-/config-rader) rensades 2026-07-09; arkivkopia av skripten ligger i syskonmappen `../gamla-skript-till-scaffolds/` utanför repot samt i git-historiken.
 
 ## Aktiv dossier-CLI
 

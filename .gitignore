@@ -97,13 +97,6 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 # och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
 docs/canvases/llm-flow.canvas.json
 
-# --- Canonical external-template pipeline (local mutable data) ---
-data/external-template-pipeline/scrape-cache/**
-data/external-template-pipeline/raw-discovery/**
-data/external-template-pipeline/repo-cache/**
-data/external-template-pipeline/reference-library/**
-data/external-template-pipeline/reports/**
-
 # --- Scaffold Wizard drafts (AI-utkast, aldrig runtime) ---
 data/scaffold-wizard-drafts/**
 !data/scaffold-wizard-drafts/README.md

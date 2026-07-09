@@ -132,7 +132,7 @@
       ]
     },
     "Runtime scaffolds": {
-      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab och external-template-pipelinen.",
+      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob).",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
