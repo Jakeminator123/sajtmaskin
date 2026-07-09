@@ -46,14 +46,14 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 
 | `mock` | Beteende utan riktig nyckel | Exempel-dossiers |
 |---|---|---|
-| `canned` | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts. | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation` |
+| `canned` | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts. | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation`, `rag-chat` |
 | `seed` | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps. | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas` |
 | `success` | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern. | `resend-contact-form`, `mailchimp-newsletter` |
 | `none` (default vid utelämnat) | Kan inte mockas meningsfullt (betalning, inloggning) → UI:t visar en diskret demo-/konfigurationsbanner (`IntegrationConfigNotice`-mönstret). | `stripe-checkout`, `clerk-auth`, `ably-realtime` |
 
 Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en *riktig* primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
-**Satt på 11 av 14 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka).
+**Satt på 12 av 15 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 

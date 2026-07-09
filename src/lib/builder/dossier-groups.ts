@@ -58,6 +58,7 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   auth: "auth",
   "ai-chat": "ai",
   "ai-tool-calling": "ai",
+  "rag-chat": "ai",
   "image-generation": "ai",
   "contact-form": "email",
   "newsletter-subscribe": "email",
