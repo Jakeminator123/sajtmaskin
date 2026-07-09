@@ -78,6 +78,7 @@
   "typescript.tsserver.experimental.enableProjectDiagnostics": false,
 
   // ── Formatterare per språk ──
+  "[json]": { "editor.defaultFormatter": "vscode.json-language-features" },
   "[jsonc]": { "editor.defaultFormatter": "vscode.json-language-features" },
   "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
