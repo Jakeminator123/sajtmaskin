@@ -440,14 +440,16 @@ export function ProjectEnvVarsPanel({
             ? detectIntegrationsFromVersionFiles(fileEntries, detectionOptions)
             : [],
         );
+        setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
+        setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
       }
-      // Scope fetch failed (review round 2, fix 7): SKIP the detection update
-      // and keep the previous state. Unscoped detection is the STRICTEST mode
-      // (every unmatched integration becomes build-blocking) — falling back to
-      // it on a transient fetch error would re-create exactly the env wall the
-      // scoping fixes. Stale-but-scoped beats fresh-but-world-demanding.
-      setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
-      setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
+      // Scope fetch failed (review round 2, fix 7 + Bugbot on #483): SKIP the
+      // WHOLE analysis update — integrations, business packs and analytics —
+      // and keep the previous state in lockstep. Unscoped detection is the
+      // STRICTEST mode (every unmatched integration becomes build-blocking),
+      // and partially refreshing packs/analytics while integrations stay stale
+      // would mix two versions' analysis in the same panel.
+      // Stale-but-consistent beats fresh-but-world-demanding.
     } catch (loadError) {
       if (loaderGenerationRef.current !== gen) return;
       setDetectedIntegrations([]);

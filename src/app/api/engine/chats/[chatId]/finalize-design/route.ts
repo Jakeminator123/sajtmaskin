@@ -129,7 +129,23 @@ export async function POST(
 
     // One owner (review round 2): snapshot ∪ version-presence. Files are read
     // once here and reused for the spec derivation (no second files_json read).
-    const baseVersionFiles = await getVersionFiles(baseVersion.id);
+    // Best-effort read (Bugbot on #483): a transient files_json error must
+    // surface as the documented retryable 409, not an unhandled 500 — and it
+    // must NOT degrade to an empty file list (empty files ⇒ empty spec ⇒
+    // false `ready: true`).
+    const baseVersionFiles = await getVersionFiles(baseVersion.id).catch(() => null);
+    if (baseVersionFiles === null) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "version_files_unavailable",
+          parentVersionId: baseVersion.id,
+          message:
+            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+        },
+        { status: 409 },
+      );
+    }
     const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
       snapshot: chat.orchestration_snapshot,
       versionFiles: baseVersionFiles,
@@ -137,7 +153,7 @@ export async function POST(
     const spec = await deriveTier3BuildSpecForVersion(
       baseVersion.id,
       selectedDossiers,
-      { preloadedFiles: baseVersionFiles ?? [] },
+      { preloadedFiles: baseVersionFiles },
     );
 
     if (!spec) {
