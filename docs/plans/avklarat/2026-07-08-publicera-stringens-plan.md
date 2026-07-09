@@ -1,7 +1,9 @@
 ---
-status: active
+status: avklarad
 owner: unassigned
 created: 2026-07-08
+archived: 2026-07-09
+archived_note: "Levererad via PR #456 (mergad 2026-07-09): alla sex lanes (A1–A4 ReleaseGate-lås/domänlås/deploy-repair/inspectorUrl, B RAG-härdning, C terminologi) + kompletteringspass A#12/A#5/A#3. Bug-post-check: 5 fynd (#1 fixad, #2–#5 loggade som BB#deploy2–5). Flyttad active→avklarat 2026-07-09."
 topic: Publicera/deploy + F3-integrationer — enklare och mer stringent, låst mot scheman/policies/beslut
 source: Kodläsning via 6 read-only subagenter + orkestratörens egen verifiering (file:line nedan)
 ---

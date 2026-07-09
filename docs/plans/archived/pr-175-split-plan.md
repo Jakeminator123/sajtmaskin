@@ -1,7 +1,9 @@
 ---
-status: active
+status: archived
 owner: unassigned
 created: 2026-06-24
+archived: 2026-07-09
+archived_note: "PR #175 stängd (CLOSED, ej mergad). De två fristående lågrisk-cherry-picksen (P1 next/font-weight-fix, P2 bild-materializer) lyftes som öppna punkter till docs/plans/active/README.md. Planen behålls i archived som bärare av den större studio-port-arkitekturbeslutet (§4/§6, P3–P8). Flyttad active→archived 2026-07-09."
 topic: PR #175 (collab/chgenberg) decision + split plan
 source_pr: https://github.com/Jakeminator123/sajtmaskin/pull/175
 ---
