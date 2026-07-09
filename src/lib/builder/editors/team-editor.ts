@@ -26,7 +26,7 @@ function isPageFile(fileName: string): boolean {
 // Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
 // sibling object that starts with `name:` but lacks `role:`/`bio:` cannot leak in.
 const TEAM_MEMBER_OBJECT_RE =
-  /\{\s*name:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*role:\s*(["'`])((?:(?!\3)[\s\S])*?)\3\s*,\s*bio:\s*(["'`])((?:(?!\5)[\s\S])*?)\5[\s\S]*?\}/g;
+  /\{\s*name:\s*(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1\s*,\s*role:\s*(["'`])((?:\\[\s\S]|(?!\3)[\s\S])*?)\3\s*,\s*bio:\s*(["'`])((?:\\[\s\S]|(?!\5)[\s\S])*?)\5[\s\S]*?\}/g;
 
 const TEAM_MEMBER_HTML_RE =
   /<(h3|h4|strong)\b[^>]*>([^<]+)<\/\1>\s*<(?:p|span)\b[^>]*>([^<]+)<\/(?:p|span)>\s*<p\b[^>]*>([\s\S]*?)<\/p>/gi;

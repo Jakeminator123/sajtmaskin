@@ -61,6 +61,19 @@ describe("testimonials-editor", () => {
       ]);
     });
 
+    it("keeps items whose fields contain escaped quote delimiters", () => {
+      const content = [
+        "const testimonials = [",
+        "  { name: 'Anna', role: 'VD', quote: 'It\\'s the best.' },",
+        "  { name: 'Erik', role: 'CTO', quote: 'We\\'re very happy.' },",
+        "];",
+      ].join("\n");
+      expect(readTestimonialItemsDraft("app/page.tsx", content)).toEqual([
+        { name: "Anna", role: "VD", quote: "It\\'s the best." },
+        { name: "Erik", role: "CTO", quote: "We\\'re very happy." },
+      ]);
+    });
+
     it("caps at 8 items", () => {
       const items = Array.from({ length: 10 }, (_, i) =>
         `  { name: 'N${i}', role: 'R${i}', quote: 'Q${i}' },`,

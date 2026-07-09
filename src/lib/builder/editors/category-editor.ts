@@ -20,7 +20,7 @@ function isPageFile(fileName: string): boolean {
 // Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
 // sibling object that has `name:` but no `slug:` cannot leak into the match.
 const CATEGORY_ITEM_RE =
-  /\{\s*name:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*slug:\s*(["'`])((?:(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
+  /\{\s*name:\s*(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1\s*,\s*slug:\s*(["'`])((?:\\[\s\S]|(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
 
 function findCategoryItemMatches(content: string): CategoryItemMatch[] {
   const matches: CategoryItemMatch[] = [];

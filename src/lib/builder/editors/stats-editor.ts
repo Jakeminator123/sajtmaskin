@@ -23,7 +23,7 @@ function isPageFile(fileName: string): boolean {
 // Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
 // sibling object that has `label:` but no `value:` cannot leak into the match.
 const STAT_ITEM_RE =
-  /\{\s*label:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*value:\s*(["'`])((?:(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
+  /\{\s*label:\s*(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1\s*,\s*value:\s*(["'`])((?:\\[\s\S]|(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
 
 function findStatItemMatches(content: string): StatItemMatch[] {
   const matches: StatItemMatch[] = [];

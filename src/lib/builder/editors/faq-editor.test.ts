@@ -55,6 +55,21 @@ describe("faq-editor", () => {
       expect(readFaqItemsDraft("app/page.tsx", content)).toBeNull();
     });
 
+    it("keeps items whose fields contain escaped quote delimiters", () => {
+      // Bounded captures must still swallow escaped quotes (\\') — otherwise the
+      // item stops matching and disappears from the editor (Codex/Vercel P2).
+      const content = [
+        "const faqs = [",
+        "  { question: 'What\\'s included?', answer: 'It\\'s everything.' },",
+        "  { question: 'How does it work?', answer: 'Simply.' },",
+        "];",
+      ].join("\n");
+      expect(readFaqItemsDraft("app/page.tsx", content)).toEqual([
+        { question: "What\\'s included?", answer: "It\\'s everything." },
+        { question: "How does it work?", answer: "Simply." },
+      ]);
+    });
+
     it("caps at 10 items", () => {
       const items = Array.from({ length: 12 }, (_, i) =>
         `  { question: 'Q${i}', answer: 'A${i}' },`,
