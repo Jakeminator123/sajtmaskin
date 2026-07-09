@@ -37,6 +37,7 @@ import {
   retrieveSimilarFailures,
   warmErrorLogIndexBestEffort,
 } from "./error-log-retriever";
+import { FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR } from "@/lib/logging/error-log-fix-lessons";
 
 const SNAPSHOT_DIR = path.dirname(ERROR_LOG_INDEX_PATH);
 let originalSnapshot: string | null = null;
@@ -275,6 +276,78 @@ describe("error-log retriever", () => {
     expect(renderErrorLogRagBlockLines({ prompt: "missing symbol" }).join("\n")).toContain(
       "(no detail)",
     );
+  });
+
+  describe("cross-tenant fixText redaction (A#1)", () => {
+    // `crossTenant` is derived from NODE_ENV in loadIndexForRetrieval; toggle it
+    // here to exercise the prod (multi-tenant) vs dev (single-tenant) branches.
+    const withNodeEnv = (value: string, fn: () => void) => {
+      vi.stubEnv("NODE_ENV", value);
+      __resetErrorLogRetrieverCacheForTests();
+      try {
+        fn();
+      } finally {
+        vi.unstubAllEnvs();
+        __resetErrorLogRetrieverCacheForTests();
+      }
+    };
+
+    const leakyPayload = {
+      time: null,
+      phase: "server",
+      fault: "integration-misconfig",
+      faultText: "Stripe checkout failed",
+      // Free-form, tenant-specific — must NOT cross a tenant boundary.
+      fixText: "Set STRIPE_SECRET_KEY for acme-corp and redeployed the /checkout route",
+      scaffoldId: null,
+      routePath: null,
+      variantId: null,
+      capabilityIds: [],
+      generationMode: null,
+      lineageHash: null,
+      result: "fixed",
+    };
+
+    it("drops free-form fixText from cross-tenant (prod) hits", () => {
+      writeSnapshot([{ id: "row-leak", text: "stripe secret checkout failed acme", payload: leakyPayload }]);
+      withNodeEnv("production", () => {
+        const hits = retrieveSimilarFailures({ prompt: "stripe checkout failed" });
+        expect(hits.length).toBeGreaterThan(0);
+        expect(hits[0].crossTenant).toBe(true);
+        expect(hits[0].fixText).toBeNull();
+        const rendered = renderErrorLogRagBlockLines({ prompt: "stripe checkout failed" }).join("\n");
+        expect(rendered).not.toContain("acme-corp");
+        expect(rendered).not.toContain("STRIPE_SECRET_KEY");
+        expect(rendered).not.toContain("→ fix:");
+      });
+    });
+
+    it("keeps a platform-authored fix lesson across tenants", () => {
+      writeSnapshot([
+        {
+          id: "row-safe",
+          text: "stripe secret checkout failed acme",
+          payload: { ...leakyPayload, fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR },
+        },
+      ]);
+      withNodeEnv("production", () => {
+        const hits = retrieveSimilarFailures({ prompt: "stripe checkout failed" });
+        expect(hits[0].crossTenant).toBe(true);
+        expect(hits[0].fixText).toBe(FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR);
+        expect(renderErrorLogRagBlockLines({ prompt: "stripe checkout failed" }).join("\n")).toContain(
+          "→ fix:",
+        );
+      });
+    });
+
+    it("keeps raw fixText in single-tenant dev (non-prod)", () => {
+      writeSnapshot([{ id: "row-dev", text: "stripe secret checkout failed acme", payload: leakyPayload }]);
+      withNodeEnv("development", () => {
+        const hits = retrieveSimilarFailures({ prompt: "stripe checkout failed" });
+        expect(hits[0].crossTenant).toBe(false);
+        expect(hits[0].fixText).toContain("acme-corp");
+      });
+    });
   });
 
   describe("error-log retriever — cold-start warm path", () => {

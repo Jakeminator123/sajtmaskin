@@ -1983,27 +1983,55 @@ def _baseline_drift(ctx: BackofficeContext) -> dict[str, list[str]]:
     return {"changed": changed, "untracked": untracked, "added_since_tag": added}
 
 
+def _baseline_head_delta(ctx: BackofficeContext) -> list[str]:
+    """Commits AFTER the baseline tag that touch the scaffold surfaces.
+
+    A factory reset only rewrites the working tree + index to the tag content —
+    HEAD stays ahead. When such committed changes exist they remain in history,
+    but a *later* commit made from the reset state would drop them from the
+    branch tip (they read as deletions vs the tag). Surfaced in the UI so the
+    operator can move the baseline instead of silently orphaning committed work.
+    """
+    code, output = _run_git(
+        ctx, ["log", "--oneline", f"{BASELINE_TAG}..HEAD", "--", *BASELINE_PATHS]
+    )
+    if code != 0:
+        return []
+    return [line for line in output.splitlines() if line.strip()]
+
+
 def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
-    """Reset the scaffold surfaces to the baseline tag. Returns log lines."""
+    """Reset the scaffold surfaces to the baseline tag. Returns log lines.
+
+    Transactional ordering (A#3): `git restore` runs FIRST, so a restore
+    failure aborts before anything is deleted. The previous order
+    (unlink → restore) permanently deleted files-added-since-baseline if the
+    restore step then failed. Files not present at the tag are untouched by
+    restore, so they are deleted only after a clean restore.
+    """
     log: list[str] = []
     drift = _baseline_drift(ctx)
 
-    for rel in drift["added_since_tag"] + drift["untracked"]:
-        target = ctx.repo_root / rel
-        if target.is_file():
-            target.unlink()
-            log.append(f"raderade {rel}")
-
-    # --staged ingår så även indexet (staging) återställs — annars kan en
-    # senare commit tyst återinföra experiment som UI:n påstår är borta.
+    # 1) Restore tracked scaffold surfaces to the baseline (index + worktree)
+    #    FIRST — a failure here is then a no-op, not a partial/unrecoverable
+    #    delete. `--staged` also resets THIS checkout's index for these paths so
+    #    a later commit can't re-introduce experiments the UI says are gone.
     code, output = _run_git(
         ctx,
         ["restore", "--source", BASELINE_TAG, "--staged", "--worktree", "--", *BASELINE_PATHS],
         timeout=120,
     )
     if code != 0:
-        raise RuntimeError(f"git restore misslyckades: {output}")
+        raise RuntimeError(f"git restore misslyckades (inget raderades): {output}")
     log.append(f"git restore --source {BASELINE_TAG} --staged --worktree klar")
+
+    # 2) Delete files ADDED after the baseline (not present at the tag, so the
+    #    restore above leaves them). Safe now that the restore has succeeded.
+    for rel in drift["added_since_tag"] + drift["untracked"]:
+        target = ctx.repo_root / rel
+        if target.is_file():
+            target.unlink()
+            log.append(f"raderade {rel}")
 
     # Sopa bort tomma kataloger som blev kvar efter raderade filer.
     for base_rel in BASELINE_PATHS:
@@ -2050,6 +2078,21 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
     c2.metric("Nya ospårade filer", len(drift["untracked"]))
     c3.metric("Totalt avvikande", total_drift)
 
+    head_delta = _baseline_head_delta(ctx)
+    if head_delta:
+        st.warning(
+            f"⚠ {len(head_delta)} commit(ar) i scaffold-ytorna ligger EFTER baselinen. "
+            "Fabriksåterställningen ändrar bara arbetskopian/indexet till taggen — HEAD "
+            "flyttas inte. Ändringarna finns kvar i git-historiken, men en efterföljande "
+            "commit från det återställda läget skulle backa dem från branch-tippen. Vill "
+            'du behålla nuvarande läge som standard: använd "Uppdatera baselinen" nedan.'
+        )
+        with st.expander(
+            f"Commits efter baselinen i scaffold-ytorna ({len(head_delta)})", expanded=False
+        ):
+            for line in head_delta:
+                st.markdown(f"- `{line}`")
+
     if total_drift == 0:
         st.success("Scaffold-ytorna är identiska med baselinen. Inget att återställa.")
     else:
@@ -2062,7 +2105,9 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
         st.error(
             "Fabriksåterställningen raderar filer som tillkommit efter baselinen och "
             "återställer alla ändringar i scaffold-ytorna — även sådant andra "
-            "agenter/personer inte hunnit committa. Dubbelkolla listan ovan först."
+            "agenter/personer inte hunnit committa. Åtgärden återställer även git-indexet "
+            "(staging) för dessa ytor i den checkout backoffice körs i. Dubbelkolla listan "
+            "ovan först."
         )
         with st.form("baseline_reset_form"):
             acknowledge = st.checkbox(

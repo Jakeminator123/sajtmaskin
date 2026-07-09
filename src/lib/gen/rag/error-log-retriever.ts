@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { FEATURES } from "@/lib/config";
+import { isCrossTenantSafeFixText } from "@/lib/logging/error-log-fix-lessons";
 import {
   buildTfIdfIndex,
   queryTfIdfIndex,
@@ -169,13 +170,19 @@ export interface RetrieveSimilarFailuresOptions {
 export interface RetrievedFailure {
   fault: string;
   faultText: string;
+  /**
+   * Already redacted: when `crossTenant` is true this is either `null` or one
+   * of the platform-authored lessons in `error-log-fix-lessons.ts`. Free-form
+   * producer text never survives a tenant boundary, so consumers may render
+   * this verbatim without re-checking.
+   */
   fixText: string | null;
   scaffoldId: string | null;
   routePath: string | null;
   capabilityIds: string[];
   result: string | null;
   score: number;
-  /** True when served from the cross-tenant prod DB index (render redacts detail). */
+  /** True when served from the cross-tenant prod index (detail is redacted). */
   crossTenant: boolean;
 }
 
@@ -232,7 +239,15 @@ export function retrieveSimilarFailures(
   return reranked.slice(0, topK).map((hit) => ({
     fault: hit.document.payload.fault || "unknown_fault",
     faultText: hit.document.payload.faultText || "",
-    fixText: hit.document.payload.fixText,
+    // Redact HERE (the retrieval boundary), not only in the renderer: `fixText`
+    // is a free-form producer field, and the index is cross-tenant in prod. A
+    // lesson only crosses a tenant boundary when it is one of the constant,
+    // platform-authored texts in `error-log-fix-lessons.ts` (default-deny), so
+    // no consumer of this function can leak another tenant's detail.
+    fixText:
+      crossTenant && !isCrossTenantSafeFixText(hit.document.payload.fixText)
+        ? null
+        : hit.document.payload.fixText,
     scaffoldId: hit.document.payload.scaffoldId,
     routePath: hit.document.payload.routePath ?? null,
     capabilityIds: safeStringArray(hit.document.payload.capabilityIds),

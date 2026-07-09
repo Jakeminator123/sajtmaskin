@@ -9,6 +9,10 @@ import {
 import { countByFixer } from "@/lib/gen/autofix/types";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
+import {
+  FIX_LESSON_REPAIR_LOOP_DETERMINISTIC,
+  repairLoopLlmFixLesson,
+} from "@/lib/logging/error-log-fix-lessons";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
@@ -500,8 +504,8 @@ function logRepairLoopOutcomeBestEffort(params: {
     const fixText =
       params.result === "fixed"
         ? params.method === "deterministic"
-          ? "repair-loop deterministic pass (autofix + import-repair) resolved the quality-gate failure"
-          : `repair-loop LLM fixer resolved the quality-gate failure after ${params.llmPasses} pass(es)`
+          ? FIX_LESSON_REPAIR_LOOP_DETERMINISTIC
+          : repairLoopLlmFixLesson(params.llmPasses)
         : null;
     for (const failure of params.failedOutputs.slice(0, 5)) {
       appendErrorLogEvent({
