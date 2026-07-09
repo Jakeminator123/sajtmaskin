@@ -70,30 +70,46 @@ export function useTerminalTypewriter() {
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    let interval: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (started.current) return
+      started.current = true
+      const totalLines = 6
+      let line = 0
+      interval = setInterval(() => {
+        line++
+        setVisibleLines(line)
+        setCursorLine(line)
+        if (line >= totalLines && interval) clearInterval(interval)
+      }, 420)
+    }
+    // Lägre tröskel än tidigare (0.4): boxen är hög, så 40 % synlighet nåddes
+    // ofta aldrig i den inre scroll-containern → terminalen blev stående tom.
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !started.current) {
-          started.current = true
-          const totalLines = 6
-          let line = 0
-          const interval = setInterval(() => {
-            line++
-            setVisibleLines(line)
-            setCursorLine(line)
-            if (line >= totalLines) clearInterval(interval)
-          }, 420)
-        }
+        if (entry.isIntersecting) start()
       },
-      { threshold: 0.4 },
+      { threshold: 0.15 },
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    // Säkerhetsnät: starta alltid efter en stund så boxen aldrig är permanent tom.
+    const fallback = setTimeout(start, 6000)
+    return () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+      if (interval) clearInterval(interval)
+    }
   }, [])
 
   return { containerRef, visibleLines, cursorLine }
 }
 
 export function useHonestCounter(fakeTarget: number, realValue: number, message: string) {
+  // `fakeTarget` behålls i signaturen för bakåtkompatibilitet men används inte
+  // längre: den gamla uppblås-till-fejk-siffra + glitch-teatern lät sidan visa
+  // påhittade tal ("2 480+") i flera sekunder, vilket såg ut som fejkade
+  // vanity-metrics. Nu räknar vi direkt upp till det ärliga värdet.
+  void fakeTarget
   const [count, setCount] = useState(0)
   const [phase, setPhase] = useState<"idle" | "inflating" | "glitch" | "honest">("idle")
   const ref = useRef<HTMLDivElement>(null)
@@ -102,44 +118,40 @@ export function useHonestCounter(fakeTarget: number, realValue: number, message:
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    const start = () => {
+      if (started.current) return
+      started.current = true
+      setPhase("inflating")
+
+      const duration = 900
+      const startedAt = performance.now()
+      const step = (now: number) => {
+        const progress = Math.min((now - startedAt) / duration, 1)
+        const eased = 1 - Math.pow(1 - progress, 3)
+        setCount(Math.max(1, Math.floor(eased * realValue)))
+        if (progress < 1) {
+          requestAnimationFrame(step)
+        } else {
+          setCount(realValue)
+          setPhase("honest")
+        }
+      }
+      requestAnimationFrame(step)
+    }
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !started.current) {
-          started.current = true
-          setPhase("inflating")
-
-          const duration = 1600
-          const start = performance.now()
-          const step = (now: number) => {
-            const progress = Math.min((now - start) / duration, 1)
-            const eased = 1 - Math.pow(1 - progress, 3)
-            setCount(Math.floor(eased * fakeTarget))
-            if (progress < 1) {
-              requestAnimationFrame(step)
-            } else {
-              setTimeout(() => {
-                setPhase("glitch")
-                let glitchCount = 0
-                const glitchInterval = setInterval(() => {
-                  setCount(Math.floor(Math.random() * fakeTarget))
-                  glitchCount++
-                  if (glitchCount > 8) {
-                    clearInterval(glitchInterval)
-                    setCount(realValue)
-                    setPhase("honest")
-                  }
-                }, 60)
-              }, 800)
-            }
-          }
-          requestAnimationFrame(step)
-        }
+        if (entry.isIntersecting) start()
       },
-      { threshold: 0.5 },
+      { threshold: 0.2 },
     )
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [fakeTarget, realValue])
+    // Säkerhetsnät: hoppa till ärligt värde om observern aldrig triggar.
+    const fallback = setTimeout(start, 6000)
+    return () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+    }
+  }, [realValue])
 
   return { count, phase, ref, message }
 }
@@ -179,7 +191,14 @@ export function useInView(threshold = 0.3) {
       { threshold },
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    // Säkerhetsnät: visa innehållet efter en stund även om observern aldrig
+    // triggar (t.ex. tröskel som inte nås i den inre scroll-containern) — annars
+    // blir sektioner som Lighthouse-ringarna stående tomma.
+    const fallback = setTimeout(() => setVisible(true), 6000)
+    return () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+    }
   }, [threshold])
 
   return { ref, visible }

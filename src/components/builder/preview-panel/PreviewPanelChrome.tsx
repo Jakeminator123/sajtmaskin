@@ -17,7 +17,8 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -184,8 +185,41 @@ export function PreviewPanelChrome({
   // Lightweight "Kod" view-switcher menu. Deliberately not a Radix
   // DropdownMenu: this repo can't drive Radix pointer-event flows in jsdom
   // (see SeoOptInPanel.test.tsx), and the existing code-view tests need a
-  // synthetic-click-friendly menu item.
+  // synthetic-click-friendly menu item. The menu itself is portaled to
+  // document.body with fixed positioning so the toolbar wrapper's
+  // overflow-y-auto cannot clip it into the info banner below.
   const [codeMenuOpen, setCodeMenuOpen] = useState(false);
+  const [codeMenuPosition, setCodeMenuPosition] = useState({ top: 0, right: 0 });
+  const codeMenuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const handleToggleCodeMenu = () => {
+    if (!codeMenuOpen) {
+      const rect = codeMenuTriggerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCodeMenuPosition({
+          top: rect.bottom + 4,
+          right: Math.max(0, window.innerWidth - rect.right),
+        });
+      }
+    }
+    setCodeMenuOpen((prev) => !prev);
+  };
+
+  // The menu is portaled with fixed positioning captured once at open time, so
+  // any scroll (incl. the toolbar wrapper's own overflow-y-auto — hence capture)
+  // or resize would leave it detached from the trigger. Close it instead of
+  // letting it drift; the user reopens it in the new position.
+  useEffect(() => {
+    if (!codeMenuOpen) return;
+    const close = () => setCodeMenuOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [codeMenuOpen]);
+
   // Synchronous guard so a double Enter/click cannot dispatch two add flows
   // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
   const submitLockRef = useRef(false);
@@ -523,9 +557,10 @@ export function PreviewPanelChrome({
           </Button>
           <div className="relative">
             <Button
+              ref={codeMenuTriggerRef}
               variant="ghost"
               size="sm"
-              onClick={() => setCodeMenuOpen((prev) => !prev)}
+              onClick={handleToggleCodeMenu}
               disabled={!canShowCode || isViewSwitchPending}
               aria-haspopup="menu"
               aria-expanded={codeMenuOpen}
@@ -543,56 +578,67 @@ export function PreviewPanelChrome({
               Kod
               <ChevronDown className="ml-1 h-3.5 w-3.5" />
             </Button>
-            {codeMenuOpen ? (
-              <>
-                <button
-                  type="button"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  className="fixed inset-0 z-40 cursor-default"
-                  onClick={() => setCodeMenuOpen(false)}
-                />
-                <div
-                  role="menu"
-                  aria-label="Kodvyer"
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") setCodeMenuOpen(false);
-                  }}
-                  className="absolute right-0 z-50 mt-1 min-w-44 rounded-md border border-gray-800 bg-gray-950 p-1 shadow-md"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setCodeMenuOpen(false);
-                      handleToggleCode();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span className="flex-1 text-left">Kodvy</span>
-                    {viewMode === "code" ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setCodeMenuOpen(false);
-                      handleToggleElementRegistry();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
-                  >
-                    <Code2 className="h-4 w-4" />
-                    <span className="flex-1 text-left">Elementregister</span>
-                    {viewMode === "registry" ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : null}
-                  </button>
-                </div>
-              </>
-            ) : null}
+            {codeMenuOpen && typeof document !== "undefined"
+              ? createPortal(
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden="true"
+                      tabIndex={-1}
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={() => setCodeMenuOpen(false)}
+                    />
+                    {/* Portalad till body med fixed-position: den gamla inline-menyn
+                        klipptes av toolbar-wrapperns overflow-y-auto och hamnade
+                        "under" info-bandet nedanför. */}
+                    <div
+                      role="menu"
+                      aria-label="Kodvyer"
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setCodeMenuOpen(false);
+                      }}
+                      style={{
+                        position: "fixed",
+                        top: codeMenuPosition.top,
+                        right: codeMenuPosition.right,
+                      }}
+                      className="z-50 min-w-44 rounded-md border border-gray-800 bg-gray-950 p-1 shadow-md"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setCodeMenuOpen(false);
+                          handleToggleCode();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span className="flex-1 text-left">Kodvy</span>
+                        {viewMode === "code" ? (
+                          <Check className="h-4 w-4 text-emerald-400" />
+                        ) : null}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setCodeMenuOpen(false);
+                          handleToggleElementRegistry();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
+                      >
+                        <Code2 className="h-4 w-4" />
+                        <span className="flex-1 text-left">Elementregister</span>
+                        {viewMode === "registry" ? (
+                          <Check className="h-4 w-4 text-emerald-400" />
+                        ) : null}
+                      </button>
+                    </div>
+                  </>,
+                  document.body,
+                )
+              : null}
           </div>
           {chatId ? (
             <PreviewPanelDossiers

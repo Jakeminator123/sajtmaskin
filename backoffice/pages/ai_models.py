@@ -150,7 +150,7 @@ def _render_generator_chain(
     profile_labels = {
         "fast": "Fast / Snabb",
         "pro": "Pro / Lagom",
-        "max": "Max / Tanker",
+        "max": "Max / Tänker",
         "codex": "Codex / Kod Max",
         "anthropic": "Anthropic",
     }

@@ -23,9 +23,14 @@ function isPageFile(fileName: string): boolean {
   );
 }
 
-// Matches { name: '...', role: '...', quote: '...' } with optional trailing fields (e.g. rating)
+// Matches { name: '...', role: '...', quote: '...' } with optional trailing fields (e.g. rating).
+// Each capture uses ((?:(?!\N)[\s\S])*?) so it can never backtrack past its own
+// closing quote — otherwise a sibling array whose objects also start with `name:`
+// but lack `role:`/`quote:` (e.g. a menu with `{ name, price }`) gets swallowed
+// into the first capture and leaks foreign data into the editor (and corrupts
+// the file on save, since replacements are position-based).
 const TESTIMONIAL_ITEM_RE =
-  /\{\s*name:\s*(["'`])([\s\S]*?)\1\s*,\s*role:\s*(["'`])([\s\S]*?)\3\s*,\s*quote:\s*(["'`])([\s\S]*?)\5[\s\S]*?\}/g;
+  /\{\s*name:\s*(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1\s*,\s*role:\s*(["'`])((?:\\[\s\S]|(?!\3)[^\\])*?)\3\s*,\s*quote:\s*(["'`])((?:\\[\s\S]|(?!\5)[^\\])*?)\5[\s\S]*?\}/g;
 
 function findTestimonialItemMatches(content: string): TestimonialItemMatch[] {
   const matches: TestimonialItemMatch[] = [];
