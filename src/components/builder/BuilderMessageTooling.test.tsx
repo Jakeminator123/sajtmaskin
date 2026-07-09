@@ -150,10 +150,14 @@ describe("StructuredToolParts", () => {
     expect(screen.queryByText("Integration: Integration")).toBeNull();
   });
 
-  it("keeps its own quick-reply buttons visible even when a pendingReply exists elsewhere (owner beslut 2026-07-09: no blocking dialog anymore)", () => {
-    // Before the fix, `!pendingReply &&` hid these buttons whenever ANY
-    // pendingReply existed (they only worked via the now-removed dialog).
-    // Passing a non-null pendingReply here locks in that the guard is gone.
+  it("suppresses its own quick-reply buttons while ANY pendingReply exists (Codex P1 på #482)", () => {
+    // A quick action sends a plain user message, and the pending gate
+    // consumes the NEXT user message as its answer
+    // (`collectConfirmedContractAnswers`) — clicking an unrelated card
+    // button while a clarification waits would silently mis-answer the
+    // gate. The inline block at the list bottom owns the pending
+    // interaction; every card's quick actions stay hidden until it is
+    // answered.
     const onQuickReply = vi.fn(async () => true);
     render(
       <CompactToolParts
@@ -187,14 +191,42 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+  });
 
-    // The buttons are not only visible — clicking one actually fires
-    // onQuickReply even though an UNRELATED pendingReply exists elsewhere.
+  it("fires quick-reply as usual when no pendingReply exists", () => {
+    const onQuickReply = vi.fn(async () => true);
+    render(
+      <CompactToolParts
+        messageId="msg_guard_regression_2"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              toolName: "Integration suggestion",
+              toolCallId: "integration:stripe_guard_2",
+              state: "approval-requested",
+              output: {
+                question: "Vill du konfigurera Stripe nu?",
+                options: ["Godkänn förslag", "Avvisa förslag"],
+                provider: "stripe",
+                name: "Stripe",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={onQuickReply}
+      />,
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Godkänn förslag" }));
     expect(onQuickReply).toHaveBeenCalledWith(
-      "msg_guard_regression",
+      "msg_guard_regression_2",
       0,
       "Godkänn förslag",
       { planMode: false },

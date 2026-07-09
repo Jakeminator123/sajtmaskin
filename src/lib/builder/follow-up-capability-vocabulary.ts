@@ -365,6 +365,9 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "analytics",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:analytics|webbanalys|webb-?analys|plausible|vercel[-\s]?analytics|google[-\s]?analytics|posthog|mixpanel|fathom)(?![\p{L}\p{N}_])/iu,
+      // "Besöksstatistik" är den user-synliga etiketten för analytics-dossiern
+      // (Codex P2 på #482): användare skriver etiketten de ser i panelen.
+      /(?<![\p{L}\p{N}_])besök(?:s|ar)-?statistik(?:en)?(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:spåra\s+besökare|track[-\s]?visitors|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
     ],
   },

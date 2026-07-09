@@ -212,6 +212,10 @@ export function PreviewPanelDossiers({
       const { envKeys } = readDossiersPanelOpenDetail(event);
       setHighlightKeys(envKeys);
       setOpenedForMissing(envKeys.length > 0);
+      // Missing-key opens (F3 412 / env-kort) must land on "Inkopplade" where
+      // the key inputs live — if the catalog tab was last active the blocker
+      // would look like it has no actionable fields (Codex P2 on #482).
+      if (envKeys.length > 0) setActiveTab("wired");
       setOpen(true);
     };
     window.addEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
@@ -282,9 +286,13 @@ export function PreviewPanelDossiers({
     }
   }, []);
   useEffect(() => {
-    if (!open || catalogData || catalogLoading) return;
+    // `catalogError` must bail too (Codex/Vercel P2 on #482): without it a
+    // failed fetch retriggers this effect every render while the popover is
+    // open — an infinite retry loop hammering the route. Recovery is the
+    // explicit "Försök igen" button, not implicit re-render retries.
+    if (!open || catalogData || catalogLoading || catalogError) return;
     void loadCatalog();
-  }, [open, catalogData, catalogLoading, loadCatalog]);
+  }, [open, catalogData, catalogLoading, catalogError, loadCatalog]);
   useEffect(() => {
     return () => catalogAbortRef.current?.abort();
   }, []);
@@ -759,7 +767,17 @@ export function PreviewPanelDossiers({
                   Läser katalogen…
                 </div>
               ) : catalogError ? (
-                <p className="px-1 py-3 text-[11px] text-rose-300">{catalogError}</p>
+                <div className="space-y-2 px-1 py-3">
+                  <p className="text-[11px] text-rose-300">{catalogError}</p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => void loadCatalog()}
+                  >
+                    Försök igen
+                  </Button>
+                </div>
               ) : catalogData && catalogData.groups.length === 0 ? (
                 <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
               ) : (

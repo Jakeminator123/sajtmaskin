@@ -263,14 +263,14 @@ export function StructuredToolParts({
   onQuickReply,
   quickReplyDisabled = false,
 }: StructuredToolPartsProps) {
-  // Owner beslut 2026-07-09: the old guard hid these buttons whenever ANY
-  // pendingReply existed ANYWHERE in the chat (a blocking dialog was the
-  // only place buttons then worked). Now that the dialog is gone, only
-  // suppress the local card when THIS message is the one MessageList
-  // already renders inline at the list bottom (avoids a duplicate button
-  // set) — an unrelated pendingReply on another message no longer hides
-  // this card's own buttons.
-  const isCurrentMessagePendingReply = pendingReply?.messageId === messageId;
+  // Codex P1 on #482: while ANY reply is pending, every card's quick actions
+  // are suppressed. The inline block at the list bottom owns the pending
+  // interaction, and an unrelated quick action would send a user message
+  // that the pending gate consumes as its answer
+  // (`collectConfirmedContractAnswers` reads the NEXT user message) —
+  // silently mis-answering the active gate. This also prevents duplicate
+  // button sets for the pending message itself.
+  const suppressQuickActions = Boolean(pendingReply);
   return (
     <>
       {toolParts.map((part, index) => {
@@ -311,7 +311,7 @@ export function StructuredToolParts({
           <Tool key={`${messageId}-tool-${toolType}-${index}`} defaultOpen={toolHasData}>
             <ToolHeader title={toolTitle} type={toolType} state={toolState} />
             <ToolContent>
-              {!isCurrentMessagePendingReply && !hasUserAfterCurrentMessage && replyPrompt && (
+              {!suppressQuickActions && !hasUserAfterCurrentMessage && replyPrompt && (
                 <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
                     Svar krävs
@@ -369,7 +369,7 @@ export function StructuredToolParts({
               {summaries.seoAction && (
                 <ActionStrip
                   variant="full"
-                  show={!isCurrentMessagePendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="cyan"
                   title="Snabb SEO-fix"
                   question={summaries.seoAction.question}
@@ -403,7 +403,7 @@ export function StructuredToolParts({
               {summaries.analyticsAction && (
                 <ActionStrip
                   variant="full"
-                  show={!isCurrentMessagePendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="violet"
                   title="Snabb tracking-fix"
                   question={summaries.analyticsAction.question}
@@ -451,7 +451,7 @@ export function StructuredToolParts({
               {summaries.editorialAction && (
                 <ActionStrip
                   variant="full"
-                  show={!isCurrentMessagePendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="sky"
                   title="Snabb redigering"
                   question={summaries.editorialAction.question}
@@ -468,7 +468,7 @@ export function StructuredToolParts({
               {summaries.businessAction && (
                 <ActionStrip
                   variant="full"
-                  show={!isCurrentMessagePendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="emerald"
                   title="Snabb konfigurering"
                   question={summaries.businessAction.question}
@@ -538,8 +538,8 @@ export function CompactToolParts({
   lifecycleStage = null,
 }: CompactToolPartsProps) {
   const isIntegrations = lifecycleStage === "integrations";
-  // See StructuredToolParts above for the rationale.
-  const isCurrentMessagePendingReply = pendingReply?.messageId === messageId;
+  // See StructuredToolParts above for the rationale (Codex P1 on #482).
+  const suppressQuickActions = Boolean(pendingReply);
   return (
     <>
       {toolParts.map((part, index) => {
@@ -582,7 +582,7 @@ export function CompactToolParts({
               <span className="text-muted-foreground shrink-0 text-xs">{getToolStateLabel(toolState)}</span>
             </div>
             {replyPrompt ? (
-              !isCurrentMessagePendingReply && !hasUserAfterCurrentMessage ? (
+              !suppressQuickActions && !hasUserAfterCurrentMessage ? (
                 <div
                   className={cn(
                     "mt-2 rounded-md border p-2 text-xs",
