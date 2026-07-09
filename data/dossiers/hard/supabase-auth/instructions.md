@@ -14,7 +14,15 @@
 - In Server Components, Route Handlers and Server Actions, call `createSupabaseServerClient()` then `supabase.auth.getUser()` for protected data.
 - In client components, call `createSupabaseBrowserClient()` for sign-in, sign-up, OAuth start and sign-out actions.
 - Register the emitted callback URL (`/api/auth/callback`) in Supabase OAuth settings and use the same path in `redirectTo`.
-- Graceful degradation: before rendering auth UI or calling a factory, check `isSupabaseAuthConfigured()`. When it is `false`, render a calm "Auth ej konfigurerat" notice (name the two `NEXT_PUBLIC_SUPABASE_*` env vars) instead of calling the client — the factories throw `supabase-auth-not-configured` if called unconfigured, and the middleware already passes through so the site never crashes.
+- Graceful degradation: before rendering auth UI or calling a factory, check `isSupabaseAuthConfigured()`. When it is `false`, render the shipped `<SupabaseAuthNotice />` (or an equivalent calm notice naming the two `NEXT_PUBLIC_SUPABASE_*` env vars) instead of calling the client — the factories throw `supabase-auth-not-configured` if called unconfigured, and the middleware already passes through so the site never crashes.
+
+# Mock/demo mode
+
+`mock: none` — login cannot be meaningfully mocked (a fake session would misrepresent what the site does). Without real keys the dossier degrades instead:
+
+- The env guard treats a missing value OR a preview stub (`..._placeholder_preview_not_real`, `dummy`, `changeme`, `your_...`) as NOT configured — on ALL keys, so a seeded F2 stub never reaches `createServerClient`/`createBrowserClient` as a real URL/key.
+- Middleware passes through (`NextResponse.next()`), the callback skips the code exchange, and `<SupabaseAuthNotice />` renders a discreet "Auth ej konfigurerat" banner next to the auth UI. Everything else on the site keeps working.
+- Real sign-in activates only when both `NEXT_PUBLIC_SUPABASE_*` values are genuine (F3 / "Bygg integrationer").
 
 # UX rules
 
@@ -45,4 +53,4 @@
 - Refresh the page and confirm the session persists through cookies.
 - Sign out and confirm protected routes redirect away from private content.
 - For OAuth, confirm the callback exchanges the code and redirects only to safe same-origin paths (try `?next=https://evil.example` — it must fall back to `/`).
-- Remove the Supabase env vars and reload — the middleware passes through and auth UI shows an "Auth ej konfigurerat" notice instead of a 500.
+- Remove the Supabase env vars (or leave the preview stubs) and reload — the middleware passes through and `<SupabaseAuthNotice />` shows the "Auth ej konfigurerat" banner instead of a 500 (mock: none).

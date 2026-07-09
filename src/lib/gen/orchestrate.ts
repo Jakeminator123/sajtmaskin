@@ -407,10 +407,21 @@ export function filterDossierCapabilitiesForPrompt(params: {
   // provides. If visual-3d was gated out (the prompt never asked for 3D) but the
   // Deep-Brief still emitted physics-3d, drop physics-3d too — otherwise we ship
   // a physics dossier with no 3D renderer (dependency collision / dead WebGL). #198
-  if (filtered.includes("physics-3d") && !filtered.includes("visual-3d")) {
-    return filtered.filter((capability) => capability !== "physics-3d");
+  let result = filtered;
+  if (result.includes("physics-3d") && !result.includes("visual-3d")) {
+    result = result.filter((capability) => capability !== "physics-3d");
   }
-  return filtered;
+  // Dossier wave 3: `supabase-auth` only enters the set via an EXPLICIT
+  // Supabase ask (brief is explicit-ask-only; follow-up vocabulary triggers on
+  // Supabase-specific phrases), while generic `auth` can tag along from the
+  // inferred-capability bridge (`needsAuth` matches the "login"/"auth" inside
+  // the same "supabase login" prompt). Both dossiers ship a root middleware.ts
+  // — injecting both would collide, and clerk-auth must never ride along on an
+  // explicit Supabase choice. Explicit provider wins: drop generic `auth`.
+  if (result.includes("supabase-auth") && result.includes("auth")) {
+    result = result.filter((capability) => capability !== "auth");
+  }
+  return result;
 }
 
 export interface OrchestrationBase {

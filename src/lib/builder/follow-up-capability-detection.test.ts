@@ -910,3 +910,77 @@ describe("detectFollowUpCapabilities — ai-tool-calling", () => {
     expect(result.capabilityIds).toContain("ai-chat");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 3 — capability `supabase-auth` (2026-07-08): explicit-
+// Supabase-intent auth. NON-COMPETITION CONTRACT with clerk-auth (`auth`):
+// generic login/inloggning/auth wording must keep routing to `auth`
+// (clerk-auth owns defaultForCapability), and an explicit Supabase ask must
+// route to `supabase-auth` ONLY — never both (both dossiers ship a root
+// middleware.ts; injecting both would collide).
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — supabase-auth vs auth (non-competition)", () => {
+  it("routes generic Swedish 'inloggning' to auth (clerk), NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities("vi behöver inloggning med lösenord");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("routes generic 'logga in' to auth, NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att användare kan logga in och se sina sidor",
+    );
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("routes generic English 'login/sign in' to auth, NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities("add a login page with sign-in and sign-up");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("detects 'supabase login' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("lägg till supabase login på sajten");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects 'supabase auth' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("add supabase auth with magic links");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects Swedish 'supabase-inloggning' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("vi vill ha supabase-inloggning för medlemmar");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects '<auth cue> med/with supabase' phrasing as supabase-auth, NOT auth", () => {
+    const swedish = detectFollowUpCapabilities("lägg till inloggning med supabase");
+    expect(swedish.capabilityIds).toContain("supabase-auth");
+    expect(swedish.capabilityIds).not.toContain("auth");
+
+    const english = detectFollowUpCapabilities("add authentication with supabase");
+    expect(english.capabilityIds).toContain("supabase-auth");
+    expect(english.capabilityIds).not.toContain("auth");
+  });
+
+  it("does NOT detect supabase-auth for a Supabase DATABASE ask (no auth cue)", () => {
+    // "supabase" alone is a BaaS/database choice, not an auth ask — and the
+    // database vocabulary vetoes competing BaaS providers, so nothing fires.
+    const result = detectFollowUpCapabilities("spara bokningarna i supabase");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("suppresses supabase-auth when the user explicitly negates auth", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg en landningssida, lägg inte till supabase-inloggning eller auth",
+    );
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+});

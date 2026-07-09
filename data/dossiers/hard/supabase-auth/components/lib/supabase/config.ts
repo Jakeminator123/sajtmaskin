@@ -17,16 +17,23 @@
 export const SUPABASE_AUTH_NOT_CONFIGURED = "supabase-auth-not-configured";
 
 /**
- * A real value is non-empty and not a preview/stub placeholder. F2 design
- * previews and copied `.env.local` files often carry `*placeholder*` values;
- * treating those as configured would hand `createServerClient` a bogus URL and
- * surface a raw crash instead of the calm not-configured path.
+ * Demo/placeholder detection (mock: none). A key counts as NOT configured when
+ * missing OR a preview stub — F2 previews seed
+ * `..._placeholder_preview_not_real` values, and copied `.env.local` files
+ * often carry `dummy` / `changeme` / `your_...` stand-ins. Mirrors the shared
+ * stub vocabulary used by the other hard dossiers (Codex/VADE P1 on #468) so
+ * a seeded stub is never handed to createServerClient/createBrowserClient as
+ * a real Supabase URL/key.
  */
+function isPlaceholderValue(value: string | undefined | null): boolean {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return true;
+  return /placeholder|not[_-]?a?[_-]?real|dummy|changeme|^your[_-]/i.test(trimmed);
+}
+
+/** A real value is non-empty and not a preview/stub placeholder. */
 function isRealValue(value: string | undefined): value is string {
-  if (!value) return false;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return false;
-  return !trimmed.toLowerCase().includes("placeholder");
+  return !isPlaceholderValue(value);
 }
 
 /** True only when both public Supabase env vars hold real (non-placeholder) values. */

@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "supabase-auth",
+  "mock": "none",
   "label": "Supabase Auth SSR",
   "capability": "supabase-auth",
   "codeFidelity": "verbatim",
@@ -11,13 +12,13 @@
     {
       "key": "NEXT_PUBLIC_SUPABASE_URL",
       "required": true,
-      "purpose": "Supabase project URL used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime': auth cannot authenticate anyone without a real value, but the dossier degrades gracefully at runtime (middleware passes through, UI shows an 'Auth ej konfigurerat' notice via isSupabaseAuthConfigured) instead of crashing — so F3 reports a missing value as a warning, not a build blocker.",
+      "purpose": "Supabase project URL used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime': auth cannot work without a real value, but the code degrades at runtime (middleware passes through, UI shows the 'Auth ej konfigurerat' notice) instead of crashing — a missing value is an F3 warning, not a build blocker.",
       "enforcement": "feature-runtime"
     },
     {
       "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
       "required": true,
-      "purpose": "Supabase anon public API key used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime' for the same reason as NEXT_PUBLIC_SUPABASE_URL: the code degrades to an unconfigured-auth notice at runtime instead of throwing, so it is a runtime warning rather than a hard build blocker.",
+      "purpose": "Supabase anon public API key used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime' like NEXT_PUBLIC_SUPABASE_URL: the code degrades to the unconfigured-auth notice at runtime instead of throwing, so a missing value is a runtime warning rather than a hard build blocker.",
       "enforcement": "feature-runtime"
     }
   ],
@@ -57,6 +58,11 @@
       "path": "components/api/auth/callback/route.ts",
       "role": "server",
       "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/supabase-auth-notice.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
     }
   ],
   "exposes": [
@@ -79,6 +85,11 @@
       "name": "isSupabaseAuthConfigured",
       "type": "function",
       "import": "@/lib/supabase/config"
+    },
+    {
+      "name": "SupabaseAuthNotice",
+      "type": "component",
+      "import": "@/components/supabase-auth-notice"
     }
   ],
   "lastVerified": "2026-07-08",

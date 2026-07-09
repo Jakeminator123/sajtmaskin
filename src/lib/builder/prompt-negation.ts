@@ -52,6 +52,9 @@ const DATABASE_TERMS: RegExp[] = [
 
 const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   auth: AUTH_TERMS,
+  // Dossier wave 3: "lägg inte till (supabase-)inloggning" must suppress the
+  // Supabase capability the same way it suppresses generic auth.
+  "supabase-auth": AUTH_TERMS,
   payments: PAYMENT_TERMS,
   "contact-form": BACKEND_TERMS,
   "newsletter-subscribe": BACKEND_TERMS,
