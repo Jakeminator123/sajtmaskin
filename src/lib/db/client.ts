@@ -213,16 +213,19 @@ if (pool) {
     }
   });
 
-  // Defense-in-depth: ensure every connection uses UTC as the session timezone
-  // so that TIMESTAMP WITHOUT TIME ZONE columns and NOW() casts always return
-  // UTC — regardless of how the Postgres server's TimeZone GUC is configured.
-  // This prevents the 2 h drift seen in prod (confirmed 2026-07-08) where
-  // DEFAULT NOW() on a TIMESTAMP (no tz) column stored Swedish local time.
-  pool.on("connect", (client) => {
-    client.query("SET TIME ZONE 'UTC'").catch((err: unknown) => {
-      console.error("[db/client] Failed to SET TIME ZONE UTC on new connection:", err);
-    });
-  });
+  // UTC session timezone is enforced at the ROLE level via the
+  // `set-role-timezone-utc.sql` migration (`ALTER ROLE CURRENT_USER SET
+  // timezone TO 'UTC'`) instead of a per-connection `SET TIME ZONE` here.
+  //
+  // The old `pool.on("connect", ...)` fire-and-forget query had two flaws
+  // (M#pg1): it raced the first real query on the same client (pg's
+  // "client.query() when the client is already executing a query"
+  // deprecation → hard error in pg@9), and behind Supavisor TRANSACTION
+  // pooling (prod, port 6543) a session-level SET is unreliable by design —
+  // the GUC lands on one backend session while later transactions may run on
+  // others. The role-level GUC is applied by Postgres at every backend
+  // session start, so all sessions (pooled or direct) get UTC with no
+  // runtime query at all. 2h-drift context: see fix-timestamp-tz.sql.
 }
 
 export const db = connectionString
