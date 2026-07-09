@@ -131,12 +131,22 @@ export function useDeploymentHistory(chatId: string | null) {
     };
   }, [deployments]);
 
+  // BB#deploy3/A#5: den senaste publiceringen om den slutade i `error`.
+  // Bara den NYASTE raden räknas — finns en nyare ready/pending-rad är felet
+  // historik och ska inte återuppväckas efter en sidladdning.
+  const latestFailedDeployment = useMemo<DeploymentHistoryRow | null>(() => {
+    const newest = deployments[0];
+    if (!newest || String(newest.status) !== "error") return null;
+    return newest;
+  }, [deployments]);
+
   const hydrationFailed = loadError && retryToken >= MAX_HYDRATION_RETRIES;
 
   return {
     deployments,
     project,
     liveDeployment,
+    latestFailedDeployment,
     isLoading,
     loadError,
     hydrationFailed,

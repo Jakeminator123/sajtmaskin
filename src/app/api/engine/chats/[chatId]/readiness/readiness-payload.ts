@@ -1,5 +1,6 @@
 import type { ChatReadinessItem } from "@/lib/chat-readiness";
 import { resolveReadinessCategoryFromSeverity } from "@/lib/chat-readiness";
+import type { DeployReleaseGateResult } from "@/lib/db/engine-version-lifecycle";
 
 const SEO_ADVISORY_CODES = {
   "missing-metadata": {
@@ -65,6 +66,33 @@ export function buildSeoAdvisoriesFromMeta(meta: unknown): ChatReadinessItem[] {
   }
 
   return items;
+}
+
+/**
+ * Ö1-paritet (A#12): spegla deploy-API:ts ReleaseGate-lås i readiness så
+ * `canDeploy` aldrig visar grönt när `POST /api/v0/deployments` skulle svara
+ * 409 `DEPLOY_RELEASE_GATE_NOT_GREEN` (F3-version som inte är passed/promoted).
+ *
+ * `failed`/`draft`/`repair_available` blockeras redan av lifecycle-blockern —
+ * gate-blockern läggs bara till när ingen lifecycle-blocker redan finns
+ * (typiskt F3 `verifying`/`repairing`, som annars bara blir en warning).
+ */
+export function buildReleaseGateBlocker(
+  releaseGate: DeployReleaseGateResult,
+  hasLifecycleBlocker: boolean,
+): ChatReadinessItem | null {
+  if (releaseGate.allowed) return null;
+  if (releaseGate.code !== "DEPLOY_RELEASE_GATE_NOT_GREEN") return null;
+  if (hasLifecycleBlocker) return null;
+  return {
+    id: "release-gate-not-green",
+    title: "Integrationsversionen (F3) har inte passerat ReleaseGate ännu.",
+    detail:
+      releaseGate.message ||
+      "Publicering blockeras tills versionen är grön (typecheck + build + lint). Verifiera om och publicera när versionen är grön.",
+    severity: "blocker",
+    action: "versions",
+  };
 }
 
 export function withReadinessCategory(item: ChatReadinessItem): ChatReadinessItem {

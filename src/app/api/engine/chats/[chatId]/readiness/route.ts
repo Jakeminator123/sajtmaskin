@@ -5,7 +5,10 @@ import {
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
 } from "@/lib/db/chat-repository-pg";
-import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
+import {
+  resolveDeployReleaseGate,
+  resolveEngineVersionLifecycleStatus,
+} from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
   describePreviewDiagnosticCode,
@@ -18,7 +21,11 @@ import {
   type ChatReadiness,
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
-import { buildSeoAdvisoriesFromMeta, withReadinessCategory } from "./readiness-payload";
+import {
+  buildReleaseGateBlocker,
+  buildSeoAdvisoriesFromMeta,
+  withReadinessCategory,
+} from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
 import {
   resolveProjectEnv,
@@ -283,6 +290,17 @@ async function buildEngineReadiness(
     } else {
       warnings.push(lifecycleItem);
     }
+  }
+
+  // Ö1-paritet (A#12): deploy-API:t 409:ar en F3-version som inte passerat
+  // ReleaseGate — readiness måste blocka samma version, annars visar UI:t
+  // `canDeploy:true` och användaren får ett obegripligt fel vid klick.
+  const releaseGateItem = buildReleaseGateBlocker(
+    resolveDeployReleaseGate(version),
+    Boolean(lifecycleItem && lifecycleItem.severity === "blocker"),
+  );
+  if (releaseGateItem) {
+    blockers.push(releaseGateItem);
   }
 
   const files = versionFiles ?? [];
