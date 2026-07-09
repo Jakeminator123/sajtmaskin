@@ -149,11 +149,36 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Supabase Auth (SSR) — an EXPLICIT-Supabase-intent capability. Listed
+    // BEFORE `auth` (clerk-auth) so a Supabase-specific ask wins the more
+    // specific capability, exactly like ai-tool-calling before ai-chat. The
+    // patterns REQUIRE the word "supabase" adjacent to an auth cue (or a
+    // "<auth cue> med/with/via supabase" phrasing), so a generic
+    // "login/inloggning/auth" with no Supabase mention never reaches here — it
+    // stays `auth` → clerk-auth. Selection must NOT let this compete with the
+    // generic `auth` default; the `auth` entry below vetoes these same phrases.
+    capability: "supabase-auth",
+    patterns: [
+      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "auth",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:auth|inloggning|registrera\s+konto|logga\s+in|sign[-\s]?in|sign[-\s]?up|register|clerk|next-?auth|auth\.js)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:lösenord|password|forgot[-\s]?password|reset[-\s]?password|återställ\s+lösenord)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:oauth|jwt|magic\s+link|session\.(?:store|cookie|token))(?![\p{L}\p{N}_])/iu,
+    ],
+    // Explicit Supabase-auth intent routes to the `supabase-auth` capability
+    // above, NOT clerk-auth. Without this veto "supabase auth" /
+    // "supabase-inloggning" would ALSO fire the generic `auth` capability and
+    // inject clerk-auth alongside supabase-auth. Mirrors the ai-chat veto on
+    // tool-calling. Generic "login/inloggning/auth" (no "supabase") does not
+    // match here, so it still routes to `auth` → clerk-auth.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

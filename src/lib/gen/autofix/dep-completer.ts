@@ -153,6 +153,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "server-only": "0.0.1",
   "@neondatabase/serverless": "^1",
   "mongodb": "^7",
+  // Dossier wave 3 (legacy import 2026-07-08, capability `supabase-auth`):
+  // Supabase Auth SSR glue. Pinned to the current @supabase/ssr 0.x line
+  // (latest verified against the npm registry 2026-07-08: 0.12.0).
+  "@supabase/ssr": "^0.12",
 };
 
 /**

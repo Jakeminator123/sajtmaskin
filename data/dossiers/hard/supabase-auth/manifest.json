@@ -1,0 +1,87 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "supabase-auth",
+  "label": "Supabase Auth SSR",
+  "capability": "supabase-auth",
+  "codeFidelity": "verbatim",
+  "complexity": "advanced",
+  "defaultForCapability": true,
+  "summary": "Use when the site EXPLICITLY needs Supabase Auth in a Next.js App Router app: cookie-based SSR sessions, middleware session refresh, a server client, a browser client, and an OAuth code-exchange callback route. Do NOT use as a generic auth default when a non-Supabase provider is intended — plain login/auth intent routes to the 'auth' capability (clerk-auth) instead.",
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "required": true,
+      "purpose": "Supabase project URL used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime': auth cannot authenticate anyone without a real value, but the dossier degrades gracefully at runtime (middleware passes through, UI shows an 'Auth ej konfigurerat' notice via isSupabaseAuthConfigured) instead of crashing — so F3 reports a missing value as a warning, not a build blocker.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "required": true,
+      "purpose": "Supabase anon public API key used by the browser, server, middleware and callback clients (Supabase project → API settings). Tagged 'feature-runtime' for the same reason as NEXT_PUBLIC_SUPABASE_URL: the code degrades to an unconfigured-auth notice at runtime instead of throwing, so it is a runtime warning rather than a hard build blocker.",
+      "enforcement": "feature-runtime"
+    }
+  ],
+  "dependencies": ["@supabase/ssr"],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/middleware.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/server.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/client.ts",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/config.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/safe-redirect.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/auth/callback/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "createSupabaseBrowserClient",
+      "type": "function",
+      "import": "@/lib/supabase/client"
+    },
+    {
+      "name": "createSupabaseServerClient",
+      "type": "function",
+      "import": "@/lib/supabase/server"
+    },
+    {
+      "name": "updateSupabaseSession",
+      "type": "function",
+      "import": "@/lib/supabase/middleware"
+    },
+    {
+      "name": "isSupabaseAuthConfigured",
+      "type": "function",
+      "import": "@/lib/supabase/config"
+    }
+  ],
+  "lastVerified": "2026-07-08",
+  "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
+  "promptInstructionMode": "selected-sections"
+}
