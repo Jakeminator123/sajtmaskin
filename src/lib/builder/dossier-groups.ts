@@ -55,7 +55,14 @@ export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
 const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   database: "data-storage",
   payments: "payments",
+  // Recurring billing (paddle-billing) is money-flow — same user-facing bucket
+  // as one-off payments.
+  subscriptions: "payments",
   auth: "auth",
+  // Supabase-specific auth (explicit-ask capability) is still "Inloggning".
+  "supabase-auth": "auth",
+  // Headless CMS (sanity-cms): user-facing intent is content management.
+  cms: "content",
   "ai-chat": "ai",
   "ai-tool-calling": "ai",
   "rag-chat": "ai",

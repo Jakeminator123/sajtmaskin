@@ -73,11 +73,39 @@ describe("deriveTier3BuildSpec", () => {
   });
 
   it("downgrades unbacked integrations (no matching dossier) to warn-only", () => {
-    // Supabase is in integrationRegistry but no dossier on disk implements
-    // it — F3 would otherwise block on NEXT_PUBLIC_SUPABASE_URL even though
-    // nothing in generated code would consume it. Clamp moves the keys
-    // from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still surfaces
-    // them but F3 validation doesn't refuse to start.
+    // Pin change (dossier-batch): the fixture used to be "supabase", but the
+    // promoted supabase-auth dossier now BACKS the supabase registry entry
+    // (id-prefix match) and genuinely consumes its keys — see the companion
+    // test below. vercel-kv remains truly unbacked (no dossier id/dependency
+    // implements it; category "data" has no dossier capability), so F3 must
+    // not block on KV keys nothing in generated code would consume. Clamp
+    // moves them from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still
+    // surfaces them but F3 validation doesn't refuse to start.
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "vercel-kv",
+          name: "Vercel KV",
+          reason: "cache",
+          status: "chosen",
+          envVars: [],
+        },
+      ],
+    });
+
+    expect(spec.requirements).toHaveLength(1);
+    const req = spec.requirements[0];
+    expect(req.requiredRealEnvKeys).toEqual([]);
+    expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_URL");
+    expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_TOKEN");
+  });
+
+  it("no longer clamps supabase — the supabase-auth dossier backs it (dossier-batch)", () => {
+    // Before the batch, "supabase" had no backing dossier and was clamped to
+    // warn-only. supabase-auth (id-prefix "supabase-") now implements it and
+    // consumes NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, so requiring real values at
+    // an explicit supabase approval is actionable again.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -93,9 +121,8 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toEqual([]);
-    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
-    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   });
 
   it("skips optional integrations", () => {
@@ -404,11 +431,20 @@ describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
   it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
     expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
     expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
+    // Pin change (dossier-batch): rag-chat strict-backs "openai" (dependency
+    // `@ai-sdk/openai`, same rule that already matched ai-tool-calling-chat)
+    // and ships `components/rag-config-notice.tsx`, which the widened
+    // CONFIG_NOTICE_FILE_RE (mongodb precedent, Codex P2 #445) counts as a
+    // config-notice UI — so an approved "openai" now has a notice-shipping
+    // backing dossier.
+    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(true);
   });
 
   it("false for providers whose dossier lacks the component, and for unknowns", () => {
+    // clerk-auth ships no *config-notice*.tsx; supabase-auth's
+    // `supabase-auth-notice.tsx` deliberately does NOT match the RE (it is
+    // not imported via the IntegrationConfigNotice contract).
     expect(approvedProvidersShipConfigNotice(["clerk"])).toBe(false);
-    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
     expect(approvedProvidersShipConfigNotice(["totally-unknown-vendor"])).toBe(false);
     expect(approvedProvidersShipConfigNotice([])).toBe(false);
   });
