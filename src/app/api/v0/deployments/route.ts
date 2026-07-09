@@ -612,12 +612,12 @@ export async function POST(req: Request) {
           selectedDossiers,
         },
       );
-      // Only keys missing from BOTH user config AND preview placeholders block
-      // the deploy. Keys that are decorative or covered by harmless/tier-3 stub
-      // placeholders are surfaced as warnings — Vercel will get whatever the
-      // user has stored, and the rest can be filled in later. This matches the
-      // F3 readiness gate in `app/api/engine/chats/[chatId]/readiness/route.ts`
-      // which already treats `placeholderCoveredKeys` as warnings, not blockers.
+      // The deploy gate hard-blocks on `buildBlockingKeys` (see the 409 below),
+      // the SAME list the F3 readiness gate uses
+      // (`app/api/engine/chats/[chatId]/readiness/route.ts`). Keys covered by
+      // harmless/tier-3 stub placeholders (`placeholderCoveredKeys`) are
+      // surfaced as warnings instead — Vercel gets whatever the user has
+      // stored, and the rest can be filled in later.
       const placeholderCoveredWarnings =
         envRequirements.placeholderCoveredKeys.length > 0
           ? [
@@ -633,8 +633,8 @@ export async function POST(req: Request) {
       // hard block — demo sites with an info sign must stay publishable).
       // Covers `placeholderCoveredKeys` (fake/tier-3 data) and
       // `featureRuntimeKeys` (component shows a config banner at runtime).
-      // `missingEnvKeys` is intentionally excluded — those already hard-block
-      // below via `DEPLOY_MISSING_ENV`.
+      // Build-blocking keys are intentionally excluded — those hard-block
+      // below via `DEPLOY_MISSING_ENV` (`buildBlockingKeys`).
       const envWarnings = buildEnvDegradationWarnings({
         placeholderCoveredKeys: envRequirements.placeholderCoveredKeys,
         featureRuntimeKeys: envRequirements.featureRuntimeKeys,
@@ -664,13 +664,33 @@ export async function POST(req: Request) {
         });
       }
 
-      if (envRequirements.missingEnvKeys.length > 0) {
+      // R1 (Codex #443): the env gate is lifecycle-stage-dependent, mirroring
+      // the readiness route (`app/api/engine/chats/[chatId]/readiness/route.ts`):
+      //
+      // - F3 (`integrations`): block on `buildBlockingKeys` — the SAME list the
+      //   F3 readiness gate uses. `missingEnvKeys` also contains
+      //   `feature-runtime`/`warn-only` keys (e.g. Resend `EMAIL_FROM`) that
+      //   only degrade a single feature at runtime — blocking on those made
+      //   deploy 409 while readiness said `canDeploy:true` (UI/API mismatch).
+      // - F2 (`design`): keep the legacy `missingEnvKeys` backstop (truly
+      //   absent keys, no placeholder). In design, `buildBlockingKeys` also
+      //   contains tier-3-placeholder-covered keys (allowPlaceholdersInF3 is
+      //   always false there), so gating F2 on it would block demo publishes
+      //   that must stay publishable (env-flow-f2-mute; bugbot high på #461).
+      //
+      // `missingEnvKeys` is still surfaced in `deployReadiness` for
+      // observability in both stages.
+      const envBlockingKeys = envGateActive
+        ? envRequirements.buildBlockingKeys
+        : envRequirements.missingEnvKeys;
+      if (envBlockingKeys.length > 0) {
         return NextResponse.json(
           {
             error:
               "Saknade miljövariabler måste konfigureras på projektet innan deploy (samma krav som i publiceringskollen).",
             code: "DEPLOY_MISSING_ENV",
             deployReadiness,
+            buildBlockingKeys: envBlockingKeys,
             fixesApplied,
             preDeployWarnings: warnings,
           },

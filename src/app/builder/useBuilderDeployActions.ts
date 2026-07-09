@@ -215,16 +215,37 @@ export function useBuilderDeployActions({
           deployReadiness?: { missingEnv?: string[]; warnings?: string[] };
           fixesApplied?: string[];
           preDeployWarnings?: string[];
+          /** Per-key env-degradation warnings (placeholder / feature-runtime). */
+          envWarnings?: Array<{
+            key?: string;
+            integration?: string;
+            reason?: string;
+            message?: string;
+          }>;
+          /** Env-var sync-to-hosting failures — publish still succeeded. */
+          envSyncWarnings?: string[];
+          /** The exact keys the 409 gate blocked on (R1: buildBlockingKeys). */
+          buildBlockingKeys?: string[];
         };
         if (!response.ok) {
           const base =
             data?.error || data?.message || `Deploy failed (HTTP ${response.status})`;
-          const missing =
+          // Föredra gatens egen lista (`buildBlockingKeys`) — det är exakt de
+          // nycklar 409:an blockade på. `missingEnv` kan avvika från den
+          // (bugbot medium på #461); behålls bara som fallback för äldre svar.
+          const blockedKeys =
             data?.code === "DEPLOY_MISSING_ENV" &&
+            Array.isArray(data.buildBlockingKeys) &&
+            data.buildBlockingKeys.length > 0
+              ? data.buildBlockingKeys
+              : null;
+          const missing =
+            blockedKeys ??
+            (data?.code === "DEPLOY_MISSING_ENV" &&
             Array.isArray(data.deployReadiness?.missingEnv) &&
             data.deployReadiness.missingEnv.length > 0
               ? data.deployReadiness.missingEnv
-              : null;
+              : null);
           if (chatId && activeVersionId && response.status === 409 && data?.code === "DEPLOY_MISSING_ENV") {
             void persistVersionErrorLogs(chatId, activeVersionId, [
               {
@@ -233,7 +254,7 @@ export function useBuilderDeployActions({
                 message: base,
                 meta: {
                   code: data.code,
-                  missingEnv: data.deployReadiness?.missingEnv ?? [],
+                  missingEnv: missing ?? [],
                   preDeployWarnings: data.preDeployWarnings ?? [],
                   fixesApplied: data.fixesApplied ?? [],
                 },
@@ -270,6 +291,38 @@ export function useBuilderDeployActions({
                 }
               : undefined,
           });
+        }
+
+        // R3 (Codex #443): the deploy succeeds but the response can carry
+        // non-blocking warnings that previously never reached the user (only
+        // the success toast showed). Surface them so the user knows an
+        // integration is running on placeholder data or that env vars didn't
+        // sync for future rebuilds. Aggregated into at most two warning toasts
+        // to avoid spamming one per key.
+        const envWarningMessages = Array.isArray(data?.envWarnings)
+          ? data.envWarnings
+              .map((w) => (typeof w?.message === "string" ? w.message.trim() : ""))
+              .filter((m) => m.length > 0)
+          : [];
+        if (envWarningMessages.length > 0) {
+          toast.warning(
+            envWarningMessages.length === 1
+              ? envWarningMessages[0]
+              : `${envWarningMessages.length} miljövariabler behöver uppmärksamhet:\n${envWarningMessages.join("\n")}`,
+            { duration: 12000 },
+          );
+        }
+
+        const envSyncWarnings = Array.isArray(data?.envSyncWarnings)
+          ? data.envSyncWarnings.filter(
+              (w): w is string => typeof w === "string" && w.trim().length > 0,
+            )
+          : [];
+        if (envSyncWarnings.length > 0) {
+          toast.warning(
+            "Vissa miljövariabler kunde inte sparas hos hosting-leverantören för framtida ombyggen. Publiceringen lyckades – men byggs sajten om utanför Sajtmaskin kan du behöva spara om dina integrationer under Projektets miljövariabler.",
+            { duration: 12000 },
+          );
         }
       } catch (error) {
         console.error("Deploy error:", error);
