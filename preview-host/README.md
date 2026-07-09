@@ -35,7 +35,7 @@ I praktiken betyder det:
 - vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
 - workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
 - binary assets (bilder, fonts) stods via `base64:`-prefix i `filesJson`; `writeFilesIntoWorkspace` skriver dem som binara buffers
-- verify-jobb koas lugnare pa enskild VM for att undvika att flera tunga `npm install`/`tsc` kor samtidigt
+- verify-jobb serialiseras sinsemellan (`verifyQueue`), och ALLA installs (boot + verify) gar dessutom genom den globala `installQueue` (concurrency 1, se M#fly1-punkten nedan) sa att flera tunga `npm install`/`tsc` aldrig kor samtidigt
 - `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
 - sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida
 - cleanup stoppar nu stale runtime-processer innan utgangna sessioner, loggar och workspace-mappar tas bort

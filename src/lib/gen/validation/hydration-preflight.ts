@@ -17,10 +17,12 @@ import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract
  * This is an ADVISORY-only detector: it emits `warning` /
  * `non_blocking_quality_warning` issues so the builder surfaces a concrete,
  * actionable message instead of the user only seeing a console hydration error.
- * It never blocks preview. Calls proven client-only (inside `useEffect` /
- * `useLayoutEffect` or an event handler) are ignored to keep false positives
- * low; `useMemo` is intentionally NOT treated as safe because it also runs
- * during SSR.
+ * It never blocks preview. Calls proven client-only (inside a `useEffect` /
+ * `useLayoutEffect` CALLBACK or a JSX event handler) are ignored to keep false
+ * positives low. The effect's dependency array is NOT safe — it evaluates
+ * during render, so `useEffect(fn, [Math.random()])` is still flagged (A#26).
+ * `useMemo` is intentionally NOT treated as safe because it also runs during
+ * SSR.
  */
 
 export type HydrationPreflightIssue = {

@@ -3,7 +3,16 @@ import type { CodeFile } from "@/lib/gen/parser";
 /**
  * Normalize (deterministic import-repair) for verbatim repo imports —
  * v0 templates from Blob (`/api/template`) and ZIP/GitHub imports
- * (`/api/engine/chats/init`).
+ * (`/api/engine/chats/init`). Two independent repairs on the root
+ * `package.json`:
+ *
+ * REPAIR 1 — strip `packageManager: "pnpm@<11>"` pins (A#29). Corepack picks
+ * the pnpm version from this field, and pnpm 10 and older ignore the preview
+ * host's build-script approval (`PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS`),
+ * so pinned templates crash-loop with `ERR_PNPM_IGNORED_BUILDS`. Runs
+ * regardless of lockfile. See `stripLegacyPnpmPackageManager`.
+ *
+ * REPAIR 2 — the motion lockstep override (only without a root lockfile):
  *
  * The motion packages (`framer-motion` / `motion-dom` / `motion-utils`) are
  * published in lockstep and rely on internal cross-package symbols that only
