@@ -123,6 +123,7 @@ export async function GET(
               });
 
               let transitionedToError = false;
+              let persistFailed = false;
               try {
                 const result = await updateDeploymentStatus(deploymentId, mapped.status, {
                   url: vd.url || undefined,
@@ -130,6 +131,7 @@ export async function GET(
                 });
                 transitionedToError = result.transitionedToError;
               } catch (persistErr) {
+                persistFailed = true;
                 // SAJ-58: client got the new status via SSE, but the DB row
                 // didn't update. List/API consumers reading `deployments`
                 // will then show stale state. Surface in logs so we can spot
@@ -164,7 +166,14 @@ export async function GET(
                 }).catch(() => {});
               }
 
-              if (TERMINAL_STATUSES.has(mapped.status)) {
+              // Close on terminal — MEN om det var just error-statusen som inte
+              // gick att persista (transient DB-fel) håller vi strömmen öppen så
+              // en senare iteration kan göra om den atomiska övergången och logga
+              // build-felet EN gång. Annars skulle en tappad DB-skrivning på det
+              // (terminala) error-eventet tyst kosta deploy-felets spårbarhet
+              // (bugbot medium). Bundet av route:ns maxDuration + klient-abort.
+              const errorPersistPending = mapped.status === "error" && persistFailed;
+              if (TERMINAL_STATUSES.has(mapped.status) && !errorPersistPending) {
                 close();
               }
             } catch (pollErr) {
