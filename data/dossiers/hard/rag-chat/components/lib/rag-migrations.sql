@@ -13,27 +13,30 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- older servers; harmless if already present.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE IF NOT EXISTS documents (
+-- Tables are rag_-prefixed so they never collide with an app-domain
+-- `documents` table when RAG shares DATABASE_URL with the application schema
+-- (Codex P2 + bugbot high on the batch PR).
+CREATE TABLE IF NOT EXISTS rag_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   source text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS document_chunks (
+CREATE TABLE IF NOT EXISTS rag_document_chunks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id uuid NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES rag_documents (id) ON DELETE CASCADE,
   content text NOT NULL,
   embedding vector(1536) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS document_chunks_document_id_idx
-  ON document_chunks (document_id);
+CREATE INDEX IF NOT EXISTS rag_document_chunks_document_id_idx
+  ON rag_document_chunks (document_id);
 
 -- Approximate nearest-neighbour index for cosine distance (matches the
 -- `1 - (embedding <=> query)` similarity in lib/rag/retrieval.ts). Build it
 -- AFTER ingesting a representative amount of data — ivfflat needs rows to train
 -- its `lists` partitions. Raise `lists` for larger corpora.
-CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
-  ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS rag_document_chunks_embedding_idx
+  ON rag_document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);

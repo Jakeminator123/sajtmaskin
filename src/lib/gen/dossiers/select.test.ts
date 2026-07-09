@@ -343,6 +343,26 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     const ids = result.selected.map((s) => s.entry.id);
     expect(ids).not.toContain("supabase-auth");
   });
+
+  it("drops generic auth when supabase-auth is present — never two root middlewares", () => {
+    // Raw callers (snapshot re-selection, dossiers route) can pass both; the
+    // orchestrate prompt-filter dedup does not protect them, so the expansion
+    // helper enforces it (bugbot high, dossier-batch): supabase-auth and
+    // clerk-auth both emit a root middleware.ts.
+    const viaDependency = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions", "auth"],
+    });
+    const idsViaDependency = viaDependency.selected.map((s) => s.entry.id);
+    expect(idsViaDependency).toContain("supabase-auth");
+    expect(idsViaDependency).not.toContain("clerk-auth");
+
+    const explicit = selectDossiersForRequest({
+      requestedCapabilities: ["supabase-auth", "auth"],
+    });
+    const idsExplicit = explicit.selected.map((s) => s.entry.id);
+    expect(idsExplicit).toContain("supabase-auth");
+    expect(idsExplicit).not.toContain("clerk-auth");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -38,7 +38,10 @@ let paddleInstance: Paddle | null = null;
 export function getPaddleInstance(): Paddle {
   if (!paddleInstance) {
     const apiKey = process.env.PADDLE_API_KEY;
-    if (!apiKey) {
+    // Placeholder-aware (bugbot medium): generated code that reaches this
+    // factory without the route guard must still never construct a real Paddle
+    // client from an F2 preview stub.
+    if (!apiKey || isPlaceholderValue(apiKey)) {
       throw new Error('subscriptions-not-configured: PADDLE_API_KEY is missing');
     }
     paddleInstance = new Paddle(apiKey, {

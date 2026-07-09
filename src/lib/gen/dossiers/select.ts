@@ -77,7 +77,13 @@ const DEPENDENT_CAPABILITIES: Record<string, readonly string[]> = {
 
 /**
  * Returns `capabilities` plus any dependent capabilities (deduped, input order
- * preserved, dependencies appended). Never removes anything.
+ * preserved, dependencies appended), then resolves hard file conflicts:
+ * `supabase-auth` and generic `auth` (clerk-auth) both emit a root
+ * `middleware.ts`, so whenever the Supabase stack is present — explicitly or
+ * via a dependency — generic `auth` is dropped (bugbot high, dossier-batch:
+ * the orchestrate prompt-filter already had this dedup, but raw callers of
+ * selectDossiersForRequest — snapshot re-selection, dossiers route — could
+ * still pass both and select two colliding root middlewares).
  */
 export function expandDependentCapabilities(capabilities: string[]): string[] {
   const out = [...capabilities];
@@ -89,6 +95,9 @@ export function expandDependentCapabilities(capabilities: string[]): string[] {
         out.push(dep);
       }
     }
+  }
+  if (seen.has("supabase-auth") && seen.has("auth")) {
+    return out.filter((cap) => cap !== "auth");
   }
   return out;
 }

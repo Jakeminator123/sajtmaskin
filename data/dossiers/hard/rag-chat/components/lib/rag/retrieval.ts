@@ -41,8 +41,8 @@ export async function findRelevantChunks(
       d.title,
       d.source,
       1 - (c.embedding <=> ${vectorLiteral}::vector) as similarity
-    from document_chunks c
-    left join documents d on d.id = c.document_id
+    from rag_document_chunks c
+    left join rag_documents d on d.id = c.document_id
     order by c.embedding <=> ${vectorLiteral}::vector
     limit ${limit}
   `);

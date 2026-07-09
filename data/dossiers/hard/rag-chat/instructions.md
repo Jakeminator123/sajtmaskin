@@ -39,7 +39,7 @@
 
 - With `OPENAI_API_KEY` or `DATABASE_URL` missing (or a preview/placeholder stub): the chat renders, shows the "RAG i demo-läge" notice, and streams the canned demo reply — no 500, no crash.
 - Confirm both env vars hold real values for real answers.
-- Confirm Postgres is reachable and pgvector is enabled; run `lib/rag-migrations.sql` and verify `documents` and `document_chunks` exist.
+- Confirm Postgres is reachable and pgvector is enabled; run `lib/rag-migrations.sql` and verify `rag_documents` and `rag_document_chunks` exist (rag_-prefixed so they never collide with an app-domain `documents` table).
 - Ingest at least one test document and verify embeddings are stored.
 - Ask a question covered by the indexed document and confirm a grounded answer streams back; ask an uncovered question and confirm the assistant declines.
 - Check that `POST /api/chat` returns a streaming UI-message response for the installed AI SDK version.
