@@ -54,6 +54,10 @@ export const MIGRATION_ORDER = [
   // so it is a no-op on fresh installs (where the source SQL already uses
   // TIMESTAMPTZ after this PR).
   "fix-timestamp-tz.sql",
+  // Durable role-level UTC timezone (M#pg1). Replaces the per-connection
+  // `SET TIME ZONE` in client.ts, which both triggered the pg client.query()
+  // overlap warning and was unreliable behind Supavisor transaction pooling.
+  "set-role-timezone-utc.sql",
 ];
 
 /**
