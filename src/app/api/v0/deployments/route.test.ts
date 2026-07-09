@@ -916,4 +916,116 @@ describe("POST /api/v0/deployments", () => {
     expect(commit).toHaveBeenCalledTimes(1);
     expect(refund).not.toHaveBeenCalled();
   });
+
+  // R1 (Codex #443): the deploy env gate must block on the SAME list as the F3
+  // readiness gate — `buildBlockingKeys` (build-enforcement keys), NOT the
+  // broader `missingEnvKeys`. `feature-runtime`/`warn-only` keys (e.g. Resend
+  // `EMAIL_FROM`/`CONTACT_EMAIL_TO`) only degrade a single feature at runtime,
+  // so they must not 409 the deploy while readiness reports `canDeploy:true`.
+  describe("R1: deploy env gate blocks on buildBlockingKeys, not missingEnvKeys", () => {
+    const mockHappyDeployInfra = () => {
+      const commit = vi.fn(async () => undefined);
+      const refund = vi.fn(async () => undefined);
+      prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+      createDeploymentRecord.mockResolvedValue("dep_1");
+      createVercelDeployment.mockResolvedValue({
+        vercelDeploymentId: "dpl_1",
+        vercelProjectId: "vp_1",
+        url: "https://example.vercel.app",
+        inspectorUrl: null,
+        readyState: "READY",
+      });
+      updateDeploymentStatus.mockResolvedValue(undefined);
+      return { commit, refund };
+    };
+
+    it("does NOT block deploy on a missing feature-runtime env key, and still surfaces it as a warning", async () => {
+      mockHappyDeployInfra();
+      // F3 version referencing an invented email-recipient key. The resolver
+      // classifies `CONTACT_EMAIL_TO` as `feature-runtime` (custom-email group):
+      // it lands in `missingEnvKeys` (unconfigured, no placeholder) but NOT in
+      // `buildBlockingKeys`. Pre-fix this 409'd `DEPLOY_MISSING_ENV` even though
+      // readiness reported `canDeploy:true` — now the deploy proceeds.
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "integrations",
+          verification_state: "passed",
+        },
+      });
+      getVersionFiles.mockResolvedValue([
+        {
+          path: "app/api/contact/route.ts",
+          content:
+            "export async function POST() {\n  const to = process.env.CONTACT_EMAIL_TO;\n  return Response.json({ to });\n}\n",
+        },
+      ]);
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+      const json = (await res.json()) as {
+        envWarnings?: Array<{ key: string; reason: string }>;
+        deployReadiness?: { missingEnv: string[] };
+      };
+      // The key is not blocking, but it is still surfaced: structured warning
+      // AND the legacy `missingEnv` observability list.
+      expect(
+        json.envWarnings?.some(
+          (w) => w.key === "CONTACT_EMAIL_TO" && w.reason === "feature-runtime",
+        ),
+      ).toBe(true);
+      expect(json.deployReadiness?.missingEnv).toContain("CONTACT_EMAIL_TO");
+    });
+
+    it("still returns 409 DEPLOY_MISSING_ENV for a missing build-enforcement key (no charge, no Vercel call)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      // A custom `process.env.*` reference the pipeline cannot classify lands
+      // in the `custom-env` bucket, which stays `build`-enforcement (the
+      // conservative default). Unconfigured + no placeholder → it is in
+      // `buildBlockingKeys` and must keep hard-blocking the deploy.
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "integrations",
+          verification_state: "passed",
+        },
+      });
+      getVersionFiles.mockResolvedValue([
+        {
+          path: "lib/secret.ts",
+          content: "export const token = process.env.MY_SECRET_TOKEN;\n",
+        },
+      ]);
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as {
+        code?: string;
+        buildBlockingKeys?: string[];
+        deployReadiness?: { missingEnv: string[] };
+      };
+      expect(json.code).toBe("DEPLOY_MISSING_ENV");
+      expect(json.buildBlockingKeys).toContain("MY_SECRET_TOKEN");
+      // A hard env block must not charge credits or hit Vercel.
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+  });
 });
