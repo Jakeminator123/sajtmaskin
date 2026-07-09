@@ -32,7 +32,7 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -331,9 +331,14 @@ async function buildEngineReadiness(
     ? await readAllowPlaceholdersInF3(chat.project_id)
     : false;
 
-  const selectedDossiers = resolveSelectedDossiersFromSnapshot(
-    chat.orchestration_snapshot,
-  );
+  // One owner (review round 2): snapshot ∪ version-presence — the same set the
+  // dossiers panel reports, so an integration built into the version keeps its
+  // manifest enforcement here even after F2-mute dropped its capability from
+  // the snapshot floor. `files` was already loaded once above.
+  const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+    snapshot: chat.orchestration_snapshot,
+    versionFiles: files,
+  });
 
   const envRequirements = resolveEnvRequirementsFromVersionFiles(
     versionRows,

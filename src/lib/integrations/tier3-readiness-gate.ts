@@ -26,10 +26,12 @@ import {
   type Tier3BuildSpec,
   type Tier3ReadinessReport,
 } from "@/lib/integrations/tier3-build-spec";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import type {
   PlanContracts,
   PlanIntegrationContract,
 } from "@/lib/gen/plan/schema";
+import type { CodeFile } from "@/lib/gen/parser";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 
 export function buildContractsFromDetectedIntegrations(
@@ -62,8 +64,21 @@ export function buildContractsFromDetectedIntegrations(
 export async function deriveTier3BuildSpecForVersion(
   versionId: string,
   selectedDossiers: SelectedDossier[],
+  options?: {
+    /**
+     * Version files the caller already loaded (perf: the dossiers/readiness/
+     * finalize-design flows read `files_json` once per request and thread it
+     * here so the spec derivation never re-reads it). `undefined` keeps the
+     * legacy load-by-versionId behavior; an empty array means "the caller
+     * loaded and got nothing" and resolves to null (files unavailable) without
+     * a redundant second read.
+     */
+    preloadedFiles?: CodeFile[] | null;
+  },
 ): Promise<Tier3BuildSpec | null> {
-  const codeFiles = await getVersionFiles(versionId);
+  const codeFiles = Array.isArray(options?.preloadedFiles)
+    ? options.preloadedFiles
+    : await getVersionFiles(versionId);
   if (!codeFiles || codeFiles.length === 0) {
     // G#21: the version exists (caller already resolved it) but its files
     // could not be loaded/parsed (empty or corrupt `files_json`). Returning
@@ -128,18 +143,32 @@ export async function isProductPostcheckBlocked(versionId: string): Promise<bool
  * Product Postcheck block, derive the file-based build spec, load the
  * project's stored env values, and validate every required real key
  * (honoring the "tillåt placeholders i F3" opt-in).
+ *
+ * Dossier scoping is resolved INTERNALLY from the chat's orchestration
+ * snapshot ∪ the version's file evidence
+ * (`resolveSelectedDossiersWithVersionPresence`) — the same set the dossiers
+ * panel and readiness route report, so gate and panel can never disagree on
+ * which dossier owns an env key's enforcement. The version files are read
+ * exactly once and reused for the spec derivation.
  */
 export async function checkTier3ReadinessForVersion(params: {
   versionId: string;
-  selectedDossiers: SelectedDossier[];
+  /** The chat's `orchestration_snapshot` (or null when absent). */
+  orchestrationSnapshot: unknown;
   projectId: string | null;
 }): Promise<Tier3GateResult> {
   if (await isProductPostcheckBlocked(params.versionId)) {
     return { ok: false, reason: "product_postcheck_blocked" };
   }
+  const versionFiles = await getVersionFiles(params.versionId);
+  const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+    snapshot: params.orchestrationSnapshot,
+    versionFiles,
+  });
   const spec = await deriveTier3BuildSpecForVersion(
     params.versionId,
-    params.selectedDossiers,
+    selectedDossiers,
+    { preloadedFiles: versionFiles ?? [] },
   );
   if (!spec) {
     return { ok: false, reason: "version_files_unavailable" };

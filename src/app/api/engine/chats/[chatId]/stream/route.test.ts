@@ -18,6 +18,7 @@ const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const consumeF3ContinuationMarker = vi.hoisted(() => vi.fn());
+const appendF3ApprovedToSnapshot = vi.hoisted(() => vi.fn(async () => true));
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
@@ -268,6 +269,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
   getVersionById,
   consumeF3ContinuationMarker,
+  appendF3ApprovedToSnapshot,
 }));
 
 vi.mock("@/lib/gen/context/file-context-builder", () => ({
@@ -1391,7 +1393,12 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         id: "chat_1",
         project_id: "app_proj_1",
         scaffold_id: "scaffold_1",
-        messages: f3AwaitingHistory("ver_f2_parent"),
+        // Providers on the marker: a provider-less approval with no evidence
+        // takes the honest nothing-to-build close (own test below) — this
+        // test exercises the BUILD path.
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["stripe"],
+        }),
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
@@ -1490,6 +1497,100 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       };
       expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
       // The build directive names the approved provider.
+      expect(orchestrationInput.prompt).toContain(
+        "Approved integration providers: stripe",
+      );
+      // Durable approval (review round 2, fix 5a): the approved capabilities +
+      // providers are persisted on the snapshot so LATER rounds still treat
+      // them as approved even when the build ends without file evidence.
+      expect(appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
+        "chat_1",
+        expect.arrayContaining(["payments"]),
+        ["stripe"],
+      );
+    });
+
+    it("closes F3 honestly when the approval has NOTHING approvable — no providers, no persisted approvals, no file evidence (fix 5b)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        // Marker with zero providers (malformed suggestIntegration round).
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // The marker is consumed (no re-ask loop) …
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      // … an honest close-out message is persisted …
+      expect(addMessage).toHaveBeenCalledWith(
+        "chat_1",
+        "assistant",
+        expect.stringContaining("inga konkreta integrationer"),
+      );
+      // … and NO generation runs (previously: a doomed silent round).
+      expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+      expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+      const body = await response.text();
+      expect(body).toContain("f3_approval_nothing_to_build");
+    });
+
+    it("falls back to PERSISTED approvals when the marker carries zero providers (fix 5a durability)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent"),
+        // An earlier approval round persisted stripe → payments.
+        orchestration_snapshot: {
+          f3ApprovedCapabilities: ["payments"],
+          f3ApprovedProviders: ["stripe"],
+        },
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Integrations build</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // The persisted approval powers the build round: capabilities reach
+      // orchestration and the directive names the provider.
+      const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+        requestedDossierCapabilities?: string[];
+        prompt: string;
+      };
+      expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
       expect(orchestrationInput.prompt).toContain(
         "Approved integration providers: stripe",
       );
@@ -1684,7 +1785,9 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         id: "chat_1",
         project_id: "app_proj_1",
         scaffold_id: "scaffold_1",
-        messages: f3AwaitingHistory("ver_old_parent"),
+        messages: f3AwaitingHistory("ver_old_parent", {
+          suggestedProviders: ["stripe"],
+        }),
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_preferred");

@@ -95,7 +95,9 @@ import {
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
   prependOrchestrationContinuityToFollowUp,
+  readF3ApprovedFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
+import { resolveCapabilitiesPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
@@ -109,7 +111,6 @@ import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import { createDirectModel } from "@/lib/builder/direct-model";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
   approvedProvidersShipConfigNotice,
@@ -117,6 +118,8 @@ import {
 } from "@/lib/integrations/tier3-build-spec";
 import {
   classifyF3ContinuationReply,
+  F3_APPROVAL_NOTHING_TO_BUILD_MESSAGE,
+  F3_APPROVAL_NOTHING_TO_BUILD_REASON,
   F3_REJECT_ACK_MESSAGE,
   F3_REJECT_ACK_REASON,
   F3_REJECT_RACE_LOST_MESSAGE,
@@ -169,6 +172,9 @@ function buildQaShortCircuitStream(params: {
 function buildF3RejectAckStream(params: {
   chatId: string;
   text: string;
+  /** `done.reason` — defaults to the calm reject ack; the nothing-to-build
+   * honest close (fix 5b) reuses the same stream shape with its own reason. */
+  reason?: string;
 }): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
@@ -183,7 +189,7 @@ function buildF3RejectAckStream(params: {
             messageId: null,
             ...previewUrlField(null),
             awaitingInput: false,
-            reason: F3_REJECT_ACK_REASON,
+            reason: params.reason ?? F3_REJECT_ACK_REASON,
           }),
         ),
       );
@@ -675,11 +681,11 @@ export async function handleMessageStreamRequest(
             gateVersionId =
               gateVersionId ?? (await resolveChatPreferredVersionId(engineChat.id));
             if (gateVersionId) {
+              // Dossier scoping (snapshot ∪ version-presence) resolves inside
+              // the gate — one owner shared with the readiness/dossiers routes.
               const gate = await checkTier3ReadinessForVersion({
                 versionId: gateVersionId,
-                selectedDossiers: resolveSelectedDossiersFromSnapshot(
-                  engineChat.orchestration_snapshot,
-                ),
+                orchestrationSnapshot: engineChat.orchestration_snapshot,
                 projectId: engineChat.project_id ?? null,
               });
               if (!gate.ok && gate.reason === "missing_env") {
@@ -1289,11 +1295,23 @@ export async function handleMessageStreamRequest(
         // graceful not-configured contract (real keys must NOT be assumed;
         // placeholder env values may remain until the owner fills them in).
         let f3ApprovedDossierCapabilities: string[] = [];
+        let f3EffectiveApprovedProviders: string[] = [];
         if (f3ApprovalBuildRound && f3ContinuationDecision) {
-          const approvedProviders = f3ContinuationDecision.markerSuggestedProviders;
+          // Durable approval (review round 2, fix 5a): a tool-less/silent
+          // marker can carry ZERO providers ("Godkänn förslag" would inject
+          // nothing). Fall back to the approvals an EARLIER approval round
+          // persisted on the snapshot so a retry keeps its provider→dossier
+          // mapping across rounds and page refreshes.
+          const persistedApproved = readF3ApprovedFromSnapshot(
+            engineChat.orchestration_snapshot as Record<string, unknown> | null,
+          );
+          const markerProviders = f3ContinuationDecision.markerSuggestedProviders;
+          f3EffectiveApprovedProviders =
+            markerProviders.length > 0 ? markerProviders : persistedApproved.providers;
           try {
-            f3ApprovedDossierCapabilities =
-              mapProviderKeysToDossierCapabilities(approvedProviders);
+            f3ApprovedDossierCapabilities = mapProviderKeysToDossierCapabilities(
+              f3EffectiveApprovedProviders,
+            );
           } catch (mapErr) {
             debugLog("orchestration", "F3 provider→capability mapping failed", {
               chatId,
@@ -1301,10 +1319,69 @@ export async function handleMessageStreamRequest(
             });
             f3ApprovedDossierCapabilities = [];
           }
+          // Once approved, always approved: earlier persisted capability
+          // approvals stay in the set even when this marker names fewer.
+          f3ApprovedDossierCapabilities = Array.from(
+            new Set([...f3ApprovedDossierCapabilities, ...persistedApproved.capabilities]),
+          );
+
+          // Fix 5b: an approval with ZERO approvable capabilities — nothing
+          // signaled, nothing persisted from earlier rounds, and no
+          // integration file evidence in the base version — would run a
+          // doomed silent round (the F3 scope selects nothing) and re-park
+          // the user in the same dialog. Close F3 honestly instead: the
+          // marker is already consumed, no generation runs, and the copy
+          // names a concrete next step.
+          if (
+            f3EffectiveApprovedProviders.length === 0 &&
+            f3ApprovedDossierCapabilities.length === 0 &&
+            resolveCapabilitiesPresentInVersion(
+              previousFiles.map((file) => file.path),
+            ).length === 0
+          ) {
+            await chatRepo
+              .addMessage(engineChat.id, "assistant", F3_APPROVAL_NOTHING_TO_BUILD_MESSAGE)
+              .catch(() => null);
+            devLogAppend("in-progress", {
+              type: "f3.approval_nothing_to_build",
+              chatId,
+              markerMessageId: f3ContinuationDecision.markerMessageId,
+              priorToolOnlyRounds: f3ContinuationDecision.markerToolOnlyRounds,
+            });
+            return attachSessionCookie(
+              new Response(
+                wrapStreamForPromptToDoneMetric(
+                  buildF3RejectAckStream({
+                    chatId,
+                    text: F3_APPROVAL_NOTHING_TO_BUILD_MESSAGE,
+                    reason: F3_APPROVAL_NOTHING_TO_BUILD_REASON,
+                  }),
+                  {
+                    kind: "followup",
+                    promptStartedAt,
+                    signal: req.signal,
+                    chatId,
+                  },
+                ),
+                { headers: createSSEHeaders() },
+              ),
+            );
+          }
+
+          // Persist the durable approval record (best-effort — a write failure
+          // only means the NEXT round falls back to marker/file evidence).
+          await chatRepo
+            .appendF3ApprovedToSnapshot(
+              engineChat.id,
+              f3ApprovedDossierCapabilities,
+              f3EffectiveApprovedProviders,
+            )
+            .catch(() => null);
+
           devLogAppend("in-progress", {
             type: "f3.approval_build_round",
             chatId,
-            approvedProviders,
+            approvedProviders: f3EffectiveApprovedProviders,
             dossierCapabilities: f3ApprovedDossierCapabilities,
             priorToolOnlyRounds: f3ContinuationDecision.markerToolOnlyRounds,
           });
@@ -1312,7 +1389,7 @@ export async function handleMessageStreamRequest(
           // UI" when an injected dossier actually ships the component —
           // otherwise the model imports a file that is never emitted.
           const configNoticeShipped =
-            approvedProvidersShipConfigNotice(approvedProviders);
+            approvedProvidersShipConfigNotice(f3EffectiveApprovedProviders);
           const fallbackInstruction = configNoticeShipped
             ? "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and render the dossier's config-notice UI (the `*config-notice.tsx` component included in the provided dossier files, e.g. `components/integration-config-notice.tsx` or `components/db-config-notice.tsx`) with a disabled CTA instead of a raw error."
             : "Do NOT assume real API keys are configured. Placeholder env values may remain until the site owner fills them in — implement the graceful not-configured fallback: initialize SDK clients lazily after an env guard (never at module scope), return a calm 503 with a `*-not-configured` error code from the API route, and show a calm inline notice (plain markup you write yourself) with a disabled CTA instead of a raw error. Do NOT import any config-notice component — none is provided.";
@@ -1321,8 +1398,8 @@ export async function handleMessageStreamRequest(
               heading: "## F3 Integration Build Approval",
               introLines: [
                 "The user has APPROVED the integration proposal. The proposal phase is OVER.",
-                approvedProviders.length > 0
-                  ? `Approved integration providers: ${approvedProviders.join(", ")}.`
+                f3EffectiveApprovedProviders.length > 0
+                  ? `Approved integration providers: ${f3EffectiveApprovedProviders.join(", ")}.`
                   : "The approved proposal is described in the chat history above.",
                 "Build the approved integration(s) end-to-end NOW, in this response: the user-facing UI entry points (e.g. purchase/checkout CTA on the site), the complete server API route(s), and the wiring between them. Output code files.",
                 "Do NOT suggest integrations again. Do NOT ask for another confirmation. A response without code files is a failure.",
@@ -1461,9 +1538,11 @@ export async function handleMessageStreamRequest(
           additionalDossierCapabilities: f3ApprovedDossierCapabilities,
           // Codex P1 (#445): keep the approved provider identity through
           // sibling selection — the approval text has no provider keyword.
+          // Durable (fix 5a): includes the persisted-approval fallback when
+          // the marker itself carried zero providers.
           approvedProviders:
-            f3ApprovalBuildRound && f3ContinuationDecision
-              ? f3ContinuationDecision.markerSuggestedProviders
+            f3ApprovalBuildRound && f3EffectiveApprovedProviders.length > 0
+              ? f3EffectiveApprovedProviders
               : null,
           orchestrationSnapshot:
             engineChat.orchestration_snapshot as Record<string, unknown> | null,

@@ -22,7 +22,8 @@ import {
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { getVersionFiles } from "@/lib/gen/version-manager";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
 // Shared with the stream route's F3 gate (M#818-2) — single owner for the
@@ -126,12 +127,17 @@ export async function POST(
       );
     }
 
-    const selectedDossiers = resolveSelectedDossiersFromSnapshot(
-      chat.orchestration_snapshot,
-    );
+    // One owner (review round 2): snapshot ∪ version-presence. Files are read
+    // once here and reused for the spec derivation (no second files_json read).
+    const baseVersionFiles = await getVersionFiles(baseVersion.id);
+    const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+      snapshot: chat.orchestration_snapshot,
+      versionFiles: baseVersionFiles,
+    });
     const spec = await deriveTier3BuildSpecForVersion(
       baseVersion.id,
       selectedDossiers,
+      { preloadedFiles: baseVersionFiles ?? [] },
     );
 
     if (!spec) {

@@ -46,6 +46,25 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/gen/dossiers/version-presence", () => ({
   resolveDossiersPresentInVersion,
+  // Mirrors the real union owner: snapshot-derived ∪ presence, deduped by id.
+  // Lets existing tests keep driving behavior via the two lower-level mocks.
+  resolveSelectedDossiersWithVersionPresence: (params: {
+    snapshot: unknown;
+    versionFiles?: ReadonlyArray<{ path?: unknown }> | null;
+    configuredEnvKeys?: ReadonlySet<string>;
+  }) => {
+    const fromSnapshot: SelectedDossier[] =
+      resolveSelectedDossiersFromSnapshot(params.snapshot, params.configuredEnvKeys) ?? [];
+    const fromPresence: SelectedDossier[] =
+      params.versionFiles && params.versionFiles.length > 0
+        ? (resolveDossiersPresentInVersion(params.versionFiles, params.configuredEnvKeys) ?? [])
+        : [];
+    const byId = new Map<string, SelectedDossier>();
+    for (const selected of [...fromSnapshot, ...fromPresence]) {
+      if (!byId.has(selected.entry.id)) byId.set(selected.entry.id, selected);
+    }
+    return Array.from(byId.values());
+  },
 }));
 
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
@@ -419,9 +438,35 @@ describe("GET dossiers overview", () => {
     expect(aiTool).toBeDefined();
     expect(aiTool?.capability).toBe("ai-tool-calling");
     expect(body.counts.total).toBeGreaterThanOrEqual(1);
-    // A version-present dossier the capability pass missed re-derives the spec
-    // against the reconciled set (file-based growth).
-    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(2);
+    // Perf (review round 2): the presence dossier is in the INITIAL union, so
+    // the provisional derivation already covered it — no second derive needed.
+    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
+  });
+
+  // Perf/robustness (review round 2): a failing spec RE-derivation degrades to
+  // the provisional spec instead of 500:ing the panel.
+  it("degrades to the provisional spec when the re-derivation throws", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    // Provisional pass detects stripe via provider keys → reconciliation grows
+    // the set → re-derive runs and FAILS.
+    deriveTier3BuildSpecForVersion
+      .mockResolvedValueOnce({ requirements: [stripeRequirement] })
+      .mockRejectedValueOnce(new Error("transient files read error"));
+    mapProviderKeysToDossierCapabilities.mockReturnValue(["payments"]);
+    selectDossiersForRequest.mockReturnValue({
+      selected: [stripeDossier()],
+      poolSize: 10,
+      byCapability: { payments: ["stripe-checkout"] },
+    });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    // Provisional spec still powers the response (stripe requirement present).
+    expect(body.versionFilesAvailable).toBe(true);
+    expect(body.counts.total).toBe(1);
   });
 
   // Codex P2 (PR #439): `extractBriefSummaryFromSnapshot` casts (does not
