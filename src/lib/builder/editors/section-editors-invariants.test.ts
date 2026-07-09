@@ -151,4 +151,29 @@ describe("section editors — cross-array leak invariant", () => {
     ]);
     assertNoLeak((result ?? []).flatMap((r) => [r.title, r.excerpt]));
   });
+
+  it("stays fast on pathological backslash runs (no catastrophic backtracking)", () => {
+    // Utan disjunkta grenar ([^\\] i icke-escape-grenen) exploderar
+    // backtrackingen på en lång backslash-svit när matchningen misslyckas
+    // (t.ex. name: utan role:/quote: efteråt). 2^N-paths ≈ frys av UI:t.
+    const backslashes = "\\\\".repeat(120);
+    const content = [
+      "const menu = [",
+      `  { name: "${backslashes}", price: "36 kr" },`,
+      `  { name: "x${backslashes}", price: "46 kr" },`,
+      "];",
+      "const testimonials = [",
+      '  { name: "Anna", role: "VD", quote: "Bra." },',
+      '  { name: "Erik", role: "CTO", quote: "Fint." },',
+      "];",
+    ].join("\n");
+    const startedAt = performance.now();
+    const result = readTestimonialItemsDraft(PAGE, content);
+    const elapsedMs = performance.now() - startedAt;
+    expect(result).toEqual([
+      { name: "Anna", role: "VD", quote: "Bra." },
+      { name: "Erik", role: "CTO", quote: "Fint." },
+    ]);
+    expect(elapsedMs).toBeLessThan(500);
+  });
 });

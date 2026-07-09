@@ -23,7 +23,7 @@ function isPageFile(fileName: string): boolean {
 // Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
 // sibling object that has `title:` but no `description:` cannot leak into the match.
 const SERVICE_ITEM_RE =
-  /\{\s*title:\s*(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1\s*,\s*description:\s*(["'`])((?:\\[\s\S]|(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
+  /\{\s*title:\s*(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1\s*,\s*description:\s*(["'`])((?:\\[\s\S]|(?!\3)[^\\])*?)\3[\s\S]*?\}/g;
 
 function findServiceItemMatches(content: string): ServiceItemMatch[] {
   const matches: ServiceItemMatch[] = [];

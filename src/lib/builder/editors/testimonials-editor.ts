@@ -30,7 +30,7 @@ function isPageFile(fileName: string): boolean {
 // into the first capture and leaks foreign data into the editor (and corrupts
 // the file on save, since replacements are position-based).
 const TESTIMONIAL_ITEM_RE =
-  /\{\s*name:\s*(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1\s*,\s*role:\s*(["'`])((?:\\[\s\S]|(?!\3)[\s\S])*?)\3\s*,\s*quote:\s*(["'`])((?:\\[\s\S]|(?!\5)[\s\S])*?)\5[\s\S]*?\}/g;
+  /\{\s*name:\s*(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1\s*,\s*role:\s*(["'`])((?:\\[\s\S]|(?!\3)[^\\])*?)\3\s*,\s*quote:\s*(["'`])((?:\\[\s\S]|(?!\5)[^\\])*?)\5[\s\S]*?\}/g;
 
 function findTestimonialItemMatches(content: string): TestimonialItemMatch[] {
   const matches: TestimonialItemMatch[] = [];

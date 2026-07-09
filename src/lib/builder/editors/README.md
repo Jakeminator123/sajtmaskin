@@ -25,14 +25,17 @@ Använd en **bunden fångst** som sväljer escapade tecken men aldrig passerar e
 oescapat avslutande citattecken (backreferensen till delimitern):
 
 ```
-(["'`])((?:\\[\s\S]|(?!\1)[\s\S])*?)\1
+(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1
    │        │            │
-   │        │            └─ …men aldrig förbi ett OESCAPAT delimiter-tecken (\1)
+   │        │            └─ …eller ett tecken som varken är delimitern (\1) eller backslash
    │        └─ svälj escapade tecken (\' \" \\ \n) så de inte avbryter fältet
    └─ öppnande delimiter fångas i en grupp så \1 matchar rätt sort (" ' `)
 ```
 
-- `(?:\\[\s\S] | (?!\1)[\s\S])*?` — non-greedy, escape-medveten, delimiter-bunden.
+- `(?:\\[\s\S] | (?!\1)[^\\])*?` — non-greedy, escape-medveten, delimiter-bunden.
+- Grenarna är **disjunkta** (backslash tas ALLTID av escape-grenen): utan `[^\\]`
+  kan en lång backslash-svit ge katastrofal backtracking (ReDoS-klass) när
+  regexen misslyckas — t.ex. på ett kodexempel i den genererade sidan.
 - För komponent-attribut (`<PricingCard … />`) binds även *mellanrummen* mellan
   attribut med `(?:(?!\/>)[\s\S])*?` så en kort-tagg inte slukar nästa kort.
 
