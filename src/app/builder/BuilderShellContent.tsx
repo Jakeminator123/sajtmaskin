@@ -748,6 +748,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              isStreaming={vm.isAnyStreaming}
             />
             <TipCard
               open={tipPanelOpen && vm.tipsEnabled}

@@ -58,6 +58,7 @@ import {
 } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
+import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
@@ -1422,6 +1423,19 @@ export async function handleMessageStreamRequest(
         // persisted `chat.model` (set at init) stays the tier build model so
         // repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
         const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
+        // fix-isconfigured: resolve the project's stored env keys so the
+        // hard-dossier `configured` prompt signal reflects the PROJECT'S env,
+        // not the platform process.env. `getStoredProjectEnvVarMap` only
+        // returns keys with a real (non-empty, decryptable) value.
+        const configuredEnvKeys = engineChat.project_id
+          ? new Set(
+              Object.keys(
+                await getStoredProjectEnvVarMap(engineChat.project_id).catch(
+                  () => ({}) as Record<string, string>,
+                ),
+              ),
+            )
+          : new Set<string>();
         // P32 Fas B next step: external-fetch needs web-search integration
         // before it can short-circuit safely; keep it on normal codegen for now.
         const orchestrationInput = buildFollowUpOrchestrationInput({
@@ -1462,6 +1476,7 @@ export async function handleMessageStreamRequest(
           chatId,
           priorQualityTarget,
           requestKind: requestKindResult?.kind ?? null,
+          configuredEnvKeys,
         });
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

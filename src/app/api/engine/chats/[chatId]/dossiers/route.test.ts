@@ -301,6 +301,9 @@ describe("GET dossiers overview", () => {
     // Re-resolved via the union of capabilities detected in the version's files.
     expect(selectDossiersForRequest).toHaveBeenCalledWith({
       requestedCapabilities: ["payments"],
+      // fix-isconfigured: the route now threads the project's stored env key
+      // set so `configured` reflects the project, not platform process.env.
+      configuredEnvKeys: new Set(),
     });
     // Re-derives the build spec against the reconciled dossier set so env
     // enforcement tagging is correct for the resurfaced dossier.
@@ -333,6 +336,9 @@ describe("GET dossiers overview", () => {
 
     expect(selectDossiersForRequest).toHaveBeenCalledWith({
       requestedCapabilities: ["payments"],
+      // fix-isconfigured: the route now threads the project's stored env key
+      // set so `configured` reflects the project, not platform process.env.
+      configuredEnvKeys: new Set(),
     });
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe).toBeDefined();
@@ -369,6 +375,9 @@ describe("GET dossiers overview", () => {
     // Only the valid string capability survives the filter.
     expect(selectDossiersForRequest).toHaveBeenCalledWith({
       requestedCapabilities: ["payments"],
+      // fix-isconfigured: the route now threads the project's stored env key
+      // set so `configured` reflects the project, not platform process.env.
+      configuredEnvKeys: new Set(),
     });
     expect(body.counts.total).toBe(1);
   });

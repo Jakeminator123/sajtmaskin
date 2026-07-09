@@ -110,4 +110,20 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
     expect(capabilities).toContain("analytics");
     expect(capabilities).toContain("payments");
   });
+
+  // fix-isconfigured (wave 1): the optional `configuredEnvKeys` set drives the
+  // per-dossier `configured` flag from the PROJECT'S stored env, not the
+  // platform process.env.
+  it("threads configuredEnvKeys into the per-dossier configured flag", () => {
+    const withKeys = resolveSelectedDossiersFromSnapshot(
+      { requestedCapabilities: ["payments"] },
+      new Set(["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"]),
+    );
+    const withoutKeys = resolveSelectedDossiersFromSnapshot(
+      { requestedCapabilities: ["payments"] },
+      new Set<string>(),
+    );
+    expect(withKeys.find((d) => d.entry.capability === "payments")?.configured).toBe(true);
+    expect(withoutKeys.find((d) => d.entry.capability === "payments")?.configured).toBe(false);
+  });
 });

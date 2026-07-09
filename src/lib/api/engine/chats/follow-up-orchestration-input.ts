@@ -68,6 +68,13 @@ export interface BuildFollowUpOrchestrationInputParams {
   chatId?: string;
   priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
   requestKind?: OrchestrationInput["requestKind"];
+  /**
+   * Env keys the project has a real stored value for (resolved by the stream
+   * caller from `getStoredProjectEnvVarMap`). Forwarded to orchestrate so the
+   * hard-dossier `configured` prompt signal reflects the project's env instead
+   * of the platform `process.env` (fix-isconfigured).
+   */
+  configuredEnvKeys?: ReadonlySet<string>;
 }
 
 function buildClearRedesignBriefFallbackFromSnapshot(
@@ -172,6 +179,7 @@ export function buildFollowUpOrchestrationInput(
     capabilityModifyHint,
     engineModelId: params.engineModelId,
     lifecycleStage: params.parsedMeta.lifecycleStage,
+    configuredEnvKeys: params.configuredEnvKeys,
     // 5-1: consolidate the scattered inherited/frozen follow-up signals into
     // one readable object. Additive — does not change how the fields above
     // are read by orchestrate (parity preserved).

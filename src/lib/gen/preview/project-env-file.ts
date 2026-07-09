@@ -109,6 +109,59 @@ const SECTION_ORDER: EnvVarProvenance[] = [
 ];
 
 /**
+ * Section for env keys a SELECTED dossier declares that have no auto
+ * placeholder (or, in F3, whose tier-3 stub was stripped). They render as
+ * empty `KEY=` lines with the manifest `purpose` as a comment so the user
+ * sees exactly what to fill in — without the old full-catalog dump.
+ */
+const DOSSIER_SCOPE_HEADER =
+  "# ── Nycklar för valda byggblock (fyll i via env-panelen) ───────\n" +
+  "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
+  "# Fyll i riktiga värden i builderns env-panel (eller lokalt i .env.local).";
+
+/**
+ * Opt-in dossier env scope. When provided (preflight always sends it),
+ * `env.example` lists ONLY the project-specific layers (user / generated /
+ * project-preview) plus placeholder-catalog keys that a selected dossier
+ * actually declares — instead of dumping the whole harmless + tier-3 stub
+ * catalogs. When omitted (legacy / unknown callsites) the full-dump behavior
+ * is preserved so nothing silently changes outside preflight.
+ */
+export interface DossierEnvScope {
+  envVars: Array<{ key: string; purpose?: string }>;
+}
+
+/** Provenance layers that describe THIS project (never a catalog dump). */
+const PROJECT_SPECIFIC_PROVENANCE: ReadonlySet<EnvVarProvenance> = new Set<EnvVarProvenance>([
+  "user",
+  "generated",
+  "project-preview",
+]);
+
+/**
+ * Build the "keys for selected dossiers" section from the dossier env vars
+ * that are NOT already emitted with a value in one of the kept layers.
+ * Deduplicated by key; the first non-empty `purpose` wins.
+ */
+function buildDossierScopeSection(
+  scope: DossierEnvScope,
+  alreadyEmittedKeys: Set<string>,
+): string | null {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const envVar of scope.envVars) {
+    const key = typeof envVar?.key === "string" ? envVar.key.trim() : "";
+    if (!key || seen.has(key) || alreadyEmittedKeys.has(key)) continue;
+    seen.add(key);
+    const purpose = typeof envVar.purpose === "string" ? envVar.purpose.trim() : "";
+    if (purpose) lines.push(`# ${purpose}`);
+    lines.push(`${key}=`);
+  }
+  if (lines.length === 0) return null;
+  return [DOSSIER_SCOPE_HEADER, ...lines].join("\n");
+}
+
+/**
  * Build a "detected integrations" section as a comment block. F2 only:
  * if the model still managed to wire in real integrations (despite the
  * F2 contract in the system prompt + the SDK guard fixer), surface them
@@ -182,23 +235,69 @@ export async function buildProjectEnvFileContents(params: {
   lifecycleStage?: PreviewLifecycleStage;
   /** Project files used to scan for "detected but commented" hints in F2. */
   projectFiles?: ReadonlyArray<{ path: string; content: string }>;
+  /**
+   * Opt-in dossier env scope. When provided, only the placeholder-catalog
+   * keys a selected dossier declares are emitted (plus project-specific
+   * layers); the full harmless + tier-3 catalog dump is dropped. Omit to keep
+   * the legacy full-dump behavior. See {@link DossierEnvScope}.
+   */
+  dossierEnvScope?: DossierEnvScope;
 }): Promise<string> {
   const lifecycleStage = params.lifecycleStage ?? "design";
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
 
+  // Dossier-scoped mode (preflight): keep the project-specific layers, keep
+  // catalog keys ONLY when a selected dossier declares them, and drop the rest
+  // of the harmless + tier-3 stub catalogs. Undefined scope → legacy full dump.
+  let emittedMerged = merged;
+  let emittedProvenance = provenance;
+  let dossierScopeSection: string | null = null;
+  if (params.dossierEnvScope) {
+    const scopeKeys = new Set(
+      params.dossierEnvScope.envVars
+        .map((envVar) => (typeof envVar?.key === "string" ? envVar.key.trim() : ""))
+        .filter((key) => key.length > 0),
+    );
+    const scopedMerged: Record<string, string> = {};
+    const scopedProvenance: Record<string, EnvVarProvenance> = {};
+    for (const key of Object.keys(merged)) {
+      const prov = provenance[key] ?? "harmless";
+      if (PROJECT_SPECIFIC_PROVENANCE.has(prov) || scopeKeys.has(key)) {
+        scopedMerged[key] = merged[key];
+        scopedProvenance[key] = prov;
+      }
+    }
+    emittedMerged = scopedMerged;
+    emittedProvenance = scopedProvenance;
+    // Dossier keys not covered by a kept layer (never in the catalog, or a
+    // tier-3 stub stripped in F3) become explicit empty lines with a purpose.
+    dossierScopeSection = buildDossierScopeSection(
+      params.dossierEnvScope,
+      new Set(Object.keys(scopedMerged)),
+    );
+  }
+
   const sections = buildProvenanceGroupedSections(
-    merged,
-    provenance,
+    emittedMerged,
+    emittedProvenance,
     SECTION_HEADERS,
     SECTION_ORDER,
   );
 
+  if (dossierScopeSection) sections.push(dossierScopeSection);
+
   // F2 only: surface any detected integration env-keys as comments so
-  // the user can see them without them ever blocking boot.
+  // the user can see them without them ever blocking boot. Keys already
+  // emitted above (kept layers + dossier-scope section) are excluded.
   if (lifecycleStage !== "integrations" && params.projectFiles?.length) {
+    const handledKeys = new Set<string>(Object.keys(emittedMerged));
+    for (const envVar of params.dossierEnvScope?.envVars ?? []) {
+      const key = typeof envVar?.key === "string" ? envVar.key.trim() : "";
+      if (key) handledKeys.add(key);
+    }
     const detectedBlock = buildDetectedIntegrationsCommentBlock(
       params.projectFiles,
-      new Set(Object.keys(merged)),
+      handledKeys,
     );
     if (detectedBlock) sections.push(detectedBlock);
   }
@@ -237,6 +336,12 @@ export async function injectProjectEnvFileIntoFilesJson(
   params: {
     appProjectId?: string | null;
     lifecycleStage?: PreviewLifecycleStage;
+    /**
+     * Opt-in dossier env scope. Forwarded to {@link buildProjectEnvFileContents}
+     * so `env.example` lists only the selected dossiers' env keys instead of
+     * the full placeholder catalog. Omit for legacy full-dump behavior.
+     */
+    dossierEnvScope?: DossierEnvScope;
   },
 ): Promise<string> {
   let files: FileEntry[];
@@ -273,6 +378,7 @@ export async function injectProjectEnvFileIntoFilesJson(
       generatedEnvLocal,
       lifecycleStage: params.lifecycleStage,
       projectFiles,
+      dossierEnvScope: params.dossierEnvScope,
     });
   } catch (err) {
     console.warn(

@@ -693,6 +693,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // actually generates (e.g. Opus 4.8's larger window on the anthropic
           // tier), not the tier build-default.
           engineModelId: generatorModel,
+          // fix-isconfigured: init runs on a fresh project with no stored env
+          // keys yet, so the hard-dossier `configured` signal is empty (render
+          // the unconfigured placeholder UI). An empty set — never `undefined`
+          // — so we do NOT fall back to reading the platform process.env (which
+          // would wrongly mark a dossier "configured" from Sajtmaskin's own
+          // keys). Real project keys are picked up on the next follow-up round.
+          configuredEnvKeys: new Set<string>(),
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

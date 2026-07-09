@@ -138,8 +138,20 @@ async function buildDossierOverview(
     (await getPreferredVersion(chat.id)) ??
     (await getLatestVersion(chat.id));
 
+  // Fetch the stored env-var map up front: it powers both the per-key
+  // `hasRealValue` flags AND (fix-isconfigured) the dossier `configured`
+  // signal, so it must be resolved before the snapshot selection runs.
+  // `getStoredProjectEnvVarMap` only returns keys with a real stored value.
+  const projectEnvVars = chat.project_id
+    ? await getStoredProjectEnvVarMap(chat.project_id).catch(
+        () => ({}) as Record<string, string>,
+      )
+    : ({} as Record<string, string>);
+  const configuredEnvKeys = new Set(Object.keys(projectEnvVars));
+
   const initialSelectedDossiers = resolveSelectedDossiersFromSnapshot(
     chat.orchestration_snapshot,
+    configuredEnvKeys,
   );
 
   const lifecycleStage =
@@ -194,6 +206,7 @@ async function buildDossierOverview(
     extraCapabilities.length > 0
       ? selectDossiersForRequest({
           requestedCapabilities: [...initialCapabilities, ...extraCapabilities],
+          configuredEnvKeys,
         }).selected
       : initialSelectedDossiers;
 
@@ -207,15 +220,8 @@ async function buildDossierOverview(
       : provisionalSpec;
   const versionFilesAvailable = spec !== null;
 
-  // Fetch the stored env-var map + placeholder set once. Both are needed for
-  // the per-key `hasRealValue` / `placeholderCovered` flags on every dossier
-  // (not just detected ones), so we resolve them up front rather than inside
-  // the readiness branch below.
-  const projectEnvVars = chat.project_id
-    ? await getStoredProjectEnvVarMap(chat.project_id).catch(
-        () => ({}) as Record<string, string>,
-      )
-    : ({} as Record<string, string>);
+  // Placeholder set powers the per-key `placeholderCovered` flag. The stored
+  // env-var map (`projectEnvVars`) was already resolved up front (above).
   const placeholderKeySet = loadPlaceholderKeySet();
   const hasRealEnvValue = (key: string): boolean => {
     const value = projectEnvVars[key];

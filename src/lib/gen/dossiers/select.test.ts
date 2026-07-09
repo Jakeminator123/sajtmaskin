@@ -311,6 +311,54 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// fix-isconfigured (wave 1): the `configured` flag must reflect the PROJECT'S
+// stored env keys, not the platform `process.env`. Callers pass
+// `configuredEnvKeys`; when omitted, the legacy process.env fallback stays.
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — configuredEnvKeys (project-scoped)", () => {
+  it("marks a hard dossier configured from the project env key set", () => {
+    // Platform env is empty; the PROJECT set carries the keys → configured.
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments"],
+      configuredEnvKeys: new Set([
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      ]),
+    });
+    expect(result.selected[0]?.configured).toBe(true);
+  });
+
+  it("ignores platform process.env when configuredEnvKeys is supplied", () => {
+    // The platform has the keys, but the PROJECT set does not → unconfigured.
+    // This is the exact leak `configuredEnvKeys` fixes.
+    process.env.STRIPE_SECRET_KEY = "sk_platform_leak";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_platform_leak";
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments"],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(result.selected[0]?.configured).toBe(false);
+  });
+
+  it("keeps soft dossiers configured regardless of configuredEnvKeys", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["pricing-section"],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(result.selected[0]?.configured).toBe(true);
+  });
+
+  it("falls back to process.env when configuredEnvKeys is omitted (legacy)", () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_xxx";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_xxx";
+    const result = selectDossiersForRequest({ requestedCapabilities: ["payments"] });
+    expect(result.selected[0]?.configured).toBe(true);
+  });
+});
+
 describe("getAllDossiers", () => {
   it("walks both hard/ and soft/ folders", () => {
     const all = getAllDossiers();

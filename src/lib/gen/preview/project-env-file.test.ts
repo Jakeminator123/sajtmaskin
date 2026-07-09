@@ -11,7 +11,13 @@ import {
 } from "./project-env-file";
 
 describe("buildProjectEnvFileContents", () => {
-  it("includes the F2 user-facing header by default", async () => {
+  // NOTE (scope-env-example wave 1): these two tests exercise the LEGACY
+  // full-catalog dump, which is now only reached when NO `dossierEnvScope` is
+  // passed (unknown/older callsites). The real pipeline (preflight-phase.ts)
+  // always passes a scope, so the STRIPE_SECRET_KEY-in-F2-default pin below
+  // describes the fallback, not the production path — the dossier-scoped path
+  // is pinned in the "dossier-scoped env.example" describe block.
+  it("includes the F2 user-facing header by default (legacy full-dump fallback)", async () => {
     const body = await buildProjectEnvFileContents({
       appProjectId: "proj_test",
       generatedEnvLocal: null,
@@ -24,7 +30,7 @@ describe("buildProjectEnvFileContents", () => {
     expect(body).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
   });
 
-  it("strips tier-3 stub layer in F3", async () => {
+  it("strips tier-3 stub layer in F3 (legacy full-dump fallback)", async () => {
     const body = await buildProjectEnvFileContents({
       appProjectId: "proj_test",
       generatedEnvLocal: null,
@@ -141,5 +147,91 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
       lifecycleStage: "design",
     });
     expect(next).toBe(bad);
+  });
+});
+
+describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", () => {
+  it("drops the full placeholder catalog when the scope is empty", async () => {
+    // Site with no dossiers: env.example should no longer dump Stripe/Supabase
+    // etc. just because the catalogs contain them.
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
+    });
+    expect(body).not.toContain("STRIPE_SECRET_KEY=");
+    expect(body).not.toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
+    // Project-preview tokens are project-specific and always kept.
+    expect(body).toContain("# ── Stabila projekt-tokens");
+  });
+
+  it("emits only the catalog keys a selected dossier declares", async () => {
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "design",
+      dossierEnvScope: {
+        envVars: [
+          { key: "STRIPE_SECRET_KEY", purpose: "Stripe secret" },
+          { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", purpose: "Stripe publishable" },
+        ],
+      },
+    });
+    // Both are covered by the catalogs → keep their placeholder VALUE.
+    expect(body).toMatch(/STRIPE_SECRET_KEY=.+/);
+    expect(body).toMatch(/NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=.+/);
+  });
+
+  it("lists an uncovered dossier key as an empty line with its purpose", async () => {
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "design",
+      dossierEnvScope: {
+        envVars: [{ key: "MY_DOSSIER_ONLY_KEY", purpose: "Bespoke integration token" }],
+      },
+    });
+    expect(body).toContain("Nycklar för valda byggblock");
+    expect(body).toContain("# Bespoke integration token");
+    expect(body).toContain("MY_DOSSIER_ONLY_KEY=");
+    // Uncovered keys have no placeholder value.
+    expect(body).toMatch(/MY_DOSSIER_ONLY_KEY=\s*$/m);
+  });
+
+  it("in F3 a stripped tier-3 dossier key surfaces empty; harmless keys keep values", async () => {
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "integrations",
+      dossierEnvScope: {
+        envVars: [
+          { key: "STRIPE_SECRET_KEY", purpose: "Stripe secret" },
+          { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", purpose: "Stripe publishable" },
+        ],
+      },
+    });
+    // Tier-3 stub layer is stripped in F3 → the secret has no placeholder and
+    // moves to the "fill me" dossier section as an empty line.
+    expect(body).not.toContain("# ── Tier-3 placeholders");
+    expect(body).toContain("Nycklar för valda byggblock");
+    expect(body).toMatch(/STRIPE_SECRET_KEY=\s*$/m);
+    // Harmless publishable key stays with its (safe) placeholder value.
+    expect(body).toMatch(/NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=.+/);
+  });
+
+  it("keeps user-stored values even for out-of-scope keys", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
+      KLARNA_API_SECRET: "klarna_real_secret",
+    });
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
+    });
+    // User-panel values are project-specific and always kept, regardless of scope.
+    expect(body).toContain("KLARNA_API_SECRET=klarna_real_secret");
   });
 });

@@ -70,6 +70,12 @@ export type PendingReplyModalData = {
   question: string;
   options: string[];
   planMode?: boolean;
+  /**
+   * `output.kind` discriminator of the awaiting-input tool part, when present
+   * (e.g. `"f3-continuation"`). Lets the consumer (MessageList) special-case
+   * the F3-continuation marker — auto-continue instead of a dialog.
+   */
+  kind?: string;
 };
 
 export type EnvRequirementHint = {
@@ -906,6 +912,16 @@ function coerceStringArray(value: unknown): string[] {
   return value.map((item) => String(item)).filter((item) => item.trim().length > 0);
 }
 
+/** Read `output.kind` off a tool part (e.g. the F3-continuation marker). */
+function extractPendingReplyKind(tool: { output?: unknown }): string | undefined {
+  const output = tool.output;
+  if (output && typeof output === "object") {
+    const kind = (output as Record<string, unknown>).kind;
+    if (typeof kind === "string" && kind.trim().length > 0) return kind.trim();
+  }
+  return undefined;
+}
+
 export function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModalData | null {
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
@@ -937,6 +953,7 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
         question: replyPrompt.question,
         options: replyPrompt.options,
         planMode: isPlanAwaitingInput(tool),
+        kind: extractPendingReplyKind(tool),
       };
     }
     const hasAwaitingInput = toolParts.some((part) => {
@@ -980,6 +997,7 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
             question: normalizeQuestionText(fromOutput.question.trim()),
             options: fromOutput.options.map(normalizeApprovalOptionLabel),
             planMode: hasPlanAwaitingInput,
+            kind: extractPendingReplyKind(tool),
           };
         }
       }

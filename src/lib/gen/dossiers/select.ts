@@ -40,12 +40,35 @@ export interface SelectDossiersOptions {
    * default under `database`). Absent → the `defaultForCapability` pick.
    */
   promptText?: string | null;
+  /**
+   * Env keys the CURRENT PROJECT has stored a real value for (from
+   * `getStoredProjectEnvVarMap`). Drives the `configured` flag: a hard
+   * dossier is `configured` only when all its required env keys are in this
+   * set. Callers with a projectId must resolve this in the caller (the map is
+   * async; `select.ts` stays sync) and pass it in.
+   *
+   * When omitted, `configured` falls back to reading the PLATFORM'S
+   * `process.env` — a deprecated fallback kept only for callers that cannot
+   * supply a project env map (e.g. dep-completer backstop). That fallback is
+   * wrong for user projects (Sajtmaskin's own keys leak in), which is exactly
+   * the bug `configuredEnvKeys` fixes; prefer always passing it.
+   */
+  configuredEnvKeys?: ReadonlySet<string>;
 }
 
-function isConfigured(entry: DossierEntry): boolean {
+function isConfigured(
+  entry: DossierEntry,
+  configuredEnvKeys?: ReadonlySet<string>,
+): boolean {
   if (!entry.envVars || entry.envVars.length === 0) return true;
   for (const ev of entry.envVars) {
     if (!ev.required) continue;
+    if (configuredEnvKeys) {
+      // Project-scoped source of truth: the key has a real stored value.
+      if (!configuredEnvKeys.has(ev.key)) return false;
+      continue;
+    }
+    // Deprecated fallback: platform process.env (wrong for user projects).
     const value = process.env[ev.key];
     if (!value || value.trim().length === 0) return false;
   }
@@ -154,7 +177,7 @@ export function selectDossiersForRequest(
     selected.push({
       entry,
       reason: pick.reason,
-      configured: isConfigured(entry),
+      configured: isConfigured(entry, opts.configuredEnvKeys),
     });
     (byCapability[cap] ??= []).push(entry.id);
   }
