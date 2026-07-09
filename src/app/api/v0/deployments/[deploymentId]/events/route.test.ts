@@ -87,6 +87,10 @@ describe("GET /api/v0/deployments/[deploymentId]/events auth (A#3)", () => {
     expect(body).toContain("https://vercel.com/inspect/dep_1");
     // Regressionens kärna: v0-fallbacken ska inte behövas för engine-chattar.
     expect(getEngineChatByIdForRequest).toHaveBeenCalledWith(req, "chat_1");
+    // A#25: negativ-assert — en ägd engine-chat får ALDRIG falla igenom till
+    // legacy-lookupen (annars kan "engine-first" tyst regrediera till v0-first
+    // utan att testet märker det).
+    expect(getChatByIdForRequest).not.toHaveBeenCalled();
   });
 
   it("falls back to the legacy v0 chat lookup", async () => {
