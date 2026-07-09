@@ -506,4 +506,43 @@ describe("checkCrossFileImports", () => {
     expect(updated?.content ?? "").not.toContain("web-gl-renderer");
     expect(updated?.content ?? "").not.toContain("canvas-error-boundary");
   });
+
+  // Prod incident 2026-07-09: a stub `import Uint8Array from
+  // "@/components/uint8-array"` collided with `new ReadableStream<Uint8Array>`
+  // in an API route. JS/Web globals must never be stubbed.
+  it("strips denylisted JS-global default imports (Uint8Array) without stubbing", () => {
+    const route: CodeFile = {
+      path: "app/api/assistant/route.ts",
+      language: "tsx",
+      content: [
+        'import Uint8Array from "@/components/uint8-array";',
+        "export async function POST() {",
+        "  return new Response(new ReadableStream<Uint8Array>());",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([route]);
+
+    expect(result.files.some((f) => f.path === "components/uint8-array.tsx")).toBe(false);
+    const updated = result.files.find((f) => f.path === "app/api/assistant/route.ts");
+    expect(updated?.content ?? "").not.toContain("@/components/uint8-array");
+  });
+
+  it("strips a single-uppercase-letter (TS generic) default import without stubbing", () => {
+    const page: CodeFile = {
+      path: "app/reports/page.tsx",
+      language: "tsx",
+      content: [
+        'import T from "@/components/t";',
+        "export default function Page() { return null; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    expect(result.files.some((f) => f.path === "components/t.tsx")).toBe(false);
+    const updated = result.files.find((f) => f.path === "app/reports/page.tsx");
+    expect(updated?.content ?? "").not.toContain("@/components/t");
+  });
 });

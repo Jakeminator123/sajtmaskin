@@ -4,6 +4,7 @@ import type { AutoFixEntry } from "./pipeline";
 import {
   countParseErrors,
   isDenylistedStubDefaultName,
+  JS_BUILTIN_GLOBAL_NAMES,
 } from "./rules/import-binding-ast";
 import { classifyShadcnLucideCollisionUsage } from "./rules/lucide-misuse-fixer";
 
@@ -15,8 +16,24 @@ import { classifyShadcnLucideCollisionUsage } from "./rules/lucide-misuse-fixer"
 const IMPORT_RE =
   /^import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/gm;
 const JSX_OPEN_TAG_RE = /<([A-Z]\w*)[\s/>]/g;
-const JSX_SELF_CLOSING_RE = /<([A-Z]\w*)\s[^>]*\/>/g;
 const JSX_CLOSE_TAG_RE = /<\/([A-Z]\w*)\s*>/g;
+
+/**
+ * Component-detection matchers used by `extractUsedComponents` (which decides
+ * what imports to insert). The negative lookbehind `(?<![A-Za-z0-9_$.])`
+ * rejects TS generic positions where `<` immediately follows an identifier or
+ * `.` — `new ReadableStream<Uint8Array>`, `useRef<Group>`, `foo<T>(`,
+ * `React.FC<Props>`. Those are type arguments, never JSX components, so they
+ * must not drive a generated `@/components/<kebab>` import (prod incident
+ * 2026-07-09: `<Uint8Array>` in `new ReadableStream<Uint8Array>` was stubbed).
+ *
+ * Same disambiguation `rules/dom-builtin-jsx-fixer.ts` already relies on. The
+ * plain `JSX_OPEN_TAG_RE` / `JSX_CLOSE_TAG_RE` above stay lookbehind-free for
+ * the tag-pairing counter (`checkTagMatching`), which is guarded separately by
+ * `isGlobalTypeName` + the TS parse gate.
+ */
+const JSX_COMPONENT_OPEN_TAG_RE = /(?<![A-Za-z0-9_$.])<([A-Z]\w*)[\s/>]/g;
+const JSX_COMPONENT_SELF_CLOSING_RE = /(?<![A-Za-z0-9_$.])<([A-Z]\w*)\s[^>]*\/>/g;
 const DEFAULT_EXPORT_RE = /export\s+default\s+/m;
 const LUCIDE_IMPORT_RE =
   /^\s*import\s*\{[^}]+\}\s*from\s*["']lucide-react["']/m;
@@ -103,14 +120,20 @@ const GLOBAL_TYPES = new Set([
   "Readonly",
   "Pick",
   "Omit",
+  // JS/Web runtime globals (typed arrays, Date, Error, TextEncoder, …) written
+  // in generic position (`new ReadableStream<Uint8Array>`, `Promise<Date>`).
+  // Shared with `isDenylistedStubDefaultName` so both autofix layers agree.
+  ...JS_BUILTIN_GLOBAL_NAMES,
 ]);
 
 /**
  * Returns true for tokens that look like built-in DOM/standard types and must
- * never be treated as missing JSX components.
+ * never be treated as missing JSX components. Also excludes a single uppercase
+ * letter (`<T>`, `<K>`) — a classic TS generic parameter, never a component.
  */
 function isGlobalTypeName(name: string): boolean {
   if (GLOBAL_TYPES.has(name)) return true;
+  if (/^[A-Z]$/.test(name)) return true;
   return isDenylistedStubDefaultName(name);
 }
 
@@ -186,12 +209,14 @@ function extractImportedNames(code: string): Set<string> {
 function extractUsedComponents(code: string): Set<string> {
   const used = new Set<string>();
 
-  JSX_OPEN_TAG_RE.lastIndex = 0;
-  for (const m of code.matchAll(JSX_OPEN_TAG_RE)) {
+  // Lookbehind matchers exclude TS generic positions (`new
+  // ReadableStream<Uint8Array>`, `foo<T>(`) so those never drive an import.
+  JSX_COMPONENT_OPEN_TAG_RE.lastIndex = 0;
+  for (const m of code.matchAll(JSX_COMPONENT_OPEN_TAG_RE)) {
     used.add(m[1]);
   }
-  JSX_SELF_CLOSING_RE.lastIndex = 0;
-  for (const m of code.matchAll(JSX_SELF_CLOSING_RE)) {
+  JSX_COMPONENT_SELF_CLOSING_RE.lastIndex = 0;
+  for (const m of code.matchAll(JSX_COMPONENT_SELF_CLOSING_RE)) {
     used.add(m[1]);
   }
 
@@ -303,16 +328,47 @@ function isPreviewCriticalJsxFile(filePath: string | undefined, code: string): b
 }
 
 /**
+ * Non-JSX surfaces where a `<Name>` occurrence is always a TS generic (or a
+ * type cast), never a JSX component to import:
+ *
+ *   - `app/api/**` route handlers (server code, export named HTTP methods).
+ *   - plain `.ts` / `.js` / `.mjs` / `.cjs` / `.mts` / `.cts` files — JSX in a
+ *     non-`x` file is a syntax error, so any match is a generic.
+ *
+ * `fixMissingImports` and the default-export heuristic are skipped here so an
+ * `@/components/<kebab>` stub import (or an `export default GET`) is never
+ * injected into an API route (prod incident 2026-07-09: `import Uint8Array
+ * from "@/components/uint8-array"` landed in `app/api/assistant/route.ts`).
+ * An unknown path (`undefined`) keeps the legacy behaviour.
+ */
+function isNonJsxImportSurface(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const normalized = filePath.replace(/\\/g, "/").toLowerCase();
+  if (normalized.includes("app/api/")) return true;
+  if (/\.[cm]?[tj]sx$/.test(normalized)) return false;
+  return /\.[cm]?[tj]s$/.test(normalized);
+}
+
+/**
  * Fix missing component imports:
  * - Lucide icons → merge into existing lucide-react import or add new one
  * - shadcn/ui components → import from correct @/components/ui/... path
  * - Other → default import from @/components/kebab-case-name
  */
-function fixMissingImports(code: string): {
+function fixMissingImports(
+  code: string,
+  filePath?: string,
+): {
   code: string;
   fixes: AutoFixEntry[];
   warnings: string[];
 } {
+  // Never insert component imports into a non-JSX surface (API routes, plain
+  // .ts/.js) — a `<Name>` there is a TS generic, not a JSX component.
+  if (isNonJsxImportSurface(filePath)) {
+    return { code, fixes: [], warnings: [] };
+  }
+
   const fixes: AutoFixEntry[] = [];
   const warnings: string[] = [];
   const imported = extractImportedNames(code);
@@ -548,7 +604,7 @@ export function runJsxChecker(
     ),
   );
 
-  const importResult = fixMissingImports(code);
+  const importResult = fixMissingImports(code, filePath);
   let currentCode = importResult.code;
   fixes.push(...importResult.fixes);
   warnings.push(...importResult.warnings);
@@ -556,8 +612,10 @@ export function runJsxChecker(
   // SAJ-63: skip default-export check for hook files. A `use-*.ts(x)` file
   // (or any file under `/hooks/`) is by convention a named-export hook, not
   // a component, and the heuristic that walks for "last function returning
-  // JSX" is meaningless there.
-  if (!isHookFilePath(filePath)) {
+  // JSX" is meaningless there. Same for non-JSX surfaces (API routes, plain
+  // .ts/.js): they export named symbols, not a component default — appending
+  // `export default GET` to a route handler would be wrong.
+  if (!isHookFilePath(filePath) && !isNonJsxImportSurface(filePath)) {
     const exportResult = fixMissingDefaultExport(currentCode);
     currentCode = exportResult.code;
     fixes.push(...exportResult.fixes);
