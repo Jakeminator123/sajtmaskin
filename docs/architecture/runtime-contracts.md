@@ -76,6 +76,9 @@ Invariants:
 - Advisory-safe F2 typecheck får inte bli false-green; status ska visa
   Advisory/degradation.
 - Render-risk-koder, build/lint-fel och promote-guard-fel är Blocker.
+- F2 har två Blocker-källor: RenderGates render-risk-TS-koder och
+  finalize-verifierns build-breaking-fynd (`isBuildBreakingFinding` —
+  import-/namnupplösningsklassen). Övriga verifier-fynd är Advisory i F2.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
 ## RepairGate

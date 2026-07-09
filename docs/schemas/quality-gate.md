@@ -51,7 +51,11 @@ De är alltså inte samma sak som:
   regex-/AST-baserade guards (t.ex. `undefined-jsx-symbol`,
   `r3f-client-boundary`, `navigation-placeholder-actions`,
   `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) innan
-  LLM-passet och matar eventuella Blocker-fynd in i RepairGate
+  LLM-passet och matar eventuella Blocker-fynd in i RepairGate.
+  LLM-fynd i import-/namnupplösningsklassen (`import-name-collision`,
+  `build-*-import`) klassas som build-breaking (`isBuildBreakingFinding`)
+  och gate:ar F2-verifiering; de force-promotas även från `quality`-
+  till `blocking`-lanen om modellen felbucketar dem
 - live-previewns `npm run dev`
 - CapabilitySmoke (kod: `product_postcheck.*`) som gör capability-specifik
   DOM/render-smoke efter preview och rapporterar varningar/degradations
@@ -194,7 +198,10 @@ predikat så de aldrig är oense:
   Oparsebar tsc-output (inga TS-koder) failar också hårt (fail-closed).
   Advisory gäller alltså bara semantiska typfel (TS2322, TS2339, TS7006, …)
   som `next dev` bevisligen renderar igenom.
-- `verifier`/promote-guard (`assertPromoteAllowed`) förblir Blocker —
+- `verifier`/promote-guard (`assertPromoteAllowed`) förblir Blocker — i F2
+  blockerar verifierns build-breaking-klass (import-/namnupplösning m.m. via
+  `isBuildBreakingFinding` → `verifier_failed`) medan produktkvalitetsfynd
+  förblir Advisory; F3 blockerar alla verifier-blocking-fynd.
   `diagnosticOnly`-läget i server-verify Advisory-promotar aldrig.
 - Att sidan *över huvud taget* renderar ägs uppströms av finalize-preflight
   (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
