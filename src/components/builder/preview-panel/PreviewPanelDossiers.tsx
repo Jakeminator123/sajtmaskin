@@ -57,7 +57,7 @@ const ENFORCEMENT_LABEL: Record<
 };
 
 /**
- * Toolbar "Dossiers" popover: shows which reusable building blocks are wired
+ * Toolbar "Byggblock" popover: shows which reusable building blocks are wired
  * into the current build and — for the heavier (hard) integrations — whether
  * they have been built into the active version. Data is lazily fetched from
  * `GET /api/engine/chats/[chatId]/dossiers` when the popover opens (and
@@ -124,8 +124,8 @@ export function PreviewPanelDossiers({
       if (err instanceof Error && err.name === "AbortError") return;
       setError(
         err instanceof Error
-          ? `Kunde inte hämta dossiers: ${err.message}`
-          : "Kunde inte hämta dossiers.",
+          ? `Kunde inte hämta byggblock: ${err.message}`
+          : "Kunde inte hämta byggblock.",
       );
     } finally {
       if (!signal.aborted) setLoading(false);
@@ -364,8 +364,8 @@ export function PreviewPanelDossiers({
             )}
             title={
               entry.class === "hard"
-                ? "Hård dossier — kräver riktiga nycklar"
-                : "Mjuk dossier — självförsörjande byggblock"
+                ? "Hårt byggblock — kräver riktiga nycklar"
+                : "Mjukt byggblock — självförsörjande, kräver inga externa nycklar"
             }
           >
             {entry.class === "hard" ? "Hård" : "Mjuk"}
@@ -440,13 +440,13 @@ export function PreviewPanelDossiers({
           size="sm"
           title={
             needsAttention
-              ? "Dossiers: en integration saknar nycklar — klicka för att fylla i"
-              : "Visa inkopplade dossiers (byggblock) och integrationsstatus"
+              ? "Byggblock: en integration saknar nycklar — klicka för att fylla i"
+              : "Visa inkopplade byggblock och integrationsstatus"
           }
           className={cn("relative text-gray-400 hover:text-white", className)}
         >
           <Boxes className="mr-1 h-4 w-4" />
-          Dossiers
+          Byggblock
           {count !== null && count > 0 ? (
             <Badge
               variant="outline"
@@ -469,7 +469,7 @@ export function PreviewPanelDossiers({
       >
         <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
           <span className="flex items-center gap-1.5 text-[12px] font-semibold text-white">
-            Dossiers
+            Byggblock
             {loading && freshData ? (
               <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
             ) : null}
@@ -556,13 +556,13 @@ export function PreviewPanelDossiers({
           {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Läser dossier-status…
+              Läser byggblock-status…
             </div>
           ) : error ? (
             <p className="px-1 py-3 text-[11px] text-rose-300">{error}</p>
           ) : freshData && freshData.dossiers.length === 0 ? (
             <p className="px-1 py-3 text-[11px] text-gray-400">
-              Inga dossiers är inkopplade i den här versionen.
+              Inga byggblock är inkopplade i den här versionen.
             </p>
           ) : (
             <div className="space-y-3">
