@@ -51,10 +51,10 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 
 ### 4b. Normalize vid import (enda undantaget från verbatim)
 
-`normalizeImportedRepoFiles` (`src/lib/templates/normalize-imported-package-json.ts`) körs på både template-importen (`loadLocalV0TemplateFiles`) och ZIP/GitHub-importen (`/api/engine/chats/init`) och gör **en** deterministisk repair på rot-`package.json`:
+`normalizeImportedRepoFiles` (`src/lib/templates/normalize-imported-package-json.ts`) körs på både template-importen (`loadLocalV0TemplateFiles`) och ZIP/GitHub-importen (`/api/engine/chats/init`) och gör **två** deterministiska repairs på rot-`package.json`:
 
-- **Motion lockstep-skew:** om `framer-motion` är exakt-pinnad `< 12.41.0` **utan** lockfil och utan egen `motion-dom`-deklaration injiceras `"overrides": { "motion-dom": "12.40.0" }`. Bakgrund: motion-paketen publiceras i lockstep; `motion-dom@12.41.0` tog bort interna `activeAnimations` som äldre `framer-motion` fortfarande importerar, så en färsk `npm install` ger `Export activeAnimations doesn't exist in target module` och previewn dör på boot (upstream: motiondivision/motion#3744, resend/react-email#3599).
-- Mallar **med** lockfil lämnas orörda (transitiva deps frysta; `npm ci` skulle avvisa en override som lockfilen inte speglar).
+- **`packageManager`-strip (pnpm < 11):** ett `packageManager: "pnpm@10.x"`-pin tas bort. Corepack väljer pnpm-version från fältet, och pnpm 10 och äldre ignorerar preview-hostens build-script-approval (`PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS`) → mallen crash-loopar med `ERR_PNPM_IGNORED_BUILDS`. Utan pin faller corepack till VM-default (pnpm 11) som honorerar flaggan. pnpm 11+/yarn/npm-pins lämnas orörda. Körs oavsett lockfil.
+- **Motion lockstep-skew:** om `framer-motion` är exakt-pinnad `< 12.41.0` **utan** lockfil och utan egen `motion-dom`-deklaration injiceras `"overrides": { "motion-dom": "12.40.0" }`. Bakgrund: motion-paketen publiceras i lockstep; `motion-dom@12.41.0` tog bort interna `activeAnimations` som äldre `framer-motion` fortfarande importerar, så en färsk `npm install` ger `Export activeAnimations doesn't exist in target module` och previewn dör på boot (upstream: motiondivision/motion#3744, resend/react-email#3599). Mallar **med** lockfil lämnas orörda av denna repair (transitiva deps frysta; `npm ci` skulle avvisa en override som lockfilen inte speglar).
 
 Allt annat innehåll är fortfarande verbatim.
 
