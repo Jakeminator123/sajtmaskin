@@ -241,7 +241,14 @@ describe("MessageList", () => {
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 
-  it("auto-approves when the F3 marker hydrates one tick after stream-end (integrations stage)", async () => {
+  it("auto-approves when the F3 marker hydrates one tick after stream-end (design stage — prod-realistic, P1)", async () => {
+    // P1 regression lock: a real F3-continuation marker is emitted by a
+    // tool-only/empty round that creates NO new version, so
+    // `deployReadiness.lifecycleStage` reads the still-active F2 row =
+    // "design". Auto-continue MUST therefore work with lifecycleStage="design"
+    // — gating arming on "integrations" made the feature dead in prod. The
+    // live-vs-stale decision rests on the marker (kind + parentVersionId ===
+    // active versionId), not the prop stage.
     let resolveSend: (() => void) | undefined;
     const onQuickReply = vi.fn(
       () =>
@@ -258,7 +265,7 @@ describe("MessageList", () => {
         messages={before}
         onQuickReply={onQuickReply}
         isStreaming
-        lifecycleStage="integrations"
+        lifecycleStage="design"
         versionId="ver_f2_parent"
       />,
     );
@@ -270,7 +277,7 @@ describe("MessageList", () => {
         messages={before}
         onQuickReply={onQuickReply}
         isStreaming={false}
-        lifecycleStage="integrations"
+        lifecycleStage="design"
         versionId="ver_f2_parent"
       />,
     );
@@ -296,7 +303,7 @@ describe("MessageList", () => {
         messages={after}
         onQuickReply={onQuickReply}
         isStreaming={false}
-        lifecycleStage="integrations"
+        lifecycleStage="design"
         versionId="ver_f2_parent"
       />,
     );
@@ -305,6 +312,68 @@ describe("MessageList", () => {
       expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
     });
     resolveSend?.();
+  });
+
+  it("does NOT auto-approve a hydrated marker whose parentVersionId no longer matches the active version (stale lineage, isolated)", async () => {
+    // Isolates the parentVersionId gate: a real generation stream DID run this
+    // session (so the stream-end window is armed), but the marker that hydrates
+    // belongs to a superseded design version (parentVersionId != active
+    // versionId). It must fall back to inline quick-replies, never auto-fire.
+    const onQuickReply = vi.fn(async () => {});
+    const before: ChatMessage[] = [
+      { id: "user_kick_stale_lineage", role: "user", content: "Ändra designen." },
+    ];
+    const { rerender } = render(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+    rerender(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+
+    const withStaleMarker: ChatMessage[] = [
+      ...before,
+      {
+        id: "assistant_stale_lineage_marker",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_superseded",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={withStaleMarker}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
   });
 
   it("does NOT auto-approve a marker that arrives via staged history hydration (no stream ran)", async () => {

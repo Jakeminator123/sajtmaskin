@@ -227,8 +227,13 @@ const MessageListComponent = ({
   );
 
   // Arm the F3 "live stream" gate when a generation stream ENDS (with or without
-  // the marker in the same render — hydration may lag). F2/other streams that
-  // end without a matching F3 marker never pass tryArmF3LiveStreamGate.
+  // the marker in the same render — hydration may lag). The live-vs-stale
+  // discriminator is the MARKER itself (kind + key-not-at-mount +
+  // parentVersionId === active version), NOT the prop `lifecycleStage`: a real
+  // F3-continuation marker is only ever emitted by a tool-only/empty round that
+  // creates NO new engine version, so `deployReadiness.lifecycleStage` stays
+  // "design". Gating this on "integrations" therefore made live auto-continue
+  // dead in prod (the gate could never be satisfied for an actual marker).
   useEffect(() => {
     if (f3AwaitingStreamSettleRef.current) {
       prevIsStreamingRef.current = isStreaming;
@@ -241,13 +246,17 @@ const MessageListComponent = ({
     }
     const wasStreaming = prevIsStreamingRef.current;
     prevIsStreamingRef.current = isStreaming;
+    if (!wasStreaming && isStreaming) {
+      // A fresh stream started: close the previous stream-end window so a marker
+      // can only ever be credited to THIS stream's end (avoids a sticky ref
+      // arming an unrelated marker that hydrates much later).
+      lastGenerationStreamEndRef.current = false;
+    }
     if (wasStreaming && !isStreaming) {
-      if (lifecycleStage === "integrations") {
-        lastGenerationStreamEndRef.current = true;
-      }
+      lastGenerationStreamEndRef.current = true;
       tryArmF3LiveStreamGate(getLatestPendingReplyFromTooling(messages));
     }
-  }, [isStreaming, messages, lifecycleStage, tryArmF3LiveStreamGate]);
+  }, [isStreaming, messages, tryArmF3LiveStreamGate]);
 
   // Marker arrived after stream-end (server restore / staged hydration beat).
   useEffect(() => {
