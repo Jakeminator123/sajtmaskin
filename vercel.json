@@ -1,5 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "*": false,
+      "*/*": false,
+      "*/*/*": false,
+      "*/*/*/*": false,
+      "master": true
+    }
+  },
   "functions": {
     "src/app/api/engine/chats/stream/route.ts": {
       "supportsCancellation": true
