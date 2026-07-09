@@ -153,6 +153,12 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "server-only": "0.0.1",
   "@neondatabase/serverless": "^1",
   "mongodb": "^7",
+  // Dossier (legacy import 2026-07-08, capability `subscriptions`):
+  // paddle-billing. Majors verified against the npm registry 2026-07-09
+  // (`npm view <pkg> version`). @supabase/ssr is 0.x so we pin the minor.
+  "@paddle/paddle-node-sdk": "^3",
+  "@supabase/ssr": "^0.12",
+  "@supabase/supabase-js": "^2",
 };
 
 /**

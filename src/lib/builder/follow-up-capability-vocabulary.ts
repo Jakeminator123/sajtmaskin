@@ -149,6 +149,24 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Recurring subscriptions / memberships (Paddle Billing). INTENTIONALLY
+    // separate from one-off `payments` (Stripe-checkout owns `payments`): this
+    // capability is for recurring plans/memberships synced from signed Paddle
+    // webhooks. The provider word "paddle" is high-precision. Vetoes keep it off
+    // one-off payment intent and newsletter "prenumerera på nyhetsbrev".
+    capability: "subscriptions",
+    patterns: [
+      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?|subscribe)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:medlemskap(?:et|en)?|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning(?:ar|en)?|debitering(?:ar|en)?)|recurring\s+(?:payment(?:s)?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:nyhetsbrev(?:et)?|newsletter)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "auth",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:auth|inloggning|registrera\s+konto|logga\s+in|sign[-\s]?in|sign[-\s]?up|register|clerk|next-?auth|auth\.js)(?![\p{L}\p{N}_])/iu,

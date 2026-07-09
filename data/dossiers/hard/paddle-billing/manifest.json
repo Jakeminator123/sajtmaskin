@@ -1,0 +1,136 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "paddle-billing",
+  "label": "Paddle Billing Subscriptions",
+  "capability": "subscriptions",
+  "codeFidelity": "verbatim",
+  "complexity": "advanced",
+  "defaultForCapability": true,
+  "summary": "Use when a Next.js App Router app needs recurring Paddle Billing subscriptions: signed webhooks sync subscription state into a Supabase 'subscriptions' table, plus an authenticated customer-portal endpoint. Separate from one-off 'payments' (Stripe). Requires Supabase Auth + a host-provided subscriptions table & user↔Paddle mapping; ships server routes/middleware/helpers (not checkout UI) and degrades to a demo-mode config notice + 503 when env or the table is missing.",
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "required": true,
+      "purpose": "Supabase project URL for the server auth client, middleware session refresh, and admin write client. Tagged 'feature-runtime': the middleware degrades to pass-through and the routes return 503 'subscriptions-not-configured' when it is missing, so a placeholder never crashes the build.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "required": true,
+      "purpose": "Server-only Supabase service-role key used by webhook processing to upsert subscription rows. Never exposed to client code. Tagged 'feature-runtime': the admin client is lazy and the webhook route returns 503 when it is missing instead of failing the build.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "required": true,
+      "purpose": "Supabase anon key for server-side auth / session refresh. Tagged 'feature-runtime': the middleware skips session refresh (pass-through) when it is missing rather than 500-ing every request.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "PADDLE_API_KEY",
+      "required": true,
+      "purpose": "Server-only Paddle API key used to verify webhooks via the Paddle SDK and create customer-portal sessions. Get it from Paddle developer tools for the matching environment. Tagged 'feature-runtime': the SDK is lazy-instantiated after the route's env guard, so a missing key degrades to 503, not a build crash.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "PADDLE_NOTIFICATION_WEBHOOK_SECRET",
+      "required": true,
+      "purpose": "Paddle notification destination secret used to verify the paddle-signature header against the raw webhook body. Get it from the Paddle webhook destination settings. Tagged 'feature-runtime': the webhook route returns 503 when it is missing instead of verifying with an empty secret.",
+      "enforcement": "feature-runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_ENV",
+      "required": false,
+      "purpose": "Selects the Paddle SDK environment; set to 'production' for live billing, otherwise the helper defaults to 'sandbox'. Tagged 'warn-only': optional with a safe default.",
+      "enforcement": "warn-only"
+    }
+  ],
+  "dependencies": [
+    "@paddle/paddle-node-sdk",
+    "@supabase/ssr",
+    "@supabase/supabase-js",
+    "server-only"
+  ],
+  "files": [
+    {
+      "path": "components/api/paddle/customer-portal/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/webhook/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/paddle/get-paddle-instance.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/paddle/process-webhook.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/admin.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/middleware.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/supabase/server.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/subscription-config-notice.tsx",
+      "role": "client",
+      "injectionMode": "rewritable"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "getPaddleInstance",
+      "type": "function",
+      "import": "@/lib/paddle/get-paddle-instance"
+    },
+    {
+      "name": "ProcessWebhook",
+      "type": "function",
+      "import": "@/lib/paddle/process-webhook"
+    },
+    {
+      "name": "createSupabaseServerClient",
+      "type": "function",
+      "import": "@/lib/supabase/server"
+    },
+    {
+      "name": "updateSession",
+      "type": "function",
+      "import": "@/lib/supabase/middleware"
+    },
+    {
+      "name": "getSupabaseAdmin",
+      "type": "function",
+      "import": "@/lib/supabase/admin"
+    },
+    {
+      "name": "SubscriptionConfigNotice",
+      "type": "component",
+      "import": "@/components/subscription-config-notice"
+    }
+  ],
+  "lastVerified": "2026-07-08",
+  "sourceRepoUrl": "https://github.com/PaddleHQ/paddle-nextjs-starter-kit",
+  "promptInstructionMode": "selected-sections"
+}
