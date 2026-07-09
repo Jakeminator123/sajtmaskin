@@ -232,6 +232,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `data/template-references/_metadata/<reference>.github.json` | GitHub stars + last-pushed metadata for ranking |
 | `src/lib/gen/dossiers/registry.ts` | Disk reader + mtime cache |
 | `src/lib/gen/dossiers/select.ts` | Deterministic capability-driven selection |
+| `src/lib/gen/dossiers/version-presence.ts` | Canonical "which dossiers are IN this version" resolver — maps each dossier's manifest `files[]` through `output-path.ts` and checks presence in the version's `files_json`. Ground truth for reporting (dossiers panel) + the F3 capability-scope file-evidence, independent of the F2-muted snapshot floor. |
 | `src/lib/gen/dossiers/types.ts` | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult` |
 | `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
 | `scripts/dossiers/curate-from-reference.ts` | AI-curation script (single dossier from a cloned reference repo) |

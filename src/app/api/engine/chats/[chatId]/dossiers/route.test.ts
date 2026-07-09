@@ -7,6 +7,8 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const selectDossiersForRequest = vi.hoisted(() => vi.fn());
+const getVersionFiles = vi.hoisted(() => vi.fn());
+const resolveDossiersPresentInVersion = vi.hoisted(() => vi.fn());
 const extractBriefSummaryFromSnapshot = vi.hoisted(() => vi.fn());
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
@@ -36,6 +38,14 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
 
 vi.mock("@/lib/gen/dossiers/select", () => ({
   selectDossiersForRequest,
+}));
+
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
+}));
+
+vi.mock("@/lib/gen/dossiers/version-presence", () => ({
+  resolveDossiersPresentInVersion,
 }));
 
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
@@ -119,6 +129,34 @@ function stripeDossier(): SelectedDossier {
   };
 }
 
+function aiToolCallingDossier(): SelectedDossier {
+  return {
+    entry: {
+      class: "hard",
+      id: "ai-tool-calling-chat",
+      label: "AI Tool-Calling Chat Route",
+      capability: "ai-tool-calling",
+      codeFidelity: "rewritable",
+      complexity: "medium",
+      defaultForCapability: true,
+      summary: "Streamed chat endpoint with server-side tool calling.",
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime",
+          purpose: "OpenAI provider auth.",
+        },
+      ],
+      dependencies: ["@ai-sdk/openai", "ai", "zod"],
+      files: [{ path: "components/api/assistant/route.ts", role: "server" }],
+      lastVerified: "2026-04-17",
+    },
+    reason: "capability-match",
+    configured: false,
+  };
+}
+
 const stripeRequirement = {
   key: "stripe",
   name: "Stripe",
@@ -156,6 +194,10 @@ describe("GET dossiers overview", () => {
     extractBriefSummaryFromSnapshot.mockReturnValue(null);
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
+    // Version-presence union defaults to "no version files loaded" so existing
+    // tests exercise the snapshot/detection path unchanged.
+    getVersionFiles.mockResolvedValue(null);
+    resolveDossiersPresentInVersion.mockReturnValue([]);
   });
 
   it("returns 404 when the chat is not visible to the caller", async () => {
@@ -349,6 +391,37 @@ describe("GET dossiers overview", () => {
     // build spec must not be re-derived (would just reproduce the same
     // empty `requirements` for an extra file read).
     expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
+  });
+
+  // Canonical version-presence (ai-tool-calling incident): the snapshot floor
+  // is empty (F2-muted) and the provider-key→capability mapping resolves
+  // `openai` to the `ai-chat` default — never `ai-tool-calling`. The dossier
+  // whose files are ACTUALLY in the version (`app/api/assistant/route.ts`) must
+  // still surface via the version-presence union so the panel isn't `total: 0`.
+  it("surfaces a dossier from its files in the version when the snapshot floor and provider mapping both miss it", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    // Provider mapping resolves nothing useful for ai-tool-calling.
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    mapProviderKeysToDossierCapabilities.mockReturnValue([]);
+    // The version's files load, and the presence resolver detects the built
+    // ai-tool-calling route.
+    getVersionFiles.mockResolvedValue([
+      { path: "app/api/assistant/route.ts", content: "// assistant route" },
+      { path: "components/ai-assistant.tsx", content: "// ui" },
+    ]);
+    resolveDossiersPresentInVersion.mockReturnValue([aiToolCallingDossier()]);
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool).toBeDefined();
+    expect(aiTool?.capability).toBe("ai-tool-calling");
+    expect(body.counts.total).toBeGreaterThanOrEqual(1);
+    // A version-present dossier the capability pass missed re-derives the spec
+    // against the reconciled set (file-based growth).
+    expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(2);
   });
 
   // Codex P2 (PR #439): `extractBriefSummaryFromSnapshot` casts (does not

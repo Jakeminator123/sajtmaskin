@@ -363,6 +363,23 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     expect(idsExplicit).toContain("supabase-auth");
     expect(idsExplicit).not.toContain("clerk-auth");
   });
+
+  it("drops generic ai-chat when ai-tool-calling is present — no redundant chatbot", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["ai-tool-calling", "ai-chat"],
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("ai-tool-calling-chat");
+    expect(ids).not.toContain("openai-chat");
+  });
+
+  it("keeps ai-chat when ai-tool-calling is NOT requested", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["ai-chat"],
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("openai-chat");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -57,7 +57,9 @@ import {
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
-import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
+import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
@@ -154,6 +156,18 @@ async function buildDossierOverview(
     configuredEnvKeys,
   );
 
+  // Canonical version-presence (signal-gate): the version's real files are the
+  // ground truth for what a build actually contains. Loaded once and unioned
+  // into the reported set below so an integration built into the version always
+  // shows — even when the F2-muted snapshot floor dropped its capability AND
+  // the provider-key→capability mapping resolves the wrong dossier (the
+  // ai-tool-calling incident: `openai` maps to the `ai-chat` default, never
+  // `ai-tool-calling`). Best-effort: a load failure degrades to snapshot-only.
+  const versionFilesForPresence =
+    version && version.chat_id === chat.id
+      ? await getVersionFiles(version.id).catch(() => null)
+      : null;
+
   const lifecycleStage =
     version && typeof version.lifecycle_stage === "string" &&
     version.lifecycle_stage === "integrations"
@@ -202,7 +216,7 @@ async function buildDossierOverview(
   // Only re-resolve (and re-derive the build spec, one extra file read) when
   // reconciliation actually found something the snapshot floor missed — the
   // common, non-buggy case does exactly the same work as before.
-  const selectedDossiers =
+  const capabilitySelectedDossiers =
     extraCapabilities.length > 0
       ? selectDossiersForRequest({
           requestedCapabilities: [...initialCapabilities, ...extraCapabilities],
@@ -210,12 +224,36 @@ async function buildDossierOverview(
         }).selected
       : initialSelectedDossiers;
 
+  // Union in the dossiers whose ACTUAL files are present in the version. This is
+  // the authoritative "what is in this version" signal (see version-presence),
+  // deduped by id and appended after the capability-selected entries so a
+  // resurfaced integration is never dropped just because the snapshot floor /
+  // provider-key mapping missed it.
+  const presentInVersionDossiers = versionFilesForPresence
+    ? resolveDossiersPresentInVersion(versionFilesForPresence, configuredEnvKeys)
+    : [];
+  const selectedById = new Map<string, SelectedDossier>();
+  for (const selected of [...capabilitySelectedDossiers, ...presentInVersionDossiers]) {
+    if (!selectedById.has(selected.entry.id)) selectedById.set(selected.entry.id, selected);
+  }
+  const selectedDossiers = Array.from(selectedById.values());
+
   // Derive which integrations are actually wired into the active version's
   // files, plus which of them still miss real env values. When the version
   // (or its files) can't be resolved, we can't determine "built", so hard
-  // dossiers fall back to "not-built" and we flag it to the UI.
+  // dossiers fall back to "not-built" and we flag it to the UI. Re-derive the
+  // spec (one extra file read) only when a FILE-based source grew the set —
+  // capabilities detected in the files OR a version-present dossier the
+  // capability pass missed. A brief-only "planned" capability isn't in the
+  // files, so it never forces a re-derive.
+  const presenceAddedNewDossier = presentInVersionDossiers.some(
+    (present) =>
+      !capabilitySelectedDossiers.some((sel) => sel.entry.id === present.entry.id),
+  );
   const spec =
-    newlyDetectedCapabilities.length > 0 && version && version.chat_id === chat.id
+    (newlyDetectedCapabilities.length > 0 || presenceAddedNewDossier) &&
+    version &&
+    version.chat_id === chat.id
       ? await deriveTier3BuildSpecForVersion(version.id, selectedDossiers)
       : provisionalSpec;
   const versionFilesAvailable = spec !== null;

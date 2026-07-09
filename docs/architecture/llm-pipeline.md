@@ -127,7 +127,7 @@ Follow-up är en deltaoperation. Standardläget är bevarande:
 - scaffold fryses om inte redesign uttryckligen låser upp matchning
 - variant fryses för att undvika visuell drift
 - routes är ett floor, inte ett ceiling
-- capabilities får växa men ska inte tyst tappas
+- capabilities får växa men ska inte tyst tappas **i design-rundor** (can-only-grow). I F3-bygget (`integrations`) gäller i stället ett scope-filter — se F3-capability-scope nedan.
 - high-value UI-element ska inte tappas utan tydlig anledning
 
 Undantag: clear-redesign och explicita borttagningar.
@@ -182,6 +182,8 @@ När en F3-generation slutar tool-only (`suggestIntegration` utan kod) parkas ch
 - **Godkänn** ärver F3 och kör en *approval-runda* som tvingar kodgenerering: `suggestIntegration`/`requestEnvVar` dras ur tool-setet, ett byggdirektiv med graceful not-configured-fallback injiceras i prompten, och godkända providers mappas till dossier-capabilities (t.ex. stripe → payments) så hard-dossierns verbatim-mallar väljs in via `selectDossiersForRequest`.
 - **Avvisa** konsumerar markern och avslutar F3 lugnt med ett bekräftelsemeddelande — ingen generation körs.
 - **Loop-breaker:** max en upprepad tool-only-runda per F3-kick. Andra upprepningen avslutar F3 med ett terminalt meddelande utan ny marker.
+
+**F3-capability-scope (mot capability-inflation).** I F3 lyfts F2-muten, så prompt-filtret + can-only-grow-golvet skulle annars återställa *varje* capability Deep Brief någonsin nominerade (analytics, auth, payments …) och göra en enda ask till en full-SaaS env-vägg. `scopeF3DossierCapabilities` (`orchestrate.ts`) begränsar därför F3-setet till unionen av: (a) capabilities som *aktuellt meddelande* härleder, (b) providers användaren *uttryckligen godkänt*, och (c) integrationer med *faktiskt filbevis* i basversionen (`resolveDossiersPresentInVersion`). Setet dependency-expanderas (t.ex. `subscriptions` drar med `supabase-auth`). Spekulativa brief-/golv-capabilities utan bevis, ask eller godkännande droppas (loggas som `f3_capability_scope_dropped`). Design-rundor är oförändrade (can-only-grow gäller där). Dessutom dedupas `ai-tool-calling` vs `ai-chat` (den mer specifika vinner), och Deep Brief nominerar `analytics`/`error-tracking` bara på explicit ask.
 
 **Klient-auto-continue:** kontraktet ovan är oförändrat på servern. Klienten (`MessageList.tsx`) öppnar ALDRIG "Svar krävs"-dialogen för `f3-continuation`-markern. En marker som anländer LIVE i sessionen auto-skickar `Godkänn förslag` exakt en gång (lugn inline-rad "Integrationsbygget fortsätter automatiskt…" istället för popup); loop-breakern är säkerhetsnätet så att max en auto-retry + en auto-loop-retry kan ske innan tredje rundan stänger terminalt. En marker som redan fanns vid mount (reload av gammal historik) auto-körs inte — då visas de vanliga inline-quick-replies (Godkänn/Avvisa/Annat). Auto-approve förbrukar credits för retry-rundan (medvetet ägarval).
 

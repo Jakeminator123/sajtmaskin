@@ -120,6 +120,18 @@ export const F3_CONTINUATION_EMPTY_QUESTION =
 export const F3_EMPTY_NO_CODE_REASON = "f3_empty_no_code_generation";
 
 /**
+ * Honest first-round copy when the F3 round wrote no NEW code BUT the parent
+ * design version already carries the integration/dossier artifacts (verified via
+ * `resolveDossiersPresentInVersion` over the parent files). The old copy
+ * ("Integrationer signalerades, men modellen skrev inga kodfiler") was a lie in
+ * this case — the integration code very much exists, it just already lived in
+ * the design version (the ai-tool-calling incident). Still offers the same
+ * approve/continue choice via the canonical quick-replies.
+ */
+export const F3_CONTINUATION_PARENT_HAS_CODE_QUESTION =
+  "Integrationskoden finns redan i designversionen — den här rundan skrev inga nya kodfiler. Välj om du vill köra integrationsbygget igen ('Godkänn förslag') eller fortsätta med designversionen som den är ('Avvisa förslag').";
+
+/**
  * Terminal message after the SECOND repeated no-code round (tool-only OR
  * silent): no new marker is persisted (loop-breaker cap) — F3 ends and the
  * chat returns to design.
