@@ -974,3 +974,78 @@ describe("detectFollowUpCapabilities — subscriptions", () => {
     expect(result.capabilityIds).not.toContain("subscriptions");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier Fas D — capability `cms` (2026-07-09): sanity-cms (default).
+// Detection only says "the user wants a headless CMS"; Sanity is the
+// capability default in select.ts.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — cms", () => {
+  it("detects 'lägg till ett cms' as cms", () => {
+    const result = detectFollowUpCapabilities("lägg till ett cms för blogginläggen");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an explicit Sanity ask ('koppla på sanity')", () => {
+    const result = detectFollowUpCapabilities("koppla på sanity för innehållet");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects 'innehållshantering'", () => {
+    const result = detectFollowUpCapabilities(
+      "vi behöver innehållshantering för nyhetssidan",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects English 'headless CMS'", () => {
+    const result = detectFollowUpCapabilities("add a headless cms for the blog posts");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an edit-content-without-code ask", () => {
+    const result = detectFollowUpCapabilities(
+      "gör så att vi kan redigera innehållet utan kod",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an editors-can-publish ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att redaktörerna kan publicera nyheter själva",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  // Veto: an explicit competing CMS choice must not inject the Sanity dossier
+  // (Chart.js precedent from dashboard-charts).
+  it("does NOT detect cms for an explicit WordPress choice", () => {
+    const result = detectFollowUpCapabilities("lägg till wordpress som cms för bloggen");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  it("does NOT detect cms for an explicit Contentful choice", () => {
+    const result = detectFollowUpCapabilities("lägg till ett cms med contentful");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // "sanity check" is an ordinary English phrase, not the Sanity provider.
+  it("does NOT detect cms for 'gör en sanity check på formuläret'", () => {
+    const result = detectFollowUpCapabilities("gör en sanity check på formuläret");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // A plain content tweak is a refine, never a CMS integration ask.
+  it("does NOT detect cms for an ordinary content edit", () => {
+    const result = detectFollowUpCapabilities("ändra innehållet i hero-sektionen");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // Negation guard: "utan cms" suppresses the capability.
+  it("does NOT detect cms when the user explicitly forbids one", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg en enkel statisk blogg utan cms eller backend",
+    );
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+});

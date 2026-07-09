@@ -159,6 +159,9 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@paddle/paddle-node-sdk": "^3",
   "@supabase/ssr": "^0.12",
   "@supabase/supabase-js": "^2",
+  // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
+  // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
+  "next-sanity": "^13",
 };
 
 /**

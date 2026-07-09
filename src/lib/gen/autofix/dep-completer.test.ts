@@ -306,6 +306,22 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("@neondatabase/serverless");
   });
 
+  // Dossier Fas D (capability `cms`, 2026-07-09): the sanity-cms manifest
+  // deps must resolve through KNOWN_PACKAGES pins, never `latest`.
+  it("injects next-sanity + server-only when cms is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["cms"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("sanity-cms");
+
+    const deps = resolveCapabilityDependencies(["cms"]);
+    expect(deps["next-sanity"]).toBe(KNOWN_PACKAGES["next-sanity"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of ["next-sanity", "server-only"]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [
