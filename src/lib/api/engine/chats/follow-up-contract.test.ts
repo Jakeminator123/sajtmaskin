@@ -119,10 +119,25 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
         variantId: null,
         routePlan: { existingRoutePaths: [], existingShellRoutePaths: [] },
         capabilities: [],
+        f3ApprovedCapabilities: [],
         qualityTarget: null,
         previewSessionId: null,
       });
     }
+  });
+
+  // Durable approval (review round 2, fix 5a): approvals persisted by an F3
+  // approval round survive into the contract so the F3 capability-scope can
+  // treat them as approved on LATER rounds.
+  it("reads persisted f3ApprovedCapabilities from the snapshot", () => {
+    const contract = buildFollowUpContract({
+      snapshot: {
+        ...baseSnapshot(),
+        f3ApprovedCapabilities: ["payments", "AI-Tool-Calling", 42, ""],
+      },
+    });
+    // Strings only, trimmed + lowercased.
+    expect(contract.f3ApprovedCapabilities).toEqual(["payments", "ai-tool-calling"]);
   });
 });
 
@@ -198,6 +213,7 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
       variantId: "minimalist-mag",
       routePlan: { existingRoutePaths: ["/"], existingShellRoutePaths: [] },
       capabilities: ["payments", "booking"],
+      f3ApprovedCapabilities: [],
       qualityTarget: "premium",
       previewSessionId: "preview_sess_1",
     });

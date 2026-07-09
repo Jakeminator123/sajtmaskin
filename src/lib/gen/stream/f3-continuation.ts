@@ -154,6 +154,20 @@ export const F3_REJECT_ACK_MESSAGE =
 export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
 
 /**
+ * Honest close-out for an APPROVED round with nothing approvable (review
+ * round 2, fix 5b): the marker carried zero providers, no earlier approval is
+ * persisted, and the base version has no integration file evidence — running
+ * the build round would be a silent no-op that burns credits and re-parks the
+ * user in the same dialog. Consumes the marker and closes F3 calmly with a
+ * concrete next step instead.
+ */
+export const F3_APPROVAL_NOTHING_TO_BUILD_MESSAGE =
+  "Godkännandet togs emot, men förslaget innehöll inga konkreta integrationer att bygga — inga providers signalerades och designversionen saknar integrationskod. Integrationsläget avslutas. Be om en specifik integration (t.ex. 'lägg till Stripe-betalning') och kör 'Bygg integrationer' igen.";
+
+/** `done`-event reason for the honest nothing-to-build close (no generation ran). */
+export const F3_APPROVAL_NOTHING_TO_BUILD_REASON = "f3_approval_nothing_to_build";
+
+/**
  * Codex P2 (PR #383): reject reply that LOST the atomic consume race to a
  * concurrent approval. The chat must not claim "avvisades" while the winning
  * approval request keeps building — neutral copy, still no generation on

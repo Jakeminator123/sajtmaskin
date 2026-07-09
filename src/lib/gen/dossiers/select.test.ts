@@ -382,6 +382,43 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
   });
 });
 
+// F3 capability-scope follow-up (review round 2): when the caller COMPUTED the
+// capability list (the scoped F3 set), an empty list means "wire nothing" —
+// the brief fallback must not resurrect the speculative brief capabilities.
+describe("selectDossiersForRequest — disableBriefFallback (F3 scope)", () => {
+  const briefWithFiveCaps = {
+    requestedCapabilities: ["payments", "auth", "ai-chat", "contact-form", "analytics"],
+  };
+
+  it("returns an empty selection for scoped [] even when the brief has capabilities", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: [],
+      brief: briefWithFiveCaps,
+      disableBriefFallback: true,
+    });
+    expect(result.selected).toEqual([]);
+  });
+
+  it("keeps the legacy brief fallback when the flag is absent", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: [],
+      brief: briefWithFiveCaps,
+    });
+    expect(result.selected.length).toBeGreaterThan(0);
+  });
+
+  it("does not affect non-empty scoped lists", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments"],
+      brief: briefWithFiveCaps,
+      disableBriefFallback: true,
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("stripe-checkout");
+    expect(ids).not.toContain("openai-chat");
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // fix-isconfigured (wave 1): the `configured` flag must reflect the PROJECT'S
 // stored env keys, not the platform `process.env`. Callers pass

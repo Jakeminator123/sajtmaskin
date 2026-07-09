@@ -1526,6 +1526,11 @@ export async function resolveOrchestrationBase(
         const explicitCapabilities = [
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
+          // Durable approvals (review round 2, fix 5): capabilities the user
+          // explicitly approved in an EARLIER F3 round, persisted on the
+          // snapshot. Without these, approve → build-incomplete (no file
+          // evidence yet) → the next round's scope drops the capability again.
+          ...(input.followUpContract?.f3ApprovedCapabilities ?? []),
         ];
         const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
           input.previousFilePaths ?? [],
@@ -1568,6 +1573,11 @@ export async function resolveOrchestrationBase(
         // restoring speculative brief/floor capabilities (Task 2). Identical to
         // the floor set on F2/design rounds.
         requestedCapabilities: dossierRequestedCapabilities,
+        // F3 (review round 2): the scoped list is authoritative even when
+        // EMPTY — select.ts's brief fallback would otherwise resurrect the
+        // speculative brief set in exactly the inflation case the scope
+        // filters (scoped [] + brief with 5 caps → 5 dossiers again).
+        disableBriefFallback: input.lifecycleStage === "integrations",
         // Lets sibling dossiers under one capability resolve on explicit
         // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
         // mongodb-atlas instead of the postgres-drizzle default).

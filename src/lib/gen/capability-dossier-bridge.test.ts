@@ -102,6 +102,14 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
     ).toEqual(["interactive-game"]);
   });
 
+  it("bridges needsSubscriptions to `subscriptions` — never one-off `payments` (#475 split)", () => {
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(
+        capabilities({ needsSubscriptions: true }),
+      ),
+    ).toEqual(["subscriptions"]);
+  });
+
   it("lights up game + visual-3d + physics together for a physics-driven 3D game", () => {
     // "Bygg ett 3D-spel där bollar studsar" triggers all three flags so the
     // codegen LLM sees the game contract AND the ThreeCanvasShell verbatim
@@ -123,6 +131,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "needsPhysics",
       "needsParallax",
       "needsPayments",
+      "needsSubscriptions",
       "needsAuth",
       "needsDatabase",
       "needsForms",

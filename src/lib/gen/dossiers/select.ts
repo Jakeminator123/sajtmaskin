@@ -54,6 +54,17 @@ export interface SelectDossiersOptions {
    * the bug `configuredEnvKeys` fixes; prefer always passing it.
    */
   configuredEnvKeys?: ReadonlySet<string>;
+  /**
+   * F3 capability-scope (review round 2): when the caller COMPUTED
+   * `requestedCapabilities` (the scoped F3 set) an EMPTY list is an
+   * intentional answer — "nothing should be wired this round". The legacy
+   * brief fallback would resurrect every speculative brief capability in
+   * exactly the case the scope exists to prevent, turning the whole
+   * inflation fix into a no-op. Set `true` to disable the fallback; default
+   * `false` keeps legacy behavior for callers whose empty list means
+   * "unknown, read the brief".
+   */
+  disableBriefFallback?: boolean;
 }
 
 /**
@@ -151,6 +162,9 @@ function normalizeCapabilities(opts: SelectDossiersOptions): string[] {
     .map((s) => String(s).trim().toLowerCase())
     .filter(Boolean);
   if (fromArg.length > 0) return Array.from(new Set(fromArg));
+  // Caller-computed capability set (F3 scope): an empty list is the answer,
+  // not a missing value — never resurrect the brief's speculative set.
+  if (opts.disableBriefFallback) return [];
   const briefCaps =
     opts.brief && typeof opts.brief === "object"
       ? (opts.brief as { requestedCapabilities?: unknown }).requestedCapabilities

@@ -10,6 +10,11 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needsPhysics", dossierCapabilities: ["physics-3d"] },
   { flag: "needsParallax", dossierCapabilities: ["parallax-scroll", "parallax-pointer"] },
   { flag: "needsPayments", dossierCapabilities: ["payments"] },
+  // #475 split follow-up (review round 2): recurring/subscription vocabulary
+  // routes to `subscriptions` (paddle-billing) — via needsPayments it injected
+  // Stripe one-off checkout for a recurring ask. `subscriptions` in turn pulls
+  // `supabase-auth` via expandDependentCapabilities in selection.
+  { flag: "needsSubscriptions", dossierCapabilities: ["subscriptions"] },
   { flag: "needsAuth", dossierCapabilities: ["auth"] },
   // Codex P1 (#445): without this bridge a no-brief init ("booking app that
   // saves bookings in Postgres") sets needsDatabase but selects no database

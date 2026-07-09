@@ -148,6 +148,44 @@ export function mergePersistedOrchestrationSnapshots(
   return merged;
 }
 
+// ── F3 approved integrations (durable approval) ───────────────────────────
+
+/**
+ * Snapshot keys for the DURABLE F3 approval record (review round 2, fix 5).
+ * Written by the stream route when a confirmed "Godkänn förslag" round maps
+ * approved providers → dossier capabilities; read by `buildFollowUpContract`
+ * so the F3 capability-scope treats an earlier approval as "approved" even
+ * when that round's build ended incomplete (no file evidence yet) — without
+ * this, approve → build-incomplete → next round drops the capability again
+ * (loop). Keys survive finalize because `mergePersistedOrchestrationSnapshots`
+ * keeps prior keys the stream meta does not carry.
+ */
+export const F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY = "f3ApprovedCapabilities";
+export const F3_APPROVED_PROVIDERS_SNAPSHOT_KEY = "f3ApprovedProviders";
+
+function readStringArraySnapshotKey(
+  snapshot: Record<string, unknown> | null | undefined,
+  key: string,
+): string[] {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  const value = snapshot[key];
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
+
+/** Durable F3 approval record persisted on the orchestration snapshot. */
+export function readF3ApprovedFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): { capabilities: string[]; providers: string[] } {
+  return {
+    capabilities: readStringArraySnapshotKey(snapshot, F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY),
+    providers: readStringArraySnapshotKey(snapshot, F3_APPROVED_PROVIDERS_SNAPSHOT_KEY),
+  };
+}
+
 // ── Delta-brief helpers ───────────────────────────────────────────────────
 
 export interface BriefSummarySnapshot {
@@ -376,6 +414,15 @@ export interface FollowUpContract {
    * top-level `requestedCapabilities` (brief + inferred-bridge + prior floor),
    * with the briefSummary subset as fallback for older snapshots. */
   capabilities: string[];
+  /**
+   * Dossier capabilities the user EXPLICITLY approved in an earlier F3
+   * suggestion round (durable across rounds/refresh — persisted on the
+   * snapshot by the approval round). The F3 capability-scope counts these as
+   * "approved" input so an approved-but-not-yet-built integration is not
+   * dropped on the next build round. Optional so pre-existing contract
+   * fixtures keep compiling; `buildFollowUpContract` always sets it.
+   */
+  f3ApprovedCapabilities?: string[];
   /** Quality target inherited from the prior accepted version, or null. */
   qualityTarget: BuildSpecQualityTarget | null;
   /** Active preview session id carried on the snapshot, or null. */
@@ -465,6 +512,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
     capabilities: [...inheritedCapabilities],
+    f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
   };
