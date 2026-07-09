@@ -2,7 +2,8 @@
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
-  opacity: 0.4;
+  /* Dämpad från 0.4 — orbarna ska ge djup, inte "matrix"-känsla. */
+  opacity: 0.26;
   mix-blend-mode: screen;
   animation: landing-v2-shader-float 20s ease-in-out infinite;
 }

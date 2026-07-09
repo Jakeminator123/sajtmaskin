@@ -63,11 +63,8 @@ export function LandingFooter() {
                   Om oss
                 </a>
               </li>
-              <li>
-                <a href="/blogg" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Blogg
-                </a>
-              </li>
+              {/* Blogg-länken är dold tills det finns publicerade inlägg — en tom
+                  blogg ("Inga inlägg ännu") sänker förtroendet. Sidan /blogg finns kvar. */}
               <li>
                 <a
                   href="mailto:support@sajtmaskin.se?subject=Karri%C3%A4r"
@@ -122,7 +119,6 @@ export function LandingFooter() {
           <p className="text-xs text-muted-foreground/60">
             &copy; {new Date().getFullYear()} Pretty Good AB. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
           </p>
-          <p className="text-xs text-muted-foreground/60">Sociala länkar publiceras här när de finns.</p>
         </div>
       </div>
     </footer>

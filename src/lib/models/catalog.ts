@@ -138,7 +138,7 @@ export function ownModelIdToCanonicalModelId(
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   fast: "Snabb",
   pro: "Lagom",
-  max: "Tanker",
+  max: "Tänker",
   codex: "Kod Max",
   anthropic: "Anthropic",
 };

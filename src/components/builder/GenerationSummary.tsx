@@ -91,7 +91,15 @@ export const GenerationSummary = memo(function GenerationSummary({
   const streamingNotice =
     "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs.";
 
-  const hasOpenFences = !parsed.hasCodeBlocks && /```/.test(content);
+  // Även utan kompletta ```-fences kan innehållet vara kodström (t.ex. när
+  // fences klippts/strömmats trasigt men `file="..."`-markörer finns kvar).
+  // Sådana meddelanden får aldrig rendera som rå kodvägg i chatten — visa den
+  // kollapsade "Genererat innehåll"-rutan i stället. OBS: kräv stream-formen
+  // `<lang> file="..."` i radbörjan — prosa som bara nämner `file="..."` mitt i
+  // en mening är ett färdigt svar och ska renderas som vanlig text.
+  const hasOpenFences =
+    !parsed.hasCodeBlocks &&
+    (/```/.test(content) || /(?:^|\n)[a-z0-9]+ file="/.test(content));
 
   if (!parsed.hasCodeBlocks && !hasOpenFences) {
     return (

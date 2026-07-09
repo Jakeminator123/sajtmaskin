@@ -298,7 +298,7 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Byggprofiler: Snabb, Lagom, Tanker, Kod Max och Anthropic. Varje profil väljer en
+                      Byggprofiler: Snabb, Lagom, Tänker, Kod Max och Anthropic. Varje profil väljer en
                       konkret modell i den egna motorn. Förbättra nedan är separat och används till
                       promptförbättring, mallval och designbrief innan första bygget.
                     </p>
@@ -343,19 +343,19 @@ export function BuilderHeader(props: {
                   <Button variant="outline" size="sm" disabled={isConfigLocked}>
                     <Layers className="h-4 w-4" />
                     <span className="hidden max-w-[180px] truncate sm:inline">
-                      Mall: {scaffoldButtonLabel}
+                      Scaffold: {scaffoldButtonLabel}
                     </span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Hemsidemall — startpunkt för genererad kod</p>
+                <p>Scaffold — startpunkt för genererad kod</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Hemsidemall</DropdownMenuLabel>
+            <DropdownMenuLabel>Scaffold</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
               onValueChange={(v) => {
@@ -464,7 +464,7 @@ export function BuilderHeader(props: {
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
                         {thinkingUnsupportedForTier
-                          ? "Snabb-modellen stödjer inte resonemang. Välj Lagom eller Tanker för att aktivera resonemang."
+                          ? "Snabb-modellen stödjer inte resonemang. Välj Lagom eller Tänker för att aktivera resonemang."
                           : "Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid."}
                       </p>
                     </TooltipContent>

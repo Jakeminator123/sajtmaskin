@@ -50,7 +50,7 @@ Audit-svärm + granskningsagenter hittade tre glapp som stängdes på grenen fö
 | A#5/BB#deploy3: felstate + repair-knapp (Ö3/Ö4) försvann vid sidladdning — `activeDeploymentId` hydrerades aldrig | `useDeploymentHistory` exponerar `latestFailedDeployment` (nyaste rad = `error`); controllern hydrerar `activeDeploymentId` vid mount | 2 nya tester i `useDeploymentHistory.test.ts` |
 | A#3: deploy-SSE + single-GET auth:ade v0-first → 404 för own-engine-chattar (hela deploy-status-strömmen död i huvudflödet) | Engine-first auth med legacy-fallback i `[deploymentId]/events/route.ts` + `[deploymentId]/route.ts`, samma mönster som deployments-GET; Redis-subscriber släpps nu alltid vid stream-slut (VADE-fynd #443) | 4 nya tester i `events/route.test.ts` |
 
-BB#deploy3-raden i backloggen flyttas till arkivet vid merge (fixad här). BB#deploy2/4/5 kvarstår öppna.
+BB#deploy3-raden i backloggen flyttas till arkivet vid merge (fixad här). BB#deploy2/4/5 kvarstod öppna vid leverans (BB#deploy2 stängdes senare i PR #469; BB#deploy4/5 fortfarande öppna).
 
 **Bug-post-check (bugbot-subagent):** 5 fynd. #1 (dubbelskriven deploy-fel-logg) **fixad**
 (single-writer via `emitVersionErrorLogs`, commit `abf38b6a4`). #2–#5 **loggade** i

@@ -69,7 +69,7 @@ They are not the same thing as:
 |---------|----------|---------|--------------------------|-------------------------|--------------------------|
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-5.4-mini` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
-| `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.5` | OpenAI | `v0-1.5-lg` |
+| `max` | `Tänker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.5` | OpenAI | `v0-1.5-lg` |
 | `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex` | OpenAI | `v0-gpt-5` |
 | `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.8` | Anthropic | `v0-1.5-lg` |
 
@@ -77,7 +77,7 @@ Important nuance:
 
 - the UI labels are intentionally more semantic than vendor-marketing-heavy
 - the actual own-engine model can drift if `SAJTMASKIN_MODEL_*` env vars are overridden
-- that means a UI label like `Tanker` can still resolve to a different concrete model if env overrides point there
+- that means a UI label like `Tänker` can still resolve to a different concrete model if env overrides point there
 
 ## Accepted incoming IDs
 

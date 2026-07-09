@@ -55,7 +55,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   },
   {
     value: "max",
-    label: "Tanker",
+    label: "Tänker",
     description:
       "GPT-5.5 med thinking på (resonemang, hög effort) som standard i strömmen — inte samma profil som «Kod Max»/codex nedan.",
     hint: "dyr",
@@ -64,7 +64,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     value: "codex",
     label: "Kod Max",
     description:
-      "Separat tung kodmodell (gpt-5.3-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tanker» ovan.",
+      "Separat tung kodmodell (gpt-5.3-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tänker» ovan.",
   },
   {
     value: "anthropic",

@@ -146,6 +146,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
   // postgres-drizzle (default), neon-postgres, mongodb-atlas. Majors verified
   // against the npm registry 2026-07-08 (`npm view <pkg> version`).
+  // The final legacy wave (`rag-chat`, capability `rag-chat`) introduces no
+  // new packages: its stack (ai + @ai-sdk/openai + @ai-sdk/react above,
+  // drizzle-orm/pg/@types/pg/server-only below) is fully covered here —
+  // locked by the rag-chat case in `dep-completer.test.ts`.
   "drizzle-orm": "^0.45",
   "drizzle-kit": "^0.31",
   "pg": "^8",

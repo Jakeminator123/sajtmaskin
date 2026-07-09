@@ -63,6 +63,9 @@ describe("POST /api/webhooks/vercel", () => {
     dbSelectResult.rows = [];
     createRedisPublisher.mockReturnValue(null);
     logDeployError.mockResolvedValue(undefined);
+    // BB#deploy2: updateDeploymentStatus now returns whether THIS call flipped
+    // the row to error; the webhook logs a deploy error only on that transition.
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
   });
 
   // BUG-fix (confirmed in prod): every generated site deploys to its OWN
@@ -78,6 +81,8 @@ describe("POST /api/webhooks/vercel", () => {
     dbSelectResult.rows = [
       { id: "dep_row_1", chatId: "chat_1", versionId: "ver_1" },
     ];
+    // This webhook wins the atomic transition to error → it owns the log.
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: true });
 
     const res = await POST(
       signedRequest({
@@ -114,6 +119,34 @@ describe("POST /api/webhooks/vercel", () => {
     );
 
     delete process.env.VERCEL_PROJECT_ID;
+  });
+
+  // BB#deploy2 dedup: a `deployment.error` webhook that did NOT win the atomic
+  // transition (row was already `error` — e.g. the SSE-poll got there first)
+  // must persist metadata but NOT log a second deploy error.
+  it("does not log a deploy error when the row was already error (no transition)", async () => {
+    dbSelectResult.rows = [{ id: "dep_row_dupe", chatId: "chat_1", versionId: "ver_1" }];
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
+
+    const res = await POST(
+      signedRequest({
+        type: "deployment.error",
+        payload: {
+          deployment: { id: "dpl_dupe" },
+          links: { deployment: "https://vercel.com/i/dpl_dupe" },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    // Sen metadata (inspectorUrl) måste fortfarande persistas på dubbletten —
+    // dedup:en gäller bara LOGGEN, aldrig metadata-mergen.
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_row_dupe",
+      "error",
+      expect.objectContaining({ inspectorUrl: "https://vercel.com/i/dpl_dupe" }),
+    );
+    expect(logDeployError).not.toHaveBeenCalled();
   });
 
   it("ignores a webhook for a deployment id we never created (no matching row)", async () => {

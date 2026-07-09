@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const selectLimit = vi.hoisted(() => vi.fn());
 const updateWhere = vi.hoisted(() => vi.fn());
+const updateReturning = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByIdForRequest = vi.hoisted(() => vi.fn());
 
@@ -19,7 +20,14 @@ vi.mock("@/lib/db/client", () => ({
       }),
     }),
     update: () => ({
-      set: () => ({ where: updateWhere }),
+      set: () => ({
+        // `where(...)` är awaitable (domän-helpers + non-error status-write)
+        // OCH exponerar `.returning()` (error-transitionens villkorliga claim).
+        where: (...args: unknown[]) =>
+          Object.assign(Promise.resolve(updateWhere(...args)), {
+            returning: updateReturning,
+          }),
+      }),
     }),
   },
 }));
@@ -29,7 +37,8 @@ vi.mock("@/lib/tenant", () => ({
   getChatByIdForRequest,
 }));
 
-const { setDeploymentDomainForRequest, getLinkedDomainForChat } = await import("./deployment");
+const { setDeploymentDomainForRequest, getLinkedDomainForChat, updateDeploymentStatus } =
+  await import("./deployment");
 
 function req() {
   return new Request("http://localhost/api/domains/save", { method: "POST" });
@@ -128,5 +137,64 @@ describe("getLinkedDomainForChat (A2: domain project-name lock)", () => {
     const result = await getLinkedDomainForChat("chat_1");
 
     expect(result).toBeNull();
+  });
+});
+
+// BB#deploy2: `updateDeploymentStatus` reports whether THIS call atomically
+// flipped the row to `error`, so the webhook and the SSE-poll can log a build
+// failure exactly once instead of both logging on `status === "error"`.
+describe("updateDeploymentStatus (BB#deploy2: atomic error-transition claim)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateWhere.mockResolvedValue(undefined);
+    updateReturning.mockResolvedValue([]);
+  });
+
+  it("reports transitionedToError=true when the conditional claim wins a row", async () => {
+    updateReturning.mockResolvedValue([{ id: "dep_1" }]);
+
+    const result = await updateDeploymentStatus("dep_1", "error", {
+      inspectorUrl: "https://vercel.com/i/dep_1",
+    });
+
+    expect(result.transitionedToError).toBe(true);
+    // The transition claim used the RETURNING path; no separate metadata write.
+    expect(updateReturning).toHaveBeenCalledTimes(1);
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports transitionedToError=false when the row is already error (claim returns no rows)", async () => {
+    updateReturning.mockResolvedValue([]);
+
+    const result = await updateDeploymentStatus("dep_1", "error", {
+      inspectorUrl: "https://vercel.com/i/dep_1",
+    });
+
+    expect(result.transitionedToError).toBe(false);
+    // Late metadata still merged via a second unconditional update.
+    expect(updateReturning).toHaveBeenCalledTimes(1);
+    expect(updateWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the metadata merge on a duplicate error with no extra metadata", async () => {
+    updateReturning.mockResolvedValue([]);
+
+    const result = await updateDeploymentStatus("dep_1", "error");
+
+    expect(result.transitionedToError).toBe(false);
+    // Only the claim's where() ran; nothing extra to persist.
+    expect(updateReturning).toHaveBeenCalledTimes(1);
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it("never reports a transition for a non-error status (unconditional write)", async () => {
+    const result = await updateDeploymentStatus("dep_1", "ready", {
+      url: "https://site.vercel.app",
+    });
+
+    expect(result.transitionedToError).toBe(false);
+    // Non-error path does not use the conditional RETURNING claim.
+    expect(updateReturning).not.toHaveBeenCalled();
+    expect(updateWhere).toHaveBeenCalledTimes(1);
   });
 });

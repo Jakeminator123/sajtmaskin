@@ -163,7 +163,7 @@ export function FileExplorer({
   return (
     <div className="flex h-full flex-col">
       <div className="border-border border-b px-4 py-3">
-        <h3 className="font-semibold">Files</h3>
+        <h3 className="font-semibold">Filer</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {files.map((node) => (

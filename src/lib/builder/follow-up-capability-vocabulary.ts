@@ -200,6 +200,31 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Retrieval-augmented chat over the site's OWN indexed content (pgvector).
+    // Listed BEFORE `ai-tool-calling`/`ai-chat` so an explicit RAG ask wins the
+    // most specific capability. Every pattern requires an explicit retrieval
+    // cue — "rag", "kunskapsbas-chat", "chat med egna dokument", "svarar från
+    // våra dokument", a vector-store noun — NEVER bare "chatbot"/"ai-chat"
+    // (openai-chat owns generic chatbots; see the matching veto on `ai-chat`).
+    capability: "rag-chat",
+    patterns: [
+      // The RAG term family itself (tech word, high signal in any language).
+      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?)(?![\p{L}\p{N}_])/iu,
+      // Vector-store nouns — the `database` capability vetoes these on purpose
+      // (see its veto comment) so they must land here instead.
+      /(?<![\p{L}\p{N}_])(?:pgvector|(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|semantisk\s+sökning|semantic\s+search)(?![\p{L}\p{N}_])/iu,
+      // Knowledge-base chat compounds, Swedish + English.
+      /(?<![\p{L}\p{N}_])(?:kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|chatt?a?\s+(?:med|mot)\s+(?:vår\s+|er\s+)?kunskapsbas(?:en)?)(?![\p{L}\p{N}_])/iu,
+      // "Chat with our documents" phrasing.
+      /(?<![\p{L}\p{N}_])(?:chatt?a?\s+med\s+(?:våra|egna|era|sina|dina)\s+(?:dokument|filer|pdf:?er)|chat\s+with\s+(?:our|your)\s+(?:docs|documents|files))(?![\p{L}\p{N}_])/iu,
+      // Document Q&A.
+      /(?<![\p{L}\p{N}_])(?:dokument|document)[-\s]?q\s*&\s*a(?![\p{L}\p{N}_])/iu,
+      // "chatbot/assistant that answers FROM our documents/content/knowledge
+      // base" — the retrieval clause is what separates this from `ai-chat`.
+      /(?<![\p{L}\p{N}_])(?:chatt?bot|assistent(?:en)?|assistant|ai)[\s\S]{0,60}(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     // AI assistant that executes server-side tools (function-calling roundtrips).
     // Listed BEFORE `ai-chat` so a tool-calling ask wins the more specific
     // capability; a plain conversational chatbot stays `ai-chat`. Requires an
@@ -225,14 +250,19 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:ai-?chatt|ai-?chat|chattbot|chatbot|ai-?assistent|ai-?bot|llm-?chat|chat[-\s]?ui|chat[-\s]?widget)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:openai\s+chat|gpt-?chat|claude-?chat|chatgpt-?widget)(?![\p{L}\p{N}_])/iu,
     ],
-    // Both `openai-chat` and `ai-tool-calling-chat` ship an `/api/chat` route —
-    // injecting both dossiers would collide. When the prompt carries an explicit
-    // tool/function-calling cue the more specific `ai-tool-calling` entry above
-    // wins and this generic chat entry is suppressed (parallax-pointer/scroll
-    // precedent).
+    // `openai-chat`, `ai-tool-calling-chat` AND `rag-chat` all ship an
+    // `/api/chat`-style route — injecting two of them would collide. When the
+    // prompt carries an explicit tool/function-calling cue the more specific
+    // `ai-tool-calling` entry above wins; when it carries an explicit
+    // retrieval/RAG cue the `rag-chat` entry wins. Either way this generic
+    // chat entry is suppressed (parallax-pointer/scroll precedent). Bare
+    // "chatbot" with no cue stays here.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
+      // RAG cues — mirror the `rag-chat` trigger families above.
+      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?|pgvector|kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|(?:dokument|document)[-\s]?q\s*&\s*a)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -279,8 +309,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   {
     // Persistent server-side data storage (Postgres/Drizzle default;
     // mongodb-atlas / neon-postgres siblings resolve via manifest
-    // relevanceKeywords in select.ts). NOT vector stores (rag-chat comes
-    // later) and NOT analytics/tracking — those route to `analytics`.
+    // relevanceKeywords in select.ts). NOT vector stores (those are
+    // `rag-chat`) and NOT analytics/tracking — those route to `analytics`.
     capability: "database",
     patterns: [
       // Core nouns, Swedish + English inflections.
@@ -295,7 +325,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:store|save|persist)[\s\S]{0,60}(?:in|to)\s+(?:a\s+|the\s+)?database(?![\p{L}\p{N}_])/iu,
     ],
     // Vetoes:
-    //  - Vector stores are the coming `rag-chat` capability, not this dossier.
+    //  - Vector stores are the `rag-chat` capability, not this dossier.
     //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
     //    databas" is a visitor-tracking request, not a persistence layer.
     //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,

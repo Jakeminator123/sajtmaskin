@@ -122,12 +122,16 @@ export async function GET(
                 inspectorUrl: vd.inspectorUrl,
               });
 
+              let transitionedToError = false;
+              let persistFailed = false;
               try {
-                await updateDeploymentStatus(deploymentId, mapped.status, {
+                const result = await updateDeploymentStatus(deploymentId, mapped.status, {
                   url: vd.url || undefined,
                   inspectorUrl: vd.inspectorUrl || undefined,
                 });
+                transitionedToError = result.transitionedToError;
               } catch (persistErr) {
+                persistFailed = true;
                 // SAJ-58: client got the new status via SSE, but the DB row
                 // didn't update. List/API consumers reading `deployments`
                 // will then show stale state. Surface in logs so we can spot
@@ -145,8 +149,11 @@ export async function GET(
 
               // A3: ett asynkront Vercel-build-fel som fångas via poll (Redis
               // saknas/tappade meddelandet) loggas ordentligt (DB + RAG + bus),
-              // precis som webhook-vägen. Best-effort, en gång per stream.
-              if (mapped.status === "error" && !deployErrorLogged) {
+              // precis som webhook-vägen. Best-effort. BB#deploy2: gate:a på den
+              // atomiska DB-övergången till `error` (inte bara `mapped.status`)
+              // så webhook och poll aldrig dubbelloggar samma build-fel; den
+              // per-stream-lokala flaggan är kvar som billig extra spärr.
+              if (transitionedToError && !deployErrorLogged) {
                 deployErrorLogged = true;
                 await logDeployError({
                   chatId: deployment.chatId,
@@ -159,7 +166,14 @@ export async function GET(
                 }).catch(() => {});
               }
 
-              if (TERMINAL_STATUSES.has(mapped.status)) {
+              // Close on terminal — MEN om det var just error-statusen som inte
+              // gick att persista (transient DB-fel) håller vi strömmen öppen så
+              // en senare iteration kan göra om den atomiska övergången och logga
+              // build-felet EN gång. Annars skulle en tappad DB-skrivning på det
+              // (terminala) error-eventet tyst kosta deploy-felets spårbarhet
+              // (bugbot medium). Bundet av route:ns maxDuration + klient-abort.
+              const errorPersistPending = mapped.status === "error" && persistFailed;
+              if (TERMINAL_STATUSES.has(mapped.status) && !errorPersistPending) {
                 close();
               }
             } catch (pollErr) {

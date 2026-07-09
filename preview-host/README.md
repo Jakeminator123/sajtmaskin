@@ -25,7 +25,7 @@ I praktiken betyder det:
 
 ### Vad som fungerar
 
-- Fly-app `vm-fly-jakem` koer pa `performance-2x` (2 ded CPU, 4 GB RAM) i `arn` (Stockholm)
+- Fly-app `vm-fly-jakem` koer pa 4 vCPU / 8 GB RAM (per `fly.toml [[vm]]`, uppskalat under M#fly1) i `arn` (Stockholm)
 - Persistent Fly volume `preview_host_data` ar monterad pa `/data` for workspaces och session-store (nuvarande deploy: 20 GB)
 - `preview-host` tar emot preview-payloads via HTTP, koer `npm install` + `npm run dev` pa Fly-maskinen
 - `preview-host` kor ocksa en isolerad **verify-lane** for quality gate (`npm install` + `tsc` / `next build` / ev. `eslint`) i separat workspace
@@ -35,7 +35,7 @@ I praktiken betyder det:
 - vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
 - workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
 - binary assets (bilder, fonts) stods via `base64:`-prefix i `filesJson`; `writeFilesIntoWorkspace` skriver dem som binara buffers
-- verify-jobb koas lugnare pa enskild VM for att undvika att flera tunga `npm install`/`tsc` kor samtidigt
+- verify-jobb serialiseras sinsemellan (`verifyQueue`), och ALLA installs (boot + verify) gar dessutom genom den globala `installQueue` (concurrency 1, se M#fly1-punkten nedan) sa att flera tunga `npm install`/`tsc` aldrig kor samtidigt
 - `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
 - sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida
 - cleanup stoppar nu stale runtime-processer innan utgangna sessioner, loggar och workspace-mappar tas bort
@@ -63,7 +63,7 @@ I praktiken betyder det:
 
 | Resurs | Varde |
 |--------|-------|
-| Maskin | `performance-2x` (2 CPU, 4 GB) |
+| Maskin | 4 vCPU, 8 GB RAM (`fly.toml [[vm]]`) + `swap_size_mb = 2048` |
 | Volume | `preview_host_data`, 20 GB, `/data` |
 | Region | `arn` (Stockholm) |
 | Secret | `PREVIEW_HOST_DATA_DIR=/data` |

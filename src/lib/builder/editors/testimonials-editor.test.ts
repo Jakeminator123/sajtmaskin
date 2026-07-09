@@ -39,6 +39,41 @@ describe("testimonials-editor", () => {
       expect(readTestimonialItemsDraft("app/page.tsx", content)).toBeNull();
     });
 
+    it("does not leak sibling name/price objects (menu) into testimonial fields", () => {
+      // Prod repro (Kaffehörnan): a menu array whose objects also start with
+      // `name:` but have `price:` instead of `role:`/`quote:` preceded the
+      // testimonials array. The old greedy captures swallowed the entire menu
+      // into the first testimonial's name.
+      const content = [
+        "const menu = [",
+        '  { name: "Espresso", price: "36 kr" },',
+        '  { name: "Cappuccino", price: "46 kr" },',
+        '  { name: "Latte", price: "49 kr" },',
+        "];",
+        "const testimonials = [",
+        '  { name: "Anna", role: "Stammis i Linné", quote: "Bästa kaffet." },',
+        '  { name: "Viktor S.", role: "Jobbar i närheten", quote: "Snabb lunch." },',
+        "];",
+      ].join("\n");
+      expect(readTestimonialItemsDraft("app/page.tsx", content)).toEqual([
+        { name: "Anna", role: "Stammis i Linné", quote: "Bästa kaffet." },
+        { name: "Viktor S.", role: "Jobbar i närheten", quote: "Snabb lunch." },
+      ]);
+    });
+
+    it("keeps items whose fields contain escaped quote delimiters", () => {
+      const content = [
+        "const testimonials = [",
+        "  { name: 'Anna', role: 'VD', quote: 'It\\'s the best.' },",
+        "  { name: 'Erik', role: 'CTO', quote: 'We\\'re very happy.' },",
+        "];",
+      ].join("\n");
+      expect(readTestimonialItemsDraft("app/page.tsx", content)).toEqual([
+        { name: "Anna", role: "VD", quote: "It\\'s the best." },
+        { name: "Erik", role: "CTO", quote: "We\\'re very happy." },
+      ]);
+    });
+
     it("caps at 8 items", () => {
       const items = Array.from({ length: 10 }, (_, i) =>
         `  { name: 'N${i}', role: 'R${i}', quote: 'Q${i}' },`,

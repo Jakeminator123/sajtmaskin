@@ -16,7 +16,7 @@
  */
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -40,13 +40,21 @@ function check(label, condition) {
 
 // Quote-free commands: the Windows fallback path (`cmd /d /s /c <string>`)
 // mangles embedded quotes when spawn re-quotes the joined argument, and the
-// production callers (npm/pnpm/yarn installs) never need embedded quotes
-// either. `node -e` with a space-free expression works on both platforms.
+// production callers (npm/pnpm/yarn installs) never need embedded quotes either.
+//
+// An inline `node -e setTimeout(function(){},60000)` is NOT safe: runShellCommand
+// runs `sh -lc <string>` on unix, where `(){}` are shell metacharacters, so sh
+// mangled the expression and node exited instantly on Linux (the guard only ever
+// passed on Windows cmd.exe — surfaced when this suite started running in CI,
+// A#28). Run a temp SCRIPT FILE instead so the command string is just
+// `node <path>` — no parens/metachars, hung on both platforms.
+const hangScript = join(dataDir, "hang.mjs");
+writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
 // 1. Hung child + timeoutMs → settles with timedOut/exit 124.
 {
   const startedAt = Date.now();
   const result = await runShellCommand(
-    "node -e setTimeout(function(){},60000)",
+    `node ${hangScript}`,
     { stdio: ["ignore", "pipe", "pipe"], timeoutMs: 1500, timeoutLabel: "Guard test" },
   );
   check("hung command settles via timeoutMs", Date.now() - startedAt < 30_000);

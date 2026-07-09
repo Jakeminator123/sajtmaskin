@@ -276,6 +276,36 @@ describe("dep-completer", () => {
     }
   });
 
+  // Legacy import final wave (capability `rag-chat`, 2026-07-09): the dossier
+  // introduces NO new packages — its whole stack (AI SDK + drizzle/pg) must
+  // already be pinned in KNOWN_PACKAGES so the backstop never emits `latest`.
+  it("injects the AI SDK + drizzle/pg stack when rag-chat is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["rag-chat"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toEqual(["rag-chat"]);
+
+    const deps = resolveCapabilityDependencies(["rag-chat"]);
+    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
+    expect(deps["@ai-sdk/openai"]).toBe(KNOWN_PACKAGES["@ai-sdk/openai"]);
+    expect(deps["@ai-sdk/react"]).toBe(KNOWN_PACKAGES["@ai-sdk/react"]);
+    expect(deps["drizzle-orm"]).toBe(KNOWN_PACKAGES["drizzle-orm"]);
+    expect(deps.pg).toBe(KNOWN_PACKAGES.pg);
+    expect(deps["@types/pg"]).toBe(KNOWN_PACKAGES["@types/pg"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of [
+      "ai",
+      "@ai-sdk/openai",
+      "@ai-sdk/react",
+      "drizzle-orm",
+      "pg",
+      "@types/pg",
+      "server-only",
+    ]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
   it("selects the sibling database dossiers on explicit provider prompts", () => {
     const mongoSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],

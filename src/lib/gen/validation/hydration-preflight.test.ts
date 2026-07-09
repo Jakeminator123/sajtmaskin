@@ -50,6 +50,34 @@ export default function Page() {
     expect(detectNonDeterministicRenderInSource("app/page.tsx", src)).toHaveLength(0);
   });
 
+  it("FLAGS a risky token in a useEffect dependency array (deps run during render — A#26)", () => {
+    const src = `"use client"
+import { useEffect, useState } from "react"
+export default function Page() {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    setV(v + 1)
+  }, [Math.random()])
+  return <div>{v}</div>
+}`;
+    const issues = detectNonDeterministicRenderInSource("app/page.tsx", src);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].pattern).toBe("Math.random()");
+  });
+
+  it("does NOT flag a risky token inside a generic-annotated useEffect callback (A#26)", () => {
+    const src = `"use client"
+import { useEffect } from "react"
+export default function Page() {
+  useEffect<void>(() => {
+    const id = crypto.randomUUID()
+    console.log(id)
+  }, [])
+  return <div />
+}`;
+    expect(detectNonDeterministicRenderInSource("app/page.tsx", src)).toHaveLength(0);
+  });
+
   it("does NOT flag new Date(arg) (deterministic)", () => {
     const src = `export default function P({ ts }: { ts: number }) {
   return <time>{new Date(ts).toISOString()}</time>

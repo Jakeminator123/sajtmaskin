@@ -1,0 +1,28 @@
+-- Durabel UTC-timezone på roll-nivå — ersätter per-connection `SET TIME ZONE`.
+--
+-- Bakgrund (M#pg1): `src/lib/db/client.ts` körde `SET TIME ZONE 'UTC'`
+-- fire-and-forget i `pool.on("connect")`. Det gav två problem:
+--
+--   1. pg-varningen "Calling client.query() when the client is already
+--      executing a query" på varje ny koppling (poolen lämnar klienten till
+--      Drizzle innan timezone-queryn hunnit klart) — blir ett KASTAT fel i pg@9.
+--   2. I prod (Supavisor transaction pooling, port 6543) är sessions-SET
+--      opålitligt by design: GUC:en sätts på EN backend-session, men nästa
+--      transaktion kan landa på en annan session utan inställningen.
+--
+-- `ALTER ROLE ... SET` är den pooler-säkra lösningen: Postgres applicerar
+-- roll-GUC:en vid varje backend-sessions start, så ALLA sessioner (poolade
+-- eller direkta) får UTC — utan någon runtime-query alls.
+--
+-- CURRENT_USER = rollen som kör migrationen = samma roll appen ansluter med
+-- (samma POSTGRES_URL i både dev-init och `npm run db:migrate:prod`).
+-- En roll får alltid ändra sina egna default-inställningar, så detta kräver
+-- inga superuser-rättigheter. Idempotent: att köra om sätter samma värde.
+-- Rollback vid behov: ALTER ROLE CURRENT_USER RESET timezone;
+--
+-- Skyddet detta bevarar: 2h-driften från 2026-07-08 (DEFAULT NOW() på en
+-- TIMESTAMP-kolumn lagrade svensk lokaltid när serverns TimeZone inte var UTC).
+-- Kolumnerna är numera TIMESTAMPTZ (fix-timestamp-tz.sql); roll-GUC:en är
+-- andra försvarslinjen och täcker även NOW()-läsningar/casts.
+
+ALTER ROLE CURRENT_USER SET timezone TO 'UTC';
