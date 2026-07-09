@@ -4,6 +4,7 @@ import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
   resolveDossiersPresentInVersion,
+  resolveSelectedDossiersWithVersionPresence,
 } from "./version-presence";
 
 /**
@@ -11,6 +12,10 @@ import {
  * the signal-gate ground truth the ai-tool-calling incident needed (the panel
  * showed `total: 0` because the snapshot floor was F2-muted and the
  * provider-key→capability mapping only knew `ai-chat`, never `ai-tool-calling`).
+ *
+ * Matching rule (review round 2): all server files + ≥1 distinctive file for
+ * server dossiers; ≥1 distinctive file for client-only dossiers. Distinctive =
+ * declared by exactly one dossier in the pool.
  */
 describe("resolveDossierIdsPresentInVersion", () => {
   it("detects ai-tool-calling-chat from its built assistant route", () => {
@@ -32,9 +37,36 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(resolveDossierIdsPresentInVersion([])).toEqual([]);
   });
 
-  // openai-chat and rag-chat both ship `app/api/chat/route.ts`; requiring ALL
-  // declared files present disambiguates them so a chat route alone never
-  // resolves to both (which would inflate the F3 selection).
+  // Relaxed matching (review round 2, impact 5): the user edited/renamed a
+  // REWRITABLE client component (checkout-button.tsx absorbed into a custom
+  // pricing card), but the verbatim server route is untouched. Evidence must
+  // survive — otherwise a built-and-configured Stripe integration would drop
+  // out of the F3 scope on the next build.
+  it("still matches stripe-checkout when a client component was renamed away (server core intact)", () => {
+    const ids = resolveDossierIdsPresentInVersion([
+      "app/api/checkout-session/route.ts",
+      // shared config-notice remains, checkout-button.tsx is gone
+      "components/integration-config-notice.tsx",
+    ]);
+    expect(ids).toContain("stripe-checkout");
+  });
+
+  // False-positive guard: a path shared by SEVERAL dossiers (the chat route is
+  // declared by both openai-chat and rag-chat) is never sole evidence.
+  it("does NOT match any chat dossier from the shared chat route alone", () => {
+    const ids = resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"]);
+    expect(ids).not.toContain("openai-chat");
+    expect(ids).not.toContain("rag-chat");
+  });
+
+  it("does NOT match a dossier from a shared helper file alone", () => {
+    // integration-config-notice.tsx is shipped by several hard dossiers.
+    const ids = resolveDossierIdsPresentInVersion([
+      "components/integration-config-notice.tsx",
+    ]);
+    expect(ids).toEqual([]);
+  });
+
   it("resolves openai-chat (not rag-chat) from its full file set", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/api/chat/route.ts",
@@ -60,10 +92,19 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(ids).not.toContain("openai-chat");
   });
 
-  it("does not resolve a dossier when only some of its declared files are present", () => {
-    // openai-chat needs BOTH chat-panel.tsx and the chat route.
-    const ids = resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"]);
-    expect(ids).not.toContain("openai-chat");
+  it("does not resolve a server dossier when its server files are missing", () => {
+    // rag-chat's client component alone (chat.tsx is rag-distinctive) is not
+    // enough — ALL server files must be present for a server dossier.
+    const ids = resolveDossierIdsPresentInVersion(["components/chat.tsx"]);
+    expect(ids).not.toContain("rag-chat");
+  });
+
+  // Client-only (soft) dossiers: one distinctive file is enough evidence.
+  it("matches a soft dossier from a single distinctive client file", () => {
+    const ids = resolveDossierIdsPresentInVersion([
+      "components/faq-accordion.tsx",
+    ]);
+    expect(ids).toContain("faq-accordion");
   });
 
   it("normalizes leading ./ and / in file paths", () => {
@@ -108,5 +149,45 @@ describe("resolveCapabilitiesPresentInVersion", () => {
       "app/api/assistant/route.ts",
     ]);
     expect(caps).toContain("ai-tool-calling");
+  });
+});
+
+// Fix 1 (review round 2): ONE owner for "selected dossiers incl. file
+// evidence". Snapshot selection ∪ version presence, deduped by id, consumed by
+// the dossiers panel + readiness + finalize-design + stream F3 gate + deploy.
+describe("resolveSelectedDossiersWithVersionPresence", () => {
+  it("unions snapshot selection with file-evidenced dossiers (dedupe by id)", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: { requestedCapabilities: ["faq-section"] },
+      versionFiles: [
+        { path: "app/api/assistant/route.ts" },
+        { path: "components/faq-accordion.tsx" },
+      ],
+      configuredEnvKeys: new Set<string>(),
+    });
+    const ids = selected.map((s) => s.entry.id);
+    // Snapshot part (capability-selected) + presence part, no duplicate
+    // faq-accordion even though both sources produce it.
+    expect(ids).toContain("faq-accordion");
+    expect(ids).toContain("ai-tool-calling-chat");
+    expect(ids.filter((id) => id === "faq-accordion")).toHaveLength(1);
+  });
+
+  it("degrades to snapshot-only when version files are unavailable", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: { requestedCapabilities: ["faq-section"] },
+      versionFiles: null,
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(selected.map((s) => s.entry.id)).toEqual(["faq-accordion"]);
+  });
+
+  it("returns presence-only for an empty/missing snapshot (the incident shape)", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: null,
+      versionFiles: [{ path: "app/api/assistant/route.ts" }],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(selected.map((s) => s.entry.id)).toEqual(["ai-tool-calling-chat"]);
   });
 });

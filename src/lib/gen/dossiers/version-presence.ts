@@ -9,21 +9,32 @@
  * the wrong dossier — e.g. `ai-chat`/`openai-chat` for code that is actually the
  * `ai-tool-calling` assistant route).
  *
- * A dossier is considered "present" when EVERY file it declares in its manifest
- * (`files[]`), mapped through {@link mapDossierPathToOutput} to the path it lands
- * on in the generated project, exists in the version's `files_json`. Requiring
- * ALL declared paths (not just one) disambiguates dossiers that share a path —
- * e.g. `openai-chat` and `rag-chat` both ship `app/api/chat/route.ts`, but only
- * `rag-chat` also ships the `lib/rag/*` files, and only `openai-chat` ships
- * `components/chat-panel.tsx`. This is deliberately precise over lenient: a
- * false positive inflates the panel / F3 selection (the incident), whereas a
- * dropped rewritable UI file only costs a false negative (the dossier is simply
- * not reported for that version).
+ * Matching rule (review round 2 — resilient to user edits, guarded against
+ * shared paths):
+ *
+ *  - A file path is DISTINCTIVE when exactly one dossier in the pool declares
+ *    it (after output-path mapping). Shared helper files like
+ *    `components/integration-config-notice.tsx` (shipped by several hard
+ *    dossiers) or the chat route `app/api/chat/route.ts` (openai-chat AND
+ *    rag-chat) are never distinctive.
+ *  - Dossier WITH `role: "server"` files: present ⇔ ALL its server files exist
+ *    AND at least one of its present files (any role) is distinctive. Server
+ *    files are the functional core and verbatim-protected — a user
+ *    renaming/absorbing a rewritable client component must not erase the
+ *    evidence (Stripe built + keys filled would otherwise silently drop
+ *    `payments` from the F3 scope). The distinctive requirement stops a shared
+ *    server path alone from matching a sibling dossier (rag-chat's chat route
+ *    must not resurrect openai-chat).
+ *  - Dossier WITHOUT server files: present ⇔ at least one distinctive file
+ *    exists (a soft/UI dossier keeps its evidence even when sibling shared
+ *    files drift).
+ *  - Dossier with no declared files: never present.
  *
  * Used by:
- *  - the dossiers overview route (union with the snapshot-derived selection) so
- *    an integration built into the version always shows, even after an F2-mute
- *    follow-up dropped its capability from the snapshot floor;
+ *  - {@link resolveSelectedDossiersWithVersionPresence} — the ONE owner of the
+ *    "selected dossiers incl. file evidence" union consumed by the dossiers
+ *    panel route, the readiness route, finalize-design, the stream-post F3
+ *    gate (`checkTier3ReadinessForVersion`) and the deploy env gate;
  *  - the F3 capability-scope guard in `orchestrate.ts` (file evidence is what
  *    makes it safe to keep an already-built integration while dropping
  *    speculative brief/floor capabilities);
@@ -32,28 +43,65 @@
  */
 import { getAllDossiers, getDossierInstructions } from "./registry";
 import { isDossierConfigured } from "./select";
+import { resolveSelectedDossiersFromSnapshot } from "./snapshot-selection";
 import { mapDossierPathToOutput } from "./output-path";
-import type { DossierEntry, SelectedDossier } from "./types";
+import type { DossierEntry, DossierFile, SelectedDossier } from "./types";
 
 /** Normalize a project file path for comparison (strip `./` and leading `/`). */
 function normalizeProjectPath(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
 }
 
-/**
- * True when every file the dossier declares is present in `presentPaths`
- * (mapped to output paths). Dossiers with no declared files can't be detected
- * by file presence → never "present".
- */
-function dossierFilesPresent(entry: DossierEntry, presentPaths: ReadonlySet<string>): boolean {
-  const files = entry.files ?? [];
-  if (files.length === 0) return false;
-  return files.every((file) => presentPaths.has(normalizeProjectPath(mapDossierPathToOutput(file.path))));
+/** Mapped output path for a dossier manifest file. */
+function outputPathFor(file: DossierFile): string {
+  return normalizeProjectPath(mapDossierPathToOutput(file.path));
 }
 
 /**
- * Dossier ids whose full declared file set is present in the version's files.
- * Deterministic (registry order → id-sorted). Pure; safe on empty input.
+ * How many dossiers in the pool declare each mapped output path. A path with
+ * count 1 is "distinctive" for its dossier; counts ≥ 2 mark shared helper
+ * files that must never serve as sole presence evidence.
+ */
+function buildPathDeclarationCounts(pool: DossierEntry[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const dossier of pool) {
+    // Dedupe within one dossier so a manifest that lists the same path twice
+    // doesn't inflate the count past "distinctive".
+    const paths = new Set((dossier.files ?? []).map(outputPathFor));
+    for (const path of paths) {
+      counts.set(path, (counts.get(path) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/** See the module doc for the matching rule. */
+function dossierFilesPresent(
+  entry: DossierEntry,
+  presentPaths: ReadonlySet<string>,
+  pathDeclarationCounts: ReadonlyMap<string, number>,
+): boolean {
+  const files = entry.files ?? [];
+  if (files.length === 0) return false;
+  const mapped = files.map((file) => ({ role: file.role, path: outputPathFor(file) }));
+  const hasDistinctivePresentFile = mapped.some(
+    (file) =>
+      presentPaths.has(file.path) && (pathDeclarationCounts.get(file.path) ?? 0) === 1,
+  );
+  const serverFiles = mapped.filter((file) => file.role === "server");
+  if (serverFiles.length > 0) {
+    return (
+      serverFiles.every((file) => presentPaths.has(file.path)) &&
+      hasDistinctivePresentFile
+    );
+  }
+  return hasDistinctivePresentFile;
+}
+
+/**
+ * Dossier ids whose file evidence (per the matching rule in the module doc) is
+ * present in the version's files. Deterministic (registry order → id-sorted).
+ * Pure; safe on empty input.
  */
 export function resolveDossierIdsPresentInVersion(
   filePaths: Iterable<string>,
@@ -65,8 +113,10 @@ export function resolveDossierIdsPresentInVersion(
     }
   }
   if (presentPaths.size === 0) return [];
-  return getAllDossiers()
-    .filter((entry) => dossierFilesPresent(entry, presentPaths))
+  const pool = getAllDossiers();
+  const pathDeclarationCounts = buildPathDeclarationCounts(pool);
+  return pool
+    .filter((entry) => dossierFilesPresent(entry, presentPaths, pathDeclarationCounts))
     .map((entry) => entry.id)
     .sort();
 }
@@ -126,4 +176,46 @@ export function resolveCapabilitiesPresentInVersion(
     if (ids.has(dossier.id)) capabilities.add(dossier.capability.toLowerCase());
   }
   return Array.from(capabilities);
+}
+
+/**
+ * THE canonical "selected dossiers for this chat/version" resolver
+ * (signal-gate: one owner, many consumers): snapshot-derived selection ∪
+ * dossiers whose files are actually present in the version.
+ *
+ * The snapshot floor is F2-muted (integration capabilities are stripped on
+ * every design round), so alone it under-reports what a build contains; file
+ * presence alone misses planned-but-unbuilt dossiers. The union is the honest
+ * answer, and its direction is safe for the env gates: presence only ADDS
+ * dossiers whose files genuinely exist, which lets `detect-integrations` tag
+ * their env keys with the manifest's real enforcement — while integrations
+ * with no matching dossier keep the warn-only downgrade.
+ *
+ * Consumers (all five read THIS, never their own union): the dossiers panel
+ * route, the readiness route, `finalize-design`, the stream-post F3 gate via
+ * `checkTier3ReadinessForVersion`, and the deploy env gate.
+ *
+ * Pass the version's files preloaded (only `path` is read) — callers already
+ * hold them or load them exactly once per request; `null`/`undefined` degrades
+ * to snapshot-only.
+ */
+export function resolveSelectedDossiersWithVersionPresence(params: {
+  snapshot: unknown;
+  versionFiles?: ReadonlyArray<{ path?: unknown }> | null;
+  configuredEnvKeys?: ReadonlySet<string>;
+}): SelectedDossier[] {
+  const fromSnapshot = resolveSelectedDossiersFromSnapshot(
+    params.snapshot,
+    params.configuredEnvKeys,
+  );
+  const fromPresence =
+    params.versionFiles && params.versionFiles.length > 0
+      ? resolveDossiersPresentInVersion(params.versionFiles, params.configuredEnvKeys)
+      : [];
+  if (fromPresence.length === 0) return fromSnapshot;
+  const byId = new Map<string, SelectedDossier>();
+  for (const selected of [...fromSnapshot, ...fromPresence]) {
+    if (!byId.has(selected.entry.id)) byId.set(selected.entry.id, selected);
+  }
+  return Array.from(byId.values());
 }

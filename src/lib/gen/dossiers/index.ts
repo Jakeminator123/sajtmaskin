@@ -22,6 +22,7 @@ export {
   resolveDossierIdsPresentInVersion,
   resolveDossiersPresentInVersion,
   resolveCapabilitiesPresentInVersion,
+  resolveSelectedDossiersWithVersionPresence,
 } from "./version-presence";
 
 export { defaultInjectionMode, dossierRequiresF3 } from "./types";
