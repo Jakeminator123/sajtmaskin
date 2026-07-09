@@ -39,7 +39,7 @@ Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit 
 
 1. **PR ≥ 7 min gammal.** Merga aldrig sekunder efter att PR öppnats — externa granskare (Codex/Vercel Agent) hinner inte titta. Verifiera: `gh pr view <n> --json createdAt`.
 2. **Codex-fönster = 7 min (bounded).** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: vänta inte längre — författarens bugbot-pass (körs vid PR-öppning, se `Bugg-efterkontroll` nedan) täcker redan oberoende ögon. Har inget bugbot-pass körts alls → kör **Cursor-bugbot-subagenten** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) nu och dokumentera fynden.
-3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths.
+3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska bugg-efterkontroll (bugbot **eller** dokumenterad manuell review, se `Bugg-efterkontroll` nedan) — den krävs alltid; Codex är ett tillägg, inte en ersättning.
 4. `/granska` (buggsvärm på egen diff) ska redan ha körts **före** PR:en skapades (se `workflow.mdc`/`git.mdc`). Det för-filtret ersätter inte den externa buggkollen ovan.
 
 ## merge:ready — författar-sign-off (maskinläsbart godkännande)

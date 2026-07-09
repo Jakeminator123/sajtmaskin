@@ -9,9 +9,11 @@ En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repo
 
 ## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2** · **inga protected paths** · head-SHA stabil · PR-body beskriver ändringen · **`/granska-diff` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **`/granska` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
 
 Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
+
+**\* Auto- vs agent-merge (separata kriterier):** `inga protected paths` + `risk 1–2` gäller **helautomatisk** merge. Agent-mergaren (läget vi valt) får merga protected-path/risk ≥ 3-PR:er **efter** ett oberoende bugbot-subagent-pass (se `Protected paths` + `Vem mergar` nedan). Alla övriga villkor (grönt CI, 7-min, `merge:ready` + sign-off, stabil SHA) gäller **alltid**, oavsett mergare.
 
 ## Protected paths → alltid `NEEDS_HUMAN` (även test-only diff)
 
