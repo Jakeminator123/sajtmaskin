@@ -62,6 +62,14 @@ describe("normalizeImportedRepoFiles — packageManager pnpm<11 strip (A#29)", (
     expect(pkg2(result).packageManager).toBe("yarn@4.5.0");
   });
 
+  it("is a no-op when package.json has no packageManager field at all", () => {
+    const files = [pkgFile({ dependencies: { react: "^19" } }), codeFile("app/page.tsx")];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(0);
+    // Samma array-instans tillbaka = ingen omskrivning alls.
+    expect(result.files).toBe(files);
+  });
+
   it("strips pnpm@10 AND injects the motion override in one pass when both apply", () => {
     const files = [
       pkgFile({

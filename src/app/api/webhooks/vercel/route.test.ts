@@ -131,12 +131,21 @@ describe("POST /api/webhooks/vercel", () => {
     const res = await POST(
       signedRequest({
         type: "deployment.error",
-        payload: { deployment: { id: "dpl_dupe" } },
+        payload: {
+          deployment: { id: "dpl_dupe" },
+          links: { deployment: "https://vercel.com/i/dpl_dupe" },
+        },
       }),
     );
 
     expect(res.status).toBe(200);
-    expect(updateDeploymentStatus).toHaveBeenCalledWith("dep_row_dupe", "error", expect.any(Object));
+    // Sen metadata (inspectorUrl) måste fortfarande persistas på dubbletten —
+    // dedup:en gäller bara LOGGEN, aldrig metadata-mergen.
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_row_dupe",
+      "error",
+      expect.objectContaining({ inspectorUrl: "https://vercel.com/i/dpl_dupe" }),
+    );
     expect(logDeployError).not.toHaveBeenCalled();
   });
 

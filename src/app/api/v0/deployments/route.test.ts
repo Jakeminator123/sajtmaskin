@@ -50,6 +50,13 @@ vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
 }));
 
+// BB#deploy2: routen loggar deploy-fel när dess statusskrivningar vinner
+// error-övergången. Mockad så tester aldrig rör bus/RAG-sidoeffekter.
+const logDeployError = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/lib/deploy/deploy-error-log", () => ({
+  logDeployError,
+}));
+
 vi.mock("@/lib/tenant", () => ({
   getAppProjectByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -74,6 +81,9 @@ describe("POST /api/v0/deployments", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({});
     readAllowPlaceholdersInF3.mockResolvedValue(false);
     syncEnvVarsToVercelProject.mockResolvedValue({ synced: 0, errors: [] });
+    // BB#deploy2: updateDeploymentStatus returnerar transition-info; default =
+    // ingen error-övergång (tester som testar transitionen overridar själva).
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
     // Default: ingen custom-domän kopplad (dagens beteende) → projektnamn-låset
     // (A2) släpper alltid igenom om inte ett test explicit kopplar en domän.
     getLinkedDomainForChat.mockResolvedValue(null);
@@ -444,7 +454,7 @@ describe("POST /api/v0/deployments", () => {
         inspectorUrl: null,
         readyState: "READY",
       });
-      updateDeploymentStatus.mockResolvedValue(undefined);
+      updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
       return { commit, refund };
     };
 
@@ -597,7 +607,7 @@ describe("POST /api/v0/deployments", () => {
         inspectorUrl: null,
         readyState: "READY",
       });
-      updateDeploymentStatus.mockResolvedValue(undefined);
+      updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
       return { commit, refund };
     };
 
@@ -787,7 +797,7 @@ describe("POST /api/v0/deployments", () => {
       inspectorUrl: null,
       readyState: "READY",
     });
-    updateDeploymentStatus.mockResolvedValue(undefined);
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
 
     const req = new Request("http://localhost/api/v0/deployments", {
       method: "POST",
@@ -823,7 +833,7 @@ describe("POST /api/v0/deployments", () => {
       inspectorUrl: null,
       readyState: "READY",
     });
-    updateDeploymentStatus.mockResolvedValue(undefined);
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },
       { path: ".env.local", content: "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\n" },
@@ -865,7 +875,7 @@ describe("POST /api/v0/deployments", () => {
       inspectorUrl: null,
       readyState: "READY",
     });
-    updateDeploymentStatus.mockResolvedValue(undefined);
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
     syncEnvVarsToVercelProject.mockResolvedValue({
       synced: 0,
       errors: ["Vercel env sync failed (HTTP 500)"],
@@ -935,7 +945,7 @@ describe("POST /api/v0/deployments", () => {
         inspectorUrl: null,
         readyState: "READY",
       });
-      updateDeploymentStatus.mockResolvedValue(undefined);
+      updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
       return { commit, refund };
     };
 
@@ -1062,5 +1072,46 @@ describe("POST /api/v0/deployments", () => {
       expect(res.status).toBe(200);
       expect(createVercelDeployment).toHaveBeenCalledTimes(1);
     });
+  });
+
+  // BB#deploy2 (granska-svärmen på #469): den initiala statusskrivningen efter
+  // createVercelDeployment kan VINNA den atomiska övergången till `error` (vid
+  // synkront Vercel-ERROR i create-svaret). Då måste POST-vägen äga loggen —
+  // annars ser webhook/poll transitionedToError=false och build-felet loggas
+  // aldrig någonstans.
+  it("loggar deploy-felet (source refresh) när POST:ens initiala statusskrivning vinner error-övergången", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_err");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_err",
+      vercelProjectId: "vp_1",
+      url: "https://example.vercel.app",
+      inspectorUrl: "https://vercel.com/i/dpl_err",
+      readyState: "ERROR",
+    });
+    const vercelDeployMocks = await import("@/lib/vercelDeploy");
+    vi.mocked(vercelDeployMocks.mapVercelReadyStateToStatus).mockReturnValueOnce({
+      status: "error",
+    } as ReturnType<typeof vercelDeployMocks.mapVercelReadyStateToStatus>);
+    updateDeploymentStatus.mockResolvedValue({ transitionedToError: true });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+    });
+
+    await POST(req);
+
+    expect(logDeployError).toHaveBeenCalledTimes(1);
+    expect(logDeployError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deploymentId: "dep_err",
+        vercelDeploymentId: "dpl_err",
+        source: "refresh",
+      }),
+    );
   });
 });
