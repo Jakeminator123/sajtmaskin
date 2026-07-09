@@ -23,6 +23,73 @@ function parsePkg(files: CodeFile[]): Record<string, unknown> {
   return JSON.parse(file.content) as Record<string, unknown>;
 }
 
+describe("normalizeImportedRepoFiles — packageManager pnpm<11 strip (A#29)", () => {
+  it("strips a pnpm@10 packageManager pin (preview host ignores its build approval)", () => {
+    const files = [
+      pkgFile({ packageManager: "pnpm@10.11.0", dependencies: { react: "^19" } }),
+      codeFile("app/page.tsx"),
+    ];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied.some((m) => m.includes("packageManager"))).toBe(true);
+    const pkg = parsePkg(result.files);
+    expect(pkg.packageManager).toBeUndefined();
+    // Rest of package.json is untouched.
+    expect((pkg.dependencies as Record<string, string>).react).toBe("^19");
+  });
+
+  it("strips a pnpm@10 pin even WITH a lockfile (build-script crash happens on frozen installs too)", () => {
+    const files = [
+      pkgFile({ packageManager: "pnpm@10.4.1", dependencies: { react: "^19" } }),
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\n", language: "yaml" } as CodeFile,
+    ];
+    const result = normalizeImportedRepoFiles(files);
+    expect(pkg2(result).packageManager).toBeUndefined();
+    // Lockfile presence still blocks the motion override (only pm strip applies).
+    expect(result.applied).toHaveLength(1);
+  });
+
+  it("keeps a pnpm@11 pin (pnpm 11 honors the build approval)", () => {
+    const files = [pkgFile({ packageManager: "pnpm@11.10.0" }), codeFile("app/page.tsx")];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(0);
+    expect(pkg2(result).packageManager).toBe("pnpm@11.10.0");
+  });
+
+  it("keeps a yarn packageManager pin (unaffected by the pnpm build-script gap)", () => {
+    const files = [pkgFile({ packageManager: "yarn@4.5.0" }), codeFile("app/page.tsx")];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(0);
+    expect(pkg2(result).packageManager).toBe("yarn@4.5.0");
+  });
+
+  it("is a no-op when package.json has no packageManager field at all", () => {
+    const files = [pkgFile({ dependencies: { react: "^19" } }), codeFile("app/page.tsx")];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(0);
+    // Samma array-instans tillbaka = ingen omskrivning alls.
+    expect(result.files).toBe(files);
+  });
+
+  it("strips pnpm@10 AND injects the motion override in one pass when both apply", () => {
+    const files = [
+      pkgFile({
+        packageManager: "pnpm@10.11.0",
+        dependencies: { "framer-motion": "12.23.24" },
+      }),
+      codeFile("app/page.tsx"),
+    ];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(2);
+    const pkg = parsePkg(result.files);
+    expect(pkg.packageManager).toBeUndefined();
+    expect((pkg.overrides as Record<string, string>)["motion-dom"]).toBe(MOTION_DOM_COMPAT_PIN);
+  });
+});
+
+function pkg2(result: { files: CodeFile[] }): Record<string, unknown> {
+  return parsePkg(result.files);
+}
+
 describe("normalizeImportedRepoFiles — motion lockstep repair", () => {
   it("injects a motion-dom override when framer-motion is exact-pinned pre-12.41 without a lockfile", () => {
     const files = [

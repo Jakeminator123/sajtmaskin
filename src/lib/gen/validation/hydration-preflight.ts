@@ -17,10 +17,12 @@ import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract
  * This is an ADVISORY-only detector: it emits `warning` /
  * `non_blocking_quality_warning` issues so the builder surfaces a concrete,
  * actionable message instead of the user only seeing a console hydration error.
- * It never blocks preview. Calls proven client-only (inside `useEffect` /
- * `useLayoutEffect` or an event handler) are ignored to keep false positives
- * low; `useMemo` is intentionally NOT treated as safe because it also runs
- * during SSR.
+ * It never blocks preview. Calls proven client-only (inside a `useEffect` /
+ * `useLayoutEffect` CALLBACK or a JSX event handler) are ignored to keep false
+ * positives low. The effect's dependency array is NOT safe — it evaluates
+ * during render, so `useEffect(fn, [Math.random()])` is still flagged (A#26).
+ * `useMemo` is intentionally NOT treated as safe because it also runs during
+ * SSR.
  */
 
 export type HydrationPreflightIssue = {
@@ -50,10 +52,15 @@ const RISKY_PATTERNS: Array<{ label: string; re: RegExp }> = [
  * Client-only wrappers whose callback bodies run AFTER hydration, so a
  * non-deterministic value there cannot cause a mismatch. `useMemo`/`useCallback`
  * are deliberately excluded (they run during SSR too).
+ *
+ * The optional `<…>` allows a (rare) generic annotation like `useEffect<T>(…)`
+ * so a token in that callback isn't a false positive (A#26). Only the FIRST
+ * argument (the effect callback) is treated as safe — see `collectSafeRanges`;
+ * the dependency array runs during render and must stay flagged.
  */
 const SAFE_WRAPPER_RES: RegExp[] = [
-  /\buseEffect\s*\(/g,
-  /\buseLayoutEffect\s*\(/g,
+  /\buseEffect\s*(?:<[^>]*>)?\s*\(/g,
+  /\buseLayoutEffect\s*(?:<[^>]*>)?\s*\(/g,
 ];
 
 /**
@@ -170,6 +177,24 @@ function findBalancedBraceEnd(blanked: string, openIndex: number): number | null
   return null;
 }
 
+/**
+ * Given a call's opening `(` at `parenStart` and its matching `)` at `parenEnd`,
+ * return the inclusive end index of the FIRST argument — i.e. up to (but not
+ * including) the first top-level comma. Used to keep the `useEffect` safe range
+ * on the callback only; the dependency array after the comma is evaluated during
+ * render, so a risky token there is a real hydration risk (A#26).
+ */
+function firstArgEnd(blanked: string, parenStart: number, parenEnd: number): number {
+  let depth = 0;
+  for (let i = parenStart; i <= parenEnd; i++) {
+    const ch = blanked[i];
+    if (ch === "(" || ch === "{" || ch === "[") depth++;
+    else if (ch === ")" || ch === "}" || ch === "]") depth--;
+    else if (ch === "," && depth === 1) return i - 1;
+  }
+  return parenEnd;
+}
+
 /** Ranges (in blanked source) whose contents run client-only post-hydration. */
 function collectSafeRanges(blanked: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
@@ -177,11 +202,13 @@ function collectSafeRanges(blanked: string): Array<{ start: number; end: number 
     const re = new RegExp(baseRe.source, "g");
     let m: RegExpExecArray | null;
     while ((m = re.exec(blanked)) !== null) {
-      // Move to the `(` that the pattern ends on and balance it.
-      const parenIdx = blanked.indexOf("(", m.index);
-      if (parenIdx === -1) continue;
-      const end = findBalancedParenEnd(blanked, parenIdx);
-      if (end !== null) ranges.push({ start: m.index, end });
+      // The pattern ends on the call's opening `(` (its last matched char).
+      const parenIdx = m.index + m[0].length - 1;
+      if (blanked[parenIdx] !== "(") continue;
+      const parenEnd = findBalancedParenEnd(blanked, parenIdx);
+      if (parenEnd === null) continue;
+      // Only the effect CALLBACK (first arg) is safe — NOT the dep array.
+      ranges.push({ start: m.index, end: firstArgEnd(blanked, parenIdx, parenEnd) });
     }
   }
   // JSX event handlers: the pattern ends on the attribute's opening `{`;

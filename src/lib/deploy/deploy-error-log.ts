@@ -33,8 +33,13 @@ export interface LogDeployErrorParams {
   inspectorUrl?: string | null;
   /** Tillgänglig feltext. Faller tillbaka på en generisk text när tom. */
   message?: string | null;
-  /** Var felet fångades — endast för telemetri/meta. */
-  source: "webhook" | "poll";
+  /**
+   * Var felet fångades — endast för telemetri/meta. `refresh` = en
+   * status-refresh-väg (deployments list-/single-GET eller POST:ens
+   * initiala statusläsning) vann den atomiska övergången till `error`
+   * före webhook/poll och äger därmed loggen (BB#deploy2).
+   */
+  source: "webhook" | "poll" | "refresh";
 }
 
 /**

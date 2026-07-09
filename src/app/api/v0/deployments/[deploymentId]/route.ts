@@ -4,6 +4,7 @@ import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
 import { updateDeploymentStatus } from "@/lib/deployment";
+import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
 
@@ -45,11 +46,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
 
           try {
-            await updateDeploymentStatus(deploymentId, mapped.status, {
+            const refreshWrite = await updateDeploymentStatus(deploymentId, mapped.status, {
               url: vercel.url ?? undefined,
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             });
+            // BB#deploy2: vinner denna GET-refresh den atomiska övergången
+            // till `error` äger den loggen — webhook/poll ser efteråt
+            // transitionedToError=false och loggar inte.
+            if (refreshWrite.transitionedToError) {
+              await logDeployError({
+                chatId: deployment.chatId,
+                versionId: deployment.versionId,
+                deploymentId: deployment.id,
+                vercelDeploymentId: deployment.vercelDeploymentId,
+                inspectorUrl: vercel.inspectorUrl ?? null,
+                message: "Vercel-bygget misslyckades (fångat vid statusuppdatering).",
+                source: "refresh",
+              }).catch(() => {});
+            }
           } catch (dbErr) {
             console.error("Failed to persist deployment status:", dbErr);
           }

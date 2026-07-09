@@ -176,6 +176,34 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run check:terms
 
+  # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
+  # Node-paket (egen `package.json`, ingen lockfile → `npm install`, inte
+  # `npm ci`). Guard-testerna är deterministiska, nyckelfria och plattforms-
+  # oberoende (kör mot tmpdir, ingen Fly/nät): `check` (syntax), `test:guards`
+  # (timeout-settle, idle-sweep, boot-serialisering) och `test:patch`. Kördes
+  # tidigare bara lokalt, så en regression i preview-host-runtimen syntes först
+  # på Fly. Blockerande gate (att göra checken required på master-rulesetet är
+  # ett separat repo-inställningsval).
+  preview-host-guards:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+
+      - name: Install preview-host dependencies
+        working-directory: preview-host
+        run: npm install --no-audit --no-fund
+
+      - name: Preview-host runtime guards (blocking)
+        working-directory: preview-host
+        run: npm run check && npm run test:guards && npm run test:patch
+
   # Blockerande gate: verifierar att PRODUKTIONS-databasen har ALLA migrations
   # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
   # (bara SELECT). Rött = prod ligger efter → kör `npm run db:migrate:prod`.

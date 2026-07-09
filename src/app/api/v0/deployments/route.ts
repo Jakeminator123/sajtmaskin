@@ -36,6 +36,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
+import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
 import { resolveDeployReleaseGate } from "@/lib/db/engine-version-lifecycle";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
@@ -875,12 +876,28 @@ export async function POST(req: Request) {
         }
 
         const mapped = mapVercelReadyStateToStatus(created.readyState);
-        await updateDeploymentStatus(deploymentId, mapped.status, {
+        const initialWrite = await updateDeploymentStatus(deploymentId, mapped.status, {
             vercelDeploymentId: created.vercelDeploymentId,
             vercelProjectId: created.vercelProjectId ?? undefined,
             url: created.url ?? undefined,
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
+        // BB#deploy2: den som VINNER den atomiska övergången till `error` äger
+        // loggen. Normalt är det webhook/SSE-poll, men vid ett synkront
+        // Vercel-ERROR direkt i create-svaret kan denna initiala statusskrivning
+        // vinna — utan logg här skulle build-felet aldrig nå DB/RAG/bus
+        // (webhook/poll får transitionedToError=false efteråt).
+        if (initialWrite.transitionedToError) {
+          await logDeployError({
+            chatId,
+            versionId,
+            deploymentId,
+            vercelDeploymentId: created.vercelDeploymentId,
+            inspectorUrl: created.inspectorUrl ?? null,
+            message: "Vercel-bygget misslyckades direkt vid publiceringen.",
+            source: "refresh",
+          }).catch(() => {});
+        }
 
         // Fas 0 telemetri-hygien: stämpla deploy-utfallet på versionens
         // senaste telemetri-rad. Best-effort — får aldrig fälla deploy.
@@ -1042,11 +1059,26 @@ export async function GET(req: Request) {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
 
-          await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
+          const refreshWrite = await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
             url: vercel.url ?? undefined,
             inspectorUrl: vercel.inspectorUrl ?? undefined,
             vercelProjectId: vercel.vercelProjectId ?? undefined,
           });
+          // BB#deploy2: vinner list-refreshen (t.ex. sidladdning) den atomiska
+          // övergången till `error` före webhook/poll äger den loggen — annars
+          // skulle build-felet aldrig loggas (webhook/poll ser sedan
+          // transitionedToError=false).
+          if (refreshWrite.transitionedToError) {
+            await logDeployError({
+              chatId: latestRefreshCandidate.chatId,
+              versionId: latestRefreshCandidate.versionId,
+              deploymentId: latestRefreshCandidate.id,
+              vercelDeploymentId: latestRefreshCandidate.vercelDeploymentId,
+              inspectorUrl: vercel.inspectorUrl ?? null,
+              message: "Vercel-bygget misslyckades (fångat vid statusuppdatering).",
+              source: "refresh",
+            }).catch(() => {});
+          }
 
           refreshedById.set(latestRefreshCandidate.id, {
             status: mapped.status,
