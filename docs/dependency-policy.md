@@ -89,11 +89,14 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
 
 ## Auto-merge — förutsättning (branch protection)
 
-Auto-merge (`gh pr merge --auto`) är **säkert bara om** `master` kräver gröna status checks innan merge. Just nu (skrivet 2026-07-08) har repot rulesetet **"Protect master"** som kräver PR + 1 godkännande + code owner review, men **inga required status checks**. Därför är den faktiska auto-merge-åtgärden i workflow:et **avstängd som default** (bakom repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED`); workflow:et sätter i default-läge bara label/metadata på kvalificerade patch-PR:ar.
+Auto-merge (`gh pr merge --auto`) är **säkert bara om** `master` kräver gröna status checks innan merge. Sedan 2026-07-08 har rulesetet **"Protect master"** både PR + 1 godkännande + code owner review **och required status checks** (`quality`, `backoffice-tests`, `schema-drift`). Auto-merge-åtgärden i workflow:et är ändå **avstängd som default** (bakom repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED`) — förutsättningen (required checks) är nu uppfylld, men själva på-slaget är ett separat medvetet val; i default-läge sätter workflow:et bara label/metadata på kvalificerade patch-PR:ar.
 
 För att slå på auto-merge på riktigt:
 
-1. Lägg till **required status checks** (minst CI-jobben `quality`, `backoffice-tests`, `schema-drift`) i rulesetet "Protect master".
-2. Sätt repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED = true`.
+1. ~~Lägg till **required status checks** (minst CI-jobben `quality`, `backoffice-tests`, `schema-drift`) i rulesetet "Protect master".~~ ✅ Gjort 2026-07-08.
+2. **Innan** on-switchen är säker återstår två saker som `gh pr merge --auto` INTE gör själv:
+   - **Bot-fynd-sweep/settling:** `--auto` mergar så fort review + required checks är uppfyllda, men Codex/VADE-fynd kan landa minuter efter grönt CI (se `pr-bot-findings-sweep.mdc`). Utan automatiserad sweep i workflow:et kan otriagerade sena fynd auto-mergas.
+   - **Protected-path-filter:** klassificeraren kollar bara patch + core-paket-namn, inte "inga protected-path-ändringar" — en `github-actions`-patch (t.ex. `actions/checkout`) ändrar `.github/workflows/*` men passerar. Lägg ett changed-files/protected-path-filter först.
+3. Sätt repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED = true` **först när** ovanstående är på plats.
 
-Utan steg 1 ska auto-merge inte aktiveras — annars kan en PR mergas utan att CI faktiskt verifierat den (false-green-risk).
+Required checks stänger CI-verifierings-delen av false-green-risken, men on-switchen ska stå kvar **av** tills sweep- och protected-path-gaten finns (loggat i `BUG-SWARM-BACKLOG.md`).

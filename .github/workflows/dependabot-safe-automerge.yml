@@ -5,20 +5,26 @@ name: Dependabot safe auto-merge
 # =============================================================================
 # The actual merge step (`gh pr merge --auto`) is ONLY safe when the `master`
 # branch requires GREEN status checks before a merge is allowed. As of
-# 2026-07-08 the "Protect master" ruleset requires a PR review but does NOT
-# configure any required status checks. With no required checks, `--auto` would
-# let a Dependabot PR merge as soon as review requirements are met WITHOUT CI
-# having verified it (false-green risk).
+# 2026-07-08 the "Protect master" ruleset requires a PR review AND required
+# status checks (quality, backoffice-tests, schema-drift, added 2026-07-08),
+# so the false-green window is closed. The merge step is still gated OFF by
+# default — the actual on-switch is a separate deliberate choice.
 #
 # Therefore the merge step is GATED behind the repository variable
 # DEPENDABOT_AUTOMERGE_ENABLED and is OFF by default. In the default (off)
 # state this workflow ONLY labels eligible patch PRs (metadata only) — it never
 # merges anything.
 #
-# To turn real auto-merge ON:
-#   1. Add required status checks to the "Protect master" ruleset — at minimum
-#      the CI jobs: quality, backoffice-tests, schema-drift.
-#   2. Set the repository variable DEPENDABOT_AUTOMERGE_ENABLED = true.
+# To turn real auto-merge ON (all must hold, not just the variable):
+#   1. [DONE 2026-07-08] Required status checks (quality, backoffice-tests,
+#      schema-drift) are configured on the "Protect master" ruleset.
+#   2. [TODO] Automate the bot-finding sweep/settling gate — `--auto` merges as
+#      soon as review + required checks pass, but Codex/VADE findings can land
+#      minutes after green CI (see pr-bot-findings-sweep.mdc).
+#   3. [TODO] Add a changed-files/protected-path filter — the classifier below
+#      only checks patch + core names, so a github-actions patch (e.g.
+#      actions/checkout) editing .github/workflows/* would still pass.
+#   4. Then set the repository variable DEPENDABOT_AUTOMERGE_ENABLED = true.
 # See docs/dependency-policy.md for the full policy.
 # =============================================================================
 
@@ -105,8 +111,10 @@ jobs:
 
       - name: Enable auto-merge (GATED — OFF unless required checks + variable are set)
         # Requires BOTH: an eligible patch PR AND the explicit opt-in variable.
-        # Do NOT set DEPENDABOT_AUTOMERGE_ENABLED=true until "Protect master"
-        # enforces required green status checks (see SAFETY NOTE above).
+        # Required status checks are enforced on "Protect master" (since
+        # 2026-07-08), but --auto still runs NO bot-finding sweep and NO
+        # protected-path filter (see SAFETY NOTE items 2-3). Keep
+        # DEPENDABOT_AUTOMERGE_ENABLED unset until those gates exist.
         if: ${{ steps.classify.outputs.eligible == 'true' && vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

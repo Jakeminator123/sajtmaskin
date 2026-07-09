@@ -310,6 +310,14 @@ const ENV_ALLOWLIST_PREFIXES = ["NEXT_PUBLIC_"];
 
 function sanitizedEnv(overrides = {}) {
   const out = {};
+  // pnpm 10+/11 blocks dependency build scripts by default (strictDepBuilds),
+  // so `pnpm install` exits non-zero with ERR_PNPM_IGNORED_BUILDS for any
+  // package that ships an install script — including @tailwindcss/oxide,
+  // esbuild and sharp. These preview VMs are ephemeral and already run the
+  // generated project's own code via `next dev`, so approving dependency
+  // builds adds no meaningful attack surface here. Allow them so native deps
+  // actually build/resolve instead of crash-looping the boot.
+  out.PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS = "true";
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value !== "string") continue;
     if (
@@ -428,22 +436,27 @@ function resolveInstallCommand(filesJson) {
     typeof filesJson?.["pnpm-lock.yaml"] === "string" ||
     typeof filesJson?.["pnpm-lock.yml"] === "string";
   if (hasPnpmLock) {
+    // NOTE: do NOT pass --no-optional. Prebuilt native binaries (napi-rs
+    // packages like @tailwindcss/oxide, plus esbuild/sharp) ship as
+    // optionalDependencies; skipping them leaves Tailwind v4 without its
+    // musl `.node` on the Alpine VM and the dev server crash-loops on boot.
     return {
-      command: "pnpm install --frozen-lockfile --no-optional",
+      command: "pnpm install --frozen-lockfile",
       successLabel: "pnpm install passed.",
       logLabel: "pnpm install --frozen-lockfile",
-      fallbackCommand: "pnpm install --no-frozen-lockfile --no-optional",
+      fallbackCommand: "pnpm install --no-frozen-lockfile",
       fallbackLogLabel: "pnpm install --no-frozen-lockfile",
       alwaysAllowFallback: true,
     };
   }
   const hasYarnLock = typeof filesJson?.["yarn.lock"] === "string";
   if (hasYarnLock) {
+    // Keep optional deps for the same native-binary reason as pnpm above.
     return {
-      command: "yarn install --frozen-lockfile --ignore-optional",
+      command: "yarn install --frozen-lockfile",
       successLabel: "yarn install passed.",
       logLabel: "yarn install --frozen-lockfile",
-      fallbackCommand: "yarn install --ignore-optional",
+      fallbackCommand: "yarn install",
       fallbackLogLabel: "yarn install",
       alwaysAllowFallback: true,
     };
@@ -1020,8 +1033,21 @@ function trimSnippet(input) {
   return input.slice(input.length - 4000);
 }
 
+// Bump when the install COMMAND policy changes (not just the deps). The
+// fingerprint is mixed with this token so a policy change invalidates every
+// prior `.preview-host-deps.json` on the persistent /data volume and forces a
+// one-time reinstall. Without it, a workspace whose deps were installed under
+// the old `--no-optional`/`--ignore-optional` policy (missing native binaries)
+// would keep matching its cached fingerprint on reuse (e.g. a follow-up edit on
+// an imported template) and skip the corrective reinstall — leaving Tailwind v4
+// crash-looping. (Codex P2 on PR #454.)
+const DEPENDENCY_INSTALL_POLICY = "2026-07-08-optional-and-build-scripts";
+
 function dependencyFingerprint(filesJson) {
   const hash = createHash("sha256");
+  hash.update("policy:");
+  hash.update(DEPENDENCY_INSTALL_POLICY);
+  hash.update("\n");
   for (const key of ["package.json", "package-lock.json", "pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]) {
     if (typeof filesJson[key] === "string") {
       hash.update(key);
@@ -2362,6 +2388,8 @@ module.exports = {
   sweepIdleRuntimes,
   cleanupPreviewHostStorage,
   __testing: {
+    dependencyFingerprint,
+    DEPENDENCY_INSTALL_POLICY,
     patchNextConfigViaAst,
     patchNextConfigViaRegex,
     patchNextConfigForPreviewBasePath,

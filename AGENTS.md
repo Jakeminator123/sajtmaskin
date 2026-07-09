@@ -44,7 +44,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 
 ## Review guidelines (PR author owns the bug post-check)
 
-**Codex review is disabled (out of credits as of 2026-07-02).** Do not wait for `chatgpt-codex-connector`, do not treat its absence as a gap, and do not spin retrying it. The **PR-authoring agent** is responsible for the bug post-check instead. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
+**Codex review may be on or off depending on credits** (off 2026-07-02, back 2026-07-08). Never *wait* for `chatgpt-codex-connector` or treat its absence as a gap — but **if a Codex review is present, read and triage it** (it can land a few minutes after CI goes green, so re-read reviews right before merge). Regardless of Codex, the **PR-authoring agent** owns the bug post-check. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
 
 **A review prioritizes P0/P1:** runtime regressions; false-green (a gate that turns green without real verification — verify / quality-gate / server-verify / promote / lifecycle / status); preview/VM failures; DB/schema drift; env/secret leaks; security/cross-tenant risk; broken LLM-pipeline contracts.
 
@@ -63,7 +63,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 **Merge-ready criteria:**
 
 - The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed → merge-ready.
-- If an external Codex review happens to exist (e.g. credits restored later), treat it as bonus signal and triage its findings the same way — but never block on it.
+- Codex may be present or absent depending on credits — never block *waiting* for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 - Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 

@@ -167,6 +167,24 @@ function check(label, condition) {
   }
 }
 
+// 6. dependencyFingerprint mixes in the install-policy token so a policy change
+//    invalidates prior cached fingerprints (Codex P2 on PR #454). Same deps but
+//    a different policy MUST produce a different fingerprint; identical deps +
+//    policy MUST be stable.
+{
+  const { dependencyFingerprint } = runtime.__testing;
+  const files = { "package.json": "{}", "pnpm-lock.yaml": "lockfile: 9" };
+  const fp1 = dependencyFingerprint(files);
+  const fp2 = dependencyFingerprint({ ...files });
+  check("fingerprint is stable for identical deps+policy", fp1 === fp2);
+  check("fingerprint changes when deps change", fp1 !== dependencyFingerprint({ ...files, "package.json": '{"x":1}' }));
+  check(
+    "fingerprint includes the install policy token",
+    typeof runtime.__testing.DEPENDENCY_INSTALL_POLICY === "string" &&
+      runtime.__testing.DEPENDENCY_INSTALL_POLICY.length > 0,
+  );
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {
