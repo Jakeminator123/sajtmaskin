@@ -307,6 +307,45 @@ describe("filterDossierCapabilitiesForPrompt (subscriptions vs payments dedup)",
   });
 });
 
+describe("filterDossierCapabilitiesForPrompt (dependent capability: subscriptions ⇒ supabase-auth)", () => {
+  // Codex P1 #475: paddle's customer-portal requires a signed-in Supabase
+  // user — a bare `subscriptions` selection must pull the supabase-auth stack
+  // (middleware, callback, sign-in surface) or the portal path is always 401.
+  it("expands subscriptions with supabase-auth in F3", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["subscriptions"],
+      prompt: "lägg till prenumerationer för medlemmar",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("subscriptions");
+    expect(result).toContain("supabase-auth");
+  });
+
+  it("drops tag-along generic auth in favor of the required supabase-auth (F3)", () => {
+    // Inferred `needsAuth` can add generic `auth` on a membership prompt; the
+    // expansion adds supabase-auth, and the existing dedup must then drop
+    // `auth` so clerk-auth's root middleware never collides.
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["subscriptions", "auth"],
+      prompt: "medlemssida med prenumerationer och inloggning",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("subscriptions");
+    expect(result).toContain("supabase-auth");
+    expect(result).not.toContain("auth");
+  });
+
+  it("does NOT expand in F2 — subscriptions is muted before expansion runs", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["subscriptions"],
+      prompt: "lägg till prenumerationer för medlemmar",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).not.toContain("subscriptions");
+    expect(result).not.toContain("supabase-auth");
+  });
+});
+
 describe("dossierRequiresF3 (single F3 signal: build envVars OR server-file surface)", () => {
   const envVar = (
     key: string,

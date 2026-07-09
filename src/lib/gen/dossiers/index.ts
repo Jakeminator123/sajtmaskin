@@ -11,7 +11,7 @@ export {
 } from "./registry";
 export type { DossierExposesInfo } from "./registry";
 
-export { selectDossiersForRequest } from "./select";
+export { selectDossiersForRequest, expandDependentCapabilities } from "./select";
 export type { SelectDossiersOptions } from "./select";
 
 export { defaultInjectionMode, dossierRequiresF3 } from "./types";

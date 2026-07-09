@@ -64,6 +64,7 @@ import {
   type ShadcnUiRecipe,
 } from "./data/shadcn-ui-recipes";
 import {
+  expandDependentCapabilities,
   getF3RequiredCapabilities,
   selectDossiersForRequest,
   type DossierSelectionResult,
@@ -422,6 +423,14 @@ export function filterDossierCapabilitiesForPrompt(params: {
   if (result.includes("physics-3d") && !result.includes("visual-3d")) {
     result = result.filter((capability) => capability !== "physics-3d");
   }
+  // Dependent capabilities (Codex P1 #475): `subscriptions` requires
+  // `supabase-auth` (paddle's customer-portal needs a signed-in Supabase
+  // user). Expanded AFTER the F2 mute (subscriptions never survives F2, so
+  // this only fires in F3) and BEFORE the supabase-auth/auth dedup below so a
+  // tag-along generic `auth` is correctly dropped in favor of the required
+  // Supabase stack. Same helper as selectDossiersForRequest — prompt and
+  // selection stay in lockstep.
+  result = expandDependentCapabilities(result);
   // Dossier wave 3: `supabase-auth` only enters the set via an EXPLICIT
   // Supabase ask (brief is explicit-ask-only; follow-up vocabulary triggers on
   // Supabase-specific phrases), while generic `auth` can tag along from the

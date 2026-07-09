@@ -140,10 +140,11 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 `selectDossiersForRequest(opts)` lives in `src/lib/gen/dossiers/select.ts`:
 
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
-2. For each capability, find dossiers via `getDossiersByCapability(cap)`.
-3. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
-4. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
-5. Eagerly load `instructions.md` for selected dossiers.
+2. Expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — today `subscriptions` ⇒ `supabase-auth` (paddle-billing's customer-portal needs a signed-in Supabase user). The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
+3. For each capability, find dossiers via `getDossiersByCapability(cap)`.
+4. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
+5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
+6. Eagerly load `instructions.md` for selected dossiers.
 
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
