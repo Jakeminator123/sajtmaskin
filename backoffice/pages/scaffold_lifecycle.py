@@ -2019,14 +2019,16 @@ def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
             target.unlink()
             log.append(f"raderade {rel}")
 
+    # --staged ingår så även indexet (staging) återställs — annars kan en
+    # senare commit tyst återinföra experiment som UI:n påstår är borta.
     code, output = _run_git(
         ctx,
-        ["restore", "--source", BASELINE_TAG, "--worktree", "--", *BASELINE_PATHS],
+        ["restore", "--source", BASELINE_TAG, "--staged", "--worktree", "--", *BASELINE_PATHS],
         timeout=120,
     )
     if code != 0:
         raise RuntimeError(f"git restore misslyckades: {output}")
-    log.append(f"git restore --source {BASELINE_TAG} klar")
+    log.append(f"git restore --source {BASELINE_TAG} --staged --worktree klar")
 
     # Sopa bort tomma kataloger som blev kvar efter raderade filer.
     for base_rel in BASELINE_PATHS:

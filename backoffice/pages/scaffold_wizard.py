@@ -335,6 +335,15 @@ def _render_step_review(ctx: BackofficeContext) -> None:
 
     manifests = get_all_manifests(ctx)
     scaffold_ids = [str(m.get("id", "")) for m in manifests if m.get("id")]
+    if not scaffold_ids:
+        st.warning(
+            "Inga runtime-scaffolds hittades i `src/lib/gen/scaffolds/` — wizarden "
+            "behöver minst en befintlig scaffold (som mål för varianten eller som "
+            "klonkälla). Återställ scaffold-ytorna via Scaffold Lifecycle → Baseline."
+        )
+        if st.button("← Till steg 1", key="swz_review_empty_back"):
+            _goto(0)
+        return
 
     recommended_mode = (
         "Ny scaffold + startvariant"
