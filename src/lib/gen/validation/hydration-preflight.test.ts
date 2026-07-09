@@ -79,6 +79,18 @@ export default function P() {
     expect(issues[0].pattern).toBe("Math.random()");
   });
 
+  it("flags Math.random() inside a data-on* attribute (serialized render value, not a handler)", () => {
+    // `data-onClick={…}` är ett data-attribut vars värde utvärderas i render
+    // och serialiseras in i server-HTML:en — det är INTE en eventhandler och
+    // får inte tystas av handler-undantaget (bugbot på #457).
+    const src = `export default function P() {
+  return <div data-onClick={Math.random()}>x</div>
+}`;
+    const issues = detectNonDeterministicRenderInSource("app/page.tsx", src);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].pattern).toBe("Math.random()");
+  });
+
   it("does NOT flag calls inside a JSX event handler (never runs during SSR/hydration)", () => {
     const src = `"use client"
 import { useState } from "react"

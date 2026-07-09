@@ -63,8 +63,12 @@ const SAFE_WRAPPER_RES: RegExp[] = [
  * the server HTML, so non-determinism inside the braces cannot cause a
  * mismatch. The pattern ends on the opening `{`; the range is closed by
  * balanced-brace scanning so multiline handlers are covered.
+ *
+ * Negative lookbehind (not `\b`): `data-onClick={…}` är INTE en handler — ett
+ * `data-*`-värde serialiseras in i server-HTML:en och utvärderas i render, så
+ * icke-determinism där ÄR en mismatch-risk och får inte tystas (bugbot #457).
  */
-const JSX_EVENT_HANDLER_RE = /\bon[A-Z]\w*\s*=\s*\{/g;
+const JSX_EVENT_HANDLER_RE = /(?<![\w-])on[A-Z]\w*\s*=\s*\{/g;
 
 /**
  * Replace comments and string/template literals with same-length whitespace so
