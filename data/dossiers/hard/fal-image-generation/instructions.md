@@ -14,6 +14,16 @@
 - POST JSON with `prompt`, `provider: "fal"`, and a Fal model id such as `fal-ai/flux/schnell`.
 - Render successful responses as `data:image/png;base64,${image}` or pass the base64 value to `imageHelpers.shareOrDownload`.
 
+# Mock/demo mode
+
+`mock: canned`. When there is no real `FAL_API_KEY` (missing OR a preview stub
+containing `placeholder` / `not_real`), the `/api/generate-images` route returns
+a deterministic placeholder PNG (base64) plus `demo: true` instead of calling
+Fal — so the gallery renders in an F2/preview without real credentials. Render
+the returned base64 exactly as a real result (`data:image/png;base64,${image}`)
+and, when `demo` is true, add a small "Demo-bild" label so it never reads as a
+real generation. Real generation runs as soon as a genuine key is configured.
+
 # UX rules
 
 - Show an explicit loading state while generation is running.
@@ -38,5 +48,5 @@
 - Confirm success returns JSON containing a base64 `image` string.
 - Confirm missing `prompt`, `provider`, or `modelId` returns `400`.
 - Confirm unsupported providers return `400`.
-- Confirm missing or invalid Fal credentials fail at feature runtime with a generic error response and server-side logging.
+- Confirm that WITHOUT a real `FAL_API_KEY` (missing or a preview stub) the route returns a placeholder image with `demo: true` (mock: canned) — never a crash — and that a real key routes to genuine Fal generation.
 - Confirm the client preview can render the returned image with a `data:` URL.

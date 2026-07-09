@@ -12,7 +12,7 @@ interface ContactFormProps {
 type SubmitState =
   | { kind: "idle" }
   | { kind: "submitting" }
-  | { kind: "success"; email: string }
+  | { kind: "success"; email: string; demo?: boolean }
   | { kind: "not-configured" }
   | { kind: "error"; message: string };
 
@@ -49,7 +49,11 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
           message,
         }),
       });
-      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        demo?: boolean;
+      };
       // Integration not wired up yet: degrade calmly instead of surfacing a raw
       // error. Gate ONLY on the explicit error code from the route — a
       // platform/proxy 503 (Resend actually configured) must take the normal
@@ -65,7 +69,9 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
         });
         return;
       }
-      setState({ kind: "success", email });
+      // Demo mode (no real email key yet): show success but be honest that the
+      // message was not actually delivered.
+      setState({ kind: "success", email, demo: body.demo === true });
       form.reset();
     } catch {
       setState({
@@ -83,6 +89,11 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
           <p className="mt-2 text-sm text-muted-foreground">
             Vi svarar på <span className="font-medium">{state.email}</span> så snart vi kan.
           </p>
+          {state.demo && (
+            <p className="mt-3 rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Demo: meddelandet skickades inte på riktigt. Riktig e-post aktiveras när sajten kopplas till Resend under &quot;Bygg integrationer&quot;.
+            </p>
+          )}
         </div>
       </div>
     );

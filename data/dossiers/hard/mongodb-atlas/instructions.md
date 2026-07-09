@@ -8,7 +8,7 @@
 
 - Set `MONGODB_URI` locally and in the deployment environment using a MongoDB Atlas driver connection string.
 - Access the database ONLY through `getMongoDb()` from `@/lib/mongodb` — never construct a `MongoClient` yourself, and never at module level.
-- SEED FALLBACK CONTRACT (required): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/mongodb`. Configured → query via `getMongoDb()`. Not configured → render `seedData` from `@/lib/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `MONGODB_URI`.
+- SEED FALLBACK CONTRACT (required — this is the dossier's `mock: seed` mode): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/mongodb`. Configured → query via `getMongoDb()`. Not configured (missing OR a `preview`/`placeholder` stub URI) → render `seedData` from `@/lib/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `MONGODB_URI`, so the DB view looks alive in an F2/preview without a real database.
 - API routes that need the database must return a 503 JSON response with a short configuration message when `isDbConfigured()` is false (same pattern as `/api/health/db`) — never let a missing env var throw.
 - Query MongoDB from `app/api/**/route.ts`, Server Actions, server-only data modules, or jobs.
 - Use the health route at `/api/health/db` during setup to verify Atlas connectivity.

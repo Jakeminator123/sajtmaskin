@@ -139,6 +139,11 @@
       "type": "string",
       "enum": ["compact", "selected-sections", "full"],
       "description": "How much of instructions.md reaches the codegen prompt. 'compact' (default when omitted): manifest-derived summary only. 'selected-sections': the 'When to use' / 'How to integrate' / 'Avoid' H1 sections of instructions.md, capped at ~1100 chars. 'full': the entire instructions.md verbatim. Use 'selected-sections' for soft section dossiers whose instructions.md carries do/don't rules the model must actually follow at runtime."
+    },
+    "mock": {
+      "type": "string",
+      "enum": ["canned", "seed", "success", "none"],
+      "description": "Declares how this dossier makes its VISUAL surface work in an F2/preview WITHOUT a real key (env missing OR a preview stub). Drives the demo/mock behavior baked into the dossier's own component code + the codegen prompt. Omitted = 'none' (backwards compatible). Modes: 'canned' — the server route returns a believable fabricated response in demo mode (chatbot streams a canned reply, image generation returns a placeholder image). 'seed' — the data layer falls back to shipped seed data when the connection is missing/placeholder (DB dossiers render seedData + a discreet notice). NB: this is a deliberate choice OVER an in-preview SQLite/better-sqlite3 database — better-sqlite3 needs a native build on the preview VM (fragile), while in-memory seed data gives the same visual result with zero native deps. 'success' — mutation endpoints return a fake success + a demo notice (contact form, newsletter). 'none' — cannot be meaningfully mocked (payments, auth) so the UI shows a discreet demo/configuration banner (the IntegrationConfigNotice pattern). Mock values are F2/preview-only and never persisted or shipped to a real deploy."
     }
   }
 }

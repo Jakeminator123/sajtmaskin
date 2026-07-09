@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "ably-realtime",
+  "mock": "none",
   "label": "Ably Realtime for Next.js",
   "capability": "realtime",
   "codeFidelity": "verbatim",

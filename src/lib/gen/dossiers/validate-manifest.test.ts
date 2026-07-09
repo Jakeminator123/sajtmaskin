@@ -50,6 +50,37 @@ describe("validateDossierManifest — happy path", () => {
   });
 });
 
+describe("validateDossierManifest — mock field (Våg 2)", () => {
+  it("accepts a manifest with a valid mock mode", () => {
+    for (const mock of ["canned", "seed", "success", "none"] as const) {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, mock },
+        { expectedId: "example-dossier", class: "hard" },
+      );
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it("accepts a manifest that omits mock (defaults to none-behavior)", () => {
+    const result = validateDossierManifest(VALID_MANIFEST, {
+      expectedId: "example-dossier",
+      class: "soft",
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects an unknown mock mode", () => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, mock: "sqlite" },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("mock"))).toBe(true);
+    }
+  });
+});
+
 describe("validateDossierManifest — schema failures", () => {
   it("rejects manifest with missing required field", () => {
     const broken = { ...VALID_MANIFEST } as Record<string, unknown>;

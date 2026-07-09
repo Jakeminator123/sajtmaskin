@@ -1,18 +1,19 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "mailchimp-newsletter",
+  "mock": "success",
   "label": "Mailchimp Newsletter Subscribe",
   "capability": "newsletter-subscribe",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Newsletter subscription form that POSTs to a Next.js Route Handler and adds the email to a Mailchimp audience. Client component owns the form state + UX feedback (loading / success / already-subscribed / error); server route owns the Mailchimp REST call + email validation. Designed to degrade gracefully when MAILCHIMP_API_KEY or MAILCHIMP_AUDIENCE_ID is missing — the route returns 503 with a clear message and the form shows a 'configure newsletter to enable signups' banner so F3 build does not crash.",
+  "summary": "Newsletter subscription form that POSTs to a Next.js Route Handler and adds the email to a Mailchimp audience. Client owns form state + UX (loading/success/already-subscribed/error); server route owns the Mailchimp REST call + validation. Degrades gracefully (mock: success): with no real MAILCHIMP_API_KEY (missing or an F2 preview stub) the route returns 200 { ok:true, demo:true } and the form shows a 'demo — not really subscribed' notice; a real key but missing MAILCHIMP_AUDIENCE_ID returns 503 with a 'configure newsletter' banner so F3 build does not crash.",
   "envVars": [
     {
       "key": "MAILCHIMP_API_KEY",
       "required": true,
       "enforcement": "feature-runtime",
-      "purpose": "Mailchimp REST API key. Mailchimp → Account & Billing → Extras → API keys. Format '<hex>-us21' where suffix = data-center id. Tagged 'feature-runtime' because the route returns 503 + UI banner when missing."
+      "purpose": "Mailchimp REST API key. Mailchimp → Account & Billing → Extras → API keys. Format '<hex>-us21' where suffix = data-center id. Tagged 'feature-runtime': when missing or a preview stub the route returns a demo success (mock: success) instead of subscribing, so F3 build does not crash."
     },
     {
       "key": "MAILCHIMP_AUDIENCE_ID",

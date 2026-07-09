@@ -15,13 +15,19 @@ function asTrimmedString(value: unknown): string {
 }
 
 /**
- * F2 design previews inject the stub `re_placeholder_preview_not_a_real_key`;
- * Resend rejects it with a generic error instead of the calm not-configured
- * path, so treat placeholder-marked values as unconfigured.
+ * F2/preview injects the stub `re_placeholder_preview_not_a_real_key`; Resend
+ * rejects it, so any placeholder-marked value counts as NOT a real key.
+ * Mirrors the stub vocabulary (`placeholder` / `not_real` / `dummy`).
  */
+function isPlaceholderValue(value: string | undefined | null): boolean {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return true;
+  return /placeholder|not[_-]?a?[_-]?real|dummy|changeme|^your[_-]/i.test(trimmed);
+}
+
 function isLikelyValidResendApiKey(key: string | undefined): key is string {
   if (!key) return false;
-  return key.startsWith("re_") && !key.toLowerCase().includes("placeholder");
+  return key.startsWith("re_") && !isPlaceholderValue(key);
 }
 
 export async function POST(request: NextRequest) {
@@ -29,13 +35,8 @@ export async function POST(request: NextRequest) {
   const from = process.env.EMAIL_FROM;
   const to = process.env.CONTACT_EMAIL_TO;
 
-  if (!isLikelyValidResendApiKey(apiKey) || !from || !to) {
-    return NextResponse.json(
-      { ok: false, error: "email-not-configured" },
-      { status: 503 },
-    );
-  }
-
+  // Validate first so demo mode behaves exactly like the real path (same 400 /
+  // 422 responses) — only the final delivery is faked when no real key is set.
   let payload: ContactPayload;
   try {
     payload = (await request.json()) as ContactPayload;
@@ -64,6 +65,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, error: "message-too-long" },
       { status: 422 },
+    );
+  }
+
+  // Demo/mock mode (mock: success): no real Resend key (missing or an F2
+  // preview stub) → return a believable success with `demo: true` so the form
+  // shows a "not really sent" notice. The visual flow works in preview without
+  // real credentials; real delivery happens only once a genuine `re_...` key
+  // is configured.
+  if (!isLikelyValidResendApiKey(apiKey)) {
+    return NextResponse.json({ ok: true, demo: true });
+  }
+
+  // Genuine configuration error: a real key is set but the sender/recipient
+  // addresses are missing. Keep the calm not-configured path (503) so the form
+  // shows the setup notice for the missing address keys — not a demo success.
+  if (!from || !to) {
+    return NextResponse.json(
+      { ok: false, error: "email-not-configured" },
+      { status: 503 },
     );
   }
 

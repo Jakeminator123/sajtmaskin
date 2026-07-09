@@ -358,6 +358,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
           // backfilled with `sk_test_...`-style stubs.
           lifecycleStage:
             buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
+          // Våg 2: seed F2 preview `.env.local` with stubs for the selected
+          // dossiers' env keys so the dossier UI renders its demo/mock mode.
+          selectedDossierEnvKeys: finalized.selectedDossierEnvKeys,
           skipRepair: parsedFromFinalizeFilesJson,
           // filesJson from finalize is already scaffold-merged/repaired
           // so preview bootstrap can skip project scaffold rebuild.

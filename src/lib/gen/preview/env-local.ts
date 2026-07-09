@@ -165,6 +165,23 @@ export function loadTier3StubPlaceholderRecord(): Record<string, string> {
   return loadFragmentRecord(readTier3StubPlaceholdersEnvText, "Tier-3 stub");
 }
 
+/**
+ * Deterministic F2/preview mock value for a selected dossier env key that has
+ * no catalog placeholder (e.g. `EMAIL_FROM`, `CONTACT_EMAIL_TO`, `FAL_API_KEY`,
+ * `MAILCHIMP_*`). The value embeds the stub vocabulary (`placeholder` +
+ * `not_real`) required by `src/lib/integrations/stub-env-filter.ts`
+ * (`STUB_VALUE_PATTERNS`) so `isLikelyStubEnvValue` / `filterStubEnvLines`
+ * always classify it as a boot stub — never as evidence of a configured
+ * integration (detect-integrations, follow-up prompt masking). F2/preview-only:
+ * it is seeded into the preview `.env.local` (and shown in the F2 `env.example`
+ * dossier-scope section), never persisted to `projectEnvVars` and never emitted
+ * in F3 (real values are required there).
+ */
+export function dossierMockPreviewEnvValue(key: string): string {
+  const slug = key.trim().toLowerCase();
+  return `${slug || "dossier"}_placeholder_preview_not_real`;
+}
+
 /** Combined F2 placeholder record (harmless + tier3-stub). */
 export function loadAllPlaceholderRecordForF2(): Record<string, string> {
   return {
@@ -202,6 +219,17 @@ export async function resolvePreviewEnvLayers(params: {
   appProjectId?: string | null;
   generatedEnvLocal?: string | null;
   lifecycleStage?: PreviewLifecycleStage;
+  /**
+   * Env keys declared by the dossiers selected for this generation. In F2
+   * (`design`) any of these keys still WITHOUT a value after the normal layers
+   * is seeded with a deterministic stub ({@link dossierMockPreviewEnvValue}) so
+   * the dossier UI renders its demo/mock mode — even keys the placeholder
+   * catalog does not cover (e.g. `EMAIL_FROM`, `CONTACT_EMAIL_TO`,
+   * `FAL_API_KEY`, `MAILCHIMP_*`). Ignored in F3 (`integrations`): real values
+   * are required there and the stub layer is stripped, so the mock seed must
+   * never mask a missing real value or reach a deploy.
+   */
+  selectedDossierEnvKeys?: string[];
 }): Promise<{
   merged: Record<string, string>;
   provenance: Record<string, EnvVarProvenance>;
@@ -243,6 +271,24 @@ export async function resolvePreviewEnvLayers(params: {
   for (const key of Object.keys(projectPreview)) provenance[key] = "project-preview";
   for (const key of Object.keys(project)) provenance[key] = "user";
   for (const key of Object.keys(generated)) provenance[key] = "generated";
+
+  // F2 dossier-mock seed: give every selected dossier env key a stub value so
+  // the dossier UI renders its demo/mock mode in the preview even for keys the
+  // placeholder catalog doesn't cover. Only fills keys still absent/empty after
+  // all real layers — a user/generated value always wins. Provenance reuses
+  // `tier3-stub` (deliberate: least surface + identical lifecycle — F2-only,
+  // stripped in F3 — so no new enum/section is needed and F3/deploy never sees
+  // it). Never runs in F3.
+  if (lifecycleStage === "design" && params.selectedDossierEnvKeys?.length) {
+    for (const rawKey of params.selectedDossierEnvKeys) {
+      const key = typeof rawKey === "string" ? rawKey.trim() : "";
+      if (!key) continue;
+      const existing = merged[key];
+      if (typeof existing === "string" && existing.trim() !== "") continue;
+      merged[key] = dossierMockPreviewEnvValue(key);
+      provenance[key] = "tier3-stub";
+    }
+  }
 
   return { merged, provenance };
 }
@@ -298,6 +344,11 @@ export async function buildPreviewEnvLocalContents(params: {
   generatedEnvLocal?: string | null;
   /** Lifecycle stage controls whether tier-3 stubs are included. */
   lifecycleStage?: PreviewLifecycleStage;
+  /**
+   * Selected dossiers' env keys — seeded with F2 mock stubs when still
+   * unset (design stage only). See {@link resolvePreviewEnvLayers}.
+   */
+  selectedDossierEnvKeys?: string[];
 }): Promise<string> {
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
   return `${FILE_HEADER}\n${formatGroupedDotenvBody(merged, provenance)}\n`;

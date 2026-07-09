@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 type FormState =
   | { kind: "idle" }
   | { kind: "submitting" }
-  | { kind: "success"; message: string }
+  | { kind: "success"; message: string; demo?: boolean }
   | { kind: "already"; message: string }
   | { kind: "unconfigured" }
   | { kind: "error"; message: string };
@@ -55,6 +55,7 @@ export function NewsletterForm({
         ok?: boolean;
         status?: "subscribed" | "already";
         error?: string;
+        demo?: boolean;
       };
       if (res.status === 503) {
         setState({ kind: "unconfigured" });
@@ -70,7 +71,9 @@ export function NewsletterForm({
       if (data.status === "already") {
         setState({ kind: "already", message: alreadyMessage });
       } else {
-        setState({ kind: "success", message: successMessage });
+        // Demo mode (no real newsletter key yet): show success but be honest
+        // that no real subscription was created.
+        setState({ kind: "success", message: successMessage, demo: data.demo === true });
         setEmail("");
       }
     } catch {
@@ -126,6 +129,11 @@ export function NewsletterForm({
         {state.kind === "already" && <span className="text-emerald-600">{state.message}</span>}
         {state.kind === "error" && <span className="text-destructive">{state.message}</span>}
       </p>
+      {state.kind === "success" && state.demo && (
+        <p className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Demo: prenumerationen registrerades inte på riktigt. Riktiga utskick aktiveras när sajten kopplas till Mailchimp under &quot;Bygg integrationer&quot;.
+        </p>
+      )}
     </form>
   );
 }

@@ -393,6 +393,68 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).toContain("…");
   });
 
+  // Våg 2: the manifest `mock` field is threaded into the compact dossier
+  // instructions as a one-line demo-mode hint (hard dossiers only).
+  function hardMockSelection(mock: "canned" | "seed" | "success" | "none" | undefined): DossierSelectionResult {
+    return {
+      poolSize: 1,
+      byCapability: { "ai-chat": ["openai-chat"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: false,
+          entry: {
+            class: "hard",
+            id: "openai-chat",
+            label: "OpenAI Chat",
+            capability: "ai-chat",
+            codeFidelity: "rewritable",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "Streaming chat assistant powered by OpenAI via the Vercel AI SDK.",
+            envVars: [
+              {
+                key: "OPENAI_API_KEY",
+                required: true,
+                enforcement: "feature-runtime",
+                purpose: "Server-side OpenAI API authentication.",
+              },
+            ],
+            dependencies: ["ai", "@ai-sdk/openai"],
+            files: [],
+            exposes: [],
+            lastVerified: "2026-04-20",
+            mock,
+            // Presence of instructions triggers the compact-instructions block
+            // where the mock-mode hint line is rendered.
+            instructions: "When to use: a chat assistant. How to integrate: mount <ChatPanel/>.",
+          },
+        },
+      ],
+    };
+  }
+
+  it("emits the mock-mode hint line for a hard dossier (mock: canned)", () => {
+    const text = renderDossierBlocks(hardMockSelection("canned"), { generationMode: "init" }).join("\n");
+    expect(text).toContain("mock: canned");
+    expect(text).toContain("without a real key");
+  });
+
+  it("emits the mock: success hint for a success-mode hard dossier", () => {
+    const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join("\n");
+    expect(text).toContain("mock: success");
+  });
+
+  it("falls back to mock: none when the manifest omits mock", () => {
+    const text = renderDossierBlocks(hardMockSelection(undefined), { generationMode: "init" }).join("\n");
+    expect(text).toContain("mock: none");
+  });
+
+  it("does NOT emit a mock line for soft dossiers", () => {
+    const text = renderDossierBlocks(threeFiberSelection, { generationMode: "init" }).join("\n");
+    expect(text).not.toContain("mock: ");
+  });
+
   it("fails fast when a selected verbatim dossier file is missing on disk", () => {
     const selection: DossierSelectionResult = {
       poolSize: 1,

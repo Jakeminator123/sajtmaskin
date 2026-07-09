@@ -21,7 +21,16 @@ Do not use it for:
 3. Pass an optional `subjectPrefix` prop if you want server-side categorisation (e.g. `subjectPrefix="Hotel inquiry"` so the inbox sees `Hotel inquiry: <user subject>`).
 4. The form POSTs to `/api/contact`, which validates the body, calls Resend, and returns `{ ok: true }` on success or `{ ok: false, error }` on failure.
 
-If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process.env` — or `RESEND_API_KEY` holds a placeholder value like the F2 preview stub `re_placeholder_preview_not_a_real_key` (the guard requires the `re_` prefix and rejects anything containing "placeholder") — the dossier is selected but **unconfigured**. The route returns HTTP 503 with `{ ok: false, error: "email-not-configured" }`. The bundled `ContactForm` gates on that explicit error code — NOT on the HTTP status alone, so a platform/proxy 503 still takes the normal retryable error path — and renders the shared `IntegrationConfigNotice` (a calm, muted Swedish notice with the required env-key names + a Resend setup link) and disables the submit button, after the user clicks Send (rather than blocking the form upfront, which would hide the existence of a contact path). The notice also nudges the visitor to reach out by email in the meantime. All three files (`contact-form.tsx`, `integration-config-notice.tsx`, the route) are **verbatim** so this fallback contract is emitted deterministically; adapt visuals by wrapping `ContactForm` (props: `subjectPrefix`, `className`) in your own component. If you want a stricter UX, add a server-side feature flag and render an alternative `<a href="mailto:…">` instead of `<ContactForm />` when the env is incomplete.
+There are two degradation paths (see "Mock/demo mode" below): no real key → a demo success; a real key with missing addresses → the calm `IntegrationConfigNotice`. All three files (`contact-form.tsx`, `integration-config-notice.tsx`, the route) are **verbatim** so both contracts are emitted deterministically; adapt visuals by wrapping `ContactForm` (props: `subjectPrefix`, `className`) in your own component.
+
+# Mock/demo mode
+
+`mock: success`. The route distinguishes two states:
+
+- **No real key** (`RESEND_API_KEY` missing OR a preview stub like `re_placeholder_preview_not_a_real_key` — the guard requires the `re_` prefix and rejects placeholder/not_real values): the route returns `200 { ok: true, demo: true }` WITHOUT sending. `ContactForm` shows the normal thank-you plus a discreet "Demo: meddelandet skickades inte på riktigt" notice, so the form flow works in an F2/preview without real credentials.
+- **Real key but missing `EMAIL_FROM` / `CONTACT_EMAIL_TO`**: a genuine configuration error → `503 { ok: false, error: "email-not-configured" }`. The form gates on that explicit error code (not the HTTP status alone, so a platform/proxy 503 still takes the retryable error path) and renders the shared `IntegrationConfigNotice` with the required env-key names + a Resend setup link.
+
+Real delivery happens only once a genuine `re_...` key and both addresses are set. Keep both branches when you adapt the route.
 
 # UX rules
 
@@ -35,7 +44,7 @@ If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process
 # Avoid
 
 - Do not call the Resend SDK directly from the client — the API key would leak.
-- Do not paraphrase `components/api/contact/route.ts`. The Resend SDK init pattern, body validation order, and the "missing env returns 503 `email-not-configured`"-guard must stay byte-exact.
+- Do not paraphrase `components/api/contact/route.ts`. The Resend SDK init pattern, body validation order, and the demo-success / `email-not-configured` guard must stay byte-exact.
 - Do not surface a raw error string or the HTTP status code to the visitor — on `email-not-configured` render the `IntegrationConfigNotice` and disable the submit button instead.
 - Do not store form submissions in a database without telling the user (privacy). Email-only delivery is the default contract.
 - Do not auto-fill the message with marketing copy. Always start empty.
@@ -45,6 +54,7 @@ If `RESEND_API_KEY`, `EMAIL_FROM`, or `CONTACT_EMAIL_TO` are missing in `process
 
 - Submit the form with valid data — the configured inbox receives an email within a few seconds.
 - Submit with an invalid email — the form shows an inline error, no API call is made.
-- Submit with `RESEND_API_KEY` empty — the route returns 503 `email-not-configured`, the form renders the `IntegrationConfigNotice` and disables the submit button, and no raw error/status code is shown to the visitor.
-- Server logs show `[POST] /api/contact 200` on success or `[POST] /api/contact 503` when degraded.
+- Submit with `RESEND_API_KEY` empty or a preview stub — the route returns `200 { ok: true, demo: true }` and the form shows the thank-you + "Demo: … skickades inte på riktigt" notice (mock: success).
+- Submit with a real `RESEND_API_KEY` but no `EMAIL_FROM` / `CONTACT_EMAIL_TO` — the route returns 503 `email-not-configured`, the form renders the `IntegrationConfigNotice` and disables submit, and no raw error/status code is shown.
+- Server logs show `[POST] /api/contact 200` on success/demo or `[POST] /api/contact 503` on genuine config error.
 - Reload the page — the form returns to its empty state cleanly.

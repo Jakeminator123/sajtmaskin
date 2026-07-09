@@ -45,7 +45,16 @@ export function FooterCta() {
 }
 ```
 
-When `MAILCHIMP_API_KEY` or `MAILCHIMP_AUDIENCE_ID` is missing, the route returns `503 { ok: false, error: "newsletter-not-configured" }` and the form renders a non-blocking banner ("Newsletter is not configured yet"). F3 reports this as a warning, not a build blocker — the site still ships.
+See "Mock/demo mode" below for how the route behaves without a real key.
+
+# Mock/demo mode
+
+`mock: success`. Two states:
+
+- **No real `MAILCHIMP_API_KEY`** (missing OR a preview stub containing `placeholder` / `not_real`): the route returns `200 { ok: true, demo: true, status: "subscribed" }` WITHOUT calling Mailchimp. `NewsletterForm` shows the normal success plus a discreet "Demo: prenumerationen registrerades inte på riktigt" notice, so the capture flow works in an F2/preview without real credentials.
+- **Real key but missing `MAILCHIMP_AUDIENCE_ID`**: a genuine configuration error → `503 { ok: false, error: "newsletter-not-configured" }`; the form renders the non-blocking "Newsletter is not configured yet" banner. F3 reports this as a warning, not a build blocker.
+
+Real signup runs only once a genuine key + audience id are set. Keep both branches when you adapt the route.
 
 # UX rules
 
@@ -69,5 +78,5 @@ When `MAILCHIMP_API_KEY` or `MAILCHIMP_AUDIENCE_ID` is missing, the route return
 - Submit a fresh email — UI shows success, Mailchimp dashboard shows the subscriber under the configured audience within ~10 seconds.
 - Submit the same email again — UI shows the already-subscribed message (not an error). Network tab: route returns `{ ok: true, status: "already" }`.
 - Submit a malformed email (`abc`) — UI shows inline validation, no network request fires.
-- Remove `MAILCHIMP_API_KEY` from `.env.local` and restart `next dev` — submitting shows the "newsletter not configured" banner. The page does not crash. F3 readiness reports a `feature-runtime` warning, not a blocker.
+- Remove `MAILCHIMP_API_KEY` (or use a preview stub) and restart `next dev` — submitting shows success + the "Demo: … registrerades inte på riktigt" notice (mock: success). The page does not crash. With a real key but no `MAILCHIMP_AUDIENCE_ID`, submitting shows the "newsletter not configured" banner instead. F3 readiness reports a `feature-runtime` warning, not a blocker.
 - Throttle to "Slow 3G" in DevTools and submit — spinner stays visible until the response arrives, no double-submit possible.

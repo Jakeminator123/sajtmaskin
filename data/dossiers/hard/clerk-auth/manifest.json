@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "clerk-auth",
+  "mock": "none",
   "label": "Clerk Authentication",
   "capability": "auth",
   "codeFidelity": "verbatim",

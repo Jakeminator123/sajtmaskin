@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stripe-checkout",
+  "mock": "none",
   "label": "Stripe Checkout",
   "capability": "payments",
   "codeFidelity": "verbatim",
