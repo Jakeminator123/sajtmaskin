@@ -3,8 +3,8 @@ import 'server-only';
 import { embedMany } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
-import { getDb } from '@/lib/db';
-import { documentChunks, documents } from '@/lib/db/schema';
+import { getDb } from '@/lib/rag/db';
+import { documentChunks, documents } from '@/lib/rag/db/schema';
 
 // Lazy: the default `openai` provider reads OPENAI_API_KEY at call time only.
 // Wire this to the app's content source (CMS sync, admin action, script, or a

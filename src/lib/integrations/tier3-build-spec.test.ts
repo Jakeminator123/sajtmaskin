@@ -418,6 +418,18 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
   });
 
+  it("does NOT map supabase approval to subscriptions (paddle infra deps only)", () => {
+    const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
+    expect(caps).not.toContain("subscriptions");
+    expect(caps).toContain("supabase-auth");
+  });
+
+  it("does NOT map openai approval to rag-chat (shared @ai-sdk/openai dep only)", () => {
+    const caps = mapProviderKeysToDossierCapabilities(["openai"]);
+    expect(caps).not.toContain("rag-chat");
+    expect(caps).toContain("ai-chat");
+  });
+
   it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {
     // next-auth shares the "auth" CATEGORY with clerk, but no dossier
     // id-prefix/dependency implements next-auth. A category-only match would
@@ -431,13 +443,9 @@ describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
   it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
     expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
     expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
-    // Pin change (dossier-batch): rag-chat strict-backs "openai" (dependency
-    // `@ai-sdk/openai`, same rule that already matched ai-tool-calling-chat)
-    // and ships `components/rag-config-notice.tsx`, which the widened
-    // CONFIG_NOTICE_FILE_RE (mongodb precedent, Codex P2 #445) counts as a
-    // config-notice UI — so an approved "openai" now has a notice-shipping
-    // backing dossier.
-    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(true);
+    // openai strict-backs ai-chat (no config-notice UI). rag-chat is excluded
+    // from provider mapping so OpenAI approval must not flip this to true via RAG.
+    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
   });
 
   it("false for providers whose dossier lacks the component, and for unknowns", () => {

@@ -5,7 +5,7 @@
 --
 -- The embedding dimension (1536) MUST match the model used in
 -- lib/rag/ingest.ts and lib/rag/retrieval.ts (text-embedding-3-small) and the
--- vector column in lib/db/schema.ts. Change all three together if you switch
+-- vector column in lib/rag/db/schema.ts. Change all three together if you switch
 -- embedding models.
 
 CREATE EXTENSION IF NOT EXISTS vector;

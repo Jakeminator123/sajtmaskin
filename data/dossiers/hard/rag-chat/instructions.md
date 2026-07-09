@@ -12,7 +12,7 @@
 - Enable pgvector and create the tables: run the shipped `lib/rag-migrations.sql` ONCE against your Postgres (psql, the provider's SQL console, or a migration tool). There is NO auto-migration at boot — the app never runs DDL on startup.
 - Demo mode is built in (mock: canned): when `OPENAI_API_KEY` or `DATABASE_URL` is missing or a preview placeholder, `/api/chat` streams a canned demo reply over the SAME UI-message stream protocol — never a 500. Do not invent your own fallback.
 - Gate server-side RAG surfaces on `isRagConfigured()` from `@/lib/rag/config` (placeholder-guards on BOTH keys) and mount `<Chat ragConfigured={isRagConfigured()} />` from a Server Component so the discreet "RAG i demo-läge" notice renders when unconfigured.
-- Access the database ONLY through `getDb()` / `getPool()` from `@/lib/db` — never construct a Pool or Drizzle client yourself, and never at module level.
+- Access the RAG store ONLY through `getDb()` / `getPool()` from `@/lib/rag/db` (namespaced away from the app-domain `@/lib/db` database dossier so both can coexist) — never construct a Pool or Drizzle client yourself, and never at module level.
 - Wire `ingestDocument()` to the app's content source (CMS sync, admin action, script, or a scheduled job). The dossier ships no ingestion route on purpose.
 - Keep `/api/chat` a server-only route; the chat streaming protocol uses the AI SDK UI-message transport (`convertToModelMessages` + `toUIMessageStreamResponse`).
 

@@ -1,11 +1,11 @@
 import { pgTable, text, timestamp, uuid, vector, index } from 'drizzle-orm/pg-core';
 
-// RAG infrastructure schema — keep verbatim. Unlike the app-domain tables of
-// the `database` dossier, these are the retrieval store: `documents` holds the
-// source records and `document_chunks` holds the embedded slices queried by
-// cosine distance. The embedding dimension (1536) MUST match the embedding
-// model in `lib/rag/ingest.ts` / `lib/rag/retrieval.ts` (text-embedding-3-small)
-// AND the `vector(1536)` column in `lib/rag-migrations.sql`.
+// RAG infrastructure schema — keep verbatim. Lives under `lib/rag/db` (not
+// `lib/db`) so it does not collide with the app-domain `database` dossier when
+// both RAG chat and postgres-drizzle/neon are selected (Codex P1 dossier-batch).
+// `documents` holds source records; `document_chunks` holds embedded slices.
+// The embedding dimension (1536) MUST match text-embedding-3-small AND
+// `lib/rag-migrations.sql`.
 export const documents = pgTable('documents', {
   id: uuid('id').defaultRandom().primaryKey(),
   title: text('title').notNull(),

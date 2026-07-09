@@ -4,7 +4,7 @@ import { embed } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { sql } from 'drizzle-orm';
 
-import { getDb } from '@/lib/db';
+import { getDb } from '@/lib/rag/db';
 
 // The default `openai` provider reads OPENAI_API_KEY lazily at call time — no
 // module-level client construction, no import-time env read. Callers gate on

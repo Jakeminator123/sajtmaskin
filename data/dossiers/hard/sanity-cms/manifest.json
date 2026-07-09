@@ -34,7 +34,7 @@
       "enforcement": "warn-only"
     },
     {
-      "key": "SANITY_API_READ_TOKEN",
+      "key": "SANITY_API_TOKEN",
       "required": false,
       "purpose": "Server-only Sanity token with read access, needed for draft-mode preview and any private dataset. Create it in the Sanity project's API settings (Manage -> API -> Tokens). Tagged feature-runtime: the placeholder-aware isSanityDraftTokenConfigured() gates the draft client, and the draft-mode enable route answers 503 when it is missing or a stub; published-content reads keep working.",
       "enforcement": "feature-runtime"

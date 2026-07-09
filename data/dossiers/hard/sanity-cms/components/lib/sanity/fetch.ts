@@ -7,7 +7,7 @@ import { getDraftSanityClient, getSanityClient } from "./client";
 export type SanityFetchOptions = {
   query: string;
   params?: QueryParams;
-  /** `drafts` requires SANITY_API_READ_TOKEN; defaults to published content. */
+  /** `drafts` requires SANITY_API_TOKEN; defaults to published content. */
   perspective?: "published" | "drafts";
   /** Enables stega source-map encoding for Visual Editing overlays. */
   stega?: boolean;

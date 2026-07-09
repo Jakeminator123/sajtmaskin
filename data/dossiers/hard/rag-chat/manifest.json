@@ -53,12 +53,12 @@
       "injectionMode": "verbatim"
     },
     {
-      "path": "components/lib/db/index.ts",
+      "path": "components/lib/rag/db/index.ts",
       "role": "server",
       "injectionMode": "verbatim"
     },
     {
-      "path": "components/lib/db/schema.ts",
+      "path": "components/lib/rag/db/schema.ts",
       "role": "server",
       "injectionMode": "verbatim"
     },

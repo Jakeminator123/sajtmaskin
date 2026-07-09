@@ -7,7 +7,7 @@ import { isPlaceholderValue } from "./api";
  * private dataset. `server-only` makes an accidental client-component import
  * a build error instead of a leaked secret.
  */
-export const token = process.env.SANITY_API_READ_TOKEN;
+export const token = process.env.SANITY_API_TOKEN;
 
 /**
  * True when a REAL (non-empty, non-placeholder) read token is configured.

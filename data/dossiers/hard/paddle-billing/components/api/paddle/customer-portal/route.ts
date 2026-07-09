@@ -1,13 +1,24 @@
 import { NextRequest } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import {
+  createSupabaseServerClient,
+  isSupabaseServerConfigured,
+} from '@/lib/supabase/server';
 import { getPaddleInstance, isPaddleConfigured } from '@/lib/paddle/get-paddle-instance';
-import { isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { getSupabaseAdmin, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
 
-export async function POST(request: NextRequest) {
-  // Config guard before touching any client. Missing Supabase/Paddle env
-  // degrades to a recognizable 503 instead of throwing (createSupabaseServerClient
-  // / new Paddle would otherwise 500 on empty env).
-  if (!isSupabaseAdminConfigured() || !isPaddleConfigured()) {
+function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  return msg.includes('does not exist') || msg.includes('could not find the table');
+}
+
+export async function POST(_request: NextRequest) {
+  if (
+    !isSupabaseAdminConfigured() ||
+    !isSupabaseServerConfigured() ||
+    !isPaddleConfigured()
+  ) {
     return Response.json({ error: 'subscriptions-not-configured' }, { status: 503 });
   }
 
@@ -20,23 +31,36 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => ({}));
-  const customerId = body?.customerId;
+  // Derive Paddle ids server-side from the host's `subscriptions` row keyed by
+  // `user_id` (see instructions.md — the dossier does NOT trust client input).
+  const { data: row, error: lookupError } = await getSupabaseAdmin()
+    .from('subscriptions')
+    .select('paddle_customer_id, paddle_subscription_id')
+    .eq('user_id', user.id)
+    .not('paddle_customer_id', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (!customerId || typeof customerId !== 'string') {
-    return Response.json({ error: 'Missing customerId' }, { status: 400 });
+  if (lookupError) {
+    if (isMissingTableError(lookupError)) {
+      return Response.json({ error: 'subscriptions-table-missing' }, { status: 503 });
+    }
+    return Response.json({ error: 'subscriptions-lookup-failed' }, { status: 500 });
   }
 
-  // SECURITY NOTE (host-app responsibility): this trusts a client-provided
-  // Paddle customerId. In production you MUST authorize it against the
-  // signed-in user via your own user↔Paddle-customer mapping (see
-  // instructions.md "How to integrate" / "Avoid") — otherwise a signed-in user
-  // could open another customer's billing portal. Derive the id server-side
-  // from the `subscriptions` row / mapping table instead of the request body.
+  const customerId = row?.paddle_customer_id;
+  if (!customerId || typeof customerId !== 'string') {
+    return Response.json({ error: 'no-paddle-customer-for-user' }, { status: 404 });
+  }
+
+  const subscriptionIds =
+    typeof row?.paddle_subscription_id === 'string' && row.paddle_subscription_id
+      ? [row.paddle_subscription_id]
+      : [];
+
   const paddle = getPaddleInstance();
-  const session = await paddle.customerPortalSessions.create({
-    customerId,
-  });
+  const session = await paddle.customerPortalSessions.create(customerId, subscriptionIds);
 
   return Response.json({ url: session.urls.general.overview });
 }

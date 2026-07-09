@@ -56,7 +56,7 @@ export function getDraftSanityClient(): SanityClient {
   }
   if (!isSanityDraftTokenConfigured()) {
     throw new Error(
-      "Sanity draft preview is not configured (missing or placeholder SANITY_API_READ_TOKEN). Check isSanityDraftTokenConfigured() before calling getDraftSanityClient().",
+      "Sanity draft preview is not configured (missing or placeholder SANITY_API_TOKEN). Check isSanityDraftTokenConfigured() before calling getDraftSanityClient().",
     );
   }
   if (!globalForSanity.__sanityDraftClient) {
