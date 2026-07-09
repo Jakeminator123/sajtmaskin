@@ -153,6 +153,9 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "server-only": "0.0.1",
   "@neondatabase/serverless": "^1",
   "mongodb": "^7",
+  // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
+  // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
+  "next-sanity": "^13",
 };
 
 /**

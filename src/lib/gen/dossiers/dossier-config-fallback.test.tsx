@@ -19,6 +19,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CheckoutButton } from "../../../../data/dossiers/hard/stripe-checkout/components/checkout-button";
 import { ContactForm } from "../../../../data/dossiers/hard/resend-contact-form/components/contact-form";
 import { IntegrationConfigNotice } from "../../../../data/dossiers/hard/stripe-checkout/components/integration-config-notice";
+import {
+  isPlaceholderValue as sanityIsPlaceholderValue,
+  isSanityConfigured,
+} from "../../../../data/dossiers/hard/sanity-cms/components/lib/sanity/api";
+import { seedContent } from "../../../../data/dossiers/hard/sanity-cms/components/lib/sanity/seed-content";
+import { SanityConfigNotice } from "../../../../data/dossiers/hard/sanity-cms/components/sanity-config-notice";
 
 function mockFetchOnce(status: number, body: unknown): ReturnType<typeof vi.fn> {
   const fn = vi.fn().mockResolvedValue({
@@ -447,5 +453,75 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
   // import-tested here because their SDKs (`@ai-sdk/fal`, `@neondatabase/
   // serverless`, `mongodb`) are dossier-only dependencies, not installed in
   // the Sajtmaskin app, so a direct `import` would fail to resolve. Their mock
-  // behavior is covered by the manifest `mock` field + validator + docs.
+  // behavior is covered by the manifest `mock` field + validator + docs. The
+  // sanity-cms client/fetch/draft-mode routes are likewise not import-tested
+  // (`next-sanity` is dossier-only + they are `server-only`-guarded); the
+  // dossier's mock contract is covered by the env-gate tests below.
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// sanity-cms (mock: seed, Fas D 2026-07-09): the placeholder-aware config
+// gate + the seed-fallback surface. The gate is what every Sanity-backed
+// page branches on — if it misreads an F2 stub as "configured", pages query
+// a nonexistent project instead of rendering seedContent.
+// ─────────────────────────────────────────────────────────────────────────
+describe("sanity-cms — seed fallback contract (mock: seed)", () => {
+  const SANITY_KEYS = [
+    "NEXT_PUBLIC_SANITY_PROJECT_ID",
+    "NEXT_PUBLIC_SANITY_DATASET",
+  ] as const;
+  const savedSanity = new Map<string, string | undefined>();
+
+  beforeEach(() => {
+    for (const key of SANITY_KEYS) {
+      savedSanity.set(key, process.env[key]);
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of SANITY_KEYS) {
+      const value = savedSanity.get(key);
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("isSanityConfigured() is false with missing env (seed-fallback path)", () => {
+    expect(isSanityConfigured()).toBe(false);
+  });
+
+  it("isSanityConfigured() is false for F2 preview stubs (placeholder-aware, not mere presence)", () => {
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID =
+      "next_public_sanity_project_id_placeholder_preview_not_real";
+    process.env.NEXT_PUBLIC_SANITY_DATASET =
+      "next_public_sanity_dataset_placeholder_preview_not_real";
+    expect(isSanityConfigured()).toBe(false);
+  });
+
+  it("isSanityConfigured() is true only when BOTH values are real", () => {
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID = "abc12345";
+    expect(isSanityConfigured()).toBe(false);
+    process.env.NEXT_PUBLIC_SANITY_DATASET = "production";
+    expect(isSanityConfigured()).toBe(true);
+  });
+
+  it("isPlaceholderValue matches the stub vocabulary and accepts real values", () => {
+    expect(sanityIsPlaceholderValue(undefined)).toBe(true);
+    expect(sanityIsPlaceholderValue("   ")).toBe(true);
+    expect(sanityIsPlaceholderValue("sanity_api_read_token_placeholder_preview_not_real")).toBe(true);
+    expect(sanityIsPlaceholderValue("your_project_id")).toBe(true);
+    expect(sanityIsPlaceholderValue("abc12345")).toBe(false);
+    expect(sanityIsPlaceholderValue("production")).toBe(false);
+  });
+
+  it("ships non-empty seedContent + renders the discreet SanityConfigNotice", () => {
+    expect(seedContent.length).toBeGreaterThan(0);
+    for (const doc of seedContent) {
+      expect(doc.title.length).toBeGreaterThan(0);
+      expect(doc.slug.length).toBeGreaterThan(0);
+    }
+    render(<SanityConfigNotice />);
+    expect(screen.getByText(/CMS ej konfigurerat/i)).toBeTruthy();
+  });
 });

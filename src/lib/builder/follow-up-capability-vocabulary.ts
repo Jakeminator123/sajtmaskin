@@ -452,4 +452,34 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:chart[-.\s]?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
     ],
   },
+  {
+    // Headless CMS integration (sanity-cms is the capability default). The
+    // ask is "content editable WITHOUT code" — a named CMS, Sanity, Swedish
+    // "innehållshantering", or an editors-can-update-it-themselves phrasing.
+    // NOT ordinary page-content edits ("ändra innehållet i heron" is a
+    // refine, guarded by the add-verb gate + the phrase patterns requiring an
+    // utan-kod/själv tail), and NOT "the site has a blog" on its own.
+    capability: "cms",
+    patterns: [
+      // High-signal acronym / compound asks.
+      /(?<![\p{L}\p{N}_])(?:headless[-\s]?cms|cms)(?![\p{L}\p{N}_])/iu,
+      // Sanity-the-provider. "sanity check" is an ordinary English phrase —
+      // the trailing lookahead refuses the check(s) continuation.
+      /(?<![\p{L}\p{N}_])sanity(?:\.io)?(?![\p{L}\p{N}_])(?![-\s]?checks?)/iu,
+      /(?<![\p{L}\p{N}_])(?:innehållshantering(?:en|ssystem(?:et)?)?|content[-\s]?management(?:[-\s]?system)?)(?![\p{L}\p{N}_])/iu,
+      // "redigera/uppdatera innehållet utan kod / själva" — the tail is
+      // required so a plain content tweak never routes here.
+      /(?<![\p{L}\p{N}_])(?:redigera|uppdatera|hantera|ändra)\s+(?:sitt\s+|sajtens\s+|webbplatsens\s+)?innehåll(?:et)?\s+(?:utan\s+(?:kod|utvecklare|programmering)|själv(?:a)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:edit|manage|update)\s+(?:the\s+|their\s+|site\s+)?content\s+(?:without\s+(?:code|coding|a\s+developer)|themselves)(?![\p{L}\p{N}_])/iu,
+      // Editors/staff as the acting persona.
+      /(?<![\p{L}\p{N}_])redaktör(?:er|en|erna)?[\s\S]{0,60}(?:redigera|uppdatera|ändra|publicera|hantera)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])editors?\s+(?:can|should)\s+(?:edit|update|manage|publish)(?![\p{L}\p{N}_])/iu,
+    ],
+    // An explicit competing CMS choice must not pull in the Sanity dossier
+    // (Chart.js precedent on dashboard-charts). Kept to actual CMS products;
+    // generic site-builder names are a different ask and stay unlisted.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:wordpress|contentful|strapi|prismic|storyblok|datocms|payload[-\s]?cms|craft[-\s]?cms|ghost[-\s]?cms|butter[-\s]?cms|sitecore|umbraco|drupal|joomla|keystone(?:js)?|directus)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
 ];
