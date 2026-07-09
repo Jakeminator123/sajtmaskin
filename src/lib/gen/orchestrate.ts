@@ -323,6 +323,14 @@ export interface OrchestrationInput {
    * the validation to other surfaces.
    */
   followUpContract?: FollowUpContract;
+  /**
+   * Env keys the CURRENT PROJECT has stored a real value for (resolved by the
+   * stream caller from `getStoredProjectEnvVarMap`). Threaded into
+   * `selectDossiersForRequest` so the hard-dossier `configured` prompt signal
+   * reflects the project's env instead of the platform `process.env`. Omit
+   * (legacy) → deprecated `process.env` fallback. Prompt-only; no gate impact.
+   */
+  configuredEnvKeys?: ReadonlySet<string>;
 }
 
 function explicitlyRequestsCarousel(prompt: string): boolean {
@@ -1432,6 +1440,9 @@ export async function resolveOrchestrationBase(
         // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
         // mongodb-atlas instead of the postgres-drizzle default).
         promptText: dossierSelectionPromptText,
+        // Project-scoped `configured` signal (fix-isconfigured): use the
+        // project's stored env keys, not the platform process.env.
+        configuredEnvKeys: input.configuredEnvKeys,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {

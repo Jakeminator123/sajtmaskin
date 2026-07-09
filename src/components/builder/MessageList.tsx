@@ -38,6 +38,10 @@ import {
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
 import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
+import {
+  F3_CONTINUATION_APPROVE_OPTION,
+  F3_CONTINUATION_KIND,
+} from "@/lib/gen/stream/f3-continuation";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
@@ -74,7 +78,7 @@ import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
 
 interface MessageListProps {
   chatId: string | null;
@@ -113,26 +117,50 @@ const MessageListComponent = ({
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
+  // Auto-continue plumbing for the F3-continuation marker (owner never wants
+  // the "Svar krävs"-popup): any marker present in the FIRST non-empty
+  // messages load is treated as reloaded history (never auto-fired); markers
+  // that arrive LIVE after that auto-approve exactly once. The snapshot is
+  // taken on the first non-empty load — not on mount — because the builder
+  // fetches chat history asynchronously, so at mount `messages` is usually
+  // still empty and a mount-time snapshot would misread reloaded history as
+  // live. `undefined` = history snapshot not yet taken.
+  const f3MountKeyRef = useRef<string | null | undefined>(undefined);
+  const autoFiredF3KeyRef = useRef<string | null>(null);
+  const [f3AutoContinueKey, setF3AutoContinueKey] = useState<string | null>(null);
 
-  const sendQuickReply = async (
-    messageId: string,
-    optionIndex: number,
-    text: string,
-    options?: { planMode?: boolean },
-  ) => {
-    if (!onQuickReply) return false;
-    const key = `${messageId}:${optionIndex}:${text}`;
-    setPendingQuickReplyKey(key);
-    try {
-      await onQuickReply(text, options);
-      return true;
-    } catch (error) {
-      console.error("Quick reply failed:", error);
-      return false;
-    } finally {
-      setPendingQuickReplyKey((current) => (current === key ? null : current));
-    }
-  };
+  // Chat switch without remount: reset the auto-continue bookkeeping so a
+  // marker in the NEXT chat's freshly loaded history is re-snapshotted as
+  // history (and never mistaken for a live marker from the previous chat).
+  const f3ChatIdRef = useRef(chatId);
+  if (f3ChatIdRef.current !== chatId) {
+    f3ChatIdRef.current = chatId;
+    f3MountKeyRef.current = undefined;
+    autoFiredF3KeyRef.current = null;
+  }
+
+  const sendQuickReply = useCallback(
+    async (
+      messageId: string,
+      optionIndex: number,
+      text: string,
+      options?: { planMode?: boolean },
+    ) => {
+      if (!onQuickReply) return false;
+      const key = `${messageId}:${optionIndex}:${text}`;
+      setPendingQuickReplyKey(key);
+      try {
+        await onQuickReply(text, options);
+        return true;
+      } catch (error) {
+        console.error("Quick reply failed:", error);
+        return false;
+      } finally {
+        setPendingQuickReplyKey((current) => (current === key ? null : current));
+      }
+    },
+    [onQuickReply],
+  );
 
   const pendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(messages),
@@ -157,6 +185,8 @@ const MessageListComponent = ({
     return last;
   }, [messages]);
 
+  const isF3Continuation = pendingReply?.kind === F3_CONTINUATION_KIND;
+
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
     if (!pendingKey) {
@@ -164,10 +194,55 @@ const MessageListComponent = ({
       lastAutoOpenedReplyKeyRef.current = null;
       return;
     }
+    // F3-continuation never opens the "Svar krävs"-dialog: live markers
+    // auto-continue (see effect below), reloaded markers fall back to the
+    // inline quick-replies. Suppress the auto-open here for that kind.
+    if (pendingReply?.kind === F3_CONTINUATION_KIND) {
+      lastAutoOpenedReplyKeyRef.current = pendingKey;
+      setIsReplyDialogOpen(false);
+      return;
+    }
     if (lastAutoOpenedReplyKeyRef.current === pendingKey) return;
     lastAutoOpenedReplyKeyRef.current = pendingKey;
     setIsReplyDialogOpen(true);
-  }, [pendingReply?.key]);
+  }, [pendingReply?.key, pendingReply?.kind]);
+
+  // F3-continuation auto-approve (owner never wants the popup). A marker that
+  // arrives LIVE (its key was not present at mount) auto-sends the approve
+  // quick-reply exactly once; a marker already present at mount is reloaded
+  // history and is left to the inline quick-replies. The server loop-breaker
+  // caps repeats: round-3 closes terminally without a new marker, so at most
+  // one auto-retry + one auto-loop-retry can fire.
+  // NOTE: auto-approve consumes credits for the retry round — that is the
+  // owner's explicit choice (see .cursor/plans/env-mock-dossier-flow).
+  useEffect(() => {
+    if (f3MountKeyRef.current === undefined) {
+      // Take the history snapshot on the FIRST NON-EMPTY messages load (the
+      // builder streams history in async — at mount the list is usually
+      // empty). Whatever F3 marker exists in that first load is reloaded
+      // history and must never be auto-fired.
+      if (messages.length === 0) return;
+      f3MountKeyRef.current =
+        pendingReply?.kind === F3_CONTINUATION_KIND ? pendingReply.key : null;
+    }
+    if (!pendingReply || pendingReply.kind !== F3_CONTINUATION_KIND) return;
+    const key = pendingReply.key;
+    if (key === f3MountKeyRef.current) return; // reloaded marker → inline quick-replies
+    if (autoFiredF3KeyRef.current === key) return; // already auto-approved this marker
+    if (!onQuickReply || quickReplyDisabled) return;
+    autoFiredF3KeyRef.current = key;
+    setF3AutoContinueKey(key);
+    const approveIndex = Math.max(
+      0,
+      pendingReply.options.indexOf(F3_CONTINUATION_APPROVE_OPTION),
+    );
+    void sendQuickReply(
+      pendingReply.messageId,
+      approveIndex,
+      F3_CONTINUATION_APPROVE_OPTION,
+      { planMode: false },
+    );
+  }, [messages, pendingReply, onQuickReply, quickReplyDisabled, sendQuickReply]);
 
   useEffect(() => {
     const requirement = latestEnvRequirement;
@@ -417,7 +492,7 @@ const MessageListComponent = ({
         <ConversationScrollButton />
       </Conversation>
 
-      {pendingReply && (
+      {pendingReply && !isF3Continuation && (
         <>
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
@@ -472,6 +547,46 @@ const MessageListComponent = ({
             </Button>
           )}
         </>
+      )}
+
+      {/* F3-continuation: never a dialog. A live marker auto-continues with a
+          calm status row; a reloaded marker shows inline quick-replies so the
+          user can still choose (no auto-fire on old history). */}
+      {pendingReply && isF3Continuation && (
+        f3AutoContinueKey === pendingReply.key ? (
+          <div
+            className="text-muted-foreground bg-muted/40 mt-2 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+            aria-live="polite"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Integrationsbygget fortsätter automatiskt…</span>
+          </div>
+        ) : (
+          <div className="border-border bg-card mt-2 rounded-md border p-3 text-xs">
+            <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
+            {pendingReply.options.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {pendingReply.options.map((option, optionIndex) => {
+                  const replyKey = `${pendingReply.messageId}:${optionIndex}:${option}`;
+                  const isPending = pendingQuickReplyKey === replyKey;
+                  const canReply = Boolean(onQuickReply) && !quickReplyDisabled;
+                  return (
+                    <Button
+                      key={replyKey}
+                      size="sm"
+                      variant="secondary"
+                      disabled={!canReply || pendingQuickReplyKey !== null}
+                      onClick={() => void handleModalQuickReply(option, optionIndex)}
+                    >
+                      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      {option}
+                    </Button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        )
       )}
     </>
   );

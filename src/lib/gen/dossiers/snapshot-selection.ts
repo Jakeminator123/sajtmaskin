@@ -74,6 +74,14 @@ function readRequestedCapabilitiesFromSnapshot(
 
 export function resolveSelectedDossiersFromSnapshot(
   snapshot: unknown,
+  /**
+   * Env keys the project has stored a real value for. Threaded into
+   * `selectDossiersForRequest` so the `configured` flag reflects the PROJECT'S
+   * env, not the platform `process.env`. Callers with a projectId resolve the
+   * map (`getStoredProjectEnvVarMap`) and pass the key set; omit for legacy
+   * behavior. See `SelectDossiersOptions.configuredEnvKeys`.
+   */
+  configuredEnvKeys?: ReadonlySet<string>,
 ): SelectedDossier[] {
   if (!snapshot || typeof snapshot !== "object") return [];
   const requestedCapabilities = readRequestedCapabilitiesFromSnapshot(
@@ -81,7 +89,7 @@ export function resolveSelectedDossiersFromSnapshot(
   );
   if (requestedCapabilities.length === 0) return [];
   try {
-    return selectDossiersForRequest({ requestedCapabilities }).selected;
+    return selectDossiersForRequest({ requestedCapabilities, configuredEnvKeys }).selected;
   } catch {
     return [];
   }

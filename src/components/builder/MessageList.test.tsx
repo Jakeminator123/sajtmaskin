@@ -122,12 +122,12 @@ describe("MessageList", () => {
     });
   });
 
-  it("keeps the F3 awaiting-input quick-replies after reload from the persisted marker (Bugbot MEDIUM PR #382)", async () => {
-    // Reload scenario: the message list is rebuilt from persisted
-    // engine_messages.ui_parts (no live stream state). The old marker
-    // toolName ("Integrationsbygge…") matched `isIntegrationOrEnvToolPart`
-    // and suppressed `getLatestPendingReply` — the reply dialog never opened
-    // and the Godkänn/Avvisa quick-replies disappeared.
+  it("shows F3 reload quick-replies INLINE (no dialog, no auto-fire) for an old persisted marker", async () => {
+    // Pin change (auto-resolve-f3-popup wave 1): the owner never wants the
+    // "Svar krävs"-dialog for the F3-continuation marker. A marker present at
+    // MOUNT is reloaded history — it must NOT auto-approve; instead the
+    // canonical quick-replies render inline so the user can still choose.
+    // (Previously this asserted the dialog opened; that behaviour is now gone.)
     const onQuickReply = vi.fn(async () => {});
     const messages: ChatMessage[] = [
       {
@@ -153,18 +153,57 @@ describe("MessageList", () => {
       <MessageList chatId="chat_f3" messages={messages} onQuickReply={onQuickReply} />,
     );
 
-    // The pendingReply-driven dialog must detect the marker…
-    await waitFor(() => {
-      expect(screen.getByText("Svar krävs för att fortsätta")).toBeTruthy();
-    });
-
-    // …and surface the canonical quick-replies.
-    const approveButton = screen.getByRole("button", { name: "Godkänn förslag" });
+    // Inline quick-replies surface (no dialog).
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+    // The dialog must NOT open for the F3-continuation kind.
+    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+    // A reloaded marker is NOT auto-approved.
+    expect(onQuickReply).not.toHaveBeenCalled();
 
     fireEvent.click(approveButton);
     await waitFor(() => {
       expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
     });
+  });
+
+  it("auto-approves a LIVE F3-continuation marker without a dialog (calm inline row)", async () => {
+    // Live scenario: the marker arrives mid-session (its key was not present at
+    // mount), so it auto-continues exactly once — no popup, just a calm status
+    // row. The server loop-breaker caps repeats (round 3 closes terminally).
+    const onQuickReply = vi.fn(async () => {});
+    const before: ChatMessage[] = [
+      { id: "user_f3_kick_live", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList chatId="chat_f3_live" messages={before} onQuickReply={onQuickReply} />,
+    );
+
+    const after: ChatMessage[] = [
+      ...before,
+      {
+        id: "assistant_f3_marker_live",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList chatId="chat_f3_live" messages={after} onQuickReply={onQuickReply} />,
+    );
+
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
+    });
+    // Auto-fires exactly once, no dialog, calm status row instead.
+    expect(onQuickReply).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+    expect(screen.getByText("Integrationsbygget fortsätter automatiskt…")).toBeTruthy();
   });
 });

@@ -20,11 +20,17 @@ import {
 } from "@/lib/builder/dossier-overview";
 import {
   DOSSIERS_PANEL_OPEN_EVENT,
+  PROJECT_ENV_VARS_UPDATED_EVENT,
   dispatchProjectEnvVarsUpdated,
   openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
+  readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
 } from "@/lib/builder/project-env-events";
+import {
+  DOSSIER_GROUP_ORDER,
+  resolveDossierGroup,
+} from "@/lib/builder/dossier-groups";
 import { cn } from "@/lib/utils";
 
 export interface PreviewPanelDossiersProps {
@@ -126,13 +132,13 @@ export function PreviewPanelDossiers({
     }
   }, [chatId, versionId]);
 
-  // Fetch whenever the popover opens (and whenever chatId/versionId change
-  // while open, since `load` is memoized on them). Refetching on every open
-  // keeps env-key readiness fresh — e.g. after the user saves keys in
-  // ProjectEnvVarsPanel without a new version — and prevents a previous
-  // chat's dossiers from lingering when the builder switches chat.
+  // Fetch on mount (so the attention badge can reflect missing keys BEFORE the
+  // popover is opened — dossiers-hub-primary) and whenever the popover opens or
+  // chatId/versionId change (since `load` is memoized on them). `load` aborts
+  // any in-flight request, so overlapping triggers collapse to the freshest
+  // response. Refetching on open keeps env-key readiness fresh — e.g. after the
+  // user saves keys in ProjectEnvVarsPanel without a new version. No polling.
   useEffect(() => {
-    if (!open) return;
     void load();
     return () => abortRef.current?.abort();
   }, [open, load]);
@@ -143,6 +149,20 @@ export function PreviewPanelDossiers({
   const refetch = useCallback(() => {
     void load();
   }, [load]);
+
+  // Keep the attention badge fresh without polling: refetch when env vars are
+  // saved anywhere in the builder (the missing-key set may have just cleared).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = readProjectEnvVarsUpdatedDetail(event);
+      // Refetch when the update targets this chat, or carries no chat scope.
+      if (!detail || !detail.chatId || detail.chatId === chatId) {
+        void load();
+      }
+    };
+    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler);
+  }, [chatId, load]);
 
   // Let other builder surfaces (finalize-design 412 handler, integration chat
   // cards) open this popover and highlight the keys that still need values.
@@ -183,11 +203,27 @@ export function PreviewPanelDossiers({
   // mismatch (chat/version changed) we render the loading state instead of a
   // stale context's dossiers until the in-flight refetch resolves.
   const freshData = data && dataKey === overviewKey ? data : null;
-  const hardDossiers = freshData?.dossiers.filter((d) => d.requiresF3) ?? [];
-  const softDossiers = freshData?.dossiers.filter((d) => !d.requiresF3) ?? [];
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+
+  // Attention badge (dossiers-hub-primary): any hard (F3) dossier that still
+  // misses real env keys. Drives the amber dot on the toolbar button so the
+  // user is nudged to the popover without a chat popup.
+  const needsAttention = (freshData?.dossiers ?? []).some(
+    (dossier) => dossier.requiresF3 && dossier.missingKeys.length > 0,
+  );
+
+  // Capability groups (dossiers-capability-groups): bucket rows by their
+  // EXISTING capability via a presentation-only map (no new taxonomy). Ordered
+  // groups; empty groups are dropped. Hard/soft stays a per-row badge.
+  const groupedDossiers = useMemo(() => {
+    const dossiers = freshData?.dossiers ?? [];
+    return DOSSIER_GROUP_ORDER.map((group) => ({
+      group,
+      rows: dossiers.filter((dossier) => resolveDossierGroup(dossier.capability).id === group.id),
+    })).filter((section) => section.rows.length > 0);
+  }, [freshData]);
 
   // Flat, de-duplicated list of env keys that still need a real value: the
   // union of every hard dossier's `missingKeys` plus any highlighted key not
@@ -320,6 +356,22 @@ export function PreviewPanelDossiers({
           </span>
           <Badge
             variant="outline"
+            className={cn(
+              "text-[9px]",
+              entry.class === "hard"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                : "border-gray-600/50 bg-gray-500/10 text-gray-300",
+            )}
+            title={
+              entry.class === "hard"
+                ? "Hård dossier — kräver riktiga nycklar"
+                : "Mjuk dossier — självförsörjande byggblock"
+            }
+          >
+            {entry.class === "hard" ? "Hård" : "Mjuk"}
+          </Badge>
+          <Badge
+            variant="outline"
             className={cn("text-[10px]", TONE_BADGE_CLASS[descriptor.tone])}
             title={descriptor.hint}
           >
@@ -386,8 +438,12 @@ export function PreviewPanelDossiers({
         <Button
           variant="ghost"
           size="sm"
-          title="Visa inkopplade dossiers (byggblock) och integrationsstatus"
-          className={cn("text-gray-400 hover:text-white", className)}
+          title={
+            needsAttention
+              ? "Dossiers: en integration saknar nycklar — klicka för att fylla i"
+              : "Visa inkopplade dossiers (byggblock) och integrationsstatus"
+          }
+          className={cn("relative text-gray-400 hover:text-white", className)}
         >
           <Boxes className="mr-1 h-4 w-4" />
           Dossiers
@@ -398,6 +454,12 @@ export function PreviewPanelDossiers({
             >
               {count}
             </Badge>
+          ) : null}
+          {needsAttention ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-gray-950"
+              aria-label="Åtgärd krävs: en integration saknar nycklar"
+            />
           ) : null}
         </Button>
       </PopoverTrigger>
@@ -504,22 +566,14 @@ export function PreviewPanelDossiers({
             </p>
           ) : (
             <div className="space-y-3">
-              {hardDossiers.length > 0 ? (
-                <div className="space-y-1.5">
+              {groupedDossiers.map(({ group, rows }) => (
+                <div key={group.id} className="space-y-1.5">
                   <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
-                    Tunga integrationer
+                    {group.label}
                   </p>
-                  <ul className="space-y-1.5">{hardDossiers.map(renderRow)}</ul>
+                  <ul className="space-y-1.5">{rows.map(renderRow)}</ul>
                 </div>
-              ) : null}
-              {softDossiers.length > 0 ? (
-                <div className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
-                    Inkopplade byggblock
-                  </p>
-                  <ul className="space-y-1.5">{softDossiers.map(renderRow)}</ul>
-                </div>
-              ) : null}
+              ))}
             </div>
           )}
 

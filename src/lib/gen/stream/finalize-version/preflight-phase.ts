@@ -239,6 +239,18 @@ export async function runPreflightPhase(params: {
   }
   const envLifecycleStage =
     buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
+  // Dossier-scope for `env.example`: preflight ALWAYS sends the scope (even
+  // when empty) so the doc artifact lists only the selected dossiers' env
+  // keys instead of dumping the whole placeholder catalog. `selectedDossiers`
+  // is the same set threaded into the verbatim merge above (L161).
+  const dossierEnvScope = {
+    envVars: (selectedDossiers ?? []).flatMap((dossier) =>
+      (dossier.envVars ?? []).map((envVar) => ({
+        key: envVar.key,
+        purpose: envVar.purpose,
+      })),
+    ),
+  };
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
     lifecycleStage: envLifecycleStage,
   });
@@ -265,6 +277,7 @@ export async function runPreflightPhase(params: {
   filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
     appProjectId: await resolveAppProjectId(),
     lifecycleStage: envLifecycleStage,
+    dossierEnvScope,
   });
   let finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   let preflightFileCount = preflightResult.preflightFileCount;
@@ -368,6 +381,7 @@ export async function runPreflightPhase(params: {
       filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
         appProjectId: await resolveAppProjectId(),
         lifecycleStage: envLifecycleStage,
+        dossierEnvScope,
       });
       finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
       preflightFileCount = preflightResult.preflightFileCount;
