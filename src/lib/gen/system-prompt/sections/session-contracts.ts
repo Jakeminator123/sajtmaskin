@@ -79,8 +79,6 @@ export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): 
     "",
     "Why: the user will click **\"Bygg integrationer\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
     "",
-    "Note on selected dossiers: if a hard dossier (chatbot, database, contact/newsletter form) is selected for this build, it already ships its OWN demo/mock mode — its components render a working preview (canned chat reply, seed data, fake-success form with a discreet demo notice) WITHOUT a real key and light up for real once keys are added in F3. Prefer those dossier components over a throwaway inline mock; you still must not hand-wire tier-3 SDKs or reference `process.env` secrets yourself in F2.",
-    "",
   ];
 }
 
