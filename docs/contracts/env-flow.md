@@ -118,10 +118,15 @@ blockera på det som verkligen kräver en riktig integration.
   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — trasig inloggning är värre än
   demo-friktion. `openai-chat`s `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
 - **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
-  `buildBlockingKeys` i F3 och på `missingEnvKeys` (legacy-backstop) i F2 — F2
-  förblir demo-publicerbart. `feature-runtime`/placeholder-nycklar blockerar
+  `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
   aldrig; de surfar som icke-blockerande `EnvDegradationWarning`
-  (`env-degradation-warnings.ts`).
+  (`env-degradation-warnings.ts`). I **F2** gäller `missingEnvKeys`-backstoppen
+  (medvetet vald i #461): en okonfigurerad nyckel **utan katalog-placeholder**
+  blockerar oavsett enforcement. Det biter normalt inte på dossier-nycklar i F2
+  (dossierns server-filer strippas av SDK-deny-listan och `env.example`-stubbar
+  filtreras ur detektionen), men kod som modellen själv skrivit med
+  `process.env.<KEY>`-referenser utanför katalogen (t.ex. ett eget
+  `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
   riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
   Dossiers-panelen i previewpanelen — aldrig mot chatten (env-frågor hör inte
