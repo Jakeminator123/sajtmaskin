@@ -38,6 +38,18 @@ varje lane (diff + riktade tester + typecheck) och rättade småfel.
 | A3 deploy-repair (Ö3) | Opus 4.8 | `feat(deploy)` | 148 tester | orkestrator-fixade 4 typfel (bare-return + closure-narrowing) |
 | A4 inspectorUrl + felstate | Sonnet 5 | `feat(deploy)` | 4 tester | ren presentation |
 
+### Kompletteringspass (2026-07-09, pre-merge-granskning)
+
+Audit-svärm + granskningsagenter hittade tre glapp som stängdes på grenen före merge:
+
+| Fynd | Fix | Verifiering |
+|---|---|---|
+| A#12: readiness visade `canDeploy:true` medan deploy-API:t 409:ar ogrön F3 (Ö1 fanns bara server-side) | Readiness speglar nu `resolveDeployReleaseGate` via `buildReleaseGateBlocker` (`readiness-payload.ts`); Publicera-knappen disablas medan readiness laddar (`BuilderShellContent.tsx`) | 5 nya tester i `readiness-payload.test.ts` |
+| A#5/BB#deploy3: felstate + repair-knapp (Ö3/Ö4) försvann vid sidladdning — `activeDeploymentId` hydrerades aldrig | `useDeploymentHistory` exponerar `latestFailedDeployment` (nyaste rad = `error`); controllern hydrerar `activeDeploymentId` vid mount | 2 nya tester i `useDeploymentHistory.test.ts` |
+| A#3: deploy-SSE + single-GET auth:ade v0-first → 404 för own-engine-chattar (hela deploy-status-strömmen död i huvudflödet) | Engine-first auth med legacy-fallback i `[deploymentId]/events/route.ts` + `[deploymentId]/route.ts`, samma mönster som deployments-GET; Redis-subscriber släpps nu alltid vid stream-slut (VADE-fynd #443) | 4 nya tester i `events/route.test.ts` |
+
+BB#deploy3-raden i backloggen flyttas till arkivet vid merge (fixad här). BB#deploy2/4/5 kvarstår öppna.
+
 **Bug-post-check (bugbot-subagent):** 5 fynd. #1 (dubbelskriven deploy-fel-logg) **fixad**
 (single-writer via `emitVersionErrorLogs`, commit `abf38b6a4`). #2–#5 **loggade** i
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) som `BB#deploy2–5` (reload-persistens,
