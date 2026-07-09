@@ -212,6 +212,35 @@ describe("isBuildBreakingFinding", () => {
         detail: "openai is used in app/api/chat/route.ts but is not imported.",
       }),
     ).toBe(true);
+    // Context word BEFORE the verb.
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "import of Uint8Array conflicts with the global typed array",
+      }),
+    ).toBe(true);
+    // `built-in` phrasing for shadowing.
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "app/api/assistant/route.ts: the local import shadows the built-in Uint8Array.",
+      }),
+    ).toBe(true);
+  });
+
+  it("matches build-*-import ids case-insensitively (LLM ids vary casing)", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "Build-Invalid-Import",
+        detail: "app/api/chat/route.ts uses openai() with no import.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "Import-Name-Collision",
+        detail: "Uint8Array imported from @/components/uint8-array shadows the global.",
+      }),
+    ).toBe(true);
   });
 
   it("does NOT classify quality / design findings", () => {
@@ -237,6 +266,15 @@ describe("isBuildBreakingFinding", () => {
       isBuildBreakingFinding({
         id: "design-quality",
         detail: "The card shadows are too subtle and blend into the background.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify design copy that says 'conflicts with' without name-resolution context", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "app/page.tsx: the hero conflicts with the footer rhythm.",
       }),
     ).toBe(false);
   });

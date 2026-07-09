@@ -7,8 +7,64 @@ import {
   checkUseReducedMotionStub,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
+  promoteForcedBlockingFindings,
   suppressValidInPageAnchorNavigationFindings,
 } from "./verifier-pass";
+
+describe("promoteForcedBlockingFindings", () => {
+  // F2 init has no server-verify backstop: a build-breaking finding the LLM
+  // mis-buckets as `quality` never reaches `verifierBlockingFindings` and the
+  // F2 gate (`isBuildBreakingFinding`) never sees it. The import-collision id
+  // class must therefore be force-promoted (prod incident 2026-07-09 follow-up).
+  it("promotes import-name-collision from quality to blocking", () => {
+    const result = promoteForcedBlockingFindings({
+      blocking: [],
+      quality: [
+        {
+          id: "import-name-collision",
+          detail:
+            "app/api/assistant/route.ts imports Uint8Array from @/components/uint8-array but uses the global Uint8Array.",
+        },
+        { id: "design-quality", detail: "low contrast on the hero" },
+      ],
+    });
+    expect(result.blocking).toEqual([
+      expect.objectContaining({ id: "import-name-collision" }),
+    ]);
+    expect(result.quality).toEqual([
+      expect.objectContaining({ id: "design-quality" }),
+    ]);
+  });
+
+  it("promotes build-*-import ids from quality to blocking", () => {
+    const result = promoteForcedBlockingFindings({
+      blocking: [],
+      quality: [
+        { id: "build-invalid-import", detail: "openai() used with no import" },
+        { id: "build-missing-import", detail: "no import for openai" },
+      ],
+    });
+    expect(result.blocking).toHaveLength(2);
+    expect(result.quality).toEqual([]);
+  });
+
+  it("still promotes the product-quality FORCE_BLOCKING_IDS and leaves other quality findings alone", () => {
+    const result = promoteForcedBlockingFindings({
+      blocking: [{ id: "undefined-jsx-symbol", detail: "x" }],
+      quality: [
+        { id: "navigation-placeholder-actions", detail: "hero CTA href is empty" },
+        { id: "design-quality", detail: "spacing is uneven" },
+      ],
+    });
+    expect(result.blocking).toEqual([
+      expect.objectContaining({ id: "undefined-jsx-symbol" }),
+      expect.objectContaining({ id: "navigation-placeholder-actions" }),
+    ]);
+    expect(result.quality).toEqual([
+      expect.objectContaining({ id: "design-quality" }),
+    ]);
+  });
+});
 
 const TRAP_CLASS = `motion-reduce` + `:hidden`;
 

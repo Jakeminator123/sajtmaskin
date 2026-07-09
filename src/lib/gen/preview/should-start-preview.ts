@@ -43,12 +43,17 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
   /\bTS2304\b/,
   /\bTS2307\b/,
   /\bTS2552\b/,
-  // Import name-resolution / collision class (all break the build). `shadows`
-  // is anchored to an import/name context so CSS `box-shadow`/`text-shadow`
-  // design findings ("the card shadows are too subtle") are not misclassified.
+  // Import name-resolution / collision class (all break the build).
+  // `conflicts with` and `shadows` are anchored to an import/name-resolution
+  // context word in the same sentence so verifier DESIGN copy ("hero conflicts
+  // with footer rhythm", "the card shadows are too subtle") is never
+  // misclassified as build-breaking. The context word may sit before OR after
+  // the verb ("import of X conflicts with the global", "TS2440: Import
+  // declaration conflicts with local declaration").
   /\bTS2440\b/,
-  /\bconflicts with\b/i,
-  /\bshadows\b[^.]*\b(?:global|import(?:ed)?|binding|declaration|module|name)\b/i,
+  /\b(?:import(?:ed)?|global|identifier|declaration|binding|name|type)\b[^.]*\bconflicts with\b/i,
+  /\bconflicts with\b[^.]*\b(?:import(?:ed)?|global|identifier|declaration|binding|name|type)\b/i,
+  /\bshadows\b[^.]*\b(?:global|import(?:ed)?|binding|declaration|module|name|built-in)\b/i,
   /\bcollides with\b/i,
   /\bno import for\b/i,
   /\bis not imported\b/i,
@@ -56,15 +61,27 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
 
 // Import-related finding ids that always break the build. `import-name-collision`
 // is the LLM verifier's own id; `build-invalid-import` / `build-missing-import`
-// (and any `build-*-import` sibling) are the build-lane variants.
-const BUILD_BREAKING_IMPORT_ID_RE = /^build-[a-z-]*import$/;
+// (and any `build-*-import` sibling) are the build-lane variants. Ids are
+// LLM-emitted and can vary in casing, so matching is case-insensitive.
+const BUILD_BREAKING_IMPORT_ID_RE = /^build-[a-z-]*import$/i;
+
+/**
+ * Import name-resolution finding ids that always break the build. Shared with
+ * `verifier-pass.ts` (FORCE-BLOCKING promotion) so a finding the LLM drops in
+ * the `quality` bucket is still routed to the blocking lane that this
+ * classifier gates on — single source of truth for the id class.
+ */
+export function isBuildBreakingImportFindingId(id: string): boolean {
+  const normalized = id.toLowerCase();
+  if (normalized === "import-name-collision") return true;
+  return BUILD_BREAKING_IMPORT_ID_RE.test(normalized);
+}
 
 export function isBuildBreakingFinding(finding: VerifierFinding): boolean {
   if (finding.id === "build-breaking-missing-imports") return true;
   if (finding.id === "undefined-jsx-symbol") return true;
   if (finding.id === "autofix-preview-blocking") return true;
-  if (finding.id === "import-name-collision") return true;
-  if (BUILD_BREAKING_IMPORT_ID_RE.test(finding.id)) return true;
+  if (isBuildBreakingImportFindingId(finding.id)) return true;
   // `r3f-client-boundary` is a deterministic RUNTIME blocker: a React Three
   // Fiber `<Canvas>` in a file without `"use client"` passes typecheck but
   // crashes the preview in Next App Router (server-component / client-hook
