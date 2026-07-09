@@ -97,6 +97,85 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     expect(result.earlyStopReason).toBe("no_improvement");
   });
 
+  // Task 6 root cause: for a gate-class (typecheck) failure the content is
+  // syntax-clean throughout, so `bestContent` never advanced past the ORIGINAL
+  // pre-fix content and the final gate promoted the drifted code — the LLM's
+  // real fix was silently discarded ("could not resolve after 1 attempt").
+  it("promotes the LLM's edited content (not the stale pre-fix content) for a gate-class failure", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const promoted: Array<{ method: RepairMethod; isEdit: boolean }> = [];
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      // The real gate only passes for the LLM-edited content.
+      onAttemptPromotion: async (content, method) => {
+        const isEdit = content === validPageEdited;
+        promoted.push({ method, isEdit });
+        return { promoted: method === "llm" && isEdit };
+      },
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(result.earlyStopReason).toBeNull();
+    // The final LLM gate attempt was handed the edited content, not the original.
+    const llmAttempt = promoted.find((p) => p.method === "llm");
+    expect(llmAttempt?.isEdit).toBe(true);
+  });
+
+  // Review round 2, fix 11d: the gate-class second pass must NOT leak into
+  // pure syntax repairs — an initial SYNTAX failure (gateClassFailure=false)
+  // still stops at the first syntax-clean pass even with budget left.
+  it("keeps a pure syntax repair single-pass at maxLlmPasses=2", async () => {
+    const brokenPage = file(
+      "app/page.tsx",
+      // "( {" marks the content broken for the validator stub above.
+      `export default function Page( {) {\n  return <main />;\n}`,
+    );
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    const result = await runRepairLoop({
+      initialContent: brokenPage,
+      // Pure syntax lane: no originating quality-gate failures.
+      failedOutputs: [],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (_content, method) =>
+        method === "llm" ? { promoted: true } : { promoted: false },
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(result.improvedSyntax).toBe(true);
+    // Exactly ONE pass: syntax went clean and the loop stopped — the
+    // gate-class second pass never fires for syntax-class repairs.
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+  });
+
+  // Task 6: a gate-class failure gets a SECOND LLM pass (still capped at
+  // maxLlmPasses) instead of stopping after one — the retry runs with the
+  // accumulated prior-attempt notes + v4→v5 hint.
+  it("attempts a second LLM pass for a gate-class failure, capped at maxLlmPasses", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+    expect(result.promoted).toBe(false);
+    // Two LLM passes were attempted (the fixer changes content on pass 0, then
+    // repeats on pass 1 → no_improvement break), still bounded by the budget.
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps earlyStopReason null when the repair actually converges (no regression)", async () => {
     runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
 
@@ -156,11 +235,14 @@ describe("runRepairLoop — cross-lane ledger dedupe (Fas 3 RepairGate)", () => 
     validateGeneratedCode.mockClear();
   });
 
+  // Pin to a single pass so the dedup assertions stay crisp: dedup behavior is
+  // independent of the pass budget, and the gate-class second pass (Task 6)
+  // would otherwise record an extra content snapshot per run.
   const loopParams = (ledger: RepairLedger, initialContent: string) => ({
     initialContent,
     failedOutputs: [gateFailure],
     contextLines: [],
-    maxLlmPasses: 2,
+    maxLlmPasses: 1,
     llmTimeoutMs: 1_000,
     enableTargetedRepair: false,
     repairLedger: ledger,

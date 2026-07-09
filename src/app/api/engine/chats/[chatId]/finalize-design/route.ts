@@ -22,7 +22,8 @@ import {
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { getVersionFiles } from "@/lib/gen/version-manager";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
 // Shared with the stream route's F3 gate (M#818-2) — single owner for the
@@ -126,12 +127,33 @@ export async function POST(
       );
     }
 
-    const selectedDossiers = resolveSelectedDossiersFromSnapshot(
-      chat.orchestration_snapshot,
-    );
+    // One owner (review round 2): snapshot ∪ version-presence. Files are read
+    // once here and reused for the spec derivation (no second files_json read).
+    // Best-effort read (Bugbot on #483): a transient files_json error must
+    // surface as the documented retryable 409, not an unhandled 500 — and it
+    // must NOT degrade to an empty file list (empty files ⇒ empty spec ⇒
+    // false `ready: true`).
+    const baseVersionFiles = await getVersionFiles(baseVersion.id).catch(() => null);
+    if (baseVersionFiles === null) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "version_files_unavailable",
+          parentVersionId: baseVersion.id,
+          message:
+            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+        },
+        { status: 409 },
+      );
+    }
+    const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+      snapshot: chat.orchestration_snapshot,
+      versionFiles: baseVersionFiles,
+    });
     const spec = await deriveTier3BuildSpecForVersion(
       baseVersion.id,
       selectedDossiers,
+      { preloadedFiles: baseVersionFiles },
     );
 
     if (!spec) {

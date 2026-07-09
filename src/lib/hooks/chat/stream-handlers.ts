@@ -26,6 +26,7 @@ import {
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { runPostGenerationChecks } from "./post-checks";
 import {
+  F3_APPROVAL_NOTHING_TO_BUILD_REASON,
   F3_REJECT_ACK_REASON,
   F3_TOOL_ONLY_EXHAUSTED_REASON,
 } from "@/lib/gen/stream/f3-continuation";
@@ -993,6 +994,7 @@ export async function handleSseStream(
             // without the "generation ended without version" failure toast.
             const isCalmNoVersionClose =
               emptyGenerationReason === F3_REJECT_ACK_REASON ||
+              emptyGenerationReason === F3_APPROVAL_NOTHING_TO_BUILD_REASON ||
               emptyGenerationReason === F3_TOOL_ONLY_EXHAUSTED_REASON;
             const nextId = String(resolvedChatId);
             streamStats.chatId = nextId;

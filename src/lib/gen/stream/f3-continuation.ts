@@ -120,6 +120,18 @@ export const F3_CONTINUATION_EMPTY_QUESTION =
 export const F3_EMPTY_NO_CODE_REASON = "f3_empty_no_code_generation";
 
 /**
+ * Honest first-round copy when the F3 round wrote no NEW code BUT the parent
+ * design version already carries the integration/dossier artifacts (verified via
+ * `resolveDossiersPresentInVersion` over the parent files). The old copy
+ * ("Integrationer signalerades, men modellen skrev inga kodfiler") was a lie in
+ * this case — the integration code very much exists, it just already lived in
+ * the design version (the ai-tool-calling incident). Still offers the same
+ * approve/continue choice via the canonical quick-replies.
+ */
+export const F3_CONTINUATION_PARENT_HAS_CODE_QUESTION =
+  "Integrationskoden finns redan i designversionen — den här rundan skrev inga nya kodfiler. Välj om du vill köra integrationsbygget igen ('Godkänn förslag') eller fortsätta med designversionen som den är ('Avvisa förslag').";
+
+/**
  * Terminal message after the SECOND repeated no-code round (tool-only OR
  * silent): no new marker is persisted (loop-breaker cap) — F3 ends and the
  * chat returns to design.
@@ -140,6 +152,20 @@ export const F3_REJECT_ACK_MESSAGE =
 
 /** `done`-event reason for the calm reject close-out (no generation ran). */
 export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
+
+/**
+ * Honest close-out for an APPROVED round with nothing approvable (review
+ * round 2, fix 5b): the marker carried zero providers, no earlier approval is
+ * persisted, and the base version has no integration file evidence — running
+ * the build round would be a silent no-op that burns credits and re-parks the
+ * user in the same dialog. Consumes the marker and closes F3 calmly with a
+ * concrete next step instead.
+ */
+export const F3_APPROVAL_NOTHING_TO_BUILD_MESSAGE =
+  "Godkännandet togs emot, men förslaget innehöll inga konkreta integrationer att bygga — inga providers signalerades och designversionen saknar integrationskod. Integrationsläget avslutas. Be om en specifik integration (t.ex. 'lägg till Stripe-betalning') och kör 'Bygg integrationer' igen.";
+
+/** `done`-event reason for the honest nothing-to-build close (no generation ran). */
+export const F3_APPROVAL_NOTHING_TO_BUILD_REASON = "f3_approval_nothing_to_build";
 
 /**
  * Codex P2 (PR #383): reject reply that LOST the atomic consume race to a

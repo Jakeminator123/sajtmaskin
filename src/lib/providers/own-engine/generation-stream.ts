@@ -15,9 +15,12 @@ import {
   F3_CONTINUATION_EXHAUSTED_MESSAGE,
   F3_CONTINUATION_FIRST_QUESTION,
   F3_CONTINUATION_LOOP_QUESTION,
+  F3_CONTINUATION_PARENT_HAS_CODE_QUESTION,
   F3_EMPTY_NO_CODE_REASON,
   F3_TOOL_ONLY_EXHAUSTED_REASON,
 } from "@/lib/gen/stream/f3-continuation";
+import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
+import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
@@ -336,15 +339,39 @@ export function createOwnEngineGenerationStream(
             return;
           }
 
+          // Task 1c (ai-tool-calling incident): a first-round F3 no-code result
+          // must NOT claim "modellen skrev inga kodfiler" when the parent design
+          // version already carries the integration/dossier artifacts — the code
+          // exists, it just lived in F2. `previousFiles` is the parent version's
+          // file set (loaded upstream for the follow-up). Only overrides the
+          // FIRST round's copy; the loop/exhausted copy stays as-is.
+          const parentHasIntegrationCode =
+            isF3Round &&
+            noCodeRounds < 2 &&
+            resolveDossiersPresentInVersion(previousFiles ?? []).some((selected) =>
+              dossierRequiresF3(selected.entry),
+            );
+          if (parentHasIntegrationCode) {
+            warnLog("engine", "F3 no-code round but parent version has integration code", {
+              chatId,
+              toolCalls,
+              parentVersionId: lifecycleParentVersionId ?? null,
+            });
+          }
+
           // Honest copy per variant: tool-only round 1 keeps the classic
           // "Integrationer signalerades…" proposal question; a repeated
           // tool-only round offers closure; a silent round never claims
-          // integrations were signaled (nothing was).
-          const awaitingInputPrompt = isSilentF3NoCode
-            ? F3_CONTINUATION_EMPTY_QUESTION
-            : noCodeRounds >= 2
-              ? F3_CONTINUATION_LOOP_QUESTION
-              : F3_CONTINUATION_FIRST_QUESTION;
+          // integrations were signaled (nothing was); and when the parent
+          // version already holds the integration code we say so instead of
+          // falsely claiming no code files.
+          const awaitingInputPrompt = parentHasIntegrationCode
+            ? F3_CONTINUATION_PARENT_HAS_CODE_QUESTION
+            : isSilentF3NoCode
+              ? F3_CONTINUATION_EMPTY_QUESTION
+              : noCodeRounds >= 2
+                ? F3_CONTINUATION_LOOP_QUESTION
+                : F3_CONTINUATION_FIRST_QUESTION;
           // P1 F3-entry (BUG-SWARM-BACKLOG): persist the awaiting-input
           // question WITH the F3-continuation marker. Without a version and
           // without this message the F3 stage only lived in the client's

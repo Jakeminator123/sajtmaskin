@@ -55,13 +55,23 @@ export interface InferredCapabilities {
    */
   needsParallax?: boolean;
   /**
-   * Prompt asks for a real payment flow (Stripe/Klarna/checkout). Bridges
-   * to the `payments` dossier capability so `stripe-checkout` is selected
-   * with high confidence, and so the F3 readiness gate knows which
-   * provider's keys are truly blocking. Optional for backwards
+   * Prompt asks for a real ONE-OFF payment flow (Stripe/Klarna/checkout).
+   * Bridges to the `payments` dossier capability so `stripe-checkout` is
+   * selected with high confidence, and so the F3 readiness gate knows which
+   * provider's keys are truly blocking. Recurring/subscription vocabulary
+   * belongs to {@link InferredCapabilities.needsSubscriptions} after the
+   * #475 payments/subscriptions split. Optional for backwards
    * compatibility with older fixtures.
    */
   needsPayments?: boolean;
+  /**
+   * Prompt asks for RECURRING subscriptions/memberships (Paddle,
+   * prenumeration, membership billing). Bridges to the `subscriptions`
+   * dossier capability (paddle-billing) — routing these terms to `payments`
+   * after the #475 split would inject Stripe one-off checkout for a
+   * recurring ask. Optional for backwards compatibility with older fixtures.
+   */
+  needsSubscriptions?: boolean;
   needsCharts: boolean;
   needsDatabase: boolean;
   needsAuth: boolean;
@@ -154,11 +164,24 @@ const RULES: CapabilityRule[] = [
       /\bkassa\b/i,
       /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
       /\b(card.?payment|kortbetalning|kortköp|kreditkort)\b/i,
-      /\b(prenumerationsbetalning|subscription.?billing|recurring.?billing)\b/i,
       // "betala med kort/swish/klarna/kreditkort/visa/mastercard"
       /\bbetala\s+med\s+(kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)\b/i,
       // "köp(a) med kort/online/checkout" — narrow noun-list
       /\bk(ö|o)p(a)?\s+med\s+(kort|kreditkort|stripe|klarna|swish|checkout)\b/i,
+    ],
+  },
+  {
+    // Recurring subscriptions/memberships (paddle-billing dossier). Split
+    // from `needsPayments` after #475: recurring vocabulary routed to
+    // `payments` would inject Stripe one-off checkout for a subscription
+    // ask. Unicode look-arounds so Swedish compounds
+    // ("prenumerationsbetalning", "medlemskapssida") match (JS \b is
+    // ASCII-only — see .cursor/rules/unicode-regex.mdc).
+    key: "needsSubscriptions",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:paddle|prenumeration[\p{L}]*|subscription[-\s]?billing|subscriptions?|medlemskap[\p{L}]*|membership[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])recurring[-\s]?(?:billing|payment[\p{L}]*|betalning[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])återkommande\s+betalning[\p{L}]*(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -276,6 +299,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsPhysics: false,
     needsParallax: false,
     needsPayments: false,
+    needsSubscriptions: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -303,6 +327,11 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   const visualOnlyFollowUp = isVisualOnlyFollowUpPrompt(prompt);
   if (visualOnlyFollowUp || hasNegatedAuthIntent(prompt)) result.needsAuth = false;
   if (visualOnlyFollowUp || hasNegatedPaymentIntent(prompt)) result.needsPayments = false;
+  // Subscriptions share the payment negation family: "utan betalning/
+  // prenumeration" and visual-only follow-ups must not infer recurring billing.
+  if (visualOnlyFollowUp || hasNegatedPaymentIntent(prompt)) {
+    result.needsSubscriptions = false;
+  }
   // needsEcommerce had no negation guard (unlike payments/auth/backend), so a
   // prompt like "en butik utan varukorg/betalning" still inferred Ecommerce
   // and dragged in cart/checkout scaffolding (prod chat 8bf59f13, 2026-07-01).
@@ -369,6 +398,7 @@ export const HEAVY_CAPABILITY_KEYS = [
   "needsPhysics",
   "needsParallax",
   "needsPayments",
+  "needsSubscriptions",
   "needsAuth",
   "needsForms",
   "needsGame",

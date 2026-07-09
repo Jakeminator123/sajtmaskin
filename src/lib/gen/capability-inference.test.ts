@@ -231,6 +231,34 @@ describe("inferCapabilities", () => {
   it("'kreditkort' alone (without provider) triggers needsPayments", () => {
     expect(inferCapabilities("Vi tar kreditkort på plats").needsPayments).toBe(true);
   });
+
+  // ---- #475 payments/subscriptions split (review round 2, fix 6) ----
+
+  it("routes recurring vocabulary to needsSubscriptions, NOT needsPayments", () => {
+    const prenumeration = inferCapabilities("Lägg till prenumerationsbetalning för medlemmar");
+    expect(prenumeration.needsSubscriptions).toBe(true);
+    expect(prenumeration.needsPayments).toBe(false);
+
+    const recurring = inferCapabilities("Add recurring billing for the premium plan");
+    expect(recurring.needsSubscriptions).toBe(true);
+    expect(recurring.needsPayments).toBe(false);
+  });
+
+  it("detects Paddle and membership terms as subscriptions", () => {
+    expect(inferCapabilities("Use Paddle for the membership billing").needsSubscriptions).toBe(true);
+    expect(inferCapabilities("En medlemskapssida med återkommande betalning").needsSubscriptions).toBe(true);
+  });
+
+  it("keeps a one-off checkout as payments only", () => {
+    const caps = inferCapabilities("Lägg in Stripe-checkout för engångsköp");
+    expect(caps.needsPayments).toBe(true);
+    expect(caps.needsSubscriptions).toBe(false);
+  });
+
+  it("negation clears subscriptions like payments ('utan betalning')", () => {
+    const caps = inferCapabilities("En medlemssida med prenumerationer men utan betalning i MVP");
+    expect(caps.needsSubscriptions).toBe(false);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {

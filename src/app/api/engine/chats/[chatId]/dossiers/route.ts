@@ -6,9 +6,10 @@
  * they have been built into the active version yet and whether they still
  * need real env keys.
  *
- * Data sources (all already used by the readiness / finalize-design routes):
- *  - `resolveSelectedDossiersFromSnapshot(chat.orchestration_snapshot)` —
- *    the connected dossier set (capability-driven, persisted at gen time).
+ * Data sources (all shared with the readiness / finalize-design routes):
+ *  - `resolveSelectedDossiersWithVersionPresence(...)` — the connected dossier
+ *    set: snapshot-derived selection ∪ dossiers whose files are actually in
+ *    the version (ONE owner, shared by panel + all F3/deploy gates).
  *  - `deriveTier3BuildSpecForVersion(versionId, selectedDossiers)` —
  *    integrations actually detected in the active version's files. A hard
  *    dossier that maps to a detected requirement is "built"; one that does
@@ -55,9 +56,13 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
-import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
+import {
+  resolveDossiersPresentInVersion,
+  resolveSelectedDossiersWithVersionPresence,
+} from "@/lib/gen/dossiers/version-presence";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
@@ -149,10 +154,27 @@ async function buildDossierOverview(
     : ({} as Record<string, string>);
   const configuredEnvKeys = new Set(Object.keys(projectEnvVars));
 
-  const initialSelectedDossiers = resolveSelectedDossiersFromSnapshot(
-    chat.orchestration_snapshot,
+  // Single files_json read per request (review round 2, perf): loaded once
+  // here, then reused by the presence union AND every build-spec derivation
+  // below via `preloadedFiles`. Best-effort: a load failure degrades to
+  // snapshot-only selection + "files unavailable" spec.
+  const versionFiles =
+    version && version.chat_id === chat.id
+      ? await getVersionFiles(version.id).catch(() => null)
+      : null;
+
+  // One owner (review round 2): snapshot ∪ version-presence — the same
+  // resolver the readiness/finalize-design/stream-gate/deploy consumers use,
+  // so the panel can never disagree with the gates. Covers the incident case:
+  // an integration built into the version shows even when the F2-muted
+  // snapshot floor dropped its capability AND the provider-key→capability
+  // mapping resolves the wrong dossier (`openai` → `ai-chat` default, never
+  // `ai-tool-calling`).
+  const initialSelectedDossiers = resolveSelectedDossiersWithVersionPresence({
+    snapshot: chat.orchestration_snapshot,
+    versionFiles,
     configuredEnvKeys,
-  );
+  });
 
   const lifecycleStage =
     version && typeof version.lifecycle_stage === "string" &&
@@ -160,14 +182,15 @@ async function buildDossierOverview(
       ? "integrations"
       : "design";
 
-  // Provisional pass: detect requirements from the version's real files
-  // using ONLY the snapshot-resolved dossiers (may already be F2-mute-lossy —
-  // see module doc). Used below purely to discover capabilities the
-  // snapshot floor lost; the authoritative `spec` (with correct env
-  // enforcement tagging) is re-derived after the dossier set is finalized.
+  // Provisional pass: detect requirements from the version's real files using
+  // the union set above. Used below to discover capabilities the union still
+  // misses (brief-planned or provider-key-detected); the authoritative `spec`
+  // is re-derived only when reconciliation actually grew the set.
   const provisionalSpec =
     version && version.chat_id === chat.id
-      ? await deriveTier3BuildSpecForVersion(version.id, initialSelectedDossiers)
+      ? await deriveTier3BuildSpecForVersion(version.id, initialSelectedDossiers, {
+          preloadedFiles: versionFiles ?? [],
+        })
       : null;
 
   const briefSummary = extractBriefSummaryFromSnapshot(chat.orchestration_snapshot);
@@ -199,10 +222,9 @@ async function buildDossierOverview(
     (capability) => !initialCapabilities.has(capability),
   );
 
-  // Only re-resolve (and re-derive the build spec, one extra file read) when
-  // reconciliation actually found something the snapshot floor missed — the
-  // common, non-buggy case does exactly the same work as before.
-  const selectedDossiers =
+  // Only re-resolve (capability re-selection) when reconciliation actually
+  // found something the union missed — the common case keeps the initial set.
+  const capabilitySelectedDossiers =
     extraCapabilities.length > 0
       ? selectDossiersForRequest({
           requestedCapabilities: [...initialCapabilities, ...extraCapabilities],
@@ -210,14 +232,48 @@ async function buildDossierOverview(
         }).selected
       : initialSelectedDossiers;
 
-  // Derive which integrations are actually wired into the active version's
-  // files, plus which of them still miss real env values. When the version
-  // (or its files) can't be resolved, we can't determine "built", so hard
-  // dossiers fall back to "not-built" and we flag it to the UI.
-  const spec =
-    newlyDetectedCapabilities.length > 0 && version && version.chat_id === chat.id
-      ? await deriveTier3BuildSpecForVersion(version.id, selectedDossiers)
-      : provisionalSpec;
+  // The capability re-selection REPLACES the list with capability defaults,
+  // which can drop a version-present non-default sibling (e.g. mongodb-atlas
+  // under `database`). Re-union the presence entries (dedupe by id) so file
+  // evidence always survives reconciliation. Presence is computed from the
+  // already-loaded files — no extra read.
+  const presentInVersionDossiers = versionFiles
+    ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
+    : [];
+  const selectedById = new Map<string, SelectedDossier>();
+  for (const selected of [...capabilitySelectedDossiers, ...presentInVersionDossiers]) {
+    if (!selectedById.has(selected.entry.id)) selectedById.set(selected.entry.id, selected);
+  }
+  const selectedDossiers = Array.from(selectedById.values());
+
+  // Re-derive the spec (against the same preloaded files) only when a
+  // FILE-based source grew the set beyond what the provisional pass saw —
+  // capabilities detected via provider keys, or a presence dossier the
+  // capability re-selection dropped. A brief-only "planned" capability isn't
+  // in the files, so it never forces a re-derive. Failure degrades to the
+  // provisional spec (review round 2) instead of 500:ing the panel.
+  const presenceAddedNewDossier = presentInVersionDossiers.some(
+    (present) =>
+      !capabilitySelectedDossiers.some((sel) => sel.entry.id === present.entry.id),
+  );
+  let spec = provisionalSpec;
+  if (
+    (newlyDetectedCapabilities.length > 0 || presenceAddedNewDossier) &&
+    version &&
+    version.chat_id === chat.id
+  ) {
+    try {
+      spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
+        preloadedFiles: versionFiles ?? [],
+      });
+    } catch (error) {
+      console.warn(
+        "[API] dossier overview spec re-derivation failed — using provisional spec:",
+        error instanceof Error ? error.message : error,
+      );
+      spec = provisionalSpec;
+    }
+  }
   const versionFilesAvailable = spec !== null;
 
   // Placeholder set powers the per-key `placeholderCovered` flag. The stored

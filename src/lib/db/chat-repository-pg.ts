@@ -554,6 +554,66 @@ export async function updateChatOrchestrationSnapshot(
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Durable F3-approval record (review round 2, fix 5): append the approved
+ * dossier capabilities + provider keys from a confirmed "Godkänn förslag"
+ * round to the chat's orchestration snapshot (set-union, targeted `jsonb_set`
+ * so a concurrent finalize's whole-column merge is never clobbered by this
+ * write). Read back via `readF3ApprovedFromSnapshot` /
+ * `FollowUpContract.f3ApprovedCapabilities` so the F3 capability-scope treats
+ * an earlier approval as approved even when its build round produced no file
+ * evidence. Best-effort at the callsite; no-op when both lists are empty.
+ */
+export async function appendF3ApprovedToSnapshot(
+  chatId: string,
+  capabilities: string[],
+  providers: string[],
+): Promise<boolean> {
+  const cleanCapabilities = Array.from(
+    new Set(
+      capabilities
+        .filter((c): c is string => typeof c === "string")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+  const cleanProviders = Array.from(
+    new Set(
+      providers
+        .filter((p): p is string => typeof p === "string")
+        .map((p) => p.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+  if (cleanCapabilities.length === 0 && cleanProviders.length === 0) return false;
+  const capabilitiesJson = JSON.stringify(cleanCapabilities);
+  const providersJson = JSON.stringify(cleanProviders);
+  const unionExpr = (key: string, incomingJson: string) =>
+    sql`(SELECT coalesce(jsonb_agg(DISTINCT value), '[]'::jsonb)
+      FROM jsonb_array_elements_text(
+        coalesce(${engineChats.orchestrationSnapshot}->${key}, '[]'::jsonb)
+        || ${incomingJson}::jsonb
+      ) AS entries(value))`;
+  const result = await db
+    .update(engineChats)
+    .set({
+      orchestrationSnapshot: sql<Record<string, unknown>>`jsonb_set(
+        jsonb_set(
+          coalesce(${engineChats.orchestrationSnapshot}, '{}'::jsonb),
+          '{f3ApprovedCapabilities}'::text[],
+          ${unionExpr("f3ApprovedCapabilities", capabilitiesJson)},
+          true
+        ),
+        '{f3ApprovedProviders}'::text[],
+        ${unionExpr("f3ApprovedProviders", providersJson)},
+        true
+      )`,
+      updatedAt: new Date(),
+    })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function getKnownBrokenImageReplacements(
   chatId: string,
 ): Promise<KnownImageReplacementMap> {

@@ -26,6 +26,11 @@ import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
+import {
+  selectedDossiersFromOverview,
+  type DossierOverviewResponse,
+} from "@/lib/builder/dossier-overview";
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
 import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
@@ -401,11 +406,50 @@ export function ProjectEnvVarsPanel({
         .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
         .map((file) => `// File: ${file.name}\n${file.content}`)
         .join("\n\n");
-      setDetectedIntegrations(
-        fileEntries.length > 0 ? detectIntegrationsFromVersionFiles(fileEntries) : [],
-      );
-      setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
-      setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
+      // F3 env-panel parity (env-flow-f2-mute): scope detection to the chat's
+      // selected dossiers + lifecycle stage, exactly like the readiness route.
+      // Without this the panel treated EVERY detected integration as
+      // build-blocking (a matching dossier is what downgrades an integration to
+      // warn-only), so a landing page that merely references a provider example
+      // demanded the world.
+      let detectionOptions: {
+        selectedDossiers: SelectedDossier[];
+        lifecycleStage: "design" | "integrations";
+      } | null = null;
+      try {
+        const dossiersResponse = await fetch(
+          `${engineChatBaseUrl(chatId)}/dossiers?versionId=${encodeURIComponent(activeVersionId)}`,
+        );
+        if (loaderGenerationRef.current !== gen) return;
+        const dossiersData = (await dossiersResponse
+          .json()
+          .catch(() => null)) as DossierOverviewResponse | null;
+        if (loaderGenerationRef.current !== gen) return;
+        if (dossiersResponse.ok && dossiersData?.success) {
+          detectionOptions = {
+            selectedDossiers: selectedDossiersFromOverview(dossiersData.dossiers),
+            lifecycleStage: dossiersData.lifecycleStage,
+          };
+        }
+      } catch {
+        // handled below — detectionOptions stays null
+      }
+      if (detectionOptions) {
+        setDetectedIntegrations(
+          fileEntries.length > 0
+            ? detectIntegrationsFromVersionFiles(fileEntries, detectionOptions)
+            : [],
+        );
+        setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
+        setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
+      }
+      // Scope fetch failed (review round 2, fix 7 + Bugbot on #483): SKIP the
+      // WHOLE analysis update — integrations, business packs and analytics —
+      // and keep the previous state in lockstep. Unscoped detection is the
+      // STRICTEST mode (every unmatched integration becomes build-blocking),
+      // and partially refreshing packs/analytics while integrations stay stale
+      // would mix two versions' analysis in the same panel.
+      // Stale-but-consistent beats fresh-but-world-demanding.
     } catch (loadError) {
       if (loaderGenerationRef.current !== gen) return;
       setDetectedIntegrations([]);

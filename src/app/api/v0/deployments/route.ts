@@ -45,7 +45,7 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import { getProjectById, getProjectData, setProjectVercelLink } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
@@ -601,9 +601,13 @@ export async function POST(req: Request) {
       const allowPlaceholdersInF3 = envGateActive
         ? await readAllowPlaceholdersInF3(engineProjectId)
         : false;
-      const selectedDossiers = resolveSelectedDossiersFromSnapshot(
-        engineChat.orchestration_snapshot,
-      );
+      // One owner (review round 2): snapshot ∪ version-presence — parity with
+      // the readiness route's set is real now (both call the shared resolver),
+      // not just claimed. `codeFiles` was already loaded above (single read).
+      const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+        snapshot: engineChat.orchestration_snapshot,
+        versionFiles: codeFiles,
+      });
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,

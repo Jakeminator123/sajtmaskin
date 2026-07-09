@@ -66,6 +66,7 @@ import {
 import {
   expandDependentCapabilities,
   getF3RequiredCapabilities,
+  resolveCapabilitiesPresentInVersion,
   selectDossiersForRequest,
   type DossierSelectionResult,
 } from "./dossiers";
@@ -947,6 +948,50 @@ export function enforceFollowUpCapabilityFloor(
 }
 
 /**
+ * F3 capability scope (Task 2 — capability-inflation fix).
+ *
+ * In the integrations stage the F2 mute is lifted, so the prompt filter + the
+ * can-only-grow floor restore EVERY capability the Deep Brief ever nominated
+ * speculatively — turning a one-capability ask into a full-SaaS env wall (prod
+ * 2026-07-09: one `ai-tool-calling` ask → 8 hard dossiers / ~40 env keys). An
+ * F3 build should only wire integrations that are wanted NOW. The allowed set is:
+ *
+ *   - `explicitCapabilities`: inferred from the CURRENT message + providers the
+ *     user explicitly APPROVED in the F3 suggestion flow;
+ *   - `fileEvidenceCapabilities`: integrations with ACTUAL files in the
+ *     parent/base version (already built — safe to keep so they still wire up).
+ *
+ * The allowed set is dependency-expanded (via {@link expandDependentCapabilities})
+ * so a kept `subscriptions` still pulls its required `supabase-auth`. Any
+ * capability NOT in the allowed set — a speculative brief/floor entry with no
+ * ask, approval, or file evidence — is dropped. Pure; the caller logs
+ * `dropped` for observability and only reassigns when something was dropped.
+ *
+ * Only F3 rounds call this; F2/design rounds keep can-only-grow untouched.
+ */
+export function scopeF3DossierCapabilities(params: {
+  capabilities: string[];
+  explicitCapabilities: string[];
+  fileEvidenceCapabilities: string[];
+}): { capabilities: string[]; dropped: string[] } {
+  const allowed = new Set(
+    expandDependentCapabilities(
+      normalizeCapabilityList([
+        ...params.explicitCapabilities,
+        ...params.fileEvidenceCapabilities,
+      ]),
+    ),
+  );
+  const capabilities: string[] = [];
+  const dropped: string[] = [];
+  for (const cap of params.capabilities) {
+    if (allowed.has(cap)) capabilities.push(cap);
+    else dropped.push(cap);
+  }
+  return { capabilities, dropped };
+}
+
+/**
  * Best-effort drift telemetry for 5-3 freeze-enforcement: emits the
  * `[orchestrate] followup_freeze_drift` console signal when a follow-up's
  * frozen scaffold/variant differs from the fresh pick. Wrapped so telemetry can
@@ -1463,6 +1508,49 @@ export async function resolveOrchestrationBase(
         });
       }
       dossierRequestedCapabilities = capabilityFloor.capabilities;
+
+      // F3 capability scope (Task 2 — capability-inflation fix). In the
+      // integrations stage the F2 mute is lifted, so `filterDossierCapabilities
+      // ForPrompt` + the can-only-grow floor restore EVERY capability the Deep
+      // Brief ever nominated speculatively (analytics, auth, payments, …) —
+      // turning a one-capability ask into an 8-dossier / ~40-env-key wall (prod
+      // 2026-07-09). An F3 build should only wire integrations that are actually
+      // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
+      // the user explicitly APPROVED, and (c) integrations with real FILE
+      // EVIDENCE in the parent/base version (already built — safe to keep). The
+      // allowed set is dependency-expanded so a kept `subscriptions` still pulls
+      // its required `supabase-auth`. Speculative brief/floor capabilities with
+      // no evidence, ask, or approval are dropped. F2/design rounds are
+      // untouched (can-only-grow stays). See docs/architecture/llm-pipeline.md.
+      if (input.lifecycleStage === "integrations") {
+        const explicitCapabilities = [
+          ...inferredCapabilityIds,
+          ...callerProvidedCapabilityIds,
+          // Durable approvals (review round 2, fix 5): capabilities the user
+          // explicitly approved in an EARLIER F3 round, persisted on the
+          // snapshot. Without these, approve → build-incomplete (no file
+          // evidence yet) → the next round's scope drops the capability again.
+          ...(input.followUpContract?.f3ApprovedCapabilities ?? []),
+        ];
+        const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
+          input.previousFilePaths ?? [],
+        );
+        const f3Scope = scopeF3DossierCapabilities({
+          capabilities: dossierRequestedCapabilities,
+          explicitCapabilities,
+          fileEvidenceCapabilities,
+        });
+        if (f3Scope.dropped.length > 0) {
+          console.info("[orchestrate] f3_capability_scope_dropped", {
+            chatId: input.chatId ?? null,
+            dropped: f3Scope.dropped,
+            kept: f3Scope.capabilities,
+            explicitCapabilities,
+            fileEvidenceCapabilities,
+          });
+          dossierRequestedCapabilities = f3Scope.capabilities;
+        }
+      }
       // Same prompt surface as the F2 filter above, PLUS the approved-provider
       // hints from an F3 approval round: the raw approval text ("Godkänn")
       // has no provider keyword, so without the hints an approved MongoDB
@@ -1479,7 +1567,17 @@ export async function resolveOrchestrationBase(
         .join("\n");
       dossierSelection = selectDossiersForRequest({
         brief,
-        requestedCapabilities: capabilityFloor.capabilities,
+        // `dossierRequestedCapabilities` is the canonical "exact ids passed into
+        // selection" set: `capabilityFloor.capabilities`, then scoped down in F3
+        // to (current-message ∪ approved ∪ file-evidence) so the build stops
+        // restoring speculative brief/floor capabilities (Task 2). Identical to
+        // the floor set on F2/design rounds.
+        requestedCapabilities: dossierRequestedCapabilities,
+        // F3 (review round 2): the scoped list is authoritative even when
+        // EMPTY — select.ts's brief fallback would otherwise resurrect the
+        // speculative brief set in exactly the inflation case the scope
+        // filters (scoped [] + brief with 5 caps → 5 dossiers again).
+        disableBriefFallback: input.lifecycleStage === "integrations",
         // Lets sibling dossiers under one capability resolve on explicit
         // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
         // mongodb-atlas instead of the postgres-drizzle default).

@@ -5,6 +5,7 @@ import {
   filterDossierCapabilitiesForPrompt,
   inheritQualityTargetFromPriorVersion,
   resolveBuildIntentPromotion,
+  scopeF3DossierCapabilities,
   type BuildIntentPromotionInput,
 } from "./orchestrate";
 import { dossierRequiresF3, getF3RequiredCapabilities } from "./dossiers";
@@ -33,6 +34,69 @@ function makeBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
     ...overrides,
   } satisfies BuildSpec;
 }
+
+// F3 capability scope (Task 2 — capability-inflation fix). Only current-message
+// + approved + file-evidenced capabilities survive the integrations build; the
+// speculative brief/floor capabilities that F2-mute lift would otherwise restore
+// are dropped so a one-capability ask stops turning into a full-SaaS env wall.
+describe("scopeF3DossierCapabilities", () => {
+  it("drops floor-only capabilities with no ask, approval, or file evidence", () => {
+    const result = scopeF3DossierCapabilities({
+      // The inflated set F2-mute lift restored from the Deep Brief.
+      capabilities: [
+        "ai-tool-calling",
+        "ai-chat",
+        "payments",
+        "contact-form",
+        "analytics",
+        "auth",
+      ],
+      explicitCapabilities: [],
+      // Only the AI assistant route was actually built in the design version.
+      fileEvidenceCapabilities: ["ai-tool-calling"],
+    });
+    expect(result.capabilities).toEqual(["ai-tool-calling"]);
+    expect(result.dropped).toEqual([
+      "ai-chat",
+      "payments",
+      "contact-form",
+      "analytics",
+      "auth",
+    ]);
+  });
+
+  it("keeps capabilities explicitly asked/approved in the current round", () => {
+    const result = scopeF3DossierCapabilities({
+      capabilities: ["payments", "analytics"],
+      explicitCapabilities: ["payments"],
+      fileEvidenceCapabilities: [],
+    });
+    expect(result.capabilities).toEqual(["payments"]);
+    expect(result.dropped).toEqual(["analytics"]);
+  });
+
+  it("keeps a dependent companion capability when its key capability survives", () => {
+    // `subscriptions` has file evidence → allowed; its dependent `supabase-auth`
+    // must ride along even though it has no independent evidence.
+    const result = scopeF3DossierCapabilities({
+      capabilities: ["subscriptions", "supabase-auth", "analytics"],
+      explicitCapabilities: [],
+      fileEvidenceCapabilities: ["subscriptions"],
+    });
+    expect(result.capabilities).toEqual(["subscriptions", "supabase-auth"]);
+    expect(result.dropped).toEqual(["analytics"]);
+  });
+
+  it("is a no-op when every capability is asked or file-evidenced", () => {
+    const result = scopeF3DossierCapabilities({
+      capabilities: ["ai-tool-calling", "payments"],
+      explicitCapabilities: ["payments"],
+      fileEvidenceCapabilities: ["ai-tool-calling"],
+    });
+    expect(result.capabilities).toEqual(["ai-tool-calling", "payments"]);
+    expect(result.dropped).toEqual([]);
+  });
+});
 
 // Blocking-lane coverage for the Bugg B floor-shrink (Codex P1 on #447: the
 // stability copy of this contract lives in a non-default vitest config; this

@@ -18,6 +18,35 @@ import { mapDossierPathToOutput } from "../../dossiers/output-path";
 // dossier verbatim block (would clobber fonts, providers, metadata). We
 // skip these even if a dossier asks for verbatim — log so we can spot
 // dossier-data that needs fixing.
+/**
+ * Capabilities whose dossiers ship Vercel AI SDK v5+ (ai@^7) code. When one is
+ * selected we inject an explicit banned-symbols block (see
+ * {@link renderAiSdkVersionGuardrail}) — the dossier templates are correct, but
+ * the codegen LLM's freeform output drifts to stale v4 APIs (`CoreMessage`,
+ * `maxSteps`, `chunk.textDelta`), which typecheck-fails the F3 build.
+ */
+const AI_SDK_CAPABILITIES = new Set(["ai-chat", "ai-tool-calling", "rag-chat"]);
+
+/**
+ * Deterministic v4→v5 guardrail for rounds that select an AI-SDK dossier. Kept
+ * OFF for every other round so the prompt doesn't bloat (the whole point of the
+ * capability scope). The mappings mirror the deterministic server-repair hint
+ * (`ai-sdk-v5-repair-hint.ts`) so prompt guidance and repair stay in lockstep.
+ */
+function renderAiSdkVersionGuardrail(): string[] {
+  return [
+    "## AI SDK version contract (ai@^7 / v5+)",
+    "",
+    "The selected AI dossier(s) use the Vercel AI SDK v5+ (`ai@^7`). NEVER emit stale v4 APIs — they fail typecheck and break the build:",
+    "",
+    "- Do NOT import or use `CoreMessage`. Use `UIMessage` (client/route boundary) and `ModelMessage` + `convertToModelMessages(messages)` (model call).",
+    "- Do NOT pass `maxSteps` to `streamText`/`generateText`. Use `stopWhen: stepCountIs(n)` (import `stepCountIs` from `ai`).",
+    "- Do NOT read `chunk.textDelta` from the stream. Text is delivered as `text-delta` parts whose payload is `part.delta` (use `part.type === \"text-delta\"` and `part.delta`).",
+    "- Return the stream with `result.toUIMessageStreamResponse()`; on the client consume it with `useChat` from `@ai-sdk/react`.",
+    "",
+  ];
+}
+
 const SCAFFOLD_RESERVED_PATHS = new Set([
   "app/layout.tsx",
   "app/globals.css",
@@ -278,6 +307,16 @@ export function renderDossierBlocks(
       }
       parts.push(...renderCompactDossierInstructions(sel));
     }
+  }
+
+  // AI-SDK v4-drift guardrail (Task 5): only when an AI dossier is selected, so
+  // the banned-symbols block is scoped and never bloats non-AI prompts.
+  if (
+    dossierSel.selected.some((sel) =>
+      AI_SDK_CAPABILITIES.has(sel.entry.capability.toLowerCase()),
+    )
+  ) {
+    parts.push(...renderAiSdkVersionGuardrail());
   }
 
   // ── Verbatim files (Fas 1.5: dossier-as-code) ─────────────────────────

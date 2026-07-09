@@ -50,7 +50,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     getVersionFiles.mockResolvedValue([]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: "proj_1",
     });
     expect(result).toEqual({ ok: false, reason: "version_files_unavailable" });
@@ -59,7 +59,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   it("blocks with missing_env when a required real key is absent", async () => {
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: "proj_1",
     });
     expect(result.ok).toBe(false);
@@ -76,7 +76,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_test_real" });
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: "proj_1",
     });
     expect(result.ok).toBe(true);
@@ -86,7 +86,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: null,
     });
     expect(result.ok).toBe(true);
@@ -99,7 +99,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     ]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: "proj_1",
     });
     expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
@@ -116,7 +116,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const unblocked = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: null,
     });
     expect(unblocked.ok).toBe(true);
@@ -124,7 +124,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     getLatestEngineVersionErrorLogs.mockRejectedValue(new Error("db down"));
     const failOpen = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
-      selectedDossiers: [],
+      orchestrationSnapshot: null,
       projectId: null,
     });
     expect(failOpen.ok).toBe(true);

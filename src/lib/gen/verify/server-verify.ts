@@ -1128,6 +1128,12 @@ async function tryServerRepairLoop(params: {
     previewPolicy,
     failedOutputs,
     contextLines: repairLogContext.contextLines,
+    // Global budget (manifest `repairPolicies.serverRepairPasses`, default 2).
+    // NOTE: the manifest also declares `perTierRepairPolicies`
+    // (`getPerTierRepairPoliciesFromManifest()`), but it is not wired into any
+    // pipeline yet — dead config. Wiring it would require resolving the active
+    // model tier at this callsite; left for a follow-up rather than bolting a
+    // tier lookup onto this hot path. (Task 6 report.)
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
     llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
     llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,

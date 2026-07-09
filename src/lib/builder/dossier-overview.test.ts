@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { describeEnvKeyValueState } from "./dossier-overview";
+import {
+  describeEnvKeyValueState,
+  selectedDossiersFromOverview,
+  type DossierOverviewEntry,
+} from "./dossier-overview";
+import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 
 describe("describeEnvKeyValueState", () => {
   it("treats a stored real value as filled regardless of enforcement", () => {
@@ -53,5 +58,81 @@ describe("describeEnvKeyValueState", () => {
     });
     expect(state.label).toBe("Valfri");
     expect(state.tone).toBe("muted");
+  });
+});
+
+// F3 env-panel parity: the panel scopes detection to the chat's selected
+// dossiers so a matching dossier's per-key enforcement flows through and an
+// UNMATCHED integration downgrades to warn-only (instead of build-blocking).
+describe("selectedDossiersFromOverview", () => {
+  function overviewEntry(
+    overrides: Partial<DossierOverviewEntry> = {},
+  ): DossierOverviewEntry {
+    return {
+      id: "resend-contact-form",
+      label: "Resend Contact Form",
+      class: "hard",
+      capability: "contact-form",
+      summary: "Contact form via Resend.",
+      complexity: "medium",
+      requiresF3: true,
+      configured: false,
+      dependencies: ["resend"],
+      envVars: [
+        {
+          key: "RESEND_API_KEY",
+          required: true,
+          enforcement: "feature-runtime",
+          purpose: "Resend API auth.",
+          hasRealValue: false,
+          placeholderCovered: false,
+        },
+      ],
+      status: "not-built",
+      missingKeys: [],
+      lastVerified: "2026-04-20",
+      ...overrides,
+    };
+  }
+
+  it("carries per-key enforcement into the detector so a matched integration keeps warn/feature-runtime", () => {
+    const selected = selectedDossiersFromOverview([overviewEntry()]);
+    expect(selected[0].entry.envVars).toEqual([
+      {
+        key: "RESEND_API_KEY",
+        required: true,
+        purpose: "Resend API auth.",
+        enforcement: "feature-runtime",
+      },
+    ]);
+
+    const detected = detectIntegrationsFromVersionFiles(
+      [
+        {
+          name: "app/api/contact/route.ts",
+          content: "import { Resend } from 'resend';\nconst k = process.env.RESEND_API_KEY;",
+        },
+      ],
+      { selectedDossiers: selected, lifecycleStage: "integrations" },
+    );
+    const resend = detected.find((d) => d.provider === "resend" || d.key === "resend");
+    expect(resend?.envEnforcement?.RESEND_API_KEY).toBe("feature-runtime");
+  });
+
+  it("downgrades an UNMATCHED integration's keys to warn-only when a scoped (non-matching) dossier set is provided", () => {
+    // A stripe reference with NO stripe dossier selected must not become a
+    // build blocker in the panel (mirrors the readiness route).
+    const selected = selectedDossiersFromOverview([overviewEntry()]);
+    const detected = detectIntegrationsFromVersionFiles(
+      [
+        {
+          name: "app/pricing/page.tsx",
+          content: "const key = process.env.STRIPE_SECRET_KEY;",
+        },
+      ],
+      { selectedDossiers: selected, lifecycleStage: "integrations" },
+    );
+    const stripe = detected.find((d) => d.key === "stripe" || d.provider === "stripe");
+    expect(stripe?.envEnforcement?.STRIPE_SECRET_KEY).toBe("warn-only");
   });
 });

@@ -717,6 +717,55 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(contentPayload).toContain("Integrationsbygget avslutades");
   });
 
+  it("first tool-only round but PARENT already has the integration code: honest 'finns redan i designversionen' copy, never 'inga kodfiler' (ai-tool-calling incident)", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_parent_has_code", null),
+    );
+
+    const out = createOwnEngineGenerationStream({
+      ...f3ToolOnlyStreamParams("chat_parent_has_code", 0),
+      // Parent design version already carries the ai-tool-calling dossier's
+      // built assistant route — the F3 round writing no NEW files is NOT the
+      // same as "no code files exist".
+      previousFiles: [
+        {
+          path: "app/api/assistant/route.ts",
+          content: "// built assistant route",
+          language: "ts",
+        },
+        { path: "components/ai-assistant.tsx", content: "// ui", language: "tsx" },
+      ],
+    });
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.awaitingInput).toBe(true);
+    // Honest copy — the integration code exists in the design version.
+    expect(String(doneData.awaitingInputPrompt)).toContain(
+      "Integrationskoden finns redan i designversionen",
+    );
+    // The lie the incident exposed must be gone.
+    expect(String(doneData.awaitingInputPrompt)).not.toContain(
+      "Integrationer signalerades",
+    );
+
+    // The awaiting-input marker is still persisted so the approve/continue
+    // flow works.
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    const [, , persistContent, , persistUiParts] = addMessageMock.mock.calls[0] as [
+      string,
+      string,
+      string,
+      unknown,
+      Array<Record<string, unknown>>,
+    ];
+    expect(persistContent).toContain("finns redan i designversionen");
+    const markerOutput = persistUiParts?.[0]?.output as Record<string, unknown>;
+    expect(markerOutput.f3Continuation).toBe(true);
+  });
+
   it("silent F3 round (malformed-only tool calls): loop-breaker path with honest EMPTY copy, no ghost 'Integrationer signalerades' (Bugbot HIGH PR #383 + åtgärd 5)", async () => {
     const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
       .EmptyGenerationError;

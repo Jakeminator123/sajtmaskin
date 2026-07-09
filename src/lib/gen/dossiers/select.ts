@@ -54,6 +54,17 @@ export interface SelectDossiersOptions {
    * the bug `configuredEnvKeys` fixes; prefer always passing it.
    */
   configuredEnvKeys?: ReadonlySet<string>;
+  /**
+   * F3 capability-scope (review round 2): when the caller COMPUTED
+   * `requestedCapabilities` (the scoped F3 set) an EMPTY list is an
+   * intentional answer — "nothing should be wired this round". The legacy
+   * brief fallback would resurrect every speculative brief capability in
+   * exactly the case the scope exists to prevent, turning the whole
+   * inflation fix into a no-op. Set `true` to disable the fallback; default
+   * `false` keeps legacy behavior for callers whose empty list means
+   * "unknown, read the brief".
+   */
+  disableBriefFallback?: boolean;
 }
 
 /**
@@ -96,10 +107,35 @@ export function expandDependentCapabilities(capabilities: string[]): string[] {
       }
     }
   }
+  let result = out;
   if (seen.has("supabase-auth") && seen.has("auth")) {
-    return out.filter((cap) => cap !== "auth");
+    result = result.filter((cap) => cap !== "auth");
   }
-  return out;
+  // `ai-tool-calling` (an AI assistant that calls server-side tools) and
+  // `ai-chat` (a generic chatbot) are overlapping chat surfaces — the brief LLM
+  // routinely nominates both for a single "AI assistant" ask, which injects two
+  // competing chat routes/components (ai-tool-calling-chat's `/api/assistant` +
+  // openai-chat's `/api/chat`) and doubles the env/scope. The more specific
+  // `ai-tool-calling` wins; generic `ai-chat` is dropped. Mirrors the
+  // supabase-auth vs auth dedup above.
+  if (seen.has("ai-tool-calling") && seen.has("ai-chat")) {
+    result = result.filter((cap) => cap !== "ai-chat");
+  }
+  return result;
+}
+
+/**
+ * Public wrapper around the internal `configured` computation so other
+ * selection sources that build {@link SelectedDossier} objects directly (e.g.
+ * `version-presence.ts`, which resolves dossiers from a version's actual files
+ * rather than by capability) compute the `configured` prompt signal exactly
+ * the same way `selectDossiersForRequest` does — no duplicated logic.
+ */
+export function isDossierConfigured(
+  entry: DossierEntry,
+  configuredEnvKeys?: ReadonlySet<string>,
+): boolean {
+  return isConfigured(entry, configuredEnvKeys);
 }
 
 function isConfigured(
@@ -126,6 +162,9 @@ function normalizeCapabilities(opts: SelectDossiersOptions): string[] {
     .map((s) => String(s).trim().toLowerCase())
     .filter(Boolean);
   if (fromArg.length > 0) return Array.from(new Set(fromArg));
+  // Caller-computed capability set (F3 scope): an empty list is the answer,
+  // not a missing value — never resurrect the brief's speculative set.
+  if (opts.disableBriefFallback) return [];
   const briefCaps =
     opts.brief && typeof opts.brief === "object"
       ? (opts.brief as { requestedCapabilities?: unknown }).requestedCapabilities
