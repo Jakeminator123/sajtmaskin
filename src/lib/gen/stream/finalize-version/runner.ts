@@ -753,5 +753,15 @@ export async function finalizeAndSaveVersion(
       isFidelity3: buildSpec?.previewPolicy === "fidelity3",
     }),
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
+    // Våg 2: the selected dossiers' declared env keys, so the F2 preview
+    // `.env.local` can seed a stub for each and the dossier UI renders its
+    // demo/mock mode. Deduped; empty when no dossier declares env vars.
+    selectedDossierEnvKeys: Array.from(
+      new Set(
+        selectedDossiers.flatMap((dossier) =>
+          (dossier.envVars ?? []).map((envVar) => envVar.key),
+        ),
+      ),
+    ),
   };
 }

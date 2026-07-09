@@ -183,7 +183,10 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
     expect(body).toMatch(/NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=.+/);
   });
 
-  it("lists an uncovered dossier key as an empty line with its purpose", async () => {
+  // Våg 2: an uncovered dossier key now shows a DEMO VALUE in F2 (so the
+  // downloaded env.example documents the stub the preview boots with) instead
+  // of the old empty line. F3 keeps the empty line (see the F3 test below).
+  it("lists an uncovered dossier key with a demo value + its purpose in F2", async () => {
     const body = await buildProjectEnvFileContents({
       appProjectId: "proj_test",
       generatedEnvLocal: null,
@@ -194,9 +197,25 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
     });
     expect(body).toContain("Nycklar för valda byggblock");
     expect(body).toContain("# Bespoke integration token");
-    expect(body).toContain("MY_DOSSIER_ONLY_KEY=");
-    // Uncovered keys have no placeholder value.
+    // Demo value embeds the stub vocabulary (placeholder + not_real).
+    expect(body).toContain("MY_DOSSIER_ONLY_KEY=my_dossier_only_key_placeholder_preview_not_real");
+    // The demo value must classify as a stub (never real integration evidence).
+    const { isLikelyStubEnvValue } = await import("@/lib/integrations/stub-env-filter");
+    expect(isLikelyStubEnvValue("my_dossier_only_key_placeholder_preview_not_real")).toBe(true);
+  });
+
+  it("lists an uncovered dossier key as an empty line in F3 (real value required)", async () => {
+    const body = await buildProjectEnvFileContents({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "integrations",
+      dossierEnvScope: {
+        envVars: [{ key: "MY_DOSSIER_ONLY_KEY", purpose: "Bespoke integration token" }],
+      },
+    });
+    expect(body).toContain("# Bespoke integration token");
     expect(body).toMatch(/MY_DOSSIER_ONLY_KEY=\s*$/m);
+    expect(body).not.toContain("_placeholder_preview_not_real");
   });
 
   it("in F3 a stripped tier-3 dossier key surfaces empty; harmless keys keep values", async () => {

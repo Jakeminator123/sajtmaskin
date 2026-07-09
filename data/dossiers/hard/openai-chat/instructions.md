@@ -21,7 +21,16 @@ Do not use it for:
 3. **Re-style the panel freely.** Avatars, layout, colors, message rendering, autoscroll behavior — all rewritable. Only the `route.ts` file must stay verbatim (the streaming protocol depends on the exact response format).
 4. Configure the **system prompt** in `route.ts` to match the site's persona — this is the single most important integration step. Generic `You are a helpful assistant` is a sign of incomplete adaptation.
 
-If `OPENAI_API_KEY` is missing, the dossier still injects code but the chat panel should render in a "Connect OpenAI to enable assistant" placeholder state.
+# Mock/demo mode
+
+`mock: canned`. The `route.ts` handler detects when there is no real
+`OPENAI_API_KEY` (missing OR a preview stub value containing `placeholder` /
+`not_real`) and, instead of calling OpenAI, streams a short canned Swedish demo
+reply over the **same** AI SDK UI-message-stream protocol the client already
+consumes. So in an F2/preview without real keys the chat still looks and
+streams like a working assistant. As soon as a real key is set the handler runs
+the genuine `streamText` path — no client change. Keep this detection intact
+when you adapt the route; do not remove the canned fallback.
 
 # UX rules
 
@@ -33,7 +42,7 @@ If `OPENAI_API_KEY` is missing, the dossier still injects code but the chat pane
 
 # Avoid
 
-- Do not paraphrase `components/api/chat/route.ts` — the `streamText` + `toDataStreamResponse` pattern is brittle.
+- Do not paraphrase `components/api/chat/route.ts` — the `streamText` + `toUIMessageStreamResponse` real path and the `createUIMessageStream` canned demo path both depend on the exact UI-message-stream protocol the client reads.
 - Do not log raw user messages server-side without user consent.
 - Do not put `OPENAI_API_KEY` in a `NEXT_PUBLIC_*` variable.
 - Do not invent system-prompt instructions that promise capabilities the model lacks (e.g. "I can place orders" when there is no tool).
@@ -43,4 +52,4 @@ If `OPENAI_API_KEY` is missing, the dossier still injects code but the chat pane
 - Type "Hello" in the chat panel — tokens stream visibly.
 - Open the network tab: `POST /api/chat` returns `200` with `Transfer-Encoding: chunked`.
 - Server logs show no `OPENAI_API_KEY` redacted leak.
-- With `OPENAI_API_KEY` removed, the panel still renders (no client crash) but in placeholder mode.
+- With `OPENAI_API_KEY` removed (or a preview stub), the panel still streams a canned demo reply (no client crash) — `mock: canned` in action.

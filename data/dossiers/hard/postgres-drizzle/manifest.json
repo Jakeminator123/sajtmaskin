@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "postgres-drizzle",
+  "mock": "seed",
   "label": "Postgres + Drizzle",
   "capability": "database",
   "codeFidelity": "verbatim",

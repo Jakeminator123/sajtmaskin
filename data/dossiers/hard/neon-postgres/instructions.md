@@ -10,7 +10,7 @@
 - Install `@neondatabase/serverless`.
 - Set `DATABASE_URL` to the Neon pooled/serverless Postgres connection string.
 - Access the database ONLY through `getSql()` from `@/lib/db` — never construct the Neon client yourself, and never at module level.
-- SEED FALLBACK CONTRACT (required): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getSql()`. Not configured → render `seedData` from `@/lib/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`.
+- SEED FALLBACK CONTRACT (required — this is the dossier's `mock: seed` mode): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getSql()`. Not configured (missing OR a `preview`/`placeholder` stub URL) → render `seedData` from `@/lib/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`, so the DB view looks alive in an F2/preview without a real database.
 - API routes that need the database must return a 503 JSON response with a short configuration message when `isDbConfigured()` is false (same pattern as `/api/health/db`) — never let a missing env var throw.
 - Keep the database helper server-only; never import it from a `use client` component.
 - Query with the Neon tagged template form so values are parameterized safely.

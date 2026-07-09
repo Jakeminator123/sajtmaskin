@@ -30,6 +30,7 @@
 
 import {
   buildProvenanceGroupedSections,
+  dossierMockPreviewEnvValue,
   resolvePreviewEnvLayers,
   type EnvVarProvenance,
   type PreviewLifecycleStage,
@@ -114,7 +115,14 @@ const SECTION_ORDER: EnvVarProvenance[] = [
  * empty `KEY=` lines with the manifest `purpose` as a comment so the user
  * sees exactly what to fill in — without the old full-catalog dump.
  */
-const DOSSIER_SCOPE_HEADER =
+const DOSSIER_SCOPE_HEADER_F2 =
+  "# ── Nycklar för valda byggblock (demo-värden i F2) ─────────────\n" +
+  "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
+  "# I F2 fylls de med demo-värden (…_placeholder_preview_not_real) så\n" +
+  "# preview funkar utan riktiga nycklar. Byt till riktiga värden i\n" +
+  "# builderns env-panel när du klickar \"Bygg integrationer\" (F3).";
+
+const DOSSIER_SCOPE_HEADER_F3 =
   "# ── Nycklar för valda byggblock (fyll i via env-panelen) ───────\n" +
   "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
   "# Fyll i riktiga värden i builderns env-panel (eller lokalt i .env.local).";
@@ -146,7 +154,9 @@ const PROJECT_SPECIFIC_PROVENANCE: ReadonlySet<EnvVarProvenance> = new Set<EnvVa
 function buildDossierScopeSection(
   scope: DossierEnvScope,
   alreadyEmittedKeys: Set<string>,
+  lifecycleStage: PreviewLifecycleStage,
 ): string | null {
+  const isF2 = lifecycleStage !== "integrations";
   const seen = new Set<string>();
   const lines: string[] = [];
   for (const envVar of scope.envVars) {
@@ -155,10 +165,14 @@ function buildDossierScopeSection(
     seen.add(key);
     const purpose = typeof envVar.purpose === "string" ? envVar.purpose.trim() : "";
     if (purpose) lines.push(`# ${purpose}`);
-    lines.push(`${key}=`);
+    // F2: show the deterministic demo value so the downloaded env.example
+    // documents exactly the stub the preview boots with (the dossier renders
+    // its mock/demo mode). F3: keep an empty line — a real value is required.
+    lines.push(isF2 ? `${key}=${dossierMockPreviewEnvValue(key)}` : `${key}=`);
   }
   if (lines.length === 0) return null;
-  return [DOSSIER_SCOPE_HEADER, ...lines].join("\n");
+  const header = isF2 ? DOSSIER_SCOPE_HEADER_F2 : DOSSIER_SCOPE_HEADER_F3;
+  return [header, ...lines].join("\n");
 }
 
 /**
@@ -270,10 +284,12 @@ export async function buildProjectEnvFileContents(params: {
     emittedMerged = scopedMerged;
     emittedProvenance = scopedProvenance;
     // Dossier keys not covered by a kept layer (never in the catalog, or a
-    // tier-3 stub stripped in F3) become explicit empty lines with a purpose.
+    // tier-3 stub stripped in F3) become explicit lines with a purpose — a demo
+    // value in F2, an empty line in F3.
     dossierScopeSection = buildDossierScopeSection(
       params.dossierEnvScope,
       new Set(Object.keys(scopedMerged)),
+      lifecycleStage,
     );
   }
 

@@ -188,6 +188,15 @@ export interface FinalizeResult {
   repairLedger?: RepairLedger;
   /** Fas 3: the finalize run's repair scope id — must accompany `repairLedger`. */
   repairScopeId?: string;
+  /**
+   * Env keys declared by the dossiers selected for this generation (Våg 2).
+   * Threaded into the F2 preview `.env.local` seed so each selected dossier's
+   * declared key gets a stub value and the dossier renders its demo/mock mode
+   * — see `startPreviewSession` → `resolvePreviewEnvLayers`. Preview/F2 only;
+   * never persisted or shipped to F3/deploy. Empty/omitted when no dossiers
+   * declared env keys.
+   */
+  selectedDossierEnvKeys?: string[];
 }
 
 export interface FinalizePathPolicy {

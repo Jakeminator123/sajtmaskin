@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "mongodb-atlas",
+  "mock": "seed",
   "label": "MongoDB Atlas",
   "capability": "database",
   "codeFidelity": "verbatim",

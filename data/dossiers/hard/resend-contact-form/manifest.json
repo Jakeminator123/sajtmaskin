@@ -1,18 +1,19 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "resend-contact-form",
+  "mock": "success",
   "label": "Resend Contact Form",
   "capability": "contact-form",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Server-rendered contact form that submits to a Next.js Route Handler and sends the message as an email via Resend. Client component owns the form state + UX feedback (loading / success / error); server route owns the API call + validation. Designed to degrade gracefully when RESEND_API_KEY / EMAIL_FROM / CONTACT_EMAIL_TO are missing — the route returns 503 'email-not-configured' and the form renders a calm IntegrationConfigNotice + disabled submit instead of a raw error.",
+  "summary": "Server-rendered contact form that submits to a Next.js Route Handler and sends the message as an email via Resend. Client component owns the form state + UX feedback (loading / success / error); server route owns the API call + validation. Degrades gracefully (mock: success): with no real RESEND_API_KEY (missing or an F2 preview stub) the route returns 200 { ok:true, demo:true } and the form shows a 'demo — not really sent' notice; a real key but missing EMAIL_FROM / CONTACT_EMAIL_TO returns 503 'email-not-configured' and the form renders a calm IntegrationConfigNotice.",
   "envVars": [
     {
       "key": "RESEND_API_KEY",
       "required": true,
       "enforcement": "feature-runtime",
-      "purpose": "Server-side Resend authentication. Find it in the Resend dashboard under API Keys. Route returns 503 with a clear message when missing so F3 build does not crash."
+      "purpose": "Server-side Resend authentication. Find it in the Resend dashboard under API Keys. When missing or a preview stub the route returns a demo success (mock: success) instead of sending, so F3 build does not crash."
     },
     {
       "key": "EMAIL_FROM",

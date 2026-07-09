@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "neon-postgres",
+  "mock": "seed",
   "label": "Neon Postgres",
   "capability": "database",
   "codeFidelity": "verbatim",

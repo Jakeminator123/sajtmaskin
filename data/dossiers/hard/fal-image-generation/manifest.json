@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "fal-image-generation",
+  "mock": "canned",
   "label": "Fal Image Generation",
   "capability": "image-generation",
   "codeFidelity": "verbatim",

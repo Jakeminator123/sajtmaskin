@@ -253,6 +253,14 @@ export type StartPreviewSessionOptions = {
    * becomes ineffective). Defaults to `"design"` when omitted.
    */
   lifecycleStage?: PreviewLifecycleStage;
+  /**
+   * Env keys declared by the dossiers selected for this generation. In F2
+   * (`design`) they are seeded with deterministic stub values in the preview
+   * `.env.local` when still unset, so the dossier UI renders its demo/mock
+   * mode (see `resolvePreviewEnvLayers`). Threaded from the finalize result
+   * (`FinalizeResult.selectedDossierEnvKeys`). F3 ignores them.
+   */
+  selectedDossierEnvKeys?: string[];
 };
 
 /**
@@ -388,6 +396,7 @@ async function runStartPreviewSession(
         appProjectId: options?.appProjectId ?? null,
         generatedEnvLocal: priorEnvLocal,
         lifecycleStage: options?.lifecycleStage,
+        selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
       });
       runtimeForUpdate.push({ name: envLocalPath, content: envBody });
       const updatePayload = Object.fromEntries(
@@ -479,6 +488,7 @@ async function runStartPreviewSession(
     appProjectId: options?.appProjectId ?? null,
     generatedEnvLocal: priorEnvLocal,
     lifecycleStage: options?.lifecycleStage,
+    selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 

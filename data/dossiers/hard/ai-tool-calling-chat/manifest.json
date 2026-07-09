@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "ai-tool-calling-chat",
+  "mock": "canned",
   "label": "AI Tool-Calling Chat Route",
   "capability": "ai-tool-calling",
   "codeFidelity": "rewritable",

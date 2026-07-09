@@ -9,6 +9,7 @@ import { debugLog } from "@/lib/utils/debug";
 import {
   defaultInjectionMode,
   getDossierFileContent,
+  type DossierEntry,
   type DossierSelectionResult,
 } from "../../dossiers";
 import { mapDossierPathToOutput } from "../../dossiers/output-path";
@@ -70,6 +71,26 @@ function shouldUseFullInstructions(
   return tier === "beyond-dossier";
 }
 
+/**
+ * One-line demo/mock-mode hint for a hard dossier, threaded from the manifest
+ * `mock` field (Våg 2). Tells the codegen LLM how the dossier's own code keeps
+ * the visual surface working in F2/preview without a real key, so it relies on
+ * that built-in fallback instead of inventing a throwaway mock. Omitted `mock`
+ * = `none` (discreet demo/config banner).
+ */
+function describeMockMode(mock: DossierEntry["mock"]): string {
+  switch (mock) {
+    case "canned":
+      return "mock: canned — the dossier's server route returns a believable fabricated response in demo mode (canned chat reply / placeholder image) when the key is missing or a stub, so the UI works in F2 without a real key.";
+    case "seed":
+      return "mock: seed — the data layer falls back to shipped `seedData` + a discreet notice when the connection is missing/placeholder, so DB views render in F2 without a real database.";
+    case "success":
+      return "mock: success — mutation endpoints return a fake success + a demo notice (`demo: true`) when no real key is set, so forms complete in F2 without wiring the provider.";
+    default:
+      return "mock: none — cannot be mocked meaningfully; render a discreet demo/configuration banner (IntegrationConfigNotice) when unconfigured.";
+  }
+}
+
 function renderCompactDossierInstructions(
   sel: DossierSelectionResult["selected"][number],
 ): string[] {
@@ -95,6 +116,7 @@ function renderCompactDossierInstructions(
     "",
     `- ${sel.entry.summary}`,
     configuredLine,
+    ...(sel.entry.class === "hard" ? [`- ${describeMockMode(sel.entry.mock)}`] : []),
     `- Capability: \`${sel.entry.capability}\`; code fidelity: ${sel.entry.codeFidelity}.`,
     dependencies ? `- Dependencies if used: ${dependencies}.` : "- Dependencies: none beyond the scaffold baseline.",
     envVars ? `- Env vars: ${envVars}.` : "- Env vars: none.",

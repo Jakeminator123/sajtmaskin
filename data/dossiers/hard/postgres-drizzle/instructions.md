@@ -12,7 +12,7 @@
 - Emit the DB client at `lib/db/index.ts`, schema at `lib/db/schema.ts`, seed data at `lib/db/seed-data.ts`, and `drizzle.config.ts` at the project root.
 - Replace the starter `items` schema table AND the matching `seedData` rows with tables/rows required by the app domain.
 - Access the database ONLY through `getDb()` / `getPool()` from `@/lib/db` — never construct a Pool or Drizzle client yourself, and never at module level.
-- SEED FALLBACK CONTRACT (required): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getDb()`. Not configured → render `seedData` from `@/lib/db/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`.
+- SEED FALLBACK CONTRACT (required — this is the dossier's `mock: seed` mode): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getDb()`. Not configured (missing OR a `preview`/`placeholder` stub URL) → render `seedData` from `@/lib/db/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`, so the DB view looks alive in an F2/preview without a real database.
 - API routes that need the database must return a 503 JSON response with a short configuration message when `isDbConfigured()` is false (same pattern as `/api/health/db`) — never let a missing env var throw.
 - Add scripts such as `db:generate`, `db:migrate`, `db:push`, and `db:studio` for Drizzle Kit.
 - Use `@/lib/db` only from server code.

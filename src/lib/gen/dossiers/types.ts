@@ -56,6 +56,32 @@ export type Capability = string;
  */
 export type DossierEnvVarEnforcement = "build" | "feature-runtime" | "warn-only";
 
+/**
+ * Declares how a dossier makes its VISUAL surface work in F2/preview WITHOUT a
+ * real key (env var missing OR a preview stub value). Drives the demo/mock
+ * behavior baked into the dossier's own component code (the emitted user-site
+ * code) plus the codegen prompt hint (`renderCompactDossierInstructions`).
+ *
+ * - `"canned"`: server route returns a believable fabricated response in demo
+ *   mode — the chatbot streams a canned reply, image generation returns a
+ *   deterministic placeholder image. Real path resumes once a real key is set.
+ * - `"seed"`: the data layer falls back to shipped seed data when the
+ *   connection string is missing/placeholder (DB dossiers render `seedData` +
+ *   a discreet `<DbConfigNotice />`). Deliberately chosen OVER an in-preview
+ *   SQLite: `better-sqlite3` needs a native build on the preview VM (fragile),
+ *   whereas in-memory seed data gives the same visual result with zero native
+ *   deps.
+ * - `"success"`: mutation endpoints return a fake success + a demo notice
+ *   (contact form, newsletter subscribe).
+ * - `"none"`: cannot be mocked meaningfully (payments, auth) → the UI shows a
+ *   discreet demo/configuration banner (the `IntegrationConfigNotice` pattern).
+ *
+ * Omitted `mock` = `"none"` behavior (backwards compatible). Mock values are
+ * F2/preview-only — never persisted to `projectEnvVars` and never shipped to a
+ * real deploy.
+ */
+export type DossierMockMode = "canned" | "seed" | "success" | "none";
+
 export interface DossierEnvVar {
   key: string;
   required: boolean;
@@ -111,6 +137,11 @@ export interface DossierEntry {
   notes?: string;
   /** How much of instructions.md reaches the prompt. Default "compact". */
   promptInstructionMode?: PromptInstructionMode;
+  /**
+   * How the dossier renders its visual surface in F2/preview without a real
+   * key. Omitted = `"none"` (discreet demo banner). See {@link DossierMockMode}.
+   */
+  mock?: DossierMockMode;
   /** Lazy-loaded from `instructions.md` by the registry on selection. */
   instructions?: string;
 }

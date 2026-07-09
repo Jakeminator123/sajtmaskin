@@ -18,6 +18,21 @@ const ROOT = resolve(process.cwd(), "data", "dossiers");
 beforeEach(() => clearDossierRegistryCache());
 afterEach(() => clearDossierRegistryCache());
 
+describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
+  it("surfaces the declared mock mode on loaded entries, not a dropped default", () => {
+    const all = getAllDossiers();
+    const openaiChat = all.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.mock).toBe("canned");
+    const resend = all.find((d) => d.id === "resend-contact-form");
+    expect(resend?.mock).toBe("success");
+    const neon = all.find((d) => d.id === "neon-postgres");
+    expect(neon?.mock).toBe("seed");
+    // A dossier with no declared mock stays undefined (schema-optional).
+    const stripe = all.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.mock).toBe("none");
+  });
+});
+
 describe("registry list cache invalidates on manifest mtime change", () => {
   it("returns fresh data after touching a manifest mtime", () => {
     const first = getAllDossiers();

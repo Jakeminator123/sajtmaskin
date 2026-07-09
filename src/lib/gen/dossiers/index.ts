@@ -24,6 +24,7 @@ export type {
   DossierFile,
   DossierExposes,
   DossierEntry,
+  DossierMockMode,
   SelectedDossier,
   DossierSelectionResult,
 } from "./types";

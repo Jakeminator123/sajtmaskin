@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "openai-chat",
+  "mock": "canned",
   "label": "OpenAI Chat",
   "capability": "ai-chat",
   "codeFidelity": "rewritable",
@@ -11,8 +12,8 @@
     {
       "key": "OPENAI_API_KEY",
       "required": true,
-      "enforcement": "build",
-      "purpose": "Server-side OpenAI API authentication. Find it at platform.openai.com/api-keys. Tagged 'build' for safety; promote to 'feature-runtime' once the chat route guarantees a graceful 503 + UI banner when the key is missing instead of throwing at module load."
+      "enforcement": "feature-runtime",
+      "purpose": "Server-side OpenAI API authentication. Find it at platform.openai.com/api-keys. Tagged 'feature-runtime': the chat route now degrades gracefully (mock: canned) — when the key is missing or a preview stub it streams a canned demo reply over the same UI-message-stream protocol instead of calling OpenAI, so F3 reports a warning rather than blocking the build."
     }
   ],
   "dependencies": ["ai", "@ai-sdk/openai", "@ai-sdk/react"],
