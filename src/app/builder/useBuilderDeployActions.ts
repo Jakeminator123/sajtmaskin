@@ -215,6 +215,15 @@ export function useBuilderDeployActions({
           deployReadiness?: { missingEnv?: string[]; warnings?: string[] };
           fixesApplied?: string[];
           preDeployWarnings?: string[];
+          /** Per-key env-degradation warnings (placeholder / feature-runtime). */
+          envWarnings?: Array<{
+            key?: string;
+            integration?: string;
+            reason?: string;
+            message?: string;
+          }>;
+          /** Env-var sync-to-hosting failures — publish still succeeded. */
+          envSyncWarnings?: string[];
         };
         if (!response.ok) {
           const base =
@@ -270,6 +279,38 @@ export function useBuilderDeployActions({
                 }
               : undefined,
           });
+        }
+
+        // R3 (Codex #443): the deploy succeeds but the response can carry
+        // non-blocking warnings that previously never reached the user (only
+        // the success toast showed). Surface them so the user knows an
+        // integration is running on placeholder data or that env vars didn't
+        // sync for future rebuilds. Aggregated into at most two warning toasts
+        // to avoid spamming one per key.
+        const envWarningMessages = Array.isArray(data?.envWarnings)
+          ? data.envWarnings
+              .map((w) => (typeof w?.message === "string" ? w.message.trim() : ""))
+              .filter((m) => m.length > 0)
+          : [];
+        if (envWarningMessages.length > 0) {
+          toast.warning(
+            envWarningMessages.length === 1
+              ? envWarningMessages[0]
+              : `${envWarningMessages.length} miljövariabler behöver uppmärksamhet:\n${envWarningMessages.join("\n")}`,
+            { duration: 12000 },
+          );
+        }
+
+        const envSyncWarnings = Array.isArray(data?.envSyncWarnings)
+          ? data.envSyncWarnings.filter(
+              (w): w is string => typeof w === "string" && w.trim().length > 0,
+            )
+          : [];
+        if (envSyncWarnings.length > 0) {
+          toast.warning(
+            "Vissa miljövariabler kunde inte sparas hos hosting-leverantören för framtida ombyggen. Publiceringen lyckades – men byggs sajten om utanför Sajtmaskin kan du behöva spara om dina integrationer under Projektets miljövariabler.",
+            { duration: 12000 },
+          );
         }
       } catch (error) {
         console.error("Deploy error:", error);
