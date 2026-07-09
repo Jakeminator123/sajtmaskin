@@ -71,16 +71,22 @@ export async function POST(request: NextRequest) {
   }
 
   // Genuine configuration error: a real key is set but the audience id is
-  // missing — keep the calm not-configured path (503) so the form shows the
-  // setup banner rather than a demo success.
-  if (!audienceId) {
+  // missing OR still a preview placeholder. Placeholder-aware so a seeded F2
+  // stub counts as NOT configured and takes the calm 503 setup path rather than
+  // calling Mailchimp with fabricated config (Codex/VADE P1 on #468).
+  if (isPlaceholderValue(audienceId)) {
     return NextResponse.json(
       { ok: false, error: "newsletter-not-configured" },
       { status: 503 },
     );
   }
 
-  const dc = resolveDataCenter(apiKey, process.env.MAILCHIMP_DC);
+  // A placeholder MAILCHIMP_DC must not become the request host — treat a stub
+  // override as absent so the data-center is derived from the real key suffix.
+  const dcOverride = isPlaceholderValue(process.env.MAILCHIMP_DC)
+    ? undefined
+    : process.env.MAILCHIMP_DC;
+  const dc = resolveDataCenter(apiKey, dcOverride);
   if (!dc) {
     return NextResponse.json(
       { ok: false, error: "newsletter-misconfigured" },

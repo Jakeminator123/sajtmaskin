@@ -30,6 +30,11 @@ function isLikelyValidResendApiKey(key: string | undefined): key is string {
   return key.startsWith("re_") && !isPlaceholderValue(key);
 }
 
+/** True when a value is a real (non-empty, non-placeholder) config value. */
+function isConfiguredValue(value: string | undefined | null): value is string {
+  return !isPlaceholderValue(value);
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
@@ -78,9 +83,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Genuine configuration error: a real key is set but the sender/recipient
-  // addresses are missing. Keep the calm not-configured path (503) so the form
-  // shows the setup notice for the missing address keys — not a demo success.
-  if (!from || !to) {
+  // addresses are missing OR still a preview placeholder. Placeholder-aware so
+  // a seeded F2 stub (e.g. `email_from_placeholder_preview_not_real`) counts as
+  // NOT configured and takes the calm 503 setup path — never a real send with
+  // fabricated addresses (Codex/VADE P1 on #468).
+  if (!isConfiguredValue(from) || !isConfiguredValue(to)) {
     return NextResponse.json(
       { ok: false, error: "email-not-configured" },
       { status: 503 },

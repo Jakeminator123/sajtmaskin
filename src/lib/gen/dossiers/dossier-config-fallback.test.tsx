@@ -312,6 +312,28 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
     expect(await res.json()).toEqual({ ok: false, error: "email-not-configured" });
   });
 
+  it("resend route: real key + PLACEHOLDER addresses take the 503 path, never a real send (Codex/VADE P1 #468)", async () => {
+    // The F2 mock-seed fills EMAIL_FROM/CONTACT_EMAIL_TO with stub values. With
+    // a real key the demo branch is skipped, so a mere-presence check would call
+    // Resend with fabricated addresses. Placeholder-aware secondary check keeps
+    // the calm setup 503 instead.
+    process.env.RESEND_API_KEY = "re_areallylongrealkey0000000000000000";
+    process.env.EMAIL_FROM = "email_from_placeholder_preview_not_real";
+    process.env.CONTACT_EMAIL_TO = "contact_email_to_placeholder_preview_not_real";
+    const { POST } = await import(
+      "../../../../data/dossiers/hard/resend-contact-form/components/api/contact/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Anna", email: "anna@example.com", message: "Hej!" }),
+      }) as never,
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: "email-not-configured" });
+  });
+
   it("stripe route: with a key set, body validation still runs before any Stripe call", async () => {
     process.env.STRIPE_SECRET_KEY = "sk_test_dummy_key_for_validation_only";
     const { POST } = await import(
@@ -378,6 +400,29 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, demo: true, status: "subscribed" });
+  });
+
+  it("mailchimp route: real key + PLACEHOLDER audience id takes the 503 path, no provider call (Codex/VADE P1 #468)", async () => {
+    // Real key + F2-seeded stub audience id → a mere-presence check would fetch
+    // Mailchimp with a fabricated audience/host. Placeholder-aware check keeps
+    // the calm setup 503 — returned BEFORE the fetch line, so reaching 503
+    // proves no provider call was made.
+    // Non-placeholder but deliberately NOT shaped like a real Mailchimp key
+    // (no 32-hex prefix) so secret-scanning push protection does not flag it.
+    process.env.MAILCHIMP_API_KEY = "realmailchimpkey-us21";
+    process.env.MAILCHIMP_AUDIENCE_ID = "mailchimp_audience_id_placeholder_preview_not_real";
+    const { POST } = await import(
+      "../../../../data/dossiers/hard/mailchimp-newsletter/components/api/newsletter-subscribe/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/newsletter-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "anna@example.com" }),
+      }) as never,
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: "newsletter-not-configured" });
   });
 
   it("openai-chat route: missing key streams a canned demo reply (mock: canned)", async () => {
