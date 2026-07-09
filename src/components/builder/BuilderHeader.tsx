@@ -801,7 +801,7 @@ export function BuilderHeader(props: {
                   rel="noopener noreferrer"
                   className="text-muted-foreground text-[11px] underline underline-offset-2 hover:text-foreground"
                 >
-                  Visa byggloggar på Vercel
+                  Visa byggloggar
                 </a>
               ) : null}
             </div>

@@ -188,7 +188,7 @@ export async function POST(req: Request) {
       deploymentId: match[0].id,
       vercelDeploymentId: deploymentId,
       inspectorUrl,
-      message: `Vercel-bygget misslyckades (webhook ${type}).`,
+      message: `Hosting-bygget misslyckades (webhook ${type}).`,
       source: "webhook",
     }).catch(() => {});
   }

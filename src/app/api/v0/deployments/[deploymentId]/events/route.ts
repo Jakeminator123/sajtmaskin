@@ -161,7 +161,7 @@ export async function GET(
                   deploymentId,
                   vercelDeploymentId,
                   inspectorUrl: vd.inspectorUrl,
-                  message: "Vercel-bygget misslyckades (fångat via statuspoll).",
+                  message: "Hosting-bygget misslyckades (fångat via statuspoll).",
                   source: "poll",
                 }).catch(() => {});
               }

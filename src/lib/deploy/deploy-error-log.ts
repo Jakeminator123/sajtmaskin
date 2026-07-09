@@ -55,7 +55,7 @@ export async function logDeployError(params: LogDeployErrorParams): Promise<void
   const message =
     typeof params.message === "string" && params.message.trim().length > 0
       ? params.message.trim()
-      : "Vercel-bygget misslyckades efter att publiceringen accepterats.";
+      : "Hosting-bygget misslyckades efter att publiceringen accepterats.";
 
   const meta: Record<string, unknown> = {
     fault: DEPLOY_BUILD_ERROR_FAULT,

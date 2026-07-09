@@ -105,7 +105,7 @@ export async function POST(req: Request) {
         ? ` Byggdetaljer: ${deployment.inspectorUrl}`
         : "";
       const fallbackMessage =
-        `Vercel-bygget misslyckades för den publicerade versionen (deployment ${deploymentId}).${inspectorNote}`;
+        `Hosting-bygget misslyckades för den publicerade versionen (deployment ${deploymentId}).${inspectorNote}`;
 
       const result = await runDeployBuildRepair({
         chatId,
