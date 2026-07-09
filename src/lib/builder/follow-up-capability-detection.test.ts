@@ -912,7 +912,6 @@ describe("detectFollowUpCapabilities — ai-tool-calling", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-<<<<<<< HEAD
 // subscriptions — hard dossier promoted from legacy import (2026-07-09):
 // paddle-billing. INTENTIONALLY separate from one-off `payments` (Stripe);
 // the vocabulary vetoes keep it off one-off payment intent and off newsletter
