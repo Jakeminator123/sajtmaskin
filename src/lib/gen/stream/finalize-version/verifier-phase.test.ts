@@ -341,3 +341,106 @@ export function ContactForm() {
     );
   });
 });
+
+describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)", () => {
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  // Import-collision-shaped findings that DON'T match the undefined-jsx-symbol
+  // parser, so the deterministic pre-fix skips them and they reach the LLM gate.
+  const PAGE = fencedFile(
+    "app/api/assistant/route.ts",
+    `export async function POST() {
+  return new Response("ok");
+}`,
+  );
+  const collisionFinding = (n: number) => ({
+    id: "import-name-collision",
+    detail: `app/api/assistant/route.ts collision #${n}: Uint8Array imported from @/components/uint8-array but used as the global.`,
+  });
+
+  it("partial fix (2→1) → still-failing + honest reduced-count lesson, residual blocker kept", async () => {
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [collisionFinding(1), collisionFinding(2)],
+        quality: [],
+      })
+      // Re-run after the fix: one blocker cleared, one remains.
+      .mockResolvedValueOnce({
+        blocking: [collisionFinding(1)],
+        quality: [],
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase(baseParams(PAGE));
+
+    // Residual blocker survives and feeds downstream gating.
+    expect(result.verifierBlockingFindings).toHaveLength(1);
+    // The verifier-fixer RAG row is honest: still-failing + reduced-count text.
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "still-failing",
+        fixText: "verifier-fixer reduced blocking findings from 2 to 1 but did not clear them",
+      }),
+    );
+    // It must NOT claim a clean rewrite while a blocker remains.
+    expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "fixed",
+      }),
+    );
+  });
+
+  it("full clear (1→0) → fixed + the rewrite lesson", async () => {
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [collisionFinding(1)],
+        quality: [],
+      })
+      .mockResolvedValueOnce({ blocking: [], quality: [] });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase(baseParams(PAGE));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "fixed",
+        fixText: "verifier-fixer rewrote the offending file(s)",
+      }),
+    );
+  });
+});
