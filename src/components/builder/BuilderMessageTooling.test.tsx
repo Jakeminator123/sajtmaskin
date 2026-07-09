@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildAgentLogItems,
@@ -189,6 +189,16 @@ describe("StructuredToolParts", () => {
 
     expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+
+    // The buttons are not only visible — clicking one actually fires
+    // onQuickReply even though an UNRELATED pendingReply exists elsewhere.
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn förslag" }));
+    expect(onQuickReply).toHaveBeenCalledWith(
+      "msg_guard_regression",
+      0,
+      "Godkänn förslag",
+      { planMode: false },
+    );
   });
 
   it("keeps integration/env tool parts actionable in compact mode", () => {

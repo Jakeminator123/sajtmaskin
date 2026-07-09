@@ -128,6 +128,97 @@ describe("MessageList", () => {
     });
   });
 
+  it("renders a clear-redesign/scope question INLINE with clickable options (the exact path the modal used to own)", async () => {
+    const onQuickReply = vi.fn(async () => {});
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_scope",
+        role: "assistant",
+        content: "Din förfrågan låter som en större omgörning.",
+        uiParts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Scope-fråga",
+            toolCallId: "awaiting-input:assistant_scope",
+            state: "input-available",
+            output: {
+              kind: "scope",
+              question: "Hur vill du gå vidare med designen?",
+              options: [
+                "Förfina nuvarande design",
+                "Gör en tydlig redesign i samma projekt",
+                "Starta om från en ny grund",
+              ],
+              awaitingInput: true,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <MessageList chatId="chat_scope" messages={messages} onQuickReply={onQuickReply} />,
+    );
+
+    // All three options render inline; no dialog overlay exists.
+    const redesignButton = await screen.findByRole("button", {
+      name: "Gör en tydlig redesign i samma projekt",
+    });
+    expect(screen.getByRole("button", { name: "Förfina nuvarande design" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Starta om från en ny grund" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // A11y: keyboard focus lands on the FIRST option when the question arrives
+    // (replacement for the removed dialog focus-trap).
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Förfina nuvarande design" }),
+      );
+    });
+
+    fireEvent.click(redesignButton);
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Gör en tydlig redesign i samma projekt", {
+        planMode: false,
+      });
+    });
+  });
+
+  it("propagates planMode: true for a plan-blocker pending question", async () => {
+    const onQuickReply = vi.fn(async () => {});
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_plan_blocker",
+        role: "assistant",
+        content: "Planen har blockerare som kräver svar.",
+        uiParts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Planfråga",
+            toolCallId: "awaiting-input:assistant_plan_blocker",
+            state: "input-available",
+            output: {
+              question: "Vill du fortsätta trots blockeraren?",
+              options: ["Ja, fortsätt", "Nej, avbryt"],
+              planBlockers: ["Saknar betalleverantör"],
+              awaitingInput: true,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <MessageList chatId="chat_plan" messages={messages} onQuickReply={onQuickReply} />,
+    );
+
+    const continueButton = await screen.findByRole("button", { name: "Ja, fortsätt" });
+    fireEvent.click(continueButton);
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Ja, fortsätt", { planMode: true });
+    });
+  });
+
   it("shows F3 reload quick-replies INLINE (no dialog, no auto-fire) for an old persisted marker", async () => {
     // Pin change (auto-resolve-f3-popup wave 1): the owner never wants the
     // "Svar krävs"-dialog for the F3-continuation marker. A marker present at
