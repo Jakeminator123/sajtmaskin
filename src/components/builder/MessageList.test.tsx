@@ -287,6 +287,92 @@ describe("MessageList", () => {
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 
+  it("does NOT auto-approve a stale marker after an unrelated F2 follow-up stream (A#2)", async () => {
+    // Residual from bugbot #460: cached history hydrates WITHOUT the marker,
+    // then an F2 follow-up streams (arming the OLD `isStreaming` gate), then
+    // canonical server history merges in an OLD F3 marker. The marker looks
+    // "live" (key !== mount snapshot) but was NOT produced by the F2 stream.
+    const onQuickReply = vi.fn(async () => {});
+    const cachedSubset: ChatMessage[] = [
+      { id: "user_f3_kick_stale", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList chatId="chat_f3_f2_hydrate" messages={cachedSubset} onQuickReply={onQuickReply} />,
+    );
+
+    // Unrelated F2 follow-up streams and completes WITHOUT an F3 marker.
+    const afterF2Stream: ChatMessage[] = [
+      ...cachedSubset,
+      {
+        id: "user_f2_followup",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "assistant_f2_reply",
+        role: "assistant",
+        content: 'file="app/page.tsx"\nexport default function Page() { return <h1>Stor</h1> }',
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={afterF2Stream}
+        onQuickReply={onQuickReply}
+        isStreaming
+      />,
+    );
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={afterF2Stream}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+      />,
+    );
+
+    // Staged hydration lands the OLD F3 marker AFTER the F2 round (marker is
+    // latest pending — no user message after it — but was NOT produced by F2).
+    const fullServerHistory: ChatMessage[] = [
+      ...cachedSubset,
+      {
+        id: "user_f2_followup",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "assistant_f2_reply",
+        role: "assistant",
+        content: 'file="app/page.tsx"\nexport default function Page() { return <h1>Stor</h1> }',
+      },
+      {
+        id: "assistant_f3_marker_stale",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={fullServerHistory}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+      />,
+    );
+
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
+  });
+
   it("does NOT auto-approve a reloaded marker after switching chats mid-stream (cross-chat credit burn)", async () => {
     // Regression: message restore is gated on `isAnyStreaming`
     // (usePersistedChatMessages), so switching chats WHILE a generation stream

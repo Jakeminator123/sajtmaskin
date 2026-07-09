@@ -163,21 +163,14 @@ const MessageListComponent = ({
   // `if (isStreaming)` can no longer re-arm it off the leaking foreign stream.
   const f3ChatIdRef = useRef(chatId);
   const f3AwaitingStreamSettleRef = useRef(false);
+  const prevIsStreamingRef = useRef(isStreaming);
   if (f3ChatIdRef.current !== chatId) {
     f3ChatIdRef.current = chatId;
     f3MountKeyRef.current = undefined;
     autoFiredF3KeyRef.current = null;
     hasStreamedThisSessionRef.current = false;
     f3AwaitingStreamSettleRef.current = isStreaming;
-  }
-  // The deferred foreign stream has ended → messages now belong to this chat.
-  if (f3AwaitingStreamSettleRef.current && !isStreaming) {
-    f3AwaitingStreamSettleRef.current = false;
-  }
-  // A generation stream is this chat's "live" signal only once we are settled
-  // on this chat (never while a previous chat's stream is winding down).
-  if (isStreaming && !f3AwaitingStreamSettleRef.current) {
-    hasStreamedThisSessionRef.current = true;
+    prevIsStreamingRef.current = isStreaming;
   }
 
   const sendQuickReply = useCallback(
@@ -207,6 +200,37 @@ const MessageListComponent = ({
     () => getLatestPendingReplyFromTooling(messages),
     [messages],
   );
+
+  // Arm the F3 "live stream" gate only when a generation stream ENDS and leaves
+  // a NEW F3-continuation marker (A#2 / bugbot #460 residual). Arming on ANY
+  // `isStreaming` (the old per-render `if (isStreaming) hasStreamed=true`) let
+  // an unrelated F2 follow-up credit a later staged-hydration marker and burn
+  // credits. F2/other streams that end without a marker clear the gate.
+  useEffect(() => {
+    if (f3AwaitingStreamSettleRef.current) {
+      prevIsStreamingRef.current = isStreaming;
+      // Foreign stream from the previous chat ended — never arm the new chat
+      // off that transition (cross-chat credit-burn regression).
+      if (!isStreaming) {
+        f3AwaitingStreamSettleRef.current = false;
+      }
+      return;
+    }
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+    if (!wasStreaming || isStreaming) return;
+
+    const pending = getLatestPendingReplyFromTooling(messages);
+    const mountKey = f3MountKeyRef.current;
+    if (
+      pending?.kind === F3_CONTINUATION_KIND &&
+      mountKey !== undefined &&
+      pending.key !== mountKey
+    ) {
+      hasStreamedThisSessionRef.current = true;
+    }
+  }, [isStreaming, messages]);
+
   const latestEnvRequirement = useMemo(
     () => getLatestEnvRequirementFromTooling(messages),
     [messages],
