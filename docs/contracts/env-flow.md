@@ -66,6 +66,18 @@ harmless  →  tier3-stub  →  project-preview  →  user  →  generated
 Read at runtime via
 [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).
 
+**F2 dossier-mock-seed (design only):** on top of the layers above, F2 seeds a
+deterministic stub (`dossierMockPreviewEnvValue` → `<key>_placeholder_preview_not_real`)
+for every selected dossier env key still unset after the real layers — even keys
+the placeholder catalog does not cover (`EMAIL_FROM`, `CONTACT_EMAIL_TO`,
+`FAL_API_KEY`, `MAILCHIMP_*`) — so each dossier renders its demo/mock surface in
+the preview. It reuses the `tier3-stub` provenance on purpose (identical
+lifecycle: F2-only, stripped in F3), is never run in F3, never persisted to
+`projectEnvVars`, and never reaches a deploy. The stub vocabulary matches
+[`stub-env-filter.ts`](../../src/lib/integrations/stub-env-filter.ts) so it is
+never read as evidence of a configured integration. A real user/generated value
+always wins.
+
 ## F2 vs F3 — the one rule that matters
 
 | Stage (`PreviewLifecycleStage`) | Meaning | tier3-stub layer |
@@ -88,6 +100,37 @@ tier-3 (blocks F3) regardless of which integration uses it, while
 `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment files are
 organized to match the set in `placeholder-harmless.ts` and are kept honest by
 `src/lib/integrations/placeholder-harmless.parity.test.ts`.
+
+## Demo/mock-läge (F2) och ärlig publiceringsgrind
+
+F2 ska rendera en trovärdig demo utan riktiga nycklar; F3-publicering ska bara
+blockera på det som verkligen kräver en riktig integration.
+
+- **Demo i F2:** varje hard-dossier deklarerar ett `mock`-läge
+  (`canned`/`seed`/`success`/`none`, se
+  [`dossier-system.md`](dossier-system.md)) som driver dossierns egen
+  degraderingskod. Kombinerat med F2-mock-seeden ovan renderar preview-ytan utan
+  riktiga nycklar. `mock` aktiveras när nyckeln saknas **eller** är en stub.
+- **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
+  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de okonfigurerade
+  nycklar vars dossier-`enforcement` är `"build"`. Efter #468 har bara
+  `clerk-auth` `build`-nycklar (`CLERK_SECRET_KEY` +
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — trasig inloggning är värre än
+  demo-friktion. `openai-chat`s `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
+- **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
+  `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
+  aldrig; de surfar som icke-blockerande `EnvDegradationWarning`
+  (`env-degradation-warnings.ts`). I **F2** gäller `missingEnvKeys`-backstoppen
+  (medvetet vald i #461): en okonfigurerad nyckel **utan katalog-placeholder**
+  blockerar oavsett enforcement. Det biter normalt inte på dossier-nycklar i F2
+  (dossierns server-filer strippas av SDK-deny-listan och `env.example`-stubbar
+  filtreras ur detektionen), men kod som modellen själv skrivit med
+  `process.env.<KEY>`-referenser utanför katalogen (t.ex. ett eget
+  `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
+- **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
+  riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
+  Dossiers-panelen i previewpanelen — aldrig mot chatten (env-frågor hör inte
+  hemma i F2/F3-chatten, se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
 
 ## Sources of truth at a glance
 

@@ -32,7 +32,7 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
        (annars första id-sorterade)
                 │
                 ▼
-       hard-class? → kolla envVars i process.env
+       hard-class? → kolla envVars mot projektets sparade nycklar
                 │
                 ▼
        configured: true|false
@@ -53,7 +53,7 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 | `hard` | `data/dossiers/hard/<id>/` | Behöver `process.env`-secrets (Stripe-key, OpenAI-key, DB-URL). |
 | `soft` | `data/dossiers/soft/<id>/` | Självförsörjande (UI-sektioner, R3F-scener, FAQ-accordions). |
 
-`hard`-dossiers utan satta env-vars **injiceras ändå** men markeras `configured: false` så codegen-LLM:n bygger en placeholder-UI istället för att krascha.
+`hard`-dossiers utan satta env-vars **injiceras ändå** men markeras `configured: false`. `configured` läses mot **projektets** sparade env-nycklar (`configuredEnvKeys`, trädat från `getStoredProjectEnvVarMap`) — inte plattformens `process.env` (deprecerad fallback för callers utan projekt-env-map). Flaggan är en prompt-signal, aldrig kopplad till en gate. Codegen-LLM:n får dessutom dossierns `mock`-läge (`describeMockMode`) så demo-ytan renderar i F2 utan riktig nyckel i stället för att krascha.
 
 ## Två kod-fideliteter (per-dossier default + per-fil override)
 
@@ -194,6 +194,6 @@ via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
 |---------|--------------|-----------|
 | `## Available Dossiers` saknas | `SAJTMASKIN_DOSSIER_PIPELINE=false` ELLER brief har inga `requestedCapabilities` | `.env.local` + prompt-dump `generation-input-package.json` |
 | Capability deklareras men ingen dossier väljs | Ingen dossier täcker capability | Logg: `dossier_capability_unresolved` |
-| Hard-dossier renderas som UNCONFIGURED | env-vars saknas i `process.env` | `manifest.json → envVars[].required` vs `process.env` |
+| Hard-dossier renderas som UNCONFIGURED | required env-vars saknar sparat värde för projektet | `manifest.json → envVars[].required` vs projektets `projectEnvVars` (`configuredEnvKeys`) |
 | Två dossiers delar capability — fel vald | Saknad eller dubbel `defaultForCapability=true` | `defaults.length > 1`-warning i logg |
 | Capability-map ej uppdaterad efter ny dossier | Glömt klicka "Bygg om" i backoffice | `data/dossiers/_index/capability-map.json` |

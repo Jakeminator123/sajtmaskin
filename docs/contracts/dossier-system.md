@@ -21,10 +21,10 @@ data/dossiers/
 
 | Class | When to use | Behavior |
 |---|---|---|
-| `hard` | The dossier needs `process.env` secrets to run (API keys, DB URLs). | Selection runs a preflight check on `envVars[].required`. If anything is missing, the dossier is still injected but the codegen LLM is told to render an "unconfigured" placeholder UI. |
+| `hard` | The dossier needs external secrets to run (API keys, DB URLs). | Selection marks `configured: true\|false` per project (see the selection algorithm below). A hard dossier is **always** injected regardless; when its keys are missing the codegen LLM is told how the dossier degrades — its declarative `mock` mode (see below) drives a working demo surface, and `mock: "none"` falls back to a discreet configuration banner. |
 | `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
 
-Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard.
+Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
@@ -35,10 +35,25 @@ Samma dossier kan spänna över F2 och F3 — det är inte två separata dossier
 
 **Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
 
-1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas) — Stripe/Clerk/OpenAI-klassen.
+1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Efter #468 är `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) den **enda** hard-dossiern som fortfarande har `build`-enforcement — trasig inloggning är värre än demo-friktion. Övriga (Stripe, OpenAI, DB, e-post …) är `feature-runtime`/`warn-only` och degraderar via sitt mock-läge i stället för att blockera. En `build`-nyckel som saknas är alltså det enda som gör en dossier F3-tvingande via env-vägen.
 2. **Server-yta:** en `files[]`-post med `role: "server"` — dossiers som skeppar backend-wiring (API-route, middleware, server-config) hör till F3 även utan build-secret. Exempel: `resend-contact-form` (alla nycklar `feature-runtime`, men `/api/contact`-routen importerar `resend` som F2:s SDK-deny-lista strippar) och `mailchimp-newsletter`. I F2 renderas formuläret som visuell mockup enligt F2-kontraktet i `session-contracts.ts`; mejl/prenumeration aktiveras först i F3 ("Bygg integrationer").
 
 [`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med policy-residualen `{analytics}` — icke-secret, server-fri integration som ändå ska F2-mutas, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` och enbart klientfiler (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver det — inte via en ny per-dossier-flagga eller separat hårdkodad lista.
+
+### Mock/demo-läge (`mock`) — hur en hard-dossier ser ut i F2 utan riktig nyckel
+
+Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/types.ts)) beskriver hur en hard-dossier gör sin **visuella yta** funktionell i F2/preview när nyckeln saknas *eller* är en preview-stub. Fältet driver dels dossierns egen komponentkod (den emitterade användarsajtens degraderingsväg), dels en promptrad till codegen-LLM:n via `describeMockMode` ([`system-prompt/sections/dossiers.ts`](../../src/lib/gen/system-prompt/sections/dossiers.ts)) så modellen förlitar sig på den inbyggda fallbacken i stället för att hitta på en egen.
+
+| `mock` | Beteende utan riktig nyckel | Exempel-dossiers |
+|---|---|---|
+| `canned` | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts. | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation` |
+| `seed` | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps. | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas` |
+| `success` | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern. | `resend-contact-form`, `mailchimp-newsletter` |
+| `none` (default vid utelämnat) | Kan inte mockas meningsfullt (betalning, inloggning) → UI:t visar en diskret demo-/konfigurationsbanner (`IntegrationConfigNotice`-mönstret). | `stripe-checkout`, `clerk-auth`, `ably-realtime` |
+
+Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en *riktig* primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
+
+**Satt på 11 av 14 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 
@@ -57,6 +72,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stripe-checkout",
+  "mock": "none",
   "label": "Stripe Checkout",
   "capability": "payments",
   "codeFidelity": "verbatim",
@@ -94,6 +110,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 | `sourceRepoUrl` | optional | Pointer to the upstream reference (typically under `data/template-references/`). |
 | `notes` | optional | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated. |
 | `promptInstructionMode` | optional | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`. |
+| `mock` | optional | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above. |
 
 ## `instructions.md` template
 
@@ -125,7 +142,7 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
 2. For each capability, find dossiers via `getDossiersByCapability(cap)`.
 3. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
-4. For hard dossiers, check `process.env` for required envVars → mark `configured: true|false`.
+4. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
 5. Eagerly load `instructions.md` for selected dossiers.
 
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
