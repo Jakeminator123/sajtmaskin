@@ -3,7 +3,7 @@ import "server-only";
 import { createClient, type SanityClient } from "next-sanity";
 
 import { apiVersion, dataset, isSanityConfigured, projectId, studioUrl } from "./api";
-import { token } from "./token";
+import { isSanityDraftTokenConfigured, token } from "./token";
 
 /**
  * Lazy singleton clients, never constructed at module import time — a
@@ -54,9 +54,9 @@ export function getDraftSanityClient(): SanityClient {
       "Sanity is not configured (missing NEXT_PUBLIC_SANITY_PROJECT_ID / NEXT_PUBLIC_SANITY_DATASET). Check isSanityConfigured() before calling getDraftSanityClient().",
     );
   }
-  if (!token) {
+  if (!isSanityDraftTokenConfigured()) {
     throw new Error(
-      "Sanity draft preview is not configured (missing SANITY_API_READ_TOKEN). Check isSanityDraftTokenConfigured() before calling getDraftSanityClient().",
+      "Sanity draft preview is not configured (missing or placeholder SANITY_API_READ_TOKEN). Check isSanityDraftTokenConfigured() before calling getDraftSanityClient().",
     );
   }
   if (!globalForSanity.__sanityDraftClient) {

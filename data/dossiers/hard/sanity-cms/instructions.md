@@ -11,7 +11,7 @@
 2. Add the Sanity env vars: `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` (required for any read), plus `SANITY_API_READ_TOKEN` (server-only, required for draft preview / private datasets) and the optional `NEXT_PUBLIC_SANITY_API_VERSION` / `NEXT_PUBLIC_SANITY_STUDIO_URL`.
 3. Emit the helpers under `lib/sanity/*` and import them via `@/lib/sanity/*`. Do NOT use the upstream `@/sanity/lib/*` layout.
 4. Read published content from server components / route handlers / metadata + sitemap loaders with `sanityFetch({ query, params })`. It queries the public CDN client (no token).
-5. CONFIG-FALLBACK CONTRACT (required): every page/section that shows Sanity content must branch on `isSanityConfigured()` from `@/lib/sanity/api`. Configured → query via `sanityFetch()`. Not configured → render static example content authored in the component and mount a discreet `<SanityConfigNotice />` from `@/components/sanity-config-notice` near that section. The site must render fully without any Sanity env vars — never crash and never surface a raw error.
+5. SEED FALLBACK CONTRACT (required, mock: seed): every page/section that shows Sanity content must branch on `isSanityConfigured()` from `@/lib/sanity/api` (placeholder-aware — preview stubs count as NOT configured). Configured → query via `sanityFetch()`. Not configured → render `seedContent` from `@/lib/sanity/seed-content` and mount a discreet `<SanityConfigNotice />` from `@/components/sanity-config-notice` near that section. Rewrite `seedContent` to mirror the app's real document types (same shape as the GROQ results). The site must render fully without any Sanity env vars — never crash and never surface a raw error.
 6. For draft preview, mount the `/api/draft-mode/enable` and `/api/draft-mode/disable` routes and point the Sanity Presentation Tool `previewMode.enable` at `/api/draft-mode/enable`. Use `sanityFetch({ query, perspective: "drafts" })` only inside `draftMode().isEnabled` branches; gate it on `isSanityDraftTokenConfigured()`.
 7. Add `<VisualEditing />` (from `next-sanity`) conditionally inside the host app's EXISTING root layout — render it only when `(await draftMode()).isEnabled` is true. Do NOT let this dossier own, replace, or introduce a root `app/layout.tsx`; the host scaffold owns layout, navigation, and fonts.
 
@@ -20,7 +20,7 @@
 - Normal visitors must see published content only; draft/unpublished content appears only after draft mode is enabled.
 - Keep preview controls invisible in public browsing sessions.
 - Missing CMS documents should render a 404, empty state, or fallback — not crash the UI.
-- When example content is shown because the CMS is unconfigured, the notice must be subtle (small muted banner) so the design preview still looks like the finished site.
+- When `seedContent` is shown because the CMS is unconfigured, the notice must be subtle (small muted banner) so the design preview still looks like the finished site.
 - Give editors a clear way to leave preview mode (link to `/api/draft-mode/disable`).
 - Use a correct per-environment Studio URL so edit-intent links open the right Studio.
 
@@ -32,11 +32,12 @@
 - Do not let this dossier replace the site's root layout, navigation, fonts, or page structure, and do not add a root `app/layout.tsx`.
 - Do not ship template demo pages, branded layouts, sample schemas, or unrelated routes.
 - Do not use a floating API version such as `new Date()`; keep the pinned date.
-- Do not skip the `isSanityConfigured()` branch: an unconfigured CMS must show example content, not a crash or raw error.
+- Do not skip the `isSanityConfigured()` branch: an unconfigured CMS must show `seedContent`, not a crash or raw error.
+- Do not keep the generic seed articles if they do not match the app — `seed-content.ts` is a rewrite target.
 
 # Verification
 
-- Start the app WITHOUT any Sanity env vars: Sanity-backed pages must render static example content with the config notice, and `/api/draft-mode/enable` must answer 503 — no crash, no raw error.
+- Start the app WITHOUT any Sanity env vars (or with F2 preview stubs): Sanity-backed pages must render `seedContent` with the config notice, and `/api/draft-mode/enable` must answer 503 — no crash, no raw error.
 - Set `NEXT_PUBLIC_SANITY_PROJECT_ID` + `NEXT_PUBLIC_SANITY_DATASET` and confirm a server-side `sanityFetch(...)` returns published content with no token exposed in the browser bundle.
 - Set `SANITY_API_READ_TOKEN`, open the configured Presentation Tool preview URL, and confirm draft mode enables and draft content appears only in draft mode.
 - Visit `/api/draft-mode/disable` and confirm the app returns to published content.

@@ -1,17 +1,18 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "sanity-cms",
+  "mock": "seed",
   "label": "Sanity CMS for Next.js",
   "capability": "cms",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Use when a Next.js App Router site should read structured content from Sanity, with optional draft preview / Presentation Tool Visual Editing. Ships only frontend integration glue — env config, a lazy public+draft client factory, a query helper, and paired draft-mode enable/disable routes. When Sanity is not configured, Sanity-backed pages must render static example content plus SanityConfigNotice instead of crashing.",
+  "summary": "Use when a Next.js App Router site should read structured content from Sanity, with optional draft preview / Presentation Tool Visual Editing. Ships only frontend integration glue — env config, a lazy public+draft client factory, a query helper, and paired draft-mode enable/disable routes. When Sanity env is missing or a preview placeholder, Sanity-backed pages must render the shipped seedContent plus a discreet SanityConfigNotice instead of crashing.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SANITY_PROJECT_ID",
       "required": true,
-      "purpose": "Sanity project ID that identifies which project to read content from. Find it in sanity.io/manage or the project's sanity.config.ts. Tagged feature-runtime because isSanityConfigured() gates all Sanity access after the promotion fixes: pages fall back to static example content + SanityConfigNotice, and the draft-mode routes answer 503 instead of crashing.",
+      "purpose": "Sanity project ID that identifies which project to read content from. Find it in sanity.io/manage or the project's sanity.config.ts. Tagged feature-runtime because the placeholder-aware isSanityConfigured() gates all Sanity access: pages render seedContent + SanityConfigNotice, and the draft-mode routes answer 503 instead of crashing.",
       "enforcement": "feature-runtime"
     },
     {
@@ -35,7 +36,7 @@
     {
       "key": "SANITY_API_READ_TOKEN",
       "required": false,
-      "purpose": "Server-only Sanity token with read access, needed for draft-mode preview and any private dataset. Create it in the Sanity project's API settings (Manage -> API -> Tokens). Tagged feature-runtime: without it the draft client throws internally, but the draft-mode enable route catches that via isSanityDraftTokenConfigured() and answers 503 instead of crashing; published-content reads keep working.",
+      "purpose": "Server-only Sanity token with read access, needed for draft-mode preview and any private dataset. Create it in the Sanity project's API settings (Manage -> API -> Tokens). Tagged feature-runtime: the placeholder-aware isSanityDraftTokenConfigured() gates the draft client, and the draft-mode enable route answers 503 when it is missing or a stub; published-content reads keep working.",
       "enforcement": "feature-runtime"
     }
   ],
@@ -63,6 +64,11 @@
       "path": "components/lib/sanity/fetch.ts",
       "role": "server",
       "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/sanity/seed-content.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
     },
     {
       "path": "components/sanity-config-notice.tsx",
@@ -107,6 +113,11 @@
       "import": "@/lib/sanity/fetch"
     },
     {
+      "name": "seedContent",
+      "type": "constant",
+      "import": "@/lib/sanity/seed-content"
+    },
+    {
       "name": "SanityConfigNotice",
       "type": "component",
       "import": "@/components/sanity-config-notice"
@@ -114,6 +125,6 @@
   ],
   "lastVerified": "2026-04-18",
   "sourceRepoUrl": "https://github.com/sanity-io/sanity-template-nextjs-clean",
-  "notes": "Legacy import Fas D (2026-07-08): promoted from the sanity-cms-alt prospect draft, not the sanity-cms-primary one, after comparing both against dossiers-prospect/normalization-report.json (open decision #2 in docs/plans/active/2026-07-08-dossier-legacy-import.md) — alt shipped a paired draft-mode disable route + a sanityFetch() query helper that the primary draft lacked, and alt's exposes correctly named the actual exports (client/projectId/dataset) where the primary draft's exposes referenced nonexistent symbol names (sanityClient/sanityProjectId/sanityDataset). Applied fixes beyond the REVIEW.md list: dropped the module-level assertValue() throw in api.ts (now non-throwing + isSanityConfigured()), split getSanityClient()/getDraftSanityClient() (public CDN client without a token vs. server-only draft client with the token + useCdn:false), added isSanityDraftTokenConfigured() so the enable route degrades to 503 instead of throwing, and replaced the alt draft's disable route (which imported a disableDraftMode export that next-sanity/draft-mode does not actually ship) with the standard manual next/headers pattern. lastVerified carries the legacy source's scrape date (raw/cms-sanity-next-js-clean-app/skiss.json _importedAt) until the first preview/generate-test selects this dossier (no-false-green, same rule as PR #422/#430/#445).",
+  "notes": "Legacy import Fas D: promoted from the sanity-cms-alt draft (open decision #2) — alt shipped the paired disable route + sanityFetch helper, and its exposes named real exports unlike the primary draft. Fixes: non-throwing api.ts + placeholder-aware isSanityConfigured(), lazy public/draft client split (CDN vs server-only token), mock:seed via seedContent + SanityConfigNotice, manual disable route (next-sanity ships no disableDraftMode export). lastVerified = legacy scrape date until first preview-test (no-false-green).",
   "promptInstructionMode": "compact"
 }

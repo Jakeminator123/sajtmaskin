@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isPlaceholderValue } from "./api";
+
 /**
  * Server-only Sanity read token — required for draft-mode preview and any
  * private dataset. `server-only` makes an accidental client-component import
@@ -7,7 +9,12 @@ import "server-only";
  */
 export const token = process.env.SANITY_API_READ_TOKEN;
 
-/** True when a non-empty read token is configured. Gate the draft client / draft-mode routes on this in addition to `isSanityConfigured()`. */
+/**
+ * True when a REAL (non-empty, non-placeholder) read token is configured.
+ * Gate the draft client / draft-mode routes on this in addition to
+ * `isSanityConfigured()` — the F2 preview stub must take the 503 setup path,
+ * never a real API call with a fabricated token.
+ */
 export function isSanityDraftTokenConfigured(): boolean {
-  return typeof token === "string" && token.trim().length > 0;
+  return !isPlaceholderValue(token);
 }
