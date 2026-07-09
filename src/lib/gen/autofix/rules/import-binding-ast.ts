@@ -272,14 +272,74 @@ const DENY_STUB_DEFAULT_NAMES = new Set<string>([
   "WebGLErrorBoundary",
 ]);
 
+/**
+ * JavaScript / Web-platform runtime globals that an LLM sometimes writes in a
+ * TS generic position (`new ReadableStream<Uint8Array>`, `Promise<Date>`) or
+ * mistakes for a JSX component. `<([A-Z]\w*)[\s/>]`-style tag matchers pick
+ * these up because the trailing `>` satisfies the lookahead — but they resolve
+ * to the runtime global, never to a `@/components/<kebab>` module. Stubbing one
+ * (or letting the LLM import it from a fabricated module) shadows the global
+ * and breaks the build (prod incident 2026-07-09: `import Uint8Array from
+ * "@/components/uint8-array"` collided with `new ReadableStream<Uint8Array>`).
+ *
+ * Shared with `jsx-checker.ts` (`GLOBAL_TYPES`) so the two autofix layers stay
+ * in sync from a single list.
+ */
+export const JS_BUILTIN_GLOBAL_NAMES: ReadonlySet<string> = new Set<string>([
+  // Typed arrays + buffers
+  "ArrayBuffer",
+  "SharedArrayBuffer",
+  "DataView",
+  "Int8Array",
+  "Uint8Array",
+  "Uint8ClampedArray",
+  "Int16Array",
+  "Uint16Array",
+  "Int32Array",
+  "Uint32Array",
+  "Float32Array",
+  "Float64Array",
+  "BigInt64Array",
+  "BigUint64Array",
+  // Core JS built-ins
+  "Date",
+  "Error",
+  "RegExp",
+  "Symbol",
+  "WeakMap",
+  "WeakSet",
+  "Proxy",
+  "Reflect",
+  "Intl",
+  // Encoding / web-platform globals
+  "TextEncoder",
+  "TextDecoder",
+  "URL",
+  "URLSearchParams",
+  "Blob",
+  "File",
+  "FormData",
+  "Headers",
+  "Request",
+  "Response",
+  "AbortController",
+  "AbortSignal",
+]);
+
 const DENY_STUB_NAME_RE = /^(?:HTML|SVG)[A-Z][A-Za-z0-9]*$/;
+// A single uppercase letter is a classic TS generic parameter (`<T>`, `<K>`),
+// never a real component/module to stub.
+const SINGLE_UPPERCASE_LETTER_RE = /^[A-Z]$/;
 
 /**
  * Default-import names that should never trigger a generated @/components/* stub
- * (usually a mistaken duplicate of a DOM type or a runtime export).
+ * (usually a mistaken duplicate of a DOM type, a JS/Web global, a lone TS
+ * generic parameter, or a runtime export).
  */
 export function isDenylistedStubDefaultName(name: string): boolean {
   if (DENY_STUB_DEFAULT_NAMES.has(name)) return true;
+  if (JS_BUILTIN_GLOBAL_NAMES.has(name)) return true;
+  if (SINGLE_UPPERCASE_LETTER_RE.test(name)) return true;
   return DENY_STUB_NAME_RE.test(name);
 }
 

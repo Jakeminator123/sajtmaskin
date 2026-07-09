@@ -5,6 +5,7 @@ import {
   FIX_LESSON_VERIFIER_FIXER_REWRITE,
   isCrossTenantSafeFixText,
   repairLoopLlmFixLesson,
+  verifierFixerPartialFixLesson,
 } from "./error-log-fix-lessons";
 
 describe("isCrossTenantSafeFixText (A#1 allowlist)", () => {
@@ -17,6 +18,17 @@ describe("isCrossTenantSafeFixText (A#1 allowlist)", () => {
   it("accepts the repair-loop LLM lesson for any pass count", () => {
     expect(isCrossTenantSafeFixText(repairLoopLlmFixLesson(1))).toBe(true);
     expect(isCrossTenantSafeFixText(repairLoopLlmFixLesson(12))).toBe(true);
+  });
+
+  it("accepts the verifier-fixer partial-fix lesson for any before/after counts", () => {
+    expect(isCrossTenantSafeFixText(verifierFixerPartialFixLesson(3, 1))).toBe(true);
+    expect(isCrossTenantSafeFixText(verifierFixerPartialFixLesson(2, 1))).toBe(true);
+    // A tenant-specific suffix must not sneak past the anchored pattern.
+    expect(
+      isCrossTenantSafeFixText(
+        `${verifierFixerPartialFixLesson(3, 1)} for acme-corp`,
+      ),
+    ).toBe(false);
   });
 
   it("rejects free-form / tenant-specific fix text (default-deny)", () => {

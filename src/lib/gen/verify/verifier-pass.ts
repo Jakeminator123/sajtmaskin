@@ -9,6 +9,7 @@ import { resolveHtmlInterfaceTag } from "@/lib/gen/autofix/rules/dom-builtin-jsx
 import { toAnthropicEffort } from "@/lib/gen/engine";
 import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
+import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
@@ -44,6 +45,20 @@ const FORCE_BLOCKING_IDS = new Set<string>([
   "navigation-placeholder-actions",
   "footer-dead-links",
 ]);
+
+/**
+ * True when a quality-bucketed finding must be promoted to `blocking`.
+ * Besides the product-quality FORCE_BLOCKING_IDS, the import name-resolution
+ * class (`import-name-collision`, `build-*-import` — shared classifier with
+ * `should-start-preview.ts`) is promoted too: F2 init has no server-verify
+ * backstop, so a build-breaking finding the LLM mis-buckets as `quality`
+ * would otherwise never reach `verifierBlockingFindings` and the F2 gate
+ * (prod incident 2026-07-09 follow-up).
+ */
+function isForcedBlockingFindingId(id: string): boolean {
+  if (FORCE_BLOCKING_IDS.has(id)) return true;
+  return isBuildBreakingImportFindingId(id);
+}
 
 /**
  * Format verifier blocking findings as fixer-style "errors" for `runLlmFixer`.
@@ -130,15 +145,16 @@ export function extractFilePathsFromVerifierFindings(
 }
 
 /**
- * Promote known production-quality issues from `quality` to `blocking` so they
- * cannot silently slip through when the LLM mis-classifies them.
+ * Promote known production-quality issues and build-breaking import findings
+ * from `quality` to `blocking` so they cannot silently slip through when the
+ * LLM mis-classifies them. Exported for direct unit testing (pure function).
  */
-function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
+export function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
   if (findings.quality.length === 0) return findings;
   const promoted: typeof findings.blocking = [];
   const remainingQuality: typeof findings.quality = [];
   for (const item of findings.quality) {
-    if (FORCE_BLOCKING_IDS.has(item.id)) {
+    if (isForcedBlockingFindingId(item.id)) {
       promoted.push(item);
     } else {
       remainingQuality.push(item);

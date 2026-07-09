@@ -439,6 +439,95 @@ export default function SpinningLogo() {
     expect(warnings.some((w) => w.includes("Tag mismatch for <Group>"))).toBe(false);
   });
 
+  // Prod incident 2026-07-09: `new ReadableStream<Uint8Array>` matched the
+  // opening-tag regex (`>` satisfies `[\s/>]`) and the autofix inserted
+  // `import Uint8Array from "@/components/uint8-array"`, shadowing the global
+  // typed array and crashing /api/assistant in prod.
+  it("does not stub a JS global used in a TS generic position (ReadableStream<Uint8Array>)", () => {
+    const code = `
+"use client";
+
+export default function StreamViewer() {
+  const stream = new ReadableStream<Uint8Array>();
+  void stream;
+  return <div>stream</div>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "components/stream-viewer.tsx");
+    expect(out).not.toMatch(/@\/components\/uint8-array/);
+    expect(fixes.some((f) => f.description?.includes("Uint8Array"))).toBe(false);
+  });
+
+  it("inserts no component import into an app/api route handler (non-JSX surface)", () => {
+    const code = `
+export async function POST() {
+  return new Response(new ReadableStream<Uint8Array>());
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(
+      code,
+      "app/api/assistant/route.ts",
+    );
+    expect(out).toBe(code);
+    expect(out).not.toMatch(/@\/components\//);
+    expect(fixes).toHaveLength(0);
+  });
+
+  it("inserts no component import into a plain .ts file OUTSIDE app/api (non-JSX surface)", () => {
+    const code = `
+export function makeStream() {
+  return new ReadableStream<Uint8Array>();
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "lib/stream.ts");
+    expect(out).toBe(code);
+    expect(out).not.toMatch(/@\/components\//);
+    expect(fixes).toHaveLength(0);
+  });
+
+  it("does not stub-import a literal self-closing <T /> tag (single-letter guard)", () => {
+    // Pinned behavior: even when `<T className="x" />` is written as literal
+    // JSX in a .tsx file, the single-uppercase-letter guard treats `T` as a
+    // TS generic parameter and never fabricates `@/components/t`. The
+    // undefined-JSX-symbol verifier lane owns this case instead.
+    const code = `
+export default function Page() {
+  return <T className="x" />;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
+    expect(out).not.toMatch(/@\/components\/t"/);
+    expect(fixes.some((f) => f.description === "Added missing import for <T>")).toBe(
+      false,
+    );
+  });
+
+  it("does not phantom-import single-letter generics or Promise<T>", () => {
+    const code = `
+export default function Page<T>() {
+  const items: Promise<T>[] = [];
+  void items;
+  return <div>ok</div>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
+    expect(out).not.toMatch(/@\/components\/t"/);
+    expect(fixes.some((f) => f.description === "Added missing import for <T>")).toBe(
+      false,
+    );
+  });
+
+  it("still inserts a generated import for a real self-closing JSX component (regression)", () => {
+    const code = `
+export default function Page() {
+  return <MyWidget className="p-4" />;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
+    expect(out).toContain('import MyWidget from "@/components/my-widget"');
+    expect(fixes.some((f) => f.description?.includes("<MyWidget>"))).toBe(true);
+  });
+
   it("still reports (and preview-blocks) a genuine tag mismatch in an R3F-critical file", () => {
     // True positive preserved: <Group> opened but closed by </ThreeCanvasShell>
     // (the exact shape the prod verifier reported). The file does not parse, so
