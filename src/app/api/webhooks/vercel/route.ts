@@ -169,7 +169,7 @@ export async function POST(req: Request) {
   const url = extractUrl(body);
   const inspectorUrl = extractInspectorUrl(body);
 
-  await updateDeploymentStatus(match[0].id, status, {
+  const { transitionedToError } = await updateDeploymentStatus(match[0].id, status, {
     ...(url ? { url } : {}),
     ...(inspectorUrl ? { inspectorUrl } : {}),
     ...(projectId ? { vercelProjectId: projectId } : {}),
@@ -179,7 +179,9 @@ export async function POST(req: Request) {
   // ordentligt (DB + RAG + bus) så deploy-vägen får samma spårbarhet som
   // preview-VM:en. Best-effort — får aldrig fälla webhook-svaret. Triggar
   // INTE någon repair (Ö3: repair körs bara på manuell "Publicera om med fix").
-  if (status === "error") {
+  // BB#deploy2: logga bara när DENNA väg vann den atomiska övergången till
+  // `error` — annars dubbelloggar webhook + SSE-poll samma build-fel.
+  if (transitionedToError) {
     await logDeployError({
       chatId: match[0].chatId,
       versionId: match[0].versionId,

@@ -122,11 +122,13 @@ export async function GET(
                 inspectorUrl: vd.inspectorUrl,
               });
 
+              let transitionedToError = false;
               try {
-                await updateDeploymentStatus(deploymentId, mapped.status, {
+                const result = await updateDeploymentStatus(deploymentId, mapped.status, {
                   url: vd.url || undefined,
                   inspectorUrl: vd.inspectorUrl || undefined,
                 });
+                transitionedToError = result.transitionedToError;
               } catch (persistErr) {
                 // SAJ-58: client got the new status via SSE, but the DB row
                 // didn't update. List/API consumers reading `deployments`
@@ -145,8 +147,11 @@ export async function GET(
 
               // A3: ett asynkront Vercel-build-fel som fångas via poll (Redis
               // saknas/tappade meddelandet) loggas ordentligt (DB + RAG + bus),
-              // precis som webhook-vägen. Best-effort, en gång per stream.
-              if (mapped.status === "error" && !deployErrorLogged) {
+              // precis som webhook-vägen. Best-effort. BB#deploy2: gate:a på den
+              // atomiska DB-övergången till `error` (inte bara `mapped.status`)
+              // så webhook och poll aldrig dubbelloggar samma build-fel; den
+              // per-stream-lokala flaggan är kvar som billig extra spärr.
+              if (transitionedToError && !deployErrorLogged) {
                 deployErrorLogged = true;
                 await logDeployError({
                   chatId: deployment.chatId,

@@ -1,10 +1,21 @@
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
+
+export type UpdateDeploymentStatusResult = {
+  /**
+   * `true` only when THIS call atomically flipped the row from a non-`error`
+   * status to `error`. Lets callers (Vercel-webhook + SSE-poll) log a deploy
+   * failure EXACTLY once — previously both paths logged on `status === "error"`
+   * without cross-path dedup, so one build failure produced duplicate
+   * `engine_version_error_logs` rows + RAG/bus signals (BB#deploy2).
+   */
+  transitionedToError: boolean;
+};
 
 export async function createDeploymentRecord(params: {
   chatId: string;
@@ -39,27 +50,62 @@ export async function updateDeploymentStatus(
     vercelDeploymentId?: string | null;
     vercelProjectId?: string | null;
   },
-): Promise<void> {
-  const nextValues: Record<string, string | Date | null> = {
-    status,
+): Promise<UpdateDeploymentStatusResult> {
+  // Metadata (url/inspectorUrl/…) must ALWAYS be written — even a repeated
+  // `error` event may carry a late-arriving inspectorUrl. Only the transition
+  // DETECTION is conditional; the metadata merge is not (BB#deploy2 design).
+  const metadataValues: Record<string, string | Date | null> = {
     updatedAt: new Date(),
   };
   if (updates && Object.prototype.hasOwnProperty.call(updates, "url")) {
-    nextValues.url = updates.url ?? null;
+    metadataValues.url = updates.url ?? null;
   }
   if (updates && Object.prototype.hasOwnProperty.call(updates, "inspectorUrl")) {
-    nextValues.inspectorUrl = updates.inspectorUrl ?? null;
+    metadataValues.inspectorUrl = updates.inspectorUrl ?? null;
   }
   if (updates && Object.prototype.hasOwnProperty.call(updates, "vercelDeploymentId")) {
-    nextValues.vercelDeploymentId = updates.vercelDeploymentId ?? null;
+    metadataValues.vercelDeploymentId = updates.vercelDeploymentId ?? null;
   }
   if (updates && Object.prototype.hasOwnProperty.call(updates, "vercelProjectId")) {
-    nextValues.vercelProjectId = updates.vercelProjectId ?? null;
+    metadataValues.vercelProjectId = updates.vercelProjectId ?? null;
   }
+  // `metadataValues` always carries `updatedAt`; anything beyond that is a real
+  // metadata field worth persisting on the already-error path.
+  const hasExtraMetadata = Object.keys(metadataValues).length > 1;
+
+  if (status === "error") {
+    // Atomic transition claim: `IS DISTINCT FROM` (not `<>`) so a NULL-status
+    // row also flips correctly. Exactly one concurrent writer (webhook vs poll)
+    // gets a row back — that caller owns the single deploy-error log.
+    const claimed = await db
+      .update(deployments)
+      .set({ ...metadataValues, status })
+      .where(
+        and(
+          eq(deployments.id, deploymentId),
+          sql`${deployments.status} is distinct from 'error'`,
+        ),
+      )
+      .returning({ id: deployments.id });
+    if (claimed.length > 0) {
+      return { transitionedToError: true };
+    }
+    // Row already in `error` (or gone): merge late metadata but never re-signal
+    // the transition, so the duplicate never produces a second error log.
+    if (hasExtraMetadata) {
+      await db
+        .update(deployments)
+        .set(metadataValues)
+        .where(eq(deployments.id, deploymentId));
+    }
+    return { transitionedToError: false };
+  }
+
   await db
     .update(deployments)
-    .set(nextValues)
+    .set({ ...metadataValues, status })
     .where(eq(deployments.id, deploymentId));
+  return { transitionedToError: false };
 }
 
 /**
