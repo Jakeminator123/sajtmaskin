@@ -3,17 +3,29 @@ import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * True only when a real-looking Supabase service-role configuration is present.
- * Placeholder / preview stubs (copied `.env` values, F2 preview injection)
- * count as unconfigured so the webhook route degrades to a calm 503 instead of
- * constructing an admin client that fails opaquely at write time. Callers MUST
- * check this before getSupabaseAdmin().
+ * F2/preview stubs and copied `.env` files carry placeholder values; a
+ * Supabase admin client constructed from those fails opaquely at write time.
+ * Mirrors the shared stub vocabulary (`placeholder` / `not_real` / `dummy` /
+ * `preview`).
+ */
+function isPlaceholderValue(value: string | undefined | null): boolean {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) return true;
+  return /placeholder|not[_-]?a?[_-]?real|dummy|changeme|preview|^your[_-]/i.test(trimmed);
+}
+
+/**
+ * True only when BOTH service-role keys are real (non-empty, non-placeholder).
+ * Placeholder-aware on every key — a real URL with a placeholder service-role
+ * key still counts as NOT configured (the honest 503 setup path, never a real
+ * call with fabricated config). Callers MUST check this before
+ * getSupabaseAdmin().
  */
 export function isSupabaseAdminConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) return false;
-  return !/placeholder|preview/i.test(url) && !/placeholder|preview/i.test(key);
+  return (
+    !isPlaceholderValue(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    !isPlaceholderValue(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  );
 }
 
 let adminClient: SupabaseClient | null = null;

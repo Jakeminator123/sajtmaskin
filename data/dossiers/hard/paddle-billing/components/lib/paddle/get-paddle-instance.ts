@@ -1,23 +1,29 @@
 import { Environment, Paddle } from '@paddle/paddle-node-sdk';
 
 /**
- * True only when a real-looking Paddle API key is configured. F2 design
- * previews and copied `.env` files often carry placeholder values; calling
- * Paddle with those yields opaque 500s instead of the calm not-configured
- * path, so any placeholder-marked value counts as unconfigured. Callers MUST
- * check this before getPaddleInstance() and degrade to a 503 when it is false.
+ * F2/preview injects placeholder stubs and copied `.env` files often carry
+ * similar values; calling Paddle with those yields opaque 500s instead of the
+ * calm not-configured path. Mirrors the shared stub vocabulary
+ * (`placeholder` / `not_real` / `dummy`).
  */
-export function isPaddleConfigured(): boolean {
-  const key = process.env.PADDLE_API_KEY?.trim();
-  if (!key) return false;
-  return !key.toLowerCase().includes('placeholder');
+function isPlaceholderValue(value: string | undefined | null): boolean {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) return true;
+  return /placeholder|not[_-]?a?[_-]?real|dummy|changeme|^your[_-]/i.test(trimmed);
 }
 
-/** True when the Paddle webhook signing secret is present (non-placeholder). */
+/**
+ * True only when a real-looking Paddle API key is configured (non-empty,
+ * non-placeholder). Callers MUST check this before getPaddleInstance() and
+ * degrade to a 503 'subscriptions-not-configured' when it is false.
+ */
+export function isPaddleConfigured(): boolean {
+  return !isPlaceholderValue(process.env.PADDLE_API_KEY);
+}
+
+/** True when the Paddle webhook signing secret is a real (non-placeholder) value. */
 export function isPaddleWebhookConfigured(): boolean {
-  const secret = process.env.PADDLE_NOTIFICATION_WEBHOOK_SECRET?.trim();
-  if (!secret) return false;
-  return !secret.toLowerCase().includes('placeholder');
+  return !isPlaceholderValue(process.env.PADDLE_NOTIFICATION_WEBHOOK_SECRET);
 }
 
 let paddleInstance: Paddle | null = null;

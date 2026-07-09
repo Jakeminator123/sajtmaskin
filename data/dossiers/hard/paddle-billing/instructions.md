@@ -8,7 +8,7 @@
 
 - Host-app dependency (REQUIRED, not optional): this dossier assumes Supabase Auth AND a `subscriptions` table with a UNIQUE `paddle_subscription_id`, plus `paddle_customer_id`, `status`, `updated_at`, `raw_payload`, and a way to map your signed-in user to a Paddle customer id. The dossier does NOT create the table, migrations, or the user↔customer mapping — provision them in the host app.
 - Configure env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `PADDLE_API_KEY`, `PADDLE_NOTIFICATION_WEBHOOK_SECRET` (set `NEXT_PUBLIC_PADDLE_ENV=production` only for live keys).
-- Graceful degrade: when env or the `subscriptions` table is missing the server routes return a recognizable JSON 503 (`subscriptions-not-configured` / `subscriptions-table-missing`) and the middleware passes through — nothing crashes. Render the pricing / manage-billing button in demo mode with `<SubscriptionConfigNotice />` until it is configured.
+- Graceful degrade (mock: none — billing cannot be meaningfully mocked): when env is missing OR a preview placeholder, or the `subscriptions` table does not exist, the server routes return a recognizable JSON 503 (`subscriptions-not-configured` / `subscriptions-table-missing`) and the middleware passes through — nothing crashes. Render the pricing / manage-billing button in a disabled demo state with `<SubscriptionConfigNotice />` until it is configured.
 - Mount the webhook at `/api/webhook` (or point the Paddle destination at your route). Verify the signature on the raw `request.text()` body before any DB write.
 - Call the customer-portal route only for a signed-in Supabase user; authorize the Paddle customer id server-side from your mapping.
 

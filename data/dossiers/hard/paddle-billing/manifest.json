@@ -1,6 +1,7 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "paddle-billing",
+  "mock": "none",
   "label": "Paddle Billing Subscriptions",
   "capability": "subscriptions",
   "codeFidelity": "verbatim",
