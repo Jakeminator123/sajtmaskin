@@ -38,9 +38,9 @@ export function LandingBackground({
         <div className="shader-orb shader-orb-2" />
         <div className="shader-orb shader-orb-3" />
       </div>
-      <div className="landing-chat-bg-grid absolute inset-0 opacity-[0.06] grid-background" />
+      <div className="landing-chat-bg-grid absolute inset-0 opacity-[0.035] grid-background" />
       <div
-        className="landing-chat-bg-noise absolute inset-0 opacity-[0.03] mix-blend-soft-light pointer-events-none"
+        className="landing-chat-bg-noise absolute inset-0 opacity-[0.02] mix-blend-soft-light pointer-events-none"
         style={{ backgroundImage: NOISE_BG }}
       />
     </div>

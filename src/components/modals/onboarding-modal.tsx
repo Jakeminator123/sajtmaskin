@@ -56,11 +56,20 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
     setStep("form");
   };
 
+  const handleSkip = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
+    }
+    onSkip();
+  };
+
+  // "Hoppa över videon" ska hoppa över hela onboardingen — inte kedja vidare
+  // till nästa modal. Den som vill fylla i formuläret når det via videons slut.
   const handleSkipVideo = () => {
     if (videoRef.current) {
       videoRef.current.pause();
     }
-    setStep("form");
+    handleSkip();
   };
 
   const handleSubmit = () => {
@@ -73,13 +82,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
       analyzeFromWeb,
       description,
     });
-  };
-
-  const handleSkip = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
-    }
-    onSkip();
   };
 
   const purposeLabels: Record<UrlPurpose, string> = {

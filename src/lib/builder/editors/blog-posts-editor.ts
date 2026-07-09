@@ -20,8 +20,10 @@ function isPageFile(fileName: string): boolean {
   );
 }
 
+// Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
+// sibling object that starts with `slug:` but lacks `title:`/`excerpt:` cannot leak in.
 const BLOG_POST_ITEM_RE =
-  /\{\s*slug:\s*(["'`])([\s\S]*?)\1\s*,\s*title:\s*(["'`])([\s\S]*?)\3\s*,\s*excerpt:\s*(["'`])([\s\S]*?)\5[\s\S]*?\}/g;
+  /\{\s*slug:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*title:\s*(["'`])((?:(?!\3)[\s\S])*?)\3\s*,\s*excerpt:\s*(["'`])((?:(?!\5)[\s\S])*?)\5[\s\S]*?\}/g;
 
 function findBlogPostMatches(content: string): BlogPostMatch[] {
   const matches: BlogPostMatch[] = [];

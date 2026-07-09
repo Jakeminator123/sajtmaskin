@@ -7,25 +7,27 @@
 
 @layer base {
   :root {
-    /* Sajtstudio corporate theme — blue + red/warm + white + green accent */
-    --background: 220 20% 3.5%;
+    /* Sajtstudio corporate theme — blue + red/warm + white + green accent.
+       Bakgrundstonerna lyftes 2026-07-09 (3.5% → 7% osv.) för att dämpa den
+       nattsvarta "AI-labb"-känslan — fortfarande mörkt tema, men mjukare. */
+    --background: 220 16% 7%;
     --foreground: 0 0% 95%;
-    --card: 220 15% 7%;
+    --card: 220 14% 10%;
     --card-foreground: 0 0% 95%;
-    --popover: 220 15% 9%;
+    --popover: 220 14% 12%;
     --popover-foreground: 0 0% 95%;
     --primary: 219 100% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 8%;
+    --secondary: 220 14% 11%;
     --secondary-foreground: 0 0% 95%;
-    --muted: 220 15% 6%;
-    --muted-foreground: 220 5% 55%;
+    --muted: 220 14% 9%;
+    --muted-foreground: 220 6% 60%;
     --accent: 152 45% 50%;
-    --accent-foreground: 220 20% 3.5%;
+    --accent-foreground: 220 16% 7%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 10% 14%;
-    --input: 220 10% 14%;
+    --border: 220 10% 17%;
+    --input: 220 10% 17%;
     --ring: 219 100% 60%;
     --radius: 0.5rem;
     --brand-blue: 219 100% 60%;

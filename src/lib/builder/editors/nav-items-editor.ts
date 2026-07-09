@@ -18,8 +18,10 @@ function isLikelySourceFile(fileName: string): boolean {
 }
 
 const NAV_ITEMS_ARRAY_RE = /(?:const|let|var)\s+navItems\s*=\s*\[([\s\S]*?)\]/;
+// Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
+// sibling object that has `label:` but no `href:` cannot leak into the match.
 const NAV_ITEM_RE =
-  /\{\s*label:\s*(["'`])([\s\S]*?)\1\s*,\s*href:\s*(["'`])([\s\S]*?)\3[\s\S]*?\}/g;
+  /\{\s*label:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*href:\s*(["'`])((?:(?!\3)[\s\S])*?)\3[\s\S]*?\}/g;
 
 function findNavItemMatches(content: string): NavItemMatch[] {
   const arrayMatch = NAV_ITEMS_ARRAY_RE.exec(content);

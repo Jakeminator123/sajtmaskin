@@ -551,7 +551,7 @@ export function VersionHistory({
           </Button>
         )}
         <span className="text-muted-foreground rotate-90 text-[10px] tracking-wide uppercase">
-          Versions
+          Versioner
         </span>
       </div>
     );
@@ -560,7 +560,7 @@ export function VersionHistory({
   if (!chatId) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm">Send a message to start a project</p>
+        <p className="text-center text-sm">Skicka ett meddelande för att starta ett projekt</p>
       </div>
     );
   }
@@ -610,9 +610,9 @@ export function VersionHistory({
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-semibold">Version History</h3>
+            <h3 className="truncate font-semibold">Versionshistorik</h3>
             <p className="text-muted-foreground mt-1 text-xs">
-              {versions.length} version{versions.length !== 1 ? "s" : ""}
+              {versions.length} version{versions.length !== 1 ? "er" : ""}
               {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
             </p>
             <p className="text-muted-foreground text-xs">
@@ -1038,7 +1038,7 @@ export function VersionHistory({
                       >
                         <a href={listPreviewUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-1 h-3 w-3" />
-                          View
+                          Visa
                         </a>
                       </Button>
                     )}
@@ -1053,7 +1053,7 @@ export function VersionHistory({
                       aria-label="Jämför med föregående version"
                       className="h-7 px-2 text-xs"
                     >
-                      Compare
+                      Jämför
                     </Button>
                     {canRestore && (
                       <Button
@@ -1070,7 +1070,7 @@ export function VersionHistory({
                         ) : (
                           <RotateCcw className="mr-1 h-3 w-3" />
                         )}
-                        {canRollback ? "Rollback" : "Restore"}
+                        {canRollback ? "Rollback" : "Återställ"}
                       </Button>
                     )}
                     {hasPendingRepair && (
@@ -1122,8 +1122,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleDownload(e, version)}
                       disabled={isDownloading}
-                      title="Download version"
-                      aria-label="Download version"
+                      title="Ladda ner version"
+                      aria-label="Ladda ner version"
                       className="h-7 w-7"
                     >
                       {isDownloading ? (

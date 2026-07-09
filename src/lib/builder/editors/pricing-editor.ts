@@ -23,8 +23,11 @@ function isPageFile(fileName: string): boolean {
   );
 }
 
+// Quoted captures are bounded ((?:(?!\N)[\s\S])*?) and the gaps between
+// attributes may not cross a `/>` — otherwise a card missing one attribute
+// makes the regex swallow the next <PricingCard /> and mix values across cards.
 const PRICING_CARD_RE =
-  /<PricingCard\b[\s\S]*?name=(["'`])([\s\S]*?)\1[\s\S]*?price=(["'`])([\s\S]*?)\3[\s\S]*?description=(["'`])([\s\S]*?)\5[\s\S]*?\/>/g;
+  /<PricingCard\b(?:(?!\/>)[\s\S])*?name=(["'`])((?:(?!\1)[\s\S])*?)\1(?:(?!\/>)[\s\S])*?price=(["'`])((?:(?!\3)[\s\S])*?)\3(?:(?!\/>)[\s\S])*?description=(["'`])((?:(?!\5)[\s\S])*?)\5[\s\S]*?\/>/g;
 
 function findPricingCardMatches(content: string): PricingCardMatch[] {
   const matches: PricingCardMatch[] = [];

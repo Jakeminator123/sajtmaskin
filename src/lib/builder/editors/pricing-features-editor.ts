@@ -24,8 +24,10 @@ function isPageFile(fileName: string): boolean {
   );
 }
 
+// Quoted capture bounded ((?:(?!\1)[\s\S])*?) and inter-attribute gaps may not
+// cross `/>` — a card without `features` must not swallow the next card's list.
 const PRICING_CARD_FEATURES_RE =
-  /<PricingCard\b[\s\S]*?name=(["'`])([\s\S]*?)\1[\s\S]*?features=\{\[([\s\S]*?)\]\}[\s\S]*?\/>/g;
+  /<PricingCard\b(?:(?!\/>)[\s\S])*?name=(["'`])((?:(?!\1)[\s\S])*?)\1(?:(?!\/>)[\s\S])*?features=\{\[([\s\S]*?)\]\}[\s\S]*?\/>/g;
 const STRING_ITEM_RE = /(["'`])([\s\S]*?)\1/g;
 
 function findPricingFeatureCardMatches(content: string): PricingFeatureCardMatch[] {

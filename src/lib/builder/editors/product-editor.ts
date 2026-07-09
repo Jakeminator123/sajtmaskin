@@ -20,8 +20,10 @@ function isPageFile(fileName: string): boolean {
   );
 }
 
+// Bounded captures ((?:(?!\N)[\s\S])*?): may not cross the closing quote, so a
+// sibling object that starts with `id:` but lacks `name:`/`price:` cannot leak in.
 const PRODUCT_ITEM_RE =
-  /\{\s*id:\s*(["'`])([\s\S]*?)\1\s*,\s*name:\s*(["'`])([\s\S]*?)\3\s*,\s*price:\s*(["'`])([\s\S]*?)\5[\s\S]*?\}/g;
+  /\{\s*id:\s*(["'`])((?:(?!\1)[\s\S])*?)\1\s*,\s*name:\s*(["'`])((?:(?!\3)[\s\S])*?)\3\s*,\s*price:\s*(["'`])((?:(?!\5)[\s\S])*?)\5[\s\S]*?\}/g;
 
 function findProductItemMatches(content: string): ProductItemMatch[] {
   const matches: ProductItemMatch[] = [];

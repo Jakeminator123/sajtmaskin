@@ -1,8 +1,8 @@
 # Own engine (byggprofiler)
 
-## Profiler, etiketter och «Tanker» (GPT-5.5)
+## Profiler, etiketter och «Tänker» (GPT-5.5)
 
-- **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tanker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
+- **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tänker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
 - **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex` enligt manifest — samma modell-id som `pro`, men med codex-tirets högre reasoning-effort i fasrouting). Inte samma som `max` (GPT-5.5). Vardagsläge för stark resonemangsmodell är `max` / GPT-5.5.
 - **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar `thinking: true` som standard från chat-strömmen. För **OpenAI**-modeller sätts `providerOptions.openai.reasoningEffort: "high"` när `thinking` är på, så resonemang kan streamas som `thinking`-händelser via [`stream-format.ts`](../../src/lib/gen/stream/stream-format.ts). **Anthropic**-grenen sätter inte samma OpenAI-specifika `reasoningEffort`, men SSE-pipelinen kan fortfarande mappa modellens resonemang beroende på SDK-stöd.
 

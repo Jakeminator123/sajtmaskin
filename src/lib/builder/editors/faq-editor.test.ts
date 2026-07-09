@@ -30,6 +30,22 @@ describe("faq-editor", () => {
       expect(readFaqItemsDraft("components/faq.tsx", content)).toBeNull();
     });
 
+    it("does not leak sibling question-only objects into answer fields", () => {
+      const content = [
+        "const quizFragments = [",
+        "  { question: 'Utan svar här', hint: 'x' },",
+        "];",
+        "const faqs = [",
+        "  { question: 'Har ni vegetariskt?', answer: 'Ja, varje dag.' },",
+        "  { question: 'Kan man ta med?', answer: 'Absolut.' },",
+        "];",
+      ].join("\n");
+      expect(readFaqItemsDraft("app/page.tsx", content)).toEqual([
+        { question: "Har ni vegetariskt?", answer: "Ja, varje dag." },
+        { question: "Kan man ta med?", answer: "Absolut." },
+      ]);
+    });
+
     it("returns null when fewer than two items", () => {
       const content = [
         "const faqs = [",

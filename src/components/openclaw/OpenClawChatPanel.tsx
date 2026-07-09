@@ -36,7 +36,7 @@ import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-man
 const DEFAULT_STARTER_PROMPTS = [
   "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
   "Vad kan jag senare kundanpassa för ett specifikt företag?",
-  "Hur fungerar OpenClaw i buildern i dag?",
+  "Hur fungerar Sajtagenten i buildern i dag?",
 ] as const;
 
 export interface OpenClawChatPanelContent {
@@ -50,12 +50,12 @@ export interface OpenClawChatPanelContent {
 }
 
 export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
-  badgeLabel: "OpenClaw-assistent",
+  badgeLabel: "AI-assistent",
   assistantLabel: "Sajtagenten",
   idleStatus: "Guidar, förklarar och visar möjligheter",
   emptyTitle: "Hej! Jag är Sajtagenten.",
   emptyBody:
-    "Jag kan förklara hur OpenClaw-spåret fungerar, hur det kan presenteras på sajten och hur du bygger vidare på integrationen i Sajtmaskin.",
+    "Jag kan förklara hur Sajtagenten fungerar, hur den kan presenteras på sajten och hur du bygger vidare på din sajt i Sajtmaskin.",
   inputPlaceholder: "Skriv ett meddelande...",
   starterPrompts: DEFAULT_STARTER_PROMPTS,
 };
@@ -160,9 +160,12 @@ export function OpenClawChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // Focus only when the panel is actually opened — the panel is mounted even in
+  // collapsed state, and stealing focus on page load pulls keyboard users into
+  // the chat before they've interacted with the page.
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   useEffect(() => {
     const wasStreaming = prevStreamingRef.current;

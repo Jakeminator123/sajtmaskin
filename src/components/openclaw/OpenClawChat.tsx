@@ -78,18 +78,18 @@ function getKostnadsfriSurfaceContent(
   const introTitle = config?.introTitle || `Hej! Jag kan bli ${companyName}s Sajtagent.`;
   const introBody =
     config?.introBody ||
-    `Jag kan skissa på hur en OpenClaw-agent för ${companyName} kan ta emot frågor, guida besökare och driva fler förfrågningar direkt på sajten.`;
+    `Jag kan skissa på hur en Sajtagent för ${companyName} kan ta emot frågor, guida besökare och driva fler förfrågningar direkt på sajten.`;
   const starterPrompts = config?.starterPrompts?.length
     ? config.starterPrompts
     : [
         `Hur skulle en digital receptionist för ${companyName} kunna låta?`,
         `Vilka frågor borde Sajtagenten kunna svara på för ${companyName}?`,
-        `Hur kan OpenClaw hjälpa ${companyName} att få fler leads?`,
+        `Hur kan Sajtagenten hjälpa ${companyName} att få fler leads?`,
       ];
 
   return {
     panel: {
-      badgeLabel: "OpenClaw förhandsvisning",
+      badgeLabel: "Förhandsvisning",
       assistantLabel: companyName,
       idleStatus: roleLabel,
       emptyTitle: introTitle,
@@ -200,7 +200,7 @@ export function OpenClawChat() {
                 type="button"
                 onClick={() => setShowTeaser(false)}
                 className="rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-300 transition-colors hover:text-white"
-                aria-label="Dölj OpenClaw-intro"
+                aria-label="Dölj Sajtagenten-intro"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -263,7 +263,7 @@ export function OpenClawChat() {
           <span
             className={cn("text-[11px]", isOpen ? "text-muted-foreground" : "text-cyan-200/90")}
           >
-            {isOpen ? "OpenClaw aktiv" : content.fabSubtitle}
+            {isOpen ? "Sajtagenten aktiv" : content.fabSubtitle}
           </span>
         </span>
         {isOpen ? null : (
