@@ -251,10 +251,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.liveDeploymentUrl || vm.hydratedVercelProjectId || vm.lastDeployVercelProjectId,
   );
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
+  // Ö1-paritet (A#12): medan readiness laddar (SWR initial load) vet vi inte
+  // om servern skulle 409:a — håll knappen disablad i stället för att
+  // fail-open:a mot `?? true` och låta klicket sluta i ett obegripligt fel.
+  const isDeployReadinessPending = vm.isDeployReadinessLoading && !vm.deployReadiness;
   const canDeploy = Boolean(
     vm.chatId &&
       vm.activeVersionId &&
       !isDeployActionBusy &&
+      !isDeployReadinessPending &&
       (vm.deployReadiness?.canDeploy ?? true),
   );
   const baseDeployDisabledReason = !vm.chatId
@@ -267,7 +272,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           ? "Vänta tills den pågående generationen är klar."
           : vm.isDeploying
             ? "Publicering pågår redan."
-            : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
+            : isDeployReadinessPending
+              ? "Kontrollerar publiceringsstatus…"
+              : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
   const deployDisabledReason =
     deployReadinessBlocker?.action === "env" && baseDeployDisabledReason
       ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
@@ -777,6 +784,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         canSaveProject={Boolean(vm.chatId)}
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
+        deploymentInspectorUrl={vm.deploymentInspectorUrl}
+        onRepublishWithFix={vm.republishWithFix}
+        isRepublishRepairing={vm.isRepublishRepairing}
         liveDeploymentUrl={vm.liveDeploymentUrl}
         liveDeploymentVersionId={vm.liveDeploymentVersionId}
         deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}

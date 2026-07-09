@@ -312,6 +312,7 @@ export function useBuilderPageController() {
   const {
     project: hydratedProject,
     liveDeployment,
+    latestFailedDeployment,
     hydrationFailed: deploymentHistoryHydrationFailed,
     refetch: refetchDeploymentHistory,
   } = useDeploymentHistory(chatHooksChatId);
@@ -331,6 +332,7 @@ export function useBuilderPageController() {
     latestVersionIdRef,
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
+    activeDeploymentId: state.activeDeploymentId,
     deployReadiness,
     isDeploying: state.isDeploying,
     isMediaEnabled: state.isMediaEnabled,
@@ -368,6 +370,22 @@ export function useBuilderPageController() {
 
   // ── Deployment status SSE ──────────────────────────────────────────
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
+
+  // BB#deploy3/A#5: felstate + "Publicera om med fix" överlever sidladdning.
+  // `activeDeploymentId` sattes tidigare bara av POST-deployen i samma session,
+  // så efter reload försvann headerns felstate/byggloggslänk och repair-knappen
+  // no-op:ade trots att den failade deployment-raden finns kvar i DB. Hydrera
+  // från historiken när den NYASTE raden är terminal `error` — SSE-endpointen
+  // skickar terminal-snapshotten direkt och stänger, så ingen poll startar.
+  const failedDeploymentHydratedRef = useRef<string | null>(null);
+  const setActiveDeploymentId = state.setActiveDeploymentId;
+  useEffect(() => {
+    if (!latestFailedDeployment) return;
+    if (state.activeDeploymentId) return;
+    if (failedDeploymentHydratedRef.current === latestFailedDeployment.id) return;
+    failedDeploymentHydratedRef.current = latestFailedDeployment.id;
+    setActiveDeploymentId(latestFailedDeployment.id);
+  }, [latestFailedDeployment, state.activeDeploymentId, setActiveDeploymentId]);
 
   // After an in-session deploy completes (SSE "ready"), refetch the history so
   // the hydrated live deployment (URL + versionId) becomes the source of truth
@@ -1845,6 +1863,9 @@ export function useBuilderPageController() {
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,
     handleDomainSearch: deployActions.handleDomainSearch,
     handleConfirmDeploy: deployActions.handleConfirmDeploy,
+    // A3: manuell deploy-repair ("Publicera om med fix") + dess laddningsstate.
+    republishWithFix: deployActions.republishWithFix,
+    isRepublishRepairing: deployActions.isRepublishRepairing,
 
     // Prompt actions
     handlePromptAssistModeReset: promptActions.clearPromptAssistMode,

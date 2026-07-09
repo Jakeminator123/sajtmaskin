@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // pipeline) runs for real — it is harmless on already-valid content.
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
+const appendErrorLogEvent = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() =>
   vi.fn(async (content: string) => {
     const broken = content.includes("( {");
@@ -23,6 +24,7 @@ const validateGeneratedCode = vi.hoisted(() =>
 
 vi.mock("@/lib/gen/autofix/llm-fixer", () => ({ runLlmFixer }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend }));
+vi.mock("@/lib/logging/error-log-rag", () => ({ appendErrorLogEvent }));
 vi.mock("@/lib/gen/retry/validate-syntax", () => ({ validateGeneratedCode }));
 
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
@@ -261,5 +263,144 @@ describe("runRepairLoop — base-aware early abort (Fas 3 superseded)", () => {
     expect(result.promoted).toBe(false);
     expect(result.earlyStopReason).toBe("superseded");
     expect(promotionAttempts).not.toContain("llm");
+  });
+});
+
+describe("runRepairLoop — TF-IDF error-log RAG producer coverage (best-effort)", () => {
+  beforeEach(() => {
+    runLlmFixer.mockReset();
+    devLogAppend.mockReset();
+    appendErrorLogEvent.mockReset();
+    validateGeneratedCode.mockClear();
+  });
+
+  it("logs a fixed outcome for the originating quality-gate check when the deterministic pass promotes immediately", async () => {
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      chatId: "chat-1",
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 1,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (_content, method) => ({
+        promoted: method === "deterministic",
+      }),
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(result.method).toBe("deterministic");
+    // The LLM fixer never ran — only the deterministic pass promoted.
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(1);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "server",
+        subphase: "repair-loop:deterministic",
+        fault: "quality-gate:typecheck",
+        faultText: gateFailure.output,
+        result: "fixed",
+        chatId: "chat-1",
+      }),
+    );
+  });
+
+  it("logs a fixed outcome when only the final LLM verify gate promotes", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      chatId: "chat-2",
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (_content, method) =>
+        method === "llm" ? { promoted: true } : { promoted: false },
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(1);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "server",
+        subphase: "repair-loop:llm",
+        fault: "quality-gate:typecheck",
+        result: "fixed",
+        chatId: "chat-2",
+      }),
+    );
+  });
+
+  it("logs a still-failing outcome when the gate never passes", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      chatId: "chat-3",
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+
+    expect(result.promoted).toBe(false);
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(1);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "server",
+        subphase: "repair-loop:llm",
+        fault: "quality-gate:typecheck",
+        result: "still-failing",
+        chatId: "chat-3",
+      }),
+    );
+  });
+
+  it("never logs when the loop aborts early because the version was superseded", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      chatId: "chat-4",
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      shouldAbortSuperseded: async () => true,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+
+    expect(result.earlyStopReason).toBe("superseded");
+    // A superseded abort is not a real fault outcome — must never be logged
+    // to RAG as a `still-failing` lesson.
+    expect(appendErrorLogEvent).not.toHaveBeenCalled();
+  });
+
+  it("caps producer rows at 5 even with many failed checks (row-explosion guard)", async () => {
+    const manyFailures = Array.from({ length: 8 }, (_, i) => ({
+      check: `check-${i}`,
+      exitCode: 1,
+      output: `failure ${i}`,
+    }));
+
+    await runRepairLoop({
+      initialContent: validPage,
+      chatId: "chat-5",
+      failedOutputs: manyFailures,
+      contextLines: [],
+      maxLlmPasses: 1,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (_content, method) => ({
+        promoted: method === "deterministic",
+      }),
+    });
+
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(5);
   });
 });

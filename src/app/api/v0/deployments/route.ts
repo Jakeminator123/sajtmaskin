@@ -4,7 +4,11 @@ import { deployments } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
-import { createDeploymentRecord, updateDeploymentStatus } from "@/lib/deployment";
+import {
+  createDeploymentRecord,
+  getLinkedDomainForChat,
+  updateDeploymentStatus,
+} from "@/lib/deployment";
 import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
 import {
   SHADCN_BASELINE_PACKAGES,
@@ -33,6 +37,7 @@ import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
+import { resolveDeployReleaseGate } from "@/lib/db/engine-version-lifecycle";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
@@ -449,16 +454,22 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
       const { chat: engineChat, version: engineVersion } = scoped;
-      // A version that failed the quality gate (typecheck/build) must not be
-      // publishable. The readiness UI surfaces this as a blocker; enforce it
-      // server-side too so the deploy API can't be called directly with a
-      // failed version (preview is unaffected — this is the publish path).
-      if (engineVersion.verification_state === "failed") {
+      // Publicera-lås (Ö1): hård ReleaseGate för F3/integrations — endast
+      // bevisat gröna versioner (`verification_state === "passed"` eller
+      // `release_state === "promoted"`) får publiceras. F2/design behåller
+      // det mjuka beteendet: bara `failed` blockerar. Preview påverkas inte —
+      // detta är publish-vägen. `precheckOnly` rapporterar F3-gate-status i
+      // svaret (`releaseGate`) i stället för att kasta, men `failed` ger
+      // alltid 409 precis som tidigare.
+      const releaseGate = resolveDeployReleaseGate(engineVersion);
+      if (
+        !releaseGate.allowed &&
+        (releaseGate.code === "DEPLOY_VERSION_FAILED" || !precheckOnly)
+      ) {
         return NextResponse.json(
           {
-            error:
-              "Versionen underkändes av quality gate (typecheck/build) och kan inte publiceras. Kör autofix eller en ny förfining och försök igen.",
-            code: "DEPLOY_VERSION_FAILED",
+            error: releaseGate.message,
+            code: releaseGate.code,
           },
           { status: 409 },
         );
@@ -494,6 +505,54 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
+      // Publicera-lås (Ö2 / A2): en kopplad custom-domän sitter på Vercel-
+      // PROJEKTET (namn-baserat), inte på en enskild deployment. Om användaren
+      // publicerar om med ett NYTT projectName skulle vi rikta mot ett annat
+      // Vercel-projekt och lämna domänen kvar (orphan) på det gamla → domänen
+      // pekar på gammal sajt. Därför: så länge en domän är kopplad för chatten
+      // är projektnamnet LÅST. Vi läser DB (senaste `deployments.domain`) i
+      // stället för att slå mot Vercel-API:t i deploy-hot-path:en. `precheckOnly`
+      // rapporterar låset i `projectNameLock` i stället för att kasta (samma
+      // mönster som A1:s `releaseGate`).
+      const linkedDomain = await getLinkedDomainForChat(chatId).catch(() => null);
+      const requestedVercelProjectName =
+        typeof projectName === "string" && projectName.trim().length > 0
+          ? sanitizeVercelProjectName(projectName)
+          : null;
+      // Effektivt nuvarande projektnamn: samma härledning som deployen använder
+      // när inget projectName skickas. Legacy-rader utan `vercel_project_name`
+      // faller tillbaka på `sajtmaskin-${chatId}` (samma fallback som deployen),
+      // så låset jämför sanerat mot sanerat även för äldre sajter.
+      const currentVercelProjectName = sanitizeVercelProjectName(
+        (typeof ownedProject.vercel_project_name === "string"
+          ? ownedProject.vercel_project_name.trim()
+          : "") || `sajtmaskin-${chatId}`,
+      );
+      const projectNameLocked = Boolean(
+        linkedDomain &&
+          requestedVercelProjectName &&
+          requestedVercelProjectName !== currentVercelProjectName,
+      );
+      const projectNameLock = {
+        locked: projectNameLocked,
+        domain: linkedDomain,
+        currentProjectName: currentVercelProjectName,
+        requestedProjectName: requestedVercelProjectName,
+      };
+      if (projectNameLocked && !precheckOnly) {
+        return NextResponse.json(
+          {
+            error:
+              `Projektnamnet är låst så länge domänen "${linkedDomain}" är kopplad. ` +
+              `Publicera med samma namn ("${currentVercelProjectName}") eller koppla bort domänen först — ` +
+              "ett nytt projektnamn skulle skapa ett nytt Vercel-projekt och lämna domänen kvar på det gamla.",
+            code: "DEPLOY_DOMAIN_LOCKED_PROJECT_NAME",
+            projectNameLock,
+          },
+          { status: 409 },
+        );
+      }
+
       const codeFiles = await getVersionFiles(versionId);
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json(
@@ -589,6 +648,15 @@ export async function POST(req: Request) {
           versionId,
           projectId: engineProjectId,
           deployReadiness,
+          // Publicera-låsets status (Ö1): en skarp deploy av samma version
+          // skulle 409:a när `allowed` är false — precheck rapporterar i
+          // stället så UI:t kan visa blockern tillsammans med env-status.
+          releaseGate,
+          // Projektnamn-lås (Ö2 / A2): en skarp deploy med ett nytt projectName
+          // skulle 409:a (`DEPLOY_DOMAIN_LOCKED_PROJECT_NAME`) när en domän är
+          // kopplad — precheck rapporterar i stället så UI:t kan varna innan
+          // användaren försöker byta namn.
+          projectNameLock,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,

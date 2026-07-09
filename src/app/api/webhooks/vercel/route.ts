@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { updateDeploymentStatus } from "@/lib/deployment";
+import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisPublisher, deployStatusChannel } from "@/lib/redis-pubsub";
 
 export const runtime = "nodejs";
@@ -173,6 +174,22 @@ export async function POST(req: Request) {
     ...(inspectorUrl ? { inspectorUrl } : {}),
     ...(projectId ? { vercelProjectId: projectId } : {}),
   });
+
+  // A3: ett asynkront Vercel-build-fel (efter accepterad deploy) loggas
+  // ordentligt (DB + RAG + bus) så deploy-vägen får samma spårbarhet som
+  // preview-VM:en. Best-effort — får aldrig fälla webhook-svaret. Triggar
+  // INTE någon repair (Ö3: repair körs bara på manuell "Publicera om med fix").
+  if (status === "error") {
+    await logDeployError({
+      chatId: match[0].chatId,
+      versionId: match[0].versionId,
+      deploymentId: match[0].id,
+      vercelDeploymentId: deploymentId,
+      inspectorUrl,
+      message: `Vercel-bygget misslyckades (webhook ${type}).`,
+      source: "webhook",
+    }).catch(() => {});
+  }
 
   let pub: ReturnType<typeof createRedisPublisher> = null;
   try {

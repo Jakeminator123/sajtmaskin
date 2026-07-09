@@ -5,7 +5,7 @@ import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog
 import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { saveProjectData, updateProject } from "@/lib/project-client";
-import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
@@ -16,6 +16,8 @@ type Args = {
   latestVersionIdRef: MutableRefObject<string | null>;
   chatId: string | null;
   activeVersionId: string | null;
+  /** In-session deployment id (the one whose SSE status the header reflects). */
+  activeDeploymentId: string | null;
   deployReadiness: ChatReadiness | null;
   isDeploying: boolean;
   isMediaEnabled: boolean;
@@ -61,6 +63,7 @@ export function useBuilderDeployActions({
   latestVersionIdRef,
   chatId,
   activeVersionId,
+  activeDeploymentId,
   deployReadiness,
   isDeploying,
   isMediaEnabled,
@@ -353,6 +356,66 @@ export function useBuilderDeployActions({
     setAppProjectName,
   ]);
 
+  // A3: "Publicera om med fix" — MANUELL deploy-repair. Anropas när en
+  // publicering gått till `error` (asynkront Vercel-build-fel). Kör en repair
+  // mot den failade versionen och guidar användaren att acceptera + publicera
+  // om. Redeployar ALDRIG automatiskt (Ö3).
+  const [isRepublishRepairing, setIsRepublishRepairing] = useState(false);
+  const republishWithFix = useCallback(async () => {
+    if (!chatId) {
+      toast.error("Ingen chat vald");
+      return;
+    }
+    if (!activeDeploymentId) {
+      toast.error("Ingen failad publicering att reparera.");
+      return;
+    }
+    if (isRepublishRepairing) return;
+    setIsRepublishRepairing(true);
+    try {
+      // Ingen versionId skickas: servern reparerar den version som
+      // deployment-raden pekar på (den som failade), inte klientens aktiva —
+      // efter en follow-up/reload kan de skilja sig (bugbot high, #456).
+      const res = await fetch("/api/v0/deployments/repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId,
+          deploymentId: activeDeploymentId,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        status?: string;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok && res.status !== 409) {
+        throw new Error(data.message || data.error || `Reparation misslyckades (HTTP ${res.status})`);
+      }
+      if (data.status === "repair_available") {
+        toast.success(
+          data.message ||
+            "En fix är klar. Granska och acceptera reparationen, publicera sedan om.",
+          { duration: 12000 },
+        );
+        // Uppdatera versionslistan/-status så repair_available syns direkt.
+        mutateVersions();
+        mutateChat();
+      } else if (data.status === "repairing") {
+        toast(data.message || "En reparation körs redan. Försök igen strax.");
+      } else {
+        toast.error(
+          data.message ||
+            "Reparationen kunde inte åtgärda bygget. Försök igen eller redigera manuellt.",
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Reparation misslyckades");
+    } finally {
+      setIsRepublishRepairing(false);
+    }
+  }, [chatId, activeDeploymentId, isRepublishRepairing, mutateVersions, mutateChat]);
+
   const triggerAutoFix = useCallback((payload: {
     chatId: string;
     versionId: string;
@@ -568,6 +631,8 @@ export function useBuilderDeployActions({
     handleDomainSearch,
     deployActiveVersionToVercel,
     handleConfirmDeploy,
+    republishWithFix,
+    isRepublishRepairing,
     handleGenerationComplete,
     fetchHealthFeatures,
     persistVersionErrorLogs,

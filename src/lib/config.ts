@@ -437,14 +437,16 @@ export const FEATURES = {
   recurringPatternsInCreatePrompt: false,
 
   /**
-   * Vector RAG over historical error-log rows. When ON, follow-up generation
-   * retrieves top-K similar past failures (per scaffoldId/lineageHash prefix)
-   * and renders them as `### Lessons from similar past builds` in the system
-   * prompt. On (not test): dev uses the local NDJSON producer + on-disk
-   * snapshot; prod uses the durable Postgres store (`error_log_events`) — both
-   * the producer write and the retriever read are best-effort and no-op when
-   * the DB is unconfigured (see `src/lib/logging/error-log-store.ts`).
-   * Auto-ingest hooks at `npm run dev|build|start` still run unchanged.
+   * TF-IDF error-log RAG over historical error-log rows. When ON, follow-up
+   * generation retrieves top-K similar past failures (per scaffoldId/lineageHash
+   * prefix) via cosine similarity on term frequencies — not vector
+   * embeddings/pgvector — and renders them as `### Lessons from similar past
+   * builds` in the system prompt. On (not test): dev uses the local NDJSON
+   * producer + on-disk snapshot; prod uses the durable Postgres store
+   * (`error_log_events`) — both the producer write and the retriever read are
+   * best-effort and no-op when the DB is unconfigured (see
+   * `src/lib/logging/error-log-store.ts`). Auto-ingest hooks at
+   * `npm run dev|build|start` still run unchanged.
    */
   useErrorLogRag: env.NODE_ENV !== "test",
   strictGeneratedArtifacts:

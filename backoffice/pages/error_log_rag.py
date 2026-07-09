@@ -119,7 +119,8 @@ def _prod_fault_matrix(repo_root: Path, use_prod: bool = True) -> dict[str, Any]
 def render(ctx: BackofficeContext) -> None:
     st.header("Error-log RAG")
     st.caption(
-        "Vector RAG över historiska fault/fix-events. "
+        "TF-IDF error-log RAG över historiska fault/fix-events "
+        "(cosine similarity på term-frekvenser — inte embeddings/pgvector). "
         "Producer skriver NDJSON i `logs/llm-segmentts-and-index/error-log.ndjson`; "
         "indexer bygger TF-IDF-snapshot i `data/observability/`. "
         "Auto-ingest sker vid `npm run dev|build|start`. "

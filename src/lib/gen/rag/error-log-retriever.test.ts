@@ -19,11 +19,23 @@ vi.mock("@/lib/config", async () => {
   };
 });
 
+// Cold-start warm path (see "error-log retriever — cold-start warm path"
+// below): stub the DB store so the throttled proactive refresh never opens a
+// real Postgres connection. A bare `vi.fn()` with no default resolved value
+// would make `triggerDbIndexRefresh` await `undefined.length` and throw
+// (swallowed internally, but it would also skip setting the refresh
+// timestamp) — default to `[]` so throttling behaves like the real store.
+const loadRecentErrorLogDocsFromDb = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+vi.mock("@/lib/logging/error-log-store", () => ({
+  loadRecentErrorLogDocsFromDb,
+}));
+
 import {
   ERROR_LOG_INDEX_PATH,
   __resetErrorLogRetrieverCacheForTests,
   renderErrorLogRagBlockLines,
   retrieveSimilarFailures,
+  warmErrorLogIndexBestEffort,
 } from "./error-log-retriever";
 
 const SNAPSHOT_DIR = path.dirname(ERROR_LOG_INDEX_PATH);
@@ -49,6 +61,8 @@ function writeSnapshot(rows: Array<{
 describe("error-log retriever", () => {
   beforeEach(() => {
     featuresMock.useErrorLogRag = true;
+    loadRecentErrorLogDocsFromDb.mockReset();
+    loadRecentErrorLogDocsFromDb.mockResolvedValue([]);
     if (fs.existsSync(ERROR_LOG_INDEX_PATH)) {
       originalSnapshot = fs.readFileSync(ERROR_LOG_INDEX_PATH, "utf8");
     } else {
@@ -261,5 +275,90 @@ describe("error-log retriever", () => {
     expect(renderErrorLogRagBlockLines({ prompt: "missing symbol" }).join("\n")).toContain(
       "(no detail)",
     );
+  });
+
+  describe("error-log retriever — cold-start warm path", () => {
+    beforeEach(() => {
+      // The outer beforeEach only backs up any pre-existing snapshot; these
+      // tests specifically need the "no disk snapshot" precondition (the
+      // branch that falls back to the DB-backed index).
+      if (fs.existsSync(ERROR_LOG_INDEX_PATH)) fs.unlinkSync(ERROR_LOG_INDEX_PATH);
+    });
+
+    it("proactively refreshes the DB-backed index when no disk snapshot exists (warms the cold-start cache)", async () => {
+      loadRecentErrorLogDocsFromDb.mockResolvedValue([
+        {
+          id: "row-warm",
+          text: "warm cache fault missing import",
+          payload: {
+            time: null,
+            phase: "server",
+            fault: "warm-fault",
+            faultText: "warm cache seeded fault",
+            fixText: null,
+            scaffoldId: null,
+            lineageHash: null,
+            result: null,
+          },
+        },
+      ]);
+
+      warmErrorLogIndexBestEffort();
+      // Fire-and-forget; wait for the mocked async DB call to settle.
+      await vi.waitFor(() => {
+        expect(loadRecentErrorLogDocsFromDb).toHaveBeenCalledTimes(1);
+      });
+
+      // A request landing right after should now see the warmed cache
+      // instead of an empty result while waiting on a fresh async refresh.
+      const hits = retrieveSimilarFailures({ prompt: "warm cache fault missing import" });
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits[0].fault).toBe("warm-fault");
+    });
+
+    it("throttles repeated warm calls (respects the existing 60s DB-refresh throttle)", async () => {
+      warmErrorLogIndexBestEffort();
+      await vi.waitFor(() => {
+        expect(loadRecentErrorLogDocsFromDb).toHaveBeenCalledTimes(1);
+      });
+      warmErrorLogIndexBestEffort();
+      warmErrorLogIndexBestEffort();
+      await Promise.resolve();
+
+      expect(loadRecentErrorLogDocsFromDb).toHaveBeenCalledTimes(1);
+    });
+
+    it("does nothing when the feature flag is off", () => {
+      featuresMock.useErrorLogRag = false;
+      warmErrorLogIndexBestEffort();
+      expect(loadRecentErrorLogDocsFromDb).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when a disk snapshot already exists (disk path already serves retrieval)", async () => {
+      writeSnapshot([
+        {
+          id: "row-0",
+          text: "disk snapshot present",
+          payload: { fault: "disk-fault", faultText: "on disk" },
+        },
+      ]);
+
+      warmErrorLogIndexBestEffort();
+      await Promise.resolve();
+
+      expect(loadRecentErrorLogDocsFromDb).not.toHaveBeenCalled();
+    });
+
+    it("never throws even when the DB store rejects (best-effort)", async () => {
+      loadRecentErrorLogDocsFromDb.mockRejectedValue(new Error("DB unreachable"));
+
+      expect(() => warmErrorLogIndexBestEffort()).not.toThrow();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Cache stays empty, but nothing crashed and retrieval still degrades to [].
+      expect(retrieveSimilarFailures({ prompt: "anything" })).toEqual([]);
+    });
   });
 });

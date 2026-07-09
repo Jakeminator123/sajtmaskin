@@ -124,6 +124,21 @@ Undantag: clear-redesign och explicita borttagningar.
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 
+### ReleaseGate → publicera-lås
+
+`POST /api/v0/deployments` upprätthåller ReleaseGate server-side via
+`resolveDeployReleaseGate` (`src/lib/db/engine-version-lifecycle.ts`):
+
+- **F3/`integrations`:** hård gate — deploy tillåts endast när versionen är
+  bevisat grön (`verification_state = passed` eller `release_state =
+  promoted`). Allt annat (pending/verifying/repairing/repair_available) ger
+  `409 DEPLOY_RELEASE_GATE_NOT_GREEN`.
+- **F2/`design`:** mjuk gate — server-verify körs aldrig
+  (`design_preview_skip_verify`), så bara `verification_state = failed`
+  blockerar (`409 DEPLOY_VERSION_FAILED`).
+- `precheckOnly` rapporterar gate-status i svarsfältet `releaseGate` i stället
+  för att kasta (utom `failed`, som alltid 409:ar).
+
 ### F3-förslagsrunda och approval-runda
 
 När en F3-generation slutar tool-only (`suggestIntegration` utan kod) parkas chatten i awaiting-input med en persisterad F3-continuation-marker (`f3-continuation.ts`). Markern bär signalerade providers och en rundräknare. Svaret klassas server-side:

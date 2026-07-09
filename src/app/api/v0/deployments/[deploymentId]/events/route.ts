@@ -4,8 +4,9 @@ import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
 import { updateDeploymentStatus } from "@/lib/deployment";
+import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
-import { getChatByIdForRequest } from "@/lib/tenant";
+import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -35,7 +36,13 @@ export async function GET(
     }
 
     const deployment = result[0];
-    const ownedChat = await getChatByIdForRequest(req, deployment.chatId);
+    // Own-engine chats are the primary path — deployment rows are keyed by the
+    // engine chat id, so a v0-only lookup 404:ade ALLA own-engine-strömmar och
+    // headern satt kvar på "pending" (A#3). Auth engine-first med legacy
+    // v0-fallback, samma mönster som deployments-GET:en.
+    const ownedChat =
+      (await getEngineChatByIdForRequest(req, deployment.chatId)) ??
+      (await getChatByIdForRequest(req, deployment.chatId));
     if (!ownedChat) {
       return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
@@ -48,6 +55,9 @@ export async function GET(
       async start(controller) {
         let closed = false;
         let pollStarted = false;
+        // A3: logga ett asynkront deploy-fel högst en gång per stream (poll kan
+        // annars återbesöka error innan close()).
+        let deployErrorLogged = false;
         let sub: ReturnType<typeof createRedisSubscriber> = null;
 
         function send(data: Record<string, unknown>) {
@@ -62,6 +72,10 @@ export async function GET(
         function close() {
           if (closed) return;
           closed = true;
+          // Släpp alltid Redis-subscribern vid stream-slut. Poll-vägen nådde
+          // tidigare terminal status och stängde utan disconnect → läckt
+          // subscriber-anslutning per avslutad deploy (VADE-fynd på #443).
+          disconnectSubscriber();
           try {
             controller.close();
           } catch {}
@@ -127,6 +141,22 @@ export async function GET(
                     error: persistErr instanceof Error ? persistErr.message : String(persistErr),
                   },
                 );
+              }
+
+              // A3: ett asynkront Vercel-build-fel som fångas via poll (Redis
+              // saknas/tappade meddelandet) loggas ordentligt (DB + RAG + bus),
+              // precis som webhook-vägen. Best-effort, en gång per stream.
+              if (mapped.status === "error" && !deployErrorLogged) {
+                deployErrorLogged = true;
+                await logDeployError({
+                  chatId: deployment.chatId,
+                  versionId: deployment.versionId,
+                  deploymentId,
+                  vercelDeploymentId,
+                  inspectorUrl: vd.inspectorUrl,
+                  message: "Vercel-bygget misslyckades (fångat via statuspoll).",
+                  source: "poll",
+                }).catch(() => {});
               }
 
               if (TERMINAL_STATUSES.has(mapped.status)) {

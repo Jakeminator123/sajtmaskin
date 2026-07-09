@@ -56,6 +56,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "message:send": { maxRequests: 30, windowMs: 60 * 1000 },
   "deployment:create": { maxRequests: 8, windowMs: 60 * 1000 },
+  // A3: manuell "Publicera om med fix" — driver en riktig LLM-repair-loop, så
+  // håll den tight (i linje med engine:repair) för att kapa runaway-kostnad.
+  "deployment:repair": { maxRequests: 6, windowMs: 60 * 1000 },
   "blob:export": { maxRequests: 8, windowMs: 60 * 1000 },
   "ai:chat": { maxRequests: 30, windowMs: 60 * 1000 },
   "ai:brief": { maxRequests: 30, windowMs: 60 * 1000 },

@@ -8,6 +8,7 @@ import {
 } from "@/lib/gen/autofix/llm-repair-gate";
 import { countByFixer } from "@/lib/gen/autofix/types";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
@@ -477,6 +478,52 @@ export function buildGroupedRepairErrorContext(
   return { errorManifest, contextLines };
 }
 
+/**
+ * Best-effort TF-IDF error-log RAG producer coverage for `runRepairLoop`
+ * outcomes. Widens the producer beyond the verifier-findings-only callsites
+ * in `verifier-phase.ts` so real build/typecheck/lint quality-gate failures
+ * (and whether the repair loop actually resolved them) also become RAG
+ * training rows — this loop is shared by the server-verify background repair
+ * AND the manual `/repair` route, so this single callsite covers both.
+ * NEVER throws and never affects the loop's control flow or return value.
+ */
+function logRepairLoopOutcomeBestEffort(params: {
+  chatId?: string;
+  failedOutputs: RepairFailedOutput[];
+  method: RepairMethod;
+  result: "fixed" | "still-failing";
+  llmPasses: number;
+  model?: string | null;
+}): void {
+  try {
+    if (params.failedOutputs.length === 0) return;
+    const fixText =
+      params.result === "fixed"
+        ? params.method === "deterministic"
+          ? "repair-loop deterministic pass (autofix + import-repair) resolved the quality-gate failure"
+          : `repair-loop LLM fixer resolved the quality-gate failure after ${params.llmPasses} pass(es)`
+        : null;
+    for (const failure of params.failedOutputs.slice(0, 5)) {
+      appendErrorLogEvent({
+        phase: "server",
+        subphase: `repair-loop:${params.method}`,
+        creator: "repair-loop",
+        fixer: params.result === "fixed" ? `repair-loop:${params.method}` : null,
+        severity: params.result === "fixed" ? "warning" : "error",
+        fault: `quality-gate:${failure.check}`,
+        faultText: failure.output ?? "",
+        fixText,
+        model: params.model ?? null,
+        provider: "own-engine",
+        result: params.result,
+        chatId: params.chatId ?? null,
+      });
+    }
+  } catch {
+    // best-effort — must never affect the repair loop's control flow
+  }
+}
+
 function resolveNonPromotedEarlyStopReason(params: {
   earlyStopReason: RepairEarlyStopReason;
   hasDeterministicProgress: boolean;
@@ -571,6 +618,14 @@ export async function runRepairLoop<TPayload = unknown>(
           llmSkippedBecauseResolved: true,
         });
       }
+      logRepairLoopOutcomeBestEffort({
+        chatId: params.chatId,
+        failedOutputs: params.failedOutputs,
+        method: "deterministic",
+        result: "fixed",
+        llmPasses: 0,
+        model: params.fixerModel,
+      });
       return {
         promoted: true,
         method: "deterministic",
@@ -998,6 +1053,14 @@ export async function runRepairLoop<TPayload = unknown>(
       const promoted = await params.onAttemptPromotion(bestContent, "llm", {
         verifyDeadlineEpochMs: finalGate.verifyDeadlineEpochMs,
       });
+      logRepairLoopOutcomeBestEffort({
+        chatId: params.chatId,
+        failedOutputs: params.failedOutputs,
+        method: "llm",
+        result: promoted.promoted ? "fixed" : "still-failing",
+        llmPasses,
+        model: params.fixerModel,
+      });
       return {
         promoted: promoted.promoted,
         method: "llm",
@@ -1023,6 +1086,20 @@ export async function runRepairLoop<TPayload = unknown>(
         errorManifest: finalErrorManifest,
       };
     }
+  }
+
+  // A "superseded" exit is an abort (a newer version/edit made the result
+  // moot), not a real fault — logging it as `still-failing` would pollute RAG
+  // with lessons about failures that never actually happened.
+  if (earlyStopReason !== "superseded") {
+    logRepairLoopOutcomeBestEffort({
+      chatId: params.chatId,
+      failedOutputs: params.failedOutputs,
+      method: "llm",
+      result: "still-failing",
+      llmPasses,
+      model: params.fixerModel,
+    });
   }
 
   return {

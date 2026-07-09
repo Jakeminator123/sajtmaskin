@@ -40,6 +40,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Fast Edit Lane | Exakt deterministisk filändring utan LLM, sparad som minor-version. |
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |
+| Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. Follow-up injicerar `### Lessons from similar past builds` i system-prompten via cosine similarity på term-frekvenser. **Inte** embeddings/pgvector. Styrs av `FEATURES.useErrorLogRag` (`NODE_ENV !== 'test'`). |
 
 ## Publicering och URL-nivåer
 
@@ -51,6 +52,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Publicera | Deploy av aktuell version till produktion (skapar/uppdaterar `liveUrl`). Inte GitHub, inte domänköp. |
 | Domänkoppling | Koppla + verifiera en domän mot kundprojektets hosting. Skilj från domänköp, som sker hos extern leverantör (Loopia m.fl.). |
 | GitHubExport | Valfri export av en versions filer till användarens GitHub-repo (user eller org). Power-user-flöde, inte en del av Publicera. |
+| SEO (release) | Release-feature: deterministisk SEO-injektion vid publicering via `applySeoToProjectFiles` (robots, sitemap, opengraph, layout-metadata) + brief-guidning. Tillhör F3/publicera-livscykeln. **Inte** en dossier/capability-modul. |
 
 ## Kontrollbegrepp och kod-legacy
 

@@ -131,8 +131,9 @@ function printDevBanner() {
 // delta-aware (skips when producer NDJSON is older than snapshot), idempotent,
 // and time-capped via Promise.race to never block startup beyond 5s.
 //
-// Toggle via SAJTMASKIN_USE_ERROR_LOG_RAG; the indexer itself runs unconditionally
-// so the snapshot stays current — the runtime retriever respects the flag.
+// Retriever gated by FEATURES.useErrorLogRag (NODE_ENV !== "test") in
+// src/lib/config.ts — no env toggle. The indexer itself runs unconditionally
+// so the TF-IDF snapshot stays current; the runtime retriever respects the flag.
 const RAG_INDEXER_PATH = resolve(__dirname, "..", "observability", "index-error-log-rag.mjs");
 
 async function maybeRunErrorLogRagIndexer() {

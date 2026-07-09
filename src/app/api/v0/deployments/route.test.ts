@@ -8,6 +8,7 @@ const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
+const getLinkedDomainForChat = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
 const syncEnvVarsToVercelProject = vi.hoisted(() =>
   vi.fn(async () => ({ synced: 0, errors: [] as string[] })),
@@ -33,6 +34,7 @@ vi.mock("@/lib/credits/server", () => ({
 vi.mock("@/lib/deployment", () => ({
   createDeploymentRecord,
   updateDeploymentStatus,
+  getLinkedDomainForChat,
 }));
 
 vi.mock("@/lib/vercelDeploy", () => ({
@@ -72,6 +74,9 @@ describe("POST /api/v0/deployments", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({});
     readAllowPlaceholdersInF3.mockResolvedValue(false);
     syncEnvVarsToVercelProject.mockResolvedValue({ synced: 0, errors: [] });
+    // Default: ingen custom-domän kopplad (dagens beteende) → projektnamn-låset
+    // (A2) släpper alltid igenom om inte ett test explicit kopplar en domän.
+    getLinkedDomainForChat.mockResolvedValue(null);
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
     // Tenant-scoped resolver: version + owned engine chat resolve together.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
@@ -419,6 +424,353 @@ describe("POST /api/v0/deployments", () => {
     expect(res.status).toBe(409);
     const json = (await res.json()) as { code?: string };
     expect(json.code).toBe("DEPLOY_VERSION_FAILED");
+  });
+
+  // Publicera-lås (Ö1): F3/integrations får ENDAST publiceras när versionen är
+  // bevisat grön (`verification_state === "passed"` eller `release_state ===
+  // "promoted"`). En F3-version som aldrig nått grön ReleaseGate (pending/
+  // verifying/repair_available) ska 409:a på den skarpa deploy-vägen — dessa
+  // tester failar om gaten tas bort ur route:n.
+  describe("F3 ReleaseGate publish lock (Ö1)", () => {
+    const mockHappyDeployInfra = () => {
+      const commit = vi.fn(async () => undefined);
+      const refund = vi.fn(async () => undefined);
+      prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+      createDeploymentRecord.mockResolvedValue("dep_1");
+      createVercelDeployment.mockResolvedValue({
+        vercelDeploymentId: "dpl_1",
+        vercelProjectId: "vp_1",
+        url: "https://example.vercel.app",
+        inspectorUrl: null,
+        readyState: "READY",
+      });
+      updateDeploymentStatus.mockResolvedValue(undefined);
+      return { commit, refund };
+    };
+
+    const deployRequest = () =>
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+    it.each(["pending", "verifying", "repair_available"] as const)(
+      "returns 409 DEPLOY_RELEASE_GATE_NOT_GREEN for an F3 version in state %s (no charge, no Vercel call)",
+      async (verificationState) => {
+        const { commit } = mockHappyDeployInfra();
+        getEngineVersionForChatByIdForRequest.mockResolvedValue({
+          chat: { id: "chat_1", project_id: "proj_1" },
+          version: {
+            id: "ver_1",
+            chat_id: "chat_1",
+            lifecycle_stage: "integrations",
+            verification_state: verificationState,
+          },
+        });
+
+        const res = await POST(deployRequest());
+        expect(res.status).toBe(409);
+        const json = (await res.json()) as { code?: string; error?: string };
+        expect(json.code).toBe("DEPLOY_RELEASE_GATE_NOT_GREEN");
+        expect(json.error).toMatch(/ReleaseGate/);
+        expect(commit).not.toHaveBeenCalled();
+        expect(createVercelDeployment).not.toHaveBeenCalled();
+      },
+    );
+
+    it("allows deploy of an F3 version with verification_state passed", async () => {
+      mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "integrations",
+          verification_state: "passed",
+        },
+      });
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows deploy of a promoted F3 version", async () => {
+      mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "integrations",
+          release_state: "promoted",
+          verification_state: "passed",
+        },
+      });
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the soft F2 gate: a design version with pending state deploys fine", async () => {
+      mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "design",
+          verification_state: "pending",
+        },
+      });
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("still blocks a failed F2 version with 409 DEPLOY_VERSION_FAILED on the real deploy path", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "design",
+          verification_state: "failed",
+        },
+      });
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_VERSION_FAILED");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
+    it("precheckOnly reports the F3 gate as releaseGate instead of throwing", async () => {
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "integrations",
+          verification_state: "pending",
+        },
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as {
+        releaseGate?: { allowed: boolean; code?: string; message?: string };
+      };
+      expect(json.releaseGate?.allowed).toBe(false);
+      expect(json.releaseGate?.code).toBe("DEPLOY_RELEASE_GATE_NOT_GREEN");
+    });
+  });
+
+  // Projektnamn-lås (Ö2 / A2): en kopplad custom-domän sitter på Vercel-
+  // PROJEKTET (namn-baserat). Byter användaren `projectName` vid ompublicering
+  // skapas ett nytt Vercel-projekt medan domänen blir kvar (orphan) på det
+  // gamla. Så länge en domän är kopplad ska projektnamnet vara LÅST: ett
+  // avvikande `projectName` ger 409 `DEPLOY_DOMAIN_LOCKED_PROJECT_NAME` FÖRE
+  // credit-commit och Vercel-anrop. Dessa tester failar om guarden tas bort.
+  describe("Domain project-name lock (Ö2)", () => {
+    const mockHappyDeployInfra = () => {
+      const commit = vi.fn(async () => undefined);
+      const refund = vi.fn(async () => undefined);
+      prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+      createDeploymentRecord.mockResolvedValue("dep_1");
+      createVercelDeployment.mockResolvedValue({
+        vercelDeploymentId: "dpl_1",
+        vercelProjectId: "vp_1",
+        url: "https://example.vercel.app",
+        inspectorUrl: null,
+        readyState: "READY",
+      });
+      updateDeploymentStatus.mockResolvedValue(undefined);
+      return { commit, refund };
+    };
+
+    it("returns 409 DEPLOY_DOMAIN_LOCKED_PROJECT_NAME when a domain is linked and projectName differs (no charge, no Vercel call)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "old-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "new-project",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as {
+        code?: string;
+        error?: string;
+        projectNameLock?: {
+          locked: boolean;
+          domain: string | null;
+          currentProjectName: string;
+          requestedProjectName: string | null;
+        };
+      };
+      expect(json.code).toBe("DEPLOY_DOMAIN_LOCKED_PROJECT_NAME");
+      expect(json.error).toMatch(/mysite\.example/);
+      expect(json.projectNameLock?.locked).toBe(true);
+      expect(json.projectNameLock?.currentProjectName).toBe("old-project");
+      expect(json.projectNameLock?.requestedProjectName).toBe("new-project");
+      // Kärnan i låset: varken credit-commit eller Vercel-deploy sker.
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
+    it("allows the deploy when a domain is linked but no projectName is sent (same project reused)", async () => {
+      mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "old-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows the deploy when a domain is linked and projectName matches the persisted name", async () => {
+      mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "old-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "old-project",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows a new projectName when NO domain is linked (today's behavior)", async () => {
+      mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue(null);
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "old-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "brand-new-project",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("precheckOnly reports the lock as projectNameLock instead of throwing", async () => {
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "old-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "new-project",
+          precheckOnly: true,
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as {
+        precheckOnly?: boolean;
+        projectNameLock?: {
+          locked: boolean;
+          domain: string | null;
+          currentProjectName: string;
+          requestedProjectName: string | null;
+        };
+      };
+      expect(json.precheckOnly).toBe(true);
+      expect(json.projectNameLock?.locked).toBe(true);
+      expect(json.projectNameLock?.domain).toBe("mysite.example");
+      expect(json.projectNameLock?.requestedProjectName).toBe("new-project");
+    });
+
+    // Legacy-rad: en kopplad domän men ingen persistad `vercel_project_name`.
+    // Låset faller tillbaka på `sajtmaskin-${chatId}` och ska fortfarande
+    // blockera ett avvikande projektnamn (domänen sitter på fallback-projektet).
+    it("locks a legacy row without vercel_project_name against a differing projectName", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "renamed-project",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as {
+        code?: string;
+        projectNameLock?: { currentProjectName: string };
+      };
+      expect(json.code).toBe("DEPLOY_DOMAIN_LOCKED_PROJECT_NAME");
+      // Fallback-namnet är `sajtmaskin-${chatId}` när ingen persisterad finns.
+      expect(json.projectNameLock?.currentProjectName).toBe("sajtmaskin-chat_1");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
   });
 
   // A#425 #4 (test gap): happy-path POST must insert the deployment row keyed by

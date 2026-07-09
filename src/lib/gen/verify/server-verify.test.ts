@@ -1,10 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const appendErrorLogEvent = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logging/error-log-rag", () => ({ appendErrorLogEvent }));
+// `logQualityGateFailuresBestEffort` (below) is a pure helper, but importing
+// it pulls in the whole `server-verify.ts` module graph, which transitively
+// reaches `@/lib/db/client` (throws at import time without a configured
+// POSTGRES_URL). Stub just that one leaf so the module loads in CI/dev
+// without a real DB — nothing here calls any DB function.
+vi.mock("@/lib/db/client", () => ({ dbConfigured: false, db: {}, pool: null }));
+
 import {
   isRepairBudgetExhausted,
   resolveFinalGateVerifyBudget,
   resolvePostRepairFinalize,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
+import { logQualityGateFailuresBestEffort } from "./server-verify";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -911,5 +922,79 @@ describe("buildRepairErrorContextLines", () => {
     expect(lines.length).toBeGreaterThan(0);
     expect(lines[0]?.startsWith("File: src/app/page.tsx")).toBe(true);
     expect(lines.some((line) => line.includes("Type 'number' is not assignable"))).toBe(true);
+  });
+});
+
+describe("logQualityGateFailuresBestEffort (TF-IDF error-log RAG producer coverage)", () => {
+  beforeEach(() => {
+    appendErrorLogEvent.mockReset();
+  });
+
+  it("logs one still-failing quality-gate row per failed check", () => {
+    logQualityGateFailuresBestEffort({
+      chatId: "chat-1",
+      versionId: "ver-1",
+      failedOutputs: [
+        { check: "typecheck", exitCode: 2, output: "TS2304: Cannot find name 'Foo'.", durationMs: 10 },
+        { check: "build", exitCode: 1, output: "next build failed", durationMs: 20 },
+      ],
+    });
+
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(2);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "quality-gate",
+        subphase: "server-verify",
+        fault: "quality-gate:typecheck",
+        faultText: "TS2304: Cannot find name 'Foo'.",
+        result: "still-failing",
+        chatId: "chat-1",
+        versionId: "ver-1",
+      }),
+    );
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ fault: "quality-gate:build" }),
+    );
+  });
+
+  it("caps producer rows at 5 even with many failed checks (row-explosion guard)", () => {
+    const manyFailures = Array.from({ length: 9 }, (_, i) => ({
+      check: `check-${i}`,
+      exitCode: 1,
+      output: `failure ${i}`,
+      durationMs: null,
+    }));
+
+    logQualityGateFailuresBestEffort({
+      chatId: "chat-2",
+      versionId: "ver-2",
+      failedOutputs: manyFailures,
+    });
+
+    expect(appendErrorLogEvent).toHaveBeenCalledTimes(5);
+  });
+
+  it("never throws even when the producer call itself throws (best-effort)", () => {
+    appendErrorLogEvent.mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    expect(() =>
+      logQualityGateFailuresBestEffort({
+        chatId: "chat-3",
+        versionId: "ver-3",
+        failedOutputs: [{ check: "lint", exitCode: 1, output: "eslint failed", durationMs: null }],
+      }),
+    ).not.toThrow();
+  });
+
+  it("does nothing for an empty failedOutputs list", () => {
+    logQualityGateFailuresBestEffort({
+      chatId: "chat-4",
+      versionId: "ver-4",
+      failedOutputs: [],
+    });
+
+    expect(appendErrorLogEvent).not.toHaveBeenCalled();
   });
 });

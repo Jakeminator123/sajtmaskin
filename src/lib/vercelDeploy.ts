@@ -230,6 +230,109 @@ export async function syncEnvVarsToVercelProject(
   return { synced, errors };
 }
 
+/**
+ * A3 — best-effort hämtning av Vercel build-loggtext för ett failat bygge, så
+ * repair-loopen får riktig felkontext i stället för bara "bygget failade".
+ *
+ * ALDRIG blockerande: kort AbortController-timeout, sväljer alla fel och
+ * returnerar `null` när loggen inte kan hämtas (anroparen faller då tillbaka på
+ * den feltext som redan finns). Läser build-event-strömmen (`?builds=1`) och
+ * plockar de sista raderna med text — de innehåller normalt själva byggfelet.
+ */
+export async function getVercelDeploymentBuildLogText(
+  vercelDeploymentId: string,
+  options?: { timeoutMs?: number; maxChars?: number },
+): Promise<string | null> {
+  if (!vercelDeploymentId || vercelDeploymentId.trim().length === 0) return null;
+  const timeoutMs = options?.timeoutMs ?? 4000;
+  const maxChars = options?.maxChars ?? 4000;
+
+  let token: string;
+  try {
+    token = getVercelToken();
+  } catch {
+    return null;
+  }
+  const teamId = getVercelTeamId();
+
+  const url = new URL(
+    `https://api.vercel.com/v3/deployments/${encodeURIComponent(vercelDeploymentId)}/events`,
+  );
+  if (teamId) url.searchParams.set("teamId", teamId);
+  url.searchParams.set("builds", "1");
+  url.searchParams.set("direction", "backward");
+  url.searchParams.set("limit", "100");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const raw = await res.text();
+    const lines = extractBuildLogLines(raw);
+    if (lines.length === 0) return null;
+    const joined = lines.join("\n").trim();
+    if (!joined) return null;
+    // Behåll slutet (byggfelet ligger sist) om texten är lång.
+    return joined.length > maxChars ? `…${joined.slice(joined.length - maxChars)}` : joined;
+  } catch {
+    // timeout / nätverk / parse — best-effort, faller tillbaka på befintlig text
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Plocka logg-textrader ur Vercels event-svar. Formatet varierar (JSON-array
+ * eller NDJSON), så vi tolererar båda och extraherar `payload.text`/`text`.
+ */
+function extractBuildLogLines(raw: string): string[] {
+  const out: string[] = [];
+  const pushFrom = (entry: unknown) => {
+    const obj = asJsonObject(entry);
+    if (!obj) return;
+    const payload = asJsonObject(obj.payload);
+    const text = readStringField(payload, "text") ?? readStringField(obj, "text");
+    if (text && text.trim()) out.push(text.replace(/\s+$/, ""));
+  };
+
+  const trimmed = raw.trim();
+  if (!trimmed) return out;
+
+  // Försök JSON-array först.
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      for (const entry of parsed) pushFrom(entry);
+      return out;
+    }
+    pushFrom(parsed);
+    if (out.length > 0) return out;
+  } catch {
+    // Inte en enda JSON — fall igenom till NDJSON.
+  }
+
+  // NDJSON: en JSON per rad.
+  for (const line of trimmed.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    try {
+      pushFrom(JSON.parse(t));
+    } catch {
+      /* tolerera trasig rad */
+    }
+  }
+  return out;
+}
+
 export function mapVercelReadyStateToStatus(readyState: string | null): {
   status: "pending" | "building" | "ready" | "error" | "cancelled";
 } {

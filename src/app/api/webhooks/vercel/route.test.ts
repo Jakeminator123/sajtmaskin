@@ -2,8 +2,9 @@ import crypto from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
-const dbSelectResult = vi.hoisted<{ rows: Array<{ id: string }> }>(() => ({ rows: [] }));
+const dbSelectResult = vi.hoisted<{ rows: Array<Record<string, unknown>> }>(() => ({ rows: [] }));
 const createRedisPublisher = vi.hoisted(() => vi.fn());
+const logDeployError = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({
   db: {
@@ -27,6 +28,10 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("@/lib/deployment", () => ({
   updateDeploymentStatus,
+}));
+
+vi.mock("@/lib/deploy/deploy-error-log", () => ({
+  logDeployError,
 }));
 
 vi.mock("@/lib/redis-pubsub", () => ({
@@ -57,6 +62,7 @@ describe("POST /api/webhooks/vercel", () => {
     process.env.VERCEL_WEBHOOK_SECRET = SECRET;
     dbSelectResult.rows = [];
     createRedisPublisher.mockReturnValue(null);
+    logDeployError.mockResolvedValue(undefined);
   });
 
   // BUG-fix (confirmed in prod): every generated site deploys to its OWN
@@ -69,7 +75,9 @@ describe("POST /api/webhooks/vercel", () => {
   // `vercelDeploymentId` is the real (and sufficient) scoping check.
   it("persists a status update for a deployment whose Vercel project differs from the configured VERCEL_PROJECT_ID", async () => {
     process.env.VERCEL_PROJECT_ID = "prj_workspace_own_project";
-    dbSelectResult.rows = [{ id: "dep_row_1" }];
+    dbSelectResult.rows = [
+      { id: "dep_row_1", chatId: "chat_1", versionId: "ver_1" },
+    ];
 
     const res = await POST(
       signedRequest({
@@ -89,6 +97,20 @@ describe("POST /api/webhooks/vercel", () => {
       "dep_row_1",
       "error",
       expect.objectContaining({ vercelProjectId: "prj_customer_generated_site" }),
+    );
+
+    // A3: a failed deploy is logged (DB + RAG + bus) for the version, tagged as
+    // the webhook source, so the deploy path has the same traceability as the
+    // preview-VM build-error path.
+    expect(logDeployError).toHaveBeenCalledTimes(1);
+    expect(logDeployError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        deploymentId: "dep_row_1",
+        vercelDeploymentId: "dpl_customer_site_1",
+        source: "webhook",
+      }),
     );
 
     delete process.env.VERCEL_PROJECT_ID;
@@ -128,6 +150,8 @@ describe("POST /api/webhooks/vercel", () => {
       "ready",
       expect.objectContaining({ url: "my-site.vercel.app" }),
     );
+    // A non-error terminal status must NOT log a deploy error.
+    expect(logDeployError).not.toHaveBeenCalled();
   });
 
   it("rejects a request with an invalid signature", async () => {
