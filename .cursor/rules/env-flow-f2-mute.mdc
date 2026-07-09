@@ -14,7 +14,9 @@ alwaysApply: false
 
 # Env-flöde i F2 är tyst
 
-F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3.
+F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3 via env-panelen (Dossiers-ytan), aldrig i chatten.
+
+F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Tystnaden gäller env-*trafik i chatten*, inte den visuella ytan.
 
 ## Skyddslager
 
@@ -26,6 +28,7 @@ F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. En
 ## Förbjudet
 
 - Visa env-panel i F2.
-- Läsa `missingEnvKeys` som blocker i F2.
+- Läsa `missingEnvKeys` som blocker i F2 (demo måste förbli publicerbart).
 - Auto-promotera till F3 baserat på prompt-keywords.
-- Emitterar env-tool-events i F2.
+- Emittera env-tool-events i F2.
+- Öppna "Svar krävs"-dialogen för `f3-continuation`-markern — F3 auto-fortsätter (live-marker) eller visar inline quick-replies (reload). Se `llm-pipeline.md` § F3-förslagsrunda.
