@@ -113,14 +113,15 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
   });
 
-  it("sends 'Lägg till byggblocket <label>' via onRequestDossier and closes the popover when a catalog row is picked", async () => {
-    stubFetch({ wired: wiredResponse() });
+  it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with an F2-mockup notice for a HARD dossier in design stage", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
     const onRequestDossier = vi.fn();
 
     render(
       <PreviewPanelDossiers
         chatId="chat_1"
         versionId="ver_1"
+        lifecycleStage="design"
         onRequestDossier={onRequestDossier}
       />,
     );
@@ -132,10 +133,48 @@ describe("PreviewPanelDossiers", () => {
     const stripeRow = await screen.findByTitle("Lägg till byggblocket Stripe Checkout");
     fireEvent.click(stripeRow);
 
-    expect(onRequestDossier).toHaveBeenCalledWith("Stripe Checkout");
-    await waitFor(() => {
-      expect(screen.queryByText("Betalningar")).toBeNull();
+    expect(onRequestDossier).toHaveBeenCalledWith({
+      id: "stripe-checkout",
+      label: "Stripe Checkout",
     });
+    // Hard pick in F2: the popover STAYS OPEN and shows the mockup notice.
+    expect(
+      screen.getByText(/visas som mockup i designläget/i),
+    ).toBeTruthy();
+
+    // One-shot lock: a second click on another row does nothing.
+    const klarnaRow = screen.getByText("Klarna Checkout").closest("button");
+    expect(klarnaRow).toBeTruthy();
+    fireEvent.click(klarnaRow!);
+    expect(onRequestDossier).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks catalog picks while a generation streams or a question is pending (catalogPickDisabled)", async () => {
+    stubFetch({ wired: wiredResponse() });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        onRequestDossier={onRequestDossier}
+        catalogPickDisabled
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Vänta tills pågående generering är klar/i),
+      ).toBeTruthy();
+    });
+    const stripeRow = screen.getByText("Stripe Checkout").closest("button");
+    expect(stripeRow?.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(stripeRow!);
+    expect(onRequestDossier).not.toHaveBeenCalled();
   });
 
   it("keeps 'Inkopplade' as the default tab when the version already has wired dossiers", async () => {

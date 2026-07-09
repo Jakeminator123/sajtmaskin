@@ -119,7 +119,9 @@ interface PreviewPanelChromeProps {
     }>;
   }) => void;
   /** Forwarded to the Byggblock-panelens katalog-tab. See preview-panel-types.ts. */
-  onRequestDossier?: (label: string) => void;
+  onRequestDossier?: (payload: { id: string; label: string }) => void;
+  /** Disables catalog rows while a generation streams / a question is pending. */
+  catalogPickDisabled?: boolean;
 }
 
 export function PreviewPanelChrome({
@@ -182,6 +184,7 @@ export function PreviewPanelChrome({
   onF3MissingEnv,
   onF3Ready,
   onRequestDossier,
+  catalogPickDisabled = false,
 }: PreviewPanelChromeProps) {
   const [addingPage, setAddingPage] = useState(false);
   const [newPagePath, setNewPagePath] = useState("");
@@ -649,6 +652,7 @@ export function PreviewPanelChrome({
               versionId={versionId ?? null}
               lifecycleStage={lifecycleStage ?? null}
               onRequestDossier={onRequestDossier}
+              catalogPickDisabled={catalogPickDisabled}
             />
           ) : null}
           {previewUrl && onClear ? (

@@ -31,6 +31,7 @@ import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { dispatchVersionStatusRefreshed, openDossiersPanel } from "@/lib/builder/project-env-events";
+import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
@@ -203,15 +204,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
     dispatchVersionStatusRefreshed();
   }, [vm.versionStatusNonce]);
-
-  const handleRequestDossier = useCallback(
-    (label: string) => {
-      const trimmed = label.trim();
-      if (!trimmed) return;
-      void sendMessage(`Lägg till byggblocket ${trimmed}`);
-    },
-    [sendMessage],
-  );
 
   const handleComposerAiFallback = useCallback(
     async (payload: ComposerAiFallbackPayload) => {
@@ -524,6 +516,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
     [vm.messages],
+  );
+
+  // Katalogval i Byggblock-panelen skickar via vm.sendMessage, som ABORTAR en
+  // pågående stream. Ett val mitt i en generation skulle alltså döda den, och
+  // ett val medan en fråga väntar skulle tyst avfärda frågan. Disable:a
+  // katalograderna i båda lägena (panelen visar en kort hint).
+  const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
+  const handleRequestDossier = useCallback(
+    (payload: { id: string; label: string }) => {
+      const id = payload.id.trim();
+      const label = payload.label.trim();
+      if (!id || !label) return;
+      // Sista försvarslinje utöver panelens disabled-rader: skicka aldrig om
+      // buildern är upptagen (aborterar aktiv stream) — droppa hellre klicket.
+      if (isBusy) return;
+      void sendMessage(buildAddDossierMessage({ id, label }));
+    },
+    [sendMessage, isBusy],
   );
 
   const persistPreviewOverride = useCallback(
@@ -919,6 +929,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
               onRequestDossier={handleRequestDossier}
+              catalogPickDisabled={catalogPickDisabled}
               onF3MissingEnv={(payload) => {
                 // finalize-design returns 412 while the user is still in F2.
                 // `ProjectEnvVarsPanel` only mounts in F3, so instead we open
