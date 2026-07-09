@@ -122,6 +122,19 @@ export async function resolveChatPreferredVersionId(
 /**
  * Canonical follow-up base: `engine_versions.files_json` for the explicitly selected version
  * (`engineBaseVersionId` from builder meta), else preferred lifecycle version, else latest.
+ *
+ * BY-DESIGN fall-through (review round 2, fix 9 — verified, kept): an explicit
+ * `engineBaseVersionId` whose row exists but whose `files_json` is empty or
+ * unparsable falls through to preferred/latest, exactly like an id that does
+ * not belong to the chat. That is the documented "canonical follow-up base"
+ * contract — an unusable explicit base must not leave the generation with NO
+ * file context (P19), and the 5-2 stale-base 409 in the stream route guards
+ * real base divergence separately. Consequence for F3: `previousFiles` (and
+ * thus version-presence evidence + the F3 capability-scope) then reflect the
+ * PREFERRED version rather than the pinned-but-corrupt one. Acceptable: an
+ * empty-files version has no honest evidence of its own, and the readiness
+ * gate resolves its version through the same explicit→preferred chain, so
+ * gate and generation agree on the base they inspected.
  */
 export async function resolveFollowUpPreviousFiles(
   chatId: string,

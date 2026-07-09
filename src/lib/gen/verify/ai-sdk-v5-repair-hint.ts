@@ -3,10 +3,11 @@
  *
  * The dossier templates are correct (ai@^7 pinned), but freeform codegen drifts
  * to stale v4 APIs — `CoreMessage` (TS2305), `maxSteps` (TS2353),
- * `chunk.textDelta` (TS2339). When the quality-gate failure text names one of
- * those symbols, we append the concrete v4→v5 rewrite so a single repair pass
- * can self-heal it, instead of the fixer guessing. Mirrors the codegen-prompt
- * guardrail (`system-prompt/sections/dossiers.ts` → `renderAiSdkVersionGuardrail`)
+ * `chunk.textDelta` (TS2339). When the ReleaseGate failure text (typecheck/
+ * build) names one of those symbols, RepairGate's context gets the concrete
+ * v4→v5 rewrite appended so a single repair pass can self-heal it, instead of
+ * the fixer guessing. Mirrors the codegen-prompt guardrail
+ * (`system-prompt/sections/dossiers.ts` → `renderAiSdkVersionGuardrail`)
  * so prompt and repair stay in lockstep.
  *
  * Pure + deterministic: returns [] when the error text names none of the

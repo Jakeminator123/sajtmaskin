@@ -260,7 +260,11 @@ används gate-output också som exakt felkälla för RepairGate:
    för både `server-verify` och manuell `/repair`. Loopens LLM-anrop går via
    `runLlmRepairGate()` (Fas 3, se "En repair-port" nedan) med
    ursprungsdiagnostiken (tsc-output inkl. TS-koder) som primära structured
-   errors + prior-patch-noter vid pass > 0
+   errors + prior-patch-noter vid pass > 0. Gate-class-failures (ursprunget
+   var typecheck/build/lint, esbuild-syntaxen redan ren) bär LLM:ens edit
+   vidare till final-gaten och får ETT andra pass inom samma `maxLlmPasses`-
+   budget innan loopen ger upp — rena syntaxfel stannar som förut vid första
+   syntax-rena passet
 6. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
    RepairGate när felmängden är lokal
 7. RenderGate/ReleaseGate re-körs enligt **samma-signal-kontraktet**

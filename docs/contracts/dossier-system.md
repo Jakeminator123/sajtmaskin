@@ -139,12 +139,26 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 
 `selectDossiersForRequest(opts)` lives in `src/lib/gen/dossiers/select.ts`:
 
-1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
-2. Expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — today `subscriptions` ⇒ `supabase-auth` (paddle-billing's customer-portal needs a signed-in Supabase user). The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
+1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`). When the caller COMPUTED the list (the F3 capability-scope in orchestrate passes `disableBriefFallback: true`), an empty list is authoritative — the brief fallback never resurrects speculative capabilities in F3.
+2. Expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — today `subscriptions` ⇒ `supabase-auth` (paddle-billing's customer-portal needs a signed-in Supabase user). The same helper also dedupes overlapping picks: `supabase-auth` drops generic `auth` (colliding root `middleware.ts`), and `ai-tool-calling` drops generic `ai-chat` (overlapping chat surfaces — one "AI assistant" ask must not ship two competing chat routes). The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
 3. For each capability, find dossiers via `getDossiersByCapability(cap)`.
 4. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
 5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
 6. Eagerly load `instructions.md` for selected dossiers.
+
+### Version-presence union (reporting + gates)
+
+Selection answers "what should THIS round wire"; the separate question "what is
+IN this chat/version" is owned by `resolveSelectedDossiersWithVersionPresence`
+(`version-presence.ts`): snapshot-derived selection ∪ dossiers whose files are
+actually present in the version (all `role: "server"` files + at least one
+distinctive, non-shared file; client-only dossiers need one distinctive file).
+The dossiers panel route, the readiness route, `finalize-design`, the stream
+route's F3 gate and the deploy env gate all read that union — never their own.
+This matters because the snapshot's top-level `requestedCapabilities` is the
+floor of the MOST RECENT round and legitimately SHRINKS after an F3 build (the
+next design round re-mutes integration capabilities): that shrink is intended,
+and file presence is what keeps a built integration visible/enforced through it.
 
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
@@ -232,7 +246,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `data/template-references/_metadata/<reference>.github.json` | GitHub stars + last-pushed metadata for ranking |
 | `src/lib/gen/dossiers/registry.ts` | Disk reader + mtime cache |
 | `src/lib/gen/dossiers/select.ts` | Deterministic capability-driven selection |
-| `src/lib/gen/dossiers/version-presence.ts` | Canonical "which dossiers are IN this version" resolver — maps each dossier's manifest `files[]` through `output-path.ts` and checks presence in the version's `files_json`. Ground truth for reporting (dossiers panel) + the F3 capability-scope file-evidence, independent of the F2-muted snapshot floor. |
+| `src/lib/gen/dossiers/version-presence.ts` | Canonical "which dossiers are IN this version" resolver (server files + ≥1 distinctive file; se § Version-presence union) + `resolveSelectedDossiersWithVersionPresence` — the snapshot ∪ presence union shared by panel, readiness, finalize-design, F3-gate and deploy. |
 | `src/lib/gen/dossiers/types.ts` | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult` |
 | `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
 | `scripts/dossiers/curate-from-reference.ts` | AI-curation script (single dossier from a cloned reference repo) |

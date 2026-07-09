@@ -36,6 +36,12 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },
   { match: /^selected dossier instructions$/i, priority: 84 },
+  // AI-SDK v4-drift guardrail (Task 5a): only rendered when an AI dossier
+  // (ai-chat / ai-tool-calling / rag-chat) is selected, and then it MUST
+  // survive budget pruning — dropping it under a tight budget silently
+  // reintroduces the CoreMessage/maxSteps/textDelta build breaks it exists
+  // to prevent.
+  { match: /^ai sdk version contract/i, priority: 88, required: true },
   { match: /^dossier files to emit verbatim$/i, priority: 92, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },

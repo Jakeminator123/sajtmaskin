@@ -46,6 +46,12 @@ Invariants:
 - F3-krav härleds från dossier-kontrakt: build-enforced env var eller server file surface.
 - Verbatim-filer ska skyddas både i prompt och post-merge.
 - `selectedDossierIds` är exakt signal för vilka dossiers som var aktiva i generationen.
+- Versionens filer är sanningen för dossier-NÄRVARO (version-presence): "valda
+  dossiers för en chat/version" = snapshot-selektion ∪ filbevis, ägd av
+  `resolveSelectedDossiersWithVersionPresence` (`version-presence.ts`).
+  Panel (dossiers-routen), readiness, finalize-design, stream-F3-gaten och
+  deploy-env-gaten läser ALLA samma resolver — ingen konsument gör en egen
+  union, så panel och gates kan inte säga emot varandra.
 
 ## Scaffoldkontrakt
 

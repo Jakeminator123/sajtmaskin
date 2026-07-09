@@ -411,12 +411,11 @@ export function ProjectEnvVarsPanel({
       // Without this the panel treated EVERY detected integration as
       // build-blocking (a matching dossier is what downgrades an integration to
       // warn-only), so a landing page that merely references a provider example
-      // demanded the world. Best-effort: on failure we fall back to unscoped
-      // detection (legacy behavior).
+      // demanded the world.
       let detectionOptions: {
-        selectedDossiers?: SelectedDossier[];
-        lifecycleStage?: "design" | "integrations";
-      } = {};
+        selectedDossiers: SelectedDossier[];
+        lifecycleStage: "design" | "integrations";
+      } | null = null;
       try {
         const dossiersResponse = await fetch(
           `${engineChatBaseUrl(chatId)}/dossiers?versionId=${encodeURIComponent(activeVersionId)}`,
@@ -433,13 +432,20 @@ export function ProjectEnvVarsPanel({
           };
         }
       } catch {
-        // Best-effort: unscoped detection is the safe legacy fallback.
+        // handled below — detectionOptions stays null
       }
-      setDetectedIntegrations(
-        fileEntries.length > 0
-          ? detectIntegrationsFromVersionFiles(fileEntries, detectionOptions)
-          : [],
-      );
+      if (detectionOptions) {
+        setDetectedIntegrations(
+          fileEntries.length > 0
+            ? detectIntegrationsFromVersionFiles(fileEntries, detectionOptions)
+            : [],
+        );
+      }
+      // Scope fetch failed (review round 2, fix 7): SKIP the detection update
+      // and keep the previous state. Unscoped detection is the STRICTEST mode
+      // (every unmatched integration becomes build-blocking) — falling back to
+      // it on a transient fetch error would re-create exactly the env wall the
+      // scoping fixes. Stale-but-scoped beats fresh-but-world-demanding.
       setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
       setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
     } catch (loadError) {

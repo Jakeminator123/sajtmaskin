@@ -126,6 +126,36 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     expect(llmAttempt?.isEdit).toBe(true);
   });
 
+  // Review round 2, fix 11d: the gate-class second pass must NOT leak into
+  // pure syntax repairs — an initial SYNTAX failure (gateClassFailure=false)
+  // still stops at the first syntax-clean pass even with budget left.
+  it("keeps a pure syntax repair single-pass at maxLlmPasses=2", async () => {
+    const brokenPage = file(
+      "app/page.tsx",
+      // "( {" marks the content broken for the validator stub above.
+      `export default function Page( {) {\n  return <main />;\n}`,
+    );
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    const result = await runRepairLoop({
+      initialContent: brokenPage,
+      // Pure syntax lane: no originating quality-gate failures.
+      failedOutputs: [],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (_content, method) =>
+        method === "llm" ? { promoted: true } : { promoted: false },
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(result.improvedSyntax).toBe(true);
+    // Exactly ONE pass: syntax went clean and the loop stopped — the
+    // gate-class second pass never fires for syntax-class repairs.
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+  });
+
   // Task 6: a gate-class failure gets a SECOND LLM pass (still capped at
   // maxLlmPasses) instead of stopping after one — the retry runs with the
   // accumulated prior-attempt notes + v4→v5 hint.
