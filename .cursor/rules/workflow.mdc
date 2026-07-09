@@ -39,6 +39,10 @@ Checklista:
 
 Docs ska spegla runtime. Ersätt gammal text, lägg inte nya lager ovanpå. Ta bort döda länkar och obsolete tabellrader när du rör området.
 
+## Innan PR eller push till master
+
+Kör `/granska` (buggsvärm på egen diff — 8 st `composer-2.5-fast` mot bara dina ändringar) före du skapar PR eller pushar till master. Det är ett för-filter, inte hela grinden: merge-grind, 7-min-fönster och extern buggkoll ligger i `pr-merge-review-gate.mdc` + `auto-merge-automation.mdc`. Kör `/automat` bara för bred repo-audit — inte som diff-granskning.
+
 ## När du ska pausa
 
 Pausa och fråga vid: bred rename, arkitekturbeslut, möjlig dataförlust, oklart canonical ownership, security/cross-tenant-risk eller >40 filer.

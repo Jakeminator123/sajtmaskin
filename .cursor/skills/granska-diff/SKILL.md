@@ -57,10 +57,11 @@ Inga fynd ur din vinkel = skriv "Inga fynd" + 1 mening om vad du kollade. Inga n
 
 ### 5. Rapportera + fortsätt
 
-Kort tabell till användaren: fynd × utfall (fixat/loggat/avfärdat). Sedan push/PR som vanligt — bugbot-passet på PR:en (per `pr-merge-review-gate.mdc`) gäller fortfarande; /granska ersätter det inte.
+Kort tabell till användaren: fynd × utfall (fixat/loggat/avfärdat). Sedan push/PR som vanligt. Detta pass ersätter INTE den externa buggkollen på PR:en: efter att PR öppnats gäller **7-min-Codex-fönstret → annars Cursor-bugbot**, plus **PR ≥ 7 min** innan merge (`pr-merge-review-gate.mdc`).
 
 ## Regler
 
+- **Obligatoriskt före PR-skapande och före push till master** (se `git.mdc`/`workflow.mdc`). Inte valfritt på egen diff som rör kod.
 - Svärmen ändrar ALDRIG kod och kör ALDRIG git-åtgärder.
 - Endast `composer-2.5-fast` (eller `composer-2.5` om användaren ber om det) för svärm-agenterna.
 - Rundor konvergerar: max 1 omsvärmning efter fixar. Kvarvarande nits → logga, inte ny runda (undvik oändlig loop).

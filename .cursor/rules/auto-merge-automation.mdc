@@ -5,22 +5,42 @@ alwaysApply: false
 
 # Auto-merge automation
 
-En Cursor-side automation ("PR-mergare") kan auto-mergea lågrisk-PR:er. Den bor inte i repot — syns som check/review-verdict på PR (`AUTO_MERGE` / `WAITING_FOR_CHECKS` / `NEEDS_HUMAN`).
+En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repot — den syns som check/verdict på PR (`AUTO_MERGE` / `WAITING_FOR_CHECKS` / `NEEDS_HUMAN`). Eftersom den (liksom en agent som kör `gh pr merge --admin`) kör med repo-ägarens **admin**-identitet kan den **kringgå** branch protection. Räkna därför aldrig med att en merge blev granskad bara för att den skedde med ägarens konto.
 
-## Auto-mergar BARA när allt är sant
+## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · alla checks gröna · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2** · **inga protected paths** · head-SHA stabil · PR-body beskriver ändringen.
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **`/granska` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+
+Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
+
+**\* Auto- vs agent-merge (separata kriterier):** `inga protected paths` + `risk 1–2` gäller **helautomatisk** merge. Agent-mergaren (läget vi valt) får merga protected-path/risk ≥ 3-PR:er **efter** ett oberoende bugbot-subagent-pass (se `Protected paths` + `Vem mergar` nedan). Alla övriga villkor (grönt CI, 7-min, `merge:ready` + sign-off, stabil SHA) gäller **alltid**, oavsett mergare.
 
 ## Protected paths → alltid `NEEDS_HUMAN` (även test-only diff)
 
-`.github/workflows/**`, `package.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/app/api/**`, `src/lib/logging/**`, m.fl. Likaså risk ≥ 3 (CI/runtime/security/false-green) och grandmaster-PR som inte är ren typo/docs.
+`.github/workflows/**`, `package.json`/`package-lock.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/lib/tenant/**`, `src/lib/gen/**`, `src/lib/providers/**`, `src/lib/integrations/**`, `src/lib/logging/**`, `src/app/api/**`, `migrations/**`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`, m.fl. Likaså risk ≥ 3 (CI/runtime/security/false-green) och grandmaster-PR som inte är ren typo/docs.
 
-## Verklighet i nuvarande config (verifierat 2026-07-08)
+`NEEDS_HUMAN` betyder **kräver oberoende bugbot-subagent-pass + uttrycklig agent/människa-bedömning** — inte att PR:en är omergbar. Merge-agenten uppfyller det kravet och **får** merga protected-path/risk ≥ 3-PR:er efter passet (annars kunde ingen riktig PR någonsin mergas — de flesta rör `src/lib/**` eller `src/app/api/**`). En helt automatisk mergare (om påslagen) kan däremot inte uppfylla kravet → avstår.
 
-"Protect master"-ruleset kräver code-owner-review (`@Jakeminator123` via `.github/CODEOWNERS`) och **bara admin kan bypassa** → automationen kan inte själv uppfylla review-kravet. Följd: den **auto-mergar i praktiken ingenting** utan lägger bara en verdict-check (`NEUTRAL`) — sett på #449 (ren docs, risk 1) som **inte** auto-mergades. Manuell `gh pr merge --admin` är den faktiska vägen.
+## `gh pr merge --admin` — förbjudet före grinden
+
+Admin-bypass kringgår **allt** (required checks + code-owner-review). En agent får därför **inte** `--admin`:a en PR förrän hela merge-grinden ovan är uppfylld och dokumenterad i PR:en. Grönt CI räcker inte: grönt ≠ granskat, och admin-merge överstyr även röda/väntande checks. `--admin` är inte en genväg förbi en utebliven granskning eller ett 7-min-fönster som inte gått ut.
 
 ## Konsekvens
 
-- Räkna inte med att en grön lågrisk-PR redan är mergad — den står oftast kvar (`NEUTRAL`/`NEEDS_HUMAN`) tills någon `--admin`:ar.
-- Före egen `gh pr merge`: kolla `gh pr view <n> --json state,reviews` för att undvika dubbel-merge.
-- Ersätter inte review-gaten (`pr-merge-review-gate.mdc`): läs alltid dess verdict + ev. Bugbot-/Vercel-Agent-fynd före manuell merge.
+- Räkna inte med att en grön lågrisk-PR redan är säker att merga — grinden ovan måste vara uppfylld och PR ≥ 7 min gammal.
+- Före egen `gh pr merge`: kolla `gh pr view <n> --json state,reviews,createdAt` (undvik dubbel-merge; verifiera 7-min-åldern och att ingen redan mergat).
+- Ersätter inte review-gaten (`pr-merge-review-gate.mdc`): läs alltid dess verdict + ev. Bugbot-/Codex-/Vercel-fynd före merge.
+- Proportionalitet: `risk 1–2` och blocker-listan gäller **riktig** skada. En välmotiverad förbättring hålls inte kvar för smaknit — logga niten och merga (se `pr-merge-review-gate.mdc`).
+- Vill du att den externa "PR-mergare"-automationen ska sluta merga utan grinden: stäng av/kalibrera den i Cursor-dashboarden (Automations). Den lyder **inte** `.cursor/rules` — bara dashboard-inställningen stoppar den.
+
+## Vem mergar (beslut 2026-07-09: agent-merger)
+
+Dashboard-automationen **"PR-mergare" ska vara AV**. Skäl: den mergade allmänt/dumt och kringgick grinden via admin (bevis: #468 mergades till master med en oåtgärdad P1 och 0 reviews), och den kräver dessutom Cursor-billing för att ens starta.
+
+Merge sker i stället via **merge-agenten** (en Cursor-agent) som:
+
+1. verifierar `merge:ready`-labeln + sign-off (`pr-merge-review-gate.mdc`),
+2. verifierar hela merge-grinden ovan,
+3. kör `gh pr merge` (admin) först då.
+
+Slår du på automationen igen: ge den samma grind + `merge:ready`-krav i dess dashboard-prompt, annars är den tillbaka i "dum"-läget.
