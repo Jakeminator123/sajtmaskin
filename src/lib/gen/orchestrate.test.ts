@@ -247,6 +247,40 @@ describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () =>
   });
 });
 
+describe("filterDossierCapabilitiesForPrompt (dossier wave 3: supabase-auth vs auth)", () => {
+  // Non-competition contract: on an explicit Supabase prompt the inferred
+  // `needsAuth` bridge still adds generic `auth` (its patterns match the
+  // "login"/"auth" inside "supabase login"), but clerk-auth must never be
+  // injected alongside supabase-auth — both ship a root middleware.ts.
+  it("drops generic auth when supabase-auth is explicitly selected (F3)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["supabase-auth", "auth"],
+      prompt: "medlemssida med supabase login",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("supabase-auth");
+    expect(result).not.toContain("auth");
+  });
+
+  it("keeps generic auth (clerk) when supabase-auth is not requested (F3)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["auth"],
+      prompt: "medlemssida med inloggning",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toContain("auth");
+  });
+
+  it("mutes supabase-auth in F2 like other server-surface integrations", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["supabase-auth"],
+      prompt: "medlemssida med supabase login",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).not.toContain("supabase-auth");
+  });
+});
+
 describe("dossierRequiresF3 (single F3 signal: build envVars OR server-file surface)", () => {
   const envVar = (
     key: string,

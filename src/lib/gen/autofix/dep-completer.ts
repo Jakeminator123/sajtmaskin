@@ -156,6 +156,8 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier (legacy import 2026-07-08, capability `subscriptions`):
   // paddle-billing. Majors verified against the npm registry 2026-07-09
   // (`npm view <pkg> version`). @supabase/ssr is 0.x so we pin the minor.
+  // NOTE: @supabase/ssr + @supabase/supabase-js are SHARED with the
+  // supabase-auth dossier (capability `supabase-auth`) — one entry serves both.
   "@paddle/paddle-node-sdk": "^3",
   "@supabase/ssr": "^0.12",
   "@supabase/supabase-js": "^2",

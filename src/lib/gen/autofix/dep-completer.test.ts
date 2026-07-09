@@ -322,6 +322,36 @@ describe("dep-completer", () => {
     }
   });
 
+  // Dossier wave 3 (capability `supabase-auth`, 2026-07-08): the Supabase
+  // Auth SSR dossier's manifest dependency must resolve through the
+  // KNOWN_PACKAGES pin (never `latest`), and the capability must select the
+  // supabase-auth dossier — NOT clerk-auth (which owns the separate `auth`
+  // capability).
+  it("injects @supabase/ssr when supabase-auth is selected (not clerk)", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["supabase-auth"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("supabase-auth");
+    expect(dossierSelection.selected.map((s) => s.entry.id)).not.toContain("clerk-auth");
+
+    const deps = resolveCapabilityDependencies(["supabase-auth"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/ssr"]).not.toBe("latest");
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+  });
+
+  it("still selects clerk-auth for the generic auth capability (non-competition)", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("clerk-auth");
+    expect(dossierSelection.selected.map((s) => s.entry.id)).not.toContain("supabase-auth");
+
+    const deps = resolveCapabilityDependencies(["auth"]);
+    expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    expect(deps["@supabase/ssr"]).toBeUndefined();
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [
