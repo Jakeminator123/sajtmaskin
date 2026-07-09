@@ -241,6 +241,141 @@ describe("MessageList", () => {
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 
+  it("auto-approves when the F3 marker hydrates one tick after stream-end (design stage — prod-realistic, P1)", async () => {
+    // P1 regression lock: a real F3-continuation marker is emitted by a
+    // tool-only/empty round that creates NO new version, so
+    // `deployReadiness.lifecycleStage` reads the still-active F2 row =
+    // "design". Auto-continue MUST therefore work with lifecycleStage="design"
+    // — gating arming on "integrations" made the feature dead in prod. The
+    // live-vs-stale decision rests on the marker (kind + parentVersionId ===
+    // active versionId), not the prop stage.
+    let resolveSend: (() => void) | undefined;
+    const onQuickReply = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const before: ChatMessage[] = [
+      { id: "user_f3_kick", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming
+        lifecycleStage="design"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    // Stream ends before the server-persisted marker is merged into messages.
+    rerender(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    const after: ChatMessage[] = [
+      ...before,
+      {
+        id: "assistant_f3_marker_live",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={after}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
+    });
+    resolveSend?.();
+  });
+
+  it("does NOT auto-approve a hydrated marker whose parentVersionId no longer matches the active version (stale lineage, isolated)", async () => {
+    // Isolates the parentVersionId gate: a real generation stream DID run this
+    // session (so the stream-end window is armed), but the marker that hydrates
+    // belongs to a superseded design version (parentVersionId != active
+    // versionId). It must fall back to inline quick-replies, never auto-fire.
+    const onQuickReply = vi.fn(async () => {});
+    const before: ChatMessage[] = [
+      { id: "user_kick_stale_lineage", role: "user", content: "Ändra designen." },
+    ];
+    const { rerender } = render(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+    rerender(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+
+    const withStaleMarker: ChatMessage[] = [
+      ...before,
+      {
+        id: "assistant_stale_lineage_marker",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_superseded",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_stale_lineage"
+        messages={withStaleMarker}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_current"
+      />,
+    );
+
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
+  });
+
   it("does NOT auto-approve a marker that arrives via staged history hydration (no stream ran)", async () => {
     // Bugbot high (#460): cached/local messages can hydrate FIRST without the
     // persisted marker, and the canonical server history (incl. an old
@@ -285,6 +420,96 @@ describe("MessageList", () => {
     expect(onQuickReply).not.toHaveBeenCalled();
     expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+  });
+
+  it("does NOT auto-approve a stale marker after an unrelated F2 follow-up stream (A#2)", async () => {
+    // Residual from bugbot #460: cached history hydrates WITHOUT the marker,
+    // then an F2 follow-up streams (arming the OLD `isStreaming` gate), then
+    // canonical server history merges in an OLD F3 marker. The marker looks
+    // "live" (key !== mount snapshot) but was NOT produced by the F2 stream.
+    const onQuickReply = vi.fn(async () => {});
+    const cachedSubset: ChatMessage[] = [
+      { id: "user_f3_kick_stale", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList chatId="chat_f3_f2_hydrate" messages={cachedSubset} onQuickReply={onQuickReply} />,
+    );
+
+    // Unrelated F2 follow-up streams and completes WITHOUT an F3 marker.
+    const afterF2Stream: ChatMessage[] = [
+      ...cachedSubset,
+      {
+        id: "user_f2_followup",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "assistant_f2_reply",
+        role: "assistant",
+        content: 'file="app/page.tsx"\nexport default function Page() { return <h1>Stor</h1> }',
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={afterF2Stream}
+        onQuickReply={onQuickReply}
+        isStreaming
+        lifecycleStage="design"
+      />,
+    );
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={afterF2Stream}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+      />,
+    );
+
+    // Staged hydration lands the OLD F3 marker AFTER the F2 round (marker is
+    // latest pending — no user message after it — but was NOT produced by F2).
+    const fullServerHistory: ChatMessage[] = [
+      ...cachedSubset,
+      {
+        id: "user_f2_followup",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "assistant_f2_reply",
+        role: "assistant",
+        content: 'file="app/page.tsx"\nexport default function Page() { return <h1>Stor</h1> }',
+      },
+      {
+        id: "assistant_f3_marker_stale",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_f2_hydrate"
+        messages={fullServerHistory}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_f2_after"
+      />,
+    );
+
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
   });
 
   it("does NOT auto-approve a reloaded marker after switching chats mid-stream (cross-chat credit burn)", async () => {

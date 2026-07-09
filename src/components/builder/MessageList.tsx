@@ -144,6 +144,10 @@ const MessageListComponent = ({
   // the history lands, so late-hydrated old markers fall back to the inline
   // quick-replies instead of silently burning credits.
   const hasStreamedThisSessionRef = useRef(false);
+  // Set when a generation stream ends on this chat (non-foreign). Consumed when
+  // a NEW F3 marker arms the live gate — covers hydration lag where the marker
+  // lands one tick after `isStreaming` clears (bugbot on A#2).
+  const lastGenerationStreamEndRef = useRef(false);
 
   // Chat switch without remount: reset the auto-continue bookkeeping so a
   // marker in the NEXT chat's freshly loaded history is re-snapshotted as
@@ -163,21 +167,15 @@ const MessageListComponent = ({
   // `if (isStreaming)` can no longer re-arm it off the leaking foreign stream.
   const f3ChatIdRef = useRef(chatId);
   const f3AwaitingStreamSettleRef = useRef(false);
+  const prevIsStreamingRef = useRef(isStreaming);
   if (f3ChatIdRef.current !== chatId) {
     f3ChatIdRef.current = chatId;
     f3MountKeyRef.current = undefined;
     autoFiredF3KeyRef.current = null;
     hasStreamedThisSessionRef.current = false;
+    lastGenerationStreamEndRef.current = false;
     f3AwaitingStreamSettleRef.current = isStreaming;
-  }
-  // The deferred foreign stream has ended → messages now belong to this chat.
-  if (f3AwaitingStreamSettleRef.current && !isStreaming) {
-    f3AwaitingStreamSettleRef.current = false;
-  }
-  // A generation stream is this chat's "live" signal only once we are settled
-  // on this chat (never while a previous chat's stream is winding down).
-  if (isStreaming && !f3AwaitingStreamSettleRef.current) {
-    hasStreamedThisSessionRef.current = true;
+    prevIsStreamingRef.current = isStreaming;
   }
 
   const sendQuickReply = useCallback(
@@ -207,6 +205,66 @@ const MessageListComponent = ({
     () => getLatestPendingReplyFromTooling(messages),
     [messages],
   );
+
+  const tryArmF3LiveStreamGate = useCallback(
+    (
+      pending: ReturnType<typeof getLatestPendingReplyFromTooling> | null | undefined,
+    ) => {
+      const mountKey = f3MountKeyRef.current;
+      if (!pending || pending.kind !== F3_CONTINUATION_KIND) return;
+      if (mountKey === undefined || pending.key === mountKey) return;
+      const parentVersionId = pending.parentVersionId?.trim() || null;
+      const activeVersionId = versionId?.trim() || null;
+      // Stale hydration after an unrelated follow-up: marker belongs to an older
+      // design version than the one now active in the builder.
+      if (parentVersionId && activeVersionId && parentVersionId !== activeVersionId) {
+        return;
+      }
+      hasStreamedThisSessionRef.current = true;
+      lastGenerationStreamEndRef.current = false;
+    },
+    [versionId],
+  );
+
+  // Arm the F3 "live stream" gate when a generation stream ENDS (with or without
+  // the marker in the same render — hydration may lag). The live-vs-stale
+  // discriminator is the MARKER itself (kind + key-not-at-mount +
+  // parentVersionId === active version), NOT the prop `lifecycleStage`: a real
+  // F3-continuation marker is only ever emitted by a tool-only/empty round that
+  // creates NO new engine version, so `deployReadiness.lifecycleStage` stays
+  // "design". Gating this on "integrations" therefore made live auto-continue
+  // dead in prod (the gate could never be satisfied for an actual marker).
+  useEffect(() => {
+    if (f3AwaitingStreamSettleRef.current) {
+      prevIsStreamingRef.current = isStreaming;
+      // Foreign stream from the previous chat ended — never arm the new chat
+      // off that transition (cross-chat credit-burn regression).
+      if (!isStreaming) {
+        f3AwaitingStreamSettleRef.current = false;
+      }
+      return;
+    }
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+    if (!wasStreaming && isStreaming) {
+      // A fresh stream started: close the previous stream-end window so a marker
+      // can only ever be credited to THIS stream's end (avoids a sticky ref
+      // arming an unrelated marker that hydrates much later).
+      lastGenerationStreamEndRef.current = false;
+    }
+    if (wasStreaming && !isStreaming) {
+      lastGenerationStreamEndRef.current = true;
+      tryArmF3LiveStreamGate(getLatestPendingReplyFromTooling(messages));
+    }
+  }, [isStreaming, messages, tryArmF3LiveStreamGate]);
+
+  // Marker arrived after stream-end (server restore / staged hydration beat).
+  useEffect(() => {
+    if (f3AwaitingStreamSettleRef.current) return;
+    if (!lastGenerationStreamEndRef.current) return;
+    tryArmF3LiveStreamGate(pendingReply);
+  }, [pendingReply, tryArmF3LiveStreamGate]);
+
   const latestEnvRequirement = useMemo(
     () => getLatestEnvRequirementFromTooling(messages),
     [messages],

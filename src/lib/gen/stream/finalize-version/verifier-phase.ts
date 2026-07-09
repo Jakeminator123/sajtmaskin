@@ -28,6 +28,10 @@ import {
 } from "@/lib/gen/verify/verifier-pass";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
+import {
+  FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
+  FIX_LESSON_VERIFIER_FIXER_REWRITE,
+} from "@/lib/logging/error-log-fix-lessons";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { parseCodeProject } from "@/lib/gen/parser";
 import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
@@ -242,7 +246,7 @@ export async function runVerifierPhase(params: {
                   severity: "warning",
                   fault: finding.id,
                   faultText: finding.detail,
-                  fixText: "deterministic import repair added the missing known import",
+                  fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
                   modelTier: resolvedTier ?? null,
                   model,
                   provider: "own-engine",
@@ -436,7 +440,7 @@ export async function runVerifierPhase(params: {
               severity: "warning",
               fault: finding.id,
               faultText: finding.detail,
-              fixText: "verifier-fixer rewrote the offending file(s)",
+              fixText: FIX_LESSON_VERIFIER_FIXER_REWRITE,
               modelTier: resolvedTier ?? null,
               model,
               provider: "own-engine",

@@ -76,6 +76,8 @@ export type PendingReplyModalData = {
    * the F3-continuation marker — auto-continue instead of a dialog.
    */
   kind?: string;
+  /** F3-continuation marker's parent design version (when present). */
+  parentVersionId?: string | null;
 };
 
 export type EnvRequirementHint = {
@@ -922,6 +924,17 @@ function extractPendingReplyKind(tool: { output?: unknown }): string | undefined
   return undefined;
 }
 
+function extractParentVersionId(tool: { output?: unknown }): string | null {
+  const output = tool.output;
+  if (output && typeof output === "object") {
+    const parentVersionId = (output as Record<string, unknown>).parentVersionId;
+    if (typeof parentVersionId === "string" && parentVersionId.trim()) {
+      return parentVersionId.trim();
+    }
+  }
+  return null;
+}
+
 export function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModalData | null {
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
@@ -954,6 +967,7 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
         options: replyPrompt.options,
         planMode: isPlanAwaitingInput(tool),
         kind: extractPendingReplyKind(tool),
+        parentVersionId: extractParentVersionId(tool),
       };
     }
     const hasAwaitingInput = toolParts.some((part) => {
@@ -998,6 +1012,7 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
             options: fromOutput.options.map(normalizeApprovalOptionLabel),
             planMode: hasPlanAwaitingInput,
             kind: extractPendingReplyKind(tool),
+            parentVersionId: extractParentVersionId(tool),
           };
         }
       }
