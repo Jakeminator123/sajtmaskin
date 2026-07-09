@@ -158,7 +158,7 @@ Cursor tillåter inte att en agent skriver `.cursorignore` (den styr agentens eg
 | `data/shadcn-examples/` | Borttagen — bara historiska doc-hänvisningar |
 | `scripts/template-library/` | Borttagen avsiktligt (2026-04-17) |
 | `_parkering/` | Medvetet i git + cursorignored |
-| `test_förslag_templates_blob/` | Medvetet tracked (blob-intake) |
+| `test_förslag_templates_blob/` | ~~Medvetet tracked (blob-intake)~~ → raderad 2026-07-08 (#458) |
 | Backoffice Python | Graceful fallback för gitignored runtime-paths |
 | Preview-host runtime | Inga trasiga cross-imports repo → `preview-host/` |
 | `src/**` (exkl. gen) `@/`-imports | Stickprov OK — inga trasiga moduler |
@@ -173,7 +173,7 @@ Cursor tillåter inte att en agent skriver `.cursorignore` (den styr agentens eg
 | `_parkering/` | Ja (3 filer) | Ja | Docs/planer | Medveten parkeringsyta — behåll |
 | `archive/` (rot) | Gitignored | Nej | Docs/scripts README | Lokal dump — ev. spegla i cursorignore |
 | `templates_v0/` | Delvis (saknas ofta lokalt) | **Nej** | `scripts/v0-templates/`, valfri runtime | Valfri maintainer-workstation; **ska git/cursorignoreras** |
-| `test_förslag_templates_blob/` | Ja (7 filer) | Nej | `sync-blob-catalog.mjs` default | Load-bearing — behåll tracked |
+| `test_förslag_templates_blob/` | ~~Ja (7 filer)~~ | Nej | ~~`sync-blob-catalog.mjs`~~ | **Raderad 2026-07-08 (#458)** — `sync-blob-catalog.mjs` borttaget; Blob-katalog via `upload-mallar-blob.mjs` är enda skrivvägen |
 | `old/` (rot) | Gitignored | Nej | eslint/vitest exclude | Lokal scratch |
 | `_scaffold_discovery/` | Gitignored | Nej | Inga | Död ignore-rad? |
 | `data/external-template-pipeline/` | Gitignored, tom | Delvis | Backoffice (graceful) | Legacy pipeline — UI/docs kan markeras |
@@ -188,7 +188,7 @@ Cursor tillåter inte att en agent skriver `.cursorignore` (den styr agentens eg
 | `scripts/template-library/` | **Borttagen** 2026-04-17 | `scripts/dossiers/`, dossier-curation |
 | `src/lib/gen/template-library/` | **Borttagen** | Döda rader i `.gitignore:87-88` |
 | `data/shadcn-examples/` | **Borttagen** | `src/lib/gen/data/shadcn-ui-recipes.ts` |
-| `templates_v0/` | Valfri lokal intake, ej i trädet | Prod: blob; dev: `test_förslag_templates_blob/` |
+| `templates_v0/` | Valfri lokal intake, ej i trädet | Prod: blob (dev-intake `test_förslag_templates_blob/` raderad 2026-07-08 #458) |
 | `data/external-template-pipeline/` | Gitignored, pipeline borttagen | `data/template-references/` + dossiers |
 | `fas{1,2,3}-*.md` | **Saknas** | `docs/architecture/llm-pipeline.md` |
 | `src/lib/own-engine/verify/` | **Saknas** | `src/lib/gen/verify/` |
