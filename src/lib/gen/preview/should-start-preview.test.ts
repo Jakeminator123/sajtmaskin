@@ -163,11 +163,80 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(true);
   });
 
+  // Prod incident 2026-07-09: an `import-name-collision` finding (Uint8Array
+  // imported from `@/components/uint8-array` while used as the global typed
+  // array) fell through the classifier and the version was promoted as
+  // "verified" — /api/assistant would have crashed in prod.
+  it("classifies the LLM import-name-collision finding id", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "import-name-collision",
+        detail:
+          "app/api/assistant/route.ts imports Uint8Array from @/components/uint8-array but uses the global Uint8Array in new ReadableStream<Uint8Array>.",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies build-*-import finding ids", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "build-invalid-import",
+        detail: "app/api/chat/route.ts uses openai() with no import.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "build-missing-import",
+        detail: "no import for openai in app/api/chat/route.ts",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies import-collision compiler/detail phrasings", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "typecheck",
+        detail:
+          "app/api/assistant/route.ts(3,8): error TS2440: Import declaration conflicts with local declaration of 'Uint8Array'.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "The imported name Uint8Array shadows the global typed array.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "openai is used in app/api/chat/route.ts but is not imported.",
+      }),
+    ).toBe(true);
+  });
+
   it("does NOT classify quality / design findings", () => {
     expect(
       isBuildBreakingFinding({
         id: "unused-import-shadowing-risk",
         detail: "components/turtle-game.tsx imports GameStatus but also declares a local type GameStatus.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT classify the advisory navigation-placeholder-actions finding", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "navigation-placeholder-actions",
+        detail: "src/app/page.tsx: hero CTA href is empty",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify CSS box-shadow design findings as import shadowing", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "The card shadows are too subtle and blend into the background.",
       }),
     ).toBe(false);
   });

@@ -1614,6 +1614,67 @@ export default function Page() {
     expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
+  it("WP2: F2 residual import-name-collision blocker gates verification (prod 2026-07-09 false-green)", async () => {
+    // Prod incident 2026-07-09: an `import-name-collision` verifier finding
+    // (Uint8Array imported from @/components/uint8-array while used as the
+    // global typed array in `new ReadableStream<Uint8Array>`) was NOT in the
+    // build-breaking classifier, so F2 stayed green and the version was
+    // promoted as "verified" — /api/assistant would have crashed in prod.
+    // The finding is now build-breaking, so F2 gates verification and the
+    // quality-gate result is `verifier_failed` (which the promote guard blocks).
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "import-name-collision",
+          detail:
+            "app/api/assistant/route.ts imports Uint8Array from @/components/uint8-array but uses the global Uint8Array in new ReadableStream<Uint8Array>.",
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(true);
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ qualityGateResult: "verifier_failed" }),
+    );
+  });
+
   it("WP2: F3 keeps every verifier finding blocking (strict integrations lane)", async () => {
     // The SAME advisory finding that is non-blocking in F2 must still gate F3
     // (integrations). F3 strictness is unchanged.

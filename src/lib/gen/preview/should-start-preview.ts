@@ -22,6 +22,13 @@ export interface VerifierFinding {
  *   - `undefined-jsx-symbol` and `autofix-preview-blocking`
  *   - `r3f-client-boundary` — a runtime-fatal R3F `<Canvas>` missing
  *     `"use client"` (passes typecheck, crashes the preview)
+ *   - import name-resolution failures: `import-name-collision` and
+ *     `build-*-import` finding ids, plus TS2440 / "conflicts with" /
+ *     "shadows" / "collides with" / "no import for" / "is not imported"
+ *     details (prod incident 2026-07-09: an `import-name-collision` finding
+ *     — `Uint8Array` imported from `@/components/uint8-array` while used as
+ *     the global typed array — stayed advisory and the version was promoted
+ *     as "verified", though `/api/assistant` would have crashed in prod).
  *
  * Design quality findings (e.g. `navigation-placeholder-actions`,
  * `footer-dead-links`, motion-reduce / reduced-motion-stub), eslint
@@ -36,12 +43,28 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
   /\bTS2304\b/,
   /\bTS2307\b/,
   /\bTS2552\b/,
+  // Import name-resolution / collision class (all break the build). `shadows`
+  // is anchored to an import/name context so CSS `box-shadow`/`text-shadow`
+  // design findings ("the card shadows are too subtle") are not misclassified.
+  /\bTS2440\b/,
+  /\bconflicts with\b/i,
+  /\bshadows\b[^.]*\b(?:global|import(?:ed)?|binding|declaration|module|name)\b/i,
+  /\bcollides with\b/i,
+  /\bno import for\b/i,
+  /\bis not imported\b/i,
 ];
+
+// Import-related finding ids that always break the build. `import-name-collision`
+// is the LLM verifier's own id; `build-invalid-import` / `build-missing-import`
+// (and any `build-*-import` sibling) are the build-lane variants.
+const BUILD_BREAKING_IMPORT_ID_RE = /^build-[a-z-]*import$/;
 
 export function isBuildBreakingFinding(finding: VerifierFinding): boolean {
   if (finding.id === "build-breaking-missing-imports") return true;
   if (finding.id === "undefined-jsx-symbol") return true;
   if (finding.id === "autofix-preview-blocking") return true;
+  if (finding.id === "import-name-collision") return true;
+  if (BUILD_BREAKING_IMPORT_ID_RE.test(finding.id)) return true;
   // `r3f-client-boundary` is a deterministic RUNTIME blocker: a React Three
   // Fiber `<Canvas>` in a file without `"use client"` passes typecheck but
   // crashes the preview in Next App Router (server-component / client-hook
