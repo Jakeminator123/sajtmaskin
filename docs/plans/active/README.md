@@ -70,9 +70,14 @@ Längre horisont (ej P1/P2): core-split v2, WebContainers-migration, ÅÄÖ pre-
 
 Beslutsunderlag (scope, ej startat): inspector/"Inspektera preview" rendering-arkitektur — render-worker vs instrumenterad preview → [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md).
 
-Beslutsunderlag: PR #175 (`collab/chgenberg`) — dela upp/ersätt/stäng monster-PR:n (marketing-sajt + `src/viewser/**`-studio + BFF + motor-fixar). Status 2026-07-08: PR #175 **stängd** (som rekommenderat), men de två fristående lågrisk-vinsterna (P1 font-weight-fix, P2 bild-materializer) är **fortfarande inte cherry-pickade** — P1 finns overifierat kvar på commit `e933d2fe9` (ej i master) → [`pr-175-split-plan.md`](pr-175-split-plan.md).
+Öppna cherry-picks från **stängda PR #175** (`collab/chgenberg`, plan arkiverad):
 
-Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) bryts ut i små PR:ar (batch A #391, B #393, C #395 mergade; kvar: preview/readiness, pipeline, scaffolds, domains/engine-rester) → [`pr-355-parked-bug-swarm-split.md`](pr-355-parked-bug-swarm-split.md).
+- **P1 — next/font weight-fix** (litet, testtäckt, fristående): injicera obligatorisk `weight` för icke-variabla `next/font` som saknar den. Finns overifierat på commit `e933d2fe9` (ej i master); `src/lib/gen/autofix/rules/font-import-fixer.ts(+test)` + `src/lib/gen/data/google-font-registry.ts`. → egen liten PR mot dagens master.
+- **P2 — uppladdade bilder i materializern** (medel): låt finalize mata `![alt](url)` ur originalprompten till image-materializern i st.f. Unsplash. `fast-path.ts` kan ha drivit isär; **källcommit ej lokaliserad — hitta/verifiera branch först**.
+
+Större studio-port-arkitekturbeslut (§4/§6, P3–P8) bevarat i planen → [`../archived/pr-175-split-plan.md`](../archived/pr-175-split-plan.md).
+
+Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) bryts ut i små PR:ar (batch A #391, B #393, C #395 mergade; kvar: preview/readiness, pipeline, scaffolds, domains/engine-rester). Plan arkiverad (PR #355 stängd) → [`../archived/pr-355-parked-bug-swarm-split.md`](../archived/pr-355-parked-bug-swarm-split.md).
 
 Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept, 7 promoterade i två vågor #422/#430/#445; kvar: 5 promotions + preview-test/`lastVerified` för de 7 + F2-synlighet) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
 
@@ -80,7 +85,7 @@ OpenClaw edit-agent 2026-07-01 (2 av 3 spår levererade: mallar→Blob #336 merg
 
 Backoffice-stringensplan 2026-07-08 (underlag klart: 34 sidor granskade, 2 triviala sanningsfel redan rättade i samma pass; resten väntar på prioritering — domain-map-täckning, dubbla manifest-editorer, scaffold-navigation, testluckor) → [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md).
 
-Publicera-stringensplan 2026-07-08 (underlag klart: publicera/deploy + F3-integrationer verifierat via 6 read-only subagenter; kärnlucka = deploy blockerar bara `verification_state==="failed"` och saknar LLM-repair efter Vercel-build-fel. 6 agent-lanes A1–A4/B/C med modell + ordning; väntar på ägar-OK för Ö1–Ö4 innan exekvering mot en PR till master) → [`2026-07-08-publicera-stringens-plan.md`](2026-07-08-publicera-stringens-plan.md).
+Levererat (2026-07-09, PR #456): Publicera-stringensplan — publicera/deploy + F3-integrationer stringentare (ReleaseGate-lås, domänlås, deploy-repair-loop, inspectorUrl/felstate, RAG-härdning, terminologi) + kompletteringspass A#12/A#5/A#3. Kvar: bug-backlog `BB#deploy2–5` (i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)) → [`../avklarat/2026-07-08-publicera-stringens-plan.md`](../avklarat/2026-07-08-publicera-stringens-plan.md).
 
 Levererat (kod): #4 distribuerat per-version-lås (`engine_version_jobs`) för server-verify/repair via **#256** (2026-06-27) + base-bound repair-save/accept via **#265** (2026-06-28, stänger #260 P2 #5) + #260 **P2 #4** (quality-gate höll leasen över verify-budgeten) löst via **#276** och härdat via **#284** (verify-timeout härleds nu från route-budgeten med marginal). #260 är därmed helt stängd i koden. **Enda kvarvarande punkten är ägarens manuella prod-migration av `engine_version_jobs`** (runbook i plan-doc) → [`../avklarat/2026-06-27-server-verify-distributed-lock.md`](../avklarat/2026-06-27-server-verify-distributed-lock.md).
 

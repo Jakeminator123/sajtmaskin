@@ -23,10 +23,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, ImageIcon, Layers, Loader2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  type PromptSourceMeta,
-  type ShadcnPromptSource,
-} from "@/lib/builder/prompt-builder";
+import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -40,14 +37,6 @@ type MessageOptions = {
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
 };
-
-export type VisualPlacementRequest = {
-  kind: "ui";
-  action: "add" | "start";
-  source: ShadcnPromptSource;
-};
-
-export type VisualPlacementDecision = "handled" | "cancelled" | "fallback";
 
 type FigmaPreviewResponse = {
   imageUrl?: string;
@@ -157,7 +146,6 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
-  onRequestPlacement?: (request: VisualPlacementRequest) => Promise<VisualPlacementDecision | void>;
   onPromptAssistModeReset?: () => void;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;

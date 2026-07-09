@@ -119,7 +119,7 @@ Ordning: `sanity-cms` (välj en källa — öppet beslut #2) →
 ### Fas E — produktförbättringar (ej legacy, ej påbörjade)
 | Uppgift | Detalj |
 |---|---|
-| **F2 dossier-synlighet** | Popover `PreviewPanelDossiers` finns men (a) count-badge tom tills klick (lazy fetch), (b) F2-mutade capabilities (payments, auth, contact-form …) syns inte alls — de filtreras ur snapshot-selektionen. Fix: visa union med status "Parkerad till F3". Filer: `src/app/api/engine/chats/[chatId]/dossiers/route.ts`, `src/lib/builder/dossier-overview.ts`, `PreviewPanelDossiers.tsx`. |
+| **F2 dossier-synlighet** | ✅ **(b) F2-mute-luckan fixad via #439** — `dossiers/route.ts` reconciliar nu snapshot-floor mot obruten brief-intent (`briefSummary.requestedCapabilities`) + fil-detektion, så F2-mutade/planerade capabilities (payments, auth, contact-form …) inte längre försvinner ur panelen. Kvar (nit): (a) count-badge tom tills klick (lazy fetch). Filer: `src/app/api/engine/chats/[chatId]/dossiers/route.ts`, `src/lib/builder/dossier-overview.ts`, `PreviewPanelDossiers.tsx`. |
 | **Nya soft-dossiers från scratch** | `maps-location`, `booking` (embed-mönster, F2-kompletta), `seo-jsonld`, `cookie-consent`. Ingen bra legacy-källa — skriv smala soft-dossiers direkt. |
 
 ## Kommandon

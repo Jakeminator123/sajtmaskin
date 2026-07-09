@@ -1,7 +1,9 @@
 ---
-status: active
+status: archived
 owner: unassigned
 created: 2026-07-08
+archived: 2026-07-09
+archived_note: "PR #355 stängd som merge-fordon. Referensplan för de kvarvarande klustren (preview/readiness, pipeline, scaffolds, domains/engine) som ska tas som egna små PR:ar. Flyttad active→archived 2026-07-09; router:as från docs/plans/active/README.md."
 topic: PR #355 bug-swarm batch — parkerad som merge-fordon, split till små PR:ar
 source: PR #355 (fix/bug-swarm-verified) beskrivning + PR-triage 2026-07-08
 ---

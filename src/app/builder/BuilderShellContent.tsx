@@ -1,14 +1,9 @@
 "use client";
 
-import {
-  ChatInterface,
-  type VisualPlacementDecision,
-  type VisualPlacementRequest,
-} from "@/components/builder/ChatInterface";
+import { ChatInterface } from "@/components/builder/ChatInterface";
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
-import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { VersionHistory } from "@/components/builder/VersionHistory";
@@ -36,11 +31,7 @@ import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
-import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
-import {
-  buildPromptSourceMessage,
-  type PromptSourceMeta,
-} from "@/lib/builder/prompt-builder";
+import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
@@ -124,22 +115,6 @@ function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
     }
   }
   return null;
-}
-
-function buildPlacementPromptMessage(
-  request: VisualPlacementRequest,
-  placement: PlacementSelectEventDetail,
-  customization: string,
-): { message: string; meta: PromptSourceMeta } {
-  const built = buildPromptSourceMessage(request.source, {
-    placementLabel: placement.placementLabel,
-    anchorLabel: placement.anchorSection?.label ?? null,
-    customization,
-  });
-  return {
-    message: built.message,
-    meta: built.meta,
-  };
 }
 
 export function BuilderShellContent(vm: BuilderViewModel) {
@@ -292,13 +267,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const previousStreamingRef = useRef(vm.isAnyStreaming);
   const lastAutoTipAssistantIdRef = useRef<string | null>(null);
   const latestTipRequestIdRef = useRef(0);
-  const [pendingPlacementRequest, setPendingPlacementRequest] =
-    useState<VisualPlacementRequest | null>(null);
-  const [placementSelection, setPlacementSelection] =
-    useState<PlacementSelectEventDetail | null>(null);
-  const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
-  const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
-  const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
   const handleApproveBuildPlan = useCallback(
     async (plan: Record<string, unknown>) => {
       const built = buildPromptSourceMessage({ kind: "approved-plan", rawPlan: plan });
@@ -528,111 +496,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.currentPageCode,
     vm.isAnyStreaming,
   ]);
-
-  const resolvePlacementFlow = useCallback((decision: VisualPlacementDecision) => {
-    setPendingPlacementRequest(null);
-    setPlacementSelection(null);
-    setPlacementConfirmOpen(false);
-    const resolver = placementResolverRef.current;
-    placementResolverRef.current = null;
-    if (resolver) {
-      resolver(decision);
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      const resolver = placementResolverRef.current;
-      placementResolverRef.current = null;
-      if (resolver) resolver("cancelled");
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!pendingPlacementRequest) return;
-    if (vm.chatId && vm.currentPreviewUrl) return;
-    resolvePlacementFlow("cancelled");
-  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentPreviewUrl]);
-
-  const handleRequestPlacement = useCallback(
-    async (request: VisualPlacementRequest) => {
-      if (!vm.chatId || !vm.currentPreviewUrl) return "fallback";
-
-      const existingResolver = placementResolverRef.current;
-      if (existingResolver) {
-        placementResolverRef.current = null;
-        existingResolver("cancelled");
-      }
-
-      setPendingPlacementRequest(request);
-      setPlacementSelection(null);
-      setPlacementConfirmOpen(false);
-
-      return await new Promise<VisualPlacementDecision>((resolve) => {
-        placementResolverRef.current = resolve;
-      });
-    },
-    [vm.chatId, vm.currentPreviewUrl],
-  );
-
-  const handlePlacementComplete = useCallback(
-    (detail: PlacementSelectEventDetail) => {
-      if (!pendingPlacementRequest) return;
-      setPlacementSelection(detail);
-      setPlacementConfirmOpen(true);
-    },
-    [pendingPlacementRequest],
-  );
-
-  const handlePlacementCancel = useCallback(() => {
-    resolvePlacementFlow("cancelled");
-  }, [resolvePlacementFlow]);
-
-  const handlePlacementConfirm = useCallback(
-    async (customization: string) => {
-      if (!pendingPlacementRequest || !placementSelection || !vm.chatId) {
-        resolvePlacementFlow("cancelled");
-        return;
-      }
-
-      setIsPlacementSubmitting(true);
-      try {
-        const built = buildPlacementPromptMessage(
-          pendingPlacementRequest,
-          placementSelection,
-          customization,
-        );
-        await vm.sendMessage(built.message, { promptSourceMeta: built.meta });
-        resolvePlacementFlow("handled");
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Kunde inte skicka placeringsinstruktion";
-        toast.error(message);
-        resolvePlacementFlow("cancelled");
-      } finally {
-        setIsPlacementSubmitting(false);
-      }
-    },
-    [
-      pendingPlacementRequest,
-      placementSelection,
-      vm,
-      resolvePlacementFlow,
-    ],
-  );
-
-  const pendingPlacementItem = pendingPlacementRequest
-    ? {
-        title:
-          pendingPlacementRequest.source.displayName ||
-          pendingPlacementRequest.source.registryItem.name ||
-          "Block",
-        description:
-          pendingPlacementRequest.source.description ||
-          pendingPlacementRequest.source.registryItem.description ||
-          null,
-      }
-    : null;
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -901,7 +764,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             initialPrompt={vm.initialPrompt}
             onCreateChat={vm.requestCreateChat}
             onSendMessage={vm.sendMessage}
-            onRequestPlacement={handleRequestPlacement}
             onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}
@@ -1028,9 +890,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRestartGeneration={vm.handleRestartGeneration}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
-              placementMode={Boolean(pendingPlacementRequest)}
-              pendingPlacementItem={pendingPlacementItem}
-              onPlacementComplete={handlePlacementComplete}
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
@@ -1086,17 +945,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           </div>
         </div>
       </div>
-
-      <PlacementConfirmDialog
-        key={`${pendingPlacementItem?.title}-${placementSelection?.placementLabel}`}
-        open={placementConfirmOpen && Boolean(pendingPlacementRequest) && Boolean(placementSelection)}
-        elementName={pendingPlacementItem?.title || "Element"}
-        elementDescription={pendingPlacementItem?.description}
-        placementLabel={placementSelection?.placementLabel || "Vald placering"}
-        onConfirm={handlePlacementConfirm}
-        onCancel={handlePlacementCancel}
-        isSubmitting={isPlacementSubmitting}
-      />
 
       <InitFromRepoModal
         isOpen={vm.isImportModalOpen}
