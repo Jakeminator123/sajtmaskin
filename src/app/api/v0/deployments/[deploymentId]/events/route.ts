@@ -6,7 +6,7 @@ import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDe
 import { updateDeploymentStatus } from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
-import { getChatByIdForRequest } from "@/lib/tenant";
+import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -36,7 +36,13 @@ export async function GET(
     }
 
     const deployment = result[0];
-    const ownedChat = await getChatByIdForRequest(req, deployment.chatId);
+    // Own-engine chats are the primary path — deployment rows are keyed by the
+    // engine chat id, so a v0-only lookup 404:ade ALLA own-engine-strömmar och
+    // headern satt kvar på "pending" (A#3). Auth engine-first med legacy
+    // v0-fallback, samma mönster som deployments-GET:en.
+    const ownedChat =
+      (await getEngineChatByIdForRequest(req, deployment.chatId)) ??
+      (await getChatByIdForRequest(req, deployment.chatId));
     if (!ownedChat) {
       return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
@@ -66,6 +72,10 @@ export async function GET(
         function close() {
           if (closed) return;
           closed = true;
+          // Släpp alltid Redis-subscribern vid stream-slut. Poll-vägen nådde
+          // tidigare terminal status och stängde utan disconnect → läckt
+          // subscriber-anslutning per avslutad deploy (VADE-fynd på #443).
+          disconnectSubscriber();
           try {
             controller.close();
           } catch {}

@@ -4,7 +4,7 @@ import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
 import { updateDeploymentStatus } from "@/lib/deployment";
-import { getChatByIdForRequest } from "@/lib/tenant";
+import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -26,7 +26,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
 
       const deployment = result[0];
 
-      const chat = await getChatByIdForRequest(req, deployment.chatId);
+      // Engine-first auth med legacy v0-fallback (A#3): deployment-rader ägs
+      // primärt av engine-chattar; en v0-only lookup 404:ade own-engine-anrop.
+      const chat =
+        (await getEngineChatByIdForRequest(req, deployment.chatId)) ??
+        (await getChatByIdForRequest(req, deployment.chatId));
       if (!chat) {
         return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
       }
