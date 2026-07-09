@@ -110,7 +110,7 @@ export function useHonestCounter(fakeTarget: number, realValue: number, message:
   // påhittade tal ("2 480+") i flera sekunder, vilket såg ut som fejkade
   // vanity-metrics. Nu räknar vi direkt upp till det ärliga värdet.
   void fakeTarget
-  const [count, setCount] = useState(realValue)
+  const [count, setCount] = useState(0)
   const [phase, setPhase] = useState<"idle" | "inflating" | "glitch" | "honest">("idle")
   const ref = useRef<HTMLDivElement>(null)
   const started = useRef(false)
@@ -118,32 +118,39 @@ export function useHonestCounter(fakeTarget: number, realValue: number, message:
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    const start = () => {
+      if (started.current) return
+      started.current = true
+      setPhase("inflating")
+
+      const duration = 900
+      const startedAt = performance.now()
+      const step = (now: number) => {
+        const progress = Math.min((now - startedAt) / duration, 1)
+        const eased = 1 - Math.pow(1 - progress, 3)
+        setCount(Math.max(1, Math.floor(eased * realValue)))
+        if (progress < 1) {
+          requestAnimationFrame(step)
+        } else {
+          setCount(realValue)
+          setPhase("honest")
+        }
+      }
+      requestAnimationFrame(step)
+    }
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !started.current) {
-          started.current = true
-          setPhase("inflating")
-
-          const duration = 900
-          const start = performance.now()
-          const step = (now: number) => {
-            const progress = Math.min((now - start) / duration, 1)
-            const eased = 1 - Math.pow(1 - progress, 3)
-            setCount(Math.max(1, Math.floor(eased * realValue)))
-            if (progress < 1) {
-              requestAnimationFrame(step)
-            } else {
-              setCount(realValue)
-              setPhase("honest")
-            }
-          }
-          requestAnimationFrame(step)
-        }
+        if (entry.isIntersecting) start()
       },
       { threshold: 0.2 },
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    // Säkerhetsnät: hoppa till ärligt värde om observern aldrig triggar.
+    const fallback = setTimeout(start, 6000)
+    return () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+    }
   }, [realValue])
 
   return { count, phase, ref, message }

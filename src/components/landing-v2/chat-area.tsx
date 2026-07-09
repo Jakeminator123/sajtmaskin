@@ -435,11 +435,8 @@ export function ChatArea(props: ChatAreaProps = {}) {
                           : "text-primary"
                     }`}
                   >
-                    <span className={counter.phase === "glitch" ? "inline-block animate-pulse" : ""}>
-                      {counter.phase === "honest"
-                        ? counter.count
-                        : counter.count.toLocaleString("sv-SE") + "+"}
-                    </span>
+                    {/* Inget "+"-suffix: räknaren går direkt till det ärliga värdet. */}
+                    <span>{counter.count.toLocaleString("sv-SE")}</span>
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {idx === 0 ? "Webbplatser skapade" : "Aktiva f\u00f6retagare"}
