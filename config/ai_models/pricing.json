@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "title": "Sajtmaskin model price table (USD per 1M tokens)",
+  "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
+  "verifiedAt": "2026-07-09",
+  "sources": [
+    {
+      "vendor": "OpenAI",
+      "url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard/batch/flex/priority text-token rates. Verified 2026-07-09."
+    },
+    {
+      "vendor": "OpenAI",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.5",
+      "note": ">272K input tokens => 2x input / 1.5x output for the whole session (standard/batch/flex)."
+    },
+    {
+      "vendor": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "note": "Claude rates mirrored from config/ai_models/25-pricing.md (repo reference). Not re-verified live in this table."
+    }
+  ],
+  "unit": "usd_per_1M_tokens",
+  "fx": {
+    "usdToSek": 10.5,
+    "note": "Approximate USD->SEK. Not a live rate. Adjust here (or in the backoffice UI) to reprice everything in SEK."
+  },
+  "notes": [
+    "cachedInput is the discounted rate for prompt-cache HITS. Sajtmaskin does not log cached_tokens today, so the cost tools treat ALL input as uncached (an upper bound). See BUG-SWARM-BACKLOG / prompt-cache follow-up.",
+    "Tiers: standard = default sync API. batch = Batch API (~50% off, async). flex = Flex processing (cheaper, slower). priority = Priority processing (premium latency).",
+    "Codex-suffixed models (gpt-5.3-codex) are NOT on the public per-token pricing page and are billed via the Codex credit rate card; the value here is an ESTIMATE flagged with estimated:true.",
+    "Regional processing (data residency) endpoints add a 10% uplift for models released on/after 2026-03-05 — not modeled here."
+  ],
+  "models": {
+    "gpt-5.5": {
+      "provider": "openai",
+      "label": "GPT-5.5",
+      "match": ["gpt-5.5"],
+      "contextThreshold": { "inputTokens": 272000, "aboveMultiplier": { "input": 2, "output": 1.5 } },
+      "tiers": {
+        "standard": { "input": 5, "cachedInput": 0.5, "output": 30 },
+        "batch": { "input": 2.5, "cachedInput": 0.25, "output": 15 },
+        "flex": { "input": 2.5, "cachedInput": 0.25, "output": 15 },
+        "priority": { "input": 12.5, "cachedInput": 1.25, "output": 75 }
+      }
+    },
+    "gpt-5.5-pro": {
+      "provider": "openai",
+      "label": "GPT-5.5 Pro",
+      "match": ["gpt-5.5-pro"],
+      "policyNote": "Policy: aldrig använd (config/ai_models/25-pricing.md).",
+      "tiers": {
+        "standard": { "input": 30, "cachedInput": null, "output": 180 }
+      }
+    },
+    "gpt-5.4": {
+      "provider": "openai",
+      "label": "GPT-5.4",
+      "match": ["gpt-5.4"],
+      "contextThreshold": { "inputTokens": 272000, "aboveMultiplier": { "input": 2, "output": 1.5 } },
+      "tiers": {
+        "standard": { "input": 2.5, "cachedInput": 0.25, "output": 15 },
+        "batch": { "input": 1.25, "cachedInput": 0.13, "output": 7.5 },
+        "flex": { "input": 1.25, "cachedInput": 0.13, "output": 7.5 },
+        "priority": { "input": 5, "cachedInput": 0.5, "output": 30 }
+      }
+    },
+    "gpt-5.4-mini": {
+      "provider": "openai",
+      "label": "GPT-5.4 mini",
+      "match": ["gpt-5.4-mini"],
+      "tiers": {
+        "standard": { "input": 0.75, "cachedInput": 0.075, "output": 4.5 },
+        "batch": { "input": 0.375, "cachedInput": 0.0375, "output": 2.25 },
+        "flex": { "input": 0.375, "cachedInput": 0.0375, "output": 2.25 },
+        "priority": { "input": 1.5, "cachedInput": 0.15, "output": 9 }
+      }
+    },
+    "gpt-5.4-nano": {
+      "provider": "openai",
+      "label": "GPT-5.4 nano",
+      "match": ["gpt-5.4-nano"],
+      "tiers": {
+        "standard": { "input": 0.2, "cachedInput": 0.02, "output": 1.25 },
+        "batch": { "input": 0.1, "cachedInput": 0.01, "output": 0.625 },
+        "flex": { "input": 0.1, "cachedInput": 0.01, "output": 0.625 }
+      }
+    },
+    "gpt-5.3-codex": {
+      "provider": "openai",
+      "label": "GPT-5.3 Codex",
+      "match": ["gpt-5.3-codex", "gpt-5.3"],
+      "estimated": true,
+      "estimateNote": "Ej på publika per-token-sidan (Codex-modell, credit-baserad). Uppskattad till GPT-5.4-klass. Verifiera mot Codex rate card innan budgetbeslut.",
+      "tiers": {
+        "standard": { "input": 2.5, "cachedInput": 0.25, "output": 15 }
+      }
+    },
+    "gpt-5.2": {
+      "provider": "openai",
+      "label": "GPT-5.2",
+      "match": ["gpt-5.2"],
+      "tiers": {
+        "standard": { "input": 1.75, "cachedInput": 0.175, "output": 14 },
+        "batch": { "input": 0.875, "cachedInput": 0.0875, "output": 7 },
+        "flex": { "input": 0.875, "cachedInput": 0.0875, "output": 7 },
+        "priority": { "input": 3.5, "cachedInput": 0.35, "output": 28 }
+      }
+    },
+    "gpt-5-mini": {
+      "provider": "openai",
+      "label": "GPT-5 mini",
+      "match": ["gpt-5-mini"],
+      "tiers": {
+        "standard": { "input": 0.25, "cachedInput": 0.025, "output": 2 },
+        "batch": { "input": 0.125, "cachedInput": 0.0125, "output": 1 },
+        "flex": { "input": 0.125, "cachedInput": 0.0125, "output": 1 },
+        "priority": { "input": 0.45, "cachedInput": 0.045, "output": 3.6 }
+      }
+    },
+    "gpt-5-nano": {
+      "provider": "openai",
+      "label": "GPT-5 nano",
+      "match": ["gpt-5-nano"],
+      "tiers": {
+        "standard": { "input": 0.05, "cachedInput": 0.005, "output": 0.4 },
+        "batch": { "input": 0.025, "cachedInput": 0.0025, "output": 0.2 },
+        "flex": { "input": 0.025, "cachedInput": 0.0025, "output": 0.2 }
+      }
+    },
+    "gpt-4o": {
+      "provider": "openai",
+      "label": "GPT-4o",
+      "match": ["gpt-4o"],
+      "tiers": {
+        "standard": { "input": 2.5, "cachedInput": 1.25, "output": 10 },
+        "batch": { "input": 1.25, "cachedInput": null, "output": 5 },
+        "priority": { "input": 4.25, "cachedInput": 2.125, "output": 17 }
+      }
+    },
+    "text-embedding-3-small": {
+      "provider": "openai",
+      "label": "text-embedding-3-small",
+      "match": ["text-embedding-3-small"],
+      "tiers": {
+        "standard": { "input": 0.02, "cachedInput": null, "output": null }
+      }
+    },
+    "text-embedding-3-large": {
+      "provider": "openai",
+      "label": "text-embedding-3-large",
+      "match": ["text-embedding-3-large"],
+      "tiers": {
+        "standard": { "input": 0.13, "cachedInput": null, "output": null }
+      }
+    },
+    "claude-opus-4.8": {
+      "provider": "anthropic",
+      "label": "Claude Opus 4.8",
+      "match": ["claude-opus-4.8", "claude-opus-4-8"],
+      "sourceNote": "Från repo 25-pricing.md; ej live-verifierad här. Anthropic cachad-läsning ~0.1x input men modelleras ej (null).",
+      "tiers": {
+        "standard": { "input": 5, "cachedInput": null, "output": 25 }
+      }
+    },
+    "claude-opus-4.6": {
+      "provider": "anthropic",
+      "label": "Claude Opus 4.6",
+      "match": ["claude-opus-4.6", "claude-opus-4-6"],
+      "sourceNote": "Från repo 25-pricing.md; legacy.",
+      "tiers": {
+        "standard": { "input": 5, "cachedInput": null, "output": 25 }
+      }
+    },
+    "claude-haiku-4-5": {
+      "provider": "anthropic",
+      "label": "Claude Haiku 4.5",
+      "match": ["claude-haiku-4-5", "claude-haiku-4.5"],
+      "estimated": true,
+      "estimateNote": "Pris ej i repo-referensen; verifiera mot Anthropic innan du litar på kostnaden.",
+      "tiers": {
+        "standard": { "input": 1, "cachedInput": null, "output": 5 }
+      }
+    }
+  }
+}

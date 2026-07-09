@@ -401,6 +401,15 @@
         "src/lib/db/schema.ts"
       ]
     },
+    "Generation Cost": {
+      "summary": "Read-only kostnadsvy: prissätter loggad token-användning i USD/SEK via config/ai_models/pricing.json. Kör scripts/db/generation-cost.mjs via subprocess mot vald env-fil (dev/prod). Input prissätts ocachat (övre gräns); engine_generation_logs täcker codegen-strömmen (undre gräns för hela pipelinen). Priser är en ögonblicksbild — verifiera mot leverantören.",
+      "canonicalPaths": [
+        "backoffice/pages/generation_cost.py",
+        "scripts/db/generation-cost.mjs",
+        "config/ai_models/pricing.json",
+        "src/lib/db/schema.ts"
+      ]
+    },
     "Logg-export": {
       "summary": "Read-only loggexport: välj loggtyper (prompts/generations/versions/telemetry/errors/chats) och antal rader och ladda ner som JSON/CSV. Kör scripts/db/dump-logs.mjs via subprocess (SELECT only). Mål-DB väljs via env-fil — dev (.env.local) eller prod (.env.vercel.production.pulled). DB-target resolveras deterministiskt via effectiveEnv (vald env-fil vinner över parent process env, se scripts/db/env-merge.mjs) och kontrolleras mot pulled prod-snapshot via db-target-guard.mjs. Inga writes; prod-secrets ska raderas efter användning.",
       "canonicalPaths": [
