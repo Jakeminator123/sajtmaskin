@@ -106,6 +106,7 @@ data/external-template-pipeline/reports/**
 
 # --- Scaffold Wizard drafts (AI-utkast, aldrig runtime) ---
 data/scaffold-wizard-drafts/**
+!data/scaffold-wizard-drafts/README.md
 
 # --- Dossier-pipeline (local mutable/generated data — spegel av .cursorignore) ---
 data/dossiers/_raw/**
