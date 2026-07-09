@@ -103,6 +103,15 @@ export type ReviewBlockProps = {
   tips: string[];
   maxIssues?: number;
   maxTips?: number;
+  /**
+   * SEO-findings NEVER block anything in the product (post-check, publish
+   * opt-in and the scaffold baseline all treat SEO as advisory — see
+   * `seo-preflight.ts` `non_blocking_quality_warning`). The owner still
+   * PERCEIVES the amber "failed" tone as a failing check. When true, the
+   * "not passed" state renders in a neutral info tone instead of amber, so
+   * this block never reads as a blocker even when it has findings.
+   */
+  advisory?: boolean;
 };
 
 export function ReviewBlock({
@@ -116,14 +125,16 @@ export function ReviewBlock({
   tips,
   maxIssues,
   maxTips,
+  advisory = false,
 }: ReviewBlockProps) {
   const issueLimit = maxIssues ?? (variant === "full" ? 4 : 1);
   const tipLimit = maxTips ?? (variant === "full" ? 3 : 1);
+  const notPassedToneClass = advisory ? "text-sky-300" : "text-amber-300";
 
   if (variant === "compact") {
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className={passed ? "text-emerald-300" : "text-amber-300"}>
+        <p className={passed ? "text-emerald-300" : notPassedToneClass}>
           {passed ? passedLabel : failedLabel}
         </p>
         {details.length > 0 && (
@@ -145,7 +156,7 @@ export function ReviewBlock({
         {title}
       </div>
       <div className="space-y-1 text-muted-foreground">
-        <div className={passed ? "text-emerald-300" : "text-amber-300"}>
+        <div className={passed ? "text-emerald-300" : notPassedToneClass}>
           {passed ? passedLabel : failedLabel}
         </div>
         {details.map((detail) => (
