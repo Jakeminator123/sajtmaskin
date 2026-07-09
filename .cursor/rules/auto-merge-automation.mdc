@@ -9,7 +9,7 @@ En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repo
 
 ## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2** · **inga protected paths** · head-SHA stabil · PR-body beskriver ändringen · **`/granska-diff` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal**.
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2** · **inga protected paths** · head-SHA stabil · PR-body beskriver ändringen · **`/granska-diff` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
 
 Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
 
@@ -28,3 +28,15 @@ Admin-bypass kringgår **allt** (required checks + code-owner-review). En agent 
 - Ersätter inte review-gaten (`pr-merge-review-gate.mdc`): läs alltid dess verdict + ev. Bugbot-/Codex-/Vercel-fynd före merge.
 - Proportionalitet: `risk 1–2` och blocker-listan gäller **riktig** skada. En välmotiverad förbättring hålls inte kvar för smaknit — logga niten och merga (se `pr-merge-review-gate.mdc`).
 - Vill du att den externa "PR-mergare"-automationen ska sluta merga utan grinden: stäng av/kalibrera den i Cursor-dashboarden (Automations). Den lyder **inte** `.cursor/rules` — bara dashboard-inställningen stoppar den.
+
+## Vem mergar (beslut 2026-07-09: agent-merger)
+
+Dashboard-automationen **"PR-mergare" ska vara AV**. Skäl: den mergade allmänt/dumt och kringgick grinden via admin (bevis: #468 mergades till master med en oåtgärdad P1 och 0 reviews), och den kräver dessutom Cursor-billing för att ens starta.
+
+Merge sker i stället via **merge-agenten** (en Cursor-agent) som:
+
+1. verifierar `merge:ready`-labeln + sign-off (`pr-merge-review-gate.mdc`),
+2. verifierar hela merge-grinden ovan,
+3. kör `gh pr merge` (admin) först då.
+
+Slår du på automationen igen: ge den samma grind + `merge:ready`-krav i dess dashboard-prompt, annars är den tillbaka i "dum"-läget.

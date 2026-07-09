@@ -69,6 +69,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 **Merge-ready criteria:**
 
 - The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed, PR ≥ 7 min old with the external-review window satisfied → merge-ready.
+- The author then applies the **`merge:ready`** label + a sign-off line; the **merge-agent** (a Cursor agent) verifies the label + gate and runs `gh pr merge`. There is **no** dashboard auto-merger in the flow (decision 2026-07-09: agent-merger) — see [`auto-merge-automation.mdc`](.cursor/rules/auto-merge-automation.mdc) → "Vem mergar".
 - Codex may be present or absent depending on credits — never block *waiting* for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 - Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).

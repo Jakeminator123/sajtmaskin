@@ -42,6 +42,18 @@ Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit 
 3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); då krävs ingen separat bugbot — men kör bugbot ändå på protected paths.
 4. `/granska-diff` (buggsvärm på egen diff) ska redan ha körts **före** PR:en skapades (se `workflow.mdc`/`git.mdc`). Det för-filtret ersätter inte den externa buggkollen ovan.
 
+## merge:ready — författar-sign-off (maskinläsbart godkännande)
+
+Ingen agent mergar en PR utan att författaren först intygat att buggkollen är gjord. Signalen är en **label + en sign-off-rad** så mergaren kan verifiera den utan att gissa:
+
+1. PR-agenten sätter labeln `merge:ready` **först efter** att bug-efterkontrollen är klar (bugbot/Codex triagerad, inga öppna P0/P1) och `/granska-diff` körts: `gh pr edit <n> --add-label "merge:ready"`.
+2. Samma agent skriver en sign-off-rad i PR-body/kommentar: `merge:ready — bugkoll: <bugbot|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0, granska-diff: kört`.
+3. **Mergaren verifierar** labeln + sign-off-raden + hela merge-grinden (`auto-merge-automation.mdc`) innan `gh pr merge`. Saknas labeln → `NEEDS_HUMAN`, aldrig merge.
+4. **Ny commit ogiltigförklarar labeln.** Pushas något efter sign-off: ta bort labeln (`gh pr edit <n> --remove-label "merge:ready"`), gör om buggkollen, sätt den på nytt. I agent-merger-läget droppas den inte automatiskt — det är agent-disciplin.
+5. På protected paths räcker inte labeln själv: bugbot-subagentens oberoende pass krävs (se `Author-is-merger` nedan). Labeln bekräftar att passet gjorts, den ersätter det inte.
+
+Detta är "verifiera att den uppladdande agenten faktiskt gett godkännande": labeln ÄR godkännandet — satt av författaren, läst av mergaren.
+
 ## Spårningskrav (varje fynd, inget tappas)
 
 Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
