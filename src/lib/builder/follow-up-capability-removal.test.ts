@@ -42,6 +42,43 @@ describe("detectCapabilityRemoval — payments removal (prod repro)", () => {
   });
 });
 
+describe("detectCapabilityRemoval — subscriptions vs payments split (#475 follow-up)", () => {
+  it("detects subscriptions removal (not payments) for 'Ta bort prenumerationsbetalningen'", () => {
+    const result = detectCapabilityRemoval("Ta bort prenumerationsbetalningen");
+    expect(result.removedCapabilities).toContain("subscriptions");
+    expect(result.removedCapabilities).not.toContain("payments");
+  });
+
+  it("detects subscriptions removal for 'Ta bort prenumerationen'", () => {
+    const result = detectCapabilityRemoval("Ta bort prenumerationen");
+    expect(result.removedCapabilities).toEqual(["subscriptions"]);
+  });
+
+  it("detects subscriptions removal for 'Ta bort Paddle-abonnemanget'", () => {
+    expect(
+      detectCapabilityRemoval("Ta bort Paddle").removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
+  it("detects subscriptions removal for 'Remove the membership billing'", () => {
+    expect(
+      detectCapabilityRemoval("Remove the membership billing").removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
+  it("still detects payments (not subscriptions) for a one-off checkout removal", () => {
+    const result = detectCapabilityRemoval("Ta bort Stripe-betalningen");
+    expect(result.removedCapabilities).toContain("payments");
+    expect(result.removedCapabilities).not.toContain("subscriptions");
+  });
+
+  it("keeps a plain 'Ta bort betalningen' as payments only", () => {
+    expect(detectCapabilityRemoval("Ta bort betalningen").removedCapabilities).toEqual([
+      "payments",
+    ]);
+  });
+});
+
 describe("detectCapabilityRemoval — other integration capabilities", () => {
   it("detects auth removal", () => {
     expect(detectCapabilityRemoval("Ta bort inloggningen").removedCapabilities).toContain(

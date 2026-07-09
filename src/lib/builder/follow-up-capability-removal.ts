@@ -66,13 +66,33 @@ interface RemovalCapabilityEntry {
  */
 const REMOVAL_CAPABILITY_TERMS: RemovalCapabilityEntry[] = [
   {
+    // ONE-OFF payments only (stripe-checkout). After #475 split payments /
+    // subscriptions, recurring terms (paddle, prenumeration, subscription
+    // billing, memberships) belong to the `subscriptions` entry below — leaving
+    // them here made "ta bort prenumerationsbetalningen" wrongly shrink
+    // `payments` while `subscriptions` could never be removed at all (Vercel P2
+    // on #475).
     capability: "payments",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       // `betalning[...]` catches Swedish compounds like "betalningsgrejjen",
       // "betalningarna", "betalningsflödet" once a removal verb is present.
+      // It does NOT match `prenumerationsbetalning` (the `betalning` there is
+      // mid-word, so the leading non-letter lookbehind fails) — that is a
+      // subscriptions removal, handled below.
       /(?<![\p{L}\p{N}_])betalning[\p{L}]*(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:payments?|checkout|kassa|kortbetalning[\p{L}]*|kortköp|kreditkort|subscription[-\s]?billing|prenumerationsbetalning[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:payments?|checkout|kassa|kortbetalning[\p{L}]*|kortk(?:ö|o)p|kreditkort)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Recurring subscriptions / memberships (paddle-billing). Distinct from
+    // one-off `payments` so "ta bort prenumerationen" / "ta bort
+    // prenumerationsbetalningen" / "remove the membership billing" shrink the
+    // subscriptions capability that #475 introduced.
+    capability: "subscriptions",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:paddle|subscription[-\s]?billing|subscriptions?|prenumeration[\p{L}]*|medlemskap[\p{L}]*|membership[\p{L}]*|återkommande[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])recurring(?:[-\s]?(?:billing|payment[\p{L}]*|betalning[\p{L}]*))?(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
