@@ -263,6 +263,14 @@ export function StructuredToolParts({
   onQuickReply,
   quickReplyDisabled = false,
 }: StructuredToolPartsProps) {
+  // Codex P1 on #482: while ANY reply is pending, every card's quick actions
+  // are suppressed. The inline block at the list bottom owns the pending
+  // interaction, and an unrelated quick action would send a user message
+  // that the pending gate consumes as its answer
+  // (`collectConfirmedContractAnswers` reads the NEXT user message) —
+  // silently mis-answering the active gate. This also prevents duplicate
+  // button sets for the pending message itself.
+  const suppressQuickActions = Boolean(pendingReply);
   return (
     <>
       {toolParts.map((part, index) => {
@@ -303,7 +311,7 @@ export function StructuredToolParts({
           <Tool key={`${messageId}-tool-${toolType}-${index}`} defaultOpen={toolHasData}>
             <ToolHeader title={toolTitle} type={toolType} state={toolState} />
             <ToolContent>
-              {!pendingReply && !hasUserAfterCurrentMessage && replyPrompt && (
+              {!suppressQuickActions && !hasUserAfterCurrentMessage && replyPrompt && (
                 <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
                     Svar krävs
@@ -344,10 +352,11 @@ export function StructuredToolParts({
               {summaries.seo ? (
                 <ReviewBlock
                   variant="full"
-                  title="SEO review"
+                  title="SEO-tips (blockerar inte)"
+                  advisory
                   passed={summaries.seo.passed}
                   passedLabel="SEO-baseline ser bra ut."
-                  failedLabel={`${summaries.seo.issueCount} SEO-varning(ar) hittades.`}
+                  failedLabel={`${summaries.seo.issueCount} SEO-tips hittades (blockerar inte).`}
                   details={[
                     `Canonical: ${summaries.seo.canonical ? "ja" : "nej"}`,
                     `OG image-strategi: ${summaries.seo.ogImage ? "ja" : "nej"}`,
@@ -360,7 +369,7 @@ export function StructuredToolParts({
               {summaries.seoAction && (
                 <ActionStrip
                   variant="full"
-                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="cyan"
                   title="Snabb SEO-fix"
                   question={summaries.seoAction.question}
@@ -394,7 +403,7 @@ export function StructuredToolParts({
               {summaries.analyticsAction && (
                 <ActionStrip
                   variant="full"
-                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="violet"
                   title="Snabb tracking-fix"
                   question={summaries.analyticsAction.question}
@@ -442,7 +451,7 @@ export function StructuredToolParts({
               {summaries.editorialAction && (
                 <ActionStrip
                   variant="full"
-                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="sky"
                   title="Snabb redigering"
                   question={summaries.editorialAction.question}
@@ -459,7 +468,7 @@ export function StructuredToolParts({
               {summaries.businessAction && (
                 <ActionStrip
                   variant="full"
-                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  show={!suppressQuickActions && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
                   color="emerald"
                   title="Snabb konfigurering"
                   question={summaries.businessAction.question}
@@ -529,6 +538,8 @@ export function CompactToolParts({
   lifecycleStage = null,
 }: CompactToolPartsProps) {
   const isIntegrations = lifecycleStage === "integrations";
+  // See StructuredToolParts above for the rationale (Codex P1 on #482).
+  const suppressQuickActions = Boolean(pendingReply);
   return (
     <>
       {toolParts.map((part, index) => {
@@ -571,7 +582,7 @@ export function CompactToolParts({
               <span className="text-muted-foreground shrink-0 text-xs">{getToolStateLabel(toolState)}</span>
             </div>
             {replyPrompt ? (
-              !pendingReply && !hasUserAfterCurrentMessage ? (
+              !suppressQuickActions && !hasUserAfterCurrentMessage ? (
                 <div
                   className={cn(
                     "mt-2 rounded-md border p-2 text-xs",
@@ -653,10 +664,11 @@ export function CompactToolParts({
                 {summaries.seo ? (
                   <ReviewBlock
                     variant="compact"
-                    title="SEO"
+                    title="SEO (blockerar inte)"
+                    advisory
                     passed={summaries.seo.passed}
                     passedLabel="SEO-baseline OK"
-                    failedLabel={`${summaries.seo.issueCount} SEO-varning(ar)`}
+                    failedLabel={`${summaries.seo.issueCount} SEO-tips (blockerar inte)`}
                     details={[`Canonical: ${summaries.seo.canonical ? "ja" : "nej"} • OG image: ${summaries.seo.ogImage ? "ja" : "nej"}`]}
                     issues={summaries.seo.topIssues}
                     tips={summaries.seo.suggestedPrompts}
@@ -737,7 +749,7 @@ export function CompactToolParts({
               <div className="mt-2 flex flex-wrap gap-2">
                 {!replyPrompt && projectEnvKeys.length > 0 && (
                   <Button size="sm" onClick={() => openDossiersPanel(projectEnvKeys)}>
-                    Öppna Dossiers
+                    Öppna Byggblock
                   </Button>
                 )}
                 {!replyPrompt && (

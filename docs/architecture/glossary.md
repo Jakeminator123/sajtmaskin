@@ -15,7 +15,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Scaffold Variant | Visuellt uttryck inom scaffold: typografi, theme, motif, prompt hints. |
 | Variant-Lock | Follow-up återanvänder tidigare variant för att undvika design drift. |
 | Capability | Intentnyckel som kan mappas till dossier, t.ex. `auth`, `payments`, `visual-3d`. |
-| Dossier | Återanvändbar capability-modul med manifest, instruktioner och ev. filer (`data/dossiers/{hard,soft}/`). Injiceras i own-engine-prompten. **Inte** en galleri-mall. |
+| Dossier | Återanvändbar capability-modul med manifest, instruktioner och ev. filer (`data/dossiers/{hard,soft}/`). Injiceras i own-engine-prompten. **Inte** en galleri-mall. UI-label (builderns "Dossiers"-panel): **"Byggblock"** — kodidentifierare, filnamn och API-routes behåller `dossier`-namnet. |
 | Mock mode (dossier) | Deklarativt `mock`-fält (`canned`/`seed`/`success`/`none`) på hard-dossiers som beskriver hur den visuella ytan fungerar i F2/preview utan riktig nyckel. Driver dossierns egen degraderingskod + en promptrad (`describeMockMode`). F2-only, aldrig persisterat/deployat. Utelämnat = `none`. |
 | Template (v0-mall) | Färdig v0-mall i galleriet (`/templates`, builderns Mallar-tab). "Templates" och "v0-mallar" är samma sak. Blob är enda källan i prod; importeras verbatim, ingen LLM vid init. Inte scaffold, inte dossier. |
 | Template-referens | Klonat upstream-repo under `data/template-references/` — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |

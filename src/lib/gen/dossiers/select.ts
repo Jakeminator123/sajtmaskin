@@ -152,9 +152,16 @@ function escapeRegExp(value: string): string {
  * "neon-postgres") hit the same keyword as the spaced form (Codex P2 on
  * PR #445). Precision over recall — a miss falls back to the capability
  * default, which is always a working implementation.
+ *
+ * The dossier's own `id` counts as an implicit keyword (Bugbot on #482): the
+ * Byggblock catalog sends `Lägg till byggblocket "<label>" (id: <id>)`, and
+ * an explicitly picked SIBLING (e.g. `plausible-analytics` when
+ * `vercel-analytics` is the capability default) must win over the default
+ * even when its manifest keywords don't appear in the label. Ids are unique
+ * slugs, so a verbatim id in the prompt is always explicit intent.
  */
 function matchesRelevanceKeyword(entry: DossierEntry, promptText: string): boolean {
-  for (const keyword of entry.relevanceKeywords ?? []) {
+  for (const keyword of [entry.id, ...(entry.relevanceKeywords ?? [])]) {
     const source = escapeRegExp(keyword.trim()).replace(/ +/g, "[\\s-]+");
     if (!source) continue;
     const re = new RegExp(`(?<![\\p{L}\\p{N}_-])${source}(?![\\p{L}\\p{N}_-])`, "iu");

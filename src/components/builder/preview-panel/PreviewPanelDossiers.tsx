@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   describeDossierStatus,
@@ -18,9 +19,11 @@ import {
   type DossierOverviewResponse,
   type DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
+import type { DossierCatalogEntry, DossierCatalogResponse } from "@/lib/builder/dossier-catalog";
 import {
   DOSSIERS_PANEL_OPEN_EVENT,
   PROJECT_ENV_VARS_UPDATED_EVENT,
+  VERSION_STATUS_REFRESHED_EVENT,
   dispatchProjectEnvVarsUpdated,
   openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
@@ -38,7 +41,25 @@ export interface PreviewPanelDossiersProps {
   versionId: string | null;
   lifecycleStage?: "design" | "integrations" | null;
   className?: string;
+  /**
+   * Called when the user picks a dossier from the "Bläddra katalog"-tab.
+   * Threaded from `BuilderShellContent` down to `vm.sendMessage` so picking
+   * a catalog row sends the deterministic `buildAddDossierMessage`-format
+   * (`Lägg till byggblocket "<label>" (id: <id>)`) through the existing
+   * chat flow instead of a separate mutation path. When absent (e.g. this
+   * component rendered without the callback wired up), catalog rows are
+   * shown but not selectable.
+   */
+  onRequestDossier?: (payload: { id: string; label: string }) => void;
+  /**
+   * True while a catalog pick must wait: a generation is streaming (sending
+   * would abort it) or an unanswered pending question exists. Rows are
+   * disabled with a short hint while true.
+   */
+  catalogPickDisabled?: boolean;
 }
+
+type PanelTab = "wired" | "catalog";
 
 const TONE_BADGE_CLASS: Record<DossierStatusDescriptor["tone"], string> = {
   neutral: "border-sky-500/40 bg-sky-500/10 text-sky-200",
@@ -57,7 +78,7 @@ const ENFORCEMENT_LABEL: Record<
 };
 
 /**
- * Toolbar "Dossiers" popover: shows which reusable building blocks are wired
+ * Toolbar "Byggblock" popover: shows which reusable building blocks are wired
  * into the current build and — for the heavier (hard) integrations — whether
  * they have been built into the active version. Data is lazily fetched from
  * `GET /api/engine/chats/[chatId]/dossiers` when the popover opens (and
@@ -75,8 +96,11 @@ export function PreviewPanelDossiers({
   versionId,
   lifecycleStage,
   className,
+  onRequestDossier,
+  catalogPickDisabled = false,
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>("wired");
   const [data, setData] = useState<DossierOverviewResponse | null>(null);
   // Identity (`chatId::versionId`) the held `data` was fetched for, so we can
   // ignore it when the builder switches chat/version while the popover holds
@@ -124,8 +148,8 @@ export function PreviewPanelDossiers({
       if (err instanceof Error && err.name === "AbortError") return;
       setError(
         err instanceof Error
-          ? `Kunde inte hämta dossiers: ${err.message}`
-          : "Kunde inte hämta dossiers.",
+          ? `Kunde inte hämta byggblock: ${err.message}`
+          : "Kunde inte hämta byggblock.",
       );
     } finally {
       if (!signal.aborted) setLoading(false);
@@ -133,14 +157,21 @@ export function PreviewPanelDossiers({
   }, [chatId, versionId]);
 
   // Fetch on mount (so the attention badge can reflect missing keys BEFORE the
-  // popover is opened — dossiers-hub-primary) and whenever the popover opens or
-  // chatId/versionId change (since `load` is memoized on them). `load` aborts
-  // any in-flight request, so overlapping triggers collapse to the freshest
-  // response. Refetching on open keeps env-key readiness fresh — e.g. after the
-  // user saves keys in ProjectEnvVarsPanel without a new version. No polling.
+  // popover is opened — dossiers-hub-primary) and whenever chatId/versionId
+  // change (`load` is memoized on them). `load` aborts any in-flight request,
+  // so overlapping triggers collapse to the freshest response.
   useEffect(() => {
     void load();
     return () => abortRef.current?.abort();
+  }, [load]);
+
+  // Refetch when the popover OPENS (keeps env-key readiness fresh — e.g.
+  // after the user saved keys in ProjectEnvVarsPanel without a new version).
+  // Deliberately NOT on close: the old `[open, load]`-effect refetched on the
+  // close-flip too, a pointless request per stängning.
+  useEffect(() => {
+    if (!open) return;
+    void load();
   }, [open, load]);
 
   // Fire-and-forget refetch used after saving keys (outside the open effect's
@@ -164,6 +195,16 @@ export function PreviewPanelDossiers({
     return () => window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler);
   }, [chatId, load]);
 
+  // Keep the "Inkopplade"-list fresh when a NEW version lands while the
+  // popover is already open (e.g. mid-generation). The panel otherwise only
+  // refetches on versionId-change/open/env-save — none of which fire for a
+  // version that finishes streaming while the popover stays open.
+  useEffect(() => {
+    const handler = () => void load();
+    window.addEventListener(VERSION_STATUS_REFRESHED_EVENT, handler);
+    return () => window.removeEventListener(VERSION_STATUS_REFRESHED_EVENT, handler);
+  }, [load]);
+
   // Let other builder surfaces (finalize-design 412 handler, integration chat
   // cards) open this popover and highlight the keys that still need values.
   useEffect(() => {
@@ -171,11 +212,21 @@ export function PreviewPanelDossiers({
       const { envKeys } = readDossiersPanelOpenDetail(event);
       setHighlightKeys(envKeys);
       setOpenedForMissing(envKeys.length > 0);
+      // Missing-key opens (F3 412 / env-kort) must land on "Inkopplade" where
+      // the key inputs live — if the catalog tab was last active the blocker
+      // would look like it has no actionable fields (Codex P2 on #482).
+      if (envKeys.length > 0) setActiveTab("wired");
       setOpen(true);
     };
     window.addEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
     return () => window.removeEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
   }, []);
+
+  // One-shot pick lock: the ref blocks a double-click in the same tick (state
+  // updates are async), the state drives the disabled UI + notice. Reset when
+  // the popover closes so nästa öppning kan välja igen.
+  const pickInFlightRef = useRef(false);
+  const [pickedEntry, setPickedEntry] = useState<DossierCatalogEntry | null>(null);
 
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
@@ -184,6 +235,8 @@ export function PreviewPanelDossiers({
       setOpenedForMissing(false);
       setValues({});
       setSaveError(null);
+      pickInFlightRef.current = false;
+      setPickedEntry(null);
     }
   }, []);
 
@@ -199,6 +252,51 @@ export function PreviewPanelDossiers({
     setExpandedId(null);
   }, [chatId, versionId]);
 
+  // Full dossier CATALOG ("Bläddra katalog"-tab) — static registry data, so
+  // it is fetched once (per mount) and cached in state across popover opens
+  // instead of refetching every time like the per-version "Inkopplade" list.
+  const [catalogData, setCatalogData] = useState<DossierCatalogResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  // Mirrors the wired list's abort pattern: a newer load aborts an older
+  // in-flight one, and unmount aborts whatever is pending.
+  const catalogAbortRef = useRef<AbortController | null>(null);
+  const loadCatalog = useCallback(async () => {
+    catalogAbortRef.current?.abort();
+    const controller = new AbortController();
+    catalogAbortRef.current = controller;
+    const { signal } = controller;
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      const res = await fetch("/api/dossiers/catalog", { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as DossierCatalogResponse;
+      if (signal.aborted) return;
+      setCatalogData(json);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setCatalogError(
+        err instanceof Error
+          ? `Kunde inte hämta katalogen: ${err.message}`
+          : "Kunde inte hämta katalogen.",
+      );
+    } finally {
+      if (!signal.aborted) setCatalogLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    // `catalogError` must bail too (Codex/Vercel P2 on #482): without it a
+    // failed fetch retriggers this effect every render while the popover is
+    // open — an infinite retry loop hammering the route. Recovery is the
+    // explicit "Försök igen" button, not implicit re-render retries.
+    if (!open || catalogData || catalogLoading || catalogError) return;
+    void loadCatalog();
+  }, [open, catalogData, catalogLoading, catalogError, loadCatalog]);
+  useEffect(() => {
+    return () => catalogAbortRef.current?.abort();
+  }, []);
+
   // Only trust data whose identity matches the current chat/version. On a
   // mismatch (chat/version changed) we render the loading state instead of a
   // stale context's dossiers until the in-flight refetch resolves.
@@ -206,6 +304,38 @@ export function PreviewPanelDossiers({
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+
+  // Nothing wired yet: default the popover straight to "Bläddra katalog"
+  // instead of an empty "Inkopplade"-tab, once per chat/version context.
+  // Never fights a manual tab switch afterwards.
+  const hasAutoSwitchedTabRef = useRef(false);
+  useEffect(() => {
+    hasAutoSwitchedTabRef.current = false;
+  }, [chatId, versionId]);
+  useEffect(() => {
+    if (hasAutoSwitchedTabRef.current || !freshData) return;
+    hasAutoSwitchedTabRef.current = true;
+    if (freshData.counts.total === 0) setActiveTab("catalog");
+  }, [freshData]);
+
+  const handleSelectCatalogDossier = useCallback(
+    (entry: DossierCatalogEntry) => {
+      if (!onRequestDossier || catalogPickDisabled) return;
+      // Synchronous double-click lock — `pickedEntry`-state hinner inte
+      // re-rendera mellan två klick i samma tick.
+      if (pickInFlightRef.current) return;
+      pickInFlightRef.current = true;
+      setPickedEntry(entry);
+      onRequestDossier({ id: entry.id, label: entry.label });
+      // F2 + hårt byggblock: håll popovern öppen med en kort inline-notis om
+      // att blocket mockas i designläget (speglar "Planerad (F2-mockup)").
+      // Övriga val stänger popovern — meddelandet syns direkt i chatten.
+      if (!(stage !== "integrations" && entry.class === "hard")) {
+        handleOpenChange(false);
+      }
+    },
+    [onRequestDossier, catalogPickDisabled, stage, handleOpenChange],
+  );
 
   // Attention badge (dossiers-hub-primary): any hard (F3) dossier that still
   // misses real env keys. Drives the amber dot on the toolbar button so the
@@ -350,8 +480,10 @@ export function PreviewPanelDossiers({
             <span className="block truncate text-[12px] font-medium text-gray-100">
               {entry.label}
             </span>
+            {/* Svensk gruppetikett i stället för rå capability-slug (t.ex.
+                "payments") — samma presentationskarta som grupprubrikerna. */}
             <span className="block truncate text-[10px] text-gray-500">
-              {entry.capability}
+              {resolveDossierGroup(entry.capability).label}
             </span>
           </span>
           <Badge
@@ -364,8 +496,8 @@ export function PreviewPanelDossiers({
             )}
             title={
               entry.class === "hard"
-                ? "Hård dossier — kräver riktiga nycklar"
-                : "Mjuk dossier — självförsörjande byggblock"
+                ? "Hårt byggblock — kräver riktiga nycklar"
+                : "Mjukt byggblock — självförsörjande, kräver inga externa nycklar"
             }
           >
             {entry.class === "hard" ? "Hård" : "Mjuk"}
@@ -440,13 +572,13 @@ export function PreviewPanelDossiers({
           size="sm"
           title={
             needsAttention
-              ? "Dossiers: en integration saknar nycklar — klicka för att fylla i"
-              : "Visa inkopplade dossiers (byggblock) och integrationsstatus"
+              ? "Byggblock: en integration saknar nycklar — klicka för att fylla i"
+              : "Visa inkopplade byggblock och integrationsstatus"
           }
           className={cn("relative text-gray-400 hover:text-white", className)}
         >
           <Boxes className="mr-1 h-4 w-4" />
-          Dossiers
+          Byggblock
           {count !== null && count > 0 ? (
             <Badge
               variant="outline"
@@ -469,7 +601,7 @@ export function PreviewPanelDossiers({
       >
         <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
           <span className="flex items-center gap-1.5 text-[12px] font-semibold text-white">
-            Dossiers
+            Byggblock
             {loading && freshData ? (
               <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
             ) : null}
@@ -481,6 +613,30 @@ export function PreviewPanelDossiers({
           ) : null}
         </div>
 
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as PanelTab)}
+          className="w-full gap-0"
+        >
+          <TabsList
+            variant="line"
+            className="mx-3 mt-2 h-7 w-auto gap-1 border-b border-gray-800 bg-transparent p-0"
+          >
+            <TabsTrigger
+              value="wired"
+              className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
+            >
+              Inkopplade
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalog"
+              className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
+            >
+              Bläddra katalog
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="wired" className="mt-0">
         {missingEntries.length > 0 ? (
           <div className="space-y-2 border-b border-gray-800 bg-amber-500/[0.06] px-3 py-2.5">
             <p className="text-[11px] font-semibold text-amber-200">
@@ -556,13 +712,13 @@ export function PreviewPanelDossiers({
           {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Läser dossier-status…
+              Läser byggblock-status…
             </div>
           ) : error ? (
             <p className="px-1 py-3 text-[11px] text-rose-300">{error}</p>
           ) : freshData && freshData.dossiers.length === 0 ? (
             <p className="px-1 py-3 text-[11px] text-gray-400">
-              Inga dossiers är inkopplade i den här versionen.
+              Inga byggblock är inkopplade i den här versionen.
             </p>
           ) : (
             <div className="space-y-3">
@@ -584,6 +740,107 @@ export function PreviewPanelDossiers({
             </p>
           ) : null}
         </div>
+          </TabsContent>
+
+          <TabsContent value="catalog" className="mt-0">
+            {catalogPickDisabled ? (
+              <p className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200">
+                Vänta tills pågående generering är klar innan du lägger till ett
+                byggblock.
+              </p>
+            ) : null}
+            {pickedEntry ? (
+              <p
+                className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200"
+                aria-live="polite"
+              >
+                Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
+                {pickedEntry.class === "hard"
+                  ? " Hårda byggblock visas som mockup i designläget och kopplas in på riktigt vid \u201dBygg integrationer\u201d."
+                  : null}
+              </p>
+            ) : null}
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              {catalogLoading && !catalogData ? (
+                <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Läser katalogen…
+                </div>
+              ) : catalogError ? (
+                <div className="space-y-2 px-1 py-3">
+                  <p className="text-[11px] text-rose-300">{catalogError}</p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => void loadCatalog()}
+                  >
+                    Försök igen
+                  </Button>
+                </div>
+              ) : catalogData && catalogData.groups.length === 0 ? (
+                <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(catalogData?.groups ?? []).map((group) => (
+                    <div key={group.id} className="space-y-1.5">
+                      <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                        {group.label}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {group.dossiers.map((entry) => {
+                          const pickBlocked =
+                            !onRequestDossier || catalogPickDisabled || pickedEntry !== null;
+                          return (
+                            <li key={entry.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectCatalogDossier(entry)}
+                                disabled={pickBlocked}
+                                title={
+                                  !onRequestDossier
+                                    ? undefined
+                                    : catalogPickDisabled
+                                      ? "Vänta tills pågående generering är klar"
+                                      : pickedEntry !== null
+                                        ? "Ett byggblock har redan valts — stäng panelen för att välja igen"
+                                        : `Lägg till byggblocket ${entry.label}`
+                                }
+                                className="flex w-full items-start gap-2 rounded-md border border-gray-800 bg-black/20 px-2.5 py-2 text-left hover:bg-gray-800/40 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="truncate text-[12px] font-medium text-gray-100">
+                                      {entry.label}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "shrink-0 text-[9px]",
+                                        entry.class === "hard"
+                                          ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                                          : "border-gray-600/50 bg-gray-500/10 text-gray-300",
+                                      )}
+                                    >
+                                      {entry.class === "hard" ? "Hård" : "Mjuk"}
+                                    </Badge>
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-[10px] text-gray-500">
+                                    {entry.summary}
+                                  </span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* In F3 the full env editor is mounted and can edit already-set keys,
             which the inline "fill missing" inputs here cannot. Keep Dossiers as

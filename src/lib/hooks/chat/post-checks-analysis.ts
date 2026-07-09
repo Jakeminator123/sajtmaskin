@@ -441,7 +441,7 @@ function buildSeoReview(files: FileEntry[]): SeoReview {
 function detectAnalyticsSignals(files: FileEntry[]) {
   const combined = files.map((file) => file.content ?? "").join("\n\n");
   const trackerProviders = [
-    { label: "Vercel Analytics", match: /@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics/i },
+    { label: "Besöksstatistik", match: /@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics/i },
     { label: "Google Analytics", match: /\bgtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID/i },
     { label: "Google Tag Manager", match: /googletagmanager|dataLayer\.push|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+/i },
     { label: "Plausible", match: /\bplausible\b|NEXT_PUBLIC_PLAUSIBLE_DOMAIN/i },

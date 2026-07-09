@@ -172,6 +172,7 @@ export function localizeVerificationSummary(
   const exact: Record<string, string> = {
     "Automatic verification in progress.": "Automatisk verifiering pågår.",
     "Automatic verification passed.": "Automatisk verifiering godkänd.",
+    "Automatic server verification passed.": "Automatisk serververifiering godkänd.",
     "Automatic verification failed.": "Automatisk verifiering misslyckades.",
     "Automatic verification could not run because no checks executed.":
       "Automatisk verifiering kunde inte köras eftersom inga kontroller kördes.",

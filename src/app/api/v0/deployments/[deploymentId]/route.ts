@@ -61,7 +61,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
                 deploymentId: deployment.id,
                 vercelDeploymentId: deployment.vercelDeploymentId,
                 inspectorUrl: vercel.inspectorUrl ?? null,
-                message: "Vercel-bygget misslyckades (fångat vid statusuppdatering).",
+                message: "Hosting-bygget misslyckades (fångat vid statusuppdatering).",
                 source: "refresh",
               }).catch(() => {});
             }

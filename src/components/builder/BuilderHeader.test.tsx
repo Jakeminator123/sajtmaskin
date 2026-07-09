@@ -92,7 +92,7 @@ describe("BuilderHeader deploy-felstate (A4)", () => {
   it("visar ingen felstate när publiceringen inte har failat", () => {
     render(<BuilderHeader {...baseProps({ deploymentStatus: "ready" })} />);
     expect(screen.queryByText(/Publiceringen misslyckades/i)).toBeNull();
-    expect(screen.queryByText(/Visa byggloggar på Vercel/i)).toBeNull();
+    expect(screen.queryByText(/Visa byggloggar/i)).toBeNull();
   });
 
   it("visar felstate utan byggloggslänk när inspectorUrl saknas", () => {
@@ -105,7 +105,7 @@ describe("BuilderHeader deploy-felstate (A4)", () => {
       />,
     );
     expect(screen.getByText(/Publiceringen misslyckades/i)).toBeTruthy();
-    expect(screen.queryByText(/Visa byggloggar på Vercel/i)).toBeNull();
+    expect(screen.queryByText(/Visa byggloggar/i)).toBeNull();
   });
 
   it("visar byggloggslänk (target=_blank, rel=noopener noreferrer) när inspectorUrl finns", () => {
@@ -118,7 +118,7 @@ describe("BuilderHeader deploy-felstate (A4)", () => {
       />,
     );
     expect(screen.getByText(/Publiceringen misslyckades/i)).toBeTruthy();
-    const link = screen.getByRole("link", { name: /Visa byggloggar på Vercel/i });
+    const link = screen.getByRole("link", { name: /Visa byggloggar/i });
     expect(link.getAttribute("href")).toBe(
       "https://vercel.com/team/project/deployments/dpl_123",
     );

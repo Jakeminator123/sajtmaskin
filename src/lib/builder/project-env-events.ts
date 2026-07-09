@@ -71,6 +71,20 @@ export function requestF3Rebuild(): void {
   window.dispatchEvent(new CustomEvent(F3_REBUILD_REQUEST_EVENT));
 }
 
+/**
+ * Fired whenever `versionStatusNonce` bumps (a generation's post-check flow
+ * finished — see `useVersionStatus`/`runPostGenerationChecks`). Lets
+ * `PreviewPanelDossiers` refetch its wired-dossier overview while the
+ * popover stays open across a new version landing, without threading the
+ * nonce itself through the preview-panel prop chain.
+ */
+export const VERSION_STATUS_REFRESHED_EVENT = "sajtmaskin:version-status-refreshed";
+
+export function dispatchVersionStatusRefreshed(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(VERSION_STATUS_REFRESHED_EVENT));
+}
+
 export const PROJECT_ENV_VARS_UPDATED_EVENT = "sajtmaskin:project-env-vars-updated";
 
 export type ProjectEnvVarsUpdatedDetail = {

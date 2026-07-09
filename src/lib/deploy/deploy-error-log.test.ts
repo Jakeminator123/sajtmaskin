@@ -102,6 +102,6 @@ describe("logDeployError", () => {
   it("falls back to a generic message when none is supplied", async () => {
     await logDeployError({ chatId: "chat_1", versionId: "ver_1", source: "poll" });
     const [payloads] = emitVersionErrorLogs.mock.calls[0];
-    expect(payloads[0].message).toMatch(/Vercel-bygget misslyckades/);
+    expect(payloads[0].message).toMatch(/Hosting-bygget misslyckades/);
   });
 });

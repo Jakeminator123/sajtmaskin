@@ -125,7 +125,7 @@ const DETECTION_PIPELINE: DetectionRule[] = [
     provider: "prisma",
     envVars: [],
     setupGuide:
-      "Prisma är ett ORM-lager i den genererade koden — inte en separat Sajtmaskin-integration. Sätt DATABASE_URL i ditt Vercel-projekt när du kopplar en riktig databas (t.ex. Postgres). För lokal preview räcker ofta SQLite (file:./…) utan att denna panel ska lysa rött.",
+      "Prisma är ett ORM-lager i den genererade koden — inte en separat Sajtmaskin-integration. Sätt DATABASE_URL i ditt hosting-projekt när du kopplar en riktig databas (t.ex. Postgres). För lokal preview räcker ofta SQLite (file:./…) utan att denna panel ska lysa rött.",
   },
   {
     source: "inline",
@@ -134,7 +134,7 @@ const DETECTION_PIPELINE: DetectionRule[] = [
     provider: "other",
     envVars: ["DATABASE_URL"],
     setupGuide:
-      "SQLite passar lokalt eller i enklare demos. Använd t.ex. DATABASE_URL=file:./dev.db. För Vercel-deployad datahantering är en hostad databas ofta bättre.",
+      "SQLite passar lokalt eller i enklare demos. Använd t.ex. DATABASE_URL=file:./dev.db. För en publicerad sajts datahantering är en hostad databas ofta bättre.",
   },
   {
     source: "registry",

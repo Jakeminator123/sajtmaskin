@@ -100,11 +100,11 @@ export const integrationRegistry: IntegrationDefinition[] = [
   },
   {
     key: "vercel-analytics",
-    name: "Vercel Analytics",
+    name: "Besöksstatistik",
     category: "analytics",
     envVars: [],
     setupGuide:
-      "Aktivera Vercel Analytics i projektet och behåll Analytics-komponenten i layouten.",
+      "Aktivera besöksstatistik i hosting-projektet och behåll Analytics-komponenten i layouten.",
     runtime: "browser",
     optional: true,
     provider: "vercel-analytics",

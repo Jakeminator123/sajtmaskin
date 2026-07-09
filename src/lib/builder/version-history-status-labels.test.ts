@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  localizeVerificationSummary,
   resolveVersionHistorySummary,
   shouldShowVerifiedBadge,
   versionHistoryStatusBadge,
@@ -156,6 +157,31 @@ describe("resolveVersionHistorySummary", () => {
     expect(resolveVersionHistorySummary(display("degraded", { degraded: true }), null)).toMatch(
       /hoppades över eller hittade blockerande fel/i,
     );
+  });
+});
+
+describe("localizeVerificationSummary", () => {
+  it("localizes the F2 pass string", () => {
+    expect(localizeVerificationSummary("Automatic verification passed.")).toBe(
+      "Automatisk verifiering godkänd.",
+    );
+  });
+
+  it("localizes the F3 server-verify pass string (pin: added 2026-07-09)", () => {
+    expect(localizeVerificationSummary("Automatic server verification passed.")).toBe(
+      "Automatisk serververifiering godkänd.",
+    );
+  });
+
+  it("preserves unknown diagnostic strings verbatim", () => {
+    expect(localizeVerificationSummary("Something exotic happened.")).toBe(
+      "Something exotic happened.",
+    );
+  });
+
+  it("returns null for empty input", () => {
+    expect(localizeVerificationSummary(null)).toBeNull();
+    expect(localizeVerificationSummary("   ")).toBeNull();
   });
 });
 
