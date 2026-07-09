@@ -23,6 +23,7 @@ import {
   FINAL_GATE_RELEASE_MARGIN_MS,
 } from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
+import { buildAiSdkV5RepairHint } from "./ai-sdk-v5-repair-hint";
 import {
   isRepairBudgetExhausted,
   resolveFinalGateVerifyBudget,
@@ -603,6 +604,16 @@ export async function runRepairLoop<TPayload = unknown>(
 
   let syntaxResult = await validateGeneratedCode(content);
   const initialSyntaxErrorCount = syntaxResult.errors.length;
+  // Gate-class failure (Task 6): the ORIGINATING failure was a quality gate
+  // (typecheck/build/lint), not esbuild syntax — the content is already
+  // syntax-clean yet `failedOutputs` is non-empty. Every repair candidate then
+  // ties at 0 syntax errors, which breaks the `bestContent`/pass-count logic in
+  // two ways handled below: (1) the fewest-errors rule would keep the ORIGINAL
+  // pre-fix content and discard the LLM's real fix at the final gate (prod
+  // "could not resolve after 1 attempt"), and (2) the syntax-clean break would
+  // stop after a single pass. Pure-syntax repairs keep their existing behavior.
+  const gateClassFailure =
+    initialSyntaxErrorCount === 0 && params.failedOutputs.length > 0;
   let errorManifest = buildRepairErrorManifest({
     failedOutputs: params.failedOutputs,
     syntaxErrors: syntaxResult.errors,
@@ -649,8 +660,19 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: content,
   });
   errorManifest = groupedContext.errorManifest;
+  // Task 5b: deterministic AI-SDK v4→v5 rewrite hint. Derived from the failure
+  // text so a repair that hit `CoreMessage`/`maxSteps`/`textDelta` gets the
+  // exact fix up front (prepended so it survives the per-pass context cap),
+  // making AI-SDK drift self-healing in one pass.
+  const aiSdkV5Hint = buildAiSdkV5RepairHint(
+    [
+      ...params.failedOutputs.map((failure) => failure.output ?? ""),
+      ...groupedContext.contextLines,
+      ...syntaxResult.errors.map((error) => error.message),
+    ].join("\n"),
+  );
   const repairContextLines = uniqueContextLines(
-    [...groupedContext.contextLines, ...params.contextLines],
+    [...aiSdkV5Hint, ...groupedContext.contextLines, ...params.contextLines],
     120,
   );
   const hasErrorContext =
@@ -986,6 +1008,14 @@ export async function runRepairLoop<TPayload = unknown>(
     if (syntaxResult.errors.length < bestErrorCount) {
       bestErrorCount = syntaxResult.errors.length;
       bestContent = content;
+    } else if (gateClassFailure && syntaxResult.valid && content !== bestContent) {
+      // Gate-class root-cause fix: all candidates tie at 0 syntax errors, so the
+      // fewest-errors rule above never fires and the LLM's fix (in `content`)
+      // would be discarded — the final gate would re-verify the ORIGINAL
+      // drifted code and fail. Carry the latest edited content forward so the
+      // final gate verifies the actual fix (makes AI-SDK drift self-healing
+      // together with the deterministic v4→v5 hint).
+      bestContent = content;
     }
     if (stopReason !== "continue") {
       if (stopReason === "no_improvement" && hasDeterministicProgress) {
@@ -995,7 +1025,15 @@ export async function runRepairLoop<TPayload = unknown>(
       earlyStopReason = stopReason;
       break;
     }
-    if (syntaxResult.valid) break;
+    // Gate-class second pass (Task 6): a syntax-clean but gate-red result does
+    // NOT stop after the first pass — one more LLM pass runs with the
+    // accumulated prior-attempt notes + the v4→v5 hint before deferring to the
+    // final gate. Bounded by `maxLlmPasses` (global budget unchanged). Pure
+    // syntax repairs (gateClassFailure=false) still stop the moment syntax is
+    // clean.
+    if (syntaxResult.valid && !(gateClassFailure && pass + 1 < params.maxLlmPasses)) {
+      break;
+    }
     // Fas 3 (bättre mål): tell the next pass what the previous one changed and
     // that the originating failure has not passed yet, so the model tries a
     // DIFFERENT approach instead of re-emitting the same patch.
@@ -1076,9 +1114,11 @@ export async function runRepairLoop<TPayload = unknown>(
         // all reporting `earlyStopReason=null` — silent. When the final gate
         // does NOT promote, surface an explicit `no_improvement` so the outcome
         // is observable and the caller can name a reason. A successful promotion
-        // keeps the existing reason (null on a clean resolve).
+        // converged — report `null` (a gate-class second pass may have set a
+        // transient `no_improvement` before the final gate promoted; that must
+        // not leak out as the outcome of a SUCCESSFUL repair).
         earlyStopReason: promoted.promoted
-          ? earlyStopReason
+          ? null
           : resolveNonPromotedEarlyStopReason({
               earlyStopReason,
               hasDeterministicProgress,

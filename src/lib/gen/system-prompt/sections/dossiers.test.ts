@@ -455,6 +455,26 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).not.toContain("mock: ");
   });
 
+  // Task 5(a): the AI-SDK v4-drift guardrail is scoped to rounds that select an
+  // AI dossier (ai-chat / ai-tool-calling / rag-chat), so freeform codegen
+  // stops emitting stale v4 APIs — without bloating non-AI prompts.
+  it("emits the AI-SDK v5 guardrail when an AI dossier is selected", () => {
+    const text = renderDossierBlocks(hardMockSelection("canned"), {
+      generationMode: "init",
+    }).join("\n");
+    expect(text).toContain("AI SDK version contract");
+    expect(text).toContain("CoreMessage");
+    expect(text).toContain("stopWhen: stepCountIs");
+    expect(text).toContain("text-delta");
+  });
+
+  it("does NOT emit the AI-SDK guardrail for a non-AI dossier", () => {
+    const text = renderDossierBlocks(threeFiberSelection, {
+      generationMode: "init",
+    }).join("\n");
+    expect(text).not.toContain("AI SDK version contract");
+  });
+
   it("fails fast when a selected verbatim dossier file is missing on disk", () => {
     const selection: DossierSelectionResult = {
       poolSize: 1,
