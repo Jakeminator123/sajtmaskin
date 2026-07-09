@@ -184,8 +184,16 @@ describe("MessageList", () => {
     const before: ChatMessage[] = [
       { id: "user_f3_kick_live", role: "user", content: "Bygg integrationer nu." },
     ];
+    // The F3 round streams in this session (isStreaming) — that is the strong
+    // "live" signal required for auto-approve (bugbot high på #460: history
+    // hydration alone must never authorize an auto-fire).
     const { rerender } = render(
-      <MessageList chatId="chat_f3_live" messages={before} onQuickReply={onQuickReply} />,
+      <MessageList
+        chatId="chat_f3_live"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming
+      />,
     );
 
     const after: ChatMessage[] = [
@@ -204,7 +212,12 @@ describe("MessageList", () => {
       },
     ];
     rerender(
-      <MessageList chatId="chat_f3_live" messages={after} onQuickReply={onQuickReply} />,
+      <MessageList
+        chatId="chat_f3_live"
+        messages={after}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+      />,
     );
 
     await waitFor(() => {
@@ -225,6 +238,52 @@ describe("MessageList", () => {
     expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
     expect(onQuickReply).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+  });
+
+  it("does NOT auto-approve a marker that arrives via staged history hydration (no stream ran)", async () => {
+    // Bugbot high (#460): cached/local messages can hydrate FIRST without the
+    // persisted marker, and the canonical server history (incl. an old
+    // marker) lands a beat later. That late append is indistinguishable from
+    // a live arrival by list shape, so auto-fire is additionally gated on a
+    // generation stream having RUN in this session — a reload never streams
+    // before its history lands.
+    const onQuickReply = vi.fn(async () => {});
+    const cachedSubset: ChatMessage[] = [
+      { id: "user_f3_kick_stale", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList chatId="chat_f3_stale" messages={cachedSubset} onQuickReply={onQuickReply} />,
+    );
+
+    const fullServerHistory: ChatMessage[] = [
+      ...cachedSubset,
+      {
+        id: "assistant_f3_marker_stale",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_stale"
+        messages={fullServerHistory}
+        onQuickReply={onQuickReply}
+      />,
+    );
+
+    // Inline quick-replies render; nothing auto-fires, no dialog, no spinner.
+    const approveButton = await screen.findByRole("button", { name: "Godkänn förslag" });
+    expect(approveButton).toBeTruthy();
+    expect(onQuickReply).not.toHaveBeenCalled();
+    expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 });

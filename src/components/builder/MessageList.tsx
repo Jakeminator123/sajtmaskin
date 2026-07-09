@@ -94,6 +94,13 @@ interface MessageListProps {
    * the env-requirement auto-open side effect.
    */
   lifecycleStage?: EngineVersionLifecycleStage | null;
+  /**
+   * True while a generation stream is running in this session. Gates the F3
+   * auto-continue: a marker may only auto-approve after a stream has actually
+   * run here (bugbot high på #460 — staged history hydration must never read
+   * as "live" and burn credits on an unconfirmed integrations retry).
+   */
+  isStreaming?: boolean;
 }
 
 function hasGenerationContent(text: string): boolean {
@@ -110,6 +117,7 @@ const MessageListComponent = ({
   onApproveBuildPlan,
   quickReplyDisabled = false,
   lifecycleStage = null,
+  isStreaming = false,
 }: MessageListProps) => {
   const isIntegrations = lifecycleStage === "integrations";
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
@@ -128,6 +136,15 @@ const MessageListComponent = ({
   const f3MountKeyRef = useRef<string | null | undefined>(undefined);
   const autoFiredF3KeyRef = useRef<string | null>(null);
   const [f3AutoContinueKey, setF3AutoContinueKey] = useState<string | null>(null);
+  // Strong "live" signal (bugbot high på #460): staged hydration (cached
+  // messages first, canonical server history — incl. an old marker — a beat
+  // later) is indistinguishable from a live append by list shape alone. A
+  // marker may therefore only auto-approve after a generation stream has
+  // actually RUN in this session for this chat; reloads never stream before
+  // the history lands, so late-hydrated old markers fall back to the inline
+  // quick-replies instead of silently burning credits.
+  const hasStreamedThisSessionRef = useRef(false);
+  if (isStreaming) hasStreamedThisSessionRef.current = true;
 
   // Chat switch without remount: reset the auto-continue bookkeeping so a
   // marker in the NEXT chat's freshly loaded history is re-snapshotted as
@@ -137,6 +154,7 @@ const MessageListComponent = ({
     f3ChatIdRef.current = chatId;
     f3MountKeyRef.current = undefined;
     autoFiredF3KeyRef.current = null;
+    hasStreamedThisSessionRef.current = isStreaming;
   }
 
   const sendQuickReply = useCallback(
@@ -228,6 +246,10 @@ const MessageListComponent = ({
     if (!pendingReply || pendingReply.kind !== F3_CONTINUATION_KIND) return;
     const key = pendingReply.key;
     if (key === f3MountKeyRef.current) return; // reloaded marker → inline quick-replies
+    // No stream has run in this session → the marker came from (possibly
+    // staged) history hydration, not a live F3 round. Never auto-fire
+    // (bugbot high på #460); the inline quick-replies render instead.
+    if (!hasStreamedThisSessionRef.current) return;
     if (autoFiredF3KeyRef.current === key) return; // already auto-approved this marker
     if (!onQuickReply || quickReplyDisabled) return;
     autoFiredF3KeyRef.current = key;
