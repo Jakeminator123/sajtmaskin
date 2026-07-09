@@ -40,7 +40,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Fast Edit Lane | Exakt deterministisk filändring utan LLM, sparad som minor-version. |
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |
-| Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. Follow-up injicerar `### Lessons from similar past builds` i system-prompten via cosine similarity på term-frekvenser. **Inte** embeddings/pgvector. Styrs av `FEATURES.useErrorLogRag` (`NODE_ENV !== 'test'`). |
+| Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. Init och follow-up injicerar `### Lessons from similar past builds` i system-prompten via cosine similarity på term-frekvenser. **Inte** embeddings/pgvector. I prod är indexet cross-tenant (rå `faultText` redakteras i renderingen). Styrs av `FEATURES.useErrorLogRag` (`NODE_ENV !== 'test'`). |
 
 ## Publicering och URL-nivåer
 

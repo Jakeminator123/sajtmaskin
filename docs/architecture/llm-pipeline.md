@@ -47,11 +47,19 @@ Core Rules + separator + Dynamic Context = system message
 
 User prompt ska vara user message, inte dupliceras i Dynamic Context.
 
+Dynamic Context kan även injicera **Error-log RAG**: en TF-IDF-retriever (ej
+embeddings/pgvector) över historiska fault/fix-events som lägger `### Lessons from
+similar past builds` i system-prompten för både init och follow-up när
+`FEATURES.useErrorLogRag` är på. I prod är retrieval-indexet cross-tenant (rå
+`faultText` redakteras i renderingen).
+
 Kodankare:
 
 - `src/lib/gen/orchestrate.ts`
 - `src/lib/gen/build-spec/`
 - `src/lib/gen/system-prompt/`
+- `src/lib/gen/system-prompt/sections/routing-and-tooling.ts` (Error-log RAG-injektion)
+- `src/lib/gen/rag/`
 - `src/lib/gen/scaffolds/`
 - `src/lib/gen/scaffold-variants/`
 - `src/lib/gen/dossiers/`
@@ -93,6 +101,11 @@ Typisk ordning i runtime:
 Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
+
+**Dossier-scopad `env.example`:** under finalize genereras/uppdateras projektets
+`env.example` från valda dossiers env-krav (`dossierEnvScope`), så bara relevanta
+nycklar tas med i stället för en global lista (`src/lib/gen/preview/project-env-file.ts`,
+`src/lib/gen/stream/finalize-version/preflight-phase.ts`; se `docs/ENV.md`).
 
 Kodankare:
 
@@ -138,6 +151,23 @@ F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte aut
   blockerar (`409 DEPLOY_VERSION_FAILED`).
 - `precheckOnly` rapporterar gate-status i svarsfältet `releaseGate` i stället
   för att kasta (utom `failed`, som alltid 409:ar).
+
+### Readiness ↔ deploy-paritet
+
+Publiceringskollen (`GET /api/engine/chats/[chatId]/readiness`) speglar samma
+ReleaseGate på servern via `buildReleaseGateBlocker` → `resolveDeployReleaseGate`
+(`src/app/api/engine/chats/[chatId]/readiness/readiness-payload.ts`), så builderns
+`canDeploy` följer deploy-routens gate i stället för att gissa. Env-kravet är
+stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
+(`src/app/api/v0/deployments/route.ts`).
+
+### Deploy-repair
+
+Misslyckas en publicering på build-fel kan en riktad **deploy-repair** köras
+(`POST /api/v0/deployments/repair`, `src/lib/deploy/deploy-repair.ts`): en LLM-repair
+mot deployens build-fel som skapar en ny version att publicera om — utan att köra
+hela finalize igen. Deploy-fel loggas dessutom för Error-log RAG via
+`src/lib/deploy/deploy-error-log.ts`.
 
 ### F3-förslagsrunda och approval-runda
 

@@ -73,6 +73,7 @@ rocket-assets, `intro.mp4/.vtt`, `entry-modal`, `welcome-overlay`,
 ## Städa lokalt (redan gitignored, inget git-arbete)
 
 `.tmp/`, `logs/*`, `.env-backups/`, `.pytest_cache/` — radera på disk vid behov
-(se `npm run clean:scratch`). `_parkering/` och `test_förslag_templates_blob/` är
-medvetna/load-bearing → behåll. `kontrollflödesmapp/` flyttades 2026-07-07 till
+(se `npm run clean:scratch`). `_parkering/` är medveten parkeringsyta → behåll.
+(`test_förslag_templates_blob/` raderades senare 2026-07-08 i #458 — Blob-galleriet via
+`scripts/v0-templates/upload-mallar-blob.mjs` är enda skrivvägen.) `kontrollflödesmapp/` flyttades 2026-07-07 till
 `docs/plans/avklarat/kontrollflode/underlag/`.
