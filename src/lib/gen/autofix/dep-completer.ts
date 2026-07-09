@@ -146,6 +146,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
   // postgres-drizzle (default), neon-postgres, mongodb-atlas. Majors verified
   // against the npm registry 2026-07-08 (`npm view <pkg> version`).
+  // The final legacy wave (`rag-chat`, capability `rag-chat`) introduces no
+  // new packages: its stack (ai + @ai-sdk/openai + @ai-sdk/react above,
+  // drizzle-orm/pg/@types/pg/server-only below) is fully covered here —
+  // locked by the rag-chat case in `dep-completer.test.ts`.
   "drizzle-orm": "^0.45",
   "drizzle-kit": "^0.31",
   "pg": "^8",
@@ -153,6 +157,17 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "server-only": "0.0.1",
   "@neondatabase/serverless": "^1",
   "mongodb": "^7",
+  // Dossier (legacy import 2026-07-08, capability `subscriptions`):
+  // paddle-billing. Majors verified against the npm registry 2026-07-09
+  // (`npm view <pkg> version`). @supabase/ssr is 0.x so we pin the minor.
+  // NOTE: @supabase/ssr + @supabase/supabase-js are SHARED with the
+  // supabase-auth dossier (capability `supabase-auth`) — one entry serves both.
+  "@paddle/paddle-node-sdk": "^3",
+  "@supabase/ssr": "^0.12",
+  "@supabase/supabase-js": "^2",
+  // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
+  // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
+  "next-sanity": "^13",
 };
 
 /**

@@ -73,11 +73,39 @@ describe("deriveTier3BuildSpec", () => {
   });
 
   it("downgrades unbacked integrations (no matching dossier) to warn-only", () => {
-    // Supabase is in integrationRegistry but no dossier on disk implements
-    // it — F3 would otherwise block on NEXT_PUBLIC_SUPABASE_URL even though
-    // nothing in generated code would consume it. Clamp moves the keys
-    // from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still surfaces
-    // them but F3 validation doesn't refuse to start.
+    // Pin change (dossier-batch): the fixture used to be "supabase", but the
+    // promoted supabase-auth dossier now BACKS the supabase registry entry
+    // (id-prefix match) and genuinely consumes its keys — see the companion
+    // test below. vercel-kv remains truly unbacked (no dossier id/dependency
+    // implements it; category "data" has no dossier capability), so F3 must
+    // not block on KV keys nothing in generated code would consume. Clamp
+    // moves them from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still
+    // surfaces them but F3 validation doesn't refuse to start.
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "vercel-kv",
+          name: "Vercel KV",
+          reason: "cache",
+          status: "chosen",
+          envVars: [],
+        },
+      ],
+    });
+
+    expect(spec.requirements).toHaveLength(1);
+    const req = spec.requirements[0];
+    expect(req.requiredRealEnvKeys).toEqual([]);
+    expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_URL");
+    expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_TOKEN");
+  });
+
+  it("no longer clamps supabase — the supabase-auth dossier backs it (dossier-batch)", () => {
+    // Before the batch, "supabase" had no backing dossier and was clamped to
+    // warn-only. supabase-auth (id-prefix "supabase-") now implements it and
+    // consumes NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, so requiring real values at
+    // an explicit supabase approval is actionable again.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -93,9 +121,8 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toEqual([]);
-    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
-    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   });
 
   it("skips optional integrations", () => {
@@ -391,6 +418,22 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
   });
 
+  it("does NOT map generic supabase (data) approval to subscriptions or auth", () => {
+    // paddle infra deps (@supabase/*) and supabase-auth's id-prefix both
+    // strict-back the generic "supabase" DATA provider — neither may inject
+    // off a plain Supabase approval (Codex P1 dossier-batch). Both capabilities
+    // enter only via explicit capability selection.
+    const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
+    expect(caps).not.toContain("subscriptions");
+    expect(caps).not.toContain("supabase-auth");
+  });
+
+  it("does NOT map openai approval to rag-chat (shared @ai-sdk/openai dep only)", () => {
+    const caps = mapProviderKeysToDossierCapabilities(["openai"]);
+    expect(caps).not.toContain("rag-chat");
+    expect(caps).toContain("ai-chat");
+  });
+
   it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {
     // next-auth shares the "auth" CATEGORY with clerk, but no dossier
     // id-prefix/dependency implements next-auth. A category-only match would
@@ -404,11 +447,16 @@ describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
   it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
     expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
     expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
+    // openai strict-backs ai-chat (no config-notice UI). rag-chat is excluded
+    // from provider mapping so OpenAI approval must not flip this to true via RAG.
+    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
   });
 
   it("false for providers whose dossier lacks the component, and for unknowns", () => {
+    // clerk-auth ships no *config-notice*.tsx; supabase-auth's
+    // `supabase-auth-notice.tsx` deliberately does NOT match the RE (it is
+    // not imported via the IntegrationConfigNotice contract).
     expect(approvedProvidersShipConfigNotice(["clerk"])).toBe(false);
-    expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
     expect(approvedProvidersShipConfigNotice(["totally-unknown-vendor"])).toBe(false);
     expect(approvedProvidersShipConfigNotice([])).toBe(false);
   });

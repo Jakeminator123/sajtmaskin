@@ -54,6 +54,6 @@
     }
   ],
   "lastVerified": "2026-04-18",
-  "notes": "Keep the API key server-only. The auth route returns 503 when ABLY_API_KEY is missing, so the integration degrades at feature runtime rather than build time. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (same no-false-green rule as PR #422).",
+  "notes": "Keep the API key server-only. The auth route returns 503 realtime-not-configured when ABLY_API_KEY is missing OR a preview placeholder (F2 mock-seed values must never trigger a real Ably call), so the integration degrades at feature runtime rather than build time. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (same no-false-green rule as PR #422).",
   "promptInstructionMode": "selected-sections"
 }

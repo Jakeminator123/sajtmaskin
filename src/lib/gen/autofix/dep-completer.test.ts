@@ -276,6 +276,36 @@ describe("dep-completer", () => {
     }
   });
 
+  // Legacy import final wave (capability `rag-chat`, 2026-07-09): the dossier
+  // introduces NO new packages — its whole stack (AI SDK + drizzle/pg) must
+  // already be pinned in KNOWN_PACKAGES so the backstop never emits `latest`.
+  it("injects the AI SDK + drizzle/pg stack when rag-chat is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["rag-chat"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toEqual(["rag-chat"]);
+
+    const deps = resolveCapabilityDependencies(["rag-chat"]);
+    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
+    expect(deps["@ai-sdk/openai"]).toBe(KNOWN_PACKAGES["@ai-sdk/openai"]);
+    expect(deps["@ai-sdk/react"]).toBe(KNOWN_PACKAGES["@ai-sdk/react"]);
+    expect(deps["drizzle-orm"]).toBe(KNOWN_PACKAGES["drizzle-orm"]);
+    expect(deps.pg).toBe(KNOWN_PACKAGES.pg);
+    expect(deps["@types/pg"]).toBe(KNOWN_PACKAGES["@types/pg"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of [
+      "ai",
+      "@ai-sdk/openai",
+      "@ai-sdk/react",
+      "drizzle-orm",
+      "pg",
+      "@types/pg",
+      "server-only",
+    ]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
   it("selects the sibling database dossiers on explicit provider prompts", () => {
     const mongoSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
@@ -306,6 +336,52 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("@neondatabase/serverless");
   });
 
+  // Dossier Fas D (capability `cms`, 2026-07-09): the sanity-cms manifest
+  // deps must resolve through KNOWN_PACKAGES pins, never `latest`.
+  it("injects next-sanity + server-only when cms is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["cms"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("sanity-cms");
+
+    const deps = resolveCapabilityDependencies(["cms"]);
+    expect(deps["next-sanity"]).toBe(KNOWN_PACKAGES["next-sanity"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of ["next-sanity", "server-only"]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
+
+  // Dossier wave 3 (capability `supabase-auth`, 2026-07-08): the Supabase
+  // Auth SSR dossier's manifest dependency must resolve through the
+  // KNOWN_PACKAGES pin (never `latest`), and the capability must select the
+  // supabase-auth dossier — NOT clerk-auth (which owns the separate `auth`
+  // capability).
+  it("injects @supabase/ssr when supabase-auth is selected (not clerk)", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["supabase-auth"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("supabase-auth");
+    expect(dossierSelection.selected.map((s) => s.entry.id)).not.toContain("clerk-auth");
+
+    const deps = resolveCapabilityDependencies(["supabase-auth"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/ssr"]).not.toBe("latest");
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+  });
+
+  it("still selects clerk-auth for the generic auth capability (non-competition)", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("clerk-auth");
+    expect(dossierSelection.selected.map((s) => s.entry.id)).not.toContain("supabase-auth");
+
+    const deps = resolveCapabilityDependencies(["auth"]);
+    expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    expect(deps["@supabase/ssr"]).toBeUndefined();
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [
@@ -326,5 +402,29 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("@stripe/stripe-js");
     expect(result.unknownPackages).not.toContain("@clerk/nextjs");
     expect(result.unknownPackages).not.toContain("resend");
+  });
+
+  // Dossier (capability `subscriptions`, legacy import 2026-07-09): the
+  // paddle-billing manifest deps must resolve through KNOWN_PACKAGES pins,
+  // never `latest`.
+  it("injects the paddle + supabase stack when subscriptions is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("paddle-billing");
+
+    const deps = resolveCapabilityDependencies(["subscriptions"]);
+    expect(deps["@paddle/paddle-node-sdk"]).toBe(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of [
+      "@paddle/paddle-node-sdk",
+      "@supabase/ssr",
+      "@supabase/supabase-js",
+      "server-only",
+    ]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
   });
 });

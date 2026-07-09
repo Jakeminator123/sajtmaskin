@@ -143,9 +143,54 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe(?:-?betalning|-?checkout)?|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:checkout|kassa|kortbetalning|kortköp|kortbetala|kreditkort)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow|subscription[-\s]?billing|recurring[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
+      // Recurring terms (subscription-billing / recurring-billing /
+      // prenumerationsbetalning) were MOVED to the `subscriptions` entry below
+      // (bugbot high on the dossier-batch PR): keeping them here made a
+      // recurring ask match BOTH capabilities and collide stripe-checkout with
+      // paddle-billing. One-off payment vocabulary only.
+      /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])betala\s+med\s+(?:kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])k(?:ö|o)p(?:a)?\s+med\s+(?:kort|kreditkort|stripe|klarna|swish|checkout)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Recurring subscriptions / memberships (Paddle Billing). INTENTIONALLY
+    // separate from one-off `payments` (Stripe-checkout owns `payments`): this
+    // capability is for recurring plans/memberships synced from signed Paddle
+    // webhooks. The provider word "paddle" is high-precision. Vetoes keep it off
+    // one-off payment intent and newsletter "prenumerera på nyhetsbrev".
+    capability: "subscriptions",
+    patterns: [
+      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
+      // NOTE: no bare English "subscribe" token — it collides with newsletter
+      // "subscribe form" / email-signup (Codex P2 dossier-batch). Billing intent
+      // comes from "subscription(s)" and the Swedish prenumeration/abonnemang
+      // nouns; a bare "subscribe form" stays with newsletter-subscribe.
+      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:medlemskap(?:et|en)?|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning(?:ar|en)?|debitering(?:ar|en)?)|recurring\s+(?:payment(?:s)?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:nyhetsbrev(?:et)?|newsletter)(?![\p{L}\p{N}_])/iu,
+      // Email-signup / "subscribe form" belongs to newsletter-subscribe, not
+      // billing (Codex P2 dossier-batch).
+      /(?<![\p{L}\p{N}_])(?:e-?post|e-?mail|email)[-\s]?(?:formul(?:ä|a)r|form|signup|sign[-\s]?up|lista|list)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Supabase Auth (SSR) — an EXPLICIT-Supabase-intent capability. Listed
+    // BEFORE `auth` (clerk-auth) so a Supabase-specific ask wins the more
+    // specific capability, exactly like ai-tool-calling before ai-chat. The
+    // patterns REQUIRE the word "supabase" adjacent to an auth cue (or a
+    // "<auth cue> med/with/via supabase" phrasing), so a generic
+    // "login/inloggning/auth" with no Supabase mention never reaches here — it
+    // stays `auth` → clerk-auth. Selection must NOT let this compete with the
+    // generic `auth` default; the `auth` entry below vetoes these same phrases.
+    capability: "supabase-auth",
+    patterns: [
+      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -154,6 +199,41 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:auth|inloggning|registrera\s+konto|logga\s+in|sign[-\s]?in|sign[-\s]?up|register|clerk|next-?auth|auth\.js)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:lösenord|password|forgot[-\s]?password|reset[-\s]?password|återställ\s+lösenord)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:oauth|jwt|magic\s+link|session\.(?:store|cookie|token))(?![\p{L}\p{N}_])/iu,
+    ],
+    // Explicit Supabase-auth intent routes to the `supabase-auth` capability
+    // above, NOT clerk-auth. Without this veto "supabase auth" /
+    // "supabase-inloggning" would ALSO fire the generic `auth` capability and
+    // inject clerk-auth alongside supabase-auth. Mirrors the ai-chat veto on
+    // tool-calling. Generic "login/inloggning/auth" (no "supabase") does not
+    // match here, so it still routes to `auth` → clerk-auth.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Retrieval-augmented chat over the site's OWN indexed content (pgvector).
+    // Listed BEFORE `ai-tool-calling`/`ai-chat` so an explicit RAG ask wins the
+    // most specific capability. Every pattern requires an explicit retrieval
+    // cue — "rag", "kunskapsbas-chat", "chat med egna dokument", "svarar från
+    // våra dokument", a vector-store noun — NEVER bare "chatbot"/"ai-chat"
+    // (openai-chat owns generic chatbots; see the matching veto on `ai-chat`).
+    capability: "rag-chat",
+    patterns: [
+      // The RAG term family itself (tech word, high signal in any language).
+      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?)(?![\p{L}\p{N}_])/iu,
+      // Vector-store nouns — the `database` capability vetoes these on purpose
+      // (see its veto comment) so they must land here instead.
+      /(?<![\p{L}\p{N}_])(?:pgvector|(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|semantisk\s+sökning|semantic\s+search)(?![\p{L}\p{N}_])/iu,
+      // Knowledge-base chat compounds, Swedish + English.
+      /(?<![\p{L}\p{N}_])(?:kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|chatt?a?\s+(?:med|mot)\s+(?:vår\s+|er\s+)?kunskapsbas(?:en)?)(?![\p{L}\p{N}_])/iu,
+      // "Chat with our documents" phrasing.
+      /(?<![\p{L}\p{N}_])(?:chatt?a?\s+med\s+(?:våra|egna|era|sina|dina)\s+(?:dokument|filer|pdf:?er)|chat\s+with\s+(?:our|your)\s+(?:docs|documents|files))(?![\p{L}\p{N}_])/iu,
+      // Document Q&A.
+      /(?<![\p{L}\p{N}_])(?:dokument|document)[-\s]?q\s*&\s*a(?![\p{L}\p{N}_])/iu,
+      // "chatbot/assistant that answers FROM our documents/content/knowledge
+      // base" — the retrieval clause is what separates this from `ai-chat`.
+      /(?<![\p{L}\p{N}_])(?:chatt?bot|assistent(?:en)?|assistant|ai)[\s\S]{0,60}(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -182,14 +262,19 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:ai-?chatt|ai-?chat|chattbot|chatbot|ai-?assistent|ai-?bot|llm-?chat|chat[-\s]?ui|chat[-\s]?widget)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:openai\s+chat|gpt-?chat|claude-?chat|chatgpt-?widget)(?![\p{L}\p{N}_])/iu,
     ],
-    // Both `openai-chat` and `ai-tool-calling-chat` ship an `/api/chat` route —
-    // injecting both dossiers would collide. When the prompt carries an explicit
-    // tool/function-calling cue the more specific `ai-tool-calling` entry above
-    // wins and this generic chat entry is suppressed (parallax-pointer/scroll
-    // precedent).
+    // `openai-chat`, `ai-tool-calling-chat` AND `rag-chat` all ship an
+    // `/api/chat`-style route — injecting two of them would collide. When the
+    // prompt carries an explicit tool/function-calling cue the more specific
+    // `ai-tool-calling` entry above wins; when it carries an explicit
+    // retrieval/RAG cue the `rag-chat` entry wins. Either way this generic
+    // chat entry is suppressed (parallax-pointer/scroll precedent). Bare
+    // "chatbot" with no cue stays here.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
+      // RAG cues — mirror the `rag-chat` trigger families above.
+      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?|pgvector|kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|(?:dokument|document)[-\s]?q\s*&\s*a)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -236,8 +321,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   {
     // Persistent server-side data storage (Postgres/Drizzle default;
     // mongodb-atlas / neon-postgres siblings resolve via manifest
-    // relevanceKeywords in select.ts). NOT vector stores (rag-chat comes
-    // later) and NOT analytics/tracking — those route to `analytics`.
+    // relevanceKeywords in select.ts). NOT vector stores (those are
+    // `rag-chat`) and NOT analytics/tracking — those route to `analytics`.
     capability: "database",
     patterns: [
       // Core nouns, Swedish + English inflections.
@@ -252,7 +337,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:store|save|persist)[\s\S]{0,60}(?:in|to)\s+(?:a\s+|the\s+)?database(?![\p{L}\p{N}_])/iu,
     ],
     // Vetoes:
-    //  - Vector stores are the coming `rag-chat` capability, not this dossier.
+    //  - Vector stores are the `rag-chat` capability, not this dossier.
     //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
     //    databas" is a visitor-tracking request, not a persistence layer.
     //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,
@@ -450,6 +535,36 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       // ("chart js", "chart-js") — the bare noun guard alone must not be the
       // only thing standing between an explicit library choice and VisActor.
       /(?<![\p{L}\p{N}_])(?:chart[-.\s]?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Headless CMS integration (sanity-cms is the capability default). The
+    // ask is "content editable WITHOUT code" — a named CMS, Sanity, Swedish
+    // "innehållshantering", or an editors-can-update-it-themselves phrasing.
+    // NOT ordinary page-content edits ("ändra innehållet i heron" is a
+    // refine, guarded by the add-verb gate + the phrase patterns requiring an
+    // utan-kod/själv tail), and NOT "the site has a blog" on its own.
+    capability: "cms",
+    patterns: [
+      // High-signal acronym / compound asks.
+      /(?<![\p{L}\p{N}_])(?:headless[-\s]?cms|cms)(?![\p{L}\p{N}_])/iu,
+      // Sanity-the-provider. "sanity check" is an ordinary English phrase —
+      // the trailing lookahead refuses the check(s) continuation.
+      /(?<![\p{L}\p{N}_])sanity(?:\.io)?(?![\p{L}\p{N}_])(?![-\s]?checks?)/iu,
+      /(?<![\p{L}\p{N}_])(?:innehållshantering(?:en|ssystem(?:et)?)?|content[-\s]?management(?:[-\s]?system)?)(?![\p{L}\p{N}_])/iu,
+      // "redigera/uppdatera innehållet utan kod / själva" — the tail is
+      // required so a plain content tweak never routes here.
+      /(?<![\p{L}\p{N}_])(?:redigera|uppdatera|hantera|ändra)\s+(?:sitt\s+|sajtens\s+|webbplatsens\s+)?innehåll(?:et)?\s+(?:utan\s+(?:kod|utvecklare|programmering)|själv(?:a)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:edit|manage|update)\s+(?:the\s+|their\s+|site\s+)?content\s+(?:without\s+(?:code|coding|a\s+developer)|themselves)(?![\p{L}\p{N}_])/iu,
+      // Editors/staff as the acting persona.
+      /(?<![\p{L}\p{N}_])redaktör(?:er|en|erna)?[\s\S]{0,60}(?:redigera|uppdatera|ändra|publicera|hantera)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])editors?\s+(?:can|should)\s+(?:edit|update|manage|publish)(?![\p{L}\p{N}_])/iu,
+    ],
+    // An explicit competing CMS choice must not pull in the Sanity dossier
+    // (Chart.js precedent on dashboard-charts). Kept to actual CMS products;
+    // generic site-builder names are a different ask and stay unlisted.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:wordpress|contentful|strapi|prismic|storyblok|datocms|payload[-\s]?cms|craft[-\s]?cms|ghost[-\s]?cms|butter[-\s]?cms|sitecore|umbraco|drupal|joomla|keystone(?:js)?|directus)(?![\p{L}\p{N}_])/iu,
     ],
   },
 ];

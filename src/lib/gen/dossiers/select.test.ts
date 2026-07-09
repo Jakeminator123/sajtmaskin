@@ -312,6 +312,60 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// Dependent capabilities (Codex P1 #475): `subscriptions` (paddle-billing)
+// only produces a working feature with a signed-in Supabase user, so every
+// selection of `subscriptions` must also pull `supabase-auth` — regardless of
+// which caller path (init, follow-up, snapshot, dep-completer) invoked select.
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — dependent capabilities", () => {
+  it("co-selects supabase-auth whenever subscriptions is requested", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions"],
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("paddle-billing");
+    expect(ids).toContain("supabase-auth");
+    expect(result.byCapability["supabase-auth"]).toEqual(["supabase-auth"]);
+  });
+
+  it("does not duplicate supabase-auth when both are requested explicitly", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions", "supabase-auth"],
+    });
+    const authPicks = result.selected.filter((s) => s.entry.id === "supabase-auth");
+    expect(authPicks).toHaveLength(1);
+  });
+
+  it("does not pull supabase-auth for capabilities without a dependency", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["payments"],
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).not.toContain("supabase-auth");
+  });
+
+  it("drops generic auth when supabase-auth is present — never two root middlewares", () => {
+    // Raw callers (snapshot re-selection, dossiers route) can pass both; the
+    // orchestrate prompt-filter dedup does not protect them, so the expansion
+    // helper enforces it (bugbot high, dossier-batch): supabase-auth and
+    // clerk-auth both emit a root middleware.ts.
+    const viaDependency = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions", "auth"],
+    });
+    const idsViaDependency = viaDependency.selected.map((s) => s.entry.id);
+    expect(idsViaDependency).toContain("supabase-auth");
+    expect(idsViaDependency).not.toContain("clerk-auth");
+
+    const explicit = selectDossiersForRequest({
+      requestedCapabilities: ["supabase-auth", "auth"],
+    });
+    const idsExplicit = explicit.selected.map((s) => s.entry.id);
+    expect(idsExplicit).toContain("supabase-auth");
+    expect(idsExplicit).not.toContain("clerk-auth");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // fix-isconfigured (wave 1): the `configured` flag must reflect the PROJECT'S
 // stored env keys, not the platform `process.env`. Callers pass
 // `configuredEnvKeys`; when omitted, the legacy process.env fallback stays.

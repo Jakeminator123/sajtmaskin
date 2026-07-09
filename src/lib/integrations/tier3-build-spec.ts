@@ -322,6 +322,32 @@ function compactProviderKey(value: string): string {
  * identity-form ("vercelblob") and registry-slug ("vercel-blob") inputs
  * resolve.
  */
+/**
+ * A dossier can strict-back a generic provider purely via an infrastructure
+ * dependency it shares with a different, more specific dossier — which would
+ * inject the wrong capability's routes/templates on a plain provider approval
+ * (Codex P1 dossier-batch):
+ *  - paddle-billing lists `@supabase/*` as infra deps → strict-backs the generic
+ *    "supabase" provider into the unrelated `subscriptions` capability.
+ *  - rag-chat shares `@ai-sdk/openai` with ai-chat → strict-backs "openai" into
+ *    `rag-chat`.
+ * Both extra capabilities must inject ONLY on explicit capability selection
+ * (the init/follow-up path), never off a generic provider approval in F3.
+ */
+function isSuppressedProviderBacking(
+  providerCompact: string,
+  capability: string,
+): boolean {
+  if (providerCompact === "supabase" && capability === "subscriptions") return true;
+  if (providerCompact === "openai" && capability === "rag-chat") return true;
+  // supabase-auth's id ("supabase-*") id-prefix-matches the generic "supabase"
+  // DATA provider, so approving Supabase for storage/database would otherwise
+  // inject auth middleware/callback/client (Codex P1 dossier-batch). Supabase
+  // Auth enters only via explicit `supabase-auth` capability selection.
+  if (providerCompact === "supabase" && capability === "supabase-auth") return true;
+  return false;
+}
+
 export function mapProviderKeysToDossierCapabilities(
   providerKeys: string[],
 ): string[] {
@@ -330,10 +356,14 @@ export function mapProviderKeysToDossierCapabilities(
   const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
+    const compact = compactProviderKey(raw);
     const def = findRegistryDefinitionByProviderKey(raw);
     if (!def) continue;
     for (const matcher of backingIndex.matchers) {
-      if (matcher.matchesStrict(def)) {
+      if (
+        matcher.matchesStrict(def) &&
+        !isSuppressedProviderBacking(compact, matcher.capability)
+      ) {
         capabilities.add(matcher.capability);
       }
     }
@@ -367,9 +397,17 @@ export function approvedProvidersShipConfigNotice(providerKeys: string[]): boole
   const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
+    const compact = compactProviderKey(raw);
     const def = findRegistryDefinitionByProviderKey(raw);
     if (!def) continue;
-    const strictBacking = backingIndex.matchers.filter((m) => m.matchesStrict(def));
+    // Same suppression as mapProviderKeysToDossierCapabilities: a capability
+    // that only strict-backs the provider via a shared infra dep is NOT
+    // injected, so its config-notice file must not be advertised here either
+    // (otherwise the F3 prompt tells the model to render a component that was
+    // never emitted → build break).
+    const strictBacking = backingIndex.matchers.filter(
+      (m) => m.matchesStrict(def) && !isSuppressedProviderBacking(compact, m.capability),
+    );
     if (backingDossierShipsConfigNotice(strictBacking)) return true;
   }
   return false;

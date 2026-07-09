@@ -56,6 +56,52 @@ export interface SelectDossiersOptions {
   configuredEnvKeys?: ReadonlySet<string>;
 }
 
+/**
+ * Dependent capabilities: selecting the KEY capability only produces a working
+ * feature if the VALUE capabilities ship alongside it. Applied by BOTH
+ * selection (`selectDossiersForRequest`) and the prompt-capability filter
+ * (`filterDossierCapabilitiesForPrompt` in orchestrate.ts) so every selection
+ * path — init, follow-up, snapshot re-selection, dep-completer — pulls the
+ * full stack.
+ *
+ * `subscriptions` ⇒ `supabase-auth` (Codex P1 #475): paddle-billing's
+ * customer-portal route requires a signed-in Supabase user; without the
+ * supabase-auth dossier the generated app has no middleware/callback/sign-in
+ * surface, so the portal path is unreachable (always 401). Collision-free by
+ * construction: paddle-billing ships no root middleware and namespaces its
+ * Supabase helpers under `lib/paddle/`.
+ */
+const DEPENDENT_CAPABILITIES: Record<string, readonly string[]> = {
+  subscriptions: ["supabase-auth"],
+};
+
+/**
+ * Returns `capabilities` plus any dependent capabilities (deduped, input order
+ * preserved, dependencies appended), then resolves hard file conflicts:
+ * `supabase-auth` and generic `auth` (clerk-auth) both emit a root
+ * `middleware.ts`, so whenever the Supabase stack is present — explicitly or
+ * via a dependency — generic `auth` is dropped (bugbot high, dossier-batch:
+ * the orchestrate prompt-filter already had this dedup, but raw callers of
+ * selectDossiersForRequest — snapshot re-selection, dossiers route — could
+ * still pass both and select two colliding root middlewares).
+ */
+export function expandDependentCapabilities(capabilities: string[]): string[] {
+  const out = [...capabilities];
+  const seen = new Set(out);
+  for (const cap of capabilities) {
+    for (const dep of DEPENDENT_CAPABILITIES[cap] ?? []) {
+      if (!seen.has(dep)) {
+        seen.add(dep);
+        out.push(dep);
+      }
+    }
+  }
+  if (seen.has("supabase-auth") && seen.has("auth")) {
+    return out.filter((cap) => cap !== "auth");
+  }
+  return out;
+}
+
 function isConfigured(
   entry: DossierEntry,
   configuredEnvKeys?: ReadonlySet<string>,
@@ -157,7 +203,7 @@ export function selectDossiersForRequest(
   opts: SelectDossiersOptions,
 ): DossierSelectionResult {
   const all = getAllDossiers();
-  const capabilities = normalizeCapabilities(opts);
+  const capabilities = expandDependentCapabilities(normalizeCapabilities(opts));
   const promptText =
     typeof opts.promptText === "string" && opts.promptText.trim().length > 0
       ? opts.promptText

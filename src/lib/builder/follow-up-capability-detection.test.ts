@@ -910,3 +910,317 @@ describe("detectFollowUpCapabilities — ai-tool-calling", () => {
     expect(result.capabilityIds).toContain("ai-chat");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// subscriptions — hard dossier promoted from legacy import (2026-07-09):
+// paddle-billing. INTENTIONALLY separate from one-off `payments` (Stripe);
+// the vocabulary vetoes keep it off one-off payment intent and off newsletter
+// "prenumerera på nyhetsbrev".
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — subscriptions", () => {
+  it("detects 'prenumerationer med paddle' as subscriptions", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till prenumerationer med paddle på prissidan",
+    );
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects 'återkommande betalning' as subscriptions (not payments)", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha återkommande betalning för medlemmarna",
+    );
+    expect(result.capabilityIds).toContain("subscriptions");
+    expect(result.capabilityIds).not.toContain("payments");
+  });
+
+  it("detects 'medlemskap' as subscriptions", () => {
+    const result = detectFollowUpCapabilities("lägg till ett medlemskap med månadsavgift");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects English 'recurring subscription billing'", () => {
+    const result = detectFollowUpCapabilities("add recurring subscription billing for members");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects an English 'subscription plan with Paddle' ask", () => {
+    const result = detectFollowUpCapabilities("we want a subscription plan with Paddle");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  // Veto: a one-off payment is `payments` (Stripe), never `subscriptions`.
+  it("does NOT detect subscriptions for a one-off payment ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till stripe-checkout för en engångsbetalning, inte prenumeration",
+    );
+    expect(result.capabilityIds).not.toContain("subscriptions");
+    expect(result.capabilityIds).toContain("payments");
+  });
+
+  // Veto: "prenumerera på nyhetsbrev" is a newsletter signup, not billing.
+  it("does NOT detect subscriptions for a newsletter signup", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett nyhetsbrev där man kan prenumerera",
+    );
+    expect(result.capabilityIds).not.toContain("subscriptions");
+    expect(result.capabilityIds).toContain("newsletter-subscribe");
+  });
+
+  // Control: a plain Stripe checkout stays `payments`, does not leak into
+  // the new `subscriptions` capability.
+  it("keeps a plain stripe-checkout ask on payments only", () => {
+    const result = detectFollowUpCapabilities("lägg till stripe-checkout på prissidan");
+    expect(result.capabilityIds).toContain("payments");
+    expect(result.capabilityIds).not.toContain("subscriptions");
+  });
+
+  // Veto (Codex P2 dossier-batch): a bare "subscribe form" is an email signup,
+  // not recurring billing — the bare English "subscribe" token was removed from
+  // the subscriptions pattern so it no longer competes with newsletter-subscribe.
+  it("does NOT detect subscriptions for a plain 'subscribe form'", () => {
+    const result = detectFollowUpCapabilities("add a subscribe form to the footer");
+    expect(result.capabilityIds).not.toContain("subscriptions");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier Fas D — capability `cms` (2026-07-09): sanity-cms (default).
+// Detection only says "the user wants a headless CMS"; Sanity is the
+// capability default in select.ts.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — cms", () => {
+  it("detects 'lägg till ett cms' as cms", () => {
+    const result = detectFollowUpCapabilities("lägg till ett cms för blogginläggen");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an explicit Sanity ask ('koppla på sanity')", () => {
+    const result = detectFollowUpCapabilities("koppla på sanity för innehållet");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects 'innehållshantering'", () => {
+    const result = detectFollowUpCapabilities(
+      "vi behöver innehållshantering för nyhetssidan",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects English 'headless CMS'", () => {
+    const result = detectFollowUpCapabilities("add a headless cms for the blog posts");
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an edit-content-without-code ask", () => {
+    const result = detectFollowUpCapabilities(
+      "gör så att vi kan redigera innehållet utan kod",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  it("detects an editors-can-publish ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att redaktörerna kan publicera nyheter själva",
+    );
+    expect(result.capabilityIds).toContain("cms");
+  });
+
+  // Veto: an explicit competing CMS choice must not inject the Sanity dossier
+  // (Chart.js precedent from dashboard-charts).
+  it("does NOT detect cms for an explicit WordPress choice", () => {
+    const result = detectFollowUpCapabilities("lägg till wordpress som cms för bloggen");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  it("does NOT detect cms for an explicit Contentful choice", () => {
+    const result = detectFollowUpCapabilities("lägg till ett cms med contentful");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // "sanity check" is an ordinary English phrase, not the Sanity provider.
+  it("does NOT detect cms for 'gör en sanity check på formuläret'", () => {
+    const result = detectFollowUpCapabilities("gör en sanity check på formuläret");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // A plain content tweak is a refine, never a CMS integration ask.
+  it("does NOT detect cms for an ordinary content edit", () => {
+    const result = detectFollowUpCapabilities("ändra innehållet i hero-sektionen");
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+
+  // Negation guard: "utan cms" suppresses the capability.
+  it("does NOT detect cms when the user explicitly forbids one", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg en enkel statisk blogg utan cms eller backend",
+    );
+    expect(result.capabilityIds).not.toContain("cms");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dossier wave 3 — capability `supabase-auth` (2026-07-08): explicit-
+// Supabase-intent auth. NON-COMPETITION CONTRACT with clerk-auth (`auth`):
+// generic login/inloggning/auth wording must keep routing to `auth`
+// (clerk-auth owns defaultForCapability), and an explicit Supabase ask must
+// route to `supabase-auth` ONLY — never both (both dossiers ship a root
+// middleware.ts; injecting both would collide).
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — supabase-auth vs auth (non-competition)", () => {
+  it("routes generic Swedish 'inloggning' to auth (clerk), NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities("vi behöver inloggning med lösenord");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("routes generic 'logga in' to auth, NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till så att användare kan logga in och se sina sidor",
+    );
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("routes generic English 'login/sign in' to auth, NOT supabase-auth", () => {
+    const result = detectFollowUpCapabilities("add a login page with sign-in and sign-up");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+  });
+
+  it("detects 'supabase login' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("lägg till supabase login på sajten");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects 'supabase auth' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("add supabase auth with magic links");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects Swedish 'supabase-inloggning' as supabase-auth, NOT auth", () => {
+    const result = detectFollowUpCapabilities("vi vill ha supabase-inloggning för medlemmar");
+    expect(result.capabilityIds).toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects '<auth cue> med/with supabase' phrasing as supabase-auth, NOT auth", () => {
+    const swedish = detectFollowUpCapabilities("lägg till inloggning med supabase");
+    expect(swedish.capabilityIds).toContain("supabase-auth");
+    expect(swedish.capabilityIds).not.toContain("auth");
+
+    const english = detectFollowUpCapabilities("add authentication with supabase");
+    expect(english.capabilityIds).toContain("supabase-auth");
+    expect(english.capabilityIds).not.toContain("auth");
+  });
+
+  it("does NOT detect supabase-auth for a Supabase DATABASE ask (no auth cue)", () => {
+    // "supabase" alone is a BaaS/database choice, not an auth ask — and the
+    // database vocabulary vetoes competing BaaS providers, so nothing fires.
+    const result = detectFollowUpCapabilities("spara bokningarna i supabase");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("suppresses supabase-auth when the user explicitly negates auth", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg en landningssida, lägg inte till supabase-inloggning eller auth",
+    );
+    expect(result.capabilityIds).not.toContain("supabase-auth");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Legacy import final wave — capability `rag-chat` (2026-07-09). The core
+// invariant: rag-chat must NOT compete with ai-chat (openai-chat owns generic
+// chatbots). Explicit retrieval intent → rag-chat ONLY (both dossiers ship an
+// /api/chat route — double-injection would collide); bare "chatbot" → ai-chat.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — rag-chat", () => {
+  // THE locked pair from the promotion brief.
+  it("routes a bare 'chatbot' to ai-chat, never rag-chat", () => {
+    const result = detectFollowUpCapabilities("lägg till en chatbot");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
+  });
+
+  it("routes 'chatbot som svarar från våra dokument' to rag-chat, not ai-chat", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en chatbot som svarar från våra dokument",
+    );
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects an explicit 'rag' ask", () => {
+    const result = detectFollowUpCapabilities("lägg till rag-chat på sajten");
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects 'kunskapsbas-chat'", () => {
+    const result = detectFollowUpCapabilities("vi vill ha en kunskapsbas-chat");
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects 'chatta med våra dokument'", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till att besökare kan chatta med våra dokument",
+    );
+    expect(result.capabilityIds).toContain("rag-chat");
+  });
+
+  it("detects 'dokument-Q&A'", () => {
+    const result = detectFollowUpCapabilities("bygg en dokument-Q&A på hjälpsidan");
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  it("detects English 'chatbot that answers from our documents' as rag-chat", () => {
+    const result = detectFollowUpCapabilities(
+      "add a chatbot that answers from our documents",
+    );
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-chat");
+  });
+
+  // Vector-store asks: the `database` capability vetoes them on purpose
+  // (its veto comment points here) — they must land on rag-chat instead.
+  it("routes a vector-store ask to rag-chat, not database", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en vektor-databas för semantisk sökning",
+    );
+    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  // Control: an explicitly simple chatbot must stay ai-chat (same guard as
+  // ai-tool-calling — "svarar på vanliga frågor" is not a retrieval clause).
+  it("does NOT detect rag-chat for an explicitly simple chatbot", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha en enkel chatbot som svarar på vanliga frågor",
+    );
+    expect(result.capabilityIds).not.toContain("rag-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  // Control: an ai-chat widget ask stays ai-chat.
+  it("does NOT detect rag-chat for 'lägg till en ai-chatt-widget'", () => {
+    const result = detectFollowUpCapabilities("lägg till en ai-chatt-widget");
+    expect(result.capabilityIds).not.toContain("rag-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  // Tool-calling and RAG stay separate capabilities: a tool-calling ask with
+  // no retrieval clause must not light up rag-chat.
+  it("does NOT detect rag-chat for a plain tool-calling ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en ai-chat med tool-calling mot vårt api",
+    );
+    expect(result.capabilityIds).toContain("ai-tool-calling");
+    expect(result.capabilityIds).not.toContain("rag-chat");
+  });
+});
