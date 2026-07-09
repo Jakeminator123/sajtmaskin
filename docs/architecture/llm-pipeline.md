@@ -106,6 +106,10 @@ sparade versionen.
 `env.example` från valda dossiers env-krav (`dossierEnvScope`), så bara relevanta
 nycklar tas med i stället för en global lista (`src/lib/gen/preview/project-env-file.ts`,
 `src/lib/gen/stream/finalize-version/preflight-phase.ts`; se `docs/ENV.md`).
+Scaffold-mergens egen placeholder-`.env.local` i filträdet identifieras via
+`PIPELINE_ENV_LOCAL_MARKER` och räknas inte som modell-emitterat "generated"-lager
+— varken i `env.example`-byggaren eller i preview-VM:ens env-merge (annars läcker
+fullkatalogen förbi scopingen vid varje regenerering).
 
 Kodankare:
 

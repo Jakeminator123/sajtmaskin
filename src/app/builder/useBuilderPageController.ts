@@ -61,6 +61,7 @@ import {
   asRecord,
   parsePreviewOverride,
   pickVersionPreviewUrl,
+  shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
   versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
@@ -1526,6 +1527,26 @@ export function useBuilderPageController() {
     }
 
     if (nextDemoUrl && nextDemoUrl !== currentPreviewUrl) {
+      // Page-tab navigation guard: within the same version + same tier-2
+      // session, `currentPreviewUrl` may carry a user-chosen subroute
+      // (`/<chatId>/<route>`) while the version row only stores the session
+      // base URL. Overwriting here snapped the iframe back to "/" right
+      // after every tab click (this effect re-runs on `currentPreviewUrl`).
+      // See `shouldPreserveUserRouteNavigation` for the ownership contract.
+      if (
+        shouldPreserveUserRouteNavigation({
+          didChangeVersion,
+          nextDemoUrl,
+          currentPreviewUrl,
+        })
+      ) {
+        // Same live session is already on screen — keep the user's route but
+        // still clear the pending flag the URL-write branch would have cleared.
+        if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
+          setPreviewPending(false);
+        }
+        return;
+      }
       setCurrentPreviewUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
       if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {

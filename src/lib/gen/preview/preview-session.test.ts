@@ -102,6 +102,64 @@ describe("startPreviewSession update path", () => {
     expect(filesJson?.[".env.local"]).toContain("NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=proj-1");
   });
 
+  it("never lets the pipeline-authored placeholder .env.local shadow user env-panel values", async () => {
+    // Provenance regression (2026-07-09): the scaffold merge's own placeholder
+    // `.env.local` (marker-headed) used to be passed as the "generated"
+    // (highest-priority) layer, so a stale placeholder like
+    // `STRIPE_SECRET_KEY=sk_test_placeholder…` OVERRODE the user's real value
+    // from the env panel in the VM. The marker file must be dropped; the
+    // user layer (mocked above as sk_from_project) must win.
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    updatePreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-existing",
+      previewUrl: "https://preview-host.example.com/chat-3",
+      startOutcome: "resumed",
+    });
+
+    await touchPreviewSessionAsync({
+      chatId: "chat-3",
+      previewSessionId: "ps-existing",
+      previewUrl: "https://preview-host.example.com/chat-3",
+      versionId: "version-old",
+      tier2Provider: "preview_host",
+    });
+
+    const pipelineEnvLocal = [
+      "# Sajtmaskin — placeholder .env.local for local development (not production secrets)",
+      "# Same keys as tier-2 preview runtime; override with real values when deploying.",
+      "",
+      "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+      "PIPELINE_ONLY_KEY=stale_pipeline_value",
+    ].join("\n");
+
+    const result = await startPreviewSession(
+      [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page(){return <main/>;}",
+          language: "typescript",
+        },
+        { path: ".env.local", content: pipelineEnvLocal, language: "text" },
+      ],
+      {
+        appProjectId: "proj-3",
+        chatId: "chat-3",
+        versionIdForSession: "version-new",
+        skipProjectScaffold: true,
+        skipRepair: true,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    const filesJson = updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson as
+      | Record<string, string>
+      | undefined;
+    expect(filesJson?.[".env.local"]).toContain("STRIPE_SECRET_KEY=sk_from_project");
+    expect(filesJson?.[".env.local"]).not.toContain("sk_test_placeholder_preview_not_real");
+    expect(filesJson?.[".env.local"]).not.toContain("PIPELINE_ONLY_KEY");
+  });
+
   it("regenerates .env.local after project scaffolding on the update path", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     buildCompleteProject.mockReturnValueOnce([
