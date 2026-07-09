@@ -115,6 +115,7 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     sourceRepoUrl: data.sourceRepoUrl,
     notes: data.notes,
     promptInstructionMode: data.promptInstructionMode,
+    mock: data.mock,
   };
   _entryCache.set(cacheKey, { mtimeMs: mtime, value: entry });
   return entry;
