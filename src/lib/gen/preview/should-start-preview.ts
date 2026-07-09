@@ -44,17 +44,23 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
   /\bTS2307\b/,
   /\bTS2552\b/,
   // Import name-resolution / collision class (all break the build).
-  // `conflicts with` and `shadows` are anchored to an import/name-resolution
-  // context word in the same sentence so verifier DESIGN copy ("hero conflicts
-  // with footer rhythm", "the card shadows are too subtle") is never
-  // misclassified as build-breaking. The context word may sit before OR after
-  // the verb ("import of X conflicts with the global", "TS2440: Import
-  // declaration conflicts with local declaration").
+  // `conflicts with`, `collides with` and `shadows` are anchored to an
+  // import/name-resolution context word in the same sentence so verifier
+  // DESIGN copy is never misclassified as build-breaking. Adjective-prone
+  // words (`global`, `name`, `type`) are deliberately NOT accepted as
+  // pre-anchors and `global` not as a bare post-anchor either — "global
+  // spacing conflicts with the mobile grid" / "the sticky header conflicts
+  // with the global nav" are layout copy (Bugbot on #481). The context word
+  // may sit before OR after the verb ("import of X conflicts with the
+  // global typed array", "TS2440: Import declaration conflicts with local
+  // declaration").
   /\bTS2440\b/,
-  /\b(?:import(?:ed)?|global|identifier|declaration|binding|name|type)\b[^.]*\bconflicts with\b/i,
-  /\bconflicts with\b[^.]*\b(?:import(?:ed)?|global|identifier|declaration|binding|name|type)\b/i,
-  /\bshadows\b[^.]*\b(?:global|import(?:ed)?|binding|declaration|module|name|built-in)\b/i,
-  /\bcollides with\b/i,
+  /\b(?:import(?:ed|s)?|identifier|declaration|binding)\b[^.]*\bconflicts with\b/i,
+  /\bconflicts with\b[^.]*\b(?:import(?:ed|s)?|identifier|declaration|binding|module|typed array)\b/i,
+  /\bconflicting\s+(?:identifier|import|declaration|binding)\b/i,
+  /\bshadows\b[^.]*\b(?:global|import(?:ed|s)?|binding|declaration|module|built-in)\b/i,
+  /\b(?:import(?:ed|s)?|identifier|declaration|binding)\b[^.]*\bcollides with\b/i,
+  /\bcollides with\b[^.]*\b(?:import(?:ed|s)?|identifier|declaration|binding|module|typed array)\b/i,
   /\bno import for\b/i,
   /\bis not imported\b/i,
 ];

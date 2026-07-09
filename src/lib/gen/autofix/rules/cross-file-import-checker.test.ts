@@ -563,6 +563,38 @@ describe("checkCrossFileImports", () => {
     expect(updated?.content ?? "").toContain("ReadableStream<Uint8Array>");
   });
 
+  it("keeps a RESOLVED global-named import when the component is actually rendered as JSX", () => {
+    // Bugbot on #481: a real custom <Error /> boundary at @/components/error
+    // must keep its import — stripping it would leave the JSX referencing the
+    // JS global Error. The strip only applies when the name is never used as
+    // JSX in the importing file (the Uint8Array incident class).
+    const errorComponent: CodeFile = {
+      path: "components/error.tsx",
+      language: "tsx",
+      content: [
+        "export default function Error({ message }: { message?: string }) {",
+        '  return <div role="alert">{message ?? "Något gick fel"}</div>;',
+        "}",
+      ].join("\n"),
+    };
+    const page: CodeFile = {
+      path: "app/checkout/page.tsx",
+      language: "tsx",
+      content: [
+        'import Error from "@/components/error";',
+        "export default function CheckoutPage() {",
+        "  return <Error message=\"Betalningen misslyckades\" />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([errorComponent, page]);
+
+    const updated = result.files.find((f) => f.path === "app/checkout/page.tsx");
+    expect(updated?.content ?? "").toContain('import Error from "@/components/error"');
+    expect(updated?.content ?? "").toContain("<Error ");
+  });
+
   it("does NOT strip a package import that reuses a global name (next/error)", () => {
     const page: CodeFile = {
       path: "app/error-page.tsx",

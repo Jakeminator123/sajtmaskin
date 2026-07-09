@@ -279,6 +279,50 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(false);
   });
 
+  // Bugbot on #481: `global` as a layout ADJECTIVE (pre-anchor) or a bare
+  // design noun (post-anchor) must not trip the build-breaking classifier.
+  it("does NOT misclassify layout copy where 'global' is an adjective", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "app/page.tsx: global spacing conflicts with the mobile grid.",
+      }),
+    ).toBe(false);
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "the sticky header conflicts with the global nav.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT misclassify unanchored 'collides with' design copy", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "design-quality",
+        detail: "the CTA color collides with the background overlay.",
+      }),
+    ).toBe(false);
+  });
+
+  it("classifies anchored collision phrasings (conflicting identifier / collides with import)", () => {
+    // Exact incident phrasing (ragevent 98): "creating a conflicting
+    // identifier likely to fail type checking".
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail:
+          "app/api/assistant/route.ts imports Uint8Array while using the global typed array, creating a conflicting identifier likely to fail type checking.",
+      }),
+    ).toBe(true);
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier",
+        detail: "Uint8Array collides with the imported binding in app/api/assistant/route.ts.",
+      }),
+    ).toBe(true);
+  });
+
   it("does NOT classify suspicious-nonstandard findings", () => {
     expect(
       isBuildBreakingFinding({

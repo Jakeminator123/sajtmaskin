@@ -400,8 +400,23 @@ function stripCollidingMissingImports(
       isLocalImport(m.moduleSpecifier) &&
       isDenylistedStubDefaultName(defaultName)
     ) {
-      toRemove.add(m.decl);
-      continue;
+      // A RESOLVED local import whose default name is actually rendered as a
+      // JSX element in this file is a real component that happens to share a
+      // global's name (e.g. a custom <Error /> boundary at
+      // `@/components/error`). Stripping it would leave the JSX referencing
+      // the JS global instead (Bugbot on #481). Only strip when the name is
+      // never used as JSX here — the incident class (`Uint8Array` in
+      // `new ReadableStream<Uint8Array>`) is plain identifier/generic usage.
+      // The lookbehind excludes generic positions (`Foo<Name>`): same anchor
+      // as jsx-checker's extractUsedComponents.
+      const jsxUsageRe = new RegExp(
+        `(?<![A-Za-z0-9_$.])<${defaultName.replace(/\$/g, "\\$")}[\\s/>]`,
+      );
+      const usedAsJsx = m.resolved && jsxUsageRe.test(content);
+      if (!usedAsJsx) {
+        toRemove.add(m.decl);
+        continue;
+      }
     }
     if (m.resolved) continue;
     if (m.names.some((n) => resolvedNames.has(n))) {
