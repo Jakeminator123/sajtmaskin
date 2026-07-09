@@ -93,14 +93,15 @@ export function useBuilderEffects({
             setCurrentPreviewUrl(n);
           }
         }
-        // Advisory from the server: the import succeeded but the preview VM
-        // never booted. Surface it instead of leaving the user with a silent,
-        // empty preview panel.
+        // Advisory from the server: the import succeeded but the server-side
+        // preview boot failed. The client still runs its own preview bootstrap
+        // (useBuilderVmPreview) once chatId lands, so this is not necessarily
+        // final — the copy says a retry happens automatically instead of
+        // claiming a definitive failure (bugbot medium på #458). Panelens
+        // empty-state äger det slutgiltiga felläget om även retryn failar.
         if (data?.previewStartFailed) {
           toast.warning(
-            typeof data?.previewStartError === "string" && data.previewStartError.trim()
-              ? data.previewStartError
-              : "Mallen importerades, men förhandsvisningen kunde inte startas just nu. Försök igen om en stund.",
+            "Mallen importerades, men förhandsvisningen startade inte på första försöket. Ett nytt försök görs automatiskt — ladda om sidan om panelen förblir tom.",
           );
         }
         if (data?.chatId && appProjectId) {
