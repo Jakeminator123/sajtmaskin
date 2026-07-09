@@ -26,6 +26,11 @@ import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
+import {
+  selectedDossiersFromOverview,
+  type DossierOverviewResponse,
+} from "@/lib/builder/dossier-overview";
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
 import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
@@ -401,8 +406,39 @@ export function ProjectEnvVarsPanel({
         .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
         .map((file) => `// File: ${file.name}\n${file.content}`)
         .join("\n\n");
+      // F3 env-panel parity (env-flow-f2-mute): scope detection to the chat's
+      // selected dossiers + lifecycle stage, exactly like the readiness route.
+      // Without this the panel treated EVERY detected integration as
+      // build-blocking (a matching dossier is what downgrades an integration to
+      // warn-only), so a landing page that merely references a provider example
+      // demanded the world. Best-effort: on failure we fall back to unscoped
+      // detection (legacy behavior).
+      let detectionOptions: {
+        selectedDossiers?: SelectedDossier[];
+        lifecycleStage?: "design" | "integrations";
+      } = {};
+      try {
+        const dossiersResponse = await fetch(
+          `${engineChatBaseUrl(chatId)}/dossiers?versionId=${encodeURIComponent(activeVersionId)}`,
+        );
+        if (loaderGenerationRef.current !== gen) return;
+        const dossiersData = (await dossiersResponse
+          .json()
+          .catch(() => null)) as DossierOverviewResponse | null;
+        if (loaderGenerationRef.current !== gen) return;
+        if (dossiersResponse.ok && dossiersData?.success) {
+          detectionOptions = {
+            selectedDossiers: selectedDossiersFromOverview(dossiersData.dossiers),
+            lifecycleStage: dossiersData.lifecycleStage,
+          };
+        }
+      } catch {
+        // Best-effort: unscoped detection is the safe legacy fallback.
+      }
       setDetectedIntegrations(
-        fileEntries.length > 0 ? detectIntegrationsFromVersionFiles(fileEntries) : [],
+        fileEntries.length > 0
+          ? detectIntegrationsFromVersionFiles(fileEntries, detectionOptions)
+          : [],
       );
       setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
       setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);

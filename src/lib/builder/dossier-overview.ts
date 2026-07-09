@@ -7,6 +7,8 @@
  * share it without pulling server-only code into the client bundle.
  */
 
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+
 export type DossierStatus =
   | "self-contained"
   | "not-built"
@@ -70,6 +72,45 @@ export interface DossierOverviewResponse {
     notBuilt: number;
   };
   dossiers: DossierOverviewEntry[];
+}
+
+/**
+ * Rebuild the minimal {@link SelectedDossier} shape the integration detector
+ * needs (`entry.envVars` per-key enforcement) from a dossiers-overview
+ * response. Lets a client surface (the F3 env panel) scope
+ * `detectIntegrationsFromVersionFiles` to the SAME dossier set the readiness
+ * route uses — so a detected integration WITHOUT a matching selected dossier
+ * downgrades to warn-only instead of demanding every env key it references.
+ *
+ * The detector reads only `entry.envVars`; the remaining `DossierEntry` fields
+ * are filled with harmless, valid placeholders (they never influence detection)
+ * so the result is a well-typed `SelectedDossier` without a cast.
+ */
+export function selectedDossiersFromOverview(
+  dossiers: DossierOverviewEntry[],
+): SelectedDossier[] {
+  return dossiers.map((dossier) => ({
+    entry: {
+      class: dossier.class,
+      id: dossier.id,
+      label: dossier.label,
+      capability: dossier.capability,
+      codeFidelity: "rewritable",
+      complexity: dossier.complexity,
+      defaultForCapability: false,
+      summary: dossier.summary,
+      dependencies: dossier.dependencies,
+      envVars: dossier.envVars.map((env) => ({
+        key: env.key,
+        required: env.required,
+        purpose: env.purpose,
+        enforcement: env.enforcement,
+      })),
+      lastVerified: dossier.lastVerified,
+    },
+    reason: "capability-match",
+    configured: dossier.configured,
+  }));
 }
 
 export interface DossierStatusDescriptor {
