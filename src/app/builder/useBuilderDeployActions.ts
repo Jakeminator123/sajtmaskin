@@ -224,16 +224,28 @@ export function useBuilderDeployActions({
           }>;
           /** Env-var sync-to-hosting failures — publish still succeeded. */
           envSyncWarnings?: string[];
+          /** The exact keys the 409 gate blocked on (R1: buildBlockingKeys). */
+          buildBlockingKeys?: string[];
         };
         if (!response.ok) {
           const base =
             data?.error || data?.message || `Deploy failed (HTTP ${response.status})`;
-          const missing =
+          // Föredra gatens egen lista (`buildBlockingKeys`) — det är exakt de
+          // nycklar 409:an blockade på. `missingEnv` kan avvika från den
+          // (bugbot medium på #461); behålls bara som fallback för äldre svar.
+          const blockedKeys =
             data?.code === "DEPLOY_MISSING_ENV" &&
+            Array.isArray(data.buildBlockingKeys) &&
+            data.buildBlockingKeys.length > 0
+              ? data.buildBlockingKeys
+              : null;
+          const missing =
+            blockedKeys ??
+            (data?.code === "DEPLOY_MISSING_ENV" &&
             Array.isArray(data.deployReadiness?.missingEnv) &&
             data.deployReadiness.missingEnv.length > 0
               ? data.deployReadiness.missingEnv
-              : null;
+              : null);
           if (chatId && activeVersionId && response.status === 409 && data?.code === "DEPLOY_MISSING_ENV") {
             void persistVersionErrorLogs(chatId, activeVersionId, [
               {
@@ -242,7 +254,7 @@ export function useBuilderDeployActions({
                 message: base,
                 meta: {
                   code: data.code,
-                  missingEnv: data.deployReadiness?.missingEnv ?? [],
+                  missingEnv: missing ?? [],
                   preDeployWarnings: data.preDeployWarnings ?? [],
                   fixesApplied: data.fixesApplied ?? [],
                 },

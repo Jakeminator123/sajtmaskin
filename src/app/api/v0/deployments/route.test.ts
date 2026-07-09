@@ -1027,5 +1027,40 @@ describe("POST /api/v0/deployments", () => {
       expect(commit).not.toHaveBeenCalled();
       expect(createVercelDeployment).not.toHaveBeenCalled();
     });
+
+    it("does NOT block an F2 (design) deploy on a placeholder-covered build key (env-flow-f2-mute)", async () => {
+      mockHappyDeployInfra();
+      // F2-regression (bugbot high på #461): i design-stadiet ligger en
+      // tier-3-placeholder-täckt build-nyckel (Stripe) i `buildBlockingKeys`
+      // (allowPlaceholdersInF3 är alltid false där) men INTE i
+      // `missingEnvKeys`. F2-gaten måste därför fortsätta blocka på
+      // `missingEnvKeys` — demo-sajter med infoskylt ska förbli publicerbara.
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "design",
+          verification_state: "pending",
+        },
+      });
+      getVersionFiles.mockResolvedValue([
+        {
+          path: "lib/pay.ts",
+          content:
+            'import Stripe from "stripe";\nexport const x = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
+        },
+      ]);
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
   });
 });
