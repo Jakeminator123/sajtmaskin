@@ -443,14 +443,17 @@ export async function runVerifierPhase(params: {
         //
         // Honesty (prod incident 2026-07-09): only report `result: "fixed"` +
         // the "rewrote the offending file(s)" lesson when the rerun is FULLY
-        // clean (0 blockers). An improved-but-not-clean rerun stays
-        // `still-failing` with an explicit "reduced N→M but did not clear
-        // them" lesson — the earlier code logged the optimistic REWRITE text
-        // even while findings still blocked, masking the residual blockers
-        // that still gate promotion.
+        // clean (0 blockers). An improved-but-not-clean rerun logs
+        // `still-failing` rows with an explicit "reduced N→M but did not
+        // clear them" lesson — and those rows are logged per RESIDUAL finding
+        // (the rerun set), not per original finding, so faults the fixer DID
+        // clear are never stamped still-failing.
         if (fixerImproved) {
           const rerunCleared = rerunBlockingCount === 0;
-          for (const finding of findings.blocking.slice(0, 5)) {
+          const rowFindings = rerunCleared
+            ? findings.blocking.slice(0, 5)
+            : verifierBlockingFindings;
+          for (const finding of rowFindings) {
             appendErrorLogEvent({
               phase: "post-gen",
               subphase: "verifier-fixer",
@@ -480,10 +483,22 @@ export async function runVerifierPhase(params: {
             });
           }
         }
+        // SSE honesty mirrors the RAG rows: `fixed` only on a fully clean
+        // rerun. `fix-partial` = strictly fewer blockers but not zero;
+        // `fix-failed` = no improvement (or rerun crashed/unverified). The
+        // UI copy generator (stream-handlers.ts) only renders start/done/
+        // error/skipped for this step, so the phase strings here feed raw
+        // SSE/observatory consumers without inventing UI states.
         onProgress?.("verifier", {
-          phase: "fixed",
+          phase:
+            rerunBlockingCount === 0
+              ? "fixed"
+              : fixerImproved
+                ? "fix-partial"
+                : "fix-failed",
           durationMs: Date.now() - verifierFixStartedAt,
           findingsBefore: findings.blocking.length,
+          findingsAfter: verifierBlockingFindings.length,
           fixerImproved,
         });
       } catch (verifierFixErr) {
