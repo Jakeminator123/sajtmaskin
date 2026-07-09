@@ -16,6 +16,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Variant-Lock | Follow-up återanvänder tidigare variant för att undvika design drift. |
 | Capability | Intentnyckel som kan mappas till dossier, t.ex. `auth`, `payments`, `visual-3d`. |
 | Dossier | Återanvändbar capability-modul med manifest, instruktioner och ev. filer (`data/dossiers/{hard,soft}/`). Injiceras i own-engine-prompten. **Inte** en galleri-mall. |
+| Mock mode (dossier) | Deklarativt `mock`-fält (`canned`/`seed`/`success`/`none`) på hard-dossiers som beskriver hur den visuella ytan fungerar i F2/preview utan riktig nyckel. Driver dossierns egen degraderingskod + en promptrad (`describeMockMode`). F2-only, aldrig persisterat/deployat. Utelämnat = `none`. |
 | Template (v0-mall) | Färdig v0-mall i galleriet (`/templates`, builderns Mallar-tab). "Templates" och "v0-mallar" är samma sak. Blob är enda källan i prod; importeras verbatim, ingen LLM vid init. Inte scaffold, inte dossier. |
 | Template-referens | Klonat upstream-repo under `data/template-references/` — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
 | BuildSpec | Runtime-policy för generationens scope, kvalitet, preview, verifiering och budget. |
@@ -24,6 +25,8 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | System Prompt | Core Rules + Dynamic Context. |
 | F2 / fidelity2 | Design/preview-läge. |
 | F3 / fidelity3 | Integration/build/deploybarhetsläge. Explicit steg. |
+| dossierEnvScope | Preflight-scope som gör `env.example` dossier-scopad: bara valda dossiers env-nycklar (+ projekt-lager) listas i stället för hela placeholder-katalogen. Skickas alltid från `preflight-phase.ts`. |
+| buildBlockingKeys | Okonfigurerade env-nycklar vars dossier-`enforcement` är `build` — den enda uppsättningen som hård-blockerar F3-publicering (deploy-409 / readiness). Efter #468 i praktiken bara `clerk-auth`s nycklar. `feature-runtime`/`warn-only`/placeholder blockerar aldrig. |
 | Preview / VM / preview_host | Live-runtime för iteration. Inte samma sak som deploy. |
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |
 | RepairGate | Den enda LLM-repair-porten i finalize när Normalize och statiska kontroller lämnar residual. |
