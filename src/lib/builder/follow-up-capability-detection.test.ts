@@ -910,3 +910,67 @@ describe("detectFollowUpCapabilities — ai-tool-calling", () => {
     expect(result.capabilityIds).toContain("ai-chat");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// subscriptions — hard dossier promoted from legacy import (2026-07-09):
+// paddle-billing. INTENTIONALLY separate from one-off `payments` (Stripe);
+// the vocabulary vetoes keep it off one-off payment intent and off newsletter
+// "prenumerera på nyhetsbrev".
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — subscriptions", () => {
+  it("detects 'prenumerationer med paddle' as subscriptions", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till prenumerationer med paddle på prissidan",
+    );
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects 'återkommande betalning' as subscriptions (not payments)", () => {
+    const result = detectFollowUpCapabilities(
+      "vi vill ha återkommande betalning för medlemmarna",
+    );
+    expect(result.capabilityIds).toContain("subscriptions");
+    expect(result.capabilityIds).not.toContain("payments");
+  });
+
+  it("detects 'medlemskap' as subscriptions", () => {
+    const result = detectFollowUpCapabilities("lägg till ett medlemskap med månadsavgift");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects English 'recurring subscription billing'", () => {
+    const result = detectFollowUpCapabilities("add recurring subscription billing for members");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  it("detects an English 'subscription plan with Paddle' ask", () => {
+    const result = detectFollowUpCapabilities("we want a subscription plan with Paddle");
+    expect(result.capabilityIds).toContain("subscriptions");
+  });
+
+  // Veto: a one-off payment is `payments` (Stripe), never `subscriptions`.
+  it("does NOT detect subscriptions for a one-off payment ask", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till stripe-checkout för en engångsbetalning, inte prenumeration",
+    );
+    expect(result.capabilityIds).not.toContain("subscriptions");
+    expect(result.capabilityIds).toContain("payments");
+  });
+
+  // Veto: "prenumerera på nyhetsbrev" is a newsletter signup, not billing.
+  it("does NOT detect subscriptions for a newsletter signup", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett nyhetsbrev där man kan prenumerera",
+    );
+    expect(result.capabilityIds).not.toContain("subscriptions");
+    expect(result.capabilityIds).toContain("newsletter-subscribe");
+  });
+
+  // Control: a plain Stripe checkout stays `payments`, does not leak into
+  // the new `subscriptions` capability.
+  it("keeps a plain stripe-checkout ask on payments only", () => {
+    const result = detectFollowUpCapabilities("lägg till stripe-checkout på prissidan");
+    expect(result.capabilityIds).toContain("payments");
+    expect(result.capabilityIds).not.toContain("subscriptions");
+  });
+});

@@ -327,4 +327,28 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("@clerk/nextjs");
     expect(result.unknownPackages).not.toContain("resend");
   });
+
+  // Dossier (capability `subscriptions`, legacy import 2026-07-09): the
+  // paddle-billing manifest deps must resolve through KNOWN_PACKAGES pins,
+  // never `latest`.
+  it("injects the paddle + supabase stack when subscriptions is selected", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions"],
+    });
+    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("paddle-billing");
+
+    const deps = resolveCapabilityDependencies(["subscriptions"]);
+    expect(deps["@paddle/paddle-node-sdk"]).toBe(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
+    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
+    for (const pkg of [
+      "@paddle/paddle-node-sdk",
+      "@supabase/ssr",
+      "@supabase/supabase-js",
+      "server-only",
+    ]) {
+      expect(deps[pkg]).not.toBe("latest");
+    }
+  });
 });
