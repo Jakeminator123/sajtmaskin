@@ -241,6 +241,72 @@ describe("MessageList", () => {
     expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
   });
 
+  it("auto-approves when the F3 marker hydrates one tick after stream-end (integrations stage)", async () => {
+    let resolveSend: (() => void) | undefined;
+    const onQuickReply = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const before: ChatMessage[] = [
+      { id: "user_f3_kick", role: "user", content: "Bygg integrationer nu." },
+    ];
+    const { rerender } = render(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming
+        lifecycleStage="integrations"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    // Stream ends before the server-persisted marker is merged into messages.
+    rerender(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={before}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="integrations"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    const after: ChatMessage[] = [
+      ...before,
+      {
+        id: "assistant_f3_marker_live",
+        role: "assistant",
+        content: "Integrationer signalerades, men modellen skrev inga kodfiler.",
+        uiParts: [
+          buildF3AwaitingInputUiPart({
+            question:
+              "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.",
+            parentVersionId: "ver_f2_parent",
+          }),
+        ],
+      },
+    ];
+    rerender(
+      <MessageList
+        chatId="chat_f3_delayed"
+        messages={after}
+        onQuickReply={onQuickReply}
+        isStreaming={false}
+        lifecycleStage="integrations"
+        versionId="ver_f2_parent"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onQuickReply).toHaveBeenCalledWith("Godkänn förslag", { planMode: false });
+    });
+    resolveSend?.();
+  });
+
   it("does NOT auto-approve a marker that arrives via staged history hydration (no stream ran)", async () => {
     // Bugbot high (#460): cached/local messages can hydrate FIRST without the
     // persisted marker, and the canonical server history (incl. an old
@@ -320,6 +386,7 @@ describe("MessageList", () => {
         messages={afterF2Stream}
         onQuickReply={onQuickReply}
         isStreaming
+        lifecycleStage="design"
       />,
     );
     rerender(
@@ -328,6 +395,7 @@ describe("MessageList", () => {
         messages={afterF2Stream}
         onQuickReply={onQuickReply}
         isStreaming={false}
+        lifecycleStage="design"
       />,
     );
 
@@ -364,6 +432,8 @@ describe("MessageList", () => {
         messages={fullServerHistory}
         onQuickReply={onQuickReply}
         isStreaming={false}
+        lifecycleStage="design"
+        versionId="ver_f2_after"
       />,
     );
 
