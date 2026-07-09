@@ -17,7 +17,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -204,6 +204,22 @@ export function PreviewPanelChrome({
     }
     setCodeMenuOpen((prev) => !prev);
   };
+
+  // The menu is portaled with fixed positioning captured once at open time, so
+  // any scroll (incl. the toolbar wrapper's own overflow-y-auto — hence capture)
+  // or resize would leave it detached from the trigger. Close it instead of
+  // letting it drift; the user reopens it in the new position.
+  useEffect(() => {
+    if (!codeMenuOpen) return;
+    const close = () => setCodeMenuOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [codeMenuOpen]);
+
   // Synchronous guard so a double Enter/click cannot dispatch two add flows
   // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
   const submitLockRef = useRef(false);
