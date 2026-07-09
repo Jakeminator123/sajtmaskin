@@ -76,27 +76,44 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Apply safe deterministic repairs to an imported repo's root `package.json`.
- * Returns the same array instance when nothing needed fixing.
+ * Strip a `packageManager: "pnpm@<11>.x.y"` pin (A#29). Corepack selects the
+ * pnpm version from this field, and pnpm 10 and older IGNORE
+ * `PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS` — the exact flag the preview host
+ * sets so native-dep build scripts (`@tailwindcss/oxide`, esbuild, sharp) are
+ * approved (`preview-host/src/runtime.js` `sanitizedEnv`). A template pinning
+ * pnpm 10 therefore crash-loops the preview with `ERR_PNPM_IGNORED_BUILDS`.
+ * Removing the pin lets corepack fall back to the VM default (pnpm 11.x), which
+ * honors the flag. pnpm 11+ pins and yarn/npm pins are left untouched — they
+ * are unaffected by this build-script-approval gap.
  */
-export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeResult {
-  const hasRootLockfile = files.some((file) => LOCKFILE_NAMES.has(file.path));
-  if (hasRootLockfile) return { files, applied: [] };
+function stripLegacyPnpmPackageManager(
+  pkg: Record<string, unknown>,
+): { pkg: Record<string, unknown>; message: string } | null {
+  const pm = pkg.packageManager;
+  if (typeof pm !== "string") return null;
+  const match = pm.trim().match(/^pnpm@(\d+)/);
+  if (!match) return null;
+  const major = Number(match[1]);
+  if (!Number.isFinite(major) || major >= 11) return null;
+  const next = { ...pkg };
+  delete next.packageManager;
+  return {
+    pkg: next,
+    message:
+      `stripped packageManager "${pm}" (pnpm ${major} ignores the preview host's ` +
+      `build-script approval → ERR_PNPM_IGNORED_BUILDS crash-loop; VM default pnpm 11 honors it)`,
+  };
+}
 
-  const pkgIndex = files.findIndex((file) => file.path === "package.json");
-  if (pkgIndex === -1) return { files, applied: [] };
-
-  let pkg: Record<string, unknown>;
-  try {
-    const parsed: unknown = JSON.parse(files[pkgIndex].content);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { files, applied: [] };
-    }
-    pkg = parsed as Record<string, unknown>;
-  } catch {
-    return { files, applied: [] };
-  }
-
+/**
+ * Inject the `motion-dom` compat override when it is provably safe (no lockfile,
+ * exact-pinned old framer-motion, no existing motion-dom management). Returns
+ * null when the repair does not apply. See the file header for the full
+ * rationale.
+ */
+function applyMotionDomOverride(
+  pkg: Record<string, unknown>,
+): { pkg: Record<string, unknown>; message: string } | null {
   const dependencies = asRecord(pkg.dependencies);
   const devDependencies = asRecord(pkg.devDependencies);
   const optionalDependencies = asRecord(pkg.optionalDependencies);
@@ -106,10 +123,10 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
   const framerPin =
     parseExactPin(dependencies["framer-motion"]) ??
     parseExactPin(devDependencies["framer-motion"]);
-  if (!framerPin) return { files, applied: [] };
+  if (!framerPin) return null;
 
   const [major, minor] = framerPin;
-  if (major !== 12 || minor >= MOTION_DOM_REMOVAL_MINOR) return { files, applied: [] };
+  if (major !== 12 || minor >= MOTION_DOM_REMOVAL_MINOR) return null;
 
   // A DIRECT motion-dom declaration in ANY dependency field blocks the repair:
   // npm throws EOVERRIDE when an override conflicts with a direct dependency
@@ -124,25 +141,64 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
     optionalDependencies["motion-dom"] !== undefined ||
     peerDependencies["motion-dom"] !== undefined ||
     overrides["motion-dom"] !== undefined;
-  if (motionDomAlreadyManaged) return { files, applied: [] };
+  if (motionDomAlreadyManaged) return null;
 
-  const nextPkg: Record<string, unknown> = {
-    ...pkg,
-    overrides: { ...overrides, "motion-dom": MOTION_DOM_COMPAT_PIN },
+  const pinnedRange =
+    (dependencies["framer-motion"] ?? devDependencies["framer-motion"]) as string;
+  return {
+    pkg: { ...pkg, overrides: { ...overrides, "motion-dom": MOTION_DOM_COMPAT_PIN } },
+    message: `motion-dom override ${MOTION_DOM_COMPAT_PIN} (framer-motion exact-pinned @ ${pinnedRange}, no lockfile)`,
   };
+}
+
+/**
+ * Apply safe deterministic repairs to an imported repo's root `package.json`.
+ * Returns the same array instance when nothing needed fixing.
+ */
+export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeResult {
+  const pkgIndex = files.findIndex((file) => file.path === "package.json");
+  if (pkgIndex === -1) return { files, applied: [] };
+
+  let pkg: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(files[pkgIndex].content);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { files, applied: [] };
+    }
+    pkg = parsed as Record<string, unknown>;
+  } catch {
+    return { files, applied: [] };
+  }
+
+  let nextPkg = pkg;
+  const applied: string[] = [];
+
+  // Repair 1 (A#29): packageManager pnpm<11 strip — runs regardless of lockfile
+  // (the build-script crash happens on frozen installs too).
+  const pmFix = stripLegacyPnpmPackageManager(nextPkg);
+  if (pmFix) {
+    nextPkg = pmFix.pkg;
+    applied.push(pmFix.message);
+  }
+
+  // Repair 2: motion-dom override — only safe without a root lockfile (a lock
+  // freezes transitive deps, so the skew can't happen and `npm ci` would reject
+  // an override the lock doesn't reflect).
+  const hasRootLockfile = files.some((file) => LOCKFILE_NAMES.has(file.path));
+  if (!hasRootLockfile) {
+    const motionFix = applyMotionDomOverride(nextPkg);
+    if (motionFix) {
+      nextPkg = motionFix.pkg;
+      applied.push(motionFix.message);
+    }
+  }
+
+  if (applied.length === 0) return { files, applied: [] };
 
   const nextFiles = [...files];
   nextFiles[pkgIndex] = {
     ...files[pkgIndex],
     content: `${JSON.stringify(nextPkg, null, 2)}\n`,
   };
-
-  const pinnedRange =
-    (dependencies["framer-motion"] ?? devDependencies["framer-motion"]) as string;
-  return {
-    files: nextFiles,
-    applied: [
-      `motion-dom override ${MOTION_DOM_COMPAT_PIN} (framer-motion exact-pinned @ ${pinnedRange}, no lockfile)`,
-    ],
-  };
+  return { files: nextFiles, applied };
 }
