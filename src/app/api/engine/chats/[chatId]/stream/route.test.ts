@@ -1034,6 +1034,53 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
+  it("does NOT prewarm when the version lookup throws (fail-open must not look like a new chat)", async () => {
+    // A transient DB/repo error makes existingVersionsForChat fall back to []
+    // (fail-open). That empty array must NOT be treated as "new chat" — an
+    // established follow-up would otherwise get its warm preview workspace
+    // restarted with the baseline skeleton.
+    getVersionsByChat.mockRejectedValueOnce(new Error("db down"));
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_current",
+          engineLatestKnownVersionId: "ver_current",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
   it("allows a deliberate edit of an older version (no 409) when the client is up to date", async () => {
     // base is an older version, but the client's known-latest matches the
     // server's preferred — i.e. the user deliberately picked an older version.

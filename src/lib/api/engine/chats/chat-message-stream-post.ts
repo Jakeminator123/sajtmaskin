@@ -271,8 +271,14 @@ export async function handleMessageStreamRequest(
       // and against transient DB errors — both should fail open (let the
       // followup through) rather than 500 the route.
       let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+      // Distinguishes a genuine empty result (new/versionless chat) from a
+      // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
+      // may prewarm: a follow-up whose version lookup merely threw must never
+      // be treated as new (that would restart its warm preview workspace).
+      let versionsQuerySucceeded = false;
       try {
         existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+        versionsQuerySucceeded = true;
       } catch {
         existingVersionsForChat = [];
       }
@@ -1040,16 +1046,6 @@ export async function handleMessageStreamRequest(
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
         }
-        // Preview prewarm (FEATURES.previewPrewarm, default OFF): only when this
-        // chat has NO versions yet (post-contract-gate first generation, or a
-        // retry of a versionless chat) — the primary init flow is prewarmed in
-        // create-chat-stream-post.ts instead. Placed AFTER auth, the 409 guard
-        // and the credit gate so a blocked/aborted request never boots a VM.
-        // Fire-and-forget + self-gating (flag / tier-2 / dedup); follow-ups
-        // (versions present) already have a warm workspace and are skipped.
-        if (existingVersionsForChat.length === 0) {
-          void prewarmPreviewSession(chatId);
-        }
         try {
           const metaPayload =
             meta && typeof meta === "object"
@@ -1782,6 +1778,20 @@ export async function handleMessageStreamRequest(
         const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
         const effectiveGeneratorThinking =
           resolvedThinking && generatorThinking.thinking;
+        // Preview prewarm (FEATURES.previewPrewarm, default OFF): fire ONLY here,
+        // where real codegen is about to start — every non-generating early
+        // return (plan mode, contract clarification, 409 guard, credit gate) is
+        // already behind us, so a plan-only/clarification-only request never
+        // boots a VM or burns the dedup slot. Gated on a CONFIRMED-empty version
+        // query (`versionsQuerySucceeded`): a follow-up whose lookup merely
+        // threw is never mistaken for a new chat (that would restart its warm
+        // workspace). The primary init flow is prewarmed in
+        // create-chat-stream-post.ts; this covers the versionless first
+        // generation (e.g. after the create-path contract-gate). Fire-and-forget
+        // + self-gating (flag / tier-2 / dedup); follow-ups are skipped.
+        if (versionsQuerySucceeded && existingVersionsForChat.length === 0) {
+          void prewarmPreviewSession(chatId);
+        }
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,
