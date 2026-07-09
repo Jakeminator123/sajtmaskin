@@ -31,6 +31,7 @@
 import {
   buildProvenanceGroupedSections,
   dossierMockPreviewEnvValue,
+  isPipelineAuthoredEnvLocal,
   resolvePreviewEnvLayers,
   type EnvVarProvenance,
   type PreviewLifecycleStage,
@@ -324,6 +325,19 @@ export async function buildProjectEnvFileContents(params: {
 
 type FileEntry = { path: string; content: string; language?: string };
 
+/**
+ * Find the `.env.local`/`.env` body the MODEL emitted, to use as the
+ * "generated" provenance layer.
+ *
+ * Pipeline-authored env files are skipped: the scaffold merge injects its own
+ * full-catalog placeholder `.env.local` into every version's file set
+ * (`project-scaffold.ts`), and on the next regeneration that file comes back
+ * through here. Treating it as "generated" laundered the entire placeholder
+ * catalog into project-specific provenance, which bypassed dossier scoping —
+ * the F3 `env.example` claimed "tier-3 stubs stripped" while listing all ~57
+ * catalog keys under "values the model set". Detection is by the exact marker
+ * header the scaffold merge writes ({@link isPipelineAuthoredEnvLocal}).
+ */
 function extractGeneratedEnvLocal(files: FileEntry[]): string | null {
   for (const file of files) {
     if (!file?.path) continue;
@@ -334,7 +348,9 @@ function extractGeneratedEnvLocal(files: FileEntry[]): string | null {
       normalized.endsWith("/.env.local") ||
       normalized.endsWith("/.env")
     ) {
-      return typeof file.content === "string" ? file.content : null;
+      if (typeof file.content !== "string") continue;
+      if (isPipelineAuthoredEnvLocal(file.content)) continue;
+      return file.content;
     }
   }
   return null;

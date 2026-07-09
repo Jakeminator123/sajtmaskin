@@ -1,7 +1,11 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter, resolveKnownVersion } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
-import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
+import {
+  loadAllPlaceholderRecordForF2,
+  formatDotenvBody,
+  PIPELINE_ENV_LOCAL_MARKER,
+} from "@/lib/gen/preview/env-local";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
 /**
@@ -404,7 +408,10 @@ const SCAFFOLD_FILES: Record<string, string> = {
   ".gitignore": GITIGNORE,
 };
 
-const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
+// First line MUST be `PIPELINE_ENV_LOCAL_MARKER` — the env.example builder
+// uses it to tell this pipeline-authored placeholder dump apart from a
+// genuinely model-emitted `.env.local` (see env-local.ts for the rationale).
+const GENERATED_ENV_LOCAL_HEADER = `${PIPELINE_ENV_LOCAL_MARKER}
 # Same keys as tier-2 preview runtime; override with real values when deploying.
 `;
 

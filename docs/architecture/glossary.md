@@ -26,6 +26,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | F2 / fidelity2 | Design/preview-läge. |
 | F3 / fidelity3 | Integration/build/deploybarhetsläge. Explicit steg. |
 | dossierEnvScope | Preflight-scope som gör `env.example` dossier-scopad: bara valda dossiers env-nycklar (+ projekt-lager) listas i stället för hela placeholder-katalogen. Skickas alltid från `preflight-phase.ts`. |
+| pipeline-authored `.env.local` | Placeholder-`.env.local` som Sajtmaskins scaffold-merge själv injicerar i genererade projekt, identifierad via markörraden `PIPELINE_ENV_LOCAL_MARKER` (`env-local.ts`). Räknas ALDRIG som modell-emitterat "generated"-lager — annars läcker hela katalogen förbi `dossierEnvScope` och skuggar användarens env-panel-värden i preview. |
 | buildBlockingKeys | Okonfigurerade env-nycklar vars dossier-`enforcement` är `build` — den enda uppsättningen som hård-blockerar F3-publicering (deploy-409 / readiness). Efter #468 i praktiken bara `clerk-auth`s nycklar. `feature-runtime`/`warn-only`/placeholder blockerar aldrig. |
 | Preview / VM / preview_host | Live-runtime för iteration. Inte samma sak som deploy. |
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |

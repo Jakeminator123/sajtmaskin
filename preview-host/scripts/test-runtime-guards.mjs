@@ -193,6 +193,28 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   );
 }
 
+// 7. Referer-fallback inputs for root-absolute Next-internal requests (TODO #4
+//    mitigation): the dev-overlay requests `/__nextjs_font/*` WITHOUT the
+//    chatId prefix. `chatIdFromReferer` must recover the chatId from the
+//    iframe page URL, and the path matcher must only trigger on Next-internal
+//    prefixes (never plain site routes, which would mask real 404s).
+{
+  const { chatIdFromReferer, NEXT_INTERNAL_ROOT_PATH_RE } = runtime.__testing;
+  check(
+    "referer with chatId prefix resolves the chatId",
+    chatIdFromReferer({
+      headers: { referer: "https://vm-fly-jakem.fly.dev/7e8f51e0-abc?t=1&inspect=1" },
+    }) === "7e8f51e0-abc",
+  );
+  check("referer without a path resolves to null", chatIdFromReferer({ headers: { referer: "https://vm-fly-jakem.fly.dev/" } }) === null);
+  check("missing referer resolves to null", chatIdFromReferer({ headers: {} }) === null);
+  check("malformed referer resolves to null", chatIdFromReferer({ headers: { referer: "not a url" } }) === null);
+  check("font path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/__nextjs_font/geist-latin.woff2"));
+  check("_next asset path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/_next/static/media/x.woff2"));
+  check("plain site route does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/om/kontakt"));
+  check("chatId-prefixed path does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/7e8f51e0-abc/__nextjs_font/geist-latin.woff2"));
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

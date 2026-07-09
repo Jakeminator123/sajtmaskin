@@ -605,9 +605,14 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
 //      inject via `SAJTMASKIN_PREVIEW_BASE_PATH`, so the <link rel="preload">
 //      points at `/{chatId}/_next/static/media/...` but the asset only exists
 //      at `/_next/static/media/...` (or vice versa).
+// CONFIRMED variant (2026-07-09, live-verified): Next DevTools/dev-overlay
+// requests ITS OWN Geist font at root-absolute `/__nextjs_font/geist-latin.woff2`
+// (no chatId prefix — basePath is ignored by the overlay), which this host
+// misread as chatId "__nextjs_font" → generic JSON 404. Mitigated via the
+// Referer-fallback in `nextInternalRefererFallback()` (proxyPreviewRequest).
 // Bandage in place: `font-import-fixer.ts` rewrites `Geist`/`Geist_Mono` to
 // `Inter`/`JetBrains_Mono` for generated layouts. Remove that bandage once the
-// root cause here is fixed.
+// remaining `_next/static/media` variant above is confirmed fixed.
 // En självkörande funktion bygger ett patch-objekt vid require-tid.
 // Innehåller: basePath (när env satt) + webpack-mutator som tar bort
 // HMR-plugin (när SAJTMASKIN_PREVIEW_DISABLE_HMR=true). Spread:as in
@@ -1916,15 +1921,64 @@ function stripInspectParam(search) {
   }
 }
 
+/**
+ * Next-internal endpoints that dev-mode serves on ROOT-ABSOLUTE paths,
+ * ignoring basePath. Concrete repro (TODO #4): the Next DevTools/dev-overlay
+ * requests its own font at `/__nextjs_font/geist-latin.woff2` — no chatId
+ * prefix — so `routeInfoFromPathname` reads `__nextjs_font` as a chatId,
+ * finds no session and the request falls through to the generic JSON 404.
+ * The asset itself is served fine at `/<chatId>/__nextjs_font/...`.
+ */
+const NEXT_INTERNAL_ROOT_PATH_RE = /^\/(?:__nextjs_[^/]+|_next)(?:\/|$)/;
+
+/** ChatId of the page the request came from (first path segment of Referer). */
+function chatIdFromReferer(req) {
+  const raw = req?.headers?.referer;
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  try {
+    const segments = new URL(raw).pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return null;
+    return decodeURIComponent(segments[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a session for root-absolute Next-internal requests by falling back
+ * to the Referer's chatId. Returns `{ info: { chatId, restPath }, state }`
+ * (restPath = the FULL original pathname, since upstream serves the asset
+ * under the chatId basePath) or `null` when the fallback does not apply.
+ * Returns the already-fetched runtime state so the caller avoids a second
+ * synchronous store read on this hot path.
+ */
+function nextInternalRefererFallback(req, pathname) {
+  if (!NEXT_INTERNAL_ROOT_PATH_RE.test(pathname)) return null;
+  const refChatId = chatIdFromReferer(req);
+  if (!refChatId) return null;
+  const refState = getRuntimeStateForChat(refChatId);
+  if (!refState.session) return null;
+  return { info: { chatId: refChatId, restPath: pathname }, state: refState };
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
-  const info = routeInfoFromPathname(pathname);
+  let info = routeInfoFromPathname(pathname);
   if (!info) return false;
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
     res.writeHead(404, { "Content-Type": "text/plain", "Connection": "close" });
     res.end("HMR disabled in tunneled preview");
     return true;
   }
-  const state = getRuntimeStateForChat(info.chatId);
+  let state = getRuntimeStateForChat(info.chatId);
+  if (!state.session) {
+    // TODO(#4) mitigation: dev-overlay/devtools assets arrive WITHOUT the
+    // chatId prefix. Recover the session from the Referer header so the
+    // request proxies to `/<chatId><originalPath>` instead of JSON-404:ing.
+    const fallback = nextInternalRefererFallback(req, pathname);
+    if (!fallback) return false;
+    info = fallback.info;
+    state = fallback.state;
+  }
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
@@ -1956,8 +2010,15 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
 }
 
 async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
-  const info = routeInfoFromPathname(pathname);
+  let info = routeInfoFromPathname(pathname);
   if (!info) return false;
+  // Mirror the HTTP path's TODO(#4) mitigation: a root-absolute Next-internal
+  // WS upgrade (no chatId prefix) would otherwise parse `_next`/`__nextjs_*`
+  // as the chatId and be dropped for the missing session.
+  if (!getRuntimeStateForChat(info.chatId).session) {
+    const fallback = nextInternalRefererFallback(req, pathname);
+    if (fallback) info = fallback.info;
+  }
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
     // Complete the handshake and hold the socket open silently. Browser
     // sees a "connected" WebSocket and stops retry-spamming the console.
@@ -2400,6 +2461,8 @@ module.exports = {
     runShellCommand,
     registerPreviewSocket,
     activePreviewSocketCount,
+    chatIdFromReferer,
+    NEXT_INTERNAL_ROOT_PATH_RE,
     setBootRunnerForTesting(runner) {
       bootRunnerForChat = runner ?? bootRuntimeForSession;
     },

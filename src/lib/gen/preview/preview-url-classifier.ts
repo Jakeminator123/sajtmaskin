@@ -101,6 +101,44 @@ export function hasTier2LivePreviewUrl(url: string | null | undefined): boolean 
   return isTier2LivePreviewUrl(url);
 }
 
+function firstPathSegment(pathname: string): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return null;
+  try {
+    return decodeURIComponent(segments[0]);
+  } catch {
+    return segments[0];
+  }
+}
+
+/**
+ * True when two tier-2 preview URLs point at the SAME preview session:
+ * same origin and same chatId (first path segment). Everything after the
+ * chatId segment is in-app navigation (`/<chatId>/<appRoute>`) — the page
+ * tabs in the preview chrome produce exactly that shape — so two URLs that
+ * agree on origin+chatId show the same running VM session, just different
+ * routes within it.
+ */
+export function isSameTier2PreviewSession(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const na = normalizePreviewUrl(a);
+  const nb = normalizePreviewUrl(b);
+  if (!na || !nb) return false;
+  if (!isTier2LivePreviewUrl(na) || !isTier2LivePreviewUrl(nb)) return false;
+  try {
+    const ua = new URL(na, PREVIEW_URL_BASE);
+    const ub = new URL(nb, PREVIEW_URL_BASE);
+    if (ua.origin !== ub.origin) return false;
+    const segA = firstPathSegment(ua.pathname);
+    const segB = firstPathSegment(ub.pathname);
+    return segA !== null && segA === segB;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveAlternatePreviewUrls(params: {
   storedLivePreviewUrl?: string | null;
 }): AlternatePreviewUrls {

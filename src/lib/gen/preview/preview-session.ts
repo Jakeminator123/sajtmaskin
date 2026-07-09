@@ -6,6 +6,7 @@ import type {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import {
   buildPreviewEnvLocalContents,
+  isPipelineAuthoredEnvLocal,
   type PreviewLifecycleStage,
 } from "@/lib/gen/preview/env-local";
 import {
@@ -392,6 +393,11 @@ async function runStartPreviewSession(
         priorEnvLocal = runtimeForUpdate[envIdx]!.content;
         runtimeForUpdate.splice(envIdx, 1);
       }
+      // The scaffold merge injects its own placeholder `.env.local`; passing
+      // that as the "generated" (= highest-priority) layer would let stale
+      // placeholder values override the user's real env-panel values in the
+      // VM. Only a genuinely model-emitted file counts as generated.
+      if (isPipelineAuthoredEnvLocal(priorEnvLocal)) priorEnvLocal = null;
       const envBody = await buildPreviewEnvLocalContents({
         appProjectId: options?.appProjectId ?? null,
         generatedEnvLocal: priorEnvLocal,
@@ -484,6 +490,10 @@ async function runStartPreviewSession(
     priorEnvLocal = runtimeFiles[envIdx]!.content;
     runtimeFiles.splice(envIdx, 1);
   }
+  // Same provenance rule as the update path above: never let the pipeline's
+  // own placeholder dump masquerade as the model-emitted "generated" layer
+  // (it would override user env-panel values in the VM).
+  if (isPipelineAuthoredEnvLocal(priorEnvLocal)) priorEnvLocal = null;
   const envBody = await buildPreviewEnvLocalContents({
     appProjectId: options?.appProjectId ?? null,
     generatedEnvLocal: priorEnvLocal,

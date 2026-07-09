@@ -1,6 +1,7 @@
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import {
   hasTier2LivePreviewUrl,
+  isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
@@ -81,4 +82,34 @@ export function shouldRetainLastGoodPreviewOnVersionChange(params: {
   if (nextDemoUrl) return false;
   if (!currentPreviewUrl) return false;
   return isTier2LivePreviewUrl(currentPreviewUrl);
+}
+
+/**
+ * Decide whether the preview-sync effect should leave `currentPreviewUrl`
+ * alone because it carries USER route navigation within the same preview
+ * session.
+ *
+ * Background: the page tabs above the iframe navigate by rewriting
+ * `currentPreviewUrl` to `/<chatId>/<appRoute>` on the same tier-2 host.
+ * The version rows in the DB only ever store the session BASE url
+ * (`/<chatId>`), and the sync effect re-runs on every `currentPreviewUrl`
+ * change (it is in the dependency set). Without this guard the effect sees
+ * `nextDemoUrl !== currentPreviewUrl` immediately after a tab click and
+ * snaps the iframe back to the home route — page tabs appear dead.
+ *
+ * Ownership contract: the DB/version sync owns WHICH SESSION is shown; the
+ * user (tabs, in-app links) owns WHICH ROUTE within that session. So we skip
+ * the overwrite only when the version did NOT change and both URLs resolve
+ * to the same tier-2 session (same origin + same chatId segment). A version
+ * change always re-syncs (fresh generation must reload the iframe).
+ */
+export function shouldPreserveUserRouteNavigation(params: {
+  didChangeVersion: boolean;
+  nextDemoUrl: string | null;
+  currentPreviewUrl: string | null;
+}): boolean {
+  const { didChangeVersion, nextDemoUrl, currentPreviewUrl } = params;
+  if (didChangeVersion) return false;
+  if (!nextDemoUrl || !currentPreviewUrl) return false;
+  return isSameTier2PreviewSession(currentPreviewUrl, nextDemoUrl);
 }

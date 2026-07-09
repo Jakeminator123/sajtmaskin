@@ -1,5 +1,6 @@
 /**
- * Merge `.env.local` for live preview (`docs/architecture/llm-pipeline.md` § Preview `.env.local`):
+ * Merge `.env.local` for live preview (canonical layering doc:
+ * `docs/contracts/env-flow.md`):
  *
  * Layered by `EnvVarProvenance` (later overrides earlier):
  *   1. **harmless** — placeholder values that are SAFE to leave fake even
@@ -14,6 +15,9 @@
  *   3. **project-preview** — stable per-project preview tokens.
  *   4. **user** — decrypted `projectEnvVars` from app project meta.
  *   5. **generated** — `.env.local` emitted by the model (highest priority).
+ *      NOT the pipeline's own scaffold-injected placeholder file — callers
+ *      must exclude it via {@link isPipelineAuthoredEnvLocal} so catalog
+ *      placeholders never shadow `user` values (see the marker docs below).
  *
  * Output is grouped by provenance so generated `.env.local` documents
  * which tier each variable belongs to.
@@ -44,6 +48,32 @@ export type PreviewLifecycleStage = "design" | "integrations";
 const FILE_HEADER = `# Sajtmaskin preview env — merged (harmless + tier3-stub → project → user → generated)
 # Placeholders keep the preview running; replace tier-3 values with real ones before F3 / publishing.
 `;
+
+/**
+ * First line of the `.env.local` that Sajtmaskin's OWN scaffold merge injects
+ * into a generated project's file set (see `project-scaffold.ts`).
+ *
+ * This marker exists to keep env provenance honest: the env.example builder
+ * treats any `.env.local` found in the version's files as the "generated"
+ * (model-authored) layer, and "generated" keys always survive dossier
+ * scoping. Without a way to tell pipeline-authored placeholder dumps apart
+ * from genuinely model-emitted env files, the full placeholder catalog fed
+ * back into every regeneration as "values the model set" and defeated the
+ * dossier-scoped env.example (F3 showed ~57 placeholder vars instead of the
+ * selected dossiers' keys).
+ *
+ * Any change here must stay in sync with existing persisted versions:
+ * detection is prefix-based on this exact first line, and older versions in
+ * the DB already carry it.
+ */
+export const PIPELINE_ENV_LOCAL_MARKER =
+  "# Sajtmaskin — placeholder .env.local for local development (not production secrets)";
+
+/** True when an env-file body was authored by Sajtmaskin's pipeline (not the model/user). */
+export function isPipelineAuthoredEnvLocal(content: string | null | undefined): boolean {
+  if (typeof content !== "string") return false;
+  return content.trimStart().startsWith(PIPELINE_ENV_LOCAL_MARKER);
+}
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
   harmless:

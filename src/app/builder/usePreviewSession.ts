@@ -4,7 +4,11 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
-import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
+import {
+  isSameTier2PreviewSession,
+  isTier2LivePreviewUrl,
+  normalizePreviewUrl,
+} from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 
 export type UsePreviewSessionParams = {
@@ -276,7 +280,12 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
       if (serverUrl) {
         const cur = normalizePreviewUrl(currentPreviewUrl);
         const next = normalizePreviewUrl(serverUrl);
-        if (next && next !== cur) {
+        // Same ownership contract as the version-sync effect (see
+        // `shouldPreserveUserRouteNavigation`): the server row only stores the
+        // session BASE url, while `cur` may carry a user-chosen page-tab
+        // subroute. Resync only when the SESSION actually differs — otherwise
+        // this recovery path snapped the iframe back to "/" too.
+        if (next && next !== cur && !isSameTier2PreviewSession(cur, next)) {
           logPreviewLifecycleTelemetry({
             kind: "preview_url_resync",
             chatId,

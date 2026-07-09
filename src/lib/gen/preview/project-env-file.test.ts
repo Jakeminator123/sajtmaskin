@@ -9,6 +9,7 @@ import {
   injectProjectEnvFileIntoFilesJson,
   PROJECT_ENV_FILE_PATH,
 } from "./project-env-file";
+import { PIPELINE_ENV_LOCAL_MARKER } from "./env-local";
 
 describe("buildProjectEnvFileContents", () => {
   // NOTE (scope-env-example wave 1): these two tests exercise the LEGACY
@@ -138,6 +139,84 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
     expect(envFile?.content).toContain("MY_GEN_KEY=from_model");
     expect(envFile?.content).toContain("# ── Värden modellen själv satte");
+  });
+
+  it("skips the pipeline-authored placeholder .env.local as the generated layer (F3)", async () => {
+    // Regression pin (prod 2026-07-09, chat 7e8f51e0…): the scaffold merge
+    // injects a FULL-catalog placeholder `.env.local` into every version's
+    // files. On the next regeneration that file must NOT be read back as the
+    // "generated" (model-authored) layer — "generated" keys always survive
+    // dossier scoping, so the entire catalog laundered itself into the
+    // F3 env.example ("Tier-3-stubbar är bortskalade" + 57 placeholder rows).
+    const pipelineEnvLocal = [
+      PIPELINE_ENV_LOCAL_MARKER,
+      "# Same keys as tier-2 preview runtime; override with real values when deploying.",
+      "",
+      "CONTENTFUL_ACCESS_TOKEN=placeholder_cda_token",
+      "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+    ].join("\n");
+    const filesJson = JSON.stringify([
+      { path: "app/page.tsx", content: "x" },
+      { path: ".env.local", content: pipelineEnvLocal },
+    ]);
+    const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
+      appProjectId: "proj_test",
+      lifecycleStage: "integrations",
+      dossierEnvScope: {
+        envVars: [{ key: "OPENAI_API_KEY", purpose: "OpenAI API key" }],
+      },
+    });
+    const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
+    const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
+    expect(envFile?.content).toContain("OPENAI_API_KEY");
+    // The catalog keys from the pipeline-authored file must NOT leak through
+    // as "model-set" values.
+    expect(envFile?.content).not.toContain("CONTENTFUL_ACCESS_TOKEN=");
+    expect(envFile?.content).not.toContain("STRIPE_SECRET_KEY=");
+    expect(envFile?.content).not.toContain("# ── Värden modellen själv satte");
+  });
+
+  it("skips the pipeline-authored placeholder .env.local in F2 too (dossier-scoped)", async () => {
+    const pipelineEnvLocal = [
+      PIPELINE_ENV_LOCAL_MARKER,
+      "CONTENTFUL_ACCESS_TOKEN=placeholder_cda_token",
+    ].join("\n");
+    const filesJson = JSON.stringify([{ path: ".env.local", content: pipelineEnvLocal }]);
+    const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
+      appProjectId: "proj_test",
+      lifecycleStage: "design",
+      dossierEnvScope: { envVars: [] },
+    });
+    const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
+    const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
+    // Not as a VALUE line under the generated section. (An F2 "detected
+    // integrations" comment `# KEY=` would be a different, commented shape.)
+    expect(envFile?.content).not.toContain("\nCONTENTFUL_ACCESS_TOKEN=");
+    expect(envFile?.content).not.toContain("# ── Värden modellen själv satte");
+  });
+
+  it("falls through to a model-emitted env file when the pipeline .env.local is skipped", async () => {
+    // `.env.local` carries the pipeline marker (skipped); the model's own
+    // `.env` must still be picked up as the generated layer.
+    const pipelineEnvLocal = [
+      PIPELINE_ENV_LOCAL_MARKER,
+      "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real",
+    ].join("\n");
+    const filesJson = JSON.stringify([
+      { path: ".env.local", content: pipelineEnvLocal },
+      { path: ".env", content: "MY_GEN_KEY=from_model" },
+    ]);
+    const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
+      appProjectId: "proj_test",
+      // F3 so the F2 "detected integrations" comment block (which may echo
+      // key names from project files) stays out of the assertion surface.
+      lifecycleStage: "integrations",
+      dossierEnvScope: { envVars: [] },
+    });
+    const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
+    const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
+    expect(envFile?.content).toContain("MY_GEN_KEY=from_model");
+    expect(envFile?.content).not.toContain("STRIPE_SECRET_KEY=");
   });
 
   it("returns input unchanged if filesJson is invalid", async () => {
