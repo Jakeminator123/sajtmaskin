@@ -34,6 +34,7 @@
 
 - Start the app with `ABLY_API_KEY` set.
 - Request `/api/ably/auth`; it should return an Ably token request JSON payload, not the raw API key.
+- With `ABLY_API_KEY` unset OR a preview placeholder (values containing `placeholder`/`not_real`): the route returns `503 { error: "realtime-not-configured" }` — never a raw 500 and never a real Ably call with a fabricated key. Realtime surfaces should render their "unavailable" connection state (see UX rules) as the discreet not-configured fallback.
 - Render a client component that calls `getAblyClient()` and subscribes to a test channel.
 - Publish a test event from trusted server-side code and confirm the browser updates without refresh.
 - For presence, open two tabs with different user ids and confirm enter/leave events update.
