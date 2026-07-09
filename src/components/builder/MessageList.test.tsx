@@ -47,7 +47,9 @@ describe("MessageList", () => {
     });
     expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
-    expect(screen.queryByText("Svar krävs för att fortsätta")).toBeNull();
+    // No blocking dialog exists anywhere in this component anymore (owner
+    // beslut 2026-07-09: "Svar krävs" är alltid inline, aldrig en overlay).
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows the actual awaiting-input question without synthetic approval buttons", async () => {
@@ -73,8 +75,11 @@ describe("MessageList", () => {
 
     render(<MessageList chatId="chat_1" messages={messages} />);
 
+    // Rendered inline (no dialog) — the amber "Svar krävs" heading anchors
+    // the question directly in the chat flow. (Matches twice: the inline
+    // heading AND the floating scroll-to anchor button — both by design.)
     await waitFor(() => {
-      expect(screen.getByText("Svar krävs för att fortsätta")).toBeTruthy();
+      expect(screen.getAllByText("Svar krävs").length).toBeGreaterThan(0);
     });
 
     expect(
@@ -85,9 +90,10 @@ describe("MessageList", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("sends the selected quick reply from the awaiting-input dialog", async () => {
+  it("sends the selected quick reply from the inline awaiting-input block", async () => {
     const onQuickReply = vi.fn(async () => {});
     const messages: ChatMessage[] = [
       {

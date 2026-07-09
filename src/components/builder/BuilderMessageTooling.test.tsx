@@ -150,6 +150,47 @@ describe("StructuredToolParts", () => {
     expect(screen.queryByText("Integration: Integration")).toBeNull();
   });
 
+  it("keeps its own quick-reply buttons visible even when a pendingReply exists elsewhere (owner beslut 2026-07-09: no blocking dialog anymore)", () => {
+    // Before the fix, `!pendingReply &&` hid these buttons whenever ANY
+    // pendingReply existed (they only worked via the now-removed dialog).
+    // Passing a non-null pendingReply here locks in that the guard is gone.
+    const onQuickReply = vi.fn(async () => true);
+    render(
+      <CompactToolParts
+        messageId="msg_guard_regression"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              toolName: "Integration suggestion",
+              toolCallId: "integration:stripe_guard",
+              state: "approval-requested",
+              output: {
+                question: "Vill du konfigurera Stripe nu?",
+                options: ["Godkänn förslag", "Avvisa förslag"],
+                provider: "stripe",
+                name: "Stripe",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={{
+          key: "other_message:0:Some other question",
+          messageId: "other_message",
+          question: "Some other question",
+          options: ["Ja", "Nej"],
+        }}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={onQuickReply}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Godkänn förslag" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
+  });
+
   it("keeps integration/env tool parts actionable in compact mode", () => {
     // Ägarbeslut 2026-07-03: integrations- och env-frågor ska fortsätta
     // visas inline i chatten (compact cards), inte flyttas till plan-dialogen.
