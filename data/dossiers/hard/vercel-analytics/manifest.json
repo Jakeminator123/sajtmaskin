@@ -6,7 +6,7 @@
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": true,
-  "summary": "Page-view + Core Web Vitals tracking via Vercel Analytics. Adds the <Analytics /> + <SpeedInsights /> components to the root layout. Zero configuration when deployed on Vercel — the runtime injects the project token automatically. Self-disables in development; safe to keep mounted in any environment.",
+  "summary": "Besöksstatistik: sidvisningar och Core Web Vitals för den publicerade sajten (implementeras med @vercel/analytics). Lägger till komponenterna <Analytics /> + <SpeedInsights /> i root-layouten — noll konfiguration, hostingen injicerar projekttoken automatiskt vid publicering. Självinaktiveras i utvecklingsläge och är säker att ha monterad i alla miljöer.",
   "envVars": [],
   "dependencies": ["@vercel/analytics", "@vercel/speed-insights"],
   "files": [
