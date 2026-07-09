@@ -1,0 +1,1033 @@
+{
+  "timestamp": "2026-07-08T23:03:46.340Z",
+  "results": [
+    {
+      "id": "landing_01",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "landing_02",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "landing-page",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "landing_03",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "landing_04",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "landing_05",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "saas_01",
+      "expected": "saas-landing",
+      "keywordTop1": "saas-landing",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "saas-landing",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "saas_02",
+      "expected": "saas-landing",
+      "keywordTop1": "saas-landing",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "ecommerce",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "saas_03",
+      "expected": "saas-landing",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "ecommerce",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "keyword",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "saas_04",
+      "expected": "saas-landing",
+      "keywordTop1": "saas-landing",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "auth-pages",
+        "saas-landing",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "saas_05",
+      "expected": "saas-landing",
+      "keywordTop1": "saas-landing",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "saas-landing",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "portfolio_01",
+      "expected": "portfolio",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "portfolio",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "portfolio_02",
+      "expected": "portfolio",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "portfolio",
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "portfolio_03",
+      "expected": "portfolio",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "portfolio",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "portfolio_04",
+      "expected": "portfolio",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "portfolio"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "portfolio_05",
+      "expected": "portfolio",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "portfolio",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "blog_01",
+      "expected": "blog",
+      "keywordTop1": "blog",
+      "semanticTop1": "blog",
+      "semanticTop3": [
+        "auth-pages",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "blog_02",
+      "expected": "blog",
+      "keywordTop1": "blog",
+      "semanticTop1": "blog",
+      "semanticTop3": [
+        "blog",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "blog_03",
+      "expected": "blog",
+      "keywordTop1": "blog",
+      "semanticTop1": "blog",
+      "semanticTop3": [
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "blog_04",
+      "expected": "blog",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "blog_05",
+      "expected": "blog",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "dashboard_01",
+      "expected": "dashboard",
+      "keywordTop1": "dashboard",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "dashboard",
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "dashboard_02",
+      "expected": "dashboard",
+      "keywordTop1": "dashboard",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "app-shell",
+        "dashboard"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "dashboard_03",
+      "expected": "dashboard",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "app-shell",
+        "ecommerce",
+        "dashboard"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "dashboard_04",
+      "expected": "dashboard",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "dashboard",
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "dashboard_05",
+      "expected": "dashboard",
+      "keywordTop1": "dashboard",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "dashboard",
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "appshell_01",
+      "expected": "app-shell",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "app-shell",
+      "semanticTop3": [
+        "app-shell",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "appshell_02",
+      "expected": "app-shell",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "dashboard",
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "appshell_03",
+      "expected": "app-shell",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "app-shell",
+      "semanticTop3": [
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "appshell_04",
+      "expected": "app-shell",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "app-shell",
+      "semanticTop3": [
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "appshell_05",
+      "expected": "app-shell",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "app-shell",
+        "dashboard",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "auth_01",
+      "expected": "auth-pages",
+      "keywordTop1": "auth-pages",
+      "semanticTop1": "auth-pages",
+      "semanticTop3": [
+        "auth-pages"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "auth_02",
+      "expected": "auth-pages",
+      "keywordTop1": "auth-pages",
+      "semanticTop1": "auth-pages",
+      "semanticTop3": [
+        "auth-pages"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "auth_03",
+      "expected": "auth-pages",
+      "keywordTop1": "auth-pages",
+      "semanticTop1": "auth-pages",
+      "semanticTop3": [
+        "auth-pages",
+        "app-shell",
+        "saas-landing"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "auth_04",
+      "expected": "auth-pages",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "auth-pages",
+      "semanticTop3": [
+        "auth-pages"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "ecom_01",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "ecom_02",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "ecom_03",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "ecom_04",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "ecom_05",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "photoshop_01",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "photoshop_02",
+      "expected": "ecommerce",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "ecommerce",
+        "portfolio"
+      ],
+      "keywordTop1Correct": false,
+      "semanticTop1Correct": false,
+      "semanticTop3Correct": true,
+      "semanticMethod": "keyword",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "photoshop_03",
+      "expected": "portfolio",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce",
+        "portfolio",
+        "landing-page"
+      ],
+      "keywordTop1Correct": false,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "photoshop_04",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "hospitality_01",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "hospitality_02",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "hospitality_03",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "hospitality_04",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "hospitality_05",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "portfolio",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "default",
+      "semanticConfidence": "low",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "contentsite_01",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "contentsite_02",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "contentsite_03",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "contentsite_04",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "saas-landing",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "contentsite_05",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "base_01",
+      "expected": "base-nextjs",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "base-nextjs",
+      "semanticTop3": [
+        "base-nextjs",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "base_02",
+      "expected": "base-nextjs",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "base-nextjs",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "default",
+      "semanticConfidence": "low",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "base_03",
+      "expected": "base-nextjs",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "base-nextjs",
+      "semanticTop3": [
+        "base-nextjs",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "base_04",
+      "expected": "base-nextjs",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "base-nextjs",
+      "semanticTop3": [
+        "base-nextjs",
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_01",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_02",
+      "expected": "saas-landing",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "saas-landing",
+      "semanticTop3": [
+        "saas-landing",
+        "portfolio"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_03",
+      "expected": "ecommerce",
+      "keywordTop1": "portfolio",
+      "semanticTop1": "portfolio",
+      "semanticTop3": [
+        "ecommerce",
+        "portfolio"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_04",
+      "expected": "blog",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page",
+        "blog"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "default",
+      "semanticConfidence": "low",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_05",
+      "expected": "dashboard",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "dashboard",
+      "semanticTop3": [
+        "app-shell",
+        "dashboard"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_06",
+      "expected": "auth-pages",
+      "keywordTop1": "app-shell",
+      "semanticTop1": "auth-pages",
+      "semanticTop3": [
+        "auth-pages",
+        "app-shell"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_07",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "cross_08",
+      "expected": "landing-page",
+      "keywordTop1": "landing-page",
+      "semanticTop1": "landing-page",
+      "semanticTop3": [
+        "landing-page"
+      ],
+      "keywordTop1Correct": true,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "agreement",
+      "semanticConfidence": "high",
+      "semanticUnavailableReason": null
+    }
+  ],
+  "summary": {
+    "total": 65,
+    "keywordTop1Accuracy": 96.92,
+    "semanticTop1Accuracy": 98.46,
+    "semanticTop3Accuracy": 100,
+    "genericFallbackRate": 4.62,
+    "semanticUnavailableRate": 0,
+    "appAuthMisclassificationRate": 0,
+    "previewWhiteRate": null
+  }
+}
