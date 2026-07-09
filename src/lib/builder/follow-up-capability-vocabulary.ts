@@ -143,7 +143,12 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe(?:-?betalning|-?checkout)?|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:checkout|kassa|kortbetalning|kortköp|kortbetala|kreditkort)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow|subscription[-\s]?billing|recurring[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
+      // Recurring terms (subscription-billing / recurring-billing /
+      // prenumerationsbetalning) were MOVED to the `subscriptions` entry below
+      // (bugbot high on the dossier-batch PR): keeping them here made a
+      // recurring ask match BOTH capabilities and collide stripe-checkout with
+      // paddle-billing. One-off payment vocabulary only.
+      /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])betala\s+med\s+(?:kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])k(?:ö|o)p(?:a)?\s+med\s+(?:kort|kreditkort|stripe|klarna|swish|checkout)(?![\p{L}\p{N}_])/iu,
     ],

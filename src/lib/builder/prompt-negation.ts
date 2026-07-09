@@ -57,12 +57,21 @@ const CMS_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:cms|innehållshantering(?:ssystem)?|content[-\s]?management)(?![\p{L}\p{N}_])/iu,
 ];
 
+// Dossier-batch (bugbot medium): "utan prenumerationer/medlemskap" must
+// suppress the `subscriptions` capability — PAYMENT_TERMS has no Swedish
+// subscription nouns, so recurring asks were un-negatable. Generic nouns only
+// (provider "paddle" is handled by vocabulary precision, not negation).
+const SUBSCRIPTION_TERMS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|abonnemang(?:et|en)?|medlemskap(?:et|en)?|subscription(?:s)?|membership)(?![\p{L}\p{N}_])/iu,
+];
+
 const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   auth: AUTH_TERMS,
   // Dossier wave 3: "lägg inte till (supabase-)inloggning" must suppress the
   // Supabase capability the same way it suppresses generic auth.
   "supabase-auth": AUTH_TERMS,
   payments: PAYMENT_TERMS,
+  subscriptions: SUBSCRIPTION_TERMS,
   "contact-form": BACKEND_TERMS,
   "newsletter-subscribe": BACKEND_TERMS,
   // Dossier wave 2: "utan databas/backend" suppresses the capability, but a

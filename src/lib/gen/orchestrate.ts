@@ -421,6 +421,15 @@ export function filterDossierCapabilitiesForPrompt(params: {
   if (result.includes("supabase-auth") && result.includes("auth")) {
     result = result.filter((capability) => capability !== "auth");
   }
+  // Same explicit-provider rule for money flows (bugbot high, dossier-batch):
+  // a recurring/subscriptions ask can drag generic `payments` along (brief,
+  // inferred `needsPayments`, or a prompt that mentions both "prenumeration"
+  // and "betala med kort"). stripe-checkout (payments) and paddle-billing
+  // (subscriptions) both ship checkout CTAs + route wiring — injecting both
+  // collides. The explicit recurring intent wins: drop generic `payments`.
+  if (result.includes("subscriptions") && result.includes("payments")) {
+    result = result.filter((capability) => capability !== "payments");
+  }
   return result;
 }
 
