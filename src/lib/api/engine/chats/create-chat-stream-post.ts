@@ -76,7 +76,10 @@ import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
-import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
+import {
+  createPreviewPrewarmLeaseKey,
+  prewarmPreviewSession,
+} from "@/lib/gen/preview/preview-prewarm";
 import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
@@ -187,6 +190,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       if (!creditCheck.ok) {
         return attachSessionCookie(creditCheck.response);
       }
+      // `prepareCredits` is only an eligibility check. Prewarm is deliberately
+      // lease-bound by the canonical rate-limit subject (verified user, else
+      // trusted IP; never the rotatable guest cookie), so an aborted stream
+      // cannot repeatedly consume host install capacity before settlement.
+      const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
+        userId: creditCheck.user?.id,
+      });
       optimizedMessage = await appendHydratedTextAttachmentExcerpts(
         optimizedMessage,
         requestAttachments,
@@ -888,7 +898,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // never blocks or throws. Only the own-engine generation path reaches
         // here (plan-mode and the contract-clarification gate return earlier and
         // do not generate a site yet). See src/lib/gen/preview/preview-prewarm.ts.
-        void prewarmPreviewSession(engineChat.id);
+        void prewarmPreviewSession(engineChat.id, { leaseKey: prewarmLeaseKey });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,

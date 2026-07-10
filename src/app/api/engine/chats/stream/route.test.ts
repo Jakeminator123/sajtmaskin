@@ -25,6 +25,7 @@ const createPromptLog = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const getUnsignaledDetectedIntegrations = vi.hoisted(() => vi.fn());
 const prewarmPreviewSession = vi.hoisted(() => vi.fn());
+const createPreviewPrewarmLeaseKey = vi.hoisted(() => vi.fn(() => "a".repeat(64)));
 const buildContractClarificationQuestion = vi.hoisted(() =>
   vi.fn<() => Record<string, unknown> | null>(() => null),
 );
@@ -38,6 +39,7 @@ const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
 const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
+  createPreviewPrewarmLeaseKey,
   prewarmPreviewSession,
 }));
 
@@ -694,7 +696,33 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // Preview prewarm is fired fire-and-forget with the freshly created chat id
     // on the primary init/create path (self-gating on flag/tier-2/dedup inside
     // the module; default OFF makes it a no-op).
-    expect(prewarmPreviewSession).toHaveBeenCalledWith("engine_chat_1");
+    expect(prewarmPreviewSession).toHaveBeenCalledWith(
+      "engine_chat_1",
+      expect.objectContaining({ leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+    );
+  });
+
+  it("does NOT prewarm when create credits are rejected", async () => {
+    prepareCredits.mockResolvedValueOnce({
+      ok: false,
+      cost: 10,
+      response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Build a simple site" }),
+      }),
+    );
+
+    expect(response.status).toBe(402);
+    expect(createChat).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("does NOT prewarm a create/init plan-mode request", async () => {

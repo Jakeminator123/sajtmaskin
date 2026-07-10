@@ -395,9 +395,11 @@ export const FEATURES = {
    * the finalize boot reuses the warm
    * `node_modules` and skips install (fingerprint match in
    * `preview-host/src/runtime.js`); when they differ, install still runs at
-   * finalize. Default OFF: merging is a no-op until the env flag is set —
-   * and the net win must be MEASURED on the preview host before enabling
-   * (fingerprint-match rate + boot serialisation). Follow-ups, plan-mode and
+   * finalize. Requires configured host base URL + API key for the canonical
+   * subject lease HMAC. The host accepts only an unclaimed chat, hides the
+   * skeleton/refuses WS until real readiness, and retains cooldown on boot
+   * failure. Default OFF: deploy and verify host before app/activation, then
+   * measure fingerprint-match + boot serialisation. Follow-ups, plan-mode and
    * contract-clarification runs are never prewarmed.
    */
   previewPrewarm: isAffirmativeEnvValue(env.SAJTMASKIN_PREVIEW_PREWARM),

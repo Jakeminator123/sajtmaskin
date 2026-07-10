@@ -221,6 +221,71 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
 - `GET /preview/logs/:previewSessionId`
 
+#### Prewarm start contract (`POST /preview/session/start`)
+
+Ordinary finalize starts keep the existing payload. A prewarm start additionally
+sends:
+
+- `prewarm: true`
+- `prewarmLeaseKey`: 64 lowercase hex characters; an API-keyed HMAC of the
+  app's canonical rate-limit subject. Verified users use `userId`; guests use
+  the trusted-IP identity from `getClientId()`, never the rotatable session
+  cookie. Raw IDs/IPs are not sent to preview-host. If
+  `SAJTMASKIN_PREVIEW_HOST_API_KEY` is absent, optional prewarm is skipped;
+  ordinary local/non-prewarm preview remains unchanged.
+
+Host ownership and traffic rules:
+
+- Prewarm may only create an unclaimed `chatId`. A real start/update/patch flips
+  ownership under the persistent store lock; delayed prewarm then returns
+  `409 prewarm_superseded` and cannot replace `versionId` or `filesJson`.
+- `prewarmReplacementPending` is internal host state. It keeps HTTP on the
+  host-owned auto-refresh starting page and refuses **all** WebSocket upgrades
+  from prewarm creation until the first real replacement passes readiness. It is
+  cleared only by that successful, version-matched boot. Ordinary non-prewarm
+  restarts continue serving their last-good runtime while a replacement queues.
+  Host status reports `running:false` while either prewarm hold is active.
+- If a real replacement fails (`prewarmReplacementPending && status:error`),
+  HTTP returns a stable, non-refreshing host error page, all WebSockets remain
+  refused, and neither proxy nor status polling auto-requeues. A subsequent
+  explicit real start/update/patch sets `starting` and may recover.
+- An idempotent prewarm returns the existing session. It restart-recovers only
+  a missing/dead runtime through the per-chat dedup queue; a healthy running or
+  already-booting prewarm is not restarted. Persisted `status: "starting"`
+  alone is not considered an in-flight boot after host restart.
+
+Pre-settlement resource lease:
+
+- One active prewarm lease is allowed per canonical subject. `429
+  prewarm_rate_limited` causes no automatic retry/log loop; a short five-second
+  process cooldown absorbs immediate duplicates, but the chat is not pinned in
+  normal dedup. A later explicit user retry may succeed after lease release/expiry.
+- The lease is released when the same chat is claimed by real
+  start/update/patch, destroyed, cleaned up, expired, or reset. A prewarm boot
+  failure **retains** the cooldown lease to prevent sequential install spray;
+  same-chat idempotent recovery remains allowed while another chat is throttled.
+  Hibernate is reversible and also retains the cooldown until destroy/expiry.
+  Normal/background cleanup prunes expired leases; `POST /admin/destroy-all`
+  resets them. The normalized map has a fixed reviewed code cap of 4096 (no
+  operator env). `/admin/storage` exposes only active count, earliest expiry and
+  cap—never lease keys or subjects.
+- This is a host resource lease, not a new billing reservation. Existing credit
+  settlement/refund semantics remain unchanged.
+
+By-design limits:
+
+- One active prewarm per canonical user/IP means a parallel second chat simply
+  uses normal cold finalize; generation itself is never blocked.
+- IP rotation cannot be fully prevented. Missing trusted IP becomes
+  `ip:unknown`, which safely groups/throttles such guests.
+- Multi-machine locking is future topology work; the current authoritative
+  store lock matches the deployed single-host topology.
+
+Deployment order is host first: deploy preview-host with this contract, verify
+`npm run check`, `npm run test:guards`, `npm run test:proxy-contract`, and smoke;
+only then may an app deployment containing prewarm calls be considered. The app
+flag remains default OFF and must not be activated before the host is deployed.
+
 #### Fast Edit Lane patch route (`POST /preview/session/patch`)
 
 Used for trivial, exact edits (file-tree / code-view / inspector) so a single
@@ -251,7 +316,9 @@ Response adds two fields on top of the standard session response:
   — or an in-flight boot/restart — forced a full boot), or `booted` (runtime was
   not running and a boot was queued).
 - `patchReason`: stable reason string or `null` (e.g. `structural_change`,
-  `runtime_not_running`, `runtime_booting`).
+  `runtime_not_running`, `runtime_booting`, `prewarm_replacement`). The last
+  value means a real patch claimed a prewarm session and therefore forced a
+  full readiness-gated restart rather than hot-patching the skeleton.
 
 Error / edge responses:
 

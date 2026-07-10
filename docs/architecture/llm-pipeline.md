@@ -58,7 +58,16 @@ riktiga codegen-körning samtidigt väcka preview-hosten och starta en
 baseline-installation. Det är en best-effort latensoptimering, inte en
 preview-klar-signal: ingen preview-URL eller app-side sessionpekare publiceras
 före finalize. Plan-mode, kontraktsklargörande och vanliga follow-ups hoppar över
-förvärmningen. Flaggan är default av; se `docs/ENV.md`.
+förvärmningen. Hosten accepterar prewarm endast för en oägd chat och en aktiv
+kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför aldrig nedgradera
+en riktig version. Lease-HMAC kräver konfigurerad preview-host API-nyckel; annars
+skippar appen optional prewarm. Skelettet hålls bakom hostens auto-refreshande
+HTTP-sida och alla WS-upgrades nekas tills riktig replacement passerat readiness.
+Misslyckat övertagande ger stabil 503 tills explicit retry; bootfel behåller
+lease-cooldown mot install-spray. Normal credit commit/refund ändras inte.
+Preview-host måste deployas och verifieras före appen; flaggan är default av och
+aktiveras inte av denna ändring. Se `docs/ENV.md` och
+`docs/schemas/preview-session-contract.md`.
 
 Kodankare:
 

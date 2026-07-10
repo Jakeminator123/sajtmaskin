@@ -181,7 +181,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
   /** A7-2 (BUG-SWARM N#1): when affirmative, the cross-file import checker refuses to fabricate a silent null-render stub for a dossier-exposed import; the unresolved import degrades/blocks instead. Default off — flipping is a separate decision. */
   SAJTMASKIN_REFUSE_DOSSIER_STUBS: z.string().optional(),
-  /** Preview prewarm: when affirmative, a fire-and-forget preview-host boot with the baseline scaffold skeleton is started at the beginning of a NEW chat's generation, so the VM wakes and `npm install` warms up during LLM streaming. When the finalize package.json/lockfiles match the baseline (common case) the finalize boot reuses node_modules and skips install; otherwise install still runs. Best-effort, default off, measure before enabling. Read via `FEATURES.previewPrewarm`. */
+  /** Preview prewarm: default OFF. Requires preview-host base URL + API key (keyed lease HMAC); otherwise optional prewarm skips. Host ownership hides the skeleton/refuses WS, and the canonical subject cooldown survives boot failure. Deploy/verify host before app rollout or activation. Read via `FEATURES.previewPrewarm`. */
   SAJTMASKIN_PREVIEW_PREWARM: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),

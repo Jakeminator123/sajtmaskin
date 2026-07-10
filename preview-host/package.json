@@ -9,10 +9,11 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/runtime.js && node --check src/store.js && node --check src/validate.js",
+    "check": "node --check src/server.js && node --check src/runtime.js && node --check src/store.js && node --check src/validate.js && node --check src/prewarm-leases.js",
     "smoke": "node scripts/smoke.js",
     "test:patch": "node scripts/test-patch.mjs",
-    "test:guards": "node scripts/test-runtime-guards.mjs"
+    "test:proxy-contract": "node scripts/test-preview-proxy-contract.mjs",
+    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && npm run test:proxy-contract"
   },
   "dependencies": {
     "acorn": "^8.16.0",

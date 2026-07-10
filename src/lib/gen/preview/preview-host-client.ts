@@ -238,6 +238,7 @@ export type PreviewHostStartErr = {
   ok: false;
   message: string;
   retryable: boolean;
+  prewarmDisposition?: "superseded" | "rate_limited";
 };
 
 export type PreviewHostDestroyOk = {
@@ -302,6 +303,14 @@ export async function startPreviewHostSession(params: {
   chatId: string;
   versionId: string;
   filesJson: Record<string, string>;
+  /**
+   * A host-side prewarm is conditional: it may only create an unclaimed
+   * session and must be rate-bound by this opaque app-generated lease key.
+   * Normal finalize starts omit both fields and preserve their current
+   * start/update semantics.
+   */
+  prewarm?: boolean;
+  prewarmLeaseKey?: string;
 }): Promise<PreviewHostStartOk | PreviewHostStartErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -319,6 +328,12 @@ export async function startPreviewHostSession(params: {
         versionId: params.versionId,
         filesJson: params.filesJson,
         changeClass: "fresh",
+        ...(params.prewarm
+          ? {
+              prewarm: true,
+              prewarmLeaseKey: params.prewarmLeaseKey,
+            }
+          : {}),
       };
       const res = await fetch(`${base}/preview/session/start`, {
         method: "POST",
@@ -331,6 +346,8 @@ export async function startPreviewHostSession(params: {
       });
       const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok) {
+        const hostError =
+          typeof responseBody.error === "string" ? responseBody.error.trim() : "";
         const msg = describePreviewHostHttpFailure({
           endpoint: "/preview/session/start",
           status: res.status,
@@ -339,7 +356,16 @@ export async function startPreviewHostSession(params: {
         return {
           ok: false,
           message: msg,
-          retryable: res.status >= 500 || res.status === 429,
+          retryable:
+            params.prewarm &&
+            (hostError === "prewarm_superseded" || hostError === "prewarm_rate_limited")
+              ? false
+              : res.status >= 500 || res.status === 429,
+          ...(params.prewarm && hostError === "prewarm_superseded"
+            ? { prewarmDisposition: "superseded" as const }
+            : params.prewarm && hostError === "prewarm_rate_limited"
+              ? { prewarmDisposition: "rate_limited" as const }
+              : {}),
         };
       }
       const previewUrl = readPreviewUrlFromHostBody(responseBody);
