@@ -24,6 +24,43 @@ const failVersionVerification = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const getUnsignaledDetectedIntegrations = vi.hoisted(() => vi.fn());
+const prewarmPreviewSession = vi.hoisted(() => vi.fn());
+const buildContractClarificationQuestion = vi.hoisted(() =>
+  vi.fn<() => Record<string, unknown> | null>(() => null),
+);
+const buildStoredContractClarificationUiPart = vi.hoisted(() => vi.fn(() => ({})));
+const computePlanModePlannerPrompts = vi.hoisted(() => vi.fn());
+const createPlanModePipelineStream = vi.hoisted(() => vi.fn());
+const dumpPlanModePlannerPrompts = vi.hoisted(() => vi.fn());
+const logPlanModeGenerationStart = vi.hoisted(() => vi.fn());
+const resolvePlanModePlannerSettings = vi.hoisted(() => vi.fn());
+const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
+const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
+  prewarmPreviewSession,
+}));
+
+vi.mock("@/lib/gen/contract/clarification", () => ({
+  buildContractClarificationQuestion,
+  buildStoredContractClarificationUiPart,
+}));
+
+vi.mock("@/lib/own-engine/session/own-engine-plan-mode", () => ({
+  computePlanModePlannerPrompts,
+  createPlanModePipelineStream,
+  dumpPlanModePlannerPrompts,
+  logPlanModeGenerationStart,
+  resolvePlanModePlannerSettings,
+}));
+
+vi.mock("@/lib/providers/own-engine/plan-mode-response", () => ({
+  createOwnEnginePlanModeResponse,
+}));
+
+vi.mock("@/lib/providers/own-engine/pre-generation-contract-gate", () => ({
+  createPreGenerationContractGateReadableStream,
+}));
 
 vi.mock("@/lib/streaming", () => ({
   createSSEHeaders: () => ({ "Content-Type": "text/event-stream" }),
@@ -654,6 +691,84 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         abortSignal: request.signal,
       }),
     );
+    // Preview prewarm is fired fire-and-forget with the freshly created chat id
+    // on the primary init/create path (self-gating on flag/tier-2/dedup inside
+    // the module; default OFF makes it a no-op).
+    expect(prewarmPreviewSession).toHaveBeenCalledWith("engine_chat_1");
+  });
+
+  it("does NOT prewarm a create/init plan-mode request", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createOwnEnginePlanModeResponse.mockReturnValueOnce(
+      new Response("event: done\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        projectId: null,
+        system: "",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          planMode: true,
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera en ny marknadssajt." }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prepareGenerationContext).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  it("does NOT prewarm a create/init contract-clarification gate", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg en medlemssajt med inloggning." }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {

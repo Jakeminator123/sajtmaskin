@@ -28,6 +28,7 @@
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
+    "SAJTMASKIN_PREVIEW_PREWARM",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -176,6 +177,7 @@
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
+    "SAJTMASKIN_PREVIEW_PREWARM",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
     "SAJTMASKIN_MODEL_ANTHROPIC",
@@ -458,6 +460,15 @@
         "production"
       ],
       "notes": "Opt-in (grandmaster A7-2 false-green hardening). When true/1, autofix refuses to fabricate a silent null-render stub for a dossier-exposed import the LLM did not emit; the unresolved import then degrades/blocks the preview honestly (preview blocked with reason via runProjectSanityChecks code_structure_failure) instead of shipping a hollow false-green page. Default off. Reversible: set false/unset to restore the silent-stub behavior. Recommended rollout: enable on preview first and watch how often legitimate builds get blocked (frequency is LLM-runtime dependent) before production. Source: src/lib/gen/autofix/rules/cross-file-import-checker.ts (FEATURES.refuseDossierStubs)."
+    },
+    {
+      "key": "SAJTMASKIN_PREVIEW_PREWARM",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in preview-latency optimization (host wake-up + install overlap). When true/1, a NEW chat's real code-generation run fires a fire-and-forget preview-host boot with the baseline scaffold skeleton at generation start (create-chat-stream-post.ts for init; chat-message-stream-post.ts for versionless first-gen), so the preview host wakes and runs the install while the LLM is still streaming. Plan-mode, contract-clarification and ordinary follow-ups never prewarm. The finalize boot skips install only when package.json/lockfiles match the baseline fingerprint; dossier dependencies can make them differ and trigger a second install. Requires SAJTMASKIN_PREVIEW_HOST_BASE_URL and no-ops otherwise. Best-effort; the net win depends on fingerprint-match rate + host boot serialisation, so measure on Development/Preview before production. Default off; merging is a no-op until set. Reversible: unset to restore boot-after-generation. Source: src/lib/gen/preview/preview-prewarm.ts (FEATURES.previewPrewarm)."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",

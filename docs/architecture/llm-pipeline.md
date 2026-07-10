@@ -5,7 +5,7 @@ Detta är den enda architecture-docen som beskriver generationens körflöde. De
 ## En rad
 
 ```txt
-user prompt -> intent/brief -> resolveOrchestrationBase -> BuildSpec -> Dynamic Context + Core Rules -> codegen -> finalize -> preview/status
+user prompt -> intent/brief -> resolveOrchestrationBase -> BuildSpec -> Dynamic Context + Core Rules -> codegen (+ valfri preview-förvärmning) -> finalize -> preview/status
 ```
 
 ## Fas 1 — Intent och input
@@ -53,6 +53,13 @@ similar past builds` i system-prompten för både init och follow-up när
 `FEATURES.useErrorLogRag` är på. I prod är retrieval-indexet cross-tenant (rå
 `faultText` redakteras i renderingen).
 
+När `SAJTMASKIN_PREVIEW_PREWARM` är explicit aktiverad kan en ny chats första
+riktiga codegen-körning samtidigt väcka preview-hosten och starta en
+baseline-installation. Det är en best-effort latensoptimering, inte en
+preview-klar-signal: ingen preview-URL eller app-side sessionpekare publiceras
+före finalize. Plan-mode, kontraktsklargörande och vanliga follow-ups hoppar över
+förvärmningen. Flaggan är default av; se `docs/ENV.md`.
+
 Kodankare:
 
 - `src/lib/gen/orchestrate.ts`
@@ -63,6 +70,7 @@ Kodankare:
 - `src/lib/gen/scaffolds/`
 - `src/lib/gen/scaffold-variants/`
 - `src/lib/gen/dossiers/`
+- `src/lib/gen/preview/preview-prewarm.ts`
 - `config/prompt-core/`
 
 ## Fas 3 — Finalize, verifiering och preview
@@ -90,7 +98,9 @@ Typisk ordning i runtime:
 8. preflight kontrollerar preview-/verification-blockers före persist.
 9. persist sparar assistant-rad, version, snapshot, preflight-loggar,
    telemetry och event/status-underlag.
-10. preview startas, patchas eller resyncas mot den persistade versionen.
+10. preview startas, patchas eller resyncas mot den persistade versionen. En
+    tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
+    bevis på att den persistade versionen är redo.
 11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder.
 12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 strikt

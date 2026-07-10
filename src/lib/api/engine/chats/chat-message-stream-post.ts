@@ -12,6 +12,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
+import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
@@ -270,8 +271,14 @@ export async function handleMessageStreamRequest(
       // and against transient DB errors — both should fail open (let the
       // followup through) rather than 500 the route.
       let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+      // Distinguishes a genuine empty result (new/versionless chat) from a
+      // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
+      // may prewarm: a follow-up whose version lookup merely threw must never
+      // be treated as new (that would restart its warm preview workspace).
+      let versionsQuerySucceeded = false;
       try {
         existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+        versionsQuerySucceeded = true;
       } catch {
         existingVersionsForChat = [];
       }
@@ -1771,6 +1778,26 @@ export async function handleMessageStreamRequest(
         const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
         const effectiveGeneratorThinking =
           resolvedThinking && generatorThinking.thinking;
+        // Preview prewarm (FEATURES.previewPrewarm, default OFF): fire ONLY here,
+        // where real codegen is about to start — every non-generating early
+        // return (plan mode, contract clarification, 409 guard, credit gate) is
+        // already behind us, so a plan-only/clarification-only request never
+        // boots a VM or burns the dedup slot. Gated on a CONFIRMED-empty version
+        // query (`versionsQuerySucceeded`): a follow-up whose lookup merely
+        // threw is never mistaken for a new chat (that would restart its warm
+        // workspace). The primary init flow is prewarmed in
+        // create-chat-stream-post.ts; this covers the versionless first
+        // generation (e.g. after the create-path contract-gate). Fire-and-forget
+        // + self-gating (flag / tier-2 / dedup). `hasFollowUpBase` is the
+        // authoritative file-backed guard; even an inconsistent empty version
+        // list must not prewarm an established follow-up workspace.
+        if (
+          !hasFollowUpBase &&
+          versionsQuerySucceeded &&
+          existingVersionsForChat.length === 0
+        ) {
+          void prewarmPreviewSession(chatId);
+        }
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,

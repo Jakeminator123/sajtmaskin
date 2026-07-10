@@ -33,6 +33,22 @@ const buildFileContext = vi.hoisted(() => vi.fn());
 const parseSSEBuffer = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
+const prewarmPreviewSession = vi.hoisted(() => vi.fn());
+const buildContractClarificationQuestion = vi.hoisted(() =>
+  vi.fn<() => Record<string, unknown> | null>(() => null),
+);
+const buildStoredContractClarificationUiPart = vi.hoisted(() => vi.fn(() => ({})));
+const computePlanModePlannerPrompts = vi.hoisted(() => vi.fn());
+const createPlanModePipelineStream = vi.hoisted(() => vi.fn());
+const dumpPlanModePlannerPrompts = vi.hoisted(() => vi.fn());
+const logPlanModeGenerationStart = vi.hoisted(() => vi.fn());
+const resolvePlanModePlannerSettings = vi.hoisted(() => vi.fn());
+const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
+const buildPreGenerationContractGateParams = vi.hoisted(() => vi.fn(() => null));
+const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
+const getVersionsByChat = vi.hoisted(() =>
+  vi.fn(async (): Promise<Array<{ id: string }>> => []),
+);
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -210,6 +226,11 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot: vi.fn(() => []),
 }));
 
+vi.mock("@/lib/gen/contract/clarification", () => ({
+  buildContractClarificationQuestion,
+  buildStoredContractClarificationUiPart,
+}));
+
 vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: vi.fn(),
   parsePlanResponse: vi.fn(),
@@ -268,8 +289,13 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatScaffoldId: vi.fn(),
   failVersionVerification,
   getVersionById,
+  getVersionsByChat,
   consumeF3ContinuationMarker,
   appendF3ApprovedToSnapshot,
+}));
+
+vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
+  prewarmPreviewSession,
 }));
 
 vi.mock("@/lib/gen/context/file-context-builder", () => ({
@@ -286,7 +312,7 @@ vi.mock("@/lib/gen/attachment-text-hydrate", () => ({
 
 vi.mock("@/lib/own-engine/session/own-engine-build-session", () => ({
   buildOwnEngineGenerationStreamMeta: vi.fn(() => ({})),
-  buildPreGenerationContractGateParams: vi.fn(() => null),
+  buildPreGenerationContractGateParams,
 }));
 
 vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
@@ -360,19 +386,19 @@ vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
 }));
 
 vi.mock("@/lib/own-engine/session/own-engine-plan-mode", () => ({
-  computePlanModePlannerPrompts: vi.fn(),
-  createPlanModePipelineStream: vi.fn(),
-  dumpPlanModePlannerPrompts: vi.fn(),
-  logPlanModeGenerationStart: vi.fn(),
-  resolvePlanModePlannerSettings: vi.fn(),
+  computePlanModePlannerPrompts,
+  createPlanModePipelineStream,
+  dumpPlanModePlannerPrompts,
+  logPlanModeGenerationStart,
+  resolvePlanModePlannerSettings,
 }));
 
 vi.mock("@/lib/providers/own-engine/plan-mode-response", () => ({
-  createOwnEnginePlanModeResponse: vi.fn(),
+  createOwnEnginePlanModeResponse,
 }));
 
 vi.mock("@/lib/providers/own-engine/pre-generation-contract-gate", () => ({
-  createPreGenerationContractGateReadableStream: vi.fn(),
+  createPreGenerationContractGateReadableStream,
 }));
 
 vi.mock("@/lib/own-engine/resolve-max-steps", () => ({
@@ -814,6 +840,84 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     });
   });
 
+  it("does NOT prewarm when a follow-up returns a contract clarification", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  it("does NOT prewarm a plan-mode follow-up", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createOwnEnginePlanModeResponse.mockReturnValueOnce(
+      new Response("event: done\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          planMode: true,
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Planera nästa iteration av startsidan.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(prepareGenerationContext).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
   it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {
     sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
       success: true,
@@ -891,6 +995,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(body.latestVersionId).toBe("ver_new");
     // Must not silently build on the superseded base.
     expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("allows a follow-up when the explicit base equals the server's preferred version", async () => {
@@ -932,6 +1037,173 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(createGenerationPipeline).toHaveBeenCalled();
+  });
+
+  it("fires a fire-and-forget preview prewarm for a chat with no versions yet", async () => {
+    // getVersionsByChat defaults to [] (see hoisted spy) → this generation is
+    // treated as the first for the chat, so the prewarm hook fires. The call is
+    // fire-and-forget with the chatId; it never blocks or awaits the stream.
+    getVersionsByChat.mockResolvedValueOnce([]);
+    resolveFollowUpPreviousFiles.mockResolvedValueOnce([]);
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_current",
+          engineLatestKnownVersionId: "ver_current",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+    expect(prewarmPreviewSession).toHaveBeenCalledWith("chat_1");
+  });
+
+  it("does NOT prewarm when authoritative follow-up base files exist despite an empty version lookup", async () => {
+    // The broad version-list query is only an additional guard. Actual base
+    // files make `hasFollowUpBase` authoritative, so an inconsistent empty
+    // list must never restart the established preview workspace.
+    getVersionsByChat.mockResolvedValueOnce([]);
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  it("does NOT prewarm a follow-up that already has versions", async () => {
+    // A real follow-up (>=1 existing version) already has a warm workspace on
+    // the preview host, so the prewarm hook must be skipped.
+    getVersionsByChat.mockResolvedValueOnce([{ id: "ver_current" }]);
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_current",
+          engineLatestKnownVersionId: "ver_current",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  it("does NOT prewarm when the version lookup throws (fail-open must not look like a new chat)", async () => {
+    // A transient DB/repo error makes existingVersionsForChat fall back to []
+    // (fail-open). That empty array must NOT be treated as "new chat" — an
+    // established follow-up would otherwise get its warm preview workspace
+    // restarted with the baseline skeleton.
+    getVersionsByChat.mockRejectedValueOnce(new Error("db down"));
+    resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_current",
+          engineLatestKnownVersionId: "ver_current",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("allows a deliberate edit of an older version (no 409) when the client is up to date", async () => {
@@ -1066,6 +1338,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     const body = (await response.json()) as Record<string, unknown>;
     expect(body.error).toBe("product_postcheck_blocked");
     expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
