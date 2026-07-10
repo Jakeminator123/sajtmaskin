@@ -5,14 +5,14 @@ import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
 
 /**
- * Preview prewarm (levels 1+2 of the preview-latency work).
+ * Preview prewarm (host wake-up + install overlap).
  *
  * A brand-new chat's first generation has a COLD preview workspace on the Fly
  * VM, so its first preview boot pays the full `npm install` cost after the LLM
  * has already finished. This module fires a fire-and-forget preview-host boot
  * with the baseline scaffold skeleton at the START of generation, so:
- *   1. a sleeping Fly machine wakes up (level 1), and
- *   2. `npm install` runs on the VM while the LLM is still streaming (level 2).
+ *   1. a sleeping Fly machine wakes up, and
+ *   2. `npm install` runs on the VM while the LLM is still streaming.
  *
  * Most generated sites keep the FIXED baseline dependency set
  * (`project-scaffold.ts` PACKAGE_JSON). When the finalize `package.json`
@@ -22,7 +22,7 @@ import type { CodeFile } from "@/lib/gen/parser";
  * fingerprint hashes the package.json/lockfile bytes). This is BEST-EFFORT,
  * not guaranteed: if the dep-completer adds packages or the model emits a
  * different package.json, the fingerprint differs and install still runs at
- * finalize (the prewarm then mainly served level 1 — waking the VM). The
+ * finalize (the prewarm then mainly served to wake the VM). The
  * prewarm session is keyed by the real `chatId`, so the host reuses the same
  * workspace on the finalize `start`; the prewarm does NOT write the app-side
  * session pointer, so it does not itself surface a URL to the iframe (only the
@@ -56,7 +56,10 @@ export default function Page() {
  * later attempt can retry. Bounded with FIFO eviction so a long-lived server
  * process does not accumulate one entry per generation forever (the host's
  * idle-reaper / session-TTL is the real lifecycle owner; this Set is only a
- * short-term duplicate-boot guard). */
+ * short-term duplicate-boot guard). This is intentionally process-local:
+ * separate serverless instances can still prewarm the same chat. Within one JS
+ * isolate there is no TOCTOU window between `has()` and
+ * `rememberPrewarmedChat()` because no `await` occurs between them. */
 const prewarmedChatIds = new Set<string>();
 const MAX_PREWARM_DEDUP_ENTRIES = 512;
 

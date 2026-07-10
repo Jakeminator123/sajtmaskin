@@ -1788,8 +1788,14 @@ export async function handleMessageStreamRequest(
         // workspace). The primary init flow is prewarmed in
         // create-chat-stream-post.ts; this covers the versionless first
         // generation (e.g. after the create-path contract-gate). Fire-and-forget
-        // + self-gating (flag / tier-2 / dedup); follow-ups are skipped.
-        if (versionsQuerySucceeded && existingVersionsForChat.length === 0) {
+        // + self-gating (flag / tier-2 / dedup). `hasFollowUpBase` is the
+        // authoritative file-backed guard; even an inconsistent empty version
+        // list must not prewarm an established follow-up workspace.
+        if (
+          !hasFollowUpBase &&
+          versionsQuerySucceeded &&
+          existingVersionsForChat.length === 0
+        ) {
           void prewarmPreviewSession(chatId);
         }
         const engineStream = createOwnEnginePipelineAndGenerationStream({

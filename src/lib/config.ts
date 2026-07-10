@@ -386,19 +386,19 @@ export const FEATURES = {
   refuseDossierStubs: isAffirmativeEnvValue(env.SAJTMASKIN_REFUSE_DOSSIER_STUBS),
 
   /**
-   * Preview prewarm (levels 1+2 of the preview-latency work). When ON, a NEW
+   * Preview prewarm (host wake-up + install overlap). When ON, a NEW
    * chat's generation fires a fire-and-forget preview-host boot with the
    * baseline scaffold skeleton at generation start (see
    * `src/lib/gen/preview/preview-prewarm.ts`). This wakes a sleeping Fly
-   * machine (level 1) and runs `npm install` on the VM during LLM streaming
-   * (level 2). When the finalize `package.json`/lockfiles match the baseline
-   * the prewarm installed (the common case), the finalize boot reuses the warm
+   * machine and runs `npm install` on the VM during LLM streaming. When the
+   * finalize `package.json`/lockfiles match the baseline the prewarm installed,
+   * the finalize boot reuses the warm
    * `node_modules` and skips install (fingerprint match in
    * `preview-host/src/runtime.js`); when they differ, install still runs at
    * finalize. Default OFF: merging is a no-op until the env flag is set —
    * and the net win must be MEASURED on the preview host before enabling
-   * (fingerprint-match rate + boot serialisation). Follow-ups are never
-   * prewarmed (their workspace is already warm).
+   * (fingerprint-match rate + boot serialisation). Follow-ups, plan-mode and
+   * contract-clarification runs are never prewarmed.
    */
   previewPrewarm: isAffirmativeEnvValue(env.SAJTMASKIN_PREVIEW_PREWARM),
 
