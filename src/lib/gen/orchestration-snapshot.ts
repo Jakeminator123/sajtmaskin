@@ -109,6 +109,14 @@ function isPlainObjectRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function normalizeCapabilityList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
+
 /**
  * Shallow merge: new finalize wins on key collision; keeps prior keys
  * omitted from latest stream (K-019).
@@ -144,6 +152,28 @@ export function mergePersistedOrchestrationSnapshots(
   const nextBuildSpec = next.buildSpec;
   if (isPlainObjectRecord(prevBuildSpec) && isPlainObjectRecord(nextBuildSpec)) {
     merged.buildSpec = { ...prevBuildSpec, ...nextBuildSpec };
+  }
+  // Durable capability-removal tombstone (resurrection fix). `removedCapabilities`
+  // is round-scoped (recomputed from each prompt), and the shallow `{...base,
+  // ...next}` above lets a later neutral round's empty list wipe an earlier
+  // removal. Once wiped, `buildFollowUpContract` sees an empty floor with no
+  // explicit-removal tombstone and re-inherits the removed capability from the
+  // persisted brief — confirmed for the "removed the only integration" case
+  // (empty floor). Keep the mark durable: union prior + this round's removals,
+  // then drop anything the current round re-added to the floor
+  // (`requestedCapabilities`) so an explicit re-add ("lägg tillbaka Stripe") or
+  // an F3 approval that repopulates the floor clears it. Only written when a
+  // removal signal exists on either side, so snapshots that never removed
+  // anything stay byte-identical (ordinary F2→F3 brief-inheritance is untouched).
+  if ("removedCapabilities" in base || "removedCapabilities" in next) {
+    const floor = new Set(normalizeCapabilityList(merged.requestedCapabilities));
+    const unioned = new Set([
+      ...normalizeCapabilityList(base.removedCapabilities),
+      ...normalizeCapabilityList(next.removedCapabilities),
+    ]);
+    merged.removedCapabilities = Array.from(unioned).filter(
+      (capability) => !floor.has(capability),
+    );
   }
   return merged;
 }
