@@ -123,6 +123,7 @@ describe("deriveTier3BuildSpec", () => {
     const req = spec.requirements[0];
     expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    expect(req.hasConfigNoticeComponent).toBe(false);
   });
 
   it("skips optional integrations", () => {

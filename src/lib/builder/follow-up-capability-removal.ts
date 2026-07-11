@@ -56,6 +56,14 @@ interface RemovalCapabilityEntry {
   /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */
   capability: string;
   patterns: RegExp[];
+  /**
+   * Optional veto patterns. If any matches the message the whole entry is
+   * suppressed — mirrors the veto mechanism in `follow-up-capability-vocabulary.ts`
+   * so overlapping term families (e.g. newsletter "prenumeration" vs. Paddle
+   * `subscriptions`) resolve to a single capability instead of double-firing.
+   * Veto regexes carry only `iu` flags (no `g`) so `.test()` stays stateless.
+   */
+  vetoes?: RegExp[];
 }
 
 /**
@@ -76,23 +84,41 @@ const REMOVAL_CAPABILITY_TERMS: RemovalCapabilityEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       // `betalning[...]` catches Swedish compounds like "betalningsgrejjen",
-      // "betalningarna", "betalningsflödet" once a removal verb is present.
-      // It does NOT match `prenumerationsbetalning` (the `betalning` there is
-      // mid-word, so the leading non-letter lookbehind fails) — that is a
-      // subscriptions removal, handled below.
+      // "betalningarna", "betalningsflödet" once a removal verb is present. The
+      // Unicode look-behind means it does NOT match inside "prenumerationsbetalning"
+      // (preceded by a letter), so that recurring compound stays `subscriptions`.
       /(?<![\p{L}\p{N}_])betalning[\p{L}]*(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:payments?|checkout|kassa|kortbetalning[\p{L}]*|kortk(?:ö|o)p|kreditkort)(?![\p{L}\p{N}_])/iu,
+      // Recurring-billing terms (`subscription-billing`, `prenumerationsbetalning`)
+      // were CEDED to the `subscriptions` entry below — mirrors the detection-side
+      // split in `follow-up-capability-vocabulary.ts` (Vercel Agent finding #475).
+      // One-off payment vocabulary only.
+      /(?<![\p{L}\p{N}_])(?:payments?|checkout|kassa|kortbetalning[\p{L}]*|kortköp|kreditkort)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
-    // Recurring subscriptions / memberships (paddle-billing). Distinct from
-    // one-off `payments` so "ta bort prenumerationen" / "ta bort
-    // prenumerationsbetalningen" / "remove the membership billing" shrink the
-    // subscriptions capability that #475 introduced.
+    // Recurring subscriptions / memberships (Paddle Billing) — INTENTIONALLY
+    // separate from one-off `payments` (Stripe-checkout). Mirrors the
+    // detection-side `subscriptions` split in `follow-up-capability-vocabulary.ts`
+    // so "ta bort prenumerationen" / "remove subscriptions" / "ta bort Paddle"
+    // shrinks the Paddle capability, not `payments`. Without this entry the
+    // can-only-grow floor (`enforceFollowUpCapabilityFloor`) would re-inject the
+    // capability — the same prod-bug class (chat e298da50) this module closes.
     capability: "subscriptions",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:paddle|subscription[-\s]?billing|subscriptions?|prenumeration[\p{L}]*|medlemskap[\p{L}]*|membership[\p{L}]*|återkommande[\p{L}]*)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])recurring(?:[-\s]?(?:billing|payment[\p{L}]*|betalning[\p{L}]*))?(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
+      // `prenumeration[...]` / `abonnemang[...]` catch Swedish compounds like
+      // "prenumerationen", "abonnemanget" once a removal verb is present. No
+      // bare English "subscribe" token — it collides with newsletter signup
+      // (mirrors the detection-side note).
+      /(?<![\p{L}\p{N}_])(?:prenumeration[\p{L}]*|prenumerera[\p{L}]*|abonnemang[\p{L}]*|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:medlemskap[\p{L}]*|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning[\p{L}]*|debitering[\p{L}]*)|recurring\s+(?:payments?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning[\p{L}]*)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Newsletter "prenumerera på nyhetsbrevet" and one-off payments must NOT be
+    // read as a Paddle subscription removal — mirrors the detection vetoes.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:nyhetsbrev[\p{L}]*|newsletter)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning[\p{L}]*|k(?:ö|o)p[\p{L}]*|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -189,6 +215,10 @@ export function detectCapabilityRemoval(message: string): CapabilityRemovalDetec
   const removedCapabilities: string[] = [];
   const matchedKeywords: string[] = [];
   for (const entry of REMOVAL_CAPABILITY_TERMS) {
+    // A veto match suppresses the whole entry (e.g. newsletter "prenumeration"
+    // or a one-off payment must not shrink the Paddle `subscriptions`
+    // capability). Mirrors `detectFollowUpCapabilities`.
+    if (entry.vetoes?.some((veto) => veto.test(trimmed))) continue;
     let removalMatched = false;
     let additiveMatched = false;
     const entryKeywords: string[] = [];
@@ -206,12 +236,15 @@ export function detectCapabilityRemoval(message: string): CapabilityRemovalDetec
         const tail = trimmed.slice(index, index + matchedText.length + 16);
         if (UI_CONTROL_RE.test(tail)) continue;
         const removalVerb = nearestPreceding(removalPositions, index);
-        if (removalVerb === null) continue;
         const additiveVerb = nearestPreceding(additivePositions, index);
-        if (additiveVerb !== null && additiveVerb > removalVerb) {
+        if (
+          additiveVerb !== null &&
+          (removalVerb === null || additiveVerb > removalVerb)
+        ) {
           additiveMatched = true;
           continue;
         }
+        if (removalVerb === null) continue;
         removalMatched = true;
         entryKeywords.push(matchedText);
       }

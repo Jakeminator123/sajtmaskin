@@ -84,6 +84,8 @@ export interface MergeGeneratedProjectFilesParams {
    * `selectedDossierIds`; legacy/eval paths may still pass [].
    */
   selectedDossiers?: DossierEntry[];
+  /** File-evidenced dossiers explicitly removed by this follow-up. */
+  removedDossiers?: DossierEntry[];
 }
 
 export interface MergeGeneratedProjectFilesResult {
@@ -147,6 +149,40 @@ export interface MergeGeneratedProjectFilesResult {
   }>;
 }
 
+function normalizeDossierPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.?\//, "");
+}
+
+export function removeExplicitlyRemovedDossierFiles(params: {
+  files: CodeFile[];
+  removedDossiers: readonly DossierEntry[];
+  selectedDossiers: readonly DossierEntry[];
+}): { files: CodeFile[]; removedPaths: string[] } {
+  const activePaths = new Set(
+    params.selectedDossiers.flatMap((dossier) =>
+      (dossier.files ?? []).map((file) => normalizeDossierPath(file.path)),
+    ),
+  );
+  const removablePaths = new Set(
+    params.removedDossiers.flatMap((dossier) =>
+      (dossier.files ?? [])
+        .map((file) => normalizeDossierPath(file.path))
+        .filter((path) => !activePaths.has(path)),
+    ),
+  );
+  if (removablePaths.size === 0) {
+    return { files: params.files, removedPaths: [] };
+  }
+  const removedPaths: string[] = [];
+  const files = params.files.filter((file) => {
+    const path = normalizeDossierPath(file.path);
+    if (!removablePaths.has(path)) return true;
+    removedPaths.push(path);
+    return false;
+  });
+  return { files, removedPaths: removedPaths.sort() };
+}
+
 /**
  * Paths whose content may NEVER come from scaffold defaults. If the LLM
  * doesn't emit these, the merge result omits them and the version is
@@ -184,6 +220,7 @@ export function mergeGeneratedProjectFiles({
   resolvedScaffold,
   previousFiles,
   selectedDossiers,
+  removedDossiers,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
@@ -293,14 +330,45 @@ export function mergeGeneratedProjectFiles({
       selectedDossiers: selectedDossiers ?? [],
       chatId,
     });
+    const removalResult = removeExplicitlyRemovedDossierFiles({
+      files: verbatimResult1.files,
+      removedDossiers: removedDossiers ?? [],
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    if (removalResult.removedPaths.length > 0) {
+      devLogAppend("in-progress", {
+        type: "dossier-files-removed",
+        chatId,
+        removedDossierIds: (removedDossiers ?? []).map((dossier) => dossier.id),
+        removedPaths: removalResult.removedPaths,
+      });
+    }
+    // The first import pass ran while the old dossier files still existed.
+    // Re-run after explicit deletion so any importer the model forgot to edit
+    // is rewired/stubbed and surfaced as degraded instead of shipping a
+    // dangling module import.
+    const postRemovalCrossFileResult =
+      removalResult.removedPaths.length > 0
+        ? checkCrossFileImports(removalResult.files, selectedDossierIds)
+        : { files: removalResult.files, fixes: [] };
+    if (postRemovalCrossFileResult.fixes.length > 0) {
+      devLogAppend("in-progress", {
+        type: "post-removal-cross-file-import-checker",
+        chatId,
+        fixes: postRemovalCrossFileResult.fixes,
+      });
+    }
 
     return {
-      filesJson: JSON.stringify(verbatimResult1.files),
+      filesJson: JSON.stringify(postRemovalCrossFileResult.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
       missingEmittedEssentials: [],
-      crossFileStubs: crossFileResult.fixes,
+      crossFileStubs: [
+        ...crossFileResult.fixes,
+        ...postRemovalCrossFileResult.fixes,
+      ],
     };
   }
 

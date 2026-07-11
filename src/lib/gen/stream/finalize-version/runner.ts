@@ -43,6 +43,7 @@ import { hasBuildBreakingVerifierFindings } from "@/lib/gen/preview/should-start
 import { runFinalizeFastPath } from "./fast-path";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { resolveFinalizePathPolicy } from "./policy";
 import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
@@ -100,6 +101,9 @@ function mapSyntaxResultToBusPhase(params: {
 function resolveRequestedCapabilitiesFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): string[] {
+  const removed = new Set(
+    normalizeCapabilityIds(streamMeta?.removedCapabilities),
+  );
   const fromTopLevel = normalizeCapabilityIds(streamMeta?.requestedCapabilities);
   const briefSummary =
     streamMeta?.briefSummary &&
@@ -110,7 +114,7 @@ function resolveRequestedCapabilitiesFromStreamMeta(
   const fromBriefSummary = normalizeCapabilityIds(briefSummary?.requestedCapabilities);
   const explicitCapabilities = Array.from(
     new Set([...fromBriefSummary, ...fromTopLevel]),
-  );
+  ).filter((capability) => !removed.has(capability));
   if (explicitCapabilities.length > 0) return explicitCapabilities;
 
   const inferredCapabilities =
@@ -136,11 +140,17 @@ function resolveRequestedCapabilitiesFromStreamMeta(
 export function resolveSelectedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): DossierEntry[] {
+  const removed = new Set(
+    normalizeCapabilityIds(streamMeta?.removedCapabilities),
+  );
   const explicitDossierIds = normalizeDossierIds(streamMeta?.selectedDossierIds);
   if (explicitDossierIds.length > 0) {
     const selected = explicitDossierIds
       .map((id) => getDossierById(id))
-      .filter((entry): entry is DossierEntry => entry !== null);
+      .filter(
+        (entry): entry is DossierEntry =>
+          entry !== null && !removed.has(entry.capability.toLowerCase()),
+      );
     if (selected.length > 0) return selected;
   }
 
@@ -160,6 +170,31 @@ export function resolveSelectedDossiersFromStreamMeta(
     });
     return [];
   }
+}
+
+export function resolveRemovedDossiersFromStreamMeta(
+  streamMeta: Record<string, unknown> | null | undefined,
+  previousFiles: ReadonlyArray<{ path?: unknown }> | null | undefined,
+): DossierEntry[] {
+  const removedCapabilities = new Set(
+    normalizeCapabilityIds(streamMeta?.removedCapabilities),
+  );
+  if (removedCapabilities.size === 0) return [];
+
+  const explicit = normalizeDossierIds(streamMeta?.removedDossierIds)
+    .map((id) => getDossierById(id))
+    .filter(
+      (entry): entry is DossierEntry =>
+        entry !== null &&
+        removedCapabilities.has(entry.capability.toLowerCase()),
+    );
+  if (explicit.length > 0) return explicit;
+
+  return resolveDossiersPresentInVersion(previousFiles ?? [])
+    .map((selected) => selected.entry)
+    .filter((entry) =>
+      removedCapabilities.has(entry.capability.toLowerCase()),
+    );
 }
 
 export async function finalizeAndSaveVersion(
@@ -289,6 +324,10 @@ export async function finalizeAndSaveVersion(
   const selectedDossiers = resolveSelectedDossiersFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
   );
+  const removedDossiers = resolveRemovedDossiersFromStreamMeta(
+    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+    previousFiles,
+  );
 
   // 3–4. Fast path: validate syntax → materialize images → verifier →
   // parse/merge/preflight (with scaffold-retry + partial-file repair).
@@ -336,6 +375,7 @@ export async function finalizeAndSaveVersion(
     // applyDossierVerbatimPolicy kan skydda Stripe/Clerk/Sentry-glue
     // från tyst korruption när LLM omformar verbatim-filer.
     selectedDossiers,
+    removedDossiers,
     repairScopeId,
   });
   contentForVersion = fastPathContent;

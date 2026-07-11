@@ -153,6 +153,8 @@ export async function runFinalizeFastPath(params: {
    * hittar inga skyddade filer).
    */
   selectedDossiers?: DossierEntry[];
+  /** Dossiers explicitly removed by this follow-up; their owned files are deleted after merge. */
+  removedDossiers?: DossierEntry[];
   /** Stable id for repair-ledger dedupe within this finalize run. */
   repairScopeId: string;
 }): Promise<FinalizeFastPathResult> {
@@ -177,6 +179,7 @@ export async function runFinalizeFastPath(params: {
     qualityGateChecksIncludesTypecheck,
     qualityGatePlanned,
     selectedDossiers,
+    removedDossiers,
     repairScopeId,
   } = params;
   let contentForVersion = params.contentForVersion;
@@ -422,6 +425,7 @@ export async function runFinalizeFastPath(params: {
     contentForVersion,
     onProgress,
     selectedDossiers,
+    removedDossiers,
     repairLedger,
     repairScopeId,
   });

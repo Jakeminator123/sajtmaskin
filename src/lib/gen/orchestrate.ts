@@ -37,6 +37,13 @@ import {
   explicitlyRequests3D,
   type InferredCapabilities,
 } from "./capability-inference";
+import {
+  buildCapabilityRemovalHint,
+  filterRemovedCapabilitiesFromBriefSummary,
+  filterRemovedCapabilitiesFromContracts,
+  filterProvidersForRemovedCapabilities,
+  suppressRemovedInferredCapabilities,
+} from "./capability-removal";
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
 import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "./route-plan";
 import type { PlannedRoute, RoutePlan } from "./route-plan";
@@ -67,6 +74,7 @@ import {
   expandDependentCapabilities,
   getF3RequiredCapabilities,
   resolveCapabilitiesPresentInVersion,
+  resolveDossiersPresentInVersion,
   selectDossiersForRequest,
   type DossierSelectionResult,
 } from "./dossiers";
@@ -467,6 +475,8 @@ export interface OrchestrationBase {
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
+  /** Deep Brief with explicitly removed capabilities subtracted. */
+  effectiveBrief?: Record<string, unknown> | null;
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
   uiRecipes: ShadcnUiRecipe[];
@@ -476,6 +486,14 @@ export interface OrchestrationBase {
    * legacy fallbacks; selected dossiers are a subset of this list.
    */
   dossierRequestedCapabilities: string[];
+  /** Explicit integration capabilities removed by this follow-up. */
+  removedCapabilities?: string[];
+  /** File-evidenced dossier ids whose owned files must be deleted at merge. */
+  removedDossierIds?: string[];
+  /** Durable F3 approvals after explicit-removal subtraction. */
+  f3ApprovedCapabilities?: string[];
+  /** Durable F3 provider approvals after explicit-removal subtraction. */
+  f3ApprovedProviders?: string[];
   /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
   dossierSelection?: DossierSelectionResult | null;
   /**
@@ -1045,7 +1063,7 @@ export async function resolveOrchestrationBase(
     buildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
-    brief = null,
+    brief: inputBrief = null,
     persistedScaffoldId = null,
     contractAnswers = [],
     embeddingScaffoldMatch = true,
@@ -1078,7 +1096,8 @@ export async function resolveOrchestrationBase(
   // prompt carries previous file content on follow-ups and would otherwise
   // pin needsAuth/needsEcommerce to whatever the previous version imported.
   const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
-  const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
+  const inferredCapabilities =
+    providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   // OMTAG Fas 2·A / E2: a single predicate decides follow-up semantics.
   // When the caller passes an explicit `generationMode` (stream-post does),
   // respect it. Otherwise, fall back to the unified predicate using
@@ -1093,6 +1112,63 @@ export async function resolveOrchestrationBase(
   });
   const resolvedMode: "init" | "followUp" =
     generationMode ?? (isOrchestrationFollowUp ? "followUp" : "init");
+  const capabilityRemovalPrompt =
+    input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt ?? "";
+  const capabilityRemoval =
+    resolvedMode === "followUp"
+      ? detectCapabilityRemoval(capabilityRemovalPrompt)
+      : { removedCapabilities: [], matchedKeywords: [] };
+  const removedCapabilities = capabilityRemoval.removedCapabilities;
+  const capabilities = suppressRemovedInferredCapabilities(
+    inferredCapabilities,
+    removedCapabilities,
+  );
+  const brief = filterRemovedCapabilitiesFromBriefSummary(
+    inputBrief as Record<string, unknown> | null,
+    removedCapabilities,
+  );
+  const removedDossiers = resolveDossiersPresentInVersion(
+    (input.previousFilePaths ?? []).map((path) => ({ path })),
+    input.configuredEnvKeys,
+  )
+    .map((selected) => selected.entry)
+    .filter((entry) =>
+      removedCapabilities.includes(entry.capability.toLowerCase()),
+    );
+  const removedDossierIds = removedDossiers.map((entry) => entry.id);
+  const isF3ApprovalRound =
+    input.lifecycleStage === "integrations" &&
+    (input.dossierProviderHints?.length ?? 0) > 0;
+  const f3ApprovedCapabilities = Array.from(
+    new Set([
+      ...(input.followUpContract?.f3ApprovedCapabilities ?? []),
+      ...(isF3ApprovalRound ? input.requestedDossierCapabilities ?? [] : []),
+    ]),
+  ).filter(
+    (capability) =>
+      !removedCapabilities.includes(capability.trim().toLowerCase()),
+  );
+  const f3ApprovedProviders = filterProvidersForRemovedCapabilities(
+    Array.from(
+      new Set([
+        ...(input.followUpContract?.f3ApprovedProviders ?? []),
+        ...(isF3ApprovalRound ? input.dossierProviderHints ?? [] : []),
+      ]),
+    ),
+    removedCapabilities,
+  );
+  const capabilityRemovalHint = buildCapabilityRemovalHint(
+    removedCapabilities,
+    removedDossiers,
+  );
+  if (removedCapabilities.length > 0) {
+    console.info("[orchestrate] followup_capability_removal", {
+      chatId: input.chatId ?? null,
+      removedCapabilities,
+      removedDossierIds,
+      matchedKeywords: capabilityRemoval.matchedKeywords,
+    });
+  }
 
   // P32 Fas A: `requestKind` carried on `OrchestrationInput` for *future*
   // branching in `deriveBuildSpec()`. Today it is logged at the call-site
@@ -1260,9 +1336,15 @@ export async function resolveOrchestrationBase(
   // env keys / API routes — those belong to F3. `lifecycleStage` is the same
   // signal that drives `previewPolicy: "fidelity3"` below (F3 is opt-in via
   // the "Bygg integrationer" override only). See `.cursor/rules/env-flow-f2-mute.mdc`.
-  const capabilityHints = buildCapabilityHints(capabilities, {
-    lifecycleStage: input.lifecycleStage === "integrations" ? "integrations" : "design",
-  });
+  const capabilityHints = [
+    buildCapabilityHints(capabilities, {
+      lifecycleStage:
+        input.lifecycleStage === "integrations" ? "integrations" : "design",
+    }),
+    capabilityRemovalHint,
+  ]
+    .filter((hint): hint is string => Boolean(hint))
+    .join("\n\n");
 
   // Locale resolution priority:
   //   1. Explicit `input.locale` (caller-overridable, e.g. CLI traces)
@@ -1382,13 +1464,16 @@ export async function resolveOrchestrationBase(
     );
   }
 
-  const preGenerationContracts = inferPreGenerationContracts({
-    prompt: input.contractsPrompt ?? prompt,
-    buildIntent: effectiveBuildIntent,
-    brief,
-    capabilities,
-    contractAnswers,
-  });
+  const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
+    inferPreGenerationContracts({
+      prompt: input.contractsPrompt ?? prompt,
+      buildIntent: effectiveBuildIntent,
+      brief,
+      capabilities,
+      contractAnswers,
+    }),
+    removedCapabilities,
+  );
   const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
@@ -1480,17 +1565,6 @@ export async function resolveOrchestrationBase(
       // base-version capability (e.g. an init contact-form) can never be
       // silently filtered away just because this follow-up message doesn't
       // mention it. Floor, not ceiling — new caps still flow; init is a no-op.
-      const capabilityRemovalPrompt =
-        input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt ?? "";
-      const { removedCapabilities, matchedKeywords } =
-        detectCapabilityRemoval(capabilityRemovalPrompt);
-      if (removedCapabilities.length > 0) {
-        console.info("[orchestrate] followup_capability_removal", {
-          chatId: input.chatId ?? null,
-          removedCapabilities,
-          matchedKeywords,
-        });
-      }
       const capabilityFloor = enforceFollowUpCapabilityFloor({
         resolvedMode,
         resolvedCapabilities: mergedCaps,
@@ -1530,7 +1604,7 @@ export async function resolveOrchestrationBase(
           // explicitly approved in an EARLIER F3 round, persisted on the
           // snapshot. Without these, approve → build-incomplete (no file
           // evidence yet) → the next round's scope drops the capability again.
-          ...(input.followUpContract?.f3ApprovedCapabilities ?? []),
+          ...f3ApprovedCapabilities,
         ];
         const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
           input.previousFilePaths ?? [],
@@ -1577,7 +1651,9 @@ export async function resolveOrchestrationBase(
         // EMPTY — select.ts's brief fallback would otherwise resurrect the
         // speculative brief set in exactly the inflation case the scope
         // filters (scoped [] + brief with 5 caps → 5 dossiers again).
-        disableBriefFallback: input.lifecycleStage === "integrations",
+        disableBriefFallback:
+          input.lifecycleStage === "integrations" ||
+          removedCapabilities.length > 0,
         // Lets sibling dossiers under one capability resolve on explicit
         // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
         // mongodb-atlas instead of the postgres-drizzle default).
@@ -1615,10 +1691,15 @@ export async function resolveOrchestrationBase(
     routePlan,
     preGenerationContracts,
     capabilities,
+    effectiveBrief: brief as Record<string, unknown> | null,
     buildSpec,
     serializeMode: resolvedSerializeMode,
     uiRecipes,
     dossierRequestedCapabilities,
+    removedCapabilities,
+    removedDossierIds,
+    f3ApprovedCapabilities,
+    f3ApprovedProviders,
     dossierSelection,
     requestedCapabilityTiers: input.requestedCapabilityTiers,
     scaffoldVariantId: input.persistedVariantId ?? null,
@@ -1636,7 +1717,7 @@ export async function finalizeOrchestrationPrompts(
   const {
     prompt,
     buildIntent: _inputBuildIntent,
-    brief = null,
+    brief: inputBrief = null,
     themeColors = null,
     imageGenerations = false,
     componentPalette = null,
@@ -1644,6 +1725,12 @@ export async function finalizeOrchestrationPrompts(
     designReferences = [],
     customInstructions,
   } = input;
+  const brief =
+    base.effectiveBrief ??
+    filterRemovedCapabilitiesFromBriefSummary(
+      inputBrief as Record<string, unknown> | null,
+      base.removedCapabilities ?? [],
+    );
 
   const resolvedMode = resolveGenerationMode(input);
 

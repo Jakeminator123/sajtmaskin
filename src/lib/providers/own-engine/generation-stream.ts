@@ -107,6 +107,10 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   buildProfileLabel: string;
   enginePath: string;
   thinking: boolean;
+  removedCapabilities?: string[];
+  removedDossierIds?: string[];
+  f3ApprovedCapabilities?: string[];
+  f3ApprovedProviders?: string[];
 }
 
 export interface GenerationStreamParams {

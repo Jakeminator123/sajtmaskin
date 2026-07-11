@@ -423,6 +423,8 @@ export interface FollowUpContract {
    * fixtures keep compiling; `buildFollowUpContract` always sets it.
    */
   f3ApprovedCapabilities?: string[];
+  /** Provider keys persisted by earlier F3 approval rounds. */
+  f3ApprovedProviders?: string[];
   /** Quality target inherited from the prior accepted version, or null. */
   qualityTarget: BuildSpecQualityTarget | null;
   /** Active preview session id carried on the snapshot, or null. */
@@ -495,8 +497,12 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
           (capability): capability is string => typeof capability === "string",
         )
       : [];
-  const inheritedCapabilities =
-    mergedCapabilities.length > 0 ? mergedCapabilities : briefCapabilities;
+  // Presence is authoritative even when the current floor is intentionally
+  // empty (explicit removal). Fall back only when the top-level key is absent
+  // on a legacy snapshot; otherwise stale briefSummary capabilities resurrect.
+  const inheritedCapabilities = Array.isArray(topLevelRaw)
+    ? mergedCapabilities
+    : briefCapabilities;
   return {
     baseVersionId: readSnapshotString(snapshot, "lastVersionId"),
     snapshotBrief,
@@ -513,6 +519,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
     },
     capabilities: [...inheritedCapabilities],
     f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
+    f3ApprovedProviders: readF3ApprovedFromSnapshot(snapshot).providers,
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
   };

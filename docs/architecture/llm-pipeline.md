@@ -155,6 +155,12 @@ Follow-up är en deltaoperation. Standardläget är bevarande:
 
 Undantag: clear-redesign och explicita borttagningar.
 
+En explicit integrationsborttagning (`removedCapabilities`) är auktoritativ
+över rå prompt-inferens, Deep Brief, can-only-grow-golvet, filbevis och tidigare
+F3-godkännanden. `removedDossierIds` följer stream-meta till finalize, som
+raderar manifestägda filer efter merge och kör importkontroll igen. Delade paths
+bevaras när ett fortsatt valt Byggblock också äger dem.
+
 ## F2/F3-regler
 
 | Läge | Syfte | Gate |

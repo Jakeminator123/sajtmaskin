@@ -462,6 +462,23 @@ export function deriveTier3BuildSpec(
       buildEnforcedTier3 = [];
     }
 
+    // Config-notice advertisement must exclude backing that only exists via a
+    // suppressed capability (e.g. paddle-billing strict-backs the generic
+    // "supabase" provider through its `@supabase/*` infra deps, shipping
+    // `subscription-config-notice.tsx`). That dossier is NOT injected on a
+    // plain provider approval, so advertising its config-notice would tell the
+    // F3 model to render a component that was never emitted → build break.
+    // Mirrors the suppression in `approvedProvidersShipConfigNotice`; the
+    // env-clamping use of `backingDossiers` above stays unsuppressed since a
+    // suppressed dossier still legitimately "backs nothing" for that clamp.
+    const defProviderCompact = compactProviderKey(def.provider ?? def.key);
+    const defKeyCompact = compactProviderKey(def.key);
+    const configNoticeBacking = backingDossiers.filter(
+      (m) =>
+        !isSuppressedProviderBacking(defProviderCompact, m.capability) &&
+        !isSuppressedProviderBacking(defKeyCompact, m.capability),
+    );
+
     requirements.push({
       key: def.key,
       name: def.name,
@@ -472,7 +489,7 @@ export function deriveTier3BuildSpec(
       warnOnlyEnvKeys: effectiveWarnOnly,
       buildInstructions: resolveBuildInstructions(def),
       setupGuide: def.setupGuide,
-      hasConfigNoticeComponent: backingDossierShipsConfigNotice(backingDossiers),
+      hasConfigNoticeComponent: backingDossierShipsConfigNotice(configNoticeBacking),
     });
   }
 

@@ -120,6 +120,7 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
         routePlan: { existingRoutePaths: [], existingShellRoutePaths: [] },
         capabilities: [],
         f3ApprovedCapabilities: [],
+        f3ApprovedProviders: [],
         qualityTarget: null,
         previewSessionId: null,
       });
@@ -134,10 +135,23 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
       snapshot: {
         ...baseSnapshot(),
         f3ApprovedCapabilities: ["payments", "AI-Tool-Calling", 42, ""],
+        f3ApprovedProviders: ["Stripe", "openai", 42, ""],
       },
     });
     // Strings only, trimmed + lowercased.
     expect(contract.f3ApprovedCapabilities).toEqual(["payments", "ai-tool-calling"]);
+    expect(contract.f3ApprovedProviders).toEqual(["stripe", "openai"]);
+  });
+
+  it("treats an explicit empty top-level capability floor as authoritative", () => {
+    const contract = buildFollowUpContract({
+      snapshot: {
+        ...baseSnapshot(),
+        requestedCapabilities: [],
+        briefSummary: { requestedCapabilities: ["payments"] },
+      },
+    });
+    expect(contract.capabilities).toEqual([]);
   });
 });
 
@@ -214,6 +228,7 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
       routePlan: { existingRoutePaths: ["/"], existingShellRoutePaths: [] },
       capabilities: ["payments", "booking"],
       f3ApprovedCapabilities: [],
+      f3ApprovedProviders: [],
       qualityTarget: "premium",
       previewSessionId: "preview_sess_1",
     });
