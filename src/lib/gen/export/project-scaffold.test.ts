@@ -626,6 +626,28 @@ describe("buildExportableProject", () => {
     // And the new standard .gitignore rides along too (inert for verify).
     expect(paths).toContain(".gitignore");
   });
+
+  it("rehydrates a scoped pipeline env artifact for preview/verify parity", async () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return null; }",
+        language: "tsx",
+      },
+      {
+        path: ".env.local",
+        content: `${PIPELINE_ENV_LOCAL_MARKER}\nSTRIPE_SECRET_KEY=scoped\n`,
+        language: "text",
+      },
+    ];
+
+    const exported = await buildExportableProject(generated);
+    const env = exported.find((file) => file.path === ".env.local");
+
+    expect(env?.content).toContain("STRIPE_SECRET_KEY=");
+    expect(env?.content).toContain("CONTENTFUL_ACCESS_TOKEN=");
+  });
 });
 
 describe("runProjectSanityChecks peer heuristics", () => {
