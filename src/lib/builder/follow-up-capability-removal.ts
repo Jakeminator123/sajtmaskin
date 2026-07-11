@@ -78,11 +78,13 @@ const NEGATION_RE =
  * section" is a layout restore, not an integration re-add that would clear a
  * durable removal tombstone (Bugbot HIGH #3 on #497) — this also makes the
  * removal direction safer ("ta bort checkout-sektionen" no longer tombstones
- * payments). Deliberately NOT including form/formulär (contact-form's own
- * integration vocabulary) or generic "del".
+ * payments). Branding nouns (logo/logga/favicon) included so "restore the
+ * Stripe logo" / "lägg tillbaka Stripe-logotypen" is branding work, not a
+ * payments re-add (Codex P1 + VADE on #497). Deliberately NOT including
+ * form/formulär (contact-form's own integration vocabulary) or generic "del".
  */
 const UI_CONTROL_RE =
-  /(?:knapp|button|länk|\blink\b|ikon|icon|selector|dropdown|drop-?down|väljare|meny|menu|sektion|section|sidan?\b|page|block\b|rubrik|heading|färg|colou?r|tema|theme)/iu;
+  /(?:knapp|button|länk|\blink\b|ikon|icon|selector|dropdown|drop-?down|väljare|meny|menu|sektion|section|sidan?\b|page|block\b|rubrik|heading|färg|colou?r|tema|theme|logo|logga|favicon)/iu;
 
 interface RemovalCapabilityEntry {
   /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */

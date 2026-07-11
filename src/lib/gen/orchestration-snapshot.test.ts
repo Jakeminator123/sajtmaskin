@@ -5,6 +5,7 @@ import {
   extractBriefSummaryFromSnapshot,
   mergePersistedOrchestrationSnapshots,
   prependOrchestrationContinuityToFollowUp,
+  readF3ApprovedFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 
@@ -223,14 +224,26 @@ describe("capability-removal durability (resurrection regression)", () => {
   it("filters stale F3 approvals by the durable tombstone (approval-path resurrection)", () => {
     // A stale approval left in the snapshot (append-only union) must not re-open
     // the F3 explicit scope for a removed capability — that path bypasses
-    // `capabilities` entirely via scopeF3DossierCapabilities.
+    // `capabilities` entirely via scopeF3DossierCapabilities. Codex P1 ×2 on
+    // #497: BOTH dimensions must be filtered — the provider ("stripe") maps
+    // back to payments in the approval-build path even with the capability id
+    // gone — and the filtering must live in readF3ApprovedFromSnapshot itself,
+    // because chat-message-stream-post.ts reads the raw snapshot directly
+    // (before buildFollowUpContract) and unions the result into dossier scope.
+    const snapshot = {
+      requestedCapabilities: [],
+      removedCapabilities: ["payments"],
+      f3ApprovedCapabilities: ["payments", "auth"],
+      f3ApprovedProviders: ["stripe", "clerk"],
+    };
+    // Raw read owner (the fallback path in chat-message-stream-post.ts):
+    expect(readF3ApprovedFromSnapshot(snapshot)).toEqual({
+      capabilities: ["auth"],
+      providers: ["clerk"],
+    });
+    // Contract path inherits the same filtering:
     const contract = buildFollowUpContract({
-      snapshot: {
-        requestedCapabilities: [],
-        removedCapabilities: ["payments"],
-        f3ApprovedCapabilities: ["payments", "auth"],
-        f3ApprovedProviders: ["stripe", "clerk"],
-      },
+      snapshot,
       persistedScaffoldId: null,
       persistedVariantId: null,
       existingRoutePaths: [],
@@ -238,6 +251,7 @@ describe("capability-removal durability (resurrection regression)", () => {
       priorQualityTarget: null,
     });
     expect(contract.f3ApprovedCapabilities).toEqual(["auth"]);
+    expect(contract.f3ApprovedProviders).toEqual(["clerk"]);
     expect(contract.capabilities).toEqual([]);
   });
 

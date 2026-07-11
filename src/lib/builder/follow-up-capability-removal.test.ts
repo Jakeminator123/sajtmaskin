@@ -347,6 +347,19 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     ).toEqual([]);
   });
 
+  it("restoring a provider LOGO is branding work, not an integration re-add", () => {
+    // Codex P1 + VADE on #497: "Stripe" is descriptive in a logo/branding edit.
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka Stripe-logotypen").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Restore the Stripe logo for the footer").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka Stripe-loggan i sidfoten").readdedCapabilities,
+    ).toEqual([]);
+  });
+
   it("unambiguous restore phrasings count as re-adds", () => {
     expect(
       detectCapabilityRemoval("Återaktivera Stripe-betalningen").readdedCapabilities,

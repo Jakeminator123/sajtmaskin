@@ -4,6 +4,7 @@
  * signals without duplicating the full optimized prompt.
  */
 import type { BuildSpecQualityTarget } from "./build-spec";
+import { filterProvidersForRemovedCapabilities } from "./capability-removal";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
@@ -214,13 +215,38 @@ function readStringArraySnapshotKey(
     .filter((entry) => entry.length > 0);
 }
 
-/** Durable F3 approval record persisted on the orchestration snapshot. */
+/**
+ * Durable F3 approval record persisted on the orchestration snapshot —
+ * ALWAYS subtracted by the durable removal tombstone (`removedCapabilities`),
+ * in BOTH dimensions, at the single read owner (Codex P1 ×2 on #497):
+ * - capabilities: a stale approval must not re-open the F3 explicit scope for
+ *   a removed capability (callers union these into dossier scopes directly,
+ *   e.g. `chat-message-stream-post.ts` before `buildFollowUpContract` runs).
+ * - providers: a stale approved provider ("stripe") maps back to its dossier
+ *   capability in the approval-build path and would rebuild the removed
+ *   integration even with the capability id filtered.
+ * The tombstone is only cleared by an explicit re-add
+ * (`mergePersistedOrchestrationSnapshots`), after which approvals flow again.
+ */
 export function readF3ApprovedFromSnapshot(
   snapshot: Record<string, unknown> | null | undefined,
 ): { capabilities: string[]; providers: string[] } {
+  const removed = readStringArraySnapshotKey(snapshot, "removedCapabilities");
+  const capabilities = readStringArraySnapshotKey(
+    snapshot,
+    F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY,
+  );
+  const providers = readStringArraySnapshotKey(
+    snapshot,
+    F3_APPROVED_PROVIDERS_SNAPSHOT_KEY,
+  );
+  if (removed.length === 0) {
+    return { capabilities, providers };
+  }
+  const removedSet = new Set(removed);
   return {
-    capabilities: readStringArraySnapshotKey(snapshot, F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY),
-    providers: readStringArraySnapshotKey(snapshot, F3_APPROVED_PROVIDERS_SNAPSHOT_KEY),
+    capabilities: capabilities.filter((capability) => !removedSet.has(capability)),
+    providers: filterProvidersForRemovedCapabilities(providers, removed),
   };
 }
 
@@ -582,13 +608,11 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
     capabilities: [...inheritedCapabilities],
-    // Same durable-removal override for approvals: a stale F3-approval left in
-    // the snapshot (append-only union) must not re-open the F3 explicit scope
-    // for a capability the user removed — that path bypasses `capabilities`
-    // entirely via `scopeF3DossierCapabilities` (granska-svärm on the readd fix).
-    f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities.filter(
-      (capability) => !removedTombstone.has(capability),
-    ),
+    // `readF3ApprovedFromSnapshot` is the single owner of the durable-removal
+    // subtraction for approvals (capabilities AND providers) — see its doc.
+    // Every reader (this contract + the raw fallback in
+    // chat-message-stream-post.ts) gets tombstone-filtered values.
+    f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
     f3ApprovedProviders: readF3ApprovedFromSnapshot(snapshot).providers,
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
