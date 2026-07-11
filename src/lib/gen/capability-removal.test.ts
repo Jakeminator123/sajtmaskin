@@ -160,10 +160,10 @@ it("removes stale F3 provider approvals for removed capabilities", () => {
   ).toEqual(["paddle"]);
   expect(
     filterProvidersForRemovedCapabilities(
-      ["stripe", "paddle"],
+      ["stripe", "paddle", "supabase"],
       ["subscriptions"],
     ),
-  ).toEqual(["stripe"]);
+  ).toEqual(["stripe", "supabase"]);
 });
 
 it("builds a removal instruction from the exact removed dossier files", () => {

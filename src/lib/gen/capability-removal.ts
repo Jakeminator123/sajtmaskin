@@ -40,16 +40,6 @@ function providerMatchesRemovedCapability(
       ) {
         return true;
       }
-      if (
-        (dossier.dependencies ?? []).some((dependency) =>
-          dependency
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "")
-            .includes(compactProvider),
-        )
-      ) {
-        return true;
-      }
     }
   }
   return false;
