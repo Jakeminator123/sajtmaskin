@@ -1,10 +1,14 @@
 name: DB + Blob sync check
 
-# Order/regression gate: verifies that the dev + prod Supabase Postgres databases
-# and the Vercel Blob store are in the expected post-restart state. Read-only.
-# Runs pydatabastest.py --ci, which never prompts and exits non-zero on any FAIL.
-# If a DB/blob secret is empty, that target is SKIPPED with a WARN so the job still
-# passes meaningfully in forks / environments without prod credentials.
+# Order/regression gate: verifies the dev + prod Supabase Postgres databases and
+# the Vercel Blob store are in the expected state. Read-only. DEV is the reset DB
+# (EMPTY-group must be 0 rows); PROD carries live user data, so there only
+# connectivity, schema and PRESERVED tables are enforced and the EMPTY-group row
+# counts are informational (the old "prod is also empty" assumption was stale and
+# kept this gate red on a used production DB). Runs pydatabastest.py --ci, which
+# never prompts and exits non-zero on any FAIL. If a DB/blob secret is empty, that
+# target is SKIPPED with a WARN so the job still passes meaningfully in forks /
+# environments without prod credentials.
 
 on:
   push:
