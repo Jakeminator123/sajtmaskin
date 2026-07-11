@@ -12,6 +12,7 @@ import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { resolveDeploymentLiveUrlForChat } from "@/lib/deployment";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "webhook:v0", async () => {
@@ -122,11 +123,17 @@ async function handleDeploymentReady(data: V0Payload) {
     .limit(1);
 
   if (deployment.length > 0) {
+    const liveUrl = await resolveDeploymentLiveUrlForChat({
+      chatId: deployment[0].chatId,
+      providerUrl: url,
+      fallbackUrl: deployment[0].url,
+    });
     await db
       .update(deployments)
       .set({
         status: "ready",
         providerUrl: url ?? deployment[0].providerUrl ?? undefined,
+        url: liveUrl ?? deployment[0].url ?? undefined,
         inspectorUrl: inspectorUrl ?? deployment[0].inspectorUrl ?? undefined,
         updatedAt: new Date(),
       })

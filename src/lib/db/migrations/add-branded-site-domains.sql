@@ -4,6 +4,7 @@
 ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS published_slug TEXT;
 ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS branded_domain TEXT;
 ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS branded_domain_verified_at TIMESTAMPTZ;
+ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS branded_domain_checked_at TIMESTAMPTZ;
 ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS custom_domain TEXT;
 ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS custom_domain_verified_at TIMESTAMPTZ;
 

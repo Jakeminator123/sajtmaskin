@@ -333,6 +333,7 @@ export async function ensureProjectPublishedIdentity(
         .set({
           branded_domain: brandedDomain,
           branded_domain_verified_at: null,
+          branded_domain_checked_at: null,
           updated_at: new Date(),
         })
         .where(eq(appProjects.id, id));
@@ -421,11 +422,13 @@ export async function markProjectBrandedDomainVerified(
   assertDbConfigured();
   const normalized = normalizeDomainHostname(domain);
   if (!normalized) throw new Error("Invalid branded domain");
+  const verifiedAt = new Date();
   const rows = await db
     .update(appProjects)
     .set({
       branded_domain: normalized,
-      branded_domain_verified_at: new Date(),
+      branded_domain_verified_at: verifiedAt,
+      branded_domain_checked_at: verifiedAt,
       updated_at: new Date(),
     })
     .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)))
@@ -440,9 +443,14 @@ export async function clearProjectBrandedDomainVerification(
   assertDbConfigured();
   const normalized = normalizeDomainHostname(domain);
   if (!normalized) return;
+  const checkedAt = new Date();
   await db
     .update(appProjects)
-    .set({ branded_domain_verified_at: null, updated_at: new Date() })
+    .set({
+      branded_domain_verified_at: null,
+      branded_domain_checked_at: checkedAt,
+      updated_at: checkedAt,
+    })
     .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)));
 }
 

@@ -1158,6 +1158,14 @@ export async function GET(req: Request) {
         appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt =
         appProject?.custom_domain_verified_at ?? null;
+      const brandedDomainCheckedAt =
+        appProject?.branded_domain_checked_at ?? null;
+      const brandedDomainCheckedAtMs = brandedDomainCheckedAt
+        ? new Date(brandedDomainCheckedAt).getTime()
+        : Number.NaN;
+      const shouldRecheckBrandedDomain =
+        !Number.isFinite(brandedDomainCheckedAtMs) ||
+        Date.now() - brandedDomainCheckedAtMs >= 5 * 60 * 1000;
       if (
         appProjectId &&
         appProject?.custom_domain &&
@@ -1181,6 +1189,7 @@ export async function GET(req: Request) {
         appProjectId &&
         appProject?.branded_domain &&
         !brandedDomainVerifiedAt &&
+        shouldRecheckBrandedDomain &&
         appProject.vercel_project_id
       ) {
         const configured = await checkVercelProjectDomain(

@@ -167,6 +167,7 @@ export const appProjects = pgTable(
     /** Exact Sajtmaskin-owned hostname assigned to the generated Vercel project. */
     branded_domain: text("branded_domain"),
     branded_domain_verified_at: timestamptz("branded_domain_verified_at"),
+    branded_domain_checked_at: timestamptz("branded_domain_checked_at"),
     /** Customer domain only after Vercel ownership verification succeeds. */
     custom_domain: text("custom_domain"),
     custom_domain_verified_at: timestamptz("custom_domain_verified_at"),
