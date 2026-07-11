@@ -28,6 +28,9 @@ Core Rules + Dynamic Context
 - Dynamic Context är request-specifikt och byggs i `src/lib/gen/system-prompt/`.
 - User prompt ska inte dupliceras som systemprompt-block.
 - Required Dynamic Context-block ska överleva pruning.
+- I F3 är en icke-tom filhärledd `Tier3BuildSpec` basauktoritet i prompten;
+  endast providers som uttryckligen godkänts i aktuell runda får läggas till.
+  `preGenerationContracts` är fallback när filspec saknas eller är tom.
 
 ## Dossierkontrakt
 
@@ -42,6 +45,8 @@ Dossier är capability-driven. Dossier selection ska vara deterministisk och sp�
 Invariants:
 
 - En capability kan välja en dossier via registry/selection.
+- Init och follow-up ska mata samma named capability-detektor till
+  `requestedDossierCapabilities`; bred `inferCapabilities` är ett komplement.
 - `hard` och `soft` beskriver extern secret-tyngd, inte F2/F3 i sig.
 - F3-krav härleds från dossier-kontrakt: build-enforced env var eller server file surface.
 - Verbatim-filer ska skyddas både i prompt och post-merge.

@@ -702,6 +702,56 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
   });
 
+  it("threads named section capabilities through the init orchestration input", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Sections</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+    finalizeOrHandleEmptyGeneration.mockResolvedValue({
+      version: { id: "ver_sections" },
+      messageId: "msg_sections",
+      previewUrl: null,
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: null,
+      },
+      contentForVersion: "<main>Sections</main>",
+      rejectedShrinks: [],
+      rejectedStructural: [],
+      crossFileStubs: [],
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Gör en enkel hemsida med kundloggor och nyckeltal.",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+      requestedDossierCapabilities?: string[];
+      requestedCapabilityTiers?: Record<string, string>;
+      simpleWebsitePath?: boolean;
+      embeddingScaffoldMatch?: boolean;
+    };
+    expect(orchestrationInput.requestedDossierCapabilities).toEqual(
+      expect.arrayContaining(["logo-cloud", "stats-counter"]),
+    );
+    expect(orchestrationInput.requestedCapabilityTiers).toMatchObject({
+      "logo-cloud": "specific",
+      "stats-counter": "specific",
+    });
+    expect(orchestrationInput.simpleWebsitePath).toBe(false);
+    expect(orchestrationInput.embeddingScaffoldMatch).toBe(true);
+  });
+
   it("does NOT prewarm when create credits are rejected", async () => {
     prepareCredits.mockResolvedValueOnce({
       ok: false,

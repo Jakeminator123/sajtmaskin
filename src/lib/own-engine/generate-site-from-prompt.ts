@@ -12,6 +12,9 @@ import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/select
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
+import { getDossierById } from "@/lib/gen/dossiers";
 
 type RuntimeMode = "preview";
 
@@ -100,12 +103,19 @@ export async function generateOwnEngineSiteFromPrompt(
   // model so repair/server-verify round-trip the tier via ownModelIdToCanonicalModelId.
   const generatorModel = resolvePhaseModel(modelSelection.modelTier, "generator").modelId;
 
+  const capabilityDetection = mergeDossierIdCapabilities(
+    detectFollowUpCapabilities(prompt, { mode: "init" }),
+    prompt,
+    (id) => getDossierById(id)?.capability ?? null,
+  );
   const orchestrationInput = {
     prompt,
     buildIntent,
     scaffoldMode,
     scaffoldId: params.scaffoldId ?? null,
     imageGenerations,
+    requestedDossierCapabilities: capabilityDetection.capabilityIds,
+    requestedCapabilityTiers: capabilityDetection.tierByCapability,
   } as const;
   const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
   const { engineSystemPrompt } = await finalizeOrchestrationPrompts(

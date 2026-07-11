@@ -371,6 +371,31 @@ export function mapProviderKeysToDossierCapabilities(
   return Array.from(capabilities);
 }
 
+/** Build F3 requirements directly from explicit provider approvals. */
+export function deriveTier3BuildSpecForProviderKeys(
+  providerKeys: readonly string[],
+): Tier3BuildSpec {
+  const integrations: PlanIntegrationContract[] = [];
+  const seen = new Set<string>();
+  for (const providerKey of providerKeys) {
+    const definition = findRegistryDefinitionByProviderKey(providerKey);
+    if (!definition || seen.has(definition.key)) continue;
+    seen.add(definition.key);
+    integrations.push({
+      provider: definition.provider ?? definition.key,
+      name: definition.name,
+      reason: "explicitly approved for this F3 build",
+      status: "chosen",
+      envVars: definition.envVars,
+    });
+  }
+  return deriveTier3BuildSpec({
+    dataMode: "none",
+    integrations,
+    envVars: [],
+  });
+}
+
 function findRegistryDefinitionByProviderKey(
   raw: string,
 ): IntegrationDefinition | undefined {

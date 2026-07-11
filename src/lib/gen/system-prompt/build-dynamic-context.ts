@@ -130,6 +130,8 @@ export function buildDynamicContext(
     resolvedVariant,
     routePlan,
     preGenerationContracts,
+    tier3BuildSpec,
+    tier3ApprovedProviders,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -285,10 +287,24 @@ export function buildDynamicContext(
   if (!compactFollowUpContext) {
     parts.push(...renderLucideIconsReminderBlock());
   }
-  parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
+  parts.push(
+    ...renderTier3IntegrationBlock({
+      buildSpec,
+      preGenerationContracts,
+      tier3BuildSpec,
+      approvedProviders: tier3ApprovedProviders,
+    }),
+  );
   // F3-gated: pre-generation contracts (integrations/env/placeholder policy)
   // must not render in F2, where `renderF2ContractBlock` forbids that wiring.
-  parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
+  // When the parent-version gate supplied a file-derived Tier3BuildSpec it is
+  // the sole integration authority; rendering prompt-derived contracts beside
+  // it could reintroduce speculative providers that are absent from the code.
+  if ((tier3BuildSpec?.requirements.length ?? 0) === 0) {
+    parts.push(
+      ...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec),
+    );
+  }
   parts.push(...renderBriefBlocks(brief));
   parts.push(
     ...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }),

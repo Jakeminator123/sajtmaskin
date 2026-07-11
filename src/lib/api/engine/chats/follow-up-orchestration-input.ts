@@ -75,6 +75,8 @@ export interface BuildFollowUpOrchestrationInputParams {
    * of the platform `process.env` (fix-isconfigured).
    */
   configuredEnvKeys?: ReadonlySet<string>;
+  /** File-derived parent-version F3 build plan from the readiness gate. */
+  tier3BuildSpec?: OrchestrationInput["tier3BuildSpec"];
 }
 
 function buildClearRedesignBriefFallbackFromSnapshot(
@@ -179,6 +181,7 @@ export function buildFollowUpOrchestrationInput(
     capabilityModifyHint,
     engineModelId: params.engineModelId,
     lifecycleStage: params.parsedMeta.lifecycleStage,
+    tier3BuildSpec: params.tier3BuildSpec,
     configuredEnvKeys: params.configuredEnvKeys,
     // 5-1: consolidate the scattered inherited/frozen follow-up signals into
     // one readable object. Additive — does not change how the fields above

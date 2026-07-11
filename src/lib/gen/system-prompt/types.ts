@@ -17,6 +17,7 @@ import type { ScaffoldManifest } from "../scaffolds/types";
 import type { PromptBudgetBlock } from "../tokens";
 import type { DossierSelectionResult } from "../dossiers";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
+import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
 
 export interface Brief {
   projectTitle?: string;
@@ -107,6 +108,10 @@ export interface DynamicContextOptions {
   resolvedVariant?: ScaffoldVariant | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
+  /** File-derived F3 build plan from the selected parent version. */
+  tier3BuildSpec?: Tier3BuildSpec | null;
+  /** Explicit providers approved for addition in the current F3 round. */
+  tier3ApprovedProviders?: readonly string[] | null;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];

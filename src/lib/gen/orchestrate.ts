@@ -84,6 +84,7 @@ import type { FollowUpContract } from "./orchestration-snapshot";
 import type { RequestKindClass } from "./request-kind";
 import type { FollowUpIntentMode } from "./follow-up-intent-types";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
+import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
 import {
   buildGenerationInputPackage,
   writeOrchestrationDynamicDump,
@@ -222,6 +223,8 @@ export interface OrchestrationInput {
    * Defaults to `"design"` (F2) when unset.
    */
   lifecycleStage?: "design" | "integrations";
+  /** File-derived parent-version build plan used by the F3 system prompt. */
+  tier3BuildSpec?: Tier3BuildSpec | null;
   /**
    * P22: optional chatId — propagated to inheritance helpers + variant lock
    * so per-chat decisions can be made deterministically. Stays optional so
@@ -1841,6 +1844,8 @@ export async function finalizeOrchestrationPrompts(
     resolvedScaffold: base.resolvedScaffold,
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,
+    tier3BuildSpec: input.tier3BuildSpec,
+    tier3ApprovedProviders: input.dossierProviderHints,
     componentPalette,
     designThemePreset,
     designReferences,

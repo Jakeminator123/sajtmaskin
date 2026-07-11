@@ -32,3 +32,16 @@ describe("splitContextIntoBudgetBlocks — AI SDK version contract", () => {
     expect(imagery?.required).toBe(false);
   });
 });
+
+describe("splitContextIntoBudgetBlocks — F3 build plan", () => {
+  it("keeps the file-derived integration plan required under token pressure", () => {
+    const [block] = splitContextIntoBudgetBlocks(
+      "## Tier-3 Integration Build Plan\n\n- Stripe",
+    );
+    expect(block).toMatchObject({
+      key: "tier_3_integration_build_plan",
+      priority: 93,
+      required: true,
+    });
+  });
+});

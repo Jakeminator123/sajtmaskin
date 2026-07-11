@@ -247,7 +247,10 @@ function resolveTier(params: {
  *          follow-up intent as `capability-add` and to merge the resulting
  *          ids into `selectDossiersForRequest`.
  */
-export function detectFollowUpCapabilities(message: string): FollowUpCapabilityDetection {
+export function detectFollowUpCapabilities(
+  message: string,
+  options?: { mode?: "followUp" | "init" },
+): FollowUpCapabilityDetection {
   const trimmed = String(message ?? "").trim();
   const wordCount = countWords(trimmed);
   if (!trimmed) {
@@ -281,6 +284,7 @@ export function detectFollowUpCapabilities(message: string): FollowUpCapabilityD
   // no refine verb that the existing pipeline tolerates, but is plainly
   // a capability-modify request and must reach the dossier branch).
   const allowDetection =
+    options?.mode === "init" ||
     addVerbPresent ||
     (veryShortNounOnly && !refineOrMoveVerbPresent) ||
     modifyReferenceMatches.length > 0;

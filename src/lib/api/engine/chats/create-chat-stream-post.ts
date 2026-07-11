@@ -15,6 +15,8 @@ import {
   WARN_CHAT_SYSTEM_CHARS,
 } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
@@ -41,6 +43,7 @@ import {
   resolveOrchestrationBase,
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
+import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
@@ -228,6 +231,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         ? formatVariantHintsForPrompt(variantHints)
         : undefined;
       const initCapabilities = inferCapabilities(message);
+      const initCapabilityDetection = mergeDossierIdCapabilities(
+        detectFollowUpCapabilities(message, { mode: "init" }),
+        message,
+        (id) => getDossierById(id)?.capability ?? null,
+      );
       const simpleWebsitePath = classifySimpleWebsitePath({
         generationMode: "init",
         planMode: Boolean(metaPlanMode),
@@ -244,6 +252,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         prompt: message,
         preMatchScaffold,
         capabilities: initCapabilities,
+        requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
       });
       devLogAppend("in-progress", {
         type: "orchestration.simple_website_path",
@@ -488,6 +497,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           scaffoldMatchPrompt: message,
           capabilitiesPrompt: message,
           capabilities: initCapabilities,
+          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
+          requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
@@ -679,6 +690,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
           // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
           capabilitiesPrompt: message,
+          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
+          requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,

@@ -1,5 +1,7 @@
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
+import { getDossierById } from "@/lib/gen/dossiers";
 import { buildFollowUpFileContextDecision } from "@/lib/api/engine/chats/follow-up-file-context";
 import { buildFollowUpOrchestrationInput } from "@/lib/api/engine/chats/follow-up-orchestration-input";
 import { classifyFollowUpIntent } from "@/lib/providers/own-engine/follow-up-clarification";
@@ -159,6 +161,11 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
     isFirstPrompt: false,
   });
   const followUpIntent = classifyFollowUpIntent(testCase.message);
+  const followUpCapabilityDetection = mergeDossierIdCapabilities(
+    detectFollowUpCapabilities(testCase.message),
+    testCase.message,
+    (id) => getDossierById(id)?.capability ?? null,
+  );
   const { optimizedMessage, fileContextDecision } = buildOptimizedFollowUpMessage({
     message: testCase.message,
     previousFiles: testCase.previousFiles,
@@ -187,7 +194,7 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
     promptStrategyMeta: promptOrchestration.strategyMeta,
     existingRoutePaths: ["/"],
     existingShellRoutePaths: [],
-    followUpCapabilityDetection: detectFollowUpCapabilities(testCase.message),
+    followUpCapabilityDetection,
     followUpIntent,
     orchestrationSnapshot: {
       scaffoldId: testCase.persistedScaffoldId,

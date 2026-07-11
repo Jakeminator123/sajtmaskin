@@ -1710,7 +1710,26 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      const fileDerivedSpec = {
+        requirements: [
+          {
+            key: "stripe",
+            name: "Stripe",
+            provider: "stripe",
+            requiredRealEnvKeys: ["STRIPE_SECRET_KEY"],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: [],
+            buildInstructions: ["Wire Stripe from the parent version."],
+            setupGuide: "Add Stripe keys.",
+            hasConfigNoticeComponent: true,
+          },
+        ],
+      };
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: fileDerivedSpec,
+      });
       consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -1775,7 +1794,26 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      const fileDerivedSpec = {
+        requirements: [
+          {
+            key: "stripe",
+            name: "Stripe",
+            provider: "stripe",
+            requiredRealEnvKeys: ["STRIPE_SECRET_KEY"],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: [],
+            buildInstructions: ["Wire Stripe from the parent version."],
+            setupGuide: "Add Stripe keys.",
+            hasConfigNoticeComponent: true,
+          },
+        ],
+      };
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: fileDerivedSpec,
+      });
       consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -1801,8 +1839,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
         requestedDossierCapabilities?: string[];
         prompt: string;
+        tier3BuildSpec?: unknown;
       };
       expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
+      expect(orchestrationInput.tier3BuildSpec).toEqual(fileDerivedSpec);
       // The build directive names the approved provider.
       expect(orchestrationInput.prompt).toContain(
         "Approved integration providers: stripe",
