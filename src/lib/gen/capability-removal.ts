@@ -1,7 +1,7 @@
 import type { InferredCapabilities } from "./capability-inference";
 import { INFERRED_CAPABILITY_DOSSIER_BRIDGE } from "./capability-dossier-bridge";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
-import type { DossierEntry } from "./dossiers";
+import { getDossiersByCapability, type DossierEntry } from "./dossiers";
 import { mapProviderKeysToDossierCapabilities } from "@/lib/integrations/tier3-build-spec";
 
 function normalizeCapabilitySet(values: readonly string[]): Set<string> {
@@ -18,9 +18,41 @@ function providerMatchesRemovedCapability(
   removed: ReadonlySet<string>,
 ): boolean {
   if (!provider) return false;
-  return mapProviderKeysToDossierCapabilities([provider]).some((capability) =>
-    removed.has(capability.toLowerCase()),
-  );
+  if (
+    mapProviderKeysToDossierCapabilities([provider]).some((capability) =>
+      removed.has(capability.toLowerCase()),
+    )
+  ) {
+    return true;
+  }
+  // Some promoted dossiers (notably paddle-billing) intentionally have no
+  // integrationRegistry entry yet. Fall back to the dossier registry instead
+  // of letting stale provider approvals survive removal.
+  const compactProvider = provider.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (!compactProvider) return false;
+  for (const capability of removed) {
+    for (const dossier of getDossiersByCapability(capability)) {
+      const compactId = dossier.id.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      if (
+        compactId === compactProvider ||
+        compactId.startsWith(compactProvider) ||
+        compactProvider.startsWith(compactId)
+      ) {
+        return true;
+      }
+      if (
+        (dossier.dependencies ?? []).some((dependency) =>
+          dependency
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "")
+            .includes(compactProvider),
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**

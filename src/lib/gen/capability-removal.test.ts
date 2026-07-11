@@ -94,6 +94,49 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
     ]);
     expect(result.unresolvedDecisions).toEqual([]);
   });
+
+  it("removes Paddle through dossier fallback even without a registry entry", () => {
+    const context: PreGenerationContractContext = {
+      contracts: {
+        dataMode: "mixed",
+        paymentProvider: "paddle",
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "one-off",
+            status: "chosen",
+            envVars: ["STRIPE_SECRET_KEY"],
+          },
+          {
+            provider: "paddle",
+            name: "Paddle",
+            reason: "recurring",
+            status: "chosen",
+            envVars: ["PADDLE_API_KEY"],
+          },
+        ],
+        envVars: [
+          { key: "STRIPE_SECRET_KEY", reason: "Stripe" },
+          { key: "PADDLE_API_KEY", reason: "Paddle" },
+        ],
+      },
+      unresolvedDecisions: [],
+      confirmedAnswers: [],
+    };
+
+    const result = filterRemovedCapabilitiesFromContracts(context, [
+      "subscriptions",
+    ]);
+
+    expect(result.contracts.paymentProvider).toBeUndefined();
+    expect(result.contracts.integrations.map((item) => item.provider)).toEqual([
+      "stripe",
+    ]);
+    expect(result.contracts.envVars.map((item) => item.key)).toEqual([
+      "STRIPE_SECRET_KEY",
+    ]);
+  });
 });
 
 it("shrinks stale brief capabilities so later follow-ups cannot resurrect them", () => {
@@ -115,6 +158,12 @@ it("removes stale F3 provider approvals for removed capabilities", () => {
       ["payments"],
     ),
   ).toEqual(["paddle"]);
+  expect(
+    filterProvidersForRemovedCapabilities(
+      ["stripe", "paddle"],
+      ["subscriptions"],
+    ),
+  ).toEqual(["stripe"]);
 });
 
 it("builds a removal instruction from the exact removed dossier files", () => {
