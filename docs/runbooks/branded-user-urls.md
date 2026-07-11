@@ -17,6 +17,20 @@
 7. Sätt `SAJTMASKIN_BRANDED_LIVE_URLS=true` först i Development/Preview, därefter Production.
 8. Byt appens `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och Fly `PREVIEW_BASE_URL` till `https://preview.sajtmaskin.se`; sätt preview-host-allowlisten till exakt `preview.sajtmaskin.se`.
 
+## Test före DNS-aktivering
+
+Vercel äger hela `vercel.app`-zonen. `sajtmaskin.vercel.app` kan därför inte
+fungera som parent-domän för adresser som `<slug>.sajtmaskin.vercel.app`.
+En manuell Vercel deploy-preview av Sajtmaskin testar kod, publiceringsflöde,
+provider-fallback och domänkontrakt — men den kan inte visa den slutliga branded
+URL:en.
+
+Ett riktigt end-to-end-test av branded alias kräver en parent-domän eller
+test-subdomän som vi kontrollerar. Använd Development/Preview-env och en
+begränsad `--project-id`/`--limit`-migrering; återanvänd inte en kunddomän.
+Automatiska `*.vercel.app`-alias kan ha flera former och räknas alltid som
+`providerUrl`, aldrig som Sajtmaskins branded standardadress.
+
 ## Rollback
 
 Ta bort eller sätt `SAJTMASKIN_BRANDED_LIVE_URLS=false`. UI/API faller då tillbaka till sparad provider-URL utan att radera Vercel-projekt, alias eller kunddomäner. Ändra inte `SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan en ny verifierad migrering.

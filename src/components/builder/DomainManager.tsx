@@ -526,6 +526,12 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                         ? "Verifierad! Domänen är klar."
                         : "Väntar på DNS-propagering..."}
                     </p>
+                    {verifyStatus?.verified ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Den är nu sajtens publika adress. Publicera igen om SEO
+                        är aktiverat, så sitemap och metadata byter domän.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>
