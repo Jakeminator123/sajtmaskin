@@ -211,7 +211,7 @@
     "FinalizeDesignApiJson": {
       "route": "/api/engine/chats/[chatId]/finalize-design",
       "method": "POST",
-      "purpose": "F3 ('Bygg integrationer') trigger. Validates tier-3 readiness against stored project env vars before allowing the chat-stream caller to start an F3 generation with `meta.lifecycleStage: \"integrations\"` and `meta.parentVersionId`.",
+      "purpose": "F3 ('Bygg integrationer') trigger. Build-key specs keep the gated LLM stream path. Empty/Advisory-only specs fork a new integrations version from the exact F2 files and return a deterministic ReleaseGate action.",
       "type": "object",
       "request": {
         "type": "object",
@@ -225,7 +225,7 @@
         }
       },
       "responses": {
-        "200_ready": {
+        "200_llm_ready": {
           "required": ["ready", "parentVersionId", "streamMeta"],
           "properties": {
             "ready": { "const": true },
@@ -252,11 +252,38 @@
             }
           }
         },
+        "200_deterministic_release": {
+          "required": ["ready", "action", "parentVersionId", "versionId", "lifecycleStage", "gateRequired", "releaseState", "verificationState"],
+          "properties": {
+            "ready": { "const": true },
+            "action": { "const": "deterministic_release" },
+            "parentVersionId": { "type": "string" },
+            "versionId": { "type": "string" },
+            "lifecycleStage": { "const": "integrations" },
+            "gateRequired": { "type": "boolean" },
+            "reused": { "type": "boolean" },
+            "releaseState": { "type": "string" },
+            "verificationState": { "type": "string" },
+            "requirements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "name", "requiredRealEnvKeys"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "name": { "type": "string" },
+                  "requiredRealEnvKeys": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
         "412_missing_env": {
           "required": ["ready", "parentVersionId", "missingByIntegration"],
           "properties": {
             "ready": { "const": false },
             "parentVersionId": { "type": "string" },
+            "projectId": { "type": ["string", "null"] },
             "missingByIntegration": {
               "type": "array",
               "items": {
@@ -272,7 +299,70 @@
           }
         },
         "404_not_found": { "required": ["error"] },
-        "409_already_integrations": { "required": ["ready", "reason"] }
+        "409_already_integrations": { "required": ["ready", "reason"] },
+        "409_version_files_unavailable": {
+          "required": ["ready", "reason"],
+          "properties": {
+            "ready": { "const": false },
+            "reason": { "const": "version_files_unavailable" }
+          }
+        },
+        "409_f3_fork_unavailable": {
+          "required": ["ready", "reason", "parentVersionId"],
+          "properties": {
+            "ready": { "const": false },
+            "reason": { "const": "f3_fork_unavailable" },
+            "parentVersionId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "F3StreamBackstopApiJson": {
+      "route": "/api/engine/chats/[chatId]/stream",
+      "method": "POST",
+      "purpose": "Old/custom clients that attempt an unnecessary F3 LLM round are redirected to the deterministic finalize-design + ReleaseGate path.",
+      "responses": {
+        "409_deterministic_release_required": {
+          "required": ["error", "ready", "action", "parentVersionId"],
+          "properties": {
+            "error": { "const": "f3_deterministic_release_required" },
+            "ready": { "const": false },
+            "action": { "const": "deterministic_release" },
+            "parentVersionId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "IntegrationsBuildQualityGateApiJson": {
+      "route": "/api/engine/chats/[chatId]/quality-gate",
+      "method": "POST",
+      "purpose": "ReleaseGate for an F3 integrations version created by deterministic finalize-design.",
+      "request": {
+        "required": ["versionId", "gate", "checks"],
+        "properties": {
+          "versionId": { "type": "string" },
+          "gate": { "const": "integrationsBuild" },
+          "checks": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "responses": {
+        "200": {
+          "required": ["passed", "promoted"],
+          "properties": {
+            "passed": { "type": "boolean" },
+            "promoted": { "type": "boolean" },
+            "vmGatePassed": { "type": ["boolean", "null"] }
+          }
+        },
+        "412_missing_env": {
+          "required": ["error", "parentVersionId", "missingByIntegration"],
+          "properties": {
+            "error": { "const": "tier3_env_not_ready" },
+            "parentVersionId": { "type": "string" },
+            "projectId": { "type": ["string", "null"] },
+            "missingByIntegration": { "type": "array" }
+          }
+        }
       }
     },
     "PreviewHostStartRequest": {

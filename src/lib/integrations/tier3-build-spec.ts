@@ -87,6 +87,19 @@ export interface Tier3BuildSpec {
   requirements: Tier3IntegrationRequirement[];
 }
 
+/**
+ * Whether F3 has any real integration work that requires the general LLM
+ * build round. This is intentionally based only on per-key `build`
+ * enforcement. A selected hard/soft dossier with feature-runtime or warn-only
+ * keys keeps its existing F2 visual fallback; dossier/requirement presence is
+ * not itself permission to start codegen.
+ */
+export function hasRequiredRealBuildKeys(spec: Tier3BuildSpec): boolean {
+  return spec.requirements.some(
+    (requirement) => requirement.requiredRealEnvKeys.length > 0,
+  );
+}
+
 export interface Tier3ReadinessReport {
   /** True when every required real env key has a non-empty value. */
   ready: boolean;

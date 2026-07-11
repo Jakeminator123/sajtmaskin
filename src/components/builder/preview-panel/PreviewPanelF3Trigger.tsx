@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
-import { toast } from "sonner";
+import type { F3BuilderStatus } from "@/components/builder/F3RequirementsSurface";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
+import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -26,12 +27,20 @@ export interface PreviewPanelF3TriggerProps {
   /** Called when the readiness check finds missing tier-3 env keys. */
   onMissingEnv?: (payload: {
     parentVersionId: string;
+    projectId?: string | null;
     missingByIntegration: Array<{
       key: string;
       name: string;
       missing: string[];
     }>;
   }) => void;
+  /** Refresh versions, active status and readiness after an F3 fork settles. */
+  onReleaseSettled?: (payload: {
+    versionId: string;
+    selectVersion: boolean;
+  }) => void;
+  /** Reports every F3 lifecycle outcome in the persistent builder surface. */
+  onStatus?: (status: F3BuilderStatus) => void;
   className?: string;
   /**
    * External "is the builder busy with another generation right now?" flag.
@@ -41,25 +50,6 @@ export interface PreviewPanelF3TriggerProps {
    */
   isBusy?: boolean;
 }
-
-type FinalizeDesignResponse = {
-  ready: boolean;
-  reason?: string;
-  parentVersionId?: string;
-  requestedVersionId?: string;
-  latestVersionId?: string;
-  requirements?: Array<{
-    key: string;
-    name: string;
-    requiredRealEnvKeys: string[];
-  }>;
-  missingByIntegration?: Array<{
-    key: string;
-    name: string;
-    missing: string[];
-  }>;
-  message?: string;
-};
 
 type DiagnosticsResponse = {
   logs?: Array<{
@@ -81,16 +71,17 @@ function hasBlockingProductPostcheck(data: DiagnosticsResponse | null): boolean 
 
 /**
  * Minimal "Bygg integrationer" (F3) trigger button. Calls the
- * `/finalize-design` validator and surfaces missing env keys via toast +
- * the `onMissingEnv` callback. The actual F3 generation is kicked off by
- * the parent via the regular chat-stream endpoint with
- * `meta.lifecycleStage: "integrations"` and `meta.parentVersionId`.
+ * `/finalize-design` validator and forwards server-owned missing env keys to
+ * the persistent requirements surface. Deterministic F3 forks always use
+ * `runF3FinalizeAction`, preserving its exact ReleaseGate response handling.
  */
 export function PreviewPanelF3Trigger({
   chatId,
   versionId,
   onReady,
   onMissingEnv,
+  onReleaseSettled,
+  onStatus,
   className,
   isBusy = false,
 }: PreviewPanelF3TriggerProps) {
@@ -126,108 +117,155 @@ export function PreviewPanelF3Trigger({
     };
   }, [chatId, versionId]);
 
-  const handleClick = useCallback(async () => {
+  const runF3Flow = useCallback(async (requestedVersionId?: string | null) => {
+    const targetVersionId = requestedVersionId ?? versionId;
     // Guard the programmatic (retry-event) path: without a version the finalize
     // body would be `{}` and the server can't anchor the F3 step; while busy or
     // already loading a second finalize could race the in-flight request. The
     // button is already disabled for these (so this only trips via the retry
-    // event), but a silent return leaves the user without feedback — surface a
-    // toast when a run is in progress so the retry click is not a no-op.
+    // event), but a silent return leaves the user without feedback — surface
+    // the condition persistently in the builder instead.
     if (isBusy || isLoading) {
-      toast.warning("En annan generering pågår", {
-        description:
-          "Vänta tills den pågående körningen är klar innan du bygger integrationer igen.",
+      onStatus?.({
+        tone: "warning",
+        title: "Integrationsbygget väntar",
+        description: "Vänta tills den pågående körningen är klar innan du bygger integrationer igen.",
       });
       return;
     }
-    if (!versionId) {
-      toast.warning("Ingen aktiv version än", {
-        description:
-          "Vänta tills första versionen är skapad innan du bygger integrationer.",
+    if (!targetVersionId) {
+      onStatus?.({
+        tone: "warning",
+        title: "Ingen aktiv version än",
+        description: "Vänta tills första versionen är skapad innan du bygger integrationer.",
       });
       return;
     }
     if (productBlocked) {
-      toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
+      onStatus?.({
+        tone: "warning",
+        title: "Integrationsbygget är spärrat av Product Postcheck",
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
-        duration: 8000,
       });
       return;
     }
     setIsLoading(true);
     try {
-      const res = await fetch(
-        `/api/engine/chats/${encodeURIComponent(chatId)}/finalize-design`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(versionId ? { versionId } : {}),
+      const result = await runF3FinalizeAction({
+        chatId,
+        parentVersionId: targetVersionId,
+        onDeterministicReleaseStarted: () => {
+          onStatus?.({
+            tone: "info",
+            title: "ReleaseGate startar",
+            description: "Kontrollerar den deterministiska F3-versionen innan promotion.",
+          });
         },
-      );
+      });
 
-      const data = (await res.json().catch(() => ({}))) as FinalizeDesignResponse;
-
-      if (res.status === 409 && data.reason === "stale_design_version") {
-        toast.warning("Nyare designversion finns", {
-          description:
-            data.message ??
-            "Välj den senaste versionen i versionspanelen innan du bygger integrationer.",
-          duration: 8000,
-        });
-        return;
-      }
-
-      if (res.status === 412 && data.parentVersionId) {
-        const missing = data.missingByIntegration ?? [];
-        const totalMissing = missing.reduce(
-          (sum, entry) => sum + entry.missing.length,
-          0,
-        );
-        // P26: surface the actual missing env-key names, not just a count,
-        // so the user knows which secrets to add. Tidigare gav bara
-        // räkning vilket lämnade användaren utan handlingsinformation.
-        const missingKeyList = missing
-          .flatMap((entry) =>
-            entry.missing.map((envKey) => `${envKey} (${entry.name})`),
-          )
-          .slice(0, 6);
-        const overflow = totalMissing > missingKeyList.length;
-        toast.warning(
-          `Saknar ${totalMissing} env-värde${totalMissing === 1 ? "" : "n"} för integrationsbygge`,
-          {
-            description: missingKeyList.length
-              ? `${missingKeyList.join(", ")}${overflow ? ", …" : ""}`
-              : undefined,
-            duration: 8000,
-          },
-        );
+      if (result.kind === "missing_env") {
         onMissingEnv?.({
-          parentVersionId: data.parentVersionId,
-          missingByIntegration: missing,
+          parentVersionId: result.parentVersionId,
+          projectId: result.projectId,
+          missingByIntegration: result.missingByIntegration,
         });
         return;
       }
 
-      if (!res.ok || !data.ready || !data.parentVersionId) {
-        toast.error(data.message ?? "Kunde inte starta integrationsbygget.");
+      if (result.kind === "llm_ready") {
+        onStatus?.({
+          tone: "success",
+          title: "Integrationsbygget startar",
+          description: "F3 byggs nu utifrån den finaliserade designversionen.",
+        });
+        onReady?.({
+          parentVersionId: result.parentVersionId,
+          requirements: result.requirements,
+        });
         return;
       }
 
-      toast.success("Integrationsbygget startar.");
-      onReady?.({
-        parentVersionId: data.parentVersionId,
-        requirements: data.requirements ?? [],
+      if (result.kind === "error") {
+        const stale = result.reason === "stale_design_version";
+        onStatus?.({
+          tone: stale || result.retryable ? "warning" : "error",
+          title: stale
+            ? "Nyare designversion finns"
+            : result.retryable
+              ? "F3-kontrollen kan försöka igen"
+              : "F3-kontrollen misslyckades",
+          description: result.message,
+        });
+        return;
+      }
+
+      onReleaseSettled?.({
+        versionId: result.versionId,
+        selectVersion: !result.superseded,
+      });
+      if (result.ok) {
+        onStatus?.({
+          tone: "success",
+          title: result.alreadyPromoted ? "ReleaseGate var redan godkänd" : "ReleaseGate godkänd",
+          description:
+            "F3-versionen använder exakt samma filer och visuella fallback som F2.",
+        });
+        return;
+      }
+      if (result.superseded) {
+        onStatus?.({
+          tone: "warning",
+          title: "F3-versionen ersattes av en nyare version",
+          description: "ReleaseGate ändrade ingen äldre version.",
+        });
+        return;
+      }
+      if (result.promoteError || result.retryable) {
+        onStatus?.({
+          tone: "warning",
+          title: "ReleaseGate väntar på ett nytt försök",
+          description: result.message ?? "Försök igen när den pågående kontrollen är klar.",
+        });
+        return;
+      }
+      const failedChecks = result.failedChecks.join(", ");
+      onStatus?.({
+        tone: "error",
+        title: "ReleaseGate behöver åtgärdas",
+        description: result.promotionBlocked
+          ? "Finalize-verifieraren blockerade promotion."
+          : result.vmGatePassed === false || !result.passed
+            ? failedChecks
+              ? `Underkända kontroller: ${failedChecks}.`
+              : "F3-versionen blev inte godkänd. Se versionsdiagnostiken."
+            : "F3-versionen blev inte promotad.",
       });
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? `Integrationsbygget kunde inte starta: ${err.message}`
-          : "Integrationsbygget kunde inte starta.",
-      );
+      onStatus?.({
+        tone: "error",
+        title: "F3-kontrollen misslyckades",
+        description:
+          err instanceof Error
+            ? `Integrationsbygget kunde inte starta: ${err.message}`
+            : "Integrationsbygget kunde inte starta.",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, versionId, onReady, onMissingEnv, productBlocked, isBusy, isLoading]);
+  }, [
+    chatId,
+    versionId,
+    onReady,
+    onMissingEnv,
+    onReleaseSettled,
+    onStatus,
+    productBlocked,
+    isBusy,
+    isLoading,
+  ]);
+  const handleClick = useCallback(() => {
+    void runF3Flow(versionId);
+  }, [runF3Flow, versionId]);
 
   // Re-run the finalize flow when the Dossiers popover asks for a rebuild
   // (after the user fills the previously-missing keys). A ref keeps the
@@ -237,12 +275,23 @@ export function PreviewPanelF3Trigger({
     handleClickRef.current = handleClick;
   }, [handleClick]);
   useEffect(() => {
-    const handler = () => {
-      void handleClickRef.current();
+    const handler = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ versionId?: unknown }>
+      ).detail;
+      const targetVersionId =
+        typeof detail?.versionId === "string" && detail.versionId.trim()
+          ? detail.versionId
+          : null;
+      if (targetVersionId) {
+        void runF3Flow(targetVersionId);
+      } else {
+        void handleClickRef.current();
+      }
     };
     window.addEventListener(F3_REBUILD_REQUEST_EVENT, handler);
     return () => window.removeEventListener(F3_REBUILD_REQUEST_EVENT, handler);
-  }, []);
+  }, [runF3Flow]);
 
   // Block the click if we don't yet have a concrete versionId — otherwise
   // the request body becomes `{}` and the server can't anchor the F3 step

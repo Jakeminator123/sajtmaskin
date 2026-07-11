@@ -153,11 +153,21 @@ export async function isProductPostcheckBlocked(versionId: string): Promise<bool
  */
 export async function checkTier3ReadinessForVersion(params: {
   versionId: string;
+  /**
+   * Version whose CapabilitySmoke/Product Postcheck guards the F3 transition.
+   * Deterministic F3 forks verify their own exact files but inherit this guard
+   * from the selected F2 parent, where the preview smoke actually ran.
+   */
+  productPostcheckVersionId?: string;
   /** The chat's `orchestration_snapshot` (or null when absent). */
   orchestrationSnapshot: unknown;
   projectId: string | null;
 }): Promise<Tier3GateResult> {
-  if (await isProductPostcheckBlocked(params.versionId)) {
+  if (
+    await isProductPostcheckBlocked(
+      params.productPostcheckVersionId ?? params.versionId,
+    )
+  ) {
     return { ok: false, reason: "product_postcheck_blocked" };
   }
   const versionFiles = await getVersionFiles(params.versionId);

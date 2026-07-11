@@ -1,9 +1,9 @@
 # Env-flow map
 
 Human-readable map of the **two different environments** in this repo and how
-their `.env` layers fit together. It answers: *which env-key belongs to which
+their `.env` layers fit together. It answers: _which env-key belongs to which
 environment, who is the source of truth, which layer wins, and what is safe to
-leave as a fake placeholder?* — without grepping the whole repo.
+leave as a fake placeholder?_ — without grepping the whole repo.
 
 Code is always source of truth (see `AGENTS.md`). This doc is an index/map, not
 a new enforcement layer. **No real secret value is ever canonical in the
@@ -16,12 +16,12 @@ placeholder files described below** — they hold fake/test placeholders only.
 
 ## The two environments (do not confuse them)
 
-| Environment | What it is | Key authority | Classification authority |
-|-------------|------------|---------------|--------------------------|
-| **Sajtmaskin app env** | The control-plane app's own runtime env (this Next.js app) | [`src/lib/env.ts`](../../src/lib/env.ts) `serverSchema` (ultimate authority for which keys the app reads) | [`config/env-policy.json`](../../config/env-policy.json) (per-key classification + Vercel targets) |
-| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order) | [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) (harmless vs tier-3 per key) |
+| Environment                    | What it is                                                                             | Key authority                                                                                             | Classification authority                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Sajtmaskin app env**         | The control-plane app's own runtime env (this Next.js app)                             | [`src/lib/env.ts`](../../src/lib/env.ts) `serverSchema` (ultimate authority for which keys the app reads) | [`config/env-policy.json`](../../config/env-policy.json) (per-key classification + Vercel targets)                                |
+| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order)                | [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) (harmless vs tier-3 per key) |
 
-The same key *name* can appear in both (e.g. `OPENAI_API_KEY`, `REDIS_URL`,
+The same key _name_ can appear in both (e.g. `OPENAI_API_KEY`, `REDIS_URL`,
 `POSTGRES_URL`). That is **not** a duplicate: in the app env it is the
 Sajtmaskin app's own credential; in the generated-site env it is a placeholder
 injected into a user's preview site. Different environment, different meaning.
@@ -31,13 +31,13 @@ injected into a user's preview site. Different environment, different meaning.
 `env-policy.json` classifies every known app key. The classification drives the
 recommended Vercel targets and how the absence of a key is treated.
 
-| `classification` | Meaning | Enforcement feel |
-|------------------|---------|------------------|
-| `shared_runtime` | Core credential the app needs across dev/preview/prod (e.g. `POSTGRES_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, `ENV_VAR_ENCRYPTION_KEY`, `VERCEL_TOKEN`) | hard / build — required for the app to function |
-| `optional_runtime` | Used only when a feature is active (e.g. model overrides, `REDIS_URL`, blob keys) | feature-runtime — absent ⇒ feature degrades |
-| `environment_specific` | Value legitimately differs per environment (URLs, preview-host, prompt budgets) | feature-runtime / warn |
-| `vercel_managed` | Set automatically by Vercel / Node (`NODE_ENV`, `NEXT_PHASE`) — do not push | warn-only |
-| `local_only` | Local/dev-only flags (`DEBUG`, `AUTH_DEBUG`, `DATA_DIR`, test creds) | warn-only |
+| `classification`       | Meaning                                                                                                                                               | Enforcement feel                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `shared_runtime`       | Core credential the app needs across dev/preview/prod (e.g. `POSTGRES_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, `ENV_VAR_ENCRYPTION_KEY`, `VERCEL_TOKEN`) | hard / build — required for the app to function |
+| `optional_runtime`     | Used only when a feature is active (e.g. model overrides, `REDIS_URL`, blob keys)                                                                     | feature-runtime — absent ⇒ feature degrades     |
+| `environment_specific` | Value legitimately differs per environment (URLs, preview-host, prompt budgets)                                                                       | feature-runtime / warn                          |
+| `vercel_managed`       | Set automatically by Vercel / Node (`NODE_ENV`, `NEXT_PHASE`) — do not push                                                                           | warn-only                                       |
+| `local_only`           | Local/dev-only flags (`DEBUG`, `AUTH_DEBUG`, `DATA_DIR`, test creds)                                                                                  | warn-only                                       |
 
 Supporting lists in the same file: `knownEmptyOk` (allowed to be empty),
 `runtimeOnlyKeys` (read at runtime, not a Vercel-push concern) and
@@ -80,18 +80,18 @@ always wins.
 
 ## F2 vs F3 — the one rule that matters
 
-| Stage (`PreviewLifecycleStage`) | Meaning | tier3-stub layer |
-|---------------------------------|---------|------------------|
-| `design` (**F2**) | Design / preview | **included** — stubs boot the project so the preview renders |
-| `integrations` (**F3**) | Bygg integrationer / real services | **stripped** — the project must supply real values via `projectEnvVars`; missing tier-3 keys surface as a readiness failure via `src/lib/integrations/tier3-build-spec.ts` |
+| Stage (`PreviewLifecycleStage`) | Meaning                            | tier3-stub layer                                                                                                                                                           |
+| ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `design` (**F2**)               | Design / preview                   | **included** — stubs boot the project so the preview renders                                                                                                               |
+| `integrations` (**F3**)         | Bygg integrationer / real services | **stripped for normal F3 codegen** — the project must supply real values via `projectEnvVars`; missing build keys surface via `tier3-build-spec.ts`. Deterministic no-build-key forks preserve the exact F2 files but stubs remain Advisory/icke-bevis. |
 
 So:
 
 - **harmless placeholder** = safe to leave fake in **both F2 and F3**. Stripe
-  *publishable* test key, `AUTH_SECRET` (any 32-char string), public analytics
+  _publishable_ test key, `AUTH_SECRET` (any 32-char string), public analytics
   IDs, public CMS/search read keys, local base URLs.
 - **tier3-stub placeholder** = present in **F2 only**. A real value is required
-  before F3 succeeds — this is what "blocks F3" means. Stripe *secret* key,
+  before F3 succeeds — this is what "blocks F3" means. Stripe _secret_ key,
   Supabase URL + anon key, Clerk secret, OpenAI key, Redis/DB URLs, Upstash
   tokens, Resend, etc.
 
@@ -129,18 +129,32 @@ blockera på det som verkligen kräver en riktig integration.
   `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
   riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
-  Byggblock-panelen i previewpanelen — aldrig mot chatten (env-frågor hör inte
-  hemma i F2/F3-chatten, se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
+  builderns persistenta, icke-modala F3-kravyta. Den visar exakt
+  `missingByIntegration` från servern, sparar via projektets env-vars-API och
+  erbjuder explicit retry. ReleaseGate-resultat (startad, promoted, superseded,
+  retryable eller Blocker) visas på samma beständiga builderyta i stället för
+  toastar. Byggblock-popovern är kvar för katalog/status men öppnas inte
+  automatiskt för nyckelinsamling; env-frågor hör aldrig hemma i F2/F3-chatten
+  (se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
+  Är alla `requiredRealEnvKeys` i den valda versionens F3-krav tomma startas
+  ingen generell F3-LLM-runda. I stället skapas en ny `integrations`-version
+  med exakt samma filer och `parent_version_id` som pekar på F2-basen;
+  ReleaseGate körs på den nya F3-raden och lämnar F2-raden orörd. Detta lämnar
+  `feature-runtime` och `warn-only` som Advisory och behåller Byggblockets
+  visuella F2-fallback tills riktiga `projectEnvVars` finns.
+  Eftersom filträdet bevaras exakt kan F2:s `env.example` följa med i denna
+  deterministiska F3-rad; stub-vokabulären filtreras fortsatt ur
+  integrationsbevis och är aldrig ett riktigt runtime-värde.
 
 ## Sources of truth at a glance
 
-| Question | Look here |
-|----------|-----------|
-| Which keys does the app read? | `src/lib/env.ts` (`serverSchema`) |
-| How is an app key classified / which Vercel targets? | `config/env-policy.json` |
-| Is a generated-site placeholder harmless or tier-3? | `src/lib/integrations/placeholder-harmless.ts` |
-| What placeholder lines get injected (harmless)? | `config/ai_models/40-harmless-placeholders.env.txt` |
-| What boot-only stubs get injected (F2)? | `config/ai_models/41-tier3-stub-placeholders.env.txt` |
-| In what order do preview layers merge / who wins? | `src/lib/gen/preview/env-local.ts` (generated wins) |
-| What does each app key value mean / deploy status? | `docs/ENV.md` |
-| Read-only operator matrix of all of the above | `backoffice/pages/env_readiness.py` (Env Readiness page) |
+| Question                                             | Look here                                                |
+| ---------------------------------------------------- | -------------------------------------------------------- |
+| Which keys does the app read?                        | `src/lib/env.ts` (`serverSchema`)                        |
+| How is an app key classified / which Vercel targets? | `config/env-policy.json`                                 |
+| Is a generated-site placeholder harmless or tier-3?  | `src/lib/integrations/placeholder-harmless.ts`           |
+| What placeholder lines get injected (harmless)?      | `config/ai_models/40-harmless-placeholders.env.txt`      |
+| What boot-only stubs get injected (F2)?              | `config/ai_models/41-tier3-stub-placeholders.env.txt`    |
+| In what order do preview layers merge / who wins?    | `src/lib/gen/preview/env-local.ts` (generated wins)      |
+| What does each app key value mean / deploy status?   | `docs/ENV.md`                                            |
+| Read-only operator matrix of all of the above        | `backoffice/pages/env_readiness.py` (Env Readiness page) |

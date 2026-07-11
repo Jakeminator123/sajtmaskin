@@ -102,7 +102,13 @@ interface PreviewPanelChromeProps {
   lifecycleStage?: "design" | "integrations" | null;
   onF3MissingEnv?: (payload: {
     parentVersionId: string;
+    projectId?: string | null;
     missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
+  }) => void;
+  onF3Status?: (status: {
+    tone: "info" | "warning" | "error" | "success";
+    title: string;
+    description: string;
   }) => void;
   /**
    * Whether the builder shell is busy (creating chat, streaming a previous
@@ -117,6 +123,10 @@ interface PreviewPanelChromeProps {
       name: string;
       requiredRealEnvKeys: string[];
     }>;
+  }) => void;
+  onF3ReleaseSettled?: (payload: {
+    versionId: string;
+    selectVersion: boolean;
   }) => void;
   /** Forwarded to the Byggblock-panelens katalog-tab. See preview-panel-types.ts. */
   onRequestDossier?: (payload: { id: string; label: string }) => void;
@@ -182,7 +192,9 @@ export function PreviewPanelChrome({
   lifecycleStage,
   isBusy = false,
   onF3MissingEnv,
+  onF3Status,
   onF3Ready,
+  onF3ReleaseSettled,
   onRequestDossier,
   catalogPickDisabled = false,
 }: PreviewPanelChromeProps) {
@@ -474,7 +486,9 @@ export function PreviewPanelChrome({
               chatId={chatId as string}
               versionId={versionId ?? null}
               onMissingEnv={onF3MissingEnv}
+              onStatus={onF3Status}
               onReady={onF3Ready}
+              onReleaseSettled={onF3ReleaseSettled}
               isBusy={isBusy}
               className="h-7 bg-violet-600 px-2 text-[12px] text-white hover:bg-violet-500"
             />

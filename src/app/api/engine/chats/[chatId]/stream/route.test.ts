@@ -50,6 +50,12 @@ const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<{ id: string }>> => []),
 );
+const readyF3GateResult = {
+  ok: true,
+  spec: {
+    requirements: [{ requiredRealEnvKeys: ["REQUIRED_BUILD_KEY"] }],
+  },
+};
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -614,6 +620,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     // stale-base gate); the other tests below never send the latter so the
     // gate short-circuits before this is read.
     resolveChatPreferredVersionId.mockResolvedValue("ver_current");
+    checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
     prepareGenerationContext.mockResolvedValue({
       resolvedScaffold: {
         id: "scaffold_1",
@@ -1333,6 +1340,100 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(createGenerationPipeline).not.toHaveBeenCalled();
   });
 
+  it("refuses a direct F3 LLM stream when the build spec has no required real build keys", async () => {
+    resolveChatPreferredVersionId.mockResolvedValue("ver_f2_exact");
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: {
+        requirements: [
+          {
+            requiredRealEnvKeys: [],
+            featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+          },
+        ],
+      },
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          lifecycleStage: "integrations",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg integrationer nu." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      error: "f3_deterministic_release_required",
+      ready: false,
+      action: "deterministic_release",
+      parentVersionId: "ver_f2_exact",
+    });
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back when an explicit F3 base belongs to another chat", async () => {
+    getVersionById.mockResolvedValue({
+      id: "ver_foreign",
+      chat_id: "chat_other",
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          lifecycleStage: "integrations",
+          engineBaseVersionId: "ver_foreign",
+          parentVersionId: "ver_foreign",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg integrationer nu." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      error: "f3_base_version_not_found",
+      parentVersionId: "ver_foreign",
+    });
+    expect(resolveChatPreferredVersionId).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+  });
+
   it("blocks F3 stream start when the gate reports product_postcheck_blocked (Codex P1 r5)", async () => {
     // The Product Postcheck block must hold on BOTH F3 entry points — a
     // client that skips finalize-design and posts straight to /stream with
@@ -1868,7 +1969,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       consumeF3ContinuationMarker.mockResolvedValue(true);
       mockApprovalReplyRequestMeta();
 
@@ -1911,7 +2012,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -2050,7 +2151,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
       // The provisional F3 stage runs the readiness gate BEFORE the consume
       // (Codex P1 r3 ordering) — green here so the request reaches Phase B.
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       // A concurrent reply already consumed the marker: the conditional
       // jsonb UPDATE reports 0 rows for this request.
       consumeF3ContinuationMarker.mockResolvedValue(false);
@@ -2096,7 +2197,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       consumeF3ContinuationMarker.mockRejectedValue(new Error("db down"));
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -2138,7 +2239,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_preferred");
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
@@ -2185,6 +2286,56 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
           lifecycleParentVersionId: "ver_preferred",
         }),
       );
+    });
+
+    it("consumes the pending F3 marker before deterministic ReleaseGate handoff", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["openai"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: "f3_deterministic_release_required",
+        ready: false,
+        parentVersionId: "ver_f2_parent",
+      });
+      expect(consumeF3ContinuationMarker).toHaveBeenCalled();
+      expect(addMessage).toHaveBeenCalledWith(
+        "chat_1",
+        "user",
+        "Godkänn förslag",
+      );
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
     });
 
     it("keeps the env-requirement strict: inherited F3 still 412s when keys are missing", async () => {
@@ -2238,7 +2389,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+      checkTier3ReadinessForVersion.mockResolvedValue(readyF3GateResult);
       prepareCredits.mockResolvedValueOnce({
         ok: false,
         response: new Response(JSON.stringify({ error: "insufficient_credits" }), {

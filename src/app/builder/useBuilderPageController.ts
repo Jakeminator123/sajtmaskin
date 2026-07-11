@@ -245,13 +245,29 @@ export function useBuilderPageController() {
     );
   }, [derived.activeVersionId, derived.effectiveVersionsList]);
 
-  const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
-    chatHooksChatId,
-    derived.activeVersionId,
-    {
-      isGenerating: isAnyStreamingEarly,
-      pauseWhileGenerating: true,
+  const {
+    readiness: deployReadiness,
+    isLoading: isDeployReadinessLoading,
+    mutate: mutateDeployReadiness,
+  } = useChatReadiness(chatHooksChatId, derived.activeVersionId, {
+    isGenerating: isAnyStreamingEarly,
+    pauseWhileGenerating: true,
+  });
+  const handleDeterministicF3Settled = useCallback(
+    (payload: { versionId: string; selectVersion: boolean }) => {
+      if (payload.selectVersion) {
+        setSelectedVersionId(payload.versionId);
+      }
+      void mutateVersions();
+      bumpVersionStatusRefresh();
+      void mutateDeployReadiness();
     },
+    [
+      bumpVersionStatusRefresh,
+      mutateDeployReadiness,
+      mutateVersions,
+      setSelectedVersionId,
+    ],
   );
 
   // ── CSS validation ───────────────────────────────────────────────────
@@ -505,6 +521,7 @@ export function useBuilderPageController() {
       setPreviewPending,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onVersionStatusRefresh: bumpVersionStatusRefresh,
+      onDeterministicF3Settled: handleDeterministicF3Settled,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onPreviewSessionMeta,
       onLinkedProjectId: (nextId) => state.setExternalProjectId(nextId),
@@ -1804,6 +1821,7 @@ export function useBuilderPageController() {
     previewPending,
     activePreviewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     previewLifecycle,
+    handleDeterministicF3Settled,
     handlePreviewSessionSuspect,
     forcePreviewResync,
     versionMismatchPayload,

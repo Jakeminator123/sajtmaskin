@@ -8,8 +8,12 @@
  * pointing at the F2 version we forked from.
  *
  * Responses:
- *  - `200 OK` with `{ ready: true, parentVersionId, requirements }` —
- *    client may now call the chat-stream endpoint to run F3.
+ *  - `200 OK` with the normal F3 stream metadata when a real build key is
+ *    required and ready.
+ *  - `200 OK` with `action: "deterministic_release"` when the selected
+ *    Byggblock need no real build key — this route forks a new F3 row from the
+ *    exact F2 files, and the client runs ReleaseGate on that F3 version without
+ *    starting a general F3 LLM round.
  *  - `412 Precondition Failed` with `{ ready: false, missingByIntegration }`
  *    — show the env form and have the user fill in the missing keys.
  *  - `404 Not Found` — chat or version not visible to caller.
@@ -20,19 +24,16 @@ import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
-import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
-import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
-import { getVersionFiles } from "@/lib/gen/version-manager";
-import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
-import { validateTier3Readiness } from "@/lib/integrations/tier3-build-spec";
-// Shared with the stream route's F3 gate (M#818-2) — single owner for the
-// file-based spec derivation AND the Product Postcheck block (Codex P1
-// rounds 3+5 on #353), see tier3-readiness-gate.ts.
 import {
-  deriveTier3BuildSpecForVersion,
-  isProductPostcheckBlocked,
+  createDraftVersion,
+  getLatestVersion,
+  getPreferredVersion,
+  getVersionsByChat,
+} from "@/lib/db/chat-repository-pg";
+import {
+  checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
+import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,12 @@ export async function POST(
           parsed.data.versionId,
         )
       : null;
+    if (parsed.data.versionId && !requestedVersion) {
+      // Do not silently replace an explicit foreign/missing version id with
+      // this chat's latest version. The deterministic ReleaseGate must stay
+      // bound to the exact tenant-scoped F2 version the user selected.
+      return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+    }
     const preferredVersion = await getPreferredVersion(chat.id);
     const latestVersion = preferredVersion ?? (await getLatestVersion(chat.id));
     if (
@@ -109,12 +116,32 @@ export async function POST(
       );
     }
 
-    // Codex P1 rounds 3+5 (#353): enforce the Product Postcheck block
-    // server-side (shared owner in tier3-readiness-gate.ts — the stream
-    // route's F3 gate enforces the same block). The client button's cached
-    // `productBlocked` can be stale when the summary row was written after
-    // mount (resume-verify lane).
-    if (await isProductPostcheckBlocked(baseVersion.id)) {
+    // `checkTier3ReadinessForVersion` is the shared owner used by the stream
+    // route as well. It resolves snapshot ∪ version-presence, Product
+    // Postcheck, and per-key build enforcement once, so the F3 entry points
+    // cannot disagree about selected Byggblock or build blockers.
+    let gate: Awaited<ReturnType<typeof checkTier3ReadinessForVersion>>;
+    try {
+      gate = await checkTier3ReadinessForVersion({
+        versionId: baseVersion.id,
+        orchestrationSnapshot: chat.orchestration_snapshot,
+        projectId: chat.project_id,
+      });
+    } catch (error) {
+      console.warn("[finalize-design] F3 readiness unavailable:", error);
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "version_files_unavailable",
+          parentVersionId: baseVersion.id,
+          message:
+            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (!gate.ok && gate.reason === "product_postcheck_blocked") {
       return NextResponse.json(
         {
           ready: false,
@@ -127,39 +154,7 @@ export async function POST(
       );
     }
 
-    // One owner (review round 2): snapshot ∪ version-presence. Files are read
-    // once here and reused for the spec derivation (no second files_json read).
-    // Best-effort read (Bugbot on #483): a transient files_json error must
-    // surface as the documented retryable 409, not an unhandled 500 — and it
-    // must NOT degrade to an empty file list (empty files ⇒ empty spec ⇒
-    // false `ready: true`).
-    const baseVersionFiles = await getVersionFiles(baseVersion.id).catch(() => null);
-    if (baseVersionFiles === null) {
-      return NextResponse.json(
-        {
-          ready: false,
-          reason: "version_files_unavailable",
-          parentVersionId: baseVersion.id,
-          message:
-            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
-        },
-        { status: 409 },
-      );
-    }
-    const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
-      snapshot: chat.orchestration_snapshot,
-      versionFiles: baseVersionFiles,
-    });
-    const spec = await deriveTier3BuildSpecForVersion(
-      baseVersion.id,
-      selectedDossiers,
-      { preloadedFiles: baseVersionFiles },
-    );
-
-    if (!spec) {
-      // G#21: version files unavailable — cannot determine F3 requirements,
-      // so we must not claim readiness. Surface an explicit, retryable error
-      // instead of a false `ready: true`.
+    if (!gate.ok && gate.reason === "version_files_unavailable") {
       return NextResponse.json(
         {
           ready: false,
@@ -172,45 +167,14 @@ export async function POST(
       );
     }
 
-    if (spec.requirements.length === 0) {
-      return NextResponse.json({
-        ready: true,
-        parentVersionId: baseVersion.id,
-        requirements: [],
-        message:
-          "Inga tunga integrationer detekterade. Du kan starta F3 för en strikt build/typecheck-pass.",
-        streamMeta: {
-          lifecycleStage: "integrations",
-          parentVersionId: baseVersion.id,
-        },
-      });
-    }
-
-    const projectEnvVars = chat.project_id
-      ? await getStoredProjectEnvVarMap(chat.project_id).catch(
-          () => ({} as Record<string, string>),
-        )
-      : ({} as Record<string, string>);
-
-    // P31 follow-up: when the user has opted into "tillåt placeholders i F3"
-    // we accept tier-3 keys that have a preview placeholder (with a
-    // warning surfaced separately by readiness/UI). Without this gate the
-    // toggle's promise of "publicera ändå" is broken.
-    const allowPlaceholdersInF3 = await readAllowPlaceholdersInF3(
-      chat.project_id,
-    );
-    const readiness = validateTier3Readiness(spec, projectEnvVars, {
-      allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
-      placeholderEnvKeys: loadPlaceholderKeySet(),
-    });
-
-    if (!readiness.ready) {
+    if (!gate.ok && gate.reason === "missing_env") {
       return NextResponse.json(
         {
           ready: false,
           parentVersionId: baseVersion.id,
-          missingByIntegration: readiness.missingByIntegration,
-          requirements: spec.requirements,
+          projectId: chat.project_id,
+          missingByIntegration: gate.readiness.missingByIntegration,
+          requirements: gate.spec.requirements,
           message:
             "Tunga integrationer kräver riktiga env-variabler innan F3 kan köras.",
         },
@@ -218,10 +182,109 @@ export async function POST(
       );
     }
 
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          ready: false,
+          parentVersionId: baseVersion.id,
+          message: "Kunde inte avgöra F3-readiness. Ladda om och försök igen.",
+        },
+        { status: 409 },
+      );
+    }
+
+    // A valid gate has a spec. `requiredRealEnvKeys`, rather than the presence
+    // of a dossier/requirement, decides whether a new F3 LLM build is useful:
+    // hard and soft Byggblock with only feature-runtime/warn-only configuration
+    // keep their existing F2 visual fallback. The files are copied byte-for-byte
+    // into a NEW integrations row so lifecycle/readiness/deploy semantics remain
+    // F3-owned while the selected F2 row remains untouched.
+    const requirements = gate.spec.requirements;
+    if (!hasRequiredRealBuildKeys(gate.spec)) {
+      if (typeof baseVersion.files_json !== "string" || !baseVersion.files_json.trim()) {
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "version_files_unavailable",
+            parentVersionId: baseVersion.id,
+            message:
+              "Kunde inte läsa versionens exakta filer — kan inte skapa F3-versionen.",
+          },
+          { status: 409 },
+        );
+      }
+
+      // Sequential retries reuse the exact same deterministic child. Comparing
+      // the stored files_json guarantees this never mistakes a real LLM-built
+      // F3 child for the exact-file fork.
+      let f3Version: Awaited<ReturnType<typeof createDraftVersion>>;
+      let existingFork: Awaited<
+        ReturnType<typeof getVersionsByChat>
+      >[number] | undefined;
+      try {
+        const exactForks = (await getVersionsByChat(chat.id)).filter(
+          (version) =>
+            version.lifecycle_stage === "integrations" &&
+            version.parent_version_id === baseVersion.id &&
+            version.files_json === baseVersion.files_json,
+        );
+        existingFork =
+          exactForks.find(
+            (version) =>
+              version.release_state === "promoted" &&
+              version.verification_state === "passed",
+          ) ?? exactForks[0];
+        f3Version =
+          existingFork ??
+          (await createDraftVersion(
+            chat.id,
+            null,
+            baseVersion.files_json,
+            undefined,
+            {
+              stage: "integrations",
+              parentVersionId: baseVersion.id,
+            },
+          ));
+      } catch (error) {
+        console.warn("[finalize-design] deterministic F3 fork unavailable:", error);
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "f3_fork_unavailable",
+            parentVersionId: baseVersion.id,
+            message:
+              "Kunde inte skapa F3-versionen just nu. Försök igen.",
+          },
+          { status: 409 },
+        );
+      }
+      const alreadyPromoted =
+        f3Version.release_state === "promoted" &&
+        f3Version.verification_state === "passed";
+
+      return NextResponse.json({
+        ready: true,
+        action: "deterministic_release",
+        parentVersionId: baseVersion.id,
+        versionId: f3Version.id,
+        lifecycleStage: "integrations",
+        gateRequired: !alreadyPromoted,
+        reused: Boolean(existingFork),
+        releaseState: f3Version.release_state,
+        verificationState: f3Version.verification_state,
+        requirements,
+        message:
+          alreadyPromoted
+            ? "Den exakta F3-versionen är redan godkänd av ReleaseGate."
+            : "Byggblocket behåller F2-filernas visuella fallback. ReleaseGate körs på en exakt F3-fork utan LLM-generering.",
+      });
+    }
+
     return NextResponse.json({
       ready: true,
       parentVersionId: baseVersion.id,
-      requirements: spec.requirements,
+      requirements,
       streamMeta: {
         lifecycleStage: "integrations",
         parentVersionId: baseVersion.id,

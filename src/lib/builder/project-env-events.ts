@@ -33,13 +33,7 @@ export function openIntegrationsPanel(): void {
   window.dispatchEvent(new CustomEvent("integrations-panel-open"));
 }
 
-/**
- * Ask the preview-toolbar "Dossiers" popover to open, optionally highlighting a
- * set of env keys that still need real values. Unlike `ProjectEnvVarsPanel`,
- * `PreviewPanelDossiers` is mounted in the preview chrome in BOTH F2 and F3, so
- * this is the F2-safe way to route the user to a key-entry surface after a
- * finalize-design 412 or from an integration chat card.
- */
+/** Ask the preview-toolbar "Byggblock" popover to open for catalog/status. */
 export const DOSSIERS_PANEL_OPEN_EVENT = "sajtmaskin:dossiers-panel-open";
 
 export function openDossiersPanel(envKeys?: string[]): void {
@@ -60,15 +54,66 @@ export function readDossiersPanelOpenDetail(event: Event): { envKeys: string[] }
 
 /**
  * Ask `PreviewPanelF3Trigger` to re-run the "Bygg integrationer" (finalize-design)
- * flow. Dispatched by the Dossiers popover after the user fills the previously
- * missing env keys, so the single owner of the finalize logic (the trigger)
- * stays the only place that talks to `/finalize-design`.
+ * flow. Dispatched by the persistent F3 requirements surface after it saves
+ * keys, so the trigger remains the only client owner of `/finalize-design`.
  */
 export const F3_REBUILD_REQUEST_EVENT = "sajtmaskin:f3-rebuild-request";
 
-export function requestF3Rebuild(): void {
+export function requestF3Rebuild(versionId?: string | null): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(F3_REBUILD_REQUEST_EVENT));
+  window.dispatchEvent(
+    new CustomEvent(F3_REBUILD_REQUEST_EVENT, {
+      detail: { versionId: versionId ?? null },
+    }),
+  );
+}
+
+export type F3RequirementsDetail = {
+  parentVersionId: string;
+  projectId?: string | null;
+  missingByIntegration: Array<{
+    key: string;
+    name: string;
+    missing: string[];
+  }>;
+};
+
+/** Surface server-owned F3 env requirements from any client entry path. */
+export const F3_REQUIREMENTS_EVENT = "sajtmaskin:f3-requirements";
+
+export function dispatchF3Requirements(detail: F3RequirementsDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<F3RequirementsDetail>(F3_REQUIREMENTS_EVENT, { detail }),
+  );
+}
+
+export function readF3RequirementsDetail(
+  event: Event,
+): F3RequirementsDetail | null {
+  const detail = (event as CustomEvent<F3RequirementsDetail>).detail;
+  if (
+    !detail ||
+    typeof detail.parentVersionId !== "string" ||
+    !Array.isArray(detail.missingByIntegration)
+  ) {
+    return null;
+  }
+  return {
+    parentVersionId: detail.parentVersionId,
+    projectId:
+      typeof detail.projectId === "string" && detail.projectId.trim()
+        ? detail.projectId.trim()
+        : null,
+    missingByIntegration: detail.missingByIntegration.filter(
+      (entry) =>
+        entry &&
+        typeof entry.key === "string" &&
+        typeof entry.name === "string" &&
+        Array.isArray(entry.missing) &&
+        entry.missing.every((key) => typeof key === "string"),
+    ),
+  };
 }
 
 /**

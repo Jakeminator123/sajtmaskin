@@ -120,6 +120,7 @@ import { createDirectModel } from "@/lib/builder/direct-model";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
   approvedProvidersShipConfigNotice,
+  hasRequiredRealBuildKeys,
   mapProviderKeysToDossierCapabilities,
   type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
@@ -640,8 +641,11 @@ export async function handleMessageStreamRequest(
         // credits on a generation whose build gate was guaranteed to fail.
         // Re-check the same shared gate here (server-authoritative), scoped to
         // the parent F2 version being forked (fall back to the chat's preferred
-        // version when the meta omits it). Gate errors fail open with a log —
-        // the F3 quality gate (build+lint) still catches a broken build.
+        // version when the meta omits it). Gate errors fail closed: without an
+        // inspected F2 base we cannot decide between deterministic ReleaseGate
+        // and a real F3 LLM build. The file-derived build spec captured on a
+        // successful gate is threaded to the generation's dynamic context so the
+        // F3 build plan reflects the parent version's real integrations.
         let fileDerivedTier3BuildSpec: Tier3BuildSpec | null = null;
         if (parsedMeta.lifecycleStage === "integrations" && !metaPlanMode) {
           // Codex P1 (PR #351): the readiness gate must inspect the version the
@@ -687,13 +691,37 @@ export async function handleMessageStreamRequest(
             let gateVersionId: string | null = null;
             if (requestedGateVersionId) {
               const gateVersion = await chatRepo.getVersionById(requestedGateVersionId);
-              gateVersionId =
-                gateVersion && gateVersion.chat_id === engineChat.id
-                  ? gateVersion.id
-                  : null;
+              if (!gateVersion || gateVersion.chat_id !== engineChat.id) {
+                return attachSessionCookie(
+                  NextResponse.json(
+                    {
+                      error: "f3_base_version_not_found",
+                      ready: false,
+                      parentVersionId: requestedGateVersionId,
+                      message:
+                        "Den explicit valda F2-basversionen finns inte i den här chatten.",
+                    },
+                    { status: 404 },
+                  ),
+                );
+              }
+              gateVersionId = gateVersion.id;
             }
             gateVersionId =
               gateVersionId ?? (await resolveChatPreferredVersionId(engineChat.id));
+            if (!gateVersionId) {
+              return attachSessionCookie(
+                NextResponse.json(
+                  {
+                    error: "f3_base_version_unavailable",
+                    ready: false,
+                    message:
+                      "Ingen tenant-säkrad F2-basversion kunde hittas för F3-kontrollen.",
+                  },
+                  { status: 409 },
+                ),
+              );
+            }
             if (gateVersionId) {
               // Dossier scoping (snapshot ∪ version-presence) resolves inside
               // the gate — one owner shared with the readiness/dossiers routes.
@@ -714,6 +742,7 @@ export async function handleMessageStreamRequest(
                       error: "tier3_env_not_ready",
                       ready: false,
                       parentVersionId: gateVersionId,
+                      projectId: engineChat.project_id ?? null,
                       missingByIntegration: gate.readiness.missingByIntegration,
                       message:
                         "Tunga integrationer kräver riktiga env-variabler innan F3 kan köras. Kör 'Bygg integrationer' via finalize-design.",
@@ -755,12 +784,68 @@ export async function handleMessageStreamRequest(
               }
               fileDerivedTier3BuildSpec =
                 gate.spec.requirements.length > 0 ? gate.spec : null;
+              if (!hasRequiredRealBuildKeys(gate.spec)) {
+                // Server-side backstop for the accepted deterministic F3
+                // policy. The intended client path receives this action from
+                // finalize-design, which creates an exact-file integrations
+                // fork before the client invokes ReleaseGate on that F3 row.
+                // A stale/custom client must not spend credits on a general
+                // LLM round. An approval marker is consumed here because this
+                // early handoff returns before the normal Phase B boundary.
+                if (f3ContinuationDecision?.replyIntent === "approve") {
+                  await chatRepo.addMessage(engineChat.id, "user", message);
+                  if (f3ContinuationDecision.markerMessageId) {
+                    const consumed =
+                      await chatRepo.consumeF3ContinuationMarker(
+                        engineChat.id,
+                        f3ContinuationDecision.markerMessageId,
+                      );
+                    if (!consumed) {
+                      return attachSessionCookie(
+                        NextResponse.json(
+                          {
+                            error: "f3_continuation_race_lost",
+                            ready: false,
+                            message:
+                              "F3-förslaget hanterades redan av en annan förfrågan. Ladda om versionerna.",
+                          },
+                          { status: 409 },
+                        ),
+                      );
+                    }
+                  }
+                }
+                return attachSessionCookie(
+                  NextResponse.json(
+                    {
+                      error: "f3_deterministic_release_required",
+                      ready: false,
+                      action: "deterministic_release",
+                      parentVersionId: gateVersionId,
+                      message:
+                        "Inga riktiga build-nycklar krävs. Skapa en exakt F3-fork via finalize-design och kör ReleaseGate utan LLM-generering.",
+                    },
+                    { status: 409 },
+                  ),
+                );
+              }
             }
           } catch (gateErr) {
-            debugLog("orchestration", "F3 stream readiness gate errored — failing open", {
+            debugLog("orchestration", "F3 stream readiness gate errored — failing closed", {
               chatId,
               error: gateErr instanceof Error ? gateErr.message : String(gateErr),
             });
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error: "tier3_readiness_unavailable",
+                  ready: false,
+                  message:
+                    "F3-readiness kunde inte verifieras. Ladda om och försök igen.",
+                },
+                { status: 409 },
+              ),
+            );
           }
         }
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`

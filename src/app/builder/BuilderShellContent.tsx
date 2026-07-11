@@ -11,6 +11,12 @@ import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
+import {
+  F3RequirementsSurface,
+  F3StatusSurface,
+  type F3BuilderStatus,
+  type F3MissingIntegration,
+} from "@/components/builder/F3RequirementsSurface";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
 import {
   AlertDialog,
@@ -30,7 +36,12 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
-import { dispatchVersionStatusRefreshed, openDossiersPanel } from "@/lib/builder/project-env-events";
+import {
+  dispatchVersionStatusRefreshed,
+  F3_REQUIREMENTS_EVENT,
+  readF3RequirementsDetail,
+  requestF3Rebuild,
+} from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
@@ -271,6 +282,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
       : baseDeployDisabledReason;
   const { hasGitHub, user: authUser } = useAuth();
+  const [f3Requirements, setF3Requirements] = useState<{
+    parentVersionId: string;
+    projectId?: string | null;
+    missingByIntegration: F3MissingIntegration[];
+  } | null>(null);
+  const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
@@ -403,6 +420,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       lastAutoTipAssistantIdRef.current = null;
     }
   }, [vm.chatId]);
+
+  // A 412 payload belongs to the exact F2 version the user tried to finalize.
+  // Keep it visible until that base changes; F3 status updates stay alongside
+  // the requirements rather than replacing them.
+  useEffect(() => {
+    setF3Requirements((current) =>
+      current &&
+      vm.activeVersionId &&
+      current.parentVersionId !== vm.activeVersionId
+        ? null
+        : current,
+    );
+  }, [vm.activeVersionId]);
+
+  useEffect(() => {
+    setF3Requirements(null);
+    setF3Status(null);
+  }, [vm.chatId]);
+
+  useEffect(() => {
+    const handleRequirements = (event: Event) => {
+      const detail = readF3RequirementsDetail(event);
+      if (!detail) return;
+      setF3Requirements(detail);
+      setF3Status(null);
+    };
+    window.addEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
+    return () =>
+      window.removeEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
+  }, []);
 
   useEffect(() => {
     if (!vm.tipsEnabled) {
@@ -749,6 +796,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isLoading={vm.isDeployReadinessLoading}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
           />
+          {f3Requirements ? (
+            <F3RequirementsSurface
+              projectId={f3Requirements.projectId ?? vm.appProjectId}
+              chatId={vm.chatId}
+              versionId={f3Requirements.parentVersionId}
+              missingByIntegration={f3Requirements.missingByIntegration}
+              onRetry={() =>
+                requestF3Rebuild(f3Requirements.parentVersionId)
+              }
+            />
+          ) : null}
+          {f3Status ? <F3StatusSurface status={f3Status} /> : null}
           {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
             <ProjectEnvVarsPanel
               externalProjectId={vm.externalProjectId}
@@ -931,17 +990,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRequestDossier={handleRequestDossier}
               catalogPickDisabled={catalogPickDisabled}
               onF3MissingEnv={(payload) => {
-                // finalize-design returns 412 while the user is still in F2.
-                // `ProjectEnvVarsPanel` only mounts in F3, so instead we open
-                // the "Dossiers" popover (mounted in the preview chrome in both
-                // F2 and F3) with the missing keys highlighted. This is
-                // F2-mute-safe: the popover only opens because the user just
-                // clicked "Bygg integrationer" — it is not a system-initiated
-                // env prompt. From there the user fills the keys and re-runs
-                // the build via the popover's retry CTA.
-                openDossiersPanel(
-                  payload.missingByIntegration.flatMap((entry) => entry.missing),
-                );
+                // The 412's group/key scope is owned by finalize-design. Keep
+                // it in the persistent non-modal builder surface; do not
+                // re-detect keys or open the Byggblock popover.
+                setF3Requirements(payload);
+                setF3Status(null);
+              }}
+              onF3Status={(status) => {
+                setF3Status(status);
               }}
               onF3Ready={(payload) => {
                 // Auto-kick the F3 ("Bygg integrationer") generation as soon
@@ -950,6 +1006,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 // from this send and forks a new engine_versions row with
                 // `lifecycle_stage = "integrations"` and `parent_version_id`
                 // set to the F2 version we just finalized.
+                setF3Requirements(null);
                 void vm.sendMessage(
                   "Bygg integrationer nu utifrån den finaliserade designversionen.",
                   {
@@ -959,6 +1016,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                   },
                 );
               }}
+              onF3ReleaseSettled={vm.handleDeterministicF3Settled}
             />
           </div>
           <div

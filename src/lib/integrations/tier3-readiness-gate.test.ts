@@ -107,6 +107,26 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
+  it("can inherit Product Postcheck from an exact-file F2 parent", async () => {
+    getLatestEngineVersionErrorLogs.mockResolvedValue([
+      { category: "product_postcheck.summary", meta: { productBlocked: true } },
+    ]);
+
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_f3_exact",
+      productPostcheckVersionId: "ver_f2_parent",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
+    expect(getLatestEngineVersionErrorLogs).toHaveBeenCalledWith(
+      "ver_f2_parent",
+      200,
+    );
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
   it("lets a later passing summary unblock (newest row wins) and fails open on read errors", async () => {
     getLatestEngineVersionErrorLogs.mockResolvedValue([
       // Newest-first (ORDER BY created_at DESC in the service).

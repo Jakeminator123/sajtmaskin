@@ -3,6 +3,9 @@
  *
  * This is the canonical own-engine chat store.
  * The exported API remains stable for stream routes and builder flows.
+ * `createDraftVersion` is also the canonical primitive for deterministic
+ * exact-file F3 forks: callers set `stage: "integrations"` and bind the
+ * selected F2 row through `parentVersionId`; ReleaseGate owns promotion.
  */
 import { db } from "./client";
 import {

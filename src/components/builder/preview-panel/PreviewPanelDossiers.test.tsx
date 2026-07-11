@@ -215,6 +215,42 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
   });
 
+  it("stays catalog/status-only when another surface opens it with env-key detail", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtReady: 0, builtNeedsKeys: 1, notBuilt: 0 },
+        dossiers: [
+          {
+            id: "stripe-checkout",
+            label: "Stripe Checkout",
+            class: "hard",
+            capability: "payments",
+            summary: "Stripe-baserad checkout.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [],
+            status: "built-needs-keys",
+            missingKeys: ["STRIPE_SECRET_KEY"],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["IGNORED_ENV_KEY"]);
+    });
+
+    await screen.findByText("Stripe Checkout");
+    expect(screen.queryByText("Fyll i nödvändiga nycklar")).toBeNull();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(screen.queryByText("IGNORED_ENV_KEY")).toBeNull();
+  });
+
   it("refetches the wired list when a new version lands while the popover is open (versionStatusNonce signal)", async () => {
     const fetchMock = stubFetch({
       wired: wiredResponse({
