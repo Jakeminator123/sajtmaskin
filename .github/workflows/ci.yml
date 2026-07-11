@@ -267,6 +267,21 @@ jobs:
           DB_ALLOW_PROD_LIKE_WRITE: "1"
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
+      # Performance indexes are declared in add-performance-indexes.mjs (not in
+      # the SQL-migration ledger), so before this they only reached prod via the
+      # backoffice "Databashälsa"-button — a new hot-path index could silently
+      # never land in prod. Apply them here too: the script is idempotent
+      # (CREATE INDEX IF NOT EXISTS + dedupe-aware), so every run is a no-op once
+      # the indexes exist. Same prod-write guard (DB_ALLOW_PROD_LIKE_WRITE) as the
+      # migration step above.
+      - name: Apply performance indexes to production (idempotent)
+        if: steps.creds.outputs.present == 'true'
+        run: npm run db:perf-indexes -- --reason "auto:ci-master-push"
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+          DB_ALLOW_PROD_LIKE_WRITE: "1"
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
+
   # Verifierar EFTER auto-apply att PRODUKTIONS-databasen har ALLA migrations
   # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
   # (bara SELECT). `needs: prod-migrations-apply` gör detta till en post-condition
