@@ -47,6 +47,29 @@ function isLikelyQuestionOrPrompt(content: string) {
   ].some((token) => lower.includes(token));
 }
 
+function isGeneratedContent(content: string) {
+  // Match the codegen markers that GenerationSummary collapses, not ordinary
+  // prose that happens to discuss a code fence or `file="..."` syntax.
+  return /(?:^|\n)(?:```)?[a-z0-9]+ file="[^"\r\n]+"\s*(?:\r?\n|$)/i.test(content);
+}
+
+function withoutGeneratedFileDiff(summary: string) {
+  const lines = summary.split(/\r?\n/);
+  if (!lines[0]?.startsWith(POST_CHECK_MARKER)) return summary;
+
+  let index = 1;
+  while (
+    index < lines.length &&
+    (/^[+~-] /.test(lines[index] ?? "") ||
+      /^(?:Tillagda|Ändrade|Borttagna): \+\d+ till\.\.\.$/.test(lines[index] ?? ""))
+  ) {
+    index += 1;
+  }
+
+  const remaining = lines.slice(index).join("\n").trim();
+  return remaining ? `${POST_CHECK_MARKER}\n${remaining}` : "";
+}
+
 function shouldAppendPostCheckSummary(content: string) {
   const trimmed = content.trim();
   if (!trimmed) return true;
@@ -152,8 +175,15 @@ export function appendPostCheckSummaryToMessage(
       const content = message.content || "";
       if (content.includes(POST_CHECK_MARKER)) return message;
       if (!shouldAppendPostCheckSummary(content)) return message;
+      // GenerationSummary already renders generated files. Remove only the
+      // duplicate file diff while keeping preview blockers, warnings and tier
+      // status visible in the assistant bubble.
+      const appendableSummary = isGeneratedContent(content)
+        ? withoutGeneratedFileDiff(summary)
+        : summary;
+      if (!appendableSummary) return message;
       const separator = content.trim() ? "\n" : "";
-      return { ...message, content: `${content}${separator}${summary}`.trimEnd() };
+      return { ...message, content: `${content}${separator}${appendableSummary}`.trimEnd() };
     }),
   );
 }
