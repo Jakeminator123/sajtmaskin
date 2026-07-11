@@ -46,28 +46,20 @@ const ADDITIVE_VERB_RE =
   /(?<![\p{L}\p{N}_])(?:lägg(?:a)?\s+(?:till|tillbaka)|sätt(?:a)?\s+tillbaka|återinför(?:a)?|(?:åter)?aktivera(?:r)?|addera|add|skapa|create|inför|installera|install|använd(?:a)?|byt(?:a)?\s+(?:till|ut\s+mot)|switch\s+to|use|ersätt(?:a)?\s+med|replace\s+with|re-?add|(?:re-?)?enable|(?:re-?)?activate|bring\s+back|put\s+back|restore|i\s?stället|istället|instead)(?![\p{L}\p{N}_])/giu;
 
 /**
- * STRICT re-add verbs — the only verbs that ON THEIR OWN produce a
- * `readdedCapabilities` signal (which clears a durable removal tombstone
- * downstream). Deliberately UNAMBIGUOUS restore forms only: generic add verbs
- * (`add`/`lägg till`/`installera`/`aktivera`/`enable`) appear in branding- and
- * layout-prompts too ("Add Stripe accent colors", "Lägg till
- * checkout-sektionen" — Bugbot HIGH on #497) and therefore only count as a
- * re-add when the clause ALSO carries an explicit repeat-hint
- * ({@link REPEAT_HINT_RE}: "igen"/"again"/"på nytt"). Descriptive/replacement
- * verbs (`använd`/`use`, `skapa`/`create`, `byt till`, `istället`) follow the
- * same repeat-hint rule via {@link ADDITIVE_VERB_RE}. A false readd is a
- * resurrection (the P1 this fixes); a missed readd is only a UX gap — strict.
+ * STRICT re-add verbs — the ONLY verbs that produce a `readdedCapabilities`
+ * signal (which clears a durable removal tombstone downstream). Deliberately
+ * UNAMBIGUOUS restore forms only. Generic additive language never qualifies —
+ * neither bare add verbs ("Add Stripe accent colors", "Lägg till
+ * checkout-sektionen" — Bugbot HIGH #1 on #497) nor add-verbs with a repeat
+ * word ("Use Stripe for branding again" — Bugbot HIGH #2): both appear in
+ * routine branding/layout prompts where the integration token is descriptive.
+ * A false readd IS the resurrection-P1 this fix closes; a missed readd is only
+ * a UX gap (the user says "lägg tillbaka Stripe"/"restore Stripe", or re-adds
+ * via the Byggblock UI). Generic additive verbs keep their one legitimate
+ * role: vetoing a false removal ({@link ADDITIVE_VERB_RE}).
  */
 const READD_VERB_RE =
   /(?<![\p{L}\p{N}_])(?:lägg(?:a)?\s+tillbaka|sätt(?:a)?\s+tillbaka|återinför(?:a)?|återaktivera(?:r)?|re-?add|re-?enable|re-?activate|bring\s+back|put\s+back|restore)(?![\p{L}\p{N}_])/giu;
-
-/**
- * Repeat-hint for generic additive verbs: "lägg till Stripe IGEN", "add Stripe
- * AGAIN", "aktivera betalningen PÅ NYTT" express re-activation; a bare "add"
- * clause does not.
- */
-const REPEAT_HINT_RE =
-  /(?<![\p{L}\p{N}_])(?:igen|again|på\s+nytt)(?![\p{L}\p{N}_])/iu;
 
 /**
  * Negation guard for re-add clauses: "jag vill INTE använda Stripe", "en sida
@@ -315,23 +307,20 @@ export function detectCapabilityRemoval(message: string): CapabilityRemovalDetec
           (removalVerb === null || additiveVerb > removalVerb)
         ) {
           additiveMatched = true;
-          // Re-add is a STRICTER claim than additive-veto: either the governing
-          // verb is an unambiguous restore verb ("lägg tillbaka", "restore",
-          // "återaktivera"), or a generic additive clause carries an explicit
-          // repeat-hint ("lägg till Stripe IGEN"). Never when the clause is
-          // negated ("vill INTE använda Stripe", "don't add Stripe"). A bare
-          // "add"/"lägg till"/"aktivera" without a repeat-hint is routine
-          // branding/layout language and must not clear a durable removal
-          // tombstone (Bugbot HIGH on #497).
-          const clause = clauseAt(trimmed, index);
-          if (!NEGATION_RE.test(clause)) {
-            const readdVerb = nearestPreceding(readdPositions, index);
-            if (
-              (readdVerb !== null && readdVerb === additiveVerb) ||
-              REPEAT_HINT_RE.test(clause)
-            ) {
-              readdMatched = true;
-            }
+          // Re-add is a STRICTER claim than additive-veto: the governing verb
+          // must be an unambiguous restore verb ("lägg tillbaka", "restore",
+          // "återaktivera" — READD_VERB_RE) in a non-negated clause. Generic
+          // additive language ("add/lägg till/använd ... [igen/again]") is
+          // routine branding/layout phrasing and must NEVER clear a durable
+          // removal tombstone (2× Bugbot HIGH on #497) — it only vetoes a
+          // false removal via additiveMatched above.
+          const readdVerb = nearestPreceding(readdPositions, index);
+          if (
+            readdVerb !== null &&
+            readdVerb === additiveVerb &&
+            !NEGATION_RE.test(clauseAt(trimmed, index))
+          ) {
+            readdMatched = true;
           }
           continue;
         }

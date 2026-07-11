@@ -256,9 +256,11 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     expect(result.readdedCapabilities).toEqual(["payments"]);
   });
 
-  it("a plain add without a repeat-hint is NOT a re-add (routine add/branding language)", () => {
-    // Bugbot HIGH on #497: bare add verbs appear in branding/layout prompts and
-    // must not clear a durable removal tombstone.
+  it("generic additive language is NEVER a re-add — with or without a repeat word", () => {
+    // 2× Bugbot HIGH on #497: bare add verbs appear in branding/layout prompts
+    // ("Add Stripe accent colors", "Lägg till checkout-sektionen"), and a
+    // repeat word does not disambiguate ("Use Stripe for branding again").
+    // Only unambiguous restore verbs may clear a durable removal tombstone.
     expect(
       detectCapabilityRemoval("Lägg till Stripe-betalning").readdedCapabilities,
     ).toEqual([]);
@@ -268,15 +270,15 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     expect(
       detectCapabilityRemoval("Lägg till checkout-sektionen").readdedCapabilities,
     ).toEqual([]);
-  });
-
-  it("a generic add WITH an explicit repeat-hint is a re-add", () => {
+    expect(
+      detectCapabilityRemoval("Add Stripe accent colors again").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Use Stripe for branding again").readdedCapabilities,
+    ).toEqual([]);
     expect(
       detectCapabilityRemoval("Lägg till Stripe-betalningen igen").readdedCapabilities,
-    ).toEqual(["payments"]);
-    expect(
-      detectCapabilityRemoval("Add the Stripe checkout again").readdedCapabilities,
-    ).toEqual(["payments"]);
+    ).toEqual([]);
   });
 
   it("a pure removal yields no readd", () => {
@@ -331,9 +333,9 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     expect(result.readdedCapabilities).toEqual([]);
   });
 
-  it("everyday re-enable phrasings count as re-adds", () => {
+  it("unambiguous restore phrasings count as re-adds", () => {
     expect(
-      detectCapabilityRemoval("Aktivera Stripe-betalningen igen").readdedCapabilities,
+      detectCapabilityRemoval("Återaktivera Stripe-betalningen").readdedCapabilities,
     ).toEqual(["payments"]);
     expect(
       detectCapabilityRemoval("Restore the Stripe checkout").readdedCapabilities,
