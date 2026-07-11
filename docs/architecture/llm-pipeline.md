@@ -121,9 +121,13 @@ Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
 
-**Dossier-scopad `env.example`:** under finalize genereras/uppdateras projektets
-`env.example` från valda dossiers env-krav (`dossierEnvScope`), så bara relevanta
-nycklar tas med i stället för en global lista (`src/lib/gen/preview/project-env-file.ts`,
+**Dossier-scopade env-artefakter:** under finalize genereras/uppdateras både
+projektets `env.example` och pipeline-ägda `.env.local` från valda dossiers
+env-krav (`dossierEnvScope`), så bara relevanta nycklar tas med i stället för en
+global lista. Ett tomt scope utelämnar pipeline-`.env.local`, och en äldre
+pipeline-markerad fullkatalog skrivs om vid nästa finalize
+(`src/lib/gen/preview/project-env-file.ts`,
+`src/lib/gen/export/project-scaffold.ts`,
 `src/lib/gen/stream/finalize-version/preflight-phase.ts`; se `docs/ENV.md`).
 Scaffold-mergens egen placeholder-`.env.local` i filträdet identifieras via
 `PIPELINE_ENV_LOCAL_MARKER` och räknas inte som modell-emitterat "generated"-lager

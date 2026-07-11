@@ -2,9 +2,13 @@ import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter, resolveKnownVersion } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
 import {
-  loadAllPlaceholderRecordForF2,
+  dossierMockPreviewEnvValue,
   formatDotenvBody,
+  isPipelineAuthoredEnvLocal,
+  loadAllPlaceholderRecordForF2,
+  loadHarmlessPlaceholderRecord,
   PIPELINE_ENV_LOCAL_MARKER,
+  type PreviewLifecycleStage,
 } from "@/lib/gen/preview/env-local";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 
@@ -409,10 +413,10 @@ const SCAFFOLD_FILES: Record<string, string> = {
 };
 
 // First line MUST be `PIPELINE_ENV_LOCAL_MARKER` — the env.example builder
-// uses it to tell this pipeline-authored placeholder dump apart from a
+// uses it to tell this pipeline-authored placeholder file apart from a
 // genuinely model-emitted `.env.local` (see env-local.ts for the rationale).
 const GENERATED_ENV_LOCAL_HEADER = `${PIPELINE_ENV_LOCAL_MARKER}
-# Same keys as tier-2 preview runtime; override with real values when deploying.
+# Scoped placeholders for verification; preview builds its own merged env.
 `;
 
 /**
@@ -612,9 +616,42 @@ export function mergeTsconfigWithBaseline(
   };
 }
 
-function buildPlaceholderEnvLocalBody(): string | null {
+export interface ProjectEnvLocalOptions {
+  /**
+   * When finalizing a version, limit pipeline-authored placeholders to the
+   * env keys declared by the selected dossiers. Undefined preserves the
+   * legacy full-catalog fallback for independent export/verify callers.
+   */
+  selectedDossierEnvKeys?: readonly string[];
+  /** F3 must not carry F2-only tier-3 stub values into the file artifact. */
+  lifecycleStage?: PreviewLifecycleStage;
+}
+
+function buildPlaceholderEnvLocalBody(options?: ProjectEnvLocalOptions): string | null {
   try {
-    const record = loadAllPlaceholderRecordForF2();
+    const selectedKeys = options?.selectedDossierEnvKeys;
+    const lifecycleStage = options?.lifecycleStage;
+    const record: Record<string, string> = {};
+    if (selectedKeys === undefined) {
+      Object.assign(record, loadAllPlaceholderRecordForF2());
+    } else {
+      const placeholders =
+        lifecycleStage === "integrations"
+          ? loadHarmlessPlaceholderRecord()
+          : loadAllPlaceholderRecordForF2();
+      for (const rawKey of selectedKeys) {
+        const key = typeof rawKey === "string" ? rawKey.trim() : "";
+        if (!key || Object.hasOwn(record, key)) continue;
+        const placeholder = placeholders[key];
+        if (placeholder !== undefined) {
+          record[key] = placeholder;
+        } else if (lifecycleStage !== "integrations") {
+          // Selected keys outside the catalog still need an F2-only mock value
+          // for the shared verification lane. F3 intentionally omits them.
+          record[key] = dossierMockPreviewEnvValue(key);
+        }
+      }
+    }
     if (Object.keys(record).length === 0) return null;
     return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
   } catch {
@@ -699,6 +736,7 @@ function uiComponentStem(filename: string): string {
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
+  envLocalOptions?: ProjectEnvLocalOptions,
 ): CodeFile[] {
   const result: CodeFile[] = [];
 
@@ -794,10 +832,22 @@ export function buildCompleteProject(
     ...filteredGeneratedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))),
   );
 
-  if (!result.some((f) => f.path === ".env.local")) {
-    const envBody = buildPlaceholderEnvLocalBody();
+  const envIndex = result.findIndex((file) => file.path === ".env.local");
+  const existingEnv = envIndex >= 0 ? result[envIndex] : null;
+  const shouldOwnEnvArtifact =
+    envLocalOptions !== undefined &&
+    (!existingEnv || isPipelineAuthoredEnvLocal(existingEnv.content));
+  if (envIndex < 0 || shouldOwnEnvArtifact) {
+    const envBody = buildPlaceholderEnvLocalBody(envLocalOptions);
     if (envBody) {
-      result.push({ path: ".env.local", content: envBody, language: "text" });
+      const envFile = { path: ".env.local", content: envBody, language: "text" };
+      if (envIndex >= 0) {
+        result[envIndex] = envFile;
+      } else {
+        result.push(envFile);
+      }
+    } else if (envIndex >= 0 && shouldOwnEnvArtifact) {
+      result.splice(envIndex, 1);
     }
   }
 

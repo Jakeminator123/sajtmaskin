@@ -23,6 +23,11 @@ vi.mock("@/lib/gen/export/project-scaffold", () => ({
     return [
       { path: "package.json", content: '{"name":"x"}', language: "json" },
       { path: "app/layout.tsx", content: "export default function L(){return null}", language: "typescript" },
+      {
+        path: ".env.local",
+        content: "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=baseline",
+        language: "text",
+      },
     ];
   },
 }));
@@ -89,6 +94,12 @@ describe("prewarmPreviewSession", () => {
     expect(arg.prewarm).toBe(true);
     expect(arg.prewarmLeaseKey).toBe(LEASE_KEY);
     expect(arg.filesJson["package.json"]).toBeTruthy();
+    // Prewarm intentionally builds the complete baseline without a dossier
+    // scope. Its dependency fingerprint ignores env files.
+    expect(h.buildSpy).toHaveBeenCalledWith([]);
+    expect(arg.filesJson[".env.local"]).toContain(
+      "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=baseline",
+    );
     // SCAFFOLD_FILES ships no app/page.tsx; prewarm injects a placeholder so the boot goes green.
     expect(arg.filesJson["app/page.tsx"]).toBeTruthy();
   });

@@ -192,6 +192,33 @@ describe("runFinalizePreflight", () => {
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
   });
 
+  it("threads project env artifact scope into scaffold completion", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const projectEnvLocalOptions = {
+      lifecycleStage: "design" as const,
+      selectedDossierEnvKeys: ["STRIPE_SECRET_KEY"],
+    };
+
+    await runFinalizePreflight({
+      chatId: "chat_env_scope",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+      ]),
+      projectEnvLocalOptions,
+    });
+
+    expect(buildCompleteProject).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Array),
+      projectEnvLocalOptions,
+    );
+  });
+
   it("marks preview as blocked when no renderable page can be built", async () => {
     buildPreviewHtml.mockReturnValue(null);
 

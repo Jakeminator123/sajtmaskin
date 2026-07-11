@@ -7,6 +7,7 @@ import {
 import { buildExportableProject } from "./build-exportable-project";
 import { runProjectSanityChecks } from "../validation/project-sanity";
 import type { CodeFile } from "../parser";
+import { PIPELINE_ENV_LOCAL_MARKER } from "../preview/env-local";
 
 describe("mergePackageJsonWithBaseline", () => {
   it("fills scripts and devDependencies when the model omits them", () => {
@@ -123,7 +124,7 @@ describe("mergeTsconfigWithBaseline", () => {
 });
 
 describe("buildCompleteProject", () => {
-  it("merges minimal package.json and adds .env.local when absent", () => {
+  it("merges minimal package.json and keeps the legacy full .env.local fallback when scope is absent", () => {
     const generated: CodeFile[] = [
       {
         path: "package.json",
@@ -149,6 +150,96 @@ describe("buildCompleteProject", () => {
     expect(env).toBeDefined();
     expect(env!.content).toContain("Sajtmaskin");
     expect(env!.content).toMatch(/^[A-Z0-9_]+=/m);
+  });
+
+  it("persists only selected dossier placeholders in the F2 .env.local artifact", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated, undefined, {
+      lifecycleStage: "design",
+      selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "MY_DOSSIER_ONLY_KEY"],
+    });
+    const env = files.find((file) => file.path === ".env.local");
+
+    expect(env?.content).toContain("STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real");
+    expect(env?.content).toContain(
+      "MY_DOSSIER_ONLY_KEY=my_dossier_only_key_placeholder_preview_not_real",
+    );
+    expect(env?.content).not.toContain("CONTENTFUL_ACCESS_TOKEN=");
+  });
+
+  it("replaces a legacy pipeline env artifact but preserves a model-authored env file", () => {
+    const baseFiles: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return null; }",
+        language: "tsx",
+      },
+    ];
+    const legacyPipelineEnv = {
+      path: ".env.local",
+      content: `${PIPELINE_ENV_LOCAL_MARKER}\nSTRIPE_SECRET_KEY=old\nCONTENTFUL_ACCESS_TOKEN=old\n`,
+      language: "text" as const,
+    };
+
+    const scoped = buildCompleteProject(
+      [...baseFiles, legacyPipelineEnv],
+      undefined,
+      {
+        lifecycleStage: "design",
+        selectedDossierEnvKeys: ["STRIPE_SECRET_KEY"],
+      },
+    );
+    const scopedEnv = scoped.find((file) => file.path === ".env.local");
+    expect(scopedEnv?.content).toContain("STRIPE_SECRET_KEY=");
+    expect(scopedEnv?.content).not.toContain("CONTENTFUL_ACCESS_TOKEN=");
+
+    const modelEnv = {
+      path: ".env.local",
+      content: "MODEL_SELECTED_KEY=kept",
+      language: "text" as const,
+    };
+    const modelAuthored = buildCompleteProject(
+      [...baseFiles, modelEnv],
+      undefined,
+      {
+        lifecycleStage: "design",
+        selectedDossierEnvKeys: [],
+      },
+    );
+    expect(
+      modelAuthored.find((file) => file.path === ".env.local")?.content,
+    ).toBe("MODEL_SELECTED_KEY=kept");
+  });
+
+  it("omits F3 tier-3 stubs and does not write an artifact for an empty dossier scope", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+    ];
+
+    const f3Files = buildCompleteProject(generated, undefined, {
+      lifecycleStage: "integrations",
+      selectedDossierEnvKeys: [
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "MY_DOSSIER_ONLY_KEY",
+      ],
+    });
+    const f3Env = f3Files.find((file) => file.path === ".env.local");
+    expect(f3Env?.content).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
+    expect(f3Env?.content).not.toContain("STRIPE_SECRET_KEY=");
+    expect(f3Env?.content).not.toContain("MY_DOSSIER_ONLY_KEY=");
+
+    const emptyScopedFiles = buildCompleteProject(generated, undefined, {
+      lifecycleStage: "design",
+      selectedDossierEnvKeys: [],
+    });
+    expect(emptyScopedFiles.find((file) => file.path === ".env.local")).toBeUndefined();
   });
 
   it("ships a standard .gitignore that ignores .env* but keeps env.example tracked", () => {

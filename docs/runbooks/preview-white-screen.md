@@ -88,8 +88,9 @@
 5. **Prewarm deploy:** kör i `preview-host/`:
    `npm run check`, `npm run test:guards`, `npm run test:proxy-contract`,
    `npm run smoke`; deploya sedan Fly-hosten och verifiera `/health` samt
-   admin-endpoints **före** appen. `SAJTMASKIN_PREVIEW_PREWARM` förblir osatt
-   tills hostversionen är live och mätning uttryckligen ska börja.
+   admin-endpoints **före** appen. `SAJTMASKIN_PREVIEW_PREWARM` är explicit
+   `false` i Vercel Production, Preview och Development; ändra till `true`
+   först när hostversionen är live och mätning uttryckligen ska börja.
 
 ---
 

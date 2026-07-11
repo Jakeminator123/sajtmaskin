@@ -169,6 +169,13 @@ Filen tar bort behovet av att fråga användaren om env-variabler i chatten unde
 
 > **Provenance-vakt (2026-07-09):** "(b) modell-emitterad `.env.local`" gäller INTE den placeholder-`.env.local` som Sajtmaskins egen scaffold-merge injicerar i filträdet — den identifieras via markörraden `PIPELINE_ENV_LOCAL_MARKER` ([`env-local.ts`](../src/lib/gen/preview/env-local.ts)) och hoppas över både i `env.example`-byggaren och i preview-VM:ens `.env.local`-merge. Utan vakten läckte hela katalogen tillbaka som "generated"-lager vid varje regenerering och besegrade dossier-scopingen (och kunde skugga användarens env-panel-värden i preview:n).
 
+Samma `dossierEnvScope` styr nu även den pipeline-ägda `.env.local` som
+persisteras i `versions.files_json`: finalize ersätter äldre fullkatalogfiler
+med det aktuella scopet, och utelämnar artefakten när scopet är tomt. En
+modell-emitterad `.env.local` utan pipeline-markören lämnas däremot orörd.
+Preview-VM:n bygger fortsatt sin separata runtime-fil med projektets riktiga
+`projectEnvVars`; export/deploy strippar `.env.local` vid gränsen.
+
 För dossier-nycklar utan katalog-placeholder skiljer sig F2 och F3: i **F2** får varje sådan nyckel ett deterministiskt demo-värde (`<key>_placeholder_preview_not_real` via `dossierMockPreviewEnvValue`) så den nedladdade filen dokumenterar exakt den stub preview-VM:en bootar med; i **F3** blir det i stället en tom `KEY=`-rad med `purpose`-kommentar eftersom ett riktigt värde krävs. Demo-värdet innehåller stub-vokabulären (`placeholder` + `not_real`) som `stub-env-filter.ts` känner igen, så det aldrig läses som integrationsbevis.
 
 | Stage | Innehåll i `env.example` | Källor |
