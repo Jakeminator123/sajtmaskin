@@ -25,3 +25,7 @@ alwaysApply: false
 | `npm run env:status` | env-status |
 | `npm run db:check` | read-only DB sanity |
 | `npm run db:settle-stuck-verifications` | dry-run: lista versioner fast i `verifying`/`repairing` (lease-säker, inga writes). `-- --apply` + `DB_ALLOW_PROD_LIKE_WRITE=1` för prod-städning |
+| `npm --prefix preview-host run check` | syntaxcheck av preview-host |
+| `npm --prefix preview-host run test:guards` | runtime-, prewarm- och proxykontrakt |
+| `npm --prefix preview-host run test:proxy-contract` | HTTP/HMR-skydd + last-good-kontrakt |
+| `npm --prefix preview-host run smoke` | lokal preview-host end-to-end-smoke |

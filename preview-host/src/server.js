@@ -36,6 +36,13 @@ const {
   validateSessionRefPayload,
   validateVerifyPayload,
 } = require("./validate.js");
+const {
+  acquirePrewarmLease,
+  MAX_PREWARM_LEASES,
+  pruneExpiredPrewarmLeases,
+  releasePrewarmLeaseForChat,
+  resetPrewarmLeases,
+} = require("./prewarm-leases.js");
 const { sendRootPlaceholderSvg } = require("./placeholder-svg.js");
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
@@ -44,6 +51,10 @@ const PREVIEW_BASE_URL =
   process.env.PREVIEW_BASE_URL ?? "https://preview-placeholder.example.com";
 const SESSION_TTL_MS =
   Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${60 * 60 * 1000}`, 10);
+// Prewarm resource leases deliberately share the existing preview-session
+// horizon: they bound cold starts before generation credits settle, without
+// introducing a second billing or tenant state.
+const PREWARM_LEASE_MS = SESSION_TTL_MS;
 const OPPORTUNISTIC_CLEANUP_INTERVAL_MS =
   Number.parseInt(process.env.PREVIEW_HOST_OPPORTUNISTIC_CLEANUP_INTERVAL_MS ?? `${5 * 60 * 1000}`, 10);
 const BACKGROUND_CLEANUP_INTERVAL_MS =
@@ -142,6 +153,12 @@ function describeStorageState() {
   const storeFilePath = getStoreFilePath();
   const rootFilesystem = readFilesystemUsage("/");
   const dataFilesystem = readFilesystemUsage(dataDir);
+  const store = readStoreSync();
+  const nowMs = Date.now();
+  const activeLeaseExpiries = Object.values(store.prewarmLeases)
+    .map((lease) => Date.parse(lease?.expiresAt ?? ""))
+    .filter((expiresAtMs) => Number.isFinite(expiresAtMs) && expiresAtMs > nowMs)
+    .sort((a, b) => a - b);
 
   return {
     dataDir,
@@ -150,6 +167,14 @@ function describeStorageState() {
     sessionTtlMs: SESSION_TTL_MS,
     rootFilesystem,
     dataFilesystem,
+    prewarmLeases: {
+      activeCount: activeLeaseExpiries.length,
+      earliestExpiresAt:
+        activeLeaseExpiries.length > 0
+          ? new Date(activeLeaseExpiries[0]).toISOString()
+          : null,
+      maxEntries: MAX_PREWARM_LEASES,
+    },
     paths: {
       dataDir: {
         exists: fs.existsSync(dataDir),
@@ -401,13 +426,22 @@ async function routeRequest(req, res) {
     }
     const chatId = getSessionChatId(statusResult.session);
     const runtimeState = getRuntimeStateForChat(chatId);
-    if (!runtimeState.running && statusResult.session.status !== "error" && statusResult.session.status !== "hibernated") {
+    if (
+      !runtimeState.running &&
+      !runtimeState.booting &&
+      statusResult.session.status !== "error" &&
+      statusResult.session.status !== "hibernated"
+    ) {
       queueRuntimeBoot(chatId);
     }
     const latest = findSessionByPreviewSessionId(readStoreSync(), previewSessionId) ?? statusResult.session;
+    const publicRunning =
+      runtimeState.running &&
+      latest.prewarm !== true &&
+      latest.prewarmReplacementPending !== true;
     return json(res, 200, {
       ok: true,
-      running: runtimeState.running,
+      running: publicRunning,
       previewSessionId: latest.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
@@ -423,7 +457,56 @@ async function routeRequest(req, res) {
     const validated = validateStartPayload(raw);
     await maybeRunOpportunisticCleanup();
     const created = await withStoreLock((data) => {
+      const nowMs = Date.now();
       const existing = findSessionByChatId(data, validated.chatId);
+      if (validated.prewarm) {
+        // A delayed best-effort request must never take over a real finalized
+        // session. This check and the mutation live under the host's persistent
+        // store lock, so process-local app dedup is not relied on for safety.
+        if (existing && existing.prewarm !== true) {
+          return { type: "prewarm_superseded", session: existing };
+        }
+        if (existing) {
+          // Re-establish the subject lease before recovering a persisted/dead
+          // prewarm. Boot failure deliberately releases it, so idempotent
+          // retries must not become an unmetered install loop.
+          const reacquired = acquirePrewarmLease(data, {
+            key: validated.prewarmLeaseKey,
+            chatId: validated.chatId,
+            nowMs,
+            leaseMs: PREWARM_LEASE_MS,
+          });
+          if (reacquired.type === "rate_limited") {
+            return { type: "prewarm_rate_limited", lease: reacquired.lease };
+          }
+          if (reacquired.type === "capacity") {
+            return { type: "prewarm_capacity" };
+          }
+          // Keep exactly one active key for the chat if its canonical subject
+          // changed (for example guest -> authenticated user).
+          releasePrewarmLeaseForChat(data, validated.chatId);
+          data.prewarmLeases[reacquired.key] = reacquired.lease;
+          return { type: "prewarm_idempotent", session: existing };
+        }
+        const acquired = acquirePrewarmLease(data, {
+          key: validated.prewarmLeaseKey,
+          chatId: validated.chatId,
+          nowMs,
+          leaseMs: PREWARM_LEASE_MS,
+        });
+        if (acquired.type === "rate_limited") {
+          return { type: "prewarm_rate_limited", lease: acquired.lease };
+        }
+        if (acquired.type === "capacity") {
+          return { type: "prewarm_capacity" };
+        }
+      } else {
+        pruneExpiredPrewarmLeases(data, nowMs);
+        releasePrewarmLeaseForChat(data, validated.chatId);
+      }
+      const prewarmReplacementPending =
+        !validated.prewarm &&
+        (existing?.prewarm === true || existing?.prewarmReplacementPending === true);
       const createdAt = existing?.createdAt ?? nowIso();
       const updatedAt = nowIso();
       const sessionExpiresAt = sessionExpiresAtIso();
@@ -443,6 +526,8 @@ async function routeRequest(req, res) {
         dependencyFingerprint: validated.dependencyFingerprint,
         resumeStrategy: validated.resumeStrategy,
         filesJson: validated.filesJson,
+        prewarm: validated.prewarm,
+        prewarmReplacementPending,
         createdAt,
         updatedAt,
         sessionExpiresAt,
@@ -457,10 +542,44 @@ async function routeRequest(req, res) {
           ? `Session reused for chat ${validated.chatId}; booting updated runtime.`
           : `Session created for chat ${validated.chatId}.`,
       );
-      return session;
+      return { type: "created", session };
     });
+    if (created.type === "prewarm_superseded") {
+      return json(res, 409, {
+        error: "prewarm_superseded",
+        message: "A finalized preview version already owns this chat session.",
+        versionId: created.session.versionId,
+      });
+    }
+    if (created.type === "prewarm_rate_limited") {
+      return json(res, 429, {
+        error: "prewarm_rate_limited",
+        message: "A prewarm lease is already active for this generation subject.",
+        retryAt: created.lease.expiresAt,
+      });
+    }
+    if (created.type === "prewarm_capacity") {
+      return json(res, 429, {
+        error: "prewarm_rate_limited",
+        message: "Preview-host prewarm capacity is currently exhausted.",
+      });
+    }
+    if (created.type === "prewarm_idempotent") {
+      // A persisted prewarm may outlive the host process that started it.
+      // Recover only a missing/dead runtime. A healthy prewarm (or one already
+      // booting) must not be restarted by an idempotent app retry.
+      const runtimeState = getRuntimeStateForChat(validated.chatId);
+      if (!runtimeState.running && !runtimeState.booting) {
+        queueRuntimeBoot(validated.chatId, { restart: true });
+      }
+      return json(res, 200, sessionResponse(created.session));
+    }
     queueRuntimeBoot(validated.chatId, { restart: true });
-    return json(res, 201, sessionResponse(findSessionById(readStoreSync(), created.sessionId) ?? created));
+    return json(
+      res,
+      201,
+      sessionResponse(findSessionById(readStoreSync(), created.session.sessionId) ?? created.session),
+    );
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/update") {
@@ -480,7 +599,12 @@ async function routeRequest(req, res) {
       if (!isSessionUsable(session, Date.now())) {
         return null;
       }
+      const replacingPrewarm =
+        session.prewarm === true || session.prewarmReplacementPending === true;
       session.versionId = validated.versionId;
+      session.prewarm = false;
+      session.prewarmReplacementPending = replacingPrewarm;
+      releasePrewarmLeaseForChat(data, getSessionChatId(session));
       session.changeClass = validated.changeClass;
       if (validated.filesJson !== undefined) {
         session.filesJson = validated.replaceFiles
@@ -490,7 +614,7 @@ async function routeRequest(req, res) {
               ...validated.filesJson,
             };
       }
-      session.status = "warm_project";
+      session.status = replacingPrewarm ? "starting" : "warm_project";
       session.lastAction = "update";
       session.startOutcome = "resumed";
       session.updatedAt = nowIso();
@@ -554,7 +678,12 @@ async function routeRequest(req, res) {
         updatedAt: session.updatedAt,
         sessionExpiresAt: session.sessionExpiresAt,
       };
+      const replacingPrewarm =
+        session.prewarm === true || session.prewarmReplacementPending === true;
       session.versionId = validated.versionId;
+      session.prewarm = false;
+      session.prewarmReplacementPending = replacingPrewarm;
+      releasePrewarmLeaseForChat(data, getSessionChatId(session));
       // Merge the changed files into the stored set and apply removals so a
       // later full boot reflects the patch. This mirrors update's
       // replaceFiles:false merge but only for the changed paths.
@@ -569,7 +698,7 @@ async function routeRequest(req, res) {
         delete base[relPath];
       }
       session.filesJson = base;
-      session.status = "warm_project";
+      session.status = replacingPrewarm ? "starting" : "warm_project";
       session.lastAction = "patch";
       session.startOutcome = "resumed";
       session.changeClass = "light";
@@ -584,6 +713,7 @@ async function routeRequest(req, res) {
         type: "ok",
         sessionId: session.sessionId,
         chatId: getSessionChatId(session),
+        replacingPrewarm,
         rollback,
       };
     });
@@ -601,10 +731,15 @@ async function routeRequest(req, res) {
         versionId: patchOutcome.currentVersionId,
       });
     }
-    const patchResult = applyRuntimePatch(patchOutcome.chatId, {
-      files: validated.files,
-      removedPaths: validated.removedPaths,
-    });
+    const patchResult = patchOutcome.replacingPrewarm
+      ? (() => {
+          queueRuntimeBoot(patchOutcome.chatId, { restart: true });
+          return { mode: "restarted", reason: "prewarm_replacement" };
+        })()
+      : applyRuntimePatch(patchOutcome.chatId, {
+          files: validated.files,
+          removedPaths: validated.removedPaths,
+        });
     if (patchResult.mode === "error") {
       // Finding #3 (FEL-5): the workspace patch did not land. Roll the session
       // back to its pre-patch snapshot so /status (and a later resume) never
@@ -693,6 +828,7 @@ async function routeRequest(req, res) {
       session.lastAction = "destroy";
       session.updatedAt = nowIso();
       appendLog(data, previewSessionId, "Session destroyed.");
+      releasePrewarmLeaseForChat(data, chatId);
       delete data.sessions[sessionId];
       delete data.previewSessionToSession[previewSessionId];
       return { sessionId, previewSessionId, chatId };
@@ -821,9 +957,10 @@ async function routeRequest(req, res) {
         delete data.logs[previewSessionId];
         toDestroy.push({ sessionId, previewSessionId, chatId });
       }
-      return toDestroy;
+      const resetLeases = resetPrewarmLeases(data);
+      return { sessions: toDestroy, resetLeases };
     });
-    for (const session of destroyed) {
+    for (const session of destroyed.sessions) {
       try {
         await stopRuntimeForSession(session);
       } catch {
@@ -836,8 +973,9 @@ async function routeRequest(req, res) {
       }
     }
     return json(res, 200, {
-      destroyed: destroyed.length,
-      sessions: destroyed,
+      destroyed: destroyed.sessions.length,
+      resetPrewarmLeases: destroyed.resetLeases,
+      sessions: destroyed.sessions,
     });
   }
 

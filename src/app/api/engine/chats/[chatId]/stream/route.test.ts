@@ -34,6 +34,7 @@ const parseSSEBuffer = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const prewarmPreviewSession = vi.hoisted(() => vi.fn());
+const createPreviewPrewarmLeaseKey = vi.hoisted(() => vi.fn(() => "a".repeat(64)));
 const buildContractClarificationQuestion = vi.hoisted(() =>
   vi.fn<() => Record<string, unknown> | null>(() => null),
 );
@@ -295,6 +296,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 
 vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
+  createPreviewPrewarmLeaseKey,
   prewarmPreviewSession,
 }));
 
@@ -1083,7 +1085,39 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(createGenerationPipeline).toHaveBeenCalled();
-    expect(prewarmPreviewSession).toHaveBeenCalledWith("chat_1");
+    expect(prewarmPreviewSession).toHaveBeenCalledWith(
+      "chat_1",
+      expect.objectContaining({ leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+    );
+  });
+
+  it("rejects versionless follow-up credits before any prewarm attempt", async () => {
+    getVersionsByChat.mockResolvedValueOnce([]);
+    resolveFollowUpPreviousFiles.mockResolvedValueOnce([]);
+    prepareCredits.mockResolvedValueOnce({
+      ok: false,
+      cost: 10,
+      response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg den första versionen nu." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(402);
+    expect(getVersionsByChat).toHaveBeenCalledWith("chat_1");
+    expect(resolveFollowUpPreviousFiles).toHaveBeenCalled();
+    expect(prepareCredits).toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
   });
 
   it("does NOT prewarm when authoritative follow-up base files exist despite an empty version lookup", async () => {
@@ -2188,6 +2222,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(consumeF3ContinuationMarker).not.toHaveBeenCalled();
       expect(addMessage).not.toHaveBeenCalled();
       expect(createGenerationPipeline).not.toHaveBeenCalled();
+      expect(prewarmPreviewSession).not.toHaveBeenCalled();
     });
 
     it("does NOT inherit for a plain design follow-up (no pending marker)", async () => {

@@ -42,6 +42,7 @@ I praktiken betyder det:
 - **minnestryck (M#fly1, 2026-07-02):** alla installs (live-boot + verify) serialiseras genom en global `installQueue` (concurrency 1) sa att tva tunga `npm install` aldrig kor samtidigt; `fly.toml` har `swap_size_mb = 2048` som stotdampare. Varje install-forsok har en hard timeout (`PREVIEW_HOST_INSTALL_TIMEOUT_MS`, default 10 min; 0 = av) som dodar hela processtradet och later kon ga vidare — annars skulle en hangd install (t.ex. ett genererat `preinstall`-script) kila fast alla senare boots/verifies tills VM-omstart. Riktade guard-tester: `npm run test:guards`
 - **idle-reaper:** en dev-runtime utan proxytrafik och utan oppen preview-WebSocket (≈ ingen oppen iframe) stoppas efter `PREVIEW_HOST_RUNTIME_IDLE_STOP_MS` (default 10 min; 0 = av) och sessionen markeras `hibernated` — nasta besok bootar om den via vantesidan. Svepintervall: `PREVIEW_HOST_RUNTIME_IDLE_SWEEP_INTERVAL_MS` (default 60 s). Klientens hibernate (pagehide/dold tab) ar fortfarande forsta forsvarslinjen; reapern ar VM-sidans skyddsnat nar det anropet inte nar fram
 - **boot-serialisering per chat (prod-incident 2026-07-03):** alla runtime-boots for samma chat kedjas strikt efter varandra (`ensureRuntimeForChat`), och restart-boots som star i ko coalescas till EN boot som laser senaste filesJson nar den kor. Tidigare slapptes flera vantande restart-boots losa parallellt nar den pagaende booten blev klar → tva dev-servrar spawnades (EADDRINUSE), den forsta processen blev foraldralos och holl Next 16:s workspace-dev-lock ("Another next dev server is already running") tills sessionen hibernerade utan preview. `spawnDevServer` stoppar dessutom alltid ev. tidigare trackad child innan en ny spawnas (defense-in-depth). Guard-tester: `npm run test:guards`
+- **prewarm-ownership (2026-07-11):** `prewarm:true` får bara skapa en oägd chat under persistent store-lås. Skelettet är aldrig publikt: HTTP visar hostens startsida och **alla** WebSocket-upgrades nekas tills riktig boot passerat readiness. Ett misslyckat realt övertagande visar stabil 503 utan refresh/restart-loop; explicit app-retry kan återgå till `starting`. Vanliga icke-prewarm-restarts fortsätter visa last-good. En host-lease per kanonisk app-rate-limit-identitet skyddar installkön före kreditsettlement; bootfel behåller cooldown, medan real claim/destroy/cleanup/expiry/reset släpper den. Kartan normaliseras/prunas och har fast kod-cap 4096; `/admin/storage` visar bara count/tidigaste expiry/cap. Guard + proxykontraktstest: `npm run test:guards` / `npm run test:proxy-contract`.
 
 ### Vad som inte fungerar annu
 
@@ -178,6 +179,8 @@ Fran `preview-host/`:
 - `npm run dev`
 - `npm run check`
 - `npm run smoke`
+- `npm run test:guards`
+- `npm run test:proxy-contract`
 
 ## Rekommenderat nyborjarflode
 
@@ -185,9 +188,10 @@ Om du ar ny pa detta, kor i den har ordningen:
 
 1. `cd preview-host`
 2. `npm run check`
-3. `npm run smoke`
-4. `npm start`
-5. oppna `http://localhost:8080/health`
+3. `npm run test:guards`
+4. `npm run smoke`
+5. `npm start`
+6. oppna `http://localhost:8080/health`
 
 Om `npm run smoke` gar igenom vet du att grundflodet fungerar:
 
@@ -221,6 +225,17 @@ Fly-appen finns redan och kor som den aktiva tier-2-previewen. Det praktiska dri
 3. satt eller uppdatera `PREVIEW_HOST_API_KEY`
 4. kor `fly deploy`
 5. verifiera `GET /health`, `GET /admin/storage` och `GET /admin/sessions`
+
+**Prewarm deployordning:** preview-hosten måste deployas och verifieras **före**
+en app-release som kan skicka `prewarm:true`. Kör `npm run check`,
+`npm run test:guards`, `npm run test:proxy-contract` och `npm run smoke`, deploya
+Fly-hosten, verifiera health/admin-endpoints och deploya därefter appen. Sätt
+inte `SAJTMASKIN_PREVIEW_PREWARM`; flaggan är fortsatt default OFF och får inte
+aktiveras innan hostkontraktet finns live. Appens
+`SAJTMASKIN_PREVIEW_HOST_API_KEY` måste vara konfigurerad för att skapa den
+API-keyed lease-HMAC:en; utan nyckeln skippar appen bara optional prewarm.
+Lease-cap 4096 är fast kodpolicy—det finns ingen
+`PREVIEW_HOST_MAX_PREWARM_LEASES`-operator-env.
 
 ### Det som redan ar satt
 

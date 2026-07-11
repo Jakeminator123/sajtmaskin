@@ -12,7 +12,10 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
-import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
+import {
+  createPreviewPrewarmLeaseKey,
+  prewarmPreviewSession,
+} from "@/lib/gen/preview/preview-prewarm";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
@@ -1046,6 +1049,12 @@ export async function handleMessageStreamRequest(
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
         }
+        // The host enforces this opaque subject lease before it creates a
+        // prewarm session. The digest reuses rateLimit.ts identity (verified
+        // user, else trusted IP), never the rotatable guest cookie.
+        const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
+          userId: creditCheck.user?.id,
+        });
         try {
           const metaPayload =
             meta && typeof meta === "object"
@@ -1796,7 +1805,7 @@ export async function handleMessageStreamRequest(
           versionsQuerySucceeded &&
           existingVersionsForChat.length === 0
         ) {
-          void prewarmPreviewSession(chatId);
+          void prewarmPreviewSession(chatId, { leaseKey: prewarmLeaseKey });
         }
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,

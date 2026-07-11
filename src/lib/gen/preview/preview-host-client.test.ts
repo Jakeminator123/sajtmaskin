@@ -149,6 +149,65 @@ describe("preview-host cleanup retry", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
   });
 
+  it("sends the host-only prewarm intent and opaque lease key", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-prewarm",
+          previewSessionId: "ps_prewarm",
+          startOutcome: "recreated",
+        }),
+        { status: 201, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await startPreviewHostSession({
+      chatId: "chat-prewarm",
+      versionId: "chat-prewarm-prewarm",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+      prewarm: true,
+      prewarmLeaseKey: "a".repeat(64),
+    });
+
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      prewarm: true,
+      prewarmLeaseKey: "a".repeat(64),
+    });
+  });
+
+  it.each([
+    [409, "prewarm_superseded", "superseded"],
+    [429, "prewarm_rate_limited", "rate_limited"],
+  ] as const)("classifies terminal prewarm HTTP %i without retry", async (status, error, disposition) => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ error, message: error }), {
+        status,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await startPreviewHostSession({
+      chatId: "chat-prewarm",
+      versionId: "chat-prewarm-prewarm",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+      prewarm: true,
+      prewarmLeaseKey: "a".repeat(64),
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      retryable: false,
+      prewarmDisposition: disposition,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("accepts legacy sandboxId from older preview-host responses", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     vi.stubGlobal(

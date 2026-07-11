@@ -3,6 +3,8 @@ import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { startPreviewHostSession } from "@/lib/gen/preview/preview-host-client";
 import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
+import { getClientId } from "@/lib/rateLimit";
+import { createHmac } from "node:crypto";
 
 /**
  * Preview prewarm (host wake-up + install overlap).
@@ -62,6 +64,8 @@ export default function Page() {
  * `rememberPrewarmedChat()` because no `await` occurs between them. */
 const prewarmedChatIds = new Set<string>();
 const MAX_PREWARM_DEDUP_ENTRIES = 512;
+const PREWARM_RATE_LIMIT_RETRY_COOLDOWN_MS = 5_000;
+const prewarmRateLimitUntilByChat = new Map<string, number>();
 
 function rememberPrewarmedChat(chatId: string): void {
   prewarmedChatIds.add(chatId);
@@ -78,16 +82,42 @@ export type PreviewPrewarmResult = {
   reason?:
     | "flag_off"
     | "no_chat"
+    | "no_lease_key"
     | "tier2_not_configured"
     | "already_prewarmed"
+    | "prewarm_superseded"
+    | "prewarm_rate_limited"
     | "host_error"
     | "prewarm_threw";
   message?: string;
 };
 
+/**
+ * Opaque, stable resource-lease key for host-side prewarm throttling.
+ *
+ * A prewarm happens before normal credit settlement, so it reuses rate-limit
+ * identity and sends only an API-keyed HMAC—never raw user/IP/session data.
+ * Missing host API key returns null and skips this optional optimization.
+ */
+export function createPreviewPrewarmLeaseKey(
+  request: Request,
+  params?: { userId?: string | null },
+): string | null {
+  const secret = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
+  if (!secret) return null;
+  // Reuse the rate-limit owner's canonical subject: verified users are keyed
+  // by user id, guests by trusted IP (never their rotatable session cookie).
+  const subject = getClientId(request, {
+    userId: params?.userId?.trim() || undefined,
+  });
+  const domainSeparatedSubject = `sajtmaskin:preview-prewarm-lease:v1\0${subject}`;
+  return createHmac("sha256", secret).update(domainSeparatedSubject).digest("hex");
+}
+
 /** Reset dedup state between tests. */
 export function __resetPreviewPrewarmStateForTests(): void {
   prewarmedChatIds.clear();
+  prewarmRateLimitUntilByChat.clear();
 }
 
 function skeletonFilesJson(): Record<string, string> {
@@ -113,9 +143,17 @@ function skeletonFilesJson(): Record<string, string> {
  */
 export async function prewarmPreviewSession(
   chatId: string,
+  options?: { leaseKey?: string | null },
 ): Promise<PreviewPrewarmResult> {
   if (!FEATURES.previewPrewarm) return { started: false, reason: "flag_off" };
   if (!chatId) return { started: false, reason: "no_chat" };
+  const rateLimitUntil = prewarmRateLimitUntilByChat.get(chatId) ?? 0;
+  if (rateLimitUntil > Date.now()) {
+    return { started: false, reason: "prewarm_rate_limited" };
+  }
+  prewarmRateLimitUntilByChat.delete(chatId);
+  const leaseKey = options?.leaseKey?.trim() || null;
+  if (!leaseKey) return { started: false, reason: "no_lease_key" };
   if (!getPreviewHostBaseUrl()) {
     return { started: false, reason: "tier2_not_configured" };
   }
@@ -130,8 +168,32 @@ export async function prewarmPreviewSession(
       chatId,
       versionId: `${chatId}-prewarm`,
       filesJson,
+      prewarm: true,
+      prewarmLeaseKey: leaseKey,
     });
     if (!res.ok) {
+      if (res.prewarmDisposition === "superseded") {
+        console.info(`[preview-prewarm] skipped ${chatId}: real preview already owns the session.`);
+        return { started: false, reason: "prewarm_superseded", message: res.message };
+      }
+      if (res.prewarmDisposition === "rate_limited") {
+        // No session was created for this chat. Do not pin it forever in the
+        // process-local dedup set; a later explicit user retry may succeed once
+        // the canonical subject lease is released/expired. This invocation
+        // still performs exactly one host call (no automatic retry).
+        prewarmedChatIds.delete(chatId);
+        prewarmRateLimitUntilByChat.set(
+          chatId,
+          Date.now() + PREWARM_RATE_LIMIT_RETRY_COOLDOWN_MS,
+        );
+        while (prewarmRateLimitUntilByChat.size > MAX_PREWARM_DEDUP_ENTRIES) {
+          const oldest = prewarmRateLimitUntilByChat.keys().next().value;
+          if (oldest === undefined) break;
+          prewarmRateLimitUntilByChat.delete(oldest);
+        }
+        console.info(`[preview-prewarm] skipped ${chatId}: subject lease is already active.`);
+        return { started: false, reason: "prewarm_rate_limited", message: res.message };
+      }
       // Allow a real (finalize-driven) start to proceed unaffected, and let a
       // later prewarm retry if the stream is restarted.
       prewarmedChatIds.delete(chatId);

@@ -9,6 +9,10 @@ const httpProxy = require("http-proxy");
 const acorn = require("acorn");
 
 const { getDataDir, readStoreSync, withStoreLock } = require("./store.js");
+const {
+  pruneExpiredPrewarmLeases,
+  releasePrewarmLeaseForChat,
+} = require("./prewarm-leases.js");
 
 const LOOPBACK = "127.0.0.1";
 const PORT_BASE = parseInt(process.env.PREVIEW_HOST_RUNTIME_PORT_BASE ?? "4100", 10);
@@ -996,16 +1000,15 @@ async function waitForReady(url) {
   let lastError = "";
   let emptyBodyStreak = 0;
   while (Date.now() < deadline) {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 90_000);
     try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 90_000);
       const res = await fetch(url, {
         method: "GET",
         redirect: "follow",
         signal: ctrl.signal,
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
-      clearTimeout(tid);
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         emptyBodyStreak = 0;
         lastError = `HTTP ${res.status}`;
@@ -1027,6 +1030,8 @@ async function waitForReady(url) {
     } catch (err) {
       emptyBodyStreak = 0;
       lastError = err instanceof Error ? err.message : String(err);
+    } finally {
+      clearTimeout(tid);
     }
     await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
   }
@@ -1424,12 +1429,23 @@ function stopChildProcessTree(child) {
       killer.once("close", () => resolve());
       return;
     }
-    child.kill("SIGTERM");
+    const signalProcessGroup = (signal) => {
+      try {
+        // `npm run dev` owns a shell + the actual dev server. The child is
+        // spawned as a POSIX process-group leader below so both generations
+        // receive shutdown signals; killing only npm leaves the server alive
+        // with stdout/stderr pipes open and this promise never settles.
+        process.kill(-child.pid, signal);
+      } catch {
+        child.kill(signal);
+      }
+    };
+    signalProcessGroup("SIGTERM");
     const drainMs =
       Number.isFinite(RUNTIME_DRAIN_MS) && RUNTIME_DRAIN_MS >= 0 ? RUNTIME_DRAIN_MS : 5000;
     const timeout = setTimeout(() => {
       if (child.exitCode === null) {
-        child.kill("SIGKILL");
+        signalProcessGroup("SIGKILL");
       }
     }, drainMs);
     child.once("close", () => {
@@ -1471,6 +1487,9 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
+      // Required by stopChildProcessTree's negative-PID signaling on POSIX.
+      // Keep Windows attached so taskkill /t remains the tree owner there.
+      detached: process.platform !== "win32",
       env: sanitizedEnv({
         PORT: String(runtimePort),
         HOSTNAME: LOOPBACK,
@@ -1527,6 +1546,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     runtimeChildren.delete(session.sessionId);
     if (tracked.ignoreExit) return;
     await updateSessionById(session.sessionId, (stored) => {
+      if (stored.versionId !== session.versionId) return;
       stored.status = "stopped";
       stored.stoppedAt = nowIso();
       stored.updatedAt = nowIso();
@@ -1585,24 +1605,46 @@ async function bootRuntimeForSession(session, options = {}) {
       await spawnDevServer(session, workspaceDir, runtimePort);
 
       await updateSessionById(session.sessionId, (stored) => {
+        if (stored.versionId !== session.versionId) return;
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
         stored.updatedAt = nowIso();
       });
 
-      waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
-        .then(() =>
-          appendRuntimeLog(
-            session.previewSessionId,
-            `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-          ),
-        )
-        .catch((err) =>
-          appendRuntimeLog(
-            session.previewSessionId,
-            `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
-          ),
+      const readiness = waitForReady(
+        `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`,
+      );
+      if (session.prewarmReplacementPending === true && session.prewarm !== true) {
+        // A real version replacing a prewarm skeleton stays non-public until
+        // the replacement itself answers readiness. Only this successful,
+        // version-matched transition may clear the host-side traffic hold.
+        await readiness;
+        await updateSessionById(session.sessionId, (stored) => {
+          if (stored.versionId !== session.versionId || stored.prewarm === true) return;
+          stored.prewarmReplacementPending = false;
+          stored.status = "warm_project";
+          stored.runtimePort = runtimePort;
+          stored.updatedAt = nowIso();
+        });
+        await appendRuntimeLog(
+          session.previewSessionId,
+          `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
         );
+      } else {
+        void readiness
+          .then(() =>
+            appendRuntimeLog(
+              session.previewSessionId,
+              `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
+            ),
+          )
+          .catch((err) =>
+            appendRuntimeLog(
+              session.previewSessionId,
+              `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
+            ),
+          );
+      }
 
       return { runtimePort };
     };
@@ -1621,6 +1663,7 @@ async function bootRuntimeForSession(session, options = {}) {
     });
   } catch (error) {
     await updateSessionById(session.sessionId, (stored) => {
+      if (stored.versionId !== session.versionId) return;
       stored.status = "error";
       stored.updatedAt = nowIso();
     });
@@ -1721,15 +1764,24 @@ function queueRuntimeBoot(chatId, options = {}) {
 function getRuntimeStateForChat(chatId) {
   const session = findSessionByChatId(readStoreSync(), chatId);
   if (!session) {
-    return { session: null, running: false, booting: false, runtimePort: null };
+    return {
+      session: null,
+      running: false,
+      booting: false,
+      persistedStarting: false,
+      runtimePort: null,
+    };
   }
   const tracked = runtimeChildren.get(session.sessionId);
   const running = Boolean(tracked && tracked.child.exitCode === null);
-  const booting = inflightBootByChat.has(chatId) || session.status === "starting";
+  // `status:"starting"` is persisted and may survive a host restart; it is not
+  // proof that this process owns a live boot. Only the in-memory boot chain is.
+  const booting = inflightBootByChat.has(chatId);
   return {
     session,
     running,
     booting,
+    persistedStarting: session.status === "starting",
     runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
   };
 }
@@ -1779,6 +1831,59 @@ function sendRuntimeStartingPage(res, session, options = {}) {
   </body>
 </html>`);
   return true;
+}
+
+function sendHeldPreviewErrorPage(res, session) {
+  if (!res || res.headersSent || res.writableEnded) return false;
+  res.writeHead(503, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(`<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview kunde inte starta</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; background: #0b0b0d; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
+      main { max-width: 40rem; padding: 2rem; text-align: center; }
+      .muted { color: #a3a3a3; }
+      code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Preview kunde inte starta</h1>
+      <p class="muted">Uppstarten misslyckades. Försök igen från byggaren.</p>
+      <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
+      <p class="muted">Status: <code>error</code></p>
+    </main>
+  </body>
+</html>`);
+  return true;
+}
+
+function refuseHeldPreviewUpgrade(socket, failed) {
+  if (!socket || socket.destroyed) return;
+  const message = failed
+    ? "Preview startup failed; retry from the builder."
+    : "Preview is not public while prewarm or replacement is pending.";
+  const body = Buffer.from(message, "utf8");
+  try {
+    socket.end(
+      [
+        "HTTP/1.1 503 Service Unavailable",
+        "Connection: close",
+        "Content-Type: text/plain; charset=utf-8",
+        `Content-Length: ${body.length}`,
+        "",
+        message,
+      ].join("\r\n"),
+    );
+  } catch {
+    socket.destroy();
+  }
 }
 
 // Proxy-fel som indikerar att runtimen är nere ELLER har blivit en zombie som
@@ -1961,6 +2066,24 @@ function nextInternalRefererFallback(req, pathname) {
   return { info: { chatId: refChatId, restPath: pathname }, state: refState };
 }
 
+/**
+ * The prewarm runtime is intentionally never public. While it is warming (or a
+ * real replacement is pending), HTTP uses the host-owned start/error document
+ * and every WS upgrade is refused. Ordinary non-prewarm booting is excluded.
+ */
+function shouldHoldPrewarmTraffic(state) {
+  return Boolean(
+    state?.session &&
+      (state.session.prewarm === true || state.session.prewarmReplacementPending === true),
+  );
+}
+
+function isFailedPrewarmTraffic(state) {
+  return Boolean(
+    shouldHoldPrewarmTraffic(state) && state.session.status === "error",
+  );
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   let info = routeInfoFromPathname(pathname);
   if (!info) return false;
@@ -1980,6 +2103,19 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     state = fallback.state;
   }
   if (!state.session) return false;
+  if (shouldHoldPrewarmTraffic(state)) {
+    if (isFailedPrewarmTraffic(state)) {
+      sendHeldPreviewErrorPage(res, state.session);
+      return true;
+    }
+    if (!state.booting) {
+      queueRuntimeBoot(info.chatId, {
+        restart: state.session.prewarmReplacementPending === true,
+      });
+    }
+    sendRuntimeStartingPage(res, state.session);
+    return true;
+  }
   if (state.running && state.runtimePort) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
     if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
@@ -2015,9 +2151,23 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   // Mirror the HTTP path's TODO(#4) mitigation: a root-absolute Next-internal
   // WS upgrade (no chatId prefix) would otherwise parse `_next`/`__nextjs_*`
   // as the chatId and be dropped for the missing session.
-  if (!getRuntimeStateForChat(info.chatId).session) {
+  let state = getRuntimeStateForChat(info.chatId);
+  if (!state.session) {
     const fallback = nextInternalRefererFallback(req, pathname);
-    if (fallback) info = fallback.info;
+    if (fallback) {
+      info = fallback.info;
+      state = fallback.state;
+    }
+  }
+  if (state.session && shouldHoldPrewarmTraffic(state)) {
+    const failed = isFailedPrewarmTraffic(state);
+    if (!failed && !state.booting) {
+      queueRuntimeBoot(info.chatId, {
+        restart: state.session.prewarmReplacementPending === true,
+      });
+    }
+    refuseHeldPreviewUpgrade(socket, failed);
+    return true;
   }
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
     // Complete the handshake and hold the socket open silently. Browser
@@ -2041,7 +2191,6 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   // och håll socketen tyst tills runtimen är uppe; nästa full-reload via
   // refreshToken plockar upp det nya innehållet.
   if (isHmrProxyEnabled() && isHmrPath(info.restPath)) {
-    const state = getRuntimeStateForChat(info.chatId);
     // Unknown session: there is no preview session for this chatId, so there is
     // nothing to boot or hold open for. Close the socket instead of holding a
     // stale HMR connection (and instead of queueing a no-op boot for a session
@@ -2346,8 +2495,10 @@ async function cleanupPreviewHostStorage() {
   let removedSessions = 0;
   let removedLogs = 0;
   let removedMappings = 0;
+  let removedPrewarmLeases = 0;
 
   await withStoreLock((data) => {
+    removedPrewarmLeases += pruneExpiredPrewarmLeases(data, nowMs);
     for (const [sessionId, session] of Object.entries(data.sessions)) {
       if (
         isSessionUsable(session, nowMs) ||
@@ -2364,6 +2515,10 @@ async function cleanupPreviewHostStorage() {
       }
 
       removedSessions++;
+      removedPrewarmLeases += releasePrewarmLeaseForChat(
+        data,
+        getSessionChatId(session),
+      );
       delete data.sessions[sessionId];
 
       const previewSessionId =
@@ -2406,6 +2561,7 @@ async function cleanupPreviewHostStorage() {
     removedSessions,
     removedLogs,
     removedMappings,
+    removedPrewarmLeases,
     stoppedStaleRuntimes: staleRuntimeCleanup.stoppedRuntimes,
     preservedStaleRuntimes: staleRuntimeCleanup.preservedSessionIds.size,
     preservedWorkspaceEntries: activeWorkspaceEntries.size,
@@ -2449,6 +2605,7 @@ module.exports = {
   sweepIdleRuntimes,
   cleanupPreviewHostStorage,
   __testing: {
+    bootRuntimeForSession,
     dependencyFingerprint,
     DEPENDENCY_INSTALL_POLICY,
     patchNextConfigViaAst,
@@ -2463,6 +2620,32 @@ module.exports = {
     activePreviewSocketCount,
     chatIdFromReferer,
     NEXT_INTERNAL_ROOT_PATH_RE,
+    shouldHoldPrewarmTraffic,
+    setRuntimeStateForTesting(params) {
+      const sessionId = params.sessionId;
+      if (params.running) {
+        runtimeChildren.set(sessionId, {
+          child: { exitCode: null },
+          port: params.runtimePort,
+          chatId: params.chatId,
+          previewSessionId: params.previewSessionId ?? "",
+          lastActivityAt: Date.now(),
+        });
+      } else {
+        runtimeChildren.delete(sessionId);
+      }
+      if (params.booting) {
+        inflightBootByChat.set(params.chatId, new Promise(() => {}));
+      } else {
+        inflightBootByChat.delete(params.chatId);
+      }
+    },
+    clearRuntimeStateForTesting(chatId, sessionId) {
+      runtimeChildren.delete(sessionId);
+      inflightBootByChat.delete(chatId);
+      bootChainByChat.delete(chatId);
+      queuedRestartBootByChat.delete(chatId);
+    },
     setBootRunnerForTesting(runner) {
       bootRunnerForChat = runner ?? bootRuntimeForSession;
     },
