@@ -43,6 +43,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   // to prevent.
   { match: /^ai sdk version contract/i, priority: 88, required: true },
   { match: /^dossier files to emit verbatim$/i, priority: 92, required: true },
+  { match: /^tier-3 integration build plan$/i, priority: 93, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },

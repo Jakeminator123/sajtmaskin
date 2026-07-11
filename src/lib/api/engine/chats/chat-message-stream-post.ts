@@ -121,6 +121,7 @@ import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readines
 import {
   approvedProvidersShipConfigNotice,
   mapProviderKeysToDossierCapabilities,
+  type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
 import {
   classifyF3ContinuationReply,
@@ -641,6 +642,7 @@ export async function handleMessageStreamRequest(
         // the parent F2 version being forked (fall back to the chat's preferred
         // version when the meta omits it). Gate errors fail open with a log —
         // the F3 quality gate (build+lint) still catches a broken build.
+        let fileDerivedTier3BuildSpec: Tier3BuildSpec | null = null;
         if (parsedMeta.lifecycleStage === "integrations" && !metaPlanMode) {
           // Codex P1 (PR #351): the readiness gate must inspect the version the
           // generation will ACTUALLY build from — `engineBaseVersionId` drives
@@ -751,6 +753,8 @@ export async function handleMessageStreamRequest(
                   ),
                 );
               }
+              fileDerivedTier3BuildSpec =
+                gate.spec.requirements.length > 0 ? gate.spec : null;
             }
           } catch (gateErr) {
             debugLog("orchestration", "F3 stream readiness gate errored — failing open", {
@@ -1584,6 +1588,7 @@ export async function handleMessageStreamRequest(
           priorQualityTarget,
           requestKind: requestKindResult?.kind ?? null,
           configuredEnvKeys,
+          tier3BuildSpec: fileDerivedTier3BuildSpec,
         });
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

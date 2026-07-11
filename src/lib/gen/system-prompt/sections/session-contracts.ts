@@ -10,7 +10,9 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
 import {
   deriveTier3BuildSpec,
+  deriveTier3BuildSpecForProviderKeys,
   renderTier3BuildPlanBlock,
+  type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
 import { BUILD_INTENT_GUIDANCE } from "../../intent-guidance";
 import type { BuildSpec } from "../../build-spec";
@@ -151,21 +153,78 @@ export function renderFileSurfaceBudgetBlock(params: {
 export function renderTier3IntegrationBlock(params: {
   buildSpec: BuildSpec | null | undefined;
   preGenerationContracts: PreGenerationContractContext | null | undefined;
+  tier3BuildSpec?: Tier3BuildSpec | null;
+  approvedProviders?: readonly string[] | null;
 }): string[] {
-  const { buildSpec, preGenerationContracts } = params;
+  const {
+    buildSpec,
+    preGenerationContracts,
+    tier3BuildSpec,
+    approvedProviders,
+  } = params;
+  const fileDerivedSpec =
+    (tier3BuildSpec?.requirements.length ?? 0) > 0
+      ? tier3BuildSpec
+      : null;
+  const hasApprovedProviders = (approvedProviders?.length ?? 0) > 0;
   // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────
   // When previewPolicy is fidelity3 we render the structured tier-3 spec
   // derived from the contracts. This block tells the F3 LLM exactly which
   // env keys are guaranteed present and what wiring steps to perform.
   if (
     buildSpec?.previewPolicy !== "fidelity3" ||
-    !preGenerationContracts ||
-    preGenerationContracts.contracts.integrations.length === 0
+    (!fileDerivedSpec &&
+      !hasApprovedProviders &&
+      (!preGenerationContracts ||
+        preGenerationContracts.contracts.integrations.length === 0))
   ) {
     return [];
   }
   try {
-    const spec = deriveTier3BuildSpec(preGenerationContracts.contracts);
+    const contractSpec = preGenerationContracts
+      ? deriveTier3BuildSpec(preGenerationContracts.contracts)
+      : { requirements: [] };
+    const approved = new Set(
+      (approvedProviders ?? []).map((provider) =>
+        provider.toLowerCase().replace(/[^a-z0-9]+/g, ""),
+      ),
+    );
+    const fileKeys = new Set(
+      fileDerivedSpec?.requirements.map((requirement) => requirement.key) ?? [],
+    );
+    const approvedProviderSpec =
+      deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+    const approvedCandidates = [
+      ...approvedProviderSpec.requirements,
+      ...contractSpec.requirements,
+    ];
+    const approvedRequirements =
+      approved.size > 0
+        ? approvedCandidates.filter((requirement, index, all) => {
+            const providerKey = requirement.provider
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "");
+            const requirementKey = requirement.key
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "");
+            return (
+              !fileKeys.has(requirement.key) &&
+              all.findIndex((candidate) => candidate.key === requirement.key) ===
+                index &&
+              (approved.has(providerKey) || approved.has(requirementKey))
+            );
+          })
+        : [];
+    const spec = fileDerivedSpec
+      ? {
+          requirements: [
+            ...fileDerivedSpec.requirements,
+            ...approvedRequirements,
+          ].sort((a, b) => a.key.localeCompare(b.key)),
+        }
+      : approved.size > 0
+        ? { requirements: approvedRequirements }
+        : contractSpec;
     const block = renderTier3BuildPlanBlock(spec);
     if (block) {
       return [block, ""];

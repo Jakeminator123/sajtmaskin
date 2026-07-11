@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
+import type { BuildSpec } from "../build-spec";
 import { buildDynamicContext } from "./build-dynamic-context";
 
 describe("buildDynamicContext", () => {
@@ -461,5 +462,71 @@ describe("buildDynamicContext", () => {
 
     expect(result.context).toContain("3D/WebGL detected");
     expect(result.context).toContain("Game / playable mechanic requested");
+  });
+
+  it("uses the file-derived F3 plan as the sole integration authority", () => {
+    const result = buildDynamicContext({
+      intent: "app",
+      userPrompt: "Bygg integrationerna",
+      generationMode: "followUp",
+      buildSpec: {
+        buildIntent: "app",
+        generationMode: "followUp",
+        changeScope: "integration",
+        contextPolicy: "heavy",
+        verificationPolicy: "strict",
+        previewPolicy: "fidelity3",
+        qualityTarget: "release-candidate",
+        scaffoldId: "base-nextjs",
+        routePlanSummary: "1 route",
+        stylePack: "minimal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 12_000,
+          systemContextTokens: 3_000,
+        },
+      } as BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          paymentProvider: "stripe",
+          integrations: [
+            {
+              provider: "stripe",
+              name: "Stripe",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+          envVars: [{ key: "STRIPE_SECRET_KEY", reason: "Stripe" }],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      tier3BuildSpec: {
+        requirements: [
+          {
+            key: "clerk",
+            name: "Clerk",
+            provider: "clerk",
+            requiredRealEnvKeys: ["CLERK_SECRET_KEY"],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: [],
+            buildInstructions: ["Wire Clerk from parent files."],
+            setupGuide: "Add Clerk keys.",
+            hasConfigNoticeComponent: false,
+          },
+        ],
+      },
+    });
+
+    expect(result.context).toContain("CLERK_SECRET_KEY");
+    expect(result.context).not.toContain("## Pre-Generation Contracts");
+    expect(result.context).not.toContain("speculative prompt contract");
   });
 });

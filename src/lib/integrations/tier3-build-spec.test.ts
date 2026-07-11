@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   approvedProvidersShipConfigNotice,
   deriveTier3BuildSpec,
+  deriveTier3BuildSpecForProviderKeys,
   mapProviderKeysToDossierCapabilities,
   renderTier3BuildPlanBlock,
   validateTier3Readiness,
@@ -13,6 +14,13 @@ const emptyContracts: PlanContracts = {
   integrations: [],
   envVars: [],
 };
+
+it("derives build requirements directly from explicit provider approvals", () => {
+  const spec = deriveTier3BuildSpecForProviderKeys(["stripe"]);
+  expect(spec.requirements.map((requirement) => requirement.key)).toContain(
+    "stripe",
+  );
+});
 
 describe("deriveTier3BuildSpec", () => {
   it("returns no requirements when contracts are empty", () => {

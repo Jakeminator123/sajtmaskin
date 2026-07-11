@@ -159,6 +159,8 @@ export function classifySimpleWebsitePath(params: {
   prompt: string;
   preMatchScaffold: ScaffoldManifest | null;
   capabilities: InferredCapabilities;
+  /** Named dossier capabilities from the shared init/follow-up detector. */
+  requestedDossierCapabilities?: readonly string[];
 }): SimpleWebsitePathDecision {
   const scaffoldId = params.preMatchScaffold?.id ?? null;
   if (params.generationMode !== "init") return { enabled: false, reason: "not_init", scaffoldId };
@@ -193,6 +195,9 @@ export function classifySimpleWebsitePath(params: {
   }
   if (INTEGRATION_OR_CONTRACT_RE.test(params.prompt)) {
     return { enabled: false, reason: "integration_or_contract_signal", scaffoldId };
+  }
+  if ((params.requestedDossierCapabilities?.length ?? 0) > 0) {
+    return { enabled: false, reason: "section_capability_signal", scaffoldId };
   }
   // Last gate before enabling: a named #242 section capability must reach the
   // full dossier pipeline rather than the simple fast lane.

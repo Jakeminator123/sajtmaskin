@@ -11,6 +11,9 @@ import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reade
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { partitionGeneratedFilesForProtectedPaths } from "../scaffolds/protected-paths";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
+import { getDossierById } from "@/lib/gen/dossiers";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
 import {
   createEvalRunId,
@@ -363,12 +366,19 @@ async function evaluatePrompt(
   // `buildSystemPrompt({ intent })` shortcut that silently produced a much
   // weaker prompt than prod — eval results were therefore not representative.
   // Disable embedding scaffold matching to keep eval deterministic and offline.
+  const capabilityDetection = mergeDossierIdCapabilities(
+    detectFollowUpCapabilities(evalPrompt.prompt, { mode: "init" }),
+    evalPrompt.prompt,
+    (id) => getDossierById(id)?.capability ?? null,
+  );
   const generationInput = await prepareGenerationContext({
     prompt: evalPrompt.prompt,
     buildIntent: evalPrompt.intent,
     scaffoldMode: "auto",
     embeddingScaffoldMatch: false,
     sessionSeed: `eval_${evalPrompt.id}`,
+    requestedDossierCapabilities: capabilityDetection.capabilityIds,
+    requestedCapabilityTiers: capabilityDetection.tierByCapability,
   });
   const systemPrompt = generationInput.engineSystemPrompt;
   dumpOwnEngineCodegenFromFullSystem(systemPrompt, { source: "eval/runner" });

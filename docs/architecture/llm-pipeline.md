@@ -214,6 +214,19 @@ När en F3-generation slutar tool-only (`suggestIntegration` utan kod) parkas ch
 
 **F3-capability-scope (mot capability-inflation).** I F3 lyfts F2-muten, så prompt-filtret + can-only-grow-golvet skulle annars återställa *varje* capability Deep Brief någonsin nominerade (analytics, auth, payments …) och göra en enda ask till en full-SaaS env-vägg. Golvet körs som vanligt; därefter FILTRERAR `scopeF3DossierCapabilities` (`orchestrate.ts`) F3-setet till unionen av: (a) capabilities som *aktuellt meddelande* härleder, (b) providers/capabilities användaren *uttryckligen godkänt* — durabelt över rundor via `f3ApprovedCapabilities`/`f3ApprovedProviders` i orchestration-snapshoten (skrivs av approval-rundan, läses via follow-up-kontraktet), och (c) integrationer med *faktiskt filbevis* i basversionen (`resolveDossiersPresentInVersion`). Setet dependency-expanderas (t.ex. `subscriptions` drar med `supabase-auth`). Spekulativa brief-/golv-capabilities utan bevis, ask eller godkännande droppas (loggas som `f3_capability_scope_dropped`), och det scopade setet är auktoritativt även när det är tomt (`disableBriefFallback` i selektionen). En approval-runda utan något byggbart alls (inga providers, inga persisterade godkännanden, inget filbevis) stängs ärligt med `f3_approval_nothing_to_build` i stället för en dömd tyst runda. Design-rundor är oförändrade (can-only-grow gäller där). Dessutom dedupas `ai-tool-calling` vs `ai-chat` (den mer specifika vinner), och Deep Brief nominerar `analytics`/`error-tracking` bara på explicit ask.
 
+**Samma capability-källa i init och follow-up:** båda vägarna kör
+`detectFollowUpCapabilities` + explicit dossier-id-resolution innan
+orchestrering. Den breda `inferCapabilities`-bryggan kompletterar detta men
+ersätter inte named section-capabilities som `logo-cloud` och `stats-counter`.
+
+**F3-build-plan från basversionen:** stream-routens auktoritativa readiness-gate
+detekterar integrationer och valda Byggblock från den exakta parent-versionens
+filer. Samma `Tier3BuildSpec` trådas vidare till systempromptens build-plan;
+explicit godkända providers från den aktuella rundan läggs till eftersom de
+ännu inte kan ha filbevis. Övriga `preGenerationContracts` används bara som
+fallback när filspec saknas eller är tom. Därmed kan inte ett driftat
+promptkontrakt dölja befintliga integrationer eller återinflatera spekulativa.
+
 **Klient-auto-continue:** kontraktet ovan är oförändrat på servern. Klienten (`MessageList.tsx`) har ingen "Svar krävs"-dialog längre — ALLA väntande frågor (klargörande frågor, planblockerare, kontraktsgrind, scope-val, F3-continuation) renderas inline i chattflödet, aldrig som blockerande overlay (ägarbeslut 2026-07-09; en flytande "Svar krävs"-knapp scrollar bara till frågan). För `f3-continuation`-markern specifikt: en marker som anländer LIVE i sessionen auto-skickar `Godkänn förslag` exakt en gång (lugn inline-rad "Integrationsbygget fortsätter automatiskt…"); loop-breakern är säkerhetsnätet så att max en auto-retry + en auto-loop-retry kan ske innan tredje rundan stänger terminalt. En marker som redan fanns vid mount (reload av gammal historik) auto-körs inte — då visas de vanliga inline-quick-replies (Godkänn/Avvisa/Annat). Auto-approve förbrukar credits för retry-rundan (medvetet ägarval).
 
 Tier-3-stub-placeholders (`41-tier3-stub-placeholders.env.txt`-värden i `.env.local`/`env.example`) är inte integrationsbevis: de filtreras ur både `detect-integrations` och follow-up-filkontexten (`stub-env-filter.ts`).

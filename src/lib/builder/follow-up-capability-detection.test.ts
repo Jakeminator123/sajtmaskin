@@ -22,6 +22,22 @@ describe("detectFollowUpCapabilities — empty / unrelated", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — init mode", () => {
+  it("accepts first-turn noun phrases without an add verb", () => {
+    expect(
+      detectFollowUpCapabilities("En enkel sajt med FAQ", {
+        mode: "init",
+      }).capabilityIds,
+    ).toContain("faq-section");
+    expect(
+      detectFollowUpCapabilities(
+        "En hemsida för café med vanliga frågor",
+        { mode: "init" },
+      ).capabilityIds,
+    ).toContain("faq-section");
+  });
+});
+
 describe("detectFollowUpCapabilities — visual-3d", () => {
   it("detects a generic 3D add-on (smoke run 2 prompt)", () => {
     const result = detectFollowUpCapabilities(

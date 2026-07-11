@@ -140,6 +140,15 @@ describe("classifySimpleWebsitePath — section_capability_signal (#242 Alt A)",
     }
   });
 
+  it("uses the shared detector result for named capabilities outside the legacy regex", () => {
+    expect(
+      base({
+        prompt: "Bygg en enkel sida med vanliga frågor.",
+        requestedDossierCapabilities: ["faq-section"],
+      }).reason,
+    ).toBe("section_capability_signal");
+  });
+
   it("does NOT block ordinary marketing copy without a section cue", () => {
     // Control: bare "features"/"tjänster" (no grid/section/cards qualifier) and
     // a plain local-business prompt stay on the fast lane.
