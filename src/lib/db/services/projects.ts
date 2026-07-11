@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { createHash } from "node:crypto";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
@@ -11,6 +12,11 @@ import {
 } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { Project, ProjectData, PromptHandoff } from "./shared";
+import {
+  buildBrandedLiveDomain,
+  normalizeDomainHostname,
+  slugCandidate,
+} from "@/lib/live-site-url";
 
 type ProjectOwnerScope = {
   userId?: string | null;
@@ -294,6 +300,185 @@ export async function setProjectVercelLink(
     .where(eq(appProjects.id, id))
     .returning();
   return rows[0] ?? null;
+}
+
+/**
+ * Allocate the stable public identity once, immediately before the first
+ * branded publish. The unique DB index is the final collision guard; retries
+ * turn a simultaneous same-name publish into predictable `-2`, `-3`, … slugs.
+ */
+export async function ensureProjectPublishedIdentity(
+  id: string,
+  preferredName: string,
+): Promise<{
+  publishedSlug: string | null;
+  brandedDomain: string | null;
+  brandedDomainVerifiedAt: Date | null;
+  customDomain: string | null;
+  customDomainVerifiedAt: Date | null;
+} | null> {
+  assertDbConfigured();
+  const project = await getProjectById(id);
+  if (!project) return null;
+
+  const existingSlug = project.published_slug?.trim() || null;
+  if (existingSlug) {
+    // The rollout flag is the rollback switch. Keep stored history intact when
+    // off, but do not return/provision the alias until the current environment
+    // explicitly enables a parent domain.
+    const brandedDomain = buildBrandedLiveDomain(existingSlug);
+    if (brandedDomain && brandedDomain !== project.branded_domain) {
+      await db
+        .update(appProjects)
+        .set({
+          branded_domain: brandedDomain,
+          branded_domain_verified_at: null,
+          updated_at: new Date(),
+        })
+        .where(eq(appProjects.id, id));
+    }
+    return {
+      publishedSlug: existingSlug,
+      brandedDomain,
+      brandedDomainVerifiedAt:
+        brandedDomain && brandedDomain === project.branded_domain
+          ? (project.branded_domain_verified_at ?? null)
+          : null,
+      customDomain: project.custom_domain?.trim() || null,
+      customDomainVerifiedAt: project.custom_domain_verified_at ?? null,
+    };
+  }
+
+  const base = slugCandidate(preferredName);
+  for (let number = 1; number <= 100; number += 1) {
+    const candidate = number === 1 ? base : `${base}-${number}`;
+    const brandedDomain = buildBrandedLiveDomain(candidate);
+    try {
+      const rows = await db
+        .update(appProjects)
+        .set({
+          published_slug: candidate,
+          ...(brandedDomain ? { branded_domain: brandedDomain } : {}),
+          updated_at: new Date(),
+        })
+        .where(and(eq(appProjects.id, id), isNull(appProjects.published_slug)))
+        .returning();
+      const saved = rows[0];
+      if (!saved) {
+        // Another request allocated this same project's identity first.
+        return ensureProjectPublishedIdentity(id, preferredName);
+      }
+      const savedSlug = saved.published_slug?.trim() || null;
+      return {
+        publishedSlug: savedSlug,
+        brandedDomain: saved.branded_domain?.trim() || buildBrandedLiveDomain(savedSlug ?? ""),
+        brandedDomainVerifiedAt: saved.branded_domain_verified_at ?? null,
+        customDomain: saved.custom_domain?.trim() || null,
+        customDomainVerifiedAt: saved.custom_domain_verified_at ?? null,
+      };
+    } catch (error) {
+      // PostgreSQL unique violation: another project owns this candidate.
+      if (!(error && typeof error === "object" && "code" in error && error.code === "23505")) {
+        throw error;
+      }
+    }
+  }
+  const stableSuffix = createHash("sha256").update(id).digest("hex").slice(0, 10);
+  const stableCandidate = `${base.slice(0, 39).replace(/-+$/, "")}-${stableSuffix}`;
+  const brandedDomain = buildBrandedLiveDomain(stableCandidate);
+  try {
+    const rows = await db
+      .update(appProjects)
+      .set({
+        published_slug: stableCandidate,
+        ...(brandedDomain ? { branded_domain: brandedDomain } : {}),
+        updated_at: new Date(),
+      })
+      .where(and(eq(appProjects.id, id), isNull(appProjects.published_slug)))
+      .returning();
+    if (rows[0]) {
+      return {
+        publishedSlug: rows[0].published_slug?.trim() || stableCandidate,
+        brandedDomain: rows[0].branded_domain?.trim() || brandedDomain,
+        brandedDomainVerifiedAt: rows[0].branded_domain_verified_at ?? null,
+        customDomain: rows[0].custom_domain?.trim() || null,
+        customDomainVerifiedAt: rows[0].custom_domain_verified_at ?? null,
+      };
+    }
+    return ensureProjectPublishedIdentity(id, preferredName);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      throw new Error("Could not allocate a collision-safe public site slug");
+    }
+    throw error;
+  }
+}
+
+export async function markProjectBrandedDomainVerified(
+  id: string,
+  domain: string,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) throw new Error("Invalid branded domain");
+  const rows = await db
+    .update(appProjects)
+    .set({
+      branded_domain: normalized,
+      branded_domain_verified_at: new Date(),
+      updated_at: new Date(),
+    })
+    .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function clearProjectBrandedDomainVerification(
+  id: string,
+  domain: string,
+): Promise<void> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) return;
+  await db
+    .update(appProjects)
+    .set({ branded_domain_verified_at: null, updated_at: new Date() })
+    .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)));
+}
+
+/** Only call after the provider's domain verification endpoint returned true. */
+export async function setProjectVerifiedCustomDomain(
+  id: string,
+  domain: string,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) {
+    throw new Error("Invalid custom domain");
+  }
+  const rows = await db
+    .update(appProjects)
+    .set({
+      custom_domain: normalized,
+      custom_domain_verified_at: new Date(),
+      updated_at: new Date(),
+    })
+    .where(eq(appProjects.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function clearProjectCustomDomainVerification(
+  id: string,
+  domain: string,
+): Promise<void> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) return;
+  await db
+    .update(appProjects)
+    .set({ custom_domain_verified_at: null, updated_at: new Date() })
+    .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)));
 }
 
 export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {

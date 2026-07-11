@@ -365,6 +365,7 @@ async function routeRequest(req, res) {
     url.pathname !== "/" &&
     url.pathname !== "/health"
   ) {
+    applyPublicPreviewHeaders(res);
     const proxied = await proxyPreviewRequest(req, res, url.pathname, url.search);
     if (proxied) {
       return undefined;
@@ -844,6 +845,13 @@ async function routeRequest(req, res) {
   return notFound(res);
 }
 
+function applyPublicPreviewHeaders(res) {
+  // Preview URLs are intentionally shareable for builder iteration, but never
+  // a published site. Keep crawlers from indexing generated drafts.
+  res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+  res.setHeader("Cache-Control", "private, no-store");
+}
+
 function createServer() {
   const server = http.createServer(async (req, res) => {
     try {
@@ -888,5 +896,6 @@ if (require.main === module) {
 }
 
 module.exports = {
+  applyPublicPreviewHeaders,
   createServer,
 };

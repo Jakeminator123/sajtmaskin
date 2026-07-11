@@ -15,23 +15,17 @@ import type { SeoBrand } from "@/lib/projects/preferences-schema";
  * Two callers for the same core logic:
  *
  * 1. **`applyScaffoldSeoDefaults(scaffold, options?)`** — scaffold-wrapper.
- *    Used by `registry.ts` for the eager env-fallback path. PR-A added the
- *    options-aware signature; PR-A behavior is unchanged.
+ *    Used by `registry.ts`; without project options it is deliberately a noop.
  * 2. **`applySeoToProjectFiles(files, options)`** — file-level core. Used
  *    by `/api/v0/deployments/route.ts` (PR-B) to inject SEO into deploy
  *    files when the user opts in via the Bygg-dialog.
  *
  * Policy (idiot-safe by default):
- *   - **No options + env unset** → noop. Nothing injected, nothing
- *     enriched. The default-safe path; no `example.com` placeholder can
- *     leak because nothing is injected.
- *   - **No options + env set** → inject SEO files + enrich layout
- *     metadata with the env-derived siteUrl. Single-tenant fallback used
- *     when one Vercel-deploy serves one production domain.
- *   - **`options.siteUrl` (string)** → override env. Caller picked the
+ *   - **No options** → noop. Nothing injected, nothing enriched. The
+ *     default-safe path; no global or placeholder domain can leak.
+ *   - **`options.siteUrl` (string)** → caller supplied the project domain.
  *     domain for this generation/deploy.
- *   - **`options.siteUrl: null`** → explicit noop. Caller wants SEO off
- *     for this generation/deploy even if env is set.
+ *   - **`options.siteUrl: null`** → explicit noop.
  *   - **`options.brand`** → overrides title/description/locale fallbacks
  *     in `enrichLayoutMetadata` when the project's `app/layout.tsx`
  *     doesn't already define those fields. Existing layout content
@@ -40,25 +34,17 @@ import type { SeoBrand } from "@/lib/projects/preferences-schema";
  *     hardcoded `"sv_SE"` is replaced by `brand.locale` if provided.)
  *
  * Backoffice → "Scaffold Performance" surfaces the disabled state. Dev/build
- * preflight also prints a single operator hint; this hot path intentionally
- * stays quiet because it is called by many API routes and scaffold lookups.
+ * This hot path intentionally stays quiet because it is called by many API
+ * routes and scaffold lookups.
  */
-
-const SEO_SITE_URL_ENV = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
-
-function readSeoSiteUrl(): string | null {
-  const fromEnv = process.env[SEO_SITE_URL_ENV]?.trim();
-  if (!fromEnv) return null;
-  return fromEnv.replace(/\/$/, "");
-}
 
 /**
  * Options for `applyScaffoldSeoDefaults`, `applySeoToProjectFiles`, and
  * `getScaffoldSeoDefaultsStatus`.
  *
- * - `siteUrl: string` → override env-derived siteUrl for this call.
- * - `siteUrl: null` → explicit noop (don't inject SEO even if env is set).
- * - `siteUrl: undefined` (or omitted) → fall back to env (existing behavior).
+ * - `siteUrl: string` → verified/project-specific siteUrl for this call.
+ * - `siteUrl: null` → explicit noop.
+ * - `siteUrl: undefined` (or omitted) → noop; global domains are forbidden.
  * - `brand` → optional overrides for layout metadata fallbacks.
  */
 export type SeoOptions = {
@@ -67,8 +53,8 @@ export type SeoOptions = {
 };
 
 type ResolvedSeoSiteUrl =
-  | { siteUrl: string; source: "override" | "env" }
-  | { siteUrl: null; source: "explicit-noop" | "env-missing" };
+  | { siteUrl: string; source: "override" }
+  | { siteUrl: null; source: "explicit-noop" | "missing-project-domain" };
 
 function resolveSeoSiteUrl(options?: SeoOptions): ResolvedSeoSiteUrl {
   if (options) {
@@ -82,9 +68,7 @@ function resolveSeoSiteUrl(options?: SeoOptions): ResolvedSeoSiteUrl {
       };
     }
   }
-  const fromEnv = readSeoSiteUrl();
-  if (fromEnv) return { siteUrl: fromEnv, source: "env" };
-  return { siteUrl: null, source: "env-missing" };
+  return { siteUrl: null, source: "missing-project-domain" };
 }
 
 /**
@@ -316,7 +300,7 @@ const LAYOUT_PATHS = new Set(["app/layout.tsx", "src/app/layout.tsx"]);
  *
  * Returns:
  *   - `applied: false` and `files === inputFiles` (same reference) when the
- *     resolver decides we shouldn't inject (env-missing or explicit-noop).
+ *     resolver decides we shouldn't inject (missing project domain or explicit noop).
  *   - `applied: true` and a NEW `files` array when SEO is injected.
  *     `injected` lists which paths were added; `enriched` lists which
  *     existing files were modified.
@@ -391,11 +375,10 @@ function applySeoCore(
  *
  * See module JSDoc above for the full opt-in policy. In short:
  *
- * - `applyScaffoldSeoDefaults(scaffold)` (no options) → env-fallback,
- *   identical to pre-PR-A behaviour. Used by `registry.ts`.
- * - `applyScaffoldSeoDefaults(scaffold, { siteUrl })` → override env.
+ * - `applyScaffoldSeoDefaults(scaffold)` (no options) → noop.
+ * - `applyScaffoldSeoDefaults(scaffold, { siteUrl })` → project-specific SEO.
  * - `applyScaffoldSeoDefaults(scaffold, { siteUrl: null })` → explicit
- *   noop even if env is set.
+ *   noop.
  * - `applyScaffoldSeoDefaults(scaffold, { brand })` → fills layout
  *   metadata fallbacks with brand fields (existing content still wins
  *   for title/description; brand wins for locale).
@@ -454,12 +437,12 @@ export type ApplySeoToProjectFilesResult = {
  * Used by PR-B's "Bygg-dialog → SEO opt-in" flow:
  *   1. UI lets the user toggle SEO + supply `siteUrl` + `brand`.
  *   2. Deploy body posts `seo: { siteUrl, brand }` (or omits it).
- *   3. Route resolves the effective options (body > meta.seo > env).
+ *   3. Route resolves the canonical project URL, with project-specific rollout fallback.
  *   4. This function injects/enriches files just before the Vercel call.
  *
  * Identical resolution semantics to the scaffold-wrapper:
- *   - `options.siteUrl: null` → explicit noop, even if env is set.
- *   - `options` omitted → env-fallback (warns once if env is missing).
+ *   - `options.siteUrl: null` → explicit noop.
+ *   - `options` omitted → noop.
  *
  * Idempotency: pre-existing `app/robots.ts` etc. are kept verbatim, and
  * `app/layout.tsx` enrichment short-circuits when full metadata already
@@ -496,8 +479,7 @@ export function applySeoToProjectFiles(
 
 /**
  * Test/backoffice helper — exposes whether SEO defaults would be active
- * for a given options shape (or for the env-fallback path when no options
- * are provided). Used by the `Scaffold Performance` panel to surface the
+ * for a given project options shape. Used by the `Scaffold Performance` panel to surface the
  * disabled state, and by tests/UI to preview whether opt-in would inject
  * SEO without actually running it.
  */

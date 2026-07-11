@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import {
   createDeploymentRecord,
   getLinkedDomainForChat,
+  setLatestDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 } from "@/lib/deployment";
 import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
@@ -18,8 +19,12 @@ import {
 } from "@/lib/deploy/dependency-utils";
 import {
   createVercelDeployment,
+  checkVercelProjectDomain,
+  buildGeneratedVercelProjectName,
+  ensureVercelProject,
   getVercelDeployment,
   mapVercelReadyStateToStatus,
+  ensureVercelProjectDomain,
   sanitizeVercelProjectName,
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
@@ -46,7 +51,15 @@ import {
 } from "@/lib/project-env-resolver";
 import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
-import { getProjectById, getProjectData, setProjectVercelLink } from "@/lib/db/services/projects";
+import {
+  clearProjectBrandedDomainVerification,
+  clearProjectCustomDomainVerification,
+  ensureProjectPublishedIdentity,
+  getProjectById,
+  getProjectData,
+  markProjectBrandedDomainVerified,
+  setProjectVercelLink,
+} from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
   seoPreferencesSchema,
@@ -55,6 +68,7 @@ import { resolveDeploySeoOptions } from "./resolve-seo";
 import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "./env-degradation-warnings";
+import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
 
 export const runtime = "nodejs";
 
@@ -386,9 +400,8 @@ const createDeploymentSchema = z.object({
    * `optIn=true` requires siteUrl).
    *
    * Omitting `seo` falls back to persisted `meta.seo` from the project.
-   * If neither body nor meta opts in, the deploy uses the env-fallback
-   * (`SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`) — which is unset by default,
-   * so deploy files are identical to today.
+   * The site URL is resolved from the project's verified custom domain or
+   * branded standard domain; no process-global SEO domain is used.
    */
   seo: seoPreferencesSchema.optional(),
 });
@@ -515,20 +528,35 @@ export async function POST(req: Request) {
       // stället för att slå mot Vercel-API:t i deploy-hot-path:en. `precheckOnly`
       // rapporterar låset i `projectNameLock` i stället för att kasta (samma
       // mönster som A1:s `releaseGate`).
-      const linkedDomain = await getLinkedDomainForChat(chatId).catch(() => null);
-      const requestedVercelProjectName =
-        typeof projectName === "string" && projectName.trim().length > 0
-          ? sanitizeVercelProjectName(projectName)
-          : null;
-      // Effektivt nuvarande projektnamn: samma härledning som deployen använder
-      // när inget projectName skickas. Legacy-rader utan `vercel_project_name`
-      // faller tillbaka på `sajtmaskin-${chatId}` (samma fallback som deployen),
-      // så låset jämför sanerat mot sanerat även för äldre sajter.
+      const linkedDomain =
+        (ownedProject.custom_domain_verified_at
+          ? ownedProject.custom_domain?.trim()
+          : null) ||
+        (ownedProject.branded_domain_verified_at
+          ? ownedProject.branded_domain?.trim()
+          : null) ||
+        (await getLinkedDomainForChat(chatId).catch(() => null));
+      // Mirror the actual deployment target exactly. Once a provider project
+      // name is persisted, display-name edits cannot retarget hosting. Legacy
+      // rows derive the same collision-safe name as the deploy path.
       const currentVercelProjectName = sanitizeVercelProjectName(
         (typeof ownedProject.vercel_project_name === "string"
           ? ownedProject.vercel_project_name.trim()
-          : "") || `sajtmaskin-${chatId}`,
+          : "") ||
+          buildGeneratedVercelProjectName(
+            ownedProject.name || `sajtmaskin-${chatId}`,
+            engineProjectId,
+          ),
       );
+      const requestedVercelProjectName =
+        typeof projectName === "string" && projectName.trim().length > 0
+          ? ownedProject.vercel_project_name
+            ? sanitizeVercelProjectName(projectName)
+            : buildGeneratedVercelProjectName(
+                projectName,
+                engineProjectId,
+              )
+          : null;
       const projectNameLocked = Boolean(
         linkedDomain &&
           requestedVercelProjectName &&
@@ -575,14 +603,13 @@ export async function POST(req: Request) {
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
 
       // Read persisted SEO preferences from `project_data.meta.seo`. Body
-      // override (parsed above as `bodySeo`) wins over persisted; both fall
-      // back to the env-flag in the SEO core helper. Guarded so that a
+      // override (parsed above as `bodySeo`) wins over persisted preferences;
+      // canonical project URL wins over both at apply time. Guarded so that a
       // missing project_data row doesn't fail the deploy.
       const persistedProjectData = await getProjectData(engineProjectId).catch(() => null);
       const persistedSeo = readSeoPreferencesFromMeta(
         (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null,
       );
-      const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo);
 
       const { files: fixedFiles, fixesApplied, warnings, invalidFiles } = runPreDeployFixPipeline(
         textFiles,
@@ -726,11 +753,134 @@ export async function POST(req: Request) {
       let deploymentDelivered = false;
 
       try {
+        // Charge before any external project/domain provisioning. Project and
+        // alias creation are real provider-side resources too; an aborted
+        // request must not create them for free. Any failure before Vercel
+        // accepts the deployment is refunded by the catch block below.
+        if (creditCheck) {
+          try {
+            await creditCheck.commit({ rejectIfNegative: true });
+            creditCharged = true;
+          } catch (chargeErr) {
+            try {
+              await updateDeploymentStatus(deploymentId, "error");
+            } catch (statusErr) {
+              console.error("[deploy] Failed to mark deployment as error:", statusErr);
+            }
+            if (chargeErr instanceof InsufficientCreditsError) {
+              return NextResponse.json(
+                {
+                  error: `Du behöver ${chargeErr.required} credits för att publicera. Du har ${chargeErr.available}.`,
+                  code: "DEPLOY_INSUFFICIENT_CREDITS",
+                  insufficientCredits: true,
+                  required: chargeErr.required,
+                  current: chargeErr.available,
+                },
+                { status: 402 },
+              );
+            }
+            console.error("[credits] Failed to charge deploy (pre-deploy):", chargeErr);
+            return NextResponse.json(
+              {
+                error: "Kunde inte reservera credits för publicering. Försök igen.",
+                code: "DEPLOY_CREDIT_CHARGE_FAILED",
+              },
+              { status: 402 },
+            );
+          }
+        }
+
         // Reuse the SAME Vercel project across re-publishes: prefer an explicit
         // body name, then the name persisted from a previous publish, then the
         // per-chat fallback. Targeting stays name-based (no new API params).
+        const brandedRolloutEnabled = Boolean(getBrandedLiveSiteDomain());
+        const preferredProjectName =
+          projectName || ownedProject.name || `sajtmaskin-${chatId}`;
         const vercelProjectName = sanitizeVercelProjectName(
-          projectName || ownedProject.vercel_project_name || `sajtmaskin-${chatId}`,
+          ownedProject.vercel_project_name ||
+            buildGeneratedVercelProjectName(
+              preferredProjectName,
+              engineProjectId,
+            ),
+        );
+        const currentCustomDomain = ownedProject.custom_domain?.trim() || null;
+        let currentCustomDomainVerifiedAt =
+          ownedProject.custom_domain_verified_at ?? null;
+        if (
+          currentCustomDomain &&
+          currentCustomDomainVerifiedAt &&
+          ownedProject.vercel_project_id
+        ) {
+          const customDomainValid = await checkVercelProjectDomain(
+            ownedProject.vercel_project_id,
+            currentCustomDomain,
+          );
+          if (customDomainValid === false) {
+            await clearProjectCustomDomainVerification(
+              engineProjectId,
+              currentCustomDomain,
+            );
+            currentCustomDomainVerifiedAt = null;
+          }
+        }
+        const publishedIdentity = brandedRolloutEnabled
+          ? await ensureProjectPublishedIdentity(
+              engineProjectId,
+              projectName || ownedProject.name || vercelProjectName,
+            )
+          : {
+              publishedSlug: ownedProject.published_slug?.trim() || null,
+              brandedDomain: null,
+              brandedDomainVerifiedAt: null,
+              customDomain: currentCustomDomain,
+              customDomainVerifiedAt: currentCustomDomainVerifiedAt,
+            };
+        if (!publishedIdentity) {
+          throw new Error("Could not reserve the project's public URL identity");
+        }
+        const ensuredProject = await ensureVercelProject(
+          vercelProjectName,
+          ownedProject.vercel_project_id,
+        );
+        const domainWarnings: string[] = [];
+        let brandedDomainVerifiedAt = publishedIdentity.brandedDomainVerifiedAt;
+        if (publishedIdentity.brandedDomain) {
+          try {
+            const alias = await ensureVercelProjectDomain(
+              ensuredProject.id,
+              publishedIdentity.brandedDomain,
+            );
+            if (alias.verified) {
+              const marked = await markProjectBrandedDomainVerified(
+                engineProjectId,
+                alias.name,
+              );
+              if (!marked) {
+                throw new Error("The verified branded domain could not be persisted");
+              }
+              brandedDomainVerifiedAt = new Date();
+            } else {
+              await clearProjectBrandedDomainVerification(engineProjectId, alias.name);
+              brandedDomainVerifiedAt = null;
+              domainWarnings.push(
+                `Sajtmaskin-adressen ${alias.name} väntar på DNS/TLS-verifiering. Den tekniska publiceringsadressen används tills dess.`,
+              );
+            }
+          } catch (aliasErr) {
+            domainWarnings.push(
+              `Sajtmaskin-adressen kunde inte kopplas ännu: ${aliasErr instanceof Error ? aliasErr.message : String(aliasErr)}`,
+            );
+          }
+        }
+        const resolvedSeoOptions = resolveDeploySeoOptions(
+          bodySeo,
+          persistedSeo,
+          resolveLiveUrl({
+            brandedDomain: publishedIdentity.brandedDomain,
+            brandedDomainVerifiedAt,
+            customDomain: publishedIdentity.customDomain,
+            customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
+          }),
         );
         const envVarsForDeploy = projectEnv.configuredMap;
         if (fixesApplied.length > 0) {
@@ -795,46 +945,8 @@ export async function POST(req: Request) {
 
         const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
 
-        // Pengaväg: charge BEFORE the irreversible Vercel deploy. The guard runs
-        // inside the FOR UPDATE lock, so N concurrent deploys on a balance-for-1
-        // yield one 402 (not overdraft, not a free deploy). A DB/charge failure
-        // also fails closed here rather than silently delivering for free.
-        if (creditCheck) {
-          try {
-            await creditCheck.commit({ rejectIfNegative: true });
-            creditCharged = true;
-          } catch (chargeErr) {
-            // Best-effort: får inte skugga 402-svaret nedan om skrivningen kastar.
-            try {
-              await updateDeploymentStatus(deploymentId, "error");
-            } catch (statusErr) {
-              console.error("[deploy] Failed to mark deployment as error:", statusErr);
-            }
-            if (chargeErr instanceof InsufficientCreditsError) {
-              return NextResponse.json(
-                {
-                  error: `Du behöver ${chargeErr.required} credits för att publicera. Du har ${chargeErr.available}.`,
-                  code: "DEPLOY_INSUFFICIENT_CREDITS",
-                  insufficientCredits: true,
-                  required: chargeErr.required,
-                  current: chargeErr.available,
-                },
-                { status: 402 },
-              );
-            }
-            console.error("[credits] Failed to charge deploy (pre-deploy):", chargeErr);
-            return NextResponse.json(
-              {
-                error: "Kunde inte reservera credits för publicering. Försök igen.",
-                code: "DEPLOY_CREDIT_CHARGE_FAILED",
-              },
-              { status: 402 },
-            );
-          }
-        }
-
         const created = await createVercelDeployment({
-            projectName: vercelProjectName,
+            projectName: ensuredProject.name,
             target: deployTarget,
             files: vercelFiles,
           envVars: envVarsForDeploy,
@@ -842,21 +954,30 @@ export async function POST(req: Request) {
         // Vercel accepted the deploy — it's now live/irreversible, so a later
         // failure below must not refund the charge.
         deploymentDelivered = true;
+        const effectiveProjectId =
+          created.vercelProjectId ??
+          ensuredProject?.id ??
+          ownedProject.vercel_project_id ??
+          null;
 
-        // Persist the Vercel project link on the app_projects row so the next
-        // publish reuses this project (name-targeted) and domain-linking can
-        // attach to the customer's own project. Best-effort: the deploy is
-        // already live, so a failed link write must never fail the request or
-        // refund the charge. (We do NOT write app_projects id to
-        // deployments.project_id — that column FKs the legacy projects table.)
+        // Refresh with the deployment response in case the provider canonicalized
+        // project metadata. This remains best-effort after delivery.
         try {
           await setProjectVercelLink(engineProjectId, {
-            vercelProjectId: created.vercelProjectId ?? null,
-            vercelProjectName,
+            vercelProjectId: effectiveProjectId,
+            vercelProjectName: ensuredProject?.name ?? vercelProjectName,
           });
         } catch (linkErr) {
           console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
         }
+
+        const liveUrl = resolveLiveUrl({
+          providerUrl: created.url,
+          brandedDomain: publishedIdentity.brandedDomain,
+          brandedDomainVerifiedAt,
+          customDomain: publishedIdentity.customDomain,
+          customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
+        });
 
         // `syncEnvVarsToVercelProject` upserts env vars on the Vercel PROJECT
         // so a later redeploy triggered outside Sajtmaskin (dashboard restart,
@@ -869,8 +990,8 @@ export async function POST(req: Request) {
         // server log) so the caller can tell the user their integrations may
         // need re-saving after a dashboard-triggered rebuild.
         const envSyncWarnings: string[] = [];
-        if (created.vercelProjectId) {
-          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
+        if (effectiveProjectId) {
+          const envSync = await syncEnvVarsToVercelProject(effectiveProjectId, envVarsForDeploy);
           if (envSync.errors.length > 0) {
             console.warn("[deploy] env var project sync errors:", envSync.errors);
             envSyncWarnings.push(
@@ -882,8 +1003,9 @@ export async function POST(req: Request) {
         const mapped = mapVercelReadyStateToStatus(created.readyState);
         const initialWrite = await updateDeploymentStatus(deploymentId, mapped.status, {
             vercelDeploymentId: created.vercelDeploymentId,
-            vercelProjectId: created.vercelProjectId ?? undefined,
-            url: created.url ?? undefined,
+            vercelProjectId: effectiveProjectId ?? undefined,
+            providerUrl: created.url ?? undefined,
+            url: liveUrl ?? undefined,
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
         // BB#deploy2: den som VINNER den atomiska övergången till `error` äger
@@ -917,7 +1039,8 @@ export async function POST(req: Request) {
             readyState: created.readyState,
             projectId: engineProjectId,
             envVarCount: Object.keys(envVarsForDeploy).length,
-            url: created.url ?? null,
+            url: liveUrl,
+            providerUrl: created.url ?? null,
           inspectorUrl: created.inspectorUrl ?? null,
         });
 
@@ -927,8 +1050,10 @@ export async function POST(req: Request) {
             versionId,
             status: mapped.status,
             vercelDeploymentId: created.vercelDeploymentId,
-            vercelProjectId: created.vercelProjectId,
-            url: created.url,
+            vercelProjectId: effectiveProjectId,
+            url: liveUrl,
+            providerUrl: created.url,
+            brandedDomain: brandedDomainVerifiedAt ? publishedIdentity.brandedDomain : null,
             inspectorUrl: created.inspectorUrl,
             readyState: created.readyState,
             projectId: engineProjectId,
@@ -936,6 +1061,7 @@ export async function POST(req: Request) {
             fixesApplied,
             preDeployWarnings: warnings,
             envWarnings,
+            domainWarnings,
             envSyncWarnings,
             deployReadiness,
             imageStrategyRequested: imageStrategy ?? null,
@@ -1028,9 +1154,64 @@ export async function GET(req: Request) {
       const appProject = appProjectId
         ? await getProjectById(appProjectId).catch(() => null)
         : null;
+      let brandedDomainVerifiedAt =
+        appProject?.branded_domain_verified_at ?? null;
+      let customDomainVerifiedAt =
+        appProject?.custom_domain_verified_at ?? null;
+      if (
+        appProjectId &&
+        appProject?.custom_domain &&
+        customDomainVerifiedAt &&
+        appProject.vercel_project_id
+      ) {
+        const configured = await checkVercelProjectDomain(
+          appProject.vercel_project_id,
+          appProject.custom_domain,
+        );
+        if (configured === false) {
+          await clearProjectCustomDomainVerification(
+            appProjectId,
+            appProject.custom_domain,
+          );
+          customDomainVerifiedAt = null;
+        }
+      }
+      if (
+        getBrandedLiveSiteDomain() &&
+        appProjectId &&
+        appProject?.branded_domain &&
+        !brandedDomainVerifiedAt &&
+        appProject.vercel_project_id
+      ) {
+        const configured = await checkVercelProjectDomain(
+          appProject.vercel_project_id,
+          appProject.branded_domain,
+        );
+        if (configured === true) {
+          const marked = await markProjectBrandedDomainVerified(
+            appProjectId,
+            appProject.branded_domain,
+          );
+          if (marked) {
+            brandedDomainVerifiedAt =
+              marked.branded_domain_verified_at ?? new Date();
+            if (internalChatId) {
+              await setLatestDeploymentLiveUrlForChat(
+                internalChatId,
+                appProject.branded_domain,
+              );
+            }
+          }
+        }
+      }
       const project = {
         vercelProjectId: appProject?.vercel_project_id ?? null,
         vercelProjectName: appProject?.vercel_project_name ?? null,
+        publishedSlug: appProject?.published_slug ?? null,
+        brandedDomain: appProject?.branded_domain ?? null,
+        brandedDomainVerifiedAt,
+        customDomain: appProject?.custom_domain ?? null,
+        customDomainVerifiedAt,
       };
 
       if (!internalChatId) {
@@ -1047,6 +1228,7 @@ export async function GET(req: Request) {
         {
           status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
           url: string | null;
+          providerUrl: string | null;
           inspectorUrl: string | null;
           vercelProjectId: string | null;
         }
@@ -1062,9 +1244,18 @@ export async function GET(req: Request) {
         try {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
+          const refreshedLiveUrl = resolveLiveUrl({
+            providerUrl:
+              vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
+            brandedDomain: appProject?.branded_domain ?? null,
+            brandedDomainVerifiedAt,
+            customDomain: appProject?.custom_domain ?? null,
+            customDomainVerifiedAt,
+          });
 
           const refreshWrite = await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
-            url: vercel.url ?? undefined,
+            providerUrl: vercel.url ?? undefined,
+            url: refreshedLiveUrl ?? undefined,
             inspectorUrl: vercel.inspectorUrl ?? undefined,
             vercelProjectId: vercel.vercelProjectId ?? undefined,
           });
@@ -1086,7 +1277,8 @@ export async function GET(req: Request) {
 
           refreshedById.set(latestRefreshCandidate.id, {
             status: mapped.status,
-            url: vercel.url ?? latestRefreshCandidate.url ?? null,
+            providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
+            url: refreshedLiveUrl ?? latestRefreshCandidate.url ?? null,
             inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
             vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
           });
@@ -1103,7 +1295,17 @@ export async function GET(req: Request) {
             chatId: d.chatId,
             versionId: d.versionId,
             status: refreshed?.status ?? d.status,
-            url: refreshed?.url ?? d.url,
+            url:
+              refreshed?.url ??
+              resolveLiveUrl({
+                providerUrl: d.providerUrl,
+                brandedDomain: appProject?.branded_domain ?? null,
+                brandedDomainVerifiedAt,
+                customDomain: appProject?.custom_domain ?? null,
+                customDomainVerifiedAt,
+              }) ??
+              d.url,
+            providerUrl: refreshed?.providerUrl ?? d.providerUrl,
             inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
             vercelDeploymentId: d.vercelDeploymentId,
             vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,

@@ -3,7 +3,10 @@ import crypto from "crypto";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { updateDeploymentStatus } from "@/lib/deployment";
+import {
+  resolveDeploymentLiveUrlForChat,
+  updateDeploymentStatus,
+} from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisPublisher, deployStatusChannel } from "@/lib/redis-pubsub";
 
@@ -168,9 +171,15 @@ export async function POST(req: Request) {
 
   const url = extractUrl(body);
   const inspectorUrl = extractInspectorUrl(body);
+  const liveUrl = await resolveDeploymentLiveUrlForChat({
+    chatId: match[0].chatId,
+    providerUrl: url,
+    fallbackUrl: match[0].url,
+  });
 
   const { transitionedToError } = await updateDeploymentStatus(match[0].id, status, {
-    ...(url ? { url } : {}),
+    ...(url ? { providerUrl: url } : {}),
+    ...(liveUrl ? { url: liveUrl } : {}),
     ...(inspectorUrl ? { inspectorUrl } : {}),
     ...(projectId ? { vercelProjectId: projectId } : {}),
   });
@@ -199,7 +208,7 @@ export async function POST(req: Request) {
     if (pub) {
       await pub.publish(
         deployStatusChannel(deploymentId),
-        JSON.stringify({ status, url, inspectorUrl, projectId }),
+        JSON.stringify({ status, url: liveUrl, providerUrl: url, inspectorUrl, projectId }),
       );
     }
   } catch (pubErr) {

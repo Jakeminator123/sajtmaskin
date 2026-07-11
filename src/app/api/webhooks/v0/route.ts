@@ -126,7 +126,7 @@ async function handleDeploymentReady(data: V0Payload) {
       .update(deployments)
       .set({
         status: "ready",
-        url: url ?? deployment[0].url ?? undefined,
+        providerUrl: url ?? deployment[0].providerUrl ?? undefined,
         inspectorUrl: inspectorUrl ?? deployment[0].inspectorUrl ?? undefined,
         updatedAt: new Date(),
       })

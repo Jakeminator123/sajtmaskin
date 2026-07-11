@@ -135,6 +135,10 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
   /** Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host); required when preview-host runs outside local dev. */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
+  /** Feature-gated branded standard URL rollout for generated public sites. */
+  SAJTMASKIN_BRANDED_LIVE_URLS: z.string().optional(),
+  /** Parent hostname for exact generated-site aliases, e.g. sites.sajtmaskin.se. */
+  SAJTMASKIN_LIVE_SITE_DOMAIN: z.string().optional(),
   /** Fast Edit Lane hot patch (server): when `"true"`, a quick edit pushes changed files into the live preview VM workspace without restarting Next dev. Read via `isPreviewPatchLaneEnabled` in `src/lib/gen/preview/preview-session.ts`. Default off. */
   SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */

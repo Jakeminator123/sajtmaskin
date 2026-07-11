@@ -143,6 +143,34 @@ Invariants:
 - Quick-edit patch får bara patcha rätt basversion.
 - Dependency/config/fel basversion ska falla tillbaka till full restart.
 - F3-preview ska inte maskera saknade riktiga env-värden med F2-stubbar.
+- `previewUrl` är aldrig `liveUrl` eller SEO-canonical och publika previews ska
+  svara med `noindex`/`no-store`.
+
+## Public URL-kontrakt
+
+Publicerad URL-state ägs av användarprojektet och hosting-projektet, inte av en
+enskild deployment eller en process-global SEO-env.
+
+Ägs av: `src/lib/live-site-url.ts`, `src/lib/vercelDeploy.ts`,
+`src/app/api/v0/deployments/`, `src/app/api/domains/` och
+`app_projects`/`deployments` i `src/lib/db/schema.ts`.
+
+Invariants:
+
+- `liveUrl` resolveras i ordningen verifierad `customDomain` → verifierad
+  Sajtmaskin-standardadress → `providerUrl`.
+- `providerUrl` bevaras för status, felsökning och rollback, men får inte
+  ersätta en högre verifierad URL-nivå i webhook/SSE/GET.
+- `published_slug` och provider-projektnamn är stabila per `app_projects.id`;
+  användarcopy får aldrig retargeta ett annat tenants hosting-projekt.
+- Domänägarskap räcker inte: DNS-konfiguration ska också vara grön innan en
+  domän får `verified_at`, blir `liveUrl` eller används som SEO-canonical.
+- Feature-gaten för branded URLs är en riktig rollback: när den är av används
+  inte sparade branded aliases som `liveUrl`.
+- Global SEO-domän är förbjuden i multi-tenant-flödet. SEO använder resolved
+  projekt-URL; en projektspecifik sparad URL får bara vara rollout-fallback.
+- Migration av befintliga sajter är dry-run som default och får bara mutera
+  projekt med en faktisk ready deployment mot verifierat provider-projekt.
 
 ## DB och lease-kontrakt
 

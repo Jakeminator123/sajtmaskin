@@ -118,10 +118,13 @@ export const deployments = pgTable(
     vercelDeploymentId: text("vercel_deployment_id"),
     vercelProjectId: text("vercel_project_id"),
     inspectorUrl: text("inspector_url"),
-    // The published deployment URL — glossary term `liveUrl` (published prod
-    // URL), distinct from a version's `previewUrl` (VM link) and `customDomain`.
-    // Column name kept as `url` (DB/runtime contract).
+    /** Hosting-provider URL returned by Vercel; internal fallback/diagnostics. */
+    providerUrl: text("provider_url"),
+    // Resolved public live URL — glossary term `liveUrl` (published prod URL),
+    // distinct from a version's `previewUrl` (VM link) and `customDomain`.
+    // Column name kept as `url` for the existing DB/runtime contract.
     url: text("url"),
+    /** Legacy per-deployment domain record; app_projects owns canonical state. */
     domain: text("domain"),
     status: varchar("status", { length: 50 }),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
@@ -159,12 +162,29 @@ export const appProjects = pgTable(
      */
     vercel_project_id: text("vercel_project_id"),
     vercel_project_name: text("vercel_project_name"),
+    /** Stable branded-host label, allocated once and never changed implicitly. */
+    published_slug: text("published_slug"),
+    /** Exact Sajtmaskin-owned hostname assigned to the generated Vercel project. */
+    branded_domain: text("branded_domain"),
+    branded_domain_verified_at: timestamptz("branded_domain_verified_at"),
+    /** Customer domain only after Vercel ownership verification succeeds. */
+    custom_domain: text("custom_domain"),
+    custom_domain_verified_at: timestamptz("custom_domain_verified_at"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
     updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("idx_app_projects_user_id").on(table.user_id),
     sessionIdx: index("idx_app_projects_session_id").on(table.session_id),
+    publishedSlugIdx: uniqueIndex("app_projects_published_slug_unique")
+      .on(table.published_slug)
+      .where(sql`${table.published_slug} is not null`),
+    customDomainIdx: uniqueIndex("app_projects_custom_domain_unique")
+      .on(table.custom_domain)
+      .where(sql`${table.custom_domain} is not null`),
+    brandedDomainIdx: uniqueIndex("app_projects_branded_domain_unique")
+      .on(table.branded_domain)
+      .where(sql`${table.branded_domain} is not null`),
   }),
 );
 

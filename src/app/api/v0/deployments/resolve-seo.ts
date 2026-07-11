@@ -6,11 +6,13 @@
  * vercel-sdk, etc.). The route re-exports this function to keep the
  * existing public surface unchanged.
  *
- * Precedence:
+ * Opt-in/brand precedence:
  *   1. Body-override (`seo` in POST body) — opt-in for this build only.
  *   2. Persisted `project_data.meta.seo` — saved from previous deploys.
- *   3. No options → core helper (`applySeoToProjectFiles` / scaffold-
- *      wrapper) falls back to env (`SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`).
+ *
+ * A verified/branded project URL wins. Until branded URLs are activated, the
+ * existing project-specific body/persisted URL remains a backwards-compatible
+ * fallback. A process-global SEO URL is never considered.
  *
  * Returns `null` when the resolved opt-in is OFF, so the caller can
  * short-circuit without invoking the apply-step. This keeps deploy
@@ -34,45 +36,22 @@ import type {
 export function resolveDeploySeoOptions(
   bodySeo: SeoPreferences | undefined,
   persisted: SeoPreferencesPersisted,
+  projectLiveUrl: string | null,
 ): SeoOptions | null {
-  if (bodySeo !== undefined) {
-    if (bodySeo.optIn === false) {
-      return null;
-    }
-    // Explicit body siteUrl=null is always an opt-out, regardless of
-    // optIn omission or persisted state. Must run BEFORE the persisted
-    // fallback below — `??` would treat null and undefined the same
-    // and silently re-enable persisted SEO, which violates the
-    // documented "explicit-noop" contract.
-    if (bodySeo.siteUrl === null) {
-      return null;
-    }
-    if (bodySeo.optIn === true && bodySeo.siteUrl) {
-      return {
-        siteUrl: bodySeo.siteUrl,
-        brand: bodySeo.brand ?? undefined,
-      };
-    }
-    // optIn omitted and siteUrl is undefined (not explicitly null):
-    // defer to persisted for opt-in flag, use body fields as overrides
-    // where present. Body brand=null is honored as "clear brand" via
-    // the same `?? undefined` pattern downstream.
-    if (persisted.optIn && (bodySeo.siteUrl ?? persisted.siteUrl)) {
-      const siteUrl = bodySeo.siteUrl ?? persisted.siteUrl;
-      if (!siteUrl) return null;
-      const brand =
-        bodySeo.brand !== undefined
-          ? (bodySeo.brand ?? undefined)
-          : (persisted.brand ?? undefined);
-      return { siteUrl, brand };
-    }
-    return null;
-  }
-  if (persisted.optIn && persisted.siteUrl) {
-    return {
-      siteUrl: persisted.siteUrl,
-      brand: persisted.brand ?? undefined,
-    };
-  }
-  return null;
+  // Preserve the existing one-deploy explicit opt-out contract. `null` is
+  // intentionally different from omitted: it must not fall through to a
+  // persisted fallback URL or a project canonical URL.
+  if (bodySeo?.optIn === false || bodySeo?.siteUrl === null) return null;
+  const optedIn = bodySeo?.optIn ?? persisted.optIn;
+  const fallbackUrl =
+    typeof bodySeo?.siteUrl === "string" && bodySeo.siteUrl
+      ? bodySeo.siteUrl
+      : persisted.siteUrl;
+  const siteUrl = projectLiveUrl ?? fallbackUrl;
+  if (!optedIn || !siteUrl) return null;
+  const brand =
+    bodySeo?.brand !== undefined
+      ? (bodySeo.brand ?? undefined)
+      : (persisted.brand ?? undefined);
+  return { siteUrl, brand };
 }

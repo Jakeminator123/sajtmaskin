@@ -22,7 +22,12 @@ import { getProjectById } from "@/lib/db/services/projects";
 import { getLatestVercelProjectIdForChat } from "@/lib/deployment";
 
 export type VercelProjectResolution =
-  | { ok: true; vercelProjectId: string; source: "app_project" | "deployment" }
+  | {
+      ok: true;
+      vercelProjectId: string;
+      appProjectId: string | null;
+      source: "app_project" | "deployment";
+    }
   | { ok: false; status: 404 | 409; error: string };
 
 export async function resolveVercelProjectForChat(
@@ -53,10 +58,15 @@ export async function resolveVercelProjectForChat(
   const deployed =
     (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
   if (deployed) {
-    return { ok: true, vercelProjectId: deployed, source: "deployment" };
+    return {
+      ok: true,
+      vercelProjectId: deployed,
+      appProjectId: projectId || null,
+      source: "deployment",
+    };
   }
   if (linked) {
-    return { ok: true, vercelProjectId: linked, source: "app_project" };
+    return { ok: true, vercelProjectId: linked, appProjectId: projectId, source: "app_project" };
   }
 
   return {

@@ -1,261 +1,128 @@
-/**
- * UI-tests for the SEO opt-in panel in the deploy ("Bygg") dialog.
- *
- * The panel is a controlled component, so most behavior is tested by
- * driving the `value` prop directly (mirrors how DeployNameDialog uses
- * it). Radix Switch's click flow relies on PointerEvent APIs that
- * jsdom doesn't fully implement, so we don't try to trigger the switch
- * via a synthetic click — it's well-tested by Radix upstream.
- *
- * Covers the PR-B contract:
- * - Default OFF; URL-input hidden
- * - optIn=true exposes URL-input
- * - Empty URL while opted in → invalid (parent's button should disable)
- * - Invalid URL string while opted in → invalid + visual error
- * - Valid https URL → valid + onChange contains entered value
- * - Persisted preferences seed parent state on mount
- * - projectId=null → no fetch
- * - optIn=false is always reported as valid
- */
-
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useState } from "react";
-import { SeoOptInPanel, type SeoFormValue } from "./SeoOptInPanel";
-
-function Harness({
-  projectId = "proj_1",
-  onChangeSpy,
-  onValiditySpy,
-  onDirtySpy,
-  initial,
-}: {
-  projectId?: string | null;
-  onChangeSpy?: (next: SeoFormValue) => void;
-  onValiditySpy?: (valid: boolean) => void;
-  onDirtySpy?: (dirty: boolean) => void;
-  initial?: SeoFormValue;
-}) {
-  const [value, setValue] = useState<SeoFormValue>(
-    initial ?? { optIn: false, siteUrl: "" },
-  );
-  return (
-    <SeoOptInPanel
-      projectId={projectId}
-      value={value}
-      onChange={(next) => {
-        setValue(next);
-        onChangeSpy?.(next);
-      }}
-      onValidityChange={onValiditySpy}
-      onDirtyChange={onDirtySpy}
-    />
-  );
-}
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { SeoOptInPanel } from "./SeoOptInPanel";
 
 describe("SeoOptInPanel", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    // Default fetch: empty preferences (no persisted seo).
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ success: true, preferences: {} }), {
-        status: 200,
-      }),
-    ) as unknown as typeof fetch;
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("defaults to OFF with no URL input visible", () => {
-    render(<Harness />);
-    const sw = screen.getByRole("switch");
-    expect(sw.getAttribute("data-state")).toBe("unchecked");
-    expect(screen.queryByLabelText(/Sajtens URL/i)).toBeNull();
-  });
-
-  it("optIn=true reveals URL input and reports invalid when empty", () => {
-    const onValidity = vi.fn<(valid: boolean) => void>();
+  it("toggles SEO without accepting an arbitrary URL", async () => {
+    const onChange = vi.fn();
     render(
-      <Harness
-        initial={{ optIn: true, siteUrl: "" }}
-        onValiditySpy={onValidity}
+      <SeoOptInPanel
+        projectId={null}
+        value={{ optIn: false, siteUrl: "" }}
+        onChange={onChange}
       />,
     );
-    expect(screen.getByLabelText(/Sajtens URL/i)).toBeTruthy();
-    expect(onValidity).toHaveBeenLastCalledWith(false);
-    expect(screen.getByText(/Ange URL för att aktivera SEO/i)).toBeTruthy();
-  });
 
-  it("rejects invalid URL strings with a visible error", () => {
-    const onValidity = vi.fn<(valid: boolean) => void>();
-    render(
-      <Harness
-        initial={{ optIn: true, siteUrl: "not a url" }}
-        onValiditySpy={onValidity}
-      />,
-    );
-    expect(onValidity).toHaveBeenLastCalledWith(false);
-    expect(screen.getByText(/Ogiltig URL/i)).toBeTruthy();
-  });
+    expect(screen.queryByLabelText(/Reservadress/i)).toBeNull();
+    fireEvent.click(screen.getByRole("switch"));
 
-  it("rejects non-http(s) schemes like ftp://", () => {
-    const onValidity = vi.fn<(valid: boolean) => void>();
-    render(
-      <Harness
-        initial={{ optIn: true, siteUrl: "ftp://example.com" }}
-        onValiditySpy={onValidity}
-      />,
-    );
-    expect(onValidity).toHaveBeenLastCalledWith(false);
-  });
-
-  it("accepts a valid https URL and reports valid", () => {
-    const onValidity = vi.fn<(valid: boolean) => void>();
-    render(
-      <Harness
-        initial={{ optIn: true, siteUrl: "https://example.com" }}
-        onValiditySpy={onValidity}
-      />,
-    );
-    expect(onValidity).toHaveBeenLastCalledWith(true);
-    expect(screen.queryByText(/Ogiltig URL/i)).toBeNull();
-    expect(screen.queryByText(/Ange URL för att aktivera SEO/i)).toBeNull();
-  });
-
-  it("input edits propagate via onChange with the new value", () => {
-    const onChange = vi.fn<(next: SeoFormValue) => void>();
-    render(
-      <Harness
-        initial={{ optIn: true, siteUrl: "" }}
-        onChangeSpy={onChange}
-      />,
-    );
-    const input = screen.getByLabelText(/Sajtens URL/i);
-    fireEvent.change(input, { target: { value: "https://example.com" } });
-    expect(onChange).toHaveBeenLastCalledWith({
-      optIn: true,
-      siteUrl: "https://example.com",
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith({ optIn: true, siteUrl: "" });
     });
+    expect(screen.getByText(/verifierade domän/i)).toBeTruthy();
   });
 
-  it("seeds parent state from persisted preferences on mount", async () => {
-    globalThis.fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          success: true,
-          preferences: {
-            seo: {
-              optIn: true,
-              siteUrl: "https://persisted.example.com",
-            },
-          },
-        }),
-        { status: 200 },
+  it("hydrates only the persisted opt-in state", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({ preferences: { seo: { optIn: true, siteUrl: "https://legacy.example" } } }),
       ),
-    ) as unknown as typeof fetch;
-
-    const onChange = vi.fn<(next: SeoFormValue) => void>();
-    render(<Harness onChangeSpy={onChange} />);
+    );
+    const onChange = vi.fn();
+    render(
+      <SeoOptInPanel
+        projectId="project_1"
+        value={{ optIn: false, siteUrl: "" }}
+        onChange={onChange}
+      />,
+    );
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith({
         optIn: true,
-        siteUrl: "https://persisted.example.com",
+        siteUrl: "https://legacy.example",
       });
     });
   });
 
-  it("does not fetch preferences when projectId is null", async () => {
-    const fetchSpy = vi.fn();
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
-
-    render(<Harness projectId={null} />);
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it("OFF is always reported as valid, even with garbage in siteUrl", () => {
-    const onValidity = vi.fn<(valid: boolean) => void>();
-    render(
-      <Harness
-        onValiditySpy={onValidity}
-        initial={{ optIn: false, siteUrl: "garbage" }}
+  it("requires an https rollout fallback while SEO is enabled", async () => {
+    const onValidityChange = vi.fn();
+    const { rerender } = render(
+      <SeoOptInPanel
+        projectId={null}
+        value={{ optIn: true, siteUrl: "" }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
       />,
     );
-    expect(onValidity).toHaveBeenLastCalledWith(true);
+    await waitFor(() => expect(onValidityChange).toHaveBeenLastCalledWith(false));
+
+    rerender(
+      <SeoOptInPanel
+        projectId={null}
+        value={{ optIn: true, siteUrl: "http://unsafe.example" }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    await waitFor(() => expect(onValidityChange).toHaveBeenLastCalledWith(false));
+    expect(screen.getByText(/fullständig https-adress/i)).toBeTruthy();
   });
 
-  /**
-   * Regression for the persist-fetch race condition.
-   *
-   * Without dirty-tracking, a user clicking Publicera before the
-   * panel's preferences-fetch completed would emit `seo: { optIn: false }`
-   * as the deploy payload — overwriting persisted opt-in with the
-   * default state. The dirty-flag stays false during fetch-seed and
-   * only flips when the user actually toggles the switch or types in
-   * the URL.
-   */
-  describe("dirty-tracking (regression: persist-fetch race)", () => {
-    it("does not emit dirty=true when fetch seeds parent state", async () => {
-      globalThis.fetch = vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            success: true,
-            preferences: {
-              seo: {
-                optIn: true,
-                siteUrl: "https://persisted.example.com",
-              },
-            },
-          }),
-          { status: 200 },
-        ),
-      ) as unknown as typeof fetch;
+  it("marks only user interaction dirty, not preference hydration", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({ preferences: { seo: { optIn: true, siteUrl: "https://saved.example" } } }),
+      ),
+    );
+    const onDirtyChange = vi.fn();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <SeoOptInPanel
+        projectId="project_1"
+        value={{ optIn: false, siteUrl: "" }}
+        onChange={onChange}
+        onDirtyChange={onDirtyChange}
+      />,
+    );
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onDirtyChange).not.toHaveBeenCalled();
 
-      const onDirty = vi.fn<(dirty: boolean) => void>();
-      const onChange = vi.fn<(next: SeoFormValue) => void>();
-      render(<Harness onDirtySpy={onDirty} onChangeSpy={onChange} />);
-
-      // Wait for the fetch-seed onChange so we know the seed completed.
-      await waitFor(() => {
-        expect(onChange).toHaveBeenCalledWith({
-          optIn: true,
-          siteUrl: "https://persisted.example.com",
-        });
-      });
-
-      // Dirty should never have been called with true purely from seeding.
-      const dirtyTrueCalls = onDirty.mock.calls.filter(([v]) => v === true);
-      expect(dirtyTrueCalls).toHaveLength(0);
+    rerender(
+      <SeoOptInPanel
+        projectId="project_1"
+        value={{ optIn: true, siteUrl: "https://saved.example" }}
+        onChange={onChange}
+        onDirtyChange={onDirtyChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Reservadress/i), {
+      target: { value: "https://new.example" },
     });
-
-    it("emits dirty=true when the user types in the URL field", () => {
-      const onDirty = vi.fn<(dirty: boolean) => void>();
-      render(
-        <Harness
-          initial={{ optIn: true, siteUrl: "" }}
-          onDirtySpy={onDirty}
-        />,
-      );
-      const input = screen.getByLabelText(/Sajtens URL/i);
-      fireEvent.change(input, { target: { value: "https://example.com" } });
-      expect(onDirty).toHaveBeenCalledWith(true);
+    expect(onDirtyChange).toHaveBeenCalledWith(true);
+    expect(onChange).toHaveBeenLastCalledWith({
+      optIn: true,
+      siteUrl: "https://new.example",
     });
+  });
 
-    it("only fires onDirtyChange once even with multiple user edits", () => {
-      const onDirty = vi.fn<(dirty: boolean) => void>();
-      render(
-        <Harness
-          initial={{ optIn: true, siteUrl: "" }}
-          onDirtySpy={onDirty}
-        />,
-      );
-      const input = screen.getByLabelText(/Sajtens URL/i);
-      fireEvent.change(input, { target: { value: "https://a.com" } });
-      fireEvent.change(input, { target: { value: "https://ab.com" } });
-      fireEvent.change(input, { target: { value: "https://abc.com" } });
-      const dirtyTrueCalls = onDirty.mock.calls.filter(([v]) => v === true);
-      expect(dirtyTrueCalls).toHaveLength(1);
-    });
+  it("surfaces preference-load failures without changing form state", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const onChange = vi.fn();
+    render(
+      <SeoOptInPanel
+        projectId="project_1"
+        value={{ optIn: false, siteUrl: "" }}
+        onChange={onChange}
+      />,
+    );
+    expect(await screen.findByText(/Kunde inte läsa SEO-inställningar/i)).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -224,6 +224,8 @@ export function useBuilderDeployActions({
           }>;
           /** Env-var sync-to-hosting failures — publish still succeeded. */
           envSyncWarnings?: string[];
+          /** Branded/custom-domain provisioning warnings — publish still succeeded. */
+          domainWarnings?: string[];
           /** The exact keys the 409 gate blocked on (R1: buildBlockingKeys). */
           buildBlockingKeys?: string[];
         };
@@ -323,6 +325,15 @@ export function useBuilderDeployActions({
             "Vissa miljövariabler kunde inte sparas hos hosting-leverantören för framtida ombyggen. Publiceringen lyckades – men byggs sajten om utanför Sajtmaskin kan du behöva spara om dina integrationer under Projektets miljövariabler.",
             { duration: 12000 },
           );
+        }
+        const domainWarnings = Array.isArray(data?.domainWarnings)
+          ? data.domainWarnings.filter(
+              (warning): warning is string =>
+                typeof warning === "string" && warning.trim().length > 0,
+            )
+          : [];
+        if (domainWarnings.length > 0) {
+          toast.warning(domainWarnings.join("\n"), { duration: 12000 });
         }
       } catch (error) {
         console.error("Deploy error:", error);

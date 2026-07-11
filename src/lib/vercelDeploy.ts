@@ -1,5 +1,6 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
 
 export type VercelDeploymentTarget = "production" | "preview";
 
@@ -30,6 +31,16 @@ export type GetVercelDeploymentResult = {
   url: string | null;
   inspectorUrl: string | null;
   readyState: string | null;
+};
+
+export type VercelProjectDomain = {
+  name: string;
+  verified: boolean;
+};
+
+export type EnsuredVercelProject = {
+  id: string;
+  name: string;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -79,6 +90,27 @@ export function sanitizeVercelProjectName(input: string): string {
   // `randomUUID()` is lowercase hex + hyphens, a valid Vercel project-name
   // segment; an 8-char slice keeps it short while staying collision-safe.
   return `sajtmaskin-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+}
+
+/** Collision-safe provider name; the human-facing URL is the branded alias. */
+export function buildGeneratedVercelProjectName(
+  displayName: string,
+  appProjectId: string,
+): string {
+  const readable =
+    displayName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30)
+      .replace(/-+$/, "") || "site";
+  const suffix = createHash("sha256")
+    .update(appProjectId)
+    .digest("hex")
+    .slice(0, 8);
+  return sanitizeVercelProjectName(`sajtmaskin-${readable}-${suffix}`);
 }
 
 export function toVercelFilesFromTextFiles(
@@ -228,6 +260,202 @@ export async function syncEnvVarsToVercelProject(
   }
 
   return { synced, errors };
+}
+
+/**
+ * Idempotently attach an exact Sajtmaskin-owned hostname to one generated
+ * hosting project. Exact domains deliberately avoid a shared multi-tenant
+ * proxy: each customer site keeps its isolated Vercel project/runtime.
+ */
+export async function ensureVercelProjectDomain(
+  vercelProjectIdOrName: string,
+  domain: string,
+): Promise<VercelProjectDomain> {
+  const hostname = normalizeDomainHostname(domain);
+  if (!hostname) throw new Error("Invalid branded domain");
+
+  const token = getVercelToken();
+  const teamId = getVercelTeamId();
+  const endpoint = new URL(
+    `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectIdOrName)}/domains`,
+  );
+  if (teamId) endpoint.searchParams.set("teamId", teamId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  const list = await fetch(endpoint.toString(), { headers });
+  const listed = await list.json().catch(() => null);
+  if (!list.ok) {
+    throw new Error(extractVercelErrorMessage(listed) ?? `Vercel domain lookup failed (HTTP ${list.status})`);
+  }
+  const existing = Array.isArray(asJsonObject(listed)?.domains)
+    ? (asJsonObject(listed)?.domains as unknown[])
+        .map(asJsonObject)
+        .find((entry) => readStringField(entry, "name")?.toLowerCase() === hostname)
+    : null;
+  if (existing) {
+    const providerVerified = asJsonObject(existing)?.verified === true;
+    const configured = providerVerified
+      ? await isVercelDomainConfigured(hostname, teamId, headers)
+      : false;
+    if (configured === null) {
+      throw new Error("Vercel domain configuration status is temporarily unavailable");
+    }
+    return {
+      name: hostname,
+      verified: providerVerified && configured,
+    };
+  }
+
+  const created = await fetch(endpoint.toString(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name: hostname }),
+  });
+  const payload = await created.json().catch(() => null);
+  if (!created.ok) {
+    throw new Error(extractVercelErrorMessage(payload) ?? `Vercel domain add failed (HTTP ${created.status})`);
+  }
+  const root = asJsonObject(payload);
+  const providerVerified = root?.verified === true;
+  const configured = providerVerified
+    ? await isVercelDomainConfigured(hostname, teamId, headers)
+    : false;
+  if (configured === null) {
+    throw new Error("Vercel domain configuration status is temporarily unavailable");
+  }
+  return {
+    name: readStringField(root, "name") ?? hostname,
+    verified: providerVerified && configured,
+  };
+}
+
+async function isVercelDomainConfigured(
+  hostname: string,
+  teamId: string | null,
+  headers: Record<string, string>,
+): Promise<boolean | null> {
+  const configUrl = new URL(
+    `https://api.vercel.com/v6/domains/${encodeURIComponent(hostname)}/config`,
+  );
+  if (teamId) configUrl.searchParams.set("teamId", teamId);
+  const response = await fetch(configUrl.toString(), { headers });
+  if (!response.ok) return null;
+  const config = asJsonObject(await response.json().catch(() => null));
+  return config ? config.misconfigured === false : null;
+}
+
+/** `null` means provider status was unavailable; callers should preserve last-known-good. */
+export async function checkVercelProjectDomain(
+  vercelProjectIdOrName: string,
+  domain: string,
+): Promise<boolean | null> {
+  const hostname = normalizeDomainHostname(domain);
+  if (!hostname) return false;
+  const token = getVercelToken();
+  const teamId = getVercelTeamId();
+  const endpoint = new URL(
+    `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectIdOrName)}/domains`,
+  );
+  if (teamId) endpoint.searchParams.set("teamId", teamId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+  try {
+    const response = await fetch(endpoint.toString(), { headers });
+    if (!response.ok) return null;
+    const payload = asJsonObject(await response.json().catch(() => null));
+    const domains = Array.isArray(payload?.domains) ? payload.domains : [];
+    const match = domains
+      .map(asJsonObject)
+      .find((entry) => readStringField(entry, "name")?.toLowerCase() === hostname);
+    if (!match || match.verified !== true) return false;
+    return isVercelDomainConfigured(hostname, teamId, headers);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ensure the generated site's project exists before files are built/deployed.
+ * This lets the exact branded domain be verified first, so SEO never points at
+ * an alias that failed provisioning.
+ */
+export async function ensureVercelProject(
+  projectName: string,
+  expectedProjectId?: string | null,
+): Promise<EnsuredVercelProject> {
+  const name = sanitizeVercelProjectName(projectName);
+  const token = getVercelToken();
+  const teamId = getVercelTeamId();
+  const endpoint = new URL(
+    `https://api.vercel.com/v9/projects/${encodeURIComponent(expectedProjectId?.trim() || name)}`,
+  );
+  if (teamId) endpoint.searchParams.set("teamId", teamId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  const existing = await fetch(endpoint.toString(), { headers });
+  const existingPayload = await existing.json().catch(() => null);
+  if (existing.ok) {
+    const root = asJsonObject(existingPayload);
+    const id = readStringField(root, "id");
+    if (!id) throw new Error("Vercel project response missing id");
+    if (expectedProjectId?.trim() && id !== expectedProjectId.trim()) {
+      throw new Error("Persisted Vercel project ownership mismatch");
+    }
+    return { id, name: readStringField(root, "name") ?? name };
+  }
+  if (existing.status !== 404) {
+    throw new Error(
+      extractVercelErrorMessage(existingPayload) ??
+        `Vercel project lookup failed (HTTP ${existing.status})`,
+    );
+  }
+  if (expectedProjectId?.trim()) {
+    throw new Error("The persisted Vercel project no longer exists");
+  }
+
+  const createEndpoint = new URL("https://api.vercel.com/v10/projects");
+  if (teamId) createEndpoint.searchParams.set("teamId", teamId);
+  const created = await fetch(createEndpoint.toString(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name, framework: "nextjs" }),
+  });
+  const createdPayload = await created.json().catch(() => null);
+  if (created.status === 409) {
+    // Parallel first publishes can both observe 404. The deterministic project
+    // name means the loser should re-read and reuse the winner, not fail or
+    // create a second target.
+    const raced = await fetch(endpoint.toString(), { headers });
+    const racedPayload = await raced.json().catch(() => null);
+    if (raced.ok) {
+      const racedRoot = asJsonObject(racedPayload);
+      const racedId = readStringField(racedRoot, "id");
+      if (racedId) {
+        return {
+          id: racedId,
+          name: readStringField(racedRoot, "name") ?? name,
+        };
+      }
+    }
+  }
+  if (!created.ok) {
+    throw new Error(
+      extractVercelErrorMessage(createdPayload) ??
+        `Vercel project creation failed (HTTP ${created.status})`,
+    );
+  }
+  const root = asJsonObject(createdPayload);
+  const id = readStringField(root, "id");
+  if (!id) throw new Error("Vercel project creation response missing id");
+  return { id, name: readStringField(root, "name") ?? name };
 }
 
 /**
