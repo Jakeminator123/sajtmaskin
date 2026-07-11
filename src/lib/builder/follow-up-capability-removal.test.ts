@@ -256,10 +256,27 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     expect(result.readdedCapabilities).toEqual(["payments"]);
   });
 
-  it("treats a plain add as a re-add signal", () => {
-    const result = detectCapabilityRemoval("Lägg till Stripe-betalning");
-    expect(result.removedCapabilities).toEqual([]);
-    expect(result.readdedCapabilities).toEqual(["payments"]);
+  it("a plain add without a repeat-hint is NOT a re-add (routine add/branding language)", () => {
+    // Bugbot HIGH on #497: bare add verbs appear in branding/layout prompts and
+    // must not clear a durable removal tombstone.
+    expect(
+      detectCapabilityRemoval("Lägg till Stripe-betalning").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Add Stripe accent colors").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg till checkout-sektionen").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("a generic add WITH an explicit repeat-hint is a re-add", () => {
+    expect(
+      detectCapabilityRemoval("Lägg till Stripe-betalningen igen").readdedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Add the Stripe checkout again").readdedCapabilities,
+    ).toEqual(["payments"]);
   });
 
   it("a pure removal yields no readd", () => {
