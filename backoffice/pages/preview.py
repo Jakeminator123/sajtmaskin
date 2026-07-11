@@ -83,6 +83,8 @@ def render(ctx: BackofficeContext) -> None:
 - **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. ReleaseGate (kod: `integrationsBuild` quality gate, `["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 ReleaseGate-krav mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
+  Om alla `requiredRealEnvKeys` är tomma skapas i stället en ny `integrations`-version med exakt samma filer som
+  F2-föräldern; ingen LLM körs och ReleaseGate verifierar den nya F3-raden. `feature-runtime`/`warn-only` är Advisory.
 - **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin
   F2-rot via `engine_versions.parent_version_id`.
 - **Validate-step (esbuild + warm tsc)** — `validate_syntax`-fasen kör först esbuild-validering och, när esbuild når

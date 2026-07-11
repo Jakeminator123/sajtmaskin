@@ -129,7 +129,7 @@ def render(ctx: BackofficeContext) -> None:
             ),
             (
                 "BuildSpecPreviewPolicy",
-                "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). F3 triggas ENBART via `POST .../finalize-design`.",
+                "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). `finalize-design` startar LLM bara vid riktiga build-nycklar; annars skapas en exakt F3-fork och ReleaseGate körs deterministiskt.",
             ),
             ("BuildSpecVerificationPolicy", "Verifieringsnivå: fast / standard / strict"),
         ]:

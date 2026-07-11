@@ -142,7 +142,14 @@ export interface PreviewPanelProps {
   /** Called when F3 trigger reports missing tier-3 env keys. */
   onF3MissingEnv?: (payload: {
     parentVersionId: string;
+    projectId?: string | null;
     missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
+  }) => void;
+  /** Persistent, non-modal status for normal F3 trigger states. */
+  onF3Status?: (status: {
+    tone: "info" | "warning" | "error" | "success";
+    title: string;
+    description: string;
   }) => void;
   /** Called when F3 readiness check passes. */
   onF3Ready?: (payload: {
@@ -152,6 +159,11 @@ export interface PreviewPanelProps {
       name: string;
       requiredRealEnvKeys: string[];
     }>;
+  }) => void;
+  /** Refreshes versions/status/readiness after deterministic ReleaseGate settles. */
+  onF3ReleaseSettled?: (payload: {
+    versionId: string;
+    selectVersion: boolean;
   }) => void;
   /**
    * Called when the user picks a dossier from the Byggblock-panelens

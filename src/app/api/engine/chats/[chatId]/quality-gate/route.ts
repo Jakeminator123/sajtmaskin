@@ -9,6 +9,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
   getLatestVersion,
+  getVersionById,
   markVersionVerifying,
   markVersionSupersededByRepair,
   promoteVersion,
@@ -42,6 +43,7 @@ import {
   buildServerVerifyQualityGateMeta,
   compactVisualQAForQualityGateLog,
 } from "@/lib/gen/verify/server-verify-log-meta";
+import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -50,6 +52,12 @@ export const maxDuration = 800;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
+  /**
+   * Explicit canonical gate selection for deterministic F3 release checks.
+   * `integrationsBuild` is accepted only for a tenant-scoped integrations row
+   * and re-runs the shared F3 readiness/Product Postcheck gate before verify.
+   */
+  gate: z.enum(["designPreview", "integrationsBuild"]).optional(),
   // Default to the canonical F2 design-preview lane (`DESIGN_PREVIEW_QUALITY_GATE_CHECKS`)
   // so that if `manifest.json` `qualityGateTiers.designPreview` is widened
   // (e.g. to add `lint`), the route default tracks it instead of silently
@@ -158,13 +166,86 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       );
     }
 
-    const { versionId, checks } = validation.data;
+    const { versionId, checks, gate } = validation.data;
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
       return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
     }
     const internalVersionId = scopedVersion.version.id;
+    // Lifecycle is server-owned: every integrations row uses ReleaseGate even
+    // when an older resume/post-check caller omits the new `gate` field.
+    const effectiveGate =
+      scopedVersion.version.lifecycle_stage === "integrations"
+        ? "integrationsBuild"
+        : gate;
+
+    if (effectiveGate === "integrationsBuild") {
+      if (scopedVersion.version.lifecycle_stage !== "integrations") {
+        return NextResponse.json(
+          {
+            error: "ReleaseGate requires an F3 integrations version.",
+            code: "integrations_version_required",
+          },
+          { status: 409 },
+        );
+      }
+      const parentVersionId = scopedVersion.version.parent_version_id;
+      if (!parentVersionId) {
+        return NextResponse.json(
+          {
+            error: "F3 version is missing its F2 parent.",
+            code: "f3_parent_version_missing",
+          },
+          { status: 409 },
+        );
+      }
+      const parentVersion = await getVersionById(parentVersionId);
+      if (!parentVersion || parentVersion.chat_id !== scopedVersion.chat.id) {
+        return NextResponse.json(
+          { error: "Parent version not found for chat" },
+          { status: 404 },
+        );
+      }
+      const readiness = await checkTier3ReadinessForVersion({
+        versionId: internalVersionId,
+        productPostcheckVersionId: parentVersionId,
+        orchestrationSnapshot: scopedVersion.chat.orchestration_snapshot,
+        projectId: scopedVersion.chat.project_id ?? null,
+      });
+      if (!readiness.ok && readiness.reason === "missing_env") {
+        return NextResponse.json(
+          {
+            error: "tier3_env_not_ready",
+            ready: false,
+            parentVersionId,
+            projectId: scopedVersion.chat.project_id ?? null,
+            missingByIntegration: readiness.readiness.missingByIntegration,
+          },
+          { status: 412 },
+        );
+      }
+      if (!readiness.ok && readiness.reason === "product_postcheck_blocked") {
+        return NextResponse.json(
+          {
+            error: "product_postcheck_blocked",
+            ready: false,
+            parentVersionId,
+          },
+          { status: 409 },
+        );
+      }
+      if (!readiness.ok) {
+        return NextResponse.json(
+          {
+            error: "version_files_unavailable",
+            ready: false,
+            parentVersionId,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     // M#p4qg — server-authoritative verify lane for F3.
     // The client (`post-checks.ts` `runTier2VerifyLane`) unconditionally posts
@@ -174,8 +255,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // skipped) = false-green. `lifecycle_stage` is the server-owned source of
     // truth, so an F3 row always pays for the full `INTEGRATIONS_BUILD` lane and
     // the client can never downgrade it. F2/design keeps the request checks.
+    const integrationsBuildGate =
+      scopedVersion.version.lifecycle_stage === "integrations" ||
+      gate === "integrationsBuild";
     const effectiveChecks =
-      scopedVersion.version.lifecycle_stage === "integrations"
+      integrationsBuildGate
         ? [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]
         : checks;
 
@@ -273,7 +357,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // finalize-preflight (buildPreviewHtml + home-route gate), so a version
         // that cannot render never reaches this promote path.
         const f2TypecheckAdvisory = isTypecheckOnlyAdvisory({
-          isDesignPreview: scopedVersion.version.lifecycle_stage !== "integrations",
+          // Explicit integrationsBuild is accepted only for an F3 row above
+          // and can never use F2's typecheck Advisory.
+          isDesignPreview: !integrationsBuildGate,
           gatePassed: gateResult.passed,
           // The client-triggered route has no build-origin re-verify concept; a
           // build/lint failure is already excluded by the typecheck-only check.
@@ -315,6 +401,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           return NextResponse.json({
             ...gateResult,
             superseded: true,
+            promoted: false,
           });
         }
 
@@ -370,6 +457,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         let promotionBlocked = false;
         let promoteError = false;
         let promoteGuardUnavailable = false;
+        let promotionSucceeded = false;
         // Promote when the gate passed OR when it is an F2 typecheck-only
         // advisory (render-first). Both still pay the finalize promote-guard
         // below, so a verifier-blocked version is never advisory-promoted.
@@ -410,6 +498,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             // surface a soft error so the client can retry instead of going red.
             if (!promoted) {
               promoteError = true;
+            } else {
+              promotionSucceeded = true;
             }
           } else if ("indeterminate" in guard && guard.indeterminate === true) {
             // Guard could not read the finalize signal, so we cannot prove this
@@ -482,6 +572,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             vmGatePassed: gateResult.passed,
             promotionBlocked: true,
             promotionBlockedReason: "finalize_quality_gate_failed",
+            promoted: false,
           });
         }
         // Promote guard could not verify the finalize signal (DB/guard error):
@@ -495,6 +586,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             vmGatePassed: gateResult.passed,
             promoteError: true,
             promoteGuardUnavailable: true,
+            promoted: false,
             ...advisoryResponseFields,
           });
         }
@@ -505,6 +597,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             passed: false,
             vmGatePassed: gateResult.passed,
             promoteError: true,
+            promoted: false,
             ...advisoryResponseFields,
           });
         }
@@ -539,9 +632,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             vmGatePassed: false,
             designAdvisory: true,
             advisoryChecks: advisoryCheckNames,
+            promoted: promotionSucceeded,
           });
         }
-        return NextResponse.json(gateResult);
+        return NextResponse.json({
+          ...gateResult,
+          promoted: promotionSucceeded,
+        });
       } catch (err) {
         // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
         // the gate never evaluated the code, so do NOT mark the version `failed`

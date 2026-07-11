@@ -143,6 +143,18 @@ defaultvärden:
 | `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | RenderGate för F2 (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
 | `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
 
+### Deterministisk F3-fork
+
+När F3-specen saknar required build-nycklar skapar `finalize-design` först en
+ny `engine_versions`-rad med `lifecycle_stage = integrations`,
+`parent_version_id = <vald F2>` och exakt samma `files_json` som F2-föräldern.
+ReleaseGate körs sedan på den nya F3-raden; den får aldrig promotera F2-raden.
+Ett direkt `gate: "integrationsBuild"` accepterar bara en tenant-/chat-säkrad
+F3-version och återkör den delade env-/Product Postcheck-grinden innan
+typecheck, build och lint. `passed` räcker inte som klientframgång:
+`promoted = true`, ej `superseded`, ej `promoteError` och
+`vmGatePassed !== false` krävs.
+
 **2026-04-23 förändring av F2-lanen.** `build` och `lint` togs bort från
 F2 på VMn eftersom motsvarande pass nu körs pre-VM i Sajtmaskin-backendens
 Node-process (`src/lib/gen/preview/warm-typecheck.ts` +

@@ -3,6 +3,7 @@ import {
   approvedProvidersShipConfigNotice,
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
+  hasRequiredRealBuildKeys,
   mapProviderKeysToDossierCapabilities,
   renderTier3BuildPlanBlock,
   validateTier3Readiness,
@@ -214,6 +215,26 @@ describe("deriveTier3BuildSpec", () => {
     const readiness = validateTier3Readiness(spec, {});
     expect(readiness.ready).toBe(true);
     expect(readiness.missingByIntegration).toEqual([]);
+    expect(hasRequiredRealBuildKeys(spec)).toBe(false);
+  });
+
+  it("treats only required real build keys as permission for an F3 LLM round", () => {
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "clerk",
+          name: "Clerk",
+          reason: "auth",
+          status: "chosen",
+          envVars: ["CLERK_SECRET_KEY"],
+          envEnforcement: { CLERK_SECRET_KEY: "build" },
+        },
+      ],
+    });
+
+    expect(hasRequiredRealBuildKeys(spec)).toBe(true);
+    expect(hasRequiredRealBuildKeys({ requirements: [] })).toBe(false);
   });
 
   it("sorts requirements by key for stable output", () => {

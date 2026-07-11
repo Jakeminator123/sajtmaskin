@@ -29,7 +29,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Core Rules | Statiska produktregler i `config/prompt-core/`. |
 | System Prompt | Core Rules + Dynamic Context. |
 | F2 / fidelity2 | Design/preview-läge. |
-| F3 / fidelity3 | Integration/build/deploybarhetsläge. Explicit steg. |
+| F3 / fidelity3 | Integration/build/deploybarhetsläge. Explicit steg. En no-build-key-övergång är fortfarande en ny `integrations`-version: exakta F2-filer forkas deterministiskt och ReleaseGate körs utan LLM. |
 | dossierEnvScope | Preflight-scope som gör både `env.example` och den pipeline-ägda `.env.local`-artefakten dossier-scopade: bara valda dossiers env-nycklar (+ relevanta projektlager i `env.example`) används i stället för hela placeholder-katalogen. Skickas alltid från `preflight-phase.ts`. |
 | pipeline-authored `.env.local` | Placeholder-`.env.local` som Sajtmaskins scaffold-merge kan injicera i genererade projekt, identifierad via markörraden `PIPELINE_ENV_LOCAL_MARKER` (`env-local.ts`). Vid finalize är den scoped till valda Byggblock (och utelämnas när scopet saknar tillåtna placeholdervärden); äldre versioner kan ha hela katalogen. Räknas ALDRIG som modell-emitterat "generated"-lager, så pipelinevärden inte skuggar `projectEnvVars` i preview. |
 | buildBlockingKeys | Okonfigurerade env-nycklar vars dossier-`enforcement` är `build` — den enda uppsättningen som hård-blockerar F3-publicering (deploy-409 / readiness). Efter #468 i praktiken bara `clerk-auth`s nycklar. `feature-runtime`/`warn-only`/placeholder blockerar aldrig. |
@@ -38,7 +38,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |
 | RepairGate | Den enda LLM-repair-porten i finalize när Normalize och statiska kontroller lämnar residual. |
 | RenderGate | F2-gate som bevisar att preview bootar/renderar; typecheck är Advisory utom render-risk-koder. |
-| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: typecheck, build, lint och env-krav är strikta. |
+| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: typecheck, build, lint och env-/Product Postcheck-krav är strikta. Kör alltid på en `integrations`-version, aldrig genom att promotera F2-raden. |
 | Advisory | Synlig varning/degradation som inte blockerar promote/preview. |
 | Blocker | Fel som stoppar promote, preview eller F3-release tills det är åtgärdat. |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke, t.ex. F2-kontroll av navigation, CTA, formulär och runtime-krasch. |

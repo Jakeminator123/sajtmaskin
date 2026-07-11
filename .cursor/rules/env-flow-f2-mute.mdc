@@ -7,6 +7,7 @@ globs:
   - src/lib/gen/detect-integrations.ts
   - src/app/api/engine/chats/[chatId]/readiness/**
   - src/app/builder/BuilderShellContent.tsx
+  - src/components/builder/F3RequirementsSurface.tsx
   - src/components/builder/ProjectEnvVarsPanel.tsx
   - src/components/builder/preview-panel/**
 alwaysApply: false
@@ -14,7 +15,7 @@ alwaysApply: false
 
 # Env-flöde i F2 är tyst
 
-F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Användaren fyller riktiga värden i F3 via env-panelen (Byggblock-ytan (dossiers)), aldrig i chatten.
+F2 (`lifecycleStage === "design"`) får inte producera env-frågor i chatten. Env-keys parkeras i `env.example`. Efter ett explicit klick på **Bygg integrationer** visar buildern alla normala F3-resultat i en persistent, icke-modal F3-status-/kravyta — aldrig som toast. Vid `finalize-design` `412` innehåller kravyta exakt serverns `missingByIntegration`-nycklar; användaren fyller riktiga värden där och väljer explicit retry. Byggblock-popovern är katalog/status, aldrig den auto-öppnade F3-nyckelytan.
 
 F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Tystnaden gäller env-*trafik i chatten*, inte den visuella ytan.
 
@@ -31,4 +32,5 @@ F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`
 - Läsa `missingEnvKeys` som blocker i F2 (demo måste förbli publicerbart).
 - Auto-promotera till F3 baserat på prompt-keywords.
 - Emittera env-tool-events i F2.
+- Öppna Byggblock-popovern för att samla F3-nycklar efter `finalize-design` 412.
 - Öppna "Svar krävs"-dialogen för `f3-continuation`-markern — F3 auto-fortsätter (live-marker) eller visar inline quick-replies (reload). Se `llm-pipeline.md` § F3-förslagsrunda.

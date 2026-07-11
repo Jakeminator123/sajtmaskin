@@ -88,6 +88,14 @@ Invariants:
 - ReleaseGate (kod: `integrationsBuild`) är F3-gaten: typecheck, build, lint
   och env-krav är strikta.
 - F3 ska alltid gatea integration/build hårdare än F2.
+- En vald hard- eller soft-Byggblock behåller sin F2 visuella fallback.
+  `buildBlockingKeys` är bara en säkerhetsgate per nyckel, inte ett register över
+  vilka capabilities som finns. När alla F3-kravs
+  `requiredRealEnvKeys` är tomma skapas en ny `integrations`-version vars
+  `files_json` är byte-för-byte samma som den valda F2-förälderns. ReleaseGate
+  (`integrationsBuild`) körs strikt på F3-forken utan F3-LLM-runda; F2-raden
+  lämnas orörd. `feature-runtime` och `warn-only` fortsätter vara Advisory och
+  kan aktiveras senare via `projectEnvVars`.
 - Advisory-safe F2 typecheck får inte bli false-green; status ska visa
   Advisory/degradation.
 - Render-risk-koder, build/lint-fel och promote-guard-fel är Blocker.

@@ -131,7 +131,9 @@ export function PreviewPanel({
   lifecycleStage = null,
   isBusy = false,
   onF3MissingEnv,
+  onF3Status,
   onF3Ready,
+  onF3ReleaseSettled,
   onRequestDossier,
   catalogPickDisabled = false,
 }: PreviewPanelProps) {
@@ -1165,7 +1167,9 @@ export function PreviewPanel({
         lifecycleStage={lifecycleStage}
         isBusy={isBusy}
         onF3MissingEnv={onF3MissingEnv}
+        onF3Status={onF3Status}
         onF3Ready={onF3Ready}
+        onF3ReleaseSettled={onF3ReleaseSettled}
         onRequestDossier={onRequestDossier}
         catalogPickDisabled={catalogPickDisabled}
       />

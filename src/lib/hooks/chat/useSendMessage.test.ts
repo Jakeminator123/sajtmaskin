@@ -6,6 +6,7 @@ import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import type { AutoFixPayload, ChatMessagingParams, MessageOptions } from "./types";
 
 const handleSseStream = vi.hoisted(() => vi.fn());
+const dispatchF3Requirements = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => {
   const fn = vi.fn();
   return Object.assign(fn, {
@@ -21,6 +22,9 @@ vi.mock("./stream-handlers", () => ({ handleSseStream }));
 vi.mock("./post-checks", () => ({ runPostGenerationChecks: vi.fn() }));
 vi.mock("./post-checks-fetch", () => ({ triggerImageMaterialization: vi.fn() }));
 vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
+vi.mock("@/lib/builder/project-env-events", () => ({
+  dispatchF3Requirements,
+}));
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
   errorLog: vi.fn(),
@@ -236,6 +240,141 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(meta.lifecycleStage).toBe("integrations");
     expect(meta.parentVersionId).toBe("ver_f2_parent");
     expect(meta.engineBaseVersionId).toBe("ver_f2_parent");
+  });
+
+  it("handles the deterministic F3 stream backstop via finalize-design and ReleaseGate", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/stream")) {
+        return jsonResponse(409, {
+          error: "f3_deterministic_release_required",
+          ready: false,
+          parentVersionId: "ver_f2_parent",
+        });
+      }
+      if (url.endsWith("/finalize-design")) {
+        return jsonResponse(200, {
+          ready: true,
+          action: "deterministic_release",
+          parentVersionId: "ver_f2_parent",
+          versionId: "ver_f3_exact",
+          gateRequired: true,
+          releaseState: "draft",
+          verificationState: "pending",
+        });
+      }
+      if (url.endsWith("/quality-gate")) {
+        return jsonResponse(200, {
+          passed: true,
+          promoted: true,
+          vmGatePassed: true,
+          checks: [
+            { check: "typecheck", passed: true },
+            { check: "build", passed: true },
+            { check: "lint", passed: true },
+          ],
+        });
+      }
+      return jsonResponse(404, { error: "unexpected" });
+    });
+    const onDeterministicF3Settled = vi.fn();
+    const { result, messagesBox } = createHarness({
+      activeVersionId: "ver_f2_parent",
+      onDeterministicF3Settled,
+    });
+
+    await send(result, "Bygg integrationer nu.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+    });
+
+    expect(onDeterministicF3Settled).toHaveBeenCalledWith({
+      versionId: "ver_f3_exact",
+      selectVersion: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(toast.success).toHaveBeenCalledWith("ReleaseGate godkänd.");
+    expect(messagesBox.current.at(-1)?.content).toContain(
+      "exakt samma filer",
+    );
+  });
+
+  it("surfaces a direct F3 stream 412 in the persistent requirements surface", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(412, {
+        error: "tier3_env_not_ready",
+        parentVersionId: "ver_f2_parent",
+        projectId: "project_1",
+        missingByIntegration: [
+          {
+            key: "clerk",
+            name: "Clerk",
+            missing: ["CLERK_SECRET_KEY"],
+          },
+        ],
+      }),
+    );
+    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+    await send(result, "Bygg integrationer nu.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+    });
+
+    expect(dispatchF3Requirements).toHaveBeenCalledWith({
+      parentVersionId: "ver_f2_parent",
+      projectId: "project_1",
+      missingByIntegration: [
+        {
+          key: "clerk",
+          name: "Clerk",
+          missing: ["CLERK_SECRET_KEY"],
+        },
+      ],
+    });
+  });
+
+  it("surfaces missing env returned by the deterministic backstop", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/stream")) {
+        return jsonResponse(409, {
+          error: "f3_deterministic_release_required",
+          parentVersionId: "ver_f2_parent",
+        });
+      }
+      return jsonResponse(412, {
+        ready: false,
+        parentVersionId: "ver_f2_parent",
+        projectId: "project_1",
+        missingByIntegration: [
+          {
+            key: "clerk",
+            name: "Clerk",
+            missing: ["CLERK_SECRET_KEY"],
+          },
+        ],
+      });
+    });
+    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+    await send(result, "Bygg integrationer nu.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+    });
+
+    expect(dispatchF3Requirements).toHaveBeenCalledWith({
+      parentVersionId: "ver_f2_parent",
+      projectId: "project_1",
+      missingByIntegration: [
+        {
+          key: "clerk",
+          name: "Clerk",
+          missing: ["CLERK_SECRET_KEY"],
+        },
+      ],
+    });
   });
 
   // Regular follow-ups (free text, no F3 button) must NOT carry a

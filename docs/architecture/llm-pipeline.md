@@ -170,6 +170,15 @@ bevaras när ett fortsatt valt Byggblock också äger dem.
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 
+**Deterministisk F3 utan build-nycklar:** `buildBlockingKeys` är en
+säkerhetsgate per env-nyckel, inte ett capability-register. Om samtliga valda
+Byggblocks F3-krav har tomma `requiredRealEnvKeys` skapar `finalize-design` en
+ny `integrations`-version med byte-för-byte samma `files_json` som den valda
+F2-basen och `parent_version_id = <F2>`. Ingen LLM/codegen körs. ReleaseGate
+verifierar och promotar den nya F3-raden; F2-raden och dess visuella fallback
+lämnas orörda. Finns minst en required build-nyckel används den befintliga
+412-/F3-LLM-vägen oförändrad.
+
 **Demo-läge i F2:** en F2-preview ska se trovärdig ut utan riktiga nycklar. Varje hard-dossier deklarerar ett `mock`-läge (`canned`/`seed`/`success`/`none`, se [`dossier-system.md`](../contracts/dossier-system.md)) som driver dossierns egen degraderingskod, och finalize seedar valda dossiers env-nycklar med deterministiska stub-värden i preview-`.env.local` (`env-local.ts`) så UI:t renderar. Stubbarna persisteras aldrig och når aldrig en deploy. Ärlig publiceringsgrind: deploy-409 (`DEPLOY_MISSING_ENV`) blockerar bara på `buildBlockingKeys` i F3 (efter #468 enbart `clerk-auth`s nycklar), F2 förblir demo-publicerbart; `feature-runtime`/placeholder surfar som icke-blockerande `EnvDegradationWarning`. Detaljer: [`env-flow.md`](../contracts/env-flow.md), [`ENV.md`](../ENV.md).
 
 ### ReleaseGate → publicera-lås

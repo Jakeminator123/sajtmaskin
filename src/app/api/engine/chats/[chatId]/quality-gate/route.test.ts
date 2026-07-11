@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
+const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const markVersionVerifying = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
 const promoteVersion = vi.hoisted(() => vi.fn());
@@ -63,12 +65,17 @@ vi.mock("@/lib/gen/version-manager", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
   getLatestVersion,
+  getVersionById,
   markVersionVerifying,
   markVersionSupersededByRepair,
   promoteVersion,
   acquireVersionLease,
   releaseVersionLease,
   resetVersionVerificationToPending,
+}));
+
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  checkTier3ReadinessForVersion,
 }));
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -107,6 +114,11 @@ describe("POST quality-gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: { requirements: [] },
+    });
     markVersionVerifying.mockResolvedValue({ id: "ver-1" });
     markVersionSupersededByRepair.mockResolvedValue({ id: "ver-1" });
     createEngineVersionErrorLogs.mockResolvedValue([]);
@@ -137,6 +149,133 @@ describe("POST quality-gate", () => {
     expect(JSON.stringify(body.details)).toContain("At least one quality gate check is required.");
     expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
     expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
+  it("enforces tenant/chat version ownership before deterministic ReleaseGate", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-foreign",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Version not found for chat" });
+    expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("rejects direct integrationsBuild on an F2 design row", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-f2", lifecycle_stage: "design" },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-f2",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      code: "integrations_version_required",
+    });
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
+  it("keeps direct integrationsBuild behind shared env readiness", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: "project-1", orchestration_snapshot: null },
+      version: {
+        id: "ver-f3",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "missing_env",
+      spec: { requirements: [] },
+      readiness: {
+        ready: false,
+        missingByIntegration: [
+          { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+        ],
+      },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-f3",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(412);
+    expect(await res.json()).toMatchObject({
+      error: "tier3_env_not_ready",
+      parentVersionId: "ver-f2",
+    });
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("keeps direct integrationsBuild behind the F2 parent Product Postcheck", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-f3",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "product_postcheck_blocked",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-f3",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "product_postcheck_blocked",
+      parentVersionId: "ver-f2",
+    });
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ productPostcheckVersionId: "ver-f2" }),
+    );
     expect(runQualityGateChecks).not.toHaveBeenCalled();
   });
 
@@ -172,6 +311,7 @@ describe("POST quality-gate", () => {
 
     expect(res.status).toBe(200);
     expect(body.superseded).toBe(true);
+    expect(body.promoted).toBe(false);
     expect(markVersionSupersededByRepair).toHaveBeenCalledWith("ver-1", null, "run-1");
     expect(promoteVersion).not.toHaveBeenCalled();
   });
@@ -277,6 +417,7 @@ describe("POST quality-gate", () => {
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(body.passed).toBe(false);
     expect(body.promoteError).toBe(true);
+    expect(body.promoted).toBe(false);
     expect(body.promotionBlocked).toBeUndefined();
   });
 
@@ -520,9 +661,13 @@ describe("POST quality-gate", () => {
 
   it("forces the F3 integrations build+lint lane even when the client posts the typecheck-only design lane (M#p4qg)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      chat: { id: "chat-1" },
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
       // F3 / integrations row: lifecycle_stage is the server-owned source of truth.
-      version: { id: "ver-1", lifecycle_stage: "integrations" },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
     });
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){}" },
@@ -550,7 +695,10 @@ describe("POST quality-gate", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Client unconditionally posts the typecheck-only DESIGN_PREVIEW lane.
-        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+        body: JSON.stringify({
+          versionId: "ver-1",
+          checks: ["typecheck"],
+        }),
       }),
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
@@ -565,6 +713,70 @@ describe("POST quality-gate", () => {
     expect(f3Checks).toContain("build");
     expect(f3Checks).toContain("lint");
     expect(f3Checks).not.toEqual(["typecheck"]);
+  });
+
+  it("runs direct integrationsBuild only on an F3 fork and promotes after shared readiness passes", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: {
+        id: "chat-1",
+        project_id: "project-1",
+        orchestration_snapshot: { selectedDossierIds: ["openai-chat"] },
+      },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-1",
+          gate: "integrationsBuild",
+          checks: ["typecheck"],
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([
+      ...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+    ]);
+    expect(promoteVersion).toHaveBeenCalledTimes(1);
+    expect(runQualityGateChecks.mock.invocationCallOrder[0]).toBeLessThan(
+      promoteVersion.mock.invocationCallOrder[0],
+    );
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith({
+      versionId: "ver-1",
+      productPostcheckVersionId: "ver-f2",
+      orchestrationSnapshot: { selectedDossierIds: ["openai-chat"] },
+      projectId: "project-1",
+    });
+    expect(await res.json()).toMatchObject({ passed: true, promoted: true });
   });
 
   it("keeps the F2 design lane (client checks) for a design-stage version — no regression (M#p4qg)", async () => {
@@ -660,6 +872,129 @@ describe("POST quality-gate", () => {
     expect(body.advisoryChecks).toEqual(["typecheck"]);
   });
 
+  it("deterministic F3 integrationsBuild keeps a typecheck failure hard and never promotes", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        {
+          check: "typecheck",
+          passed: false,
+          exitCode: 2,
+          output: "app/page.tsx(1,1): error TS2339: Property missing",
+          durationMs: 12,
+        },
+      ],
+      verifyLaneDurationMs: 12,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.012Z",
+    });
+    qualityGateAllPassed.mockReturnValue(false);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-1",
+          gate: "integrationsBuild",
+          checks: ["typecheck"],
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([
+      ...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+    ]);
+    expect(failVersionVerification).toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.promoted).toBe(false);
+    expect(body.designAdvisory).toBeUndefined();
+  });
+
+  it.each(["build", "lint"] as const)(
+    "deterministic F3 integrationsBuild keeps %s failure hard and never promotes",
+    async (failedCheck) => {
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+        version: {
+          id: "ver-1",
+          lifecycle_stage: "integrations",
+          parent_version_id: "ver-f2",
+        },
+      });
+      getVersionFiles.mockResolvedValue([
+        { path: "app/page.tsx", content: "export default function Page(){}" },
+      ]);
+      isQualityGateConfigured.mockReturnValue(true);
+      buildExportableProject.mockResolvedValue([
+        { path: "app/page.tsx", content: "export default function Page(){}" },
+      ]);
+      exportableToQualityGateFiles.mockReturnValue([
+        { name: "app/page.tsx", content: "export default function Page(){}" },
+      ]);
+      runQualityGateChecks.mockResolvedValue({
+        results: [
+          {
+            check: failedCheck,
+            passed: false,
+            exitCode: 1,
+            output: `${failedCheck} failed`,
+            durationMs: 12,
+          },
+        ],
+        verifyLaneDurationMs: 12,
+        firstFailureCheck: failedCheck,
+        jobStartedAt: "2026-04-13T10:00:00.000Z",
+        jobFinishedAt: "2026-04-13T10:00:00.012Z",
+      });
+      qualityGateAllPassed.mockReturnValue(false);
+      buildServerVerifyQualityGateMeta.mockReturnValue({});
+      getLatestVersion.mockResolvedValue({ id: "ver-1" });
+
+      const res = await POST(
+        new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId: "ver-1",
+            gate: "integrationsBuild",
+          }),
+        }),
+        { params: Promise.resolve({ chatId: "chat-1" }) },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(failVersionVerification).toHaveBeenCalled();
+      expect(promoteVersion).not.toHaveBeenCalled();
+      expect(body).toMatchObject({ passed: false, promoted: false });
+    },
+  );
+
   it("F2: a build failure stays HARD (not advisory) — no false-green", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
@@ -709,8 +1044,12 @@ describe("POST quality-gate", () => {
 
   it("F3: a typecheck failure stays HARD (never advisory)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      chat: { id: "chat-1" },
-      version: { id: "ver-1", lifecycle_stage: "integrations" },
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
     });
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){}" },
@@ -737,7 +1076,11 @@ describe("POST quality-gate", () => {
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+        body: JSON.stringify({
+          versionId: "ver-1",
+          gate: "integrationsBuild",
+          checks: ["typecheck"],
+        }),
       }),
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );

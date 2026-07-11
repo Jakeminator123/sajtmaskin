@@ -30,6 +30,7 @@ Den här filen är en tunn orientering. Den ska inte ersätta `rg`, IDE-index el
 | Follow-up stream | `src/app/api/engine/chats/[chatId]/stream/`, `src/lib/api/engine/chats/chat-message-stream-post.ts` |
 | Quality gate route | `src/app/api/engine/chats/[chatId]/quality-gate/` |
 | Finalize design / F3 | `src/app/api/engine/chats/[chatId]/finalize-design/` |
+| F3 klientorkestrering | `src/lib/builder/f3-finalize-action.ts`, `src/components/builder/F3RequirementsSurface.tsx`, `src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx` |
 | Preview session | `src/app/api/engine/chats/[chatId]/preview-session/` |
 | Quick edit route | `src/app/api/engine/chats/[chatId]/quick-edit/` |
 | Byggblock-panel (dossiers) | `GET /api/engine/chats/[chatId]/dossiers` (inkopplade per version) · `GET /api/dossiers/catalog` (hela katalogen, statisk) · UI: `src/components/builder/preview-panel/PreviewPanelDossiers.tsx` |

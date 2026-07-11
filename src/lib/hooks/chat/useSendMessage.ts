@@ -20,6 +20,8 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
+import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
+import { dispatchF3Requirements } from "@/lib/builder/project-env-events";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -65,6 +67,7 @@ export function useSendMessage(
     setPreviewPending,
     onPreviewRefresh,
     onVersionStatusRefresh,
+    onDeterministicF3Settled,
     onGenerationComplete,
     onPreviewSessionMeta,
     setMessages,
@@ -333,6 +336,107 @@ export function useSendMessage(
           } catch {
             // ignore
           }
+          if (
+            response.status === 412 &&
+            errorData?.error === "tier3_env_not_ready" &&
+            typeof errorData.parentVersionId === "string" &&
+            Array.isArray(errorData.missingByIntegration)
+          ) {
+            dispatchF3Requirements({
+              parentVersionId: errorData.parentVersionId,
+              projectId:
+                typeof errorData.projectId === "string"
+                  ? errorData.projectId
+                  : null,
+              missingByIntegration: errorData.missingByIntegration.filter(
+                (entry): entry is {
+                  key: string;
+                  name: string;
+                  missing: string[];
+                } =>
+                  Boolean(
+                    entry &&
+                      typeof entry === "object" &&
+                      typeof (entry as Record<string, unknown>).key === "string" &&
+                      typeof (entry as Record<string, unknown>).name === "string" &&
+                      Array.isArray(
+                        (entry as Record<string, unknown>).missing,
+                      ),
+                  ),
+              ),
+            });
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessageId
+                  ? {
+                      ...message,
+                      content:
+                        "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
+                      isStreaming: false,
+                    }
+                  : message,
+              ),
+            );
+            return;
+          }
+          if (
+            response.status === 409 &&
+            errorData?.error === "f3_deterministic_release_required" &&
+            typeof errorData.parentVersionId === "string"
+          ) {
+            const release = await runF3FinalizeAction({
+              chatId,
+              parentVersionId: errorData.parentVersionId,
+            });
+            let content: string;
+            if (release.kind === "deterministic_release") {
+              onDeterministicF3Settled?.({
+                versionId: release.versionId,
+                selectVersion: !release.superseded,
+              });
+              if (release.ok) {
+                content = release.alreadyPromoted
+                  ? "F3-versionen var redan godkänd av ReleaseGate."
+                  : "F3-versionen skapades från exakt samma filer och godkändes av ReleaseGate.";
+                toast.success("ReleaseGate godkänd.");
+              } else if (release.superseded) {
+                content =
+                  "F3-versionen ersattes av en nyare version innan ReleaseGate kunde promotera den.";
+                toast.warning("F3-versionen ersattes av en nyare version.");
+              } else {
+                const failed = release.failedChecks.join(", ");
+                content = release.promoteError || release.retryable
+                  ? "ReleaseGate kunde inte slutföra promotion. Försök igen."
+                  : failed
+                    ? `ReleaseGate underkände: ${failed}.`
+                    : "ReleaseGate blev inte godkänd. Se versionsdiagnostiken.";
+                toast.warning("ReleaseGate behöver åtgärdas.");
+              }
+            } else if (release.kind === "missing_env") {
+              dispatchF3Requirements({
+                parentVersionId: release.parentVersionId,
+                projectId: release.projectId,
+                missingByIntegration: release.missingByIntegration,
+              });
+              content =
+                "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
+              toast.warning("F3 saknar obligatoriska env-värden.");
+            } else {
+              content =
+                release.kind === "error"
+                  ? release.message
+                  : "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
+              toast.warning("F3-kontrollen kunde inte slutföras.");
+            }
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, content, isStreaming: false }
+                  : message,
+              ),
+            );
+            return;
+          }
           // 5-2 stale-base gate (client half): the server already has a newer
           // version than the one this request was built against. Surface a
           // reload hint and refresh the version list instead of falling
@@ -485,6 +589,7 @@ export function useSendMessage(
       setPreviewProdBuild,
       onPreviewRefresh,
       onVersionStatusRefresh,
+      onDeterministicF3Settled,
       onGenerationComplete,
       onPreviewSessionMeta,
       selectedModelTier,

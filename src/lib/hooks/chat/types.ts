@@ -264,6 +264,11 @@ export type ChatMessagingParams = {
    * late `version.degraded` from `/product-postcheck`. Stable callback.
    */
   onVersionStatusRefresh?: () => void;
+  /** Select and refresh a deterministic exact-file F3 fork after ReleaseGate settles. */
+  onDeterministicF3Settled?: (payload: {
+    versionId: string;
+    selectVersion: boolean;
+  }) => void;
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;
