@@ -36,6 +36,30 @@ describe("appendPostCheckSummaryToMessage", () => {
     expect(appendSummary(content)).toBe(content);
   });
 
+  it("keeps warnings visible while omitting the generated file diff", () => {
+    const content = '```tsx file="src/app/page.tsx"\nexport default function Page() {}\n```';
+    const warningSummary = `${summary}\nVarning: Preview blockerades i preflight.\nStatus: Preview-klar`;
+
+    let messages: ChatMessage[] = [
+      {
+        id: "assistant_1",
+        role: "assistant",
+        content,
+        isStreaming: false,
+        uiParts: [],
+      },
+    ];
+    const setMessages: SetMessages = (next) => {
+      messages = typeof next === "function" ? next(messages) : next;
+    };
+
+    appendPostCheckSummaryToMessage(setMessages, "assistant_1", warningSummary);
+
+    expect(messages[0]?.content).toBe(
+      `${content}\n[Post-check]\nVarning: Preview blockerades i preflight.\nStatus: Preview-klar`,
+    );
+  });
+
   it.each([
     "Här är ett exempel på en vanlig kodfence:",
     "```ts\nconst file = 'src/app/page.tsx';\n```",
