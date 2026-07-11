@@ -2124,6 +2124,20 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     // konsumeras här (injektionsbeslutet) och strippas ALLTID från
     // upstream-URL:en, även när injektion inte är möjlig (Codex P2).
     rewriteRequestUrl(req, info.chatId, info.restPath, stripInspectParam(search));
+    // Spegla WS-pathens Origin-strip (proxyPreviewUpgrade, se kommentar där):
+    // Next 16:s `blockCrossSiteDEV` 403:ar även HTTP-requests till interna
+    // Next-paths (`/_next/*`, `/__nextjs*`) vars `Origin` (Fly-hosten) inte
+    // matchar dev-serverns host (127.0.0.1) eller `allowedDevOrigins`. Syns bl.a.
+    // som 403 på dev-overlayns `/__nextjs_font/geist-latin.woff2` (root-absolut
+    // via Referer-fallbacken). Origin-lösa requests tillåts av Next, så vi
+    // strippar headern för interna paths. App-egna endpoints lämnas orörda.
+    if (
+      isHmrPath(info.restPath) ||
+      info.restPath.startsWith("/_next/") ||
+      info.restPath.startsWith("/__nextjs")
+    ) {
+      delete req.headers.origin;
+    }
     if (inspectTag) {
       // Buffra svaret själva (proxyRes-handlern injicerar scriptet före </body>).
       req.__inspectInjectTag = inspectTag;

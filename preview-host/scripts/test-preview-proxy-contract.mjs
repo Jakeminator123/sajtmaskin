@@ -17,7 +17,11 @@ process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
 
 let upstreamUpgradeHits = 0;
-const upstream = http.createServer((_req, res) => {
+let lastUpstreamHeaders = null;
+let lastUpstreamUrl = null;
+const upstream = http.createServer((req, res) => {
+  lastUpstreamHeaders = req.headers;
+  lastUpstreamUrl = req.url;
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   res.end("<!doctype html><html><body>SKELETON_OR_LAST_GOOD_HTML</body></html>");
 });
@@ -89,6 +93,25 @@ async function html(pathname) {
 async function json(pathname) {
   const response = await fetch(`${hostBase}${pathname}`);
   return { status: response.status, body: await response.json() };
+}
+
+// Raw request so we can set the (browser-forbidden) `Origin` header, which
+// undici `fetch` would silently drop.
+function rawGet(pathname, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: "127.0.0.1", port: hostAddress.port, path: pathname, method: "GET", headers },
+      (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () =>
+          resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString("utf8") }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 async function websocketHandshake(pathname) {
@@ -207,6 +230,60 @@ try {
   );
   assert.equal(ordinaryStatus.body.running, true);
 
+  // Origin-strip contract (HTTP path mirrors the WS upgrade path): internal
+  // Next-paths must reach upstream WITHOUT an `Origin` header so Next 16's
+  // `blockCrossSiteDEV` does not 403 dev-overlay assets (e.g. the root-absolute
+  // `/__nextjs_font/geist-latin.woff2`). App-owned routes keep their `Origin`.
+  // Each case asserts the request actually reached upstream (status 200 +
+  // recorded url) so the "Origin is undefined" checks cannot pass falsely on a
+  // request that never got proxied (e.g. a 404/starting page).
+  runtime.__testing.clearRuntimeStateForTesting(ordinary.chatId, ordinary.sessionId);
+  const originSession = writeSession({ chatId: "origin-strip" });
+  const flyOrigin = "https://vm-fly-jakem.fly.dev";
+
+  // (a) chatId-prefixed internal asset -> Origin stripped before upstream.
+  lastUpstreamHeaders = null;
+  lastUpstreamUrl = null;
+  const nextAsset = await rawGet(`/${originSession.chatId}/_next/static/chunk.js`, {
+    Origin: flyOrigin,
+  });
+  assert.equal(nextAsset.status, 200);
+  assert.equal(lastUpstreamUrl, `/${originSession.chatId}/_next/static/chunk.js`);
+  assert.equal(
+    lastUpstreamHeaders?.origin,
+    undefined,
+    "internal /_next path must have Origin stripped before upstream",
+  );
+
+  // (b) Root-absolute dev-overlay font (no chatId prefix) resolved via the
+  // Referer fallback -> proxied to the chat's runtime with Origin stripped.
+  // This is the real repro from the console 403 report.
+  lastUpstreamHeaders = null;
+  lastUpstreamUrl = null;
+  const overlayFont = await rawGet(`/__nextjs_font/geist-latin.woff2`, {
+    Origin: flyOrigin,
+    Referer: `${hostBase}/${originSession.chatId}/`,
+  });
+  assert.equal(overlayFont.status, 200);
+  assert.equal(lastUpstreamUrl, `/${originSession.chatId}/__nextjs_font/geist-latin.woff2`);
+  assert.equal(
+    lastUpstreamHeaders?.origin,
+    undefined,
+    "referer-fallback /__nextjs path must have Origin stripped before upstream",
+  );
+
+  // (c) App-owned route -> Origin preserved (only Next-internal paths stripped).
+  lastUpstreamHeaders = null;
+  lastUpstreamUrl = null;
+  const appRoute = await rawGet(`/${originSession.chatId}/api/data`, { Origin: flyOrigin });
+  assert.equal(appRoute.status, 200);
+  assert.equal(lastUpstreamUrl, `/${originSession.chatId}/api/data`);
+  assert.equal(
+    lastUpstreamHeaders?.origin,
+    flyOrigin,
+    "app-owned route must keep its Origin header",
+  );
+
   console.log("[test-preview-proxy-contract] All proxy contracts green.");
 } finally {
   for (const chatId of [
@@ -215,6 +292,7 @@ try {
     "replacement-running",
     "replacement-failed",
     "ordinary-last-good",
+    "origin-strip",
   ]) {
     runtime.__testing.clearRuntimeStateForTesting(chatId, `session-${chatId}`);
   }
