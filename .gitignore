@@ -132,6 +132,7 @@ Thumbs.db
 .vscode.bak/
 # Cursor-specific (plans are session-specific)
 .cursor/plans/
+/*.plan.md
 .cursor/documents/
 # Local Cursor MCP (IDE only; not read by Next/own-engine). May hold tokens or machine paths; template: .cursor/mcp.json.example
 .cursor/mcp.json
@@ -290,6 +291,3 @@ scratch-*.json
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
-# (.vercel is ignored once near the top under "# Vercel".)
-
-.vercel
