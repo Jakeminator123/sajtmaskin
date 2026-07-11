@@ -920,6 +920,106 @@ describe("POST /api/v0/deployments", () => {
     );
   });
 
+  it("prefers the latest deployment project over a stale app-project cache", async () => {
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit: vi.fn(async () => undefined),
+      refund: vi.fn(async () => undefined),
+    }));
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Republished site",
+      vercel_project_id: "vp_stale",
+      vercel_project_name: "stale-provider-project",
+      custom_domain: "republished.example",
+      custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+    });
+    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_fresh",
+      name: "fresh-provider-project",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_fresh",
+      url: "fresh-provider-project.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(ensureVercelProject).toHaveBeenCalledWith(
+      expect.any(String),
+      "vp_fresh",
+    );
+    expect(checkVercelProjectDomain).toHaveBeenCalledWith(
+      "vp_fresh",
+      "republished.example",
+    );
+    expect(setProjectVercelLink).toHaveBeenCalledWith(
+      "proj_1",
+      expect.objectContaining({
+        vercelProjectId: "vp_fresh",
+        vercelProjectName: "fresh-provider-project",
+      }),
+    );
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_1",
+      "ready",
+      expect.objectContaining({ vercelProjectId: "vp_fresh" }),
+    );
+  });
+
+  it("falls back to the app-project cache when deployment lookup is unavailable", async () => {
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit: vi.fn(async () => undefined),
+      refund: vi.fn(async () => undefined),
+    }));
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Cached site",
+      vercel_project_id: "vp_cached",
+      vercel_project_name: "cached-provider-project",
+    });
+    getLatestVercelProjectIdForChat.mockRejectedValue(new Error("transient db read"));
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_cached",
+      name: "cached-provider-project",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_cached",
+      url: "cached-provider-project.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(ensureVercelProject).toHaveBeenCalledWith(
+      expect.any(String),
+      "vp_cached",
+    );
+  });
+
   it("provisions and verifies the branded alias before exposing it as liveUrl", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");

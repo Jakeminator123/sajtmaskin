@@ -804,9 +804,15 @@ export async function POST(req: Request) {
               engineProjectId,
             ),
         );
+        // The latest actual deployment is canonical. `app_projects` is only a
+        // best-effort cache and can be stale when a previous link write failed.
+        const latestDeploymentVercelProjectId =
+          (
+            await getLatestVercelProjectIdForChat(chatId).catch(() => null)
+          )?.trim() || null;
         const existingVercelProjectId =
+          latestDeploymentVercelProjectId ||
           ownedProject.vercel_project_id?.trim() ||
-          (await getLatestVercelProjectIdForChat(chatId)) ||
           null;
         const currentCustomDomain = ownedProject.custom_domain?.trim() || null;
         let currentCustomDomainVerifiedAt =

@@ -119,9 +119,9 @@ export async function updateDeploymentStatus(
 }
 
 /**
- * The Vercel project id from the most relevant deployment of a chat. Fallback
- * source for domain-linking when the app_projects row has no persisted link
- * yet (e.g. sites published before the link column existed). Prefers a `ready`
+ * The canonical Vercel project id from the most relevant deployment of a chat.
+ * Used before the best-effort `app_projects` cache by deploy/domain resolution,
+ * including sites published before the cache column existed. Prefers a `ready`
  * deployment; otherwise takes the most recent one that carries a project id.
  */
 export async function getLatestVercelProjectIdForChat(
