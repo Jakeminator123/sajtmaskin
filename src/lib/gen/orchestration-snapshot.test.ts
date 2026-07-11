@@ -100,8 +100,7 @@ describe("mergePersistedOrchestrationSnapshots", () => {
     });
   });
 
-  it("keeps the removal tombstone durable when a later neutral round carries an empty list", () => {
-    // Round after a removal that emptied the floor.
+  it("keeps the removal tombstone durable across a neutral follow-up", () => {
     const afterRemoval = mergePersistedOrchestrationSnapshots(
       { requestedCapabilities: ["payments"] },
       { requestedCapabilities: [], removedCapabilities: ["payments"] },
@@ -115,20 +114,37 @@ describe("mergePersistedOrchestrationSnapshots", () => {
     expect(afterNeutral.removedCapabilities).toEqual(["payments"]);
   });
 
-  it("clears the tombstone for a capability the current round re-adds to the floor", () => {
-    const afterRemoval = {
-      requestedCapabilities: [],
-      removedCapabilities: ["payments"],
-    };
-    const afterReadd = mergePersistedOrchestrationSnapshots(afterRemoval, {
+  it("does NOT clear the tombstone when the capability merely reappears in the floor", () => {
+    // The floor can carry a capability back from brief / file-evidence /
+    // F3-approval / inference — that must NEVER clear a durable removal (Codex
+    // P1 on #494: "Do not clear tombstones from repopulated floors").
+    const afterRemoval = { requestedCapabilities: [], removedCapabilities: ["payments"] };
+    const floorRepopulated = mergePersistedOrchestrationSnapshots(afterRemoval, {
       requestedCapabilities: ["payments"],
       removedCapabilities: [],
     });
-    expect(afterReadd.removedCapabilities).toEqual([]);
-    expect(afterReadd.requestedCapabilities).toEqual(["payments"]);
+    expect(floorRepopulated.removedCapabilities).toEqual(["payments"]);
   });
 
-  it("does not add a removedCapabilities key to snapshots that never removed anything", () => {
+  it("clears the tombstone ONLY via an explicit current-round re-add signal", () => {
+    const afterRemoval = { requestedCapabilities: [], removedCapabilities: ["payments"] };
+    const afterReadd = mergePersistedOrchestrationSnapshots(afterRemoval, {
+      requestedCapabilities: ["payments"],
+      removedCapabilities: [],
+      readdedCapabilities: ["payments"],
+    });
+    expect(afterReadd.removedCapabilities).toEqual([]);
+  });
+
+  it("normalizes removed + readded to trimmed lowercase", () => {
+    const out = mergePersistedOrchestrationSnapshots(
+      { removedCapabilities: ["Payments", "AUTH"] },
+      { removedCapabilities: [], readdedCapabilities: ["  auth  "] },
+    );
+    expect(out.removedCapabilities).toEqual(["payments"]);
+  });
+
+  it("does not add a removedCapabilities key to snapshots that never touched capabilities", () => {
     const out = mergePersistedOrchestrationSnapshots({ a: 1 }, { b: 2 });
     expect("removedCapabilities" in out).toBe(false);
   });
@@ -149,7 +165,7 @@ describe("capability-removal durability (resurrection regression)", () => {
       priorQualityTarget: null,
     }).capabilities;
 
-  it("keeps an emptied-floor removal gone across a neutral follow-up, and restores on re-add", () => {
+  it("keeps an emptied-floor removal gone across neutral follow-ups (durable)", () => {
     const init = {
       requestedCapabilities: ["payments"],
       briefSummary: { requestedCapabilities: ["payments"] },
@@ -162,27 +178,92 @@ describe("capability-removal durability (resurrection regression)", () => {
       capturedAt: "2026-07-11T10:05:00Z",
     });
     expect(capsOf(round1)).toEqual([]);
-    // "gör rubriken större" — neutral; must stay removed (was resurrection).
+    // "gör rubriken större" — neutral; must stay removed (was the resurrection).
     const round2 = mergePersistedOrchestrationSnapshots(round1, {
       requestedCapabilities: [],
       removedCapabilities: [],
       capturedAt: "2026-07-11T10:10:00Z",
     });
     expect(capsOf(round2)).toEqual([]);
-    // Second neutral round — still gone.
     const round3 = mergePersistedOrchestrationSnapshots(round2, {
       requestedCapabilities: [],
       removedCapabilities: [],
       capturedAt: "2026-07-11T10:15:00Z",
     });
     expect(capsOf(round3)).toEqual([]);
-    // "lägg tillbaka Stripe" — floor re-adds payments; tombstone clears.
-    const round4 = mergePersistedOrchestrationSnapshots(round3, {
+    expect(round3.removedCapabilities).toEqual(["payments"]);
+  });
+
+  it("does NOT resurrect at F3 when the floor repopulates without an explicit re-add", () => {
+    // The exact Codex-P1 case: F3 lifts the F2 integration-mute and the brief
+    // re-populates the floor with the removed capability. With no explicit
+    // re-add, it must stay removed — both the tombstone AND effective caps.
+    const removed = mergePersistedOrchestrationSnapshots(
+      {
+        requestedCapabilities: ["payments"],
+        briefSummary: { requestedCapabilities: ["payments"] },
+        capturedAt: "2026-07-11T10:00:00Z",
+      },
+      {
+        requestedCapabilities: [],
+        removedCapabilities: ["payments"],
+        capturedAt: "2026-07-11T10:05:00Z",
+      },
+    );
+    expect(capsOf(removed)).toEqual([]);
+    const f3FloorRepopulated = mergePersistedOrchestrationSnapshots(removed, {
       requestedCapabilities: ["payments"],
       removedCapabilities: [],
+      capturedAt: "2026-07-11T10:10:00Z",
+    });
+    expect(f3FloorRepopulated.removedCapabilities).toEqual(["payments"]);
+    expect(capsOf(f3FloorRepopulated)).toEqual([]);
+  });
+
+  it("filters stale F3 approvals by the durable tombstone (approval-path resurrection)", () => {
+    // A stale approval left in the snapshot (append-only union) must not re-open
+    // the F3 explicit scope for a removed capability — that path bypasses
+    // `capabilities` entirely via scopeF3DossierCapabilities.
+    const contract = buildFollowUpContract({
+      snapshot: {
+        requestedCapabilities: [],
+        removedCapabilities: ["payments"],
+        f3ApprovedCapabilities: ["payments", "auth"],
+        f3ApprovedProviders: ["stripe", "clerk"],
+      },
+      persistedScaffoldId: null,
+      persistedVariantId: null,
+      existingRoutePaths: [],
+      existingShellRoutePaths: [],
+      priorQualityTarget: null,
+    });
+    expect(contract.f3ApprovedCapabilities).toEqual(["auth"]);
+    expect(contract.capabilities).toEqual([]);
+  });
+
+  it("restores a removed capability only after an explicit re-add signal", () => {
+    const removed = mergePersistedOrchestrationSnapshots(
+      {
+        requestedCapabilities: ["payments"],
+        briefSummary: { requestedCapabilities: ["payments"] },
+        capturedAt: "2026-07-11T10:00:00Z",
+      },
+      {
+        requestedCapabilities: [],
+        removedCapabilities: ["payments"],
+        capturedAt: "2026-07-11T10:05:00Z",
+      },
+    );
+    expect(capsOf(removed)).toEqual([]);
+    // "lägg tillbaka Stripe" — explicit readd clears the tombstone.
+    const readded = mergePersistedOrchestrationSnapshots(removed, {
+      requestedCapabilities: ["payments"],
+      removedCapabilities: [],
+      readdedCapabilities: ["payments"],
       capturedAt: "2026-07-11T10:20:00Z",
     });
-    expect(capsOf(round4)).toEqual(["payments"]);
+    expect(readded.removedCapabilities).toEqual([]);
+    expect(capsOf(readded)).toEqual(["payments"]);
   });
 
   it("still inherits brief capabilities for an ordinary F2 snapshot that never removed anything", () => {

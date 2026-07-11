@@ -248,3 +248,89 @@ describe("detectCapabilityRemoval — clause scoping (Codex on #447)", () => {
     ).toEqual(["payments"]);
   });
 });
+
+describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activation)", () => {
+  it("surfaces an explicit re-add with no removal verb", () => {
+    const result = detectCapabilityRemoval("Lägg tillbaka Stripe-betalningen");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual(["payments"]);
+  });
+
+  it("treats a plain add as a re-add signal", () => {
+    const result = detectCapabilityRemoval("Lägg till Stripe-betalning");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual(["payments"]);
+  });
+
+  it("a pure removal yields no readd", () => {
+    const result = detectCapabilityRemoval("Ta bort Stripe-betalningen");
+    expect(result.removedCapabilities).toEqual(["payments"]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a neutral edit yields neither removal nor readd", () => {
+    const result = detectCapabilityRemoval("Gör rubriken större");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a provider swap vetoes removal but is NOT an explicit re-add", () => {
+    // "använd Klarna i stället" is additive (vetoes the removal) — but `använd`
+    // is a descriptive verb, not an intentional re-add, so no tombstone-clear.
+    const result = detectCapabilityRemoval(
+      "Ta bort Stripe och använd Klarna i stället",
+    );
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("descriptive 'använd/use' never produces a readd (would resurrect)", () => {
+    expect(
+      detectCapabilityRemoval("Jag vill inte använda Stripe").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("We use Stripe for branding").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("negated or 'without'-clauses never produce a readd", () => {
+    expect(
+      detectCapabilityRemoval("Skapa en sida utan betalning").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Don't add Stripe to the site").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("a UI-control compound is neither removal nor readd", () => {
+    const result = detectCapabilityRemoval("Lägg till checkout-knappen i menyn");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a UI selector mention is layout work, not a payments re-add", () => {
+    const result = detectCapabilityRemoval("Add a drop-down checkout selector");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("everyday re-enable phrasings count as re-adds", () => {
+    expect(
+      detectCapabilityRemoval("Aktivera Stripe-betalningen igen").readdedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Restore the Stripe checkout").readdedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Bring back the Stripe payment flow").readdedCapabilities,
+    ).toEqual(["payments"]);
+  });
+
+  it("handles a compound re-add + removal of different capabilities in one prompt", () => {
+    const result = detectCapabilityRemoval(
+      "Lägg tillbaka Stripe-betalningen och ta bort inloggningen",
+    );
+    expect(result.readdedCapabilities).toEqual(["payments"]);
+    expect(result.removedCapabilities).toContain("auth");
+  });
+});

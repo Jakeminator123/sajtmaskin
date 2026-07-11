@@ -491,6 +491,12 @@ export interface OrchestrationBase {
   dossierRequestedCapabilities: string[];
   /** Explicit integration capabilities removed by this follow-up. */
   removedCapabilities?: string[];
+  /**
+   * Explicit integration capabilities re-activated by this follow-up ("lägg
+   * tillbaka Stripe"). Threaded to the persisted snapshot so it — and only it —
+   * clears a durable removal tombstone; the derived floor never does.
+   */
+  readdedCapabilities?: string[];
   /** File-evidenced dossier ids whose owned files must be deleted at merge. */
   removedDossierIds?: string[];
   /** Durable F3 approvals after explicit-removal subtraction. */
@@ -1120,8 +1126,9 @@ export async function resolveOrchestrationBase(
   const capabilityRemoval =
     resolvedMode === "followUp"
       ? detectCapabilityRemoval(capabilityRemovalPrompt)
-      : { removedCapabilities: [], matchedKeywords: [] };
+      : { removedCapabilities: [], readdedCapabilities: [], matchedKeywords: [] };
   const removedCapabilities = capabilityRemoval.removedCapabilities;
+  const readdedCapabilities = capabilityRemoval.readdedCapabilities;
   const capabilities = suppressRemovedInferredCapabilities(
     inferredCapabilities,
     removedCapabilities,
@@ -1711,6 +1718,7 @@ export async function resolveOrchestrationBase(
     uiRecipes,
     dossierRequestedCapabilities,
     removedCapabilities,
+    readdedCapabilities,
     removedDossierIds,
     f3ApprovedCapabilities,
     f3ApprovedProviders,

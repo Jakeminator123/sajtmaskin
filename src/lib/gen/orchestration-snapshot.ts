@@ -155,24 +155,32 @@ export function mergePersistedOrchestrationSnapshots(
   }
   // Durable capability-removal tombstone (resurrection fix). `removedCapabilities`
   // is round-scoped (recomputed from each prompt), and the shallow `{...base,
-  // ...next}` above lets a later neutral round's empty list wipe an earlier
-  // removal. Once wiped, `buildFollowUpContract` sees an empty floor with no
-  // explicit-removal tombstone and re-inherits the removed capability from the
-  // persisted brief — confirmed for the "removed the only integration" case
-  // (empty floor). Keep the mark durable: union prior + this round's removals,
-  // then drop anything the current round re-added to the floor
-  // (`requestedCapabilities`) so an explicit re-add ("lägg tillbaka Stripe") or
-  // an F3 approval that repopulates the floor clears it. Only written when a
-  // removal signal exists on either side, so snapshots that never removed
-  // anything stay byte-identical (ordinary F2→F3 brief-inheritance is untouched).
-  if ("removedCapabilities" in base || "removedCapabilities" in next) {
-    const floor = new Set(normalizeCapabilityList(merged.requestedCapabilities));
+  // ...next}` above let a later neutral round's empty list wipe an earlier
+  // removal — after which `buildFollowUpContract` saw an empty floor with no
+  // explicit-removal tombstone and re-inherited the removed capability from the
+  // persisted brief (the resurrection). Accumulate the mark as a durable
+  // set-union so removal survives neutral rounds, and clear a capability ONLY
+  // when the current round EXPLICITLY re-added it (`readdedCapabilities`, e.g.
+  // "lägg tillbaka Stripe"). The derived floor (`requestedCapabilities`) must
+  // NOT clear it: the floor can carry a capability back in from brief,
+  // file-evidence, an F3-approval or inference, which would silently resurrect a
+  // removed integration at F2→F3 or when file evidence reappears (Codex P1 +
+  // coach review on #494). Written only when a capability-signal KEY exists on
+  // either side. Note: production stream-meta always carries the keys (as []),
+  // so in practice this runs on every follow-up merge — harmless, since every
+  // consumer gates on `length > 0`, and an empty tombstone never suppresses.
+  const hasCapabilitySignal =
+    "removedCapabilities" in base ||
+    "removedCapabilities" in next ||
+    "readdedCapabilities" in next;
+  if (hasCapabilitySignal) {
+    const readded = new Set(normalizeCapabilityList(next.readdedCapabilities));
     const unioned = new Set([
       ...normalizeCapabilityList(base.removedCapabilities),
       ...normalizeCapabilityList(next.removedCapabilities),
     ]);
     merged.removedCapabilities = Array.from(unioned).filter(
-      (capability) => !floor.has(capability),
+      (capability) => !readded.has(capability),
     );
   }
   return merged;
@@ -538,11 +546,27 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
   // Empty is authoritative only with an explicit-removal tombstone. Ordinary
   // F2 snapshots intentionally mute integrations at the top level and must
   // still inherit them from the brief when the user later enters F3.
-  const inheritedCapabilities =
+  const inheritedFloor =
     Array.isArray(topLevelRaw) &&
     (mergedCapabilities.length > 0 || hasExplicitRemoval)
     ? mergedCapabilities
     : briefCapabilities;
+  // Durable-removal override (Codex P1 + coach review on #494): a capability in
+  // the persisted removal tombstone stays OUT of the effective capabilities even
+  // when the floor or brief carries it back — otherwise entering F3 (where the
+  // F2 integration-mute lifts and the brief re-populates the floor) or a
+  // reappearing file-evidence capability would silently resurrect a removed
+  // integration. The tombstone is only cleared by an explicit current-round
+  // re-add (`readdedCapabilities`, in `mergePersistedOrchestrationSnapshots`),
+  // so once the user says "lägg tillbaka Stripe" the capability flows again.
+  const removedTombstone = new Set(
+    normalizeCapabilityList(
+      (snapshot as Record<string, unknown> | null)?.removedCapabilities,
+    ),
+  );
+  const inheritedCapabilities = inheritedFloor.filter(
+    (capability) => !removedTombstone.has(capability.trim().toLowerCase()),
+  );
   return {
     baseVersionId: readSnapshotString(snapshot, "lastVersionId"),
     snapshotBrief,
@@ -558,7 +582,13 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
     capabilities: [...inheritedCapabilities],
-    f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
+    // Same durable-removal override for approvals: a stale F3-approval left in
+    // the snapshot (append-only union) must not re-open the F3 explicit scope
+    // for a capability the user removed — that path bypasses `capabilities`
+    // entirely via `scopeF3DossierCapabilities` (granska-svärm on the readd fix).
+    f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities.filter(
+      (capability) => !removedTombstone.has(capability),
+    ),
     f3ApprovedProviders: readF3ApprovedFromSnapshot(snapshot).providers,
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
