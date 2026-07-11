@@ -1833,7 +1833,7 @@ function sendRuntimeStartingPage(res, session, options = {}) {
   return true;
 }
 
-function sendRuntimeReplacementErrorPage(res, session) {
+function sendHeldPreviewErrorPage(res, session) {
   if (!res || res.headersSent || res.writableEnded) return false;
   res.writeHead(503, {
     "content-type": "text/html; charset=utf-8",
@@ -1855,7 +1855,7 @@ function sendRuntimeReplacementErrorPage(res, session) {
   <body>
     <main>
       <h1>Preview kunde inte starta</h1>
-      <p class="muted">Den riktiga versionen misslyckades under uppstart. Försök igen från byggaren.</p>
+      <p class="muted">Uppstarten misslyckades. Försök igen från byggaren.</p>
       <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
       <p class="muted">Status: <code>error</code></p>
     </main>
@@ -1867,8 +1867,8 @@ function sendRuntimeReplacementErrorPage(res, session) {
 function refuseHeldPreviewUpgrade(socket, failed) {
   if (!socket || socket.destroyed) return;
   const message = failed
-    ? "Preview replacement failed; retry from the builder."
-    : "Preview is not public while prewarm replacement is pending.";
+    ? "Preview startup failed; retry from the builder."
+    : "Preview is not public while prewarm or replacement is pending.";
   const body = Buffer.from(message, "utf8");
   try {
     socket.end(
@@ -2078,10 +2078,9 @@ function shouldHoldPrewarmTraffic(state) {
   );
 }
 
-function isFailedPrewarmReplacement(state) {
+function isFailedPrewarmTraffic(state) {
   return Boolean(
-    state?.session?.prewarmReplacementPending === true &&
-      state.session.status === "error",
+    shouldHoldPrewarmTraffic(state) && state.session.status === "error",
   );
 }
 
@@ -2105,8 +2104,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   }
   if (!state.session) return false;
   if (shouldHoldPrewarmTraffic(state)) {
-    if (isFailedPrewarmReplacement(state)) {
-      sendRuntimeReplacementErrorPage(res, state.session);
+    if (isFailedPrewarmTraffic(state)) {
+      sendHeldPreviewErrorPage(res, state.session);
       return true;
     }
     if (!state.booting) {
@@ -2161,7 +2160,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     }
   }
   if (state.session && shouldHoldPrewarmTraffic(state)) {
-    const failed = isFailedPrewarmReplacement(state);
+    const failed = isFailedPrewarmTraffic(state);
     if (!failed && !state.booting) {
       queueRuntimeBoot(info.chatId, {
         restart: state.session.prewarmReplacementPending === true,

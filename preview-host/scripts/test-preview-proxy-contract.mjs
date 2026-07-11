@@ -122,6 +122,34 @@ try {
   assert.equal(upstreamUpgradeHits, 0);
 
   runtime.__testing.clearRuntimeStateForTesting(prewarm.chatId, prewarm.sessionId);
+  const failedPrewarm = writeSession({
+    chatId: "prewarm-failed",
+    prewarm: true,
+    status: "error",
+  });
+  const queuedBeforeFailedPrewarm = queuedBoots.length;
+  const failedPrewarmHtml = await html(`/${failedPrewarm.chatId}`);
+  assert.equal(failedPrewarmHtml.status, 503);
+  assert.match(failedPrewarmHtml.body, /Preview kunde inte starta/);
+  assert.doesNotMatch(failedPrewarmHtml.body, /http-equiv="refresh"/i);
+  assert.doesNotMatch(failedPrewarmHtml.body, /SKELETON_OR_LAST_GOOD_HTML/);
+  const failedPrewarmStatus = await json(
+    `/preview/session/${failedPrewarm.previewSessionId}/status`,
+  );
+  assert.equal(failedPrewarmStatus.body.status, "error");
+  assert.equal(failedPrewarmStatus.body.running, false);
+  assert.equal(queuedBoots.length, queuedBeforeFailedPrewarm);
+  const failedPrewarmWs = await websocketHandshake(
+    `/${failedPrewarm.chatId}/any-websocket`,
+  );
+  assert.match(failedPrewarmWs, /^HTTP\/1\.1 503 Service Unavailable/m);
+  assert.equal(queuedBoots.length, queuedBeforeFailedPrewarm);
+  assert.equal(upstreamUpgradeHits, 0);
+
+  runtime.__testing.clearRuntimeStateForTesting(
+    failedPrewarm.chatId,
+    failedPrewarm.sessionId,
+  );
   const replacement = writeSession({
     chatId: "replacement-running",
     prewarmReplacementPending: true,
@@ -183,6 +211,7 @@ try {
 } finally {
   for (const chatId of [
     "prewarm-running",
+    "prewarm-failed",
     "replacement-running",
     "replacement-failed",
     "ordinary-last-good",
