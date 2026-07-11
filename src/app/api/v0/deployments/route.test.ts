@@ -11,6 +11,7 @@ const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
 const getLinkedDomainForChat = vi.hoisted(() => vi.fn());
+const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
 const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
 const ensureVercelProjectDomain = vi.hoisted(() => vi.fn());
@@ -56,6 +57,7 @@ vi.mock("@/lib/deployment", () => ({
   createDeploymentRecord,
   updateDeploymentStatus,
   getLinkedDomainForChat,
+  getLatestVercelProjectIdForChat,
   setLatestDeploymentLiveUrlForChat,
 }));
 
@@ -127,6 +129,7 @@ describe("POST /api/v0/deployments", () => {
     // Default: ingen custom-domän kopplad (dagens beteende) → projektnamn-låset
     // (A2) släpper alltid igenom om inte ett test explicit kopplar en domän.
     getLinkedDomainForChat.mockResolvedValue(null);
+    getLatestVercelProjectIdForChat.mockResolvedValue(null);
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1", name: "Demo" });
     getProjectData.mockResolvedValue(null);
     getProjectById.mockResolvedValue(null);
@@ -871,6 +874,50 @@ describe("POST /api/v0/deployments", () => {
       chatId: "chat_1",
       versionId: "ver_1",
     });
+  });
+
+  it("reuses the latest deployment project when the app-project cache is missing", async () => {
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit: vi.fn(async () => undefined),
+      refund: vi.fn(async () => undefined),
+    }));
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Legacy site",
+      vercel_project_id: null,
+      vercel_project_name: null,
+    });
+    getLatestVercelProjectIdForChat.mockResolvedValue("vp_legacy");
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_legacy",
+      name: "legacy-provider-project",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_legacy",
+      url: "legacy-provider-project.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(ensureVercelProject).toHaveBeenCalledWith(
+      expect.any(String),
+      "vp_legacy",
+    );
+    expect(createVercelDeployment).toHaveBeenCalledWith(
+      expect.objectContaining({ projectName: "legacy-provider-project" }),
+    );
   });
 
   it("provisions and verifies the branded alias before exposing it as liveUrl", async () => {

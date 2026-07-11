@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import {
   createDeploymentRecord,
   getLinkedDomainForChat,
+  getLatestVercelProjectIdForChat,
   setLatestDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 } from "@/lib/deployment";
@@ -803,16 +804,20 @@ export async function POST(req: Request) {
               engineProjectId,
             ),
         );
+        const existingVercelProjectId =
+          ownedProject.vercel_project_id?.trim() ||
+          (await getLatestVercelProjectIdForChat(chatId)) ||
+          null;
         const currentCustomDomain = ownedProject.custom_domain?.trim() || null;
         let currentCustomDomainVerifiedAt =
           ownedProject.custom_domain_verified_at ?? null;
         if (
           currentCustomDomain &&
           currentCustomDomainVerifiedAt &&
-          ownedProject.vercel_project_id
+          existingVercelProjectId
         ) {
           const customDomainValid = await checkVercelProjectDomain(
-            ownedProject.vercel_project_id,
+            existingVercelProjectId,
             currentCustomDomain,
           );
           if (customDomainValid === false) {
@@ -840,7 +845,7 @@ export async function POST(req: Request) {
         }
         const ensuredProject = await ensureVercelProject(
           vercelProjectName,
-          ownedProject.vercel_project_id,
+          existingVercelProjectId,
         );
         const domainWarnings: string[] = [];
         let brandedDomainVerifiedAt = publishedIdentity.brandedDomainVerifiedAt;

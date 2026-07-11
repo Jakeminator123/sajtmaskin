@@ -12,8 +12,11 @@
 2. Peka `preview.sajtmaskin.se` till Fly-appen, lägg ett Fly-certifikat och verifiera `/health`.
 3. Konfigurera exakt Vercel/DNS-routing för `sites.sajtmaskin.se`.
 4. Sätt `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se`.
-5. Kör torr migrering: `npx tsx scripts/db/migrate-branded-live-urls.ts --limit=10`.
-6. Kör en staging-migrering med `--apply`, verifiera DNS/TLS och publicera om en sajt.
+5. Armera bara migreringsprocessen lokalt och kör torrt:
+   `$env:SAJTMASKIN_BRANDED_LIVE_URLS="true"; npx tsx scripts/db/migrate-branded-live-urls.ts --limit=10`.
+   Detta aktiverar inte Vercel-runtimen.
+6. Kör en staging-migrering i samma armerade shell med `--apply`, verifiera
+   DNS/TLS och publicera om en sajt.
 7. Sätt `SAJTMASKIN_BRANDED_LIVE_URLS=true` först i Development/Preview, därefter Production.
 8. Byt appens `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och Fly `PREVIEW_BASE_URL` till `https://preview.sajtmaskin.se`; sätt preview-host-allowlisten till exakt `preview.sajtmaskin.se`.
 
