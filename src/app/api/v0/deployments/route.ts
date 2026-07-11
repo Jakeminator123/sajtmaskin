@@ -69,9 +69,18 @@ import { resolveDeploySeoOptions } from "./resolve-seo";
 import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "./env-degradation-warnings";
-import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  getBrandedLiveSiteDomain,
+  normalizeDomainHostname,
+  resolveLiveUrl,
+} from "@/lib/live-site-url";
 
 export const runtime = "nodejs";
+
+function resolveLegacyProviderUrl(value: string | null | undefined): string | null {
+  const host = normalizeDomainHostname(value);
+  return host?.endsWith(".vercel.app") ? `https://${host}` : null;
+}
 
 type PreDeployDiagnostics = {
   files: Array<{ name: string; content: string }>;
@@ -1165,6 +1174,17 @@ export async function GET(req: Request) {
       const appProject = appProjectId
         ? await getProjectById(appProjectId).catch(() => null)
         : null;
+      const latestDeploymentVercelProjectId = internalChatId
+        ? (
+            await getLatestVercelProjectIdForChat(internalChatId).catch(
+              () => null,
+            )
+          )?.trim() || null
+        : null;
+      const effectiveVercelProjectId =
+        latestDeploymentVercelProjectId ||
+        appProject?.vercel_project_id?.trim() ||
+        null;
       let brandedDomainVerifiedAt =
         appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt =
@@ -1181,10 +1201,10 @@ export async function GET(req: Request) {
         appProjectId &&
         appProject?.custom_domain &&
         customDomainVerifiedAt &&
-        appProject.vercel_project_id
+        effectiveVercelProjectId
       ) {
         const configured = await checkVercelProjectDomain(
-          appProject.vercel_project_id,
+          effectiveVercelProjectId,
           appProject.custom_domain,
         );
         if (configured === false) {
@@ -1201,10 +1221,10 @@ export async function GET(req: Request) {
         appProject?.branded_domain &&
         !brandedDomainVerifiedAt &&
         shouldRecheckBrandedDomain &&
-        appProject.vercel_project_id
+        effectiveVercelProjectId
       ) {
         const configured = await checkVercelProjectDomain(
-          appProject.vercel_project_id,
+          effectiveVercelProjectId,
           appProject.branded_domain,
         );
         if (configured === true) {
@@ -1233,7 +1253,7 @@ export async function GET(req: Request) {
         }
       }
       const project = {
-        vercelProjectId: appProject?.vercel_project_id ?? null,
+        vercelProjectId: effectiveVercelProjectId,
         vercelProjectName: appProject?.vercel_project_name ?? null,
         publishedSlug: appProject?.published_slug ?? null,
         brandedDomain: appProject?.branded_domain ?? null,
@@ -1306,7 +1326,9 @@ export async function GET(req: Request) {
           refreshedById.set(latestRefreshCandidate.id, {
             status: mapped.status,
             providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
-            url: refreshedLiveUrl ?? latestRefreshCandidate.url ?? null,
+            url:
+              refreshedLiveUrl ??
+              resolveLegacyProviderUrl(latestRefreshCandidate.url),
             inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
             vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
           });
@@ -1332,7 +1354,7 @@ export async function GET(req: Request) {
                 customDomain: appProject?.custom_domain ?? null,
                 customDomainVerifiedAt,
               }) ??
-              d.url,
+              resolveLegacyProviderUrl(d.url),
             providerUrl: refreshed?.providerUrl ?? d.providerUrl,
             inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
             vercelDeploymentId: d.vercelDeploymentId,

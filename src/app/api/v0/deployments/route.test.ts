@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
-const deploymentRows = vi.hoisted(() => vi.fn(async () => []));
+const deploymentRows = vi.hoisted(() =>
+  vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
+);
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
@@ -1195,6 +1197,33 @@ describe("POST /api/v0/deployments", () => {
     expect(body.project.brandedDomainVerifiedAt).toBeTruthy();
   });
 
+  it("uses the latest deployment project for history domain reconciliation", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_stale",
+      vercel_project_name: "stale-provider-project",
+      custom_domain: "republished.example",
+      custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+    });
+    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+
+    const res = await GET(
+      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(checkVercelProjectDomain).toHaveBeenCalledWith(
+      "vp_fresh",
+      "republished.example",
+    );
+    const body = await res.json();
+    expect(body.project.vercelProjectId).toBe("vp_fresh");
+  });
+
   it("throttles pending branded-domain checks during repeated history reloads", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
@@ -1244,6 +1273,62 @@ describe("POST /api/v0/deployments", () => {
       "proj_1",
       "demo.sites.sajtmaskin.se",
     );
+  });
+
+  it("only falls back to legacy Vercel hosts in deployment history", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      branded_domain: "old.sites.sajtmaskin.se",
+      branded_domain_verified_at: null,
+      custom_domain: null,
+      custom_domain_verified_at: null,
+    });
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_stale_domain",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        status: "ready",
+        url: "https://old.sites.sajtmaskin.se",
+        providerUrl: null,
+        inspectorUrl: null,
+        vercelDeploymentId: null,
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-07-10T00:00:00Z"),
+        updatedAt: new Date("2026-07-10T00:00:00Z"),
+      },
+      {
+        id: "dep_legacy_provider",
+        chatId: "chat_1",
+        versionId: "ver_2",
+        status: "ready",
+        url: "legacy-provider.vercel.app",
+        providerUrl: null,
+        inspectorUrl: null,
+        vercelDeploymentId: null,
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-07-09T00:00:00Z"),
+        updatedAt: new Date("2026-07-09T00:00:00Z"),
+      },
+    ]);
+
+    const res = await GET(
+      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.deployments).toEqual([
+      expect.objectContaining({ id: "dep_stale_domain", url: null }),
+      expect.objectContaining({
+        id: "dep_legacy_provider",
+        url: "https://legacy-provider.vercel.app",
+      }),
+    ]);
   });
 
   // BUG-fix: the ZIP/download export already strips the generated F2
