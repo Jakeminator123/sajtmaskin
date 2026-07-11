@@ -333,6 +333,20 @@ describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activatio
     expect(result.readdedCapabilities).toEqual([]);
   });
 
+  it("restoring a checkout SECTION/PAGE is layout work, not an integration re-add", () => {
+    // Bugbot HIGH #3 on #497: a restore verb + section noun is a layout
+    // restore; it must not clear the payments tombstone.
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka checkout-sektionen").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Restore the checkout section").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka checkout-sidan").readdedCapabilities,
+    ).toEqual([]);
+  });
+
   it("unambiguous restore phrasings count as re-adds", () => {
     expect(
       detectCapabilityRemoval("Återaktivera Stripe-betalningen").readdedCapabilities,

@@ -73,10 +73,16 @@ const NEGATION_RE =
  * layout edit, not an integration removal (Codex P2 on #447). Tested against
  * the matched term plus a short tail of following characters. Selector/menu
  * nouns included so "Add a drop-down checkout selector" is layout work, not a
- * payments re-add (granska-svärm on the readd fix).
+ * payments re-add (granska-svärm on the readd fix). Section/page nouns
+ * included so "lägg tillbaka checkout-sektionen" / "restore the checkout
+ * section" is a layout restore, not an integration re-add that would clear a
+ * durable removal tombstone (Bugbot HIGH #3 on #497) — this also makes the
+ * removal direction safer ("ta bort checkout-sektionen" no longer tombstones
+ * payments). Deliberately NOT including form/formulär (contact-form's own
+ * integration vocabulary) or generic "del".
  */
 const UI_CONTROL_RE =
-  /(?:knapp|button|länk|\blink\b|ikon|icon|selector|dropdown|drop-?down|väljare|meny|menu)/iu;
+  /(?:knapp|button|länk|\blink\b|ikon|icon|selector|dropdown|drop-?down|väljare|meny|menu|sektion|section|sidan?\b|page|block\b|rubrik|heading|färg|colou?r|tema|theme)/iu;
 
 interface RemovalCapabilityEntry {
   /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */
