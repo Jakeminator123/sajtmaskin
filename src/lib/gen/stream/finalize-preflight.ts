@@ -1,6 +1,9 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
+import {
+  buildCompleteProject,
+  type ProjectEnvLocalOptions,
+} from "@/lib/gen/export/project-scaffold";
 import { collectRequiredUiComponents } from "@/lib/gen/export/project-scaffold-ui-reader";
 
 import {
@@ -79,6 +82,11 @@ export interface RunFinalizePreflightParams {
   originalPrompt?: string;
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * Limits the pipeline-authored `.env.local` persisted by the scaffold merge.
+   * Preview still builds its runtime env independently.
+   */
+  projectEnvLocalOptions?: ProjectEnvLocalOptions;
   /**
    * True for verbatim imported-repo edits (v0-template chats). Relaxes ONLY the
    * scaffold-*contract* check (project-sanity) from blocking errors to
@@ -929,6 +937,7 @@ export async function runFinalizePreflight({
   originalPrompt: _originalPrompt,
   repairLedger: providedRepairLedger,
   repairScopeId,
+  projectEnvLocalOptions,
   importedRepoMode = false,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   const repairLedger = providedRepairLedger ?? new RepairLedger();
@@ -1327,7 +1336,11 @@ export async function runFinalizePreflight({
     }
     finalizedFilesForPreview = finalFiles;
     let completeProjectFiles = repairGeneratedFiles(
-      buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
+      buildCompleteProject(
+        cleanedFiles,
+        collectRequiredUiComponents(cleanedFiles),
+        projectEnvLocalOptions,
+      ),
     ).files;
     // Final degenerate-payload guard (Codex #322): the ASSEMBLED project — not
     // just the pre-assembly input — is what gets persisted, and finalize can

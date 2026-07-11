@@ -16,7 +16,7 @@
  *   4. **user** — decrypted `projectEnvVars` from app project meta.
  *   5. **generated** — `.env.local` emitted by the model (highest priority).
  *      NOT the pipeline's own scaffold-injected placeholder file — callers
- *      must exclude it via {@link isPipelineAuthoredEnvLocal} so catalog
+ *      must exclude it via {@link isPipelineAuthoredEnvLocal} so pipeline
  *      placeholders never shadow `user` values (see the marker docs below).
  *
  * Output is grouped by provenance so generated `.env.local` documents
@@ -59,8 +59,8 @@ const FILE_HEADER = `# Sajtmaskin preview env — merged (harmless + tier3-stub 
  * scoping. Without a way to tell pipeline-authored placeholder dumps apart
  * from genuinely model-emitted env files, the full placeholder catalog fed
  * back into every regeneration as "values the model set" and defeated the
- * dossier-scoped env.example (F3 showed ~57 placeholder vars instead of the
- * selected dossiers' keys).
+ * dossier-scoped env.example. Current finalize calls scope this artifact to
+ * selected dossiers; the marker also protects older persisted full catalogs.
  *
  * Any change here must stay in sync with existing persisted versions:
  * detection is prefix-based on this exact first line, and older versions in

@@ -61,7 +61,7 @@ harmless  →  tier3-stub  →  project-preview  →  user  →  generated
 | `tier3-stub` | [`config/ai_models/41-tier3-stub-placeholders.env.txt`](../../config/ai_models/41-tier3-stub-placeholders.env.txt) | Boot-only stubs — **F2 only, stripped in F3** |
 | `project-preview` | `src/lib/gen/preview/project-preview-env.ts` | Stable per-project preview tokens |
 | `user` | decrypted `projectEnvVars` from app project meta | Operator-supplied real values |
-| `generated` | `.env.local` emitted by the model | Highest priority override. **Not** the pipeline's own scaffold-injected placeholder `.env.local` — that file is detected via `PIPELINE_ENV_LOCAL_MARKER` (`env-local.ts`) and skipped, so catalog placeholders can never launder into this layer and shadow `user` values |
+| `generated` | `.env.local` emitted by the model | Highest priority override. **Not** the pipeline's own scaffold-injected placeholder `.env.local` — current finalized versions scope that artifact to selected dossiers (and older versions may carry the former full catalog). It is detected via `PIPELINE_ENV_LOCAL_MARKER` (`env-local.ts`) and skipped, so pipeline placeholders can never launder into this layer and shadow `user` values |
 
 Read at runtime via
 [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).

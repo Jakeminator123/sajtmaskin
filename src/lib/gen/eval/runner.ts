@@ -403,6 +403,21 @@ async function evaluatePrompt(
     selectedDossiers:
       generationInput.dossierSelection?.selected.map((s) => s.entry) ?? [],
   });
+  const selectedDossiers =
+    generationInput.dossierSelection?.selected.map((selected) => selected.entry) ?? [];
+  const projectEnvLocalOptions = {
+    selectedDossierEnvKeys: Array.from(
+      new Set(
+        selectedDossiers.flatMap((dossier) =>
+          (dossier.envVars ?? []).map((envVar) => envVar.key),
+        ),
+      ),
+    ),
+    lifecycleStage:
+      generationInput.buildSpec.previewPolicy === "fidelity3"
+        ? ("integrations" as const)
+        : ("design" as const),
+  };
   const mergedFiles = (
     JSON.parse(mergeResult.filesJson) as Array<{
       path: string;
@@ -413,6 +428,7 @@ async function evaluatePrompt(
   const completeProjectFiles = buildCompleteProject(
     mergedFiles,
     collectRequiredUiComponents(mergedFiles),
+    projectEnvLocalOptions,
   );
   const seoIssues = runSeoPreflightChecks(completeProjectFiles);
   const preflight = await runFinalizePreflight({
@@ -423,6 +439,7 @@ async function evaluatePrompt(
     routePlan: generationInput.routePlan,
     orchestrationContract: generationInput.orchestrationContract,
     originalPrompt: evalPrompt.prompt,
+    projectEnvLocalOptions,
   });
 
   const sources = deriveEvalCheckSources({

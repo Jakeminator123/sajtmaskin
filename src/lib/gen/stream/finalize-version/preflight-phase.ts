@@ -205,6 +205,26 @@ export async function runPreflightPhase(params: {
     }
   }
 
+  const envLifecycleStage: "design" | "integrations" =
+    buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
+  // This scope owns both persisted env artifacts: the visible `env.example`
+  // and the pipeline-authored `.env.local` needed by preflight verification.
+  // F2 can include selected mock values; F3 retains selected safe values only.
+  // Preview rebuilds its runtime env separately and projectEnvVars remain
+  // outside files_json.
+  const dossierEnvScope = {
+    envVars: (selectedDossiers ?? []).flatMap((dossier) =>
+      (dossier.envVars ?? []).map((envVar) => ({
+        key: envVar.key,
+        purpose: envVar.purpose,
+      })),
+    ),
+  };
+  const projectEnvLocalOptions = {
+    lifecycleStage: envLifecycleStage,
+    selectedDossierEnvKeys: dossierEnvScope.envVars.map((envVar) => envVar.key),
+  };
+
   let preflightResult = await runFinalizePreflight({
     chatId,
     model,
@@ -217,6 +237,7 @@ export async function runPreflightPhase(params: {
     repairLedger,
     repairScopeId,
     importedRepoMode,
+    projectEnvLocalOptions,
   });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
@@ -237,20 +258,6 @@ export async function runPreflightPhase(params: {
       preflightIssues: [...preflightResult.preflightIssues, ...blockedIssues],
     };
   }
-  const envLifecycleStage =
-    buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
-  // Dossier-scope for `env.example`: preflight ALWAYS sends the scope (even
-  // when empty) so the doc artifact lists only the selected dossiers' env
-  // keys instead of dumping the whole placeholder catalog. `selectedDossiers`
-  // is the same set threaded into the verbatim merge above (L161).
-  const dossierEnvScope = {
-    envVars: (selectedDossiers ?? []).flatMap((dossier) =>
-      (dossier.envVars ?? []).map((envVar) => ({
-        key: envVar.key,
-        purpose: envVar.purpose,
-      })),
-    ),
-  };
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
     lifecycleStage: envLifecycleStage,
   });
@@ -356,6 +363,7 @@ export async function runPreflightPhase(params: {
         repairLedger,
         repairScopeId,
         importedRepoMode,
+        projectEnvLocalOptions,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair

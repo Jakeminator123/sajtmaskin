@@ -160,18 +160,13 @@ describe("startPreviewSession update path", () => {
     expect(filesJson?.[".env.local"]).not.toContain("PIPELINE_ONLY_KEY");
   });
 
-  it("regenerates .env.local after project scaffolding on the update path", async () => {
+  it("builds preview .env.local after scaffolding even when the persisted scope has no env artifact", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     buildCompleteProject.mockReturnValueOnce([
       {
         path: "app/page.tsx",
         content: "export default function Page(){return <main/>;}",
         language: "typescript",
-      },
-      {
-        path: ".env.local",
-        content: "SCAFFOLD_ENV=from_scaffold",
-        language: "text",
       },
     ]);
     updatePreviewHostSession.mockResolvedValueOnce({
@@ -210,8 +205,8 @@ describe("startPreviewSession update path", () => {
     const filesJson = updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson as
       | Record<string, string>
       | undefined;
-    expect(filesJson?.[".env.local"]).toContain("SCAFFOLD_ENV=from_scaffold");
     expect(filesJson?.[".env.local"]).toContain("NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=proj-2");
+    expect(filesJson?.[".env.local"]).toContain("STRIPE_SECRET_KEY=sk_from_project");
   });
 
   it("forceRestart destroys the prior preview-host session before starting fresh", async () => {
