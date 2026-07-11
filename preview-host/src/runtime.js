@@ -1000,16 +1000,15 @@ async function waitForReady(url) {
   let lastError = "";
   let emptyBodyStreak = 0;
   while (Date.now() < deadline) {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 90_000);
     try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 90_000);
       const res = await fetch(url, {
         method: "GET",
         redirect: "follow",
         signal: ctrl.signal,
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
-      clearTimeout(tid);
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         emptyBodyStreak = 0;
         lastError = `HTTP ${res.status}`;
@@ -1031,6 +1030,8 @@ async function waitForReady(url) {
     } catch (err) {
       emptyBodyStreak = 0;
       lastError = err instanceof Error ? err.message : String(err);
+    } finally {
+      clearTimeout(tid);
     }
     await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
   }
@@ -1428,12 +1429,23 @@ function stopChildProcessTree(child) {
       killer.once("close", () => resolve());
       return;
     }
-    child.kill("SIGTERM");
+    const signalProcessGroup = (signal) => {
+      try {
+        // `npm run dev` owns a shell + the actual dev server. The child is
+        // spawned as a POSIX process-group leader below so both generations
+        // receive shutdown signals; killing only npm leaves the server alive
+        // with stdout/stderr pipes open and this promise never settles.
+        process.kill(-child.pid, signal);
+      } catch {
+        child.kill(signal);
+      }
+    };
+    signalProcessGroup("SIGTERM");
     const drainMs =
       Number.isFinite(RUNTIME_DRAIN_MS) && RUNTIME_DRAIN_MS >= 0 ? RUNTIME_DRAIN_MS : 5000;
     const timeout = setTimeout(() => {
       if (child.exitCode === null) {
-        child.kill("SIGKILL");
+        signalProcessGroup("SIGKILL");
       }
     }, drainMs);
     child.once("close", () => {
@@ -1475,6 +1487,9 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
+      // Required by stopChildProcessTree's negative-PID signaling on POSIX.
+      // Keep Windows attached so taskkill /t remains the tree owner there.
+      detached: process.platform !== "win32",
       env: sanitizedEnv({
         PORT: String(runtimePort),
         HOSTNAME: LOOPBACK,
