@@ -2,8 +2,9 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { normalizePrewarmLeaseKey } = require("./prewarm-leases.js");
 
-/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string> }} StoreRoot */
+/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string>, prewarmLeases: Record<string, object> }} StoreRoot */
 
 function getDataDir() {
   const raw = process.env.PREVIEW_HOST_DATA_DIR || process.env.DATA_DIR;
@@ -19,7 +20,7 @@ function getStoreFilePath() {
 
 /** @returns {StoreRoot} */
 function emptyStore() {
-  return { sessions: {}, logs: {}, previewSessionToSession: {} };
+  return { sessions: {}, logs: {}, previewSessionToSession: {}, prewarmLeases: {} };
 }
 
 function normalizeSession(raw) {
@@ -87,6 +88,22 @@ function normalizePreviewSessionMap(parsed, sessions) {
   return next;
 }
 
+function normalizePrewarmLeases(rawLeases) {
+  if (!rawLeases || typeof rawLeases !== "object" || Array.isArray(rawLeases)) {
+    return {};
+  }
+  const normalized = {};
+  for (const [rawKey, lease] of Object.entries(rawLeases)) {
+    const key = normalizePrewarmLeaseKey(rawKey);
+    if (!key || !lease || typeof lease !== "object" || Array.isArray(lease)) continue;
+    const chatId = typeof lease.chatId === "string" ? lease.chatId.trim() : "";
+    const expiresAt = typeof lease.expiresAt === "string" ? lease.expiresAt.trim() : "";
+    if (!chatId || !expiresAt) continue;
+    normalized[key] = { chatId, expiresAt };
+  }
+  return normalized;
+}
+
 function readStoreSync() {
   const fp = getStoreFilePath();
   try {
@@ -103,6 +120,7 @@ function readStoreSync() {
           ? parsed.logs
           : {},
       previewSessionToSession: normalizePreviewSessionMap(parsed, sessions),
+      prewarmLeases: normalizePrewarmLeases(parsed.prewarmLeases),
     };
   } catch (e) {
     if (e && e.code === "ENOENT") {

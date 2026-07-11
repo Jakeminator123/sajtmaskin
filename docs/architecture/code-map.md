@@ -17,7 +17,7 @@ Den här filen är en tunn orientering. Den ska inte ersätta `rg`, IDE-index el
 | Autofix/repair | `src/lib/gen/autofix/`, `src/lib/gen/repair/` | Mekaniska fixers och LLM-fix. |
 | Finalize | `src/lib/gen/stream/finalize-version/`, `src/lib/gen/stream/finalize-merge.ts` | Parse, merge, repair, preflight, save. |
 | Verify/quality gate | `src/lib/gen/verify/` | Typecheck/build/lint lanes, verifier, postcheck, stale settle. |
-| Preview | `src/lib/gen/preview/`, `preview-host/` | VM-session, env-local, patch/restart, host API. |
+| Preview | `src/lib/gen/preview/`, `preview-host/` | VM-session, env-local, patch/restart, host API. Prewarm app-ingång: `preview-prewarm.ts`; host ownership/lease: `preview-host/src/server.js`, `runtime.js`, `prewarm-leases.js`. |
 | Quick edit | `src/lib/gen/quick-edit/`, `src/lib/builder/engine-files-patch.ts` | Deterministiska minor-versioner utan LLM. |
 | Sidhantering (+/− i preview) | `src/lib/builder/preview-page-ops.ts` | Skapa/ta bort sida + nav-länk via quick edit. Kontrakt i filens header — nav-kirurgi måste vara `asChild`/Slot-säker (sibling i en Slot ⇒ runtime-krasch). |
 

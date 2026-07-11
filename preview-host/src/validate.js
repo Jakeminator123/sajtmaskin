@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("node:path");
+const { normalizePrewarmLeaseKey } = require("./prewarm-leases.js");
 
 const CHANGE_CLASSES = new Set(["fresh", "light", "medium", "heavy"]);
 const VERIFY_CHECKS = new Set(["typecheck", "build", "lint"]);
@@ -145,6 +146,14 @@ function validateStartPayload(payload) {
     }
     resumeStrategy = rs;
   }
+  const prewarm = p.prewarm === true;
+  const prewarmLeaseKey = normalizePrewarmLeaseKey(p.prewarmLeaseKey);
+  // The app derives this as an API-keyed HMAC over its canonical rate-limit
+  // subject (verified user or trusted guest IP), never a raw ID/IP or rotatable
+  // guest cookie. Normal finalize starts omit both prewarm fields.
+  if (prewarm && !prewarmLeaseKey) {
+    throw new Error("Invalid prewarmLeaseKey");
+  }
   return {
     chatId,
     versionId,
@@ -153,6 +162,8 @@ function validateStartPayload(payload) {
     preferredBaseImage,
     dependencyFingerprint,
     resumeStrategy,
+    prewarm,
+    prewarmLeaseKey,
   };
 }
 

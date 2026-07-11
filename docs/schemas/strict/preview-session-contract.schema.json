@@ -20,7 +20,8 @@
       "src/lib/db/chat-repository-pg.ts",
       "preview-host/src/server.js",
       "preview-host/src/validate.js",
-      "preview-host/src/runtime.js"
+      "preview-host/src/runtime.js",
+      "preview-host/src/prewarm-leases.js"
     ],
     "humanDoc": "docs/schemas/preview-session-contract.md"
   },
@@ -274,6 +275,38 @@
         "409_already_integrations": { "required": ["ready", "reason"] }
       }
     },
+    "PreviewHostStartRequest": {
+      "route": "POST /preview/session/start",
+      "type": "object",
+      "required": ["chatId", "versionId", "filesJson"],
+      "properties": {
+        "chatId": { "type": "string", "required": true },
+        "projectId": { "type": "string", "required": false, "note": "Legacy alias for chatId." },
+        "versionId": { "type": "string", "required": true },
+        "filesJson": { "type": "object", "required": true },
+        "prewarm": {
+          "type": "boolean",
+          "required": false,
+          "note": "When true, start is conditional on an unclaimed chat and a valid active-subject lease."
+        },
+        "prewarmLeaseKey": {
+          "type": "string",
+          "required": false,
+          "pattern": "^[a-f0-9]{64}$",
+          "note": "Required with prewarm:true. API-keyed HMAC of the canonical rate-limit subject; never a raw user/session/IP value. App skips optional prewarm if SAJTMASKIN_PREVIEW_HOST_API_KEY is absent."
+        }
+      },
+      "errorResponses": {
+        "409": "prewarm_superseded — a real version already owns the chat; terminal and safe.",
+        "429": "prewarm_rate_limited — no automatic retry in this invocation; later explicit retry may succeed after release/expiry."
+      },
+      "internalTransition": {
+        "field": "prewarmReplacementPending",
+        "clearedBy": "successful version-matched real runtime readiness",
+        "trafficPolicy": "While prewarm or replacement-pending, host starting page owns HTTP and all WebSocket upgrades are refused. If replacement status is error, HTTP is a stable non-refreshing 503 and no traffic/status path auto-requeues. Ordinary non-prewarm restart keeps last-good behavior.",
+        "leasePolicy": "Boot failure retains cooldown; release occurs on same-chat real claim/update/patch, destroy, cleanup, expiry or admin reset. Hibernate retains cooldown."
+      }
+    },
     "PreviewHostVerifyRequest": {
       "route": "POST /preview/verify",
       "type": "object",
@@ -379,7 +412,11 @@
           "enum": ["patched", "restarted", "booted"],
           "note": "patched=hot file write, no restart; restarted=dependency/config change forced a full boot; booted=runtime was not running."
         },
-        "patchReason": { "type": ["string", "null"], "required": false }
+        "patchReason": {
+          "type": ["string", "null"],
+          "required": false,
+          "note": "Stable reason such as structural_change, runtime_not_running, runtime_booting or prewarm_replacement (real patch claimed a prewarm session and forced readiness-gated restart)."
+        }
       }
     }
   }

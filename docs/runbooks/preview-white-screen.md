@@ -1,6 +1,6 @@
 # Runbook: vit preview, tom iframe och shim vs preview-host
 
-**Senast uppdaterad:** 2026-07-02  
+**Senast uppdaterad:** 2026-07-11
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. `preview_host` / VM är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
 **Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
@@ -54,6 +54,16 @@
 - Sök serverloggar efter: `preview_failed`, `preview_session_disabled` eller preview-host-fel/timeout från `preview-session`.
 - Klient: `useBuilderPageController` POST `/preview-session` — vid `preview_session_disabled` finns hint i svar.
 - Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `previewPending`, preview-status och npm-install-fel i preview-host före du misstänker att preview “bara är statisk”.
+- Med prewarm-kod deployad ska skelett-HTML aldrig proxyas. `prewarm:true` och
+  intern `prewarmReplacementPending` använder hostens auto-refreshande HTTP-sida
+  och nekar alla WS-upgrades tills riktig runtime passerat readiness. Vid
+  `status:error` blir sidan stabil 503 utan refresh/auto-requeue; retry görs
+  explicit från appen. `409 prewarm_superseded` är terminalt. `429
+  prewarm_rate_limited` retryas inte automatiskt, men en senare user-retry får
+  försöka efter lease release/expiry.
+- Persisted `status:"starting"` efter host-restart är inte en aktiv boot. Ett
+  status-/previewbesök ska återköa booten; om inte, kontrollera att Fly-hosten
+  kör versionen med `getRuntimeStateForChat().booting` baserad på in-memory-kön.
 
 ---
 
@@ -71,10 +81,15 @@
 
 ## 4. Förebyggande (så detta "inte ska hända igen")
 
-1. **Preview-host i dev/prod:** Säkerställ `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och att preview-host svarar på `/health` — annars blir användare kvar på shim som är känsligare för CDN.
+1. **Preview-host i dev/prod:** Säkerställ `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och att preview-host svarar på `/health` — annars blir användare kvar på shim som är känsligare för CDN. Optional prewarm kräver dessutom `SAJTMASKIN_PREVIEW_HOST_API_KEY`; utan den ska prewarm skippas, inte använda förutsägbar hash.
 2. **Genererad kod:** Systemprompt / kontrakt ska kräva **startbar** Next-app och **placeholders** för env (se `pre-generation-contracts.ts`, `config/prompt-core/01-behavioral-contract.md`).
 3. **Scaffold:** Ogiltiga npm-versioner i `package.json` bryter preview-host `npm install` — håll `project-scaffold.ts` / låsfiler i synk med npm.
 4. **Tester:** `preview.test.ts`, `preview-diagnostics.test.ts`, preview-host-/tier-2-relaterade tester vid ändringar i preview-kedjan.
+5. **Prewarm deploy:** kör i `preview-host/`:
+   `npm run check`, `npm run test:guards`, `npm run test:proxy-contract`,
+   `npm run smoke`; deploya sedan Fly-hosten och verifiera `/health` samt
+   admin-endpoints **före** appen. `SAJTMASKIN_PREVIEW_PREWARM` förblir osatt
+   tills hostversionen är live och mätning uttryckligen ska börja.
 
 ---
 
