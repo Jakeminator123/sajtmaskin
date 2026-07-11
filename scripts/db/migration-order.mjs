@@ -43,6 +43,7 @@ export const MIGRATION_ORDER = [
   "add-cascade-to-engine-fks.sql",
   "add-oc-debug-findings.sql",
   "add-app-projects-vercel-project.sql",
+  "add-branded-site-domains.sql",
   "drop-deployments-legacy-fks.sql",
   // v2 exists ONLY because the ledger tracks filenames: v1 was applied +
   // recorded with hardcoded constraint names before its body was upgraded to

@@ -48,9 +48,8 @@ export type SeoBrand = z.infer<typeof seoBrandSchema>;
 /**
  * SEO preferences persisted under `project_data.meta.seo`.
  *
- * - `optIn=true` requires `siteUrl` to be a non-null string. Enforced by
- *   `superRefine` so callers get one parse-time error instead of
- *   needing a separate validation step.
+ * - `optIn=true` may omit `siteUrl` when a verified project canonical URL is
+ *   available; the deploy resolver owns that decision.
  * - `siteUrl` must be `https://`. HTTP and other schemes are rejected
  *   because canonical URLs in robots/sitemap/openGraph must be HTTPS for
  *   modern crawlers.
@@ -59,28 +58,18 @@ export type SeoBrand = z.infer<typeof seoBrandSchema>;
  * - All fields are optional at the schema level so PATCH can update a
  *   subset without resending the whole object.
  */
-export const seoPreferencesSchema = z
-  .object({
-    optIn: z.boolean().optional(),
-    siteUrl: z
-      .string()
-      .url({ message: "siteUrl must be a valid URL" })
-      .refine((url) => url.startsWith("https://"), {
-        message: "siteUrl must use https://",
-      })
-      .nullable()
-      .optional(),
-    brand: seoBrandSchema.nullable().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.optIn === true && (data.siteUrl === null || data.siteUrl === undefined)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "siteUrl is required when SEO opt-in is enabled",
-        path: ["siteUrl"],
-      });
-    }
-  });
+export const seoPreferencesSchema = z.object({
+  optIn: z.boolean().optional(),
+  siteUrl: z
+    .string()
+    .url({ message: "siteUrl must be a valid URL" })
+    .refine((url) => url.startsWith("https://"), {
+      message: "siteUrl must use https://",
+    })
+    .nullable()
+    .optional(),
+  brand: seoBrandSchema.nullable().optional(),
+});
 
 export type SeoPreferences = z.infer<typeof seoPreferencesSchema>;
 

@@ -2,6 +2,11 @@ import crypto from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
+const resolveDeploymentLiveUrlForChat = vi.hoisted(() =>
+  vi.fn(async ({ providerUrl, fallbackUrl }: { providerUrl?: string | null; fallbackUrl?: string | null }) =>
+    fallbackUrl ?? (providerUrl ? `https://${providerUrl}` : null),
+  ),
+);
 const dbSelectResult = vi.hoisted<{ rows: Array<Record<string, unknown>> }>(() => ({ rows: [] }));
 const createRedisPublisher = vi.hoisted(() => vi.fn());
 const logDeployError = vi.hoisted(() => vi.fn());
@@ -27,6 +32,7 @@ vi.mock("drizzle-orm", () => ({
 }));
 
 vi.mock("@/lib/deployment", () => ({
+  resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 }));
 
@@ -181,7 +187,7 @@ describe("POST /api/webhooks/vercel", () => {
     expect(updateDeploymentStatus).toHaveBeenCalledWith(
       "dep_row_2",
       "ready",
-      expect.objectContaining({ url: "my-site.vercel.app" }),
+      expect.objectContaining({ providerUrl: "my-site.vercel.app" }),
     );
     // A non-error terminal status must NOT log a deploy error.
     expect(logDeployError).not.toHaveBeenCalled();

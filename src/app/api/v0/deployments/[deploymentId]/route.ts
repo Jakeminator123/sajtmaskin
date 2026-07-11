@@ -3,7 +3,10 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
-import { updateDeploymentStatus } from "@/lib/deployment";
+import {
+  resolveDeploymentLiveUrlForChat,
+  updateDeploymentStatus,
+} from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -44,10 +47,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
         try {
           const vercel = await getVercelDeployment(deployment.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
+          const liveUrl = await resolveDeploymentLiveUrlForChat({
+            chatId: deployment.chatId,
+            providerUrl: vercel.url,
+            fallbackUrl: deployment.url,
+          });
 
           try {
             const refreshWrite = await updateDeploymentStatus(deploymentId, mapped.status, {
-              url: vercel.url ?? undefined,
+              providerUrl: vercel.url ?? undefined,
+              url: liveUrl ?? undefined,
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             });
@@ -74,7 +83,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
             chatId: deployment.chatId,
             versionId: deployment.versionId,
             status: mapped.status,
-            url: vercel.url ?? deployment.url,
+            url: liveUrl,
+            providerUrl: vercel.url ?? deployment.providerUrl,
             inspectorUrl: vercel.inspectorUrl ?? deployment.inspectorUrl,
             vercelDeploymentId: deployment.vercelDeploymentId,
             vercelProjectId: vercel.vercelProjectId ?? deployment.vercelProjectId,
@@ -92,7 +102,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
         chatId: deployment.chatId,
         versionId: deployment.versionId,
         status: deployment.status,
-        url: deployment.url,
+        url: await resolveDeploymentLiveUrlForChat({
+          chatId: deployment.chatId,
+          providerUrl: deployment.providerUrl,
+          fallbackUrl: deployment.url,
+        }),
+        providerUrl: deployment.providerUrl,
         inspectorUrl: deployment.inspectorUrl,
         vercelDeploymentId: deployment.vercelDeploymentId,
         vercelProjectId: deployment.vercelProjectId,

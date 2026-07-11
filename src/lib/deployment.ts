@@ -1,8 +1,12 @@
 import { db } from "@/lib/db/client";
-import { deployments } from "@/lib/db/schema";
+import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
+import {
+  normalizeDomainHostname,
+  resolveLiveUrl,
+} from "@/lib/live-site-url";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -22,6 +26,7 @@ export async function createDeploymentRecord(params: {
   versionId: string;
   vercelProjectId?: string;
   vercelDeploymentId?: string;
+  providerUrl?: string;
   url?: string;
   inspectorUrl?: string;
 }): Promise<string> {
@@ -33,6 +38,7 @@ export async function createDeploymentRecord(params: {
     versionId: params.versionId,
     vercelProjectId: params.vercelProjectId || null,
     vercelDeploymentId: params.vercelDeploymentId || null,
+    providerUrl: params.providerUrl || null,
     status: "pending",
     url: params.url || null,
     inspectorUrl: params.inspectorUrl || null,
@@ -46,6 +52,7 @@ export async function updateDeploymentStatus(
   status: DeploymentStatus,
   updates?: {
     url?: string | null;
+    providerUrl?: string | null;
     inspectorUrl?: string | null;
     vercelDeploymentId?: string | null;
     vercelProjectId?: string | null;
@@ -59,6 +66,9 @@ export async function updateDeploymentStatus(
   };
   if (updates && Object.prototype.hasOwnProperty.call(updates, "url")) {
     metadataValues.url = updates.url ?? null;
+  }
+  if (updates && Object.prototype.hasOwnProperty.call(updates, "providerUrl")) {
+    metadataValues.providerUrl = updates.providerUrl ?? null;
   }
   if (updates && Object.prototype.hasOwnProperty.call(updates, "inspectorUrl")) {
     metadataValues.inspectorUrl = updates.inspectorUrl ?? null;
@@ -109,9 +119,9 @@ export async function updateDeploymentStatus(
 }
 
 /**
- * The Vercel project id from the most relevant deployment of a chat. Fallback
- * source for domain-linking when the app_projects row has no persisted link
- * yet (e.g. sites published before the link column existed). Prefers a `ready`
+ * The canonical Vercel project id from the most relevant deployment of a chat.
+ * Used before the best-effort `app_projects` cache by deploy/domain resolution,
+ * including sites published before the cache column existed. Prefers a `ready`
  * deployment; otherwise takes the most recent one that carries a project id.
  */
 export async function getLatestVercelProjectIdForChat(
@@ -193,4 +203,63 @@ export async function setDeploymentDomainForRequest(
     .set({ domain, updatedAt: new Date() })
     .where(eq(deployments.id, deploymentId));
   return (result.rowCount ?? 0) > 0;
+}
+
+/** Promote the verified project domain onto the current ready live row. */
+export async function setLatestDeploymentLiveUrlForChat(
+  chatId: string,
+  domain: string,
+): Promise<string | null> {
+  const normalizedDomain = normalizeDomainHostname(domain);
+  if (!normalizedDomain) return null;
+  const [latest] = await db
+    .select({ id: deployments.id })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), eq(deployments.status, "ready")))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1);
+  if (!latest) return null;
+  await db
+    .update(deployments)
+    .set({
+      url: `https://${normalizedDomain}`,
+      domain: normalizedDomain,
+      updatedAt: new Date(),
+    })
+    .where(eq(deployments.id, latest.id));
+  return latest.id;
+}
+
+/** Resolve the public URL for status/webhook paths that do not have an app request context. */
+export async function resolveDeploymentLiveUrlForChat(params: {
+  chatId: string;
+  providerUrl?: string | null;
+  fallbackUrl?: string | null;
+}): Promise<string | null> {
+  const [project] = await db
+    .select({
+      brandedDomain: appProjects.branded_domain,
+      brandedDomainVerifiedAt: appProjects.branded_domain_verified_at,
+      customDomain: appProjects.custom_domain,
+      customDomainVerifiedAt: appProjects.custom_domain_verified_at,
+    })
+    .from(engineChats)
+    .innerJoin(appProjects, eq(engineChats.projectId, appProjects.id))
+    .where(eq(engineChats.id, params.chatId))
+    .limit(1);
+  const resolved = resolveLiveUrl({
+    providerUrl: params.providerUrl,
+    brandedDomain: project?.brandedDomain ?? null,
+    brandedDomainVerifiedAt: project?.brandedDomainVerifiedAt ?? null,
+    customDomain: project?.customDomain ?? null,
+    customDomainVerifiedAt: project?.customDomainVerifiedAt ?? null,
+  });
+  if (resolved) return resolved;
+  // A persisted liveUrl may contain a formerly verified branded/custom host.
+  // Only a legacy Vercel hostname is safe as fallback when the feature gate or
+  // verification state has been revoked.
+  const fallbackHost = normalizeDomainHostname(params.fallbackUrl);
+  return fallbackHost?.endsWith(".vercel.app")
+    ? `https://${fallbackHost}`
+    : null;
 }

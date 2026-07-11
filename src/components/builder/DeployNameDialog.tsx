@@ -107,7 +107,7 @@ function DeployNameDialogForm({
       <DialogHeader>
         <DialogTitle>Publicera din sajt</DialogTitle>
         <DialogDescription>
-          Namnet används i URL:en (namn.vercel.app) och normaliseras automatiskt.
+          Namnet används för din publiceringsadress och normaliseras automatiskt.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">

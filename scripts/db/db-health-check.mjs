@@ -165,6 +165,24 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   app_projects: [
     { name: "idx_app_projects_user_id", columns: ["user_id"] },
     { name: "idx_app_projects_session_id", columns: ["session_id"] },
+    {
+      name: "app_projects_published_slug_unique",
+      columns: ["published_slug"],
+      unique: true,
+      partial: true,
+    },
+    {
+      name: "app_projects_custom_domain_unique",
+      columns: ["custom_domain"],
+      unique: true,
+      partial: true,
+    },
+    {
+      name: "app_projects_branded_domain_unique",
+      columns: ["branded_domain"],
+      unique: true,
+      partial: true,
+    },
   ],
   prompt_handoffs: [
     { name: "idx_prompt_handoffs_created_at", columns: ["created_at"] },

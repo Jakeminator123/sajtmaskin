@@ -87,7 +87,7 @@ describe("applyScaffoldSeoDefaults", () => {
     resetWarnFlag();
   });
 
-  describe("env-fallback path (no options)", () => {
+  describe("project-owned path (no options)", () => {
     it("is a noop when env is unset", () => {
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold);
@@ -101,32 +101,23 @@ describe("applyScaffoldSeoDefaults", () => {
       expect(layout?.content).not.toContain("metadataBase:");
     });
 
-    it("injects SEO files using env URL when env is set", () => {
+    it("does not inject SEO files from a global env URL", () => {
       process.env[SEO_ENV] = "https://from-env.se";
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold);
-      const robots = result.files.find((f) => f.path === "app/robots.ts");
-      const sitemap = result.files.find((f) => f.path === "app/sitemap.ts");
-      const og = result.files.find((f) => f.path === "app/opengraph-image.tsx");
-      expect(robots?.content).toContain("https://from-env.se/sitemap.xml");
-      expect(sitemap?.content).toContain("https://from-env.se/");
-      expect(og).toBeDefined();
-      const layout = result.files.find((f) => f.path === "app/layout.tsx");
-      expect(layout?.content).toContain('metadataBase: new URL("https://from-env.se")');
+      expect(result.files.find((f) => f.path === "app/robots.ts")).toBeUndefined();
     });
 
-    it("strips trailing slash from env URL", () => {
+    it("does not use a global env URL with a trailing slash", () => {
       process.env[SEO_ENV] = "https://from-env.se/";
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold);
-      const robots = result.files.find((f) => f.path === "app/robots.ts");
-      expect(robots?.content).toContain("https://from-env.se/sitemap.xml");
-      expect(robots?.content).not.toContain("https://from-env.se//sitemap.xml");
+      expect(result.files.find((f) => f.path === "app/robots.ts")).toBeUndefined();
     });
   });
 
   describe("override path (options.siteUrl)", () => {
-    it("options.siteUrl wins over env", () => {
+    it("options.siteUrl is the only source even when a global env exists", () => {
       process.env[SEO_ENV] = "https://from-env.se";
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold, {
@@ -146,7 +137,7 @@ describe("applyScaffoldSeoDefaults", () => {
       expect(sitemap?.content).toContain("https://only-override.se/");
     });
 
-    it("options.siteUrl=null is explicit noop even when env is set", () => {
+    it("options.siteUrl=null is explicit noop", () => {
       process.env[SEO_ENV] = "https://from-env.se";
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold, { siteUrl: null });
@@ -167,12 +158,11 @@ describe("applyScaffoldSeoDefaults", () => {
       expect(robots?.content).not.toContain("https://override.se//sitemap.xml");
     });
 
-    it("empty-string siteUrl falls back to env (treated as not provided)", () => {
+    it("empty-string siteUrl remains a noop", () => {
       process.env[SEO_ENV] = "https://from-env.se";
       const scaffold = makeScaffoldFixture();
       const result = applyScaffoldSeoDefaults(scaffold, { siteUrl: "" });
-      const robots = result.files.find((f) => f.path === "app/robots.ts");
-      expect(robots?.content).toContain("https://from-env.se");
+      expect(result.files.find((f) => f.path === "app/robots.ts")).toBeUndefined();
     });
   });
 
@@ -321,20 +311,20 @@ describe("getScaffoldSeoDefaultsStatus", () => {
     resetWarnFlag();
   });
 
-  it("returns enabled=false + source=env-missing when env unset and no options", () => {
+  it("returns enabled=false + source=missing-project-domain when no project URL is supplied", () => {
     expect(getScaffoldSeoDefaultsStatus()).toEqual({
       enabled: false,
       siteUrl: null,
-      source: "env-missing",
+      source: "missing-project-domain",
     });
   });
 
-  it("returns enabled=true + source=env when env is set", () => {
+  it("does not enable SEO when a global env URL is set", () => {
     process.env[SEO_ENV] = "https://from-env.se";
     expect(getScaffoldSeoDefaultsStatus()).toEqual({
-      enabled: true,
-      siteUrl: "https://from-env.se",
-      source: "env",
+      enabled: false,
+      siteUrl: null,
+      source: "missing-project-domain",
     });
   });
 
@@ -406,31 +396,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     resetWarnFlag();
   });
 
-  describe("env-fallback path", () => {
-    it("returns applied=false + same array reference when env is unset and no options", () => {
+  describe("project-owned URL path", () => {
+    it("returns applied=false + same array reference when no project URL is supplied", () => {
       const files = makeProjectFiles();
       const result = applySeoToProjectFiles(files);
       expect(result.applied).toBe(false);
-      expect(result.source).toBe("env-missing");
+      expect(result.source).toBe("missing-project-domain");
       expect(result.injected).toEqual([]);
       expect(result.enriched).toEqual([]);
       expect(result.files).toBe(files);
     });
 
-    it("injects SEO files using env URL when env is set", () => {
+    it("does not inject SEO files using a global env URL", () => {
       process.env[SEO_ENV] = "https://from-env.se";
       const files = makeProjectFiles();
       const result = applySeoToProjectFiles(files);
-      expect(result.applied).toBe(true);
-      expect(result.source).toBe("env");
-      expect(result.injected.sort()).toEqual([
-        "app/opengraph-image.tsx",
-        "app/robots.ts",
-        "app/sitemap.ts",
-      ]);
-      expect(result.enriched).toEqual(["app/layout.tsx"]);
-      const layout = result.files.find((f) => f.name === "app/layout.tsx");
-      expect(layout?.content).toContain('metadataBase: new URL("https://from-env.se")');
+      expect(result.applied).toBe(false);
+      expect(result.source).toBe("missing-project-domain");
     });
   });
 
@@ -519,7 +501,7 @@ export const metadata: Metadata = {};
         ...files,
         { name: "app/robots.ts", content: "// project's own robots" },
       ];
-      const result = applySeoToProjectFiles(augmented);
+      const result = applySeoToProjectFiles(augmented, { siteUrl: "https://from-project.se" });
       const robots = result.files.filter((f) => f.name === "app/robots.ts");
       expect(robots).toHaveLength(1);
       expect(robots[0]?.content).toBe("// project's own robots");
@@ -544,7 +526,7 @@ export const metadata: Metadata = {
 };
 `;
       const files = makeProjectFiles({ layoutContent: alreadyEnriched });
-      const result = applySeoToProjectFiles(files);
+      const result = applySeoToProjectFiles(files, { siteUrl: "https://from-project.se" });
       expect(result.applied).toBe(true);
       // Layout content unchanged → not in `enriched` list
       expect(result.enriched).toEqual([]);

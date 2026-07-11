@@ -7,6 +7,11 @@ const getChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVercelDeployment = vi.hoisted(() => vi.fn());
 const mapVercelReadyStateToStatus = vi.hoisted(() => vi.fn(() => ({ status: "ready" })));
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
+const resolveDeploymentLiveUrlForChat = vi.hoisted(() =>
+  vi.fn(async ({ providerUrl, fallbackUrl }: { providerUrl?: string | null; fallbackUrl?: string | null }) =>
+    fallbackUrl ?? (providerUrl ? `https://${providerUrl}` : null),
+  ),
+);
 const logDeployError = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("@/lib/db/client", () => ({
@@ -40,6 +45,7 @@ vi.mock("@/lib/vercelDeploy", () => ({
 }));
 
 vi.mock("@/lib/deployment", () => ({
+  resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 }));
 

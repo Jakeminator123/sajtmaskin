@@ -55,7 +55,12 @@ describe("resolveVercelProjectForChat", () => {
 
     const result = await resolveVercelProjectForChat(req(), "chat_1");
 
-    expect(result).toEqual({ ok: true, vercelProjectId: "vp_fresh", source: "deployment" });
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_fresh",
+      appProjectId: "proj_1",
+      source: "deployment",
+    });
   });
 
   it("uses the latest deployment when the app project has no persisted link", async () => {
@@ -64,7 +69,12 @@ describe("resolveVercelProjectForChat", () => {
 
     const result = await resolveVercelProjectForChat(req(), "chat_1");
 
-    expect(result).toEqual({ ok: true, vercelProjectId: "vp_dep", source: "deployment" });
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_dep",
+      appProjectId: "proj_1",
+      source: "deployment",
+    });
   });
 
   it("falls back to the persisted app_projects link when there is no deployment yet", async () => {
@@ -73,7 +83,12 @@ describe("resolveVercelProjectForChat", () => {
 
     const result = await resolveVercelProjectForChat(req(), "chat_1");
 
-    expect(result).toEqual({ ok: true, vercelProjectId: "vp_app", source: "app_project" });
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_app",
+      appProjectId: "proj_1",
+      source: "app_project",
+    });
   });
 
   it("returns 409 when neither a deployment nor a persisted link exists", async () => {
@@ -92,6 +107,11 @@ describe("resolveVercelProjectForChat", () => {
     const result = await resolveVercelProjectForChat(req(), "chat_1");
 
     expect(getProjectById).not.toHaveBeenCalled();
-    expect(result).toEqual({ ok: true, vercelProjectId: "vp_dep", source: "deployment" });
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_dep",
+      appProjectId: null,
+      source: "deployment",
+    });
   });
 });

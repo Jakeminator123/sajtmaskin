@@ -11,14 +11,12 @@
  *
  * Scope (PR-B):
  * - Switch: "Optimera för Google" (optIn)
- * - Input: site URL (required when optIn=true)
+ * - A project-specific fallback URL remains editable until the canonical URL
+ *   can be resolved server-side from a verified customer/branded domain.
  * - Brand fields are NOT exposed in v1 — they live in the schema so the
  *   API/persisted preferences can carry them, but the deploy dialog
  *   stays minimal. Brand UI can be added later without touching the
  *   wire format.
- *
- * Validation: optIn=true with empty/invalid URL is surfaced as a local
- * error and disables the parent's confirm button via `onValidityChange`.
  *
  * Persisting: the deploy handler (`useBuilderDeployActions.handleConfirmDeploy`)
  * is responsible for persisting the value via PATCH /preferences before
@@ -41,10 +39,7 @@ type Props = {
   projectId: string | null | undefined;
   value: SeoFormValue;
   onChange: (next: SeoFormValue) => void;
-  /**
-   * Notify parent whether current value is valid (optIn=false is always
-   * valid; optIn=true requires a non-empty siteUrl that parses as a URL).
-   */
+  /** Reports whether an enabled project-specific fallback URL is valid. */
   onValidityChange?: (valid: boolean) => void;
   /**
    * Notify parent when the user actually interacts with the panel (toggles
@@ -75,8 +70,7 @@ function isValidHttpUrl(raw: string): boolean {
   const trimmed = raw.trim();
   if (!trimmed) return false;
   try {
-    const u = new URL(trimmed);
-    return u.protocol === "http:" || u.protocol === "https:";
+    return new URL(trimmed).protocol === "https:";
   } catch {
     return false;
   }
@@ -140,11 +134,11 @@ export function SeoOptInPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Report validity upward whenever value changes.
-  const urlValid = value.optIn ? isValidHttpUrl(value.siteUrl) : true;
+  const urlValid =
+    !value.optIn || !value.siteUrl.trim() || isValidHttpUrl(value.siteUrl);
   useEffect(() => {
     onValidityChange?.(urlValid);
-  }, [urlValid, onValidityChange]);
+  }, [onValidityChange, urlValid]);
 
   const onToggle = useCallback(
     (next: boolean) => {
@@ -161,9 +155,6 @@ export function SeoOptInPanel({
     },
     [markDirty, onChange, value],
   );
-
-  const showUrlError = value.optIn && value.siteUrl.trim().length > 0 && !urlValid;
-  const showRequiredError = value.optIn && value.siteUrl.trim().length === 0;
 
   return (
     <div
@@ -200,45 +191,36 @@ export function SeoOptInPanel({
           <p className="text-[11px] leading-snug text-muted-foreground">
             När på: vi lägger till robots.txt, sitemap.xml, social-bilder
             (Open Graph) och fyller i metadata på sajten — så Google och
-            sociala medier visar den korrekt. Behöver din slutgiltiga
-            URL.
+            sociala medier visar den korrekt. Vi använder automatiskt din
+            verifierade domän, eller Sajtmaskins publiceringsadress tills dess.
           </p>
-
           {value.optIn ? (
             <div className="space-y-1">
-              <Label
-                htmlFor={inputId}
-                className="text-[11px] font-medium text-foreground"
-              >
-                Sajtens URL
+              <Label htmlFor={inputId} className="text-[11px] font-medium text-foreground">
+                Reservadress för SEO (valfri)
               </Label>
               <Input
                 id={inputId}
                 value={value.siteUrl}
                 onChange={(event) => onUrlChange(event.target.value)}
-                placeholder="https://example.com"
+                placeholder="https://din-domän.se"
                 disabled={disabled}
                 className="h-8 text-xs"
                 inputMode="url"
                 spellCheck={false}
                 autoComplete="url"
-                aria-invalid={showUrlError ? true : undefined}
+                aria-invalid={!urlValid ? true : undefined}
               />
-              {showRequiredError ? (
-                <p className="text-[10px] text-amber-500">
-                  Ange URL för att aktivera SEO.
-                </p>
-              ) : null}
-              {showUrlError ? (
-                <p className="text-[10px] text-red-400">
-                  Ogiltig URL. Måste börja med http:// eller https://.
-                </p>
-              ) : null}
               <p className="text-[10px] leading-snug text-muted-foreground">
-                Använd din slutgiltiga domän om du har en. Annars
-                den publicerade adressen (namn.vercel.app). Du kan ändra senare och
-                publicera om.
+                Används tills projektet har en verifierad egen domän eller
+                Sajtmaskin-adress. En verifierad projektadress vinner alltid.
               </p>
+              {!urlValid ? (
+                <p className="text-[10px] text-amber-500">
+                  Om du anger en reservadress måste den vara en fullständig
+                  https-adress. Annars används verifierad projektadress.
+                </p>
+              ) : null}
             </div>
           ) : null}
 

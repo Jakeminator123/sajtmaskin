@@ -3,7 +3,10 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
-import { updateDeploymentStatus } from "@/lib/deployment";
+import {
+  resolveDeploymentLiveUrlForChat,
+  updateDeploymentStatus,
+} from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
@@ -115,10 +118,16 @@ export async function GET(
             try {
               const vd = await getVercelDeployment(vercelDeploymentId);
               const mapped = mapVercelReadyStateToStatus(vd.readyState);
+              const liveUrl = await resolveDeploymentLiveUrlForChat({
+                chatId: deployment.chatId,
+                providerUrl: vd.url,
+                fallbackUrl: deployment.url,
+              });
 
               send({
                 status: mapped.status,
-                url: vd.url ? `https://${vd.url}` : null,
+                url: liveUrl,
+                providerUrl: vd.url ?? null,
                 inspectorUrl: vd.inspectorUrl,
               });
 
@@ -126,7 +135,8 @@ export async function GET(
               let persistFailed = false;
               try {
                 const result = await updateDeploymentStatus(deploymentId, mapped.status, {
-                  url: vd.url || undefined,
+                  providerUrl: vd.url || undefined,
+                  url: liveUrl ?? undefined,
                   inspectorUrl: vd.inspectorUrl || undefined,
                 });
                 transitionedToError = result.transitionedToError;

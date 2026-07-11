@@ -41,7 +41,6 @@
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
-    "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SUPERADMIN_EMAIL",
     "SUPERADMIN_PASSWORD",
@@ -171,6 +170,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_BRIEF_MODEL",
     "SAJTMASKIN_BUILDER_INSPECTOR",
+    "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_DEFAULT_THINKING",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
@@ -180,6 +180,7 @@
     "SAJTMASKIN_PREVIEW_PREWARM",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+    "SAJTMASKIN_LIVE_SITE_DOMAIN",
     "SAJTMASKIN_MODEL_ANTHROPIC",
     "SAJTMASKIN_MODEL_CODEX",
     "SAJTMASKIN_MODEL_FAST",
@@ -204,7 +205,6 @@
     "SAJTMASKIN_PROMPT_DUMP",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
-    "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
     "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
@@ -521,15 +521,6 @@
       "notes": "Override `--max-warnings` for the blocking eslint pass. Default 20. Errors always fail the gate; warnings only fail when count exceeds this cap. Set higher (e.g. 50) to be more lenient, or 0 to treat all warnings as gate failures."
     },
     {
-      "key": "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
-      "notes": "Opt-in. Default unset → `applyScaffoldSeoDefaults` (src/lib/gen/scaffolds/seo-defaults.ts) is a noop and no SEO files (robots/sitemap/opengraph) are injected. When set to a real site URL → robots/sitemap/opengraph are injected and `app/layout.tsx` metadata is enriched with `metadataBase`/`alternates`/`openGraph`/`twitter`. **Should NOT be set in development or fidelity1/2 design previews** — SEO belongs to Bygg / fidelity3-promotion. Per-project/per-generation siteUrl is planned (see `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`); this env is the global single-tenant fallback."
-    },
-    {
       "key": "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
       "classification": "optional_runtime",
       "recommendedVercelTargets": [
@@ -611,6 +602,26 @@
         "development"
       ],
       "notes": "Pulled locally via `vercel env pull` or injected by Vercel on hosted runtimes. Treat pulled `.env` values as local snapshots; useful for Vercel-authenticated platform flows, not as a tier-2 preview selector."
+    },
+    {
+      "key": "SAJTMASKIN_BRANDED_LIVE_URLS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Feature gate for branded generated-site aliases. Keep unset until the configured live-site domain is owned, DNS/TLS is verified and exact aliases can be attached to generated Vercel projects."
+    },
+    {
+      "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Parent hostname for exact generated-site aliases, for example sites.sajtmaskin.se. Used only when SAJTMASKIN_BRANDED_LIVE_URLS is affirmative; never use the app's own root hostname."
     },
     {
       "key": "SAJTMASKIN_PREVIEW_HOST_BASE_URL",

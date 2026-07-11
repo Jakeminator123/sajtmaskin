@@ -186,7 +186,14 @@ export function useBuilderDeployActions({
 
         const seoPayload =
           seo && seo.optIn
-            ? { seo: { optIn: true as const, siteUrl: seo.siteUrl.trim() } }
+            ? {
+                seo: {
+                  optIn: true as const,
+                  ...(seo.siteUrl.trim()
+                    ? { siteUrl: seo.siteUrl.trim() }
+                    : {}),
+                },
+              }
             : seo
               ? { seo: { optIn: false as const } }
               : {};
@@ -224,6 +231,8 @@ export function useBuilderDeployActions({
           }>;
           /** Env-var sync-to-hosting failures — publish still succeeded. */
           envSyncWarnings?: string[];
+          /** Branded/custom-domain provisioning warnings — publish still succeeded. */
+          domainWarnings?: string[];
           /** The exact keys the 409 gate blocked on (R1: buildBlockingKeys). */
           buildBlockingKeys?: string[];
         };
@@ -324,6 +333,15 @@ export function useBuilderDeployActions({
             { duration: 12000 },
           );
         }
+        const domainWarnings = Array.isArray(data?.domainWarnings)
+          ? data.domainWarnings.filter(
+              (warning): warning is string =>
+                typeof warning === "string" && warning.trim().length > 0,
+            )
+          : [];
+        if (domainWarnings.length > 0) {
+          toast.warning(domainWarnings.join("\n"), { duration: 12000 });
+        }
       } catch (error) {
         console.error("Deploy error:", error);
         if (chatId && activeVersionId) {
@@ -379,7 +397,12 @@ export function useBuilderDeployActions({
     // server side via `resolveDeploySeoOptions`.
     if (appProjectId && payload?.seo) {
       const seoPatch = payload.seo.optIn
-        ? { optIn: true as const, siteUrl: payload.seo.siteUrl.trim() }
+        ? {
+            optIn: true as const,
+            ...(payload.seo.siteUrl.trim()
+              ? { siteUrl: payload.seo.siteUrl.trim() }
+              : {}),
+          }
         : { optIn: false as const };
       try {
         await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {

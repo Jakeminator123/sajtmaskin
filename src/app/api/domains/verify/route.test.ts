@@ -4,7 +4,11 @@ const getCurrentUser = vi.hoisted(() => vi.fn());
 const getVercelToken = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectById = vi.hoisted(() => vi.fn());
+const setProjectVerifiedCustomDomain = vi.hoisted(() => vi.fn());
+const clearProjectCustomDomainVerification = vi.hoisted(() => vi.fn());
+const checkVercelProjectDomain = vi.hoisted(() => vi.fn());
 const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
+const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -24,11 +28,17 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/db/services/projects", () => ({
+  clearProjectCustomDomainVerification,
   getProjectById,
+  setProjectVerifiedCustomDomain,
+}));
+vi.mock("@/lib/vercelDeploy", () => ({
+  checkVercelProjectDomain,
 }));
 
 vi.mock("@/lib/deployment", () => ({
   getLatestVercelProjectIdForChat,
+  setLatestDeploymentLiveUrlForChat,
 }));
 
 const { POST } = await import("./route");
@@ -57,10 +67,39 @@ describe("POST /api/domains/verify", () => {
       vercel_project_name: "sajtmaskin-chat_1",
     });
     getLatestVercelProjectIdForChat.mockResolvedValue(null);
+    setProjectVerifiedCustomDomain.mockResolvedValue({ id: "proj_1" });
+    checkVercelProjectDomain.mockResolvedValue(true);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ name: "site.example", verified: true })),
     );
+  });
+
+  it("does not promote provider ownership verification when DNS is misconfigured", async () => {
+    checkVercelProjectDomain.mockResolvedValue(false);
+
+    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).verified).toBe(false);
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith(
+      "proj_1",
+      "site.example",
+    );
+  });
+
+  it("returns a tenant-safe conflict when the domain is already owned", async () => {
+    setProjectVerifiedCustomDomain.mockRejectedValue(
+      Object.assign(new Error("duplicate"), { code: "23505" }),
+    );
+
+    const res = await POST(
+      verifyRequest({ domain: "site.example", chatId: "chat_1" }),
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/redan kopplad/i);
   });
 
   afterEach(() => {
@@ -74,6 +113,11 @@ describe("POST /api/domains/verify", () => {
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/v9/projects/vp_app/domains/site.example/verify"),
       expect.objectContaining({ method: "POST" }),
+    );
+    expect(setProjectVerifiedCustomDomain).toHaveBeenCalledWith("proj_1", "site.example");
+    expect(setLatestDeploymentLiveUrlForChat).toHaveBeenCalledWith(
+      "chat_1",
+      "site.example",
     );
   });
 

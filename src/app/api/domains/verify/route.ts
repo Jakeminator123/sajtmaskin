@@ -15,6 +15,12 @@ import { getVercelToken } from "@/lib/vercel";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
+import {
+  clearProjectCustomDomainVerification,
+  setProjectVerifiedCustomDomain,
+} from "@/lib/db/services/projects";
+import { checkVercelProjectDomain } from "@/lib/vercelDeploy";
+import { setLatestDeploymentLiveUrlForChat } from "@/lib/deployment";
 
 export const maxDuration = 15;
 
@@ -84,8 +90,54 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const verified = data.verified === true;
+      let verified = data.verified === true;
       const verification = data.verification ?? [];
+      if (verified) {
+        const configured = await checkVercelProjectDomain(projectId, domain);
+        if (configured === null) {
+          return NextResponse.json(
+            {
+              error: "Domänens DNS/TLS-status kunde inte kontrolleras. Försök igen.",
+            },
+            { status: 503 },
+          );
+        }
+        verified = configured;
+      }
+      if (verified && resolution.appProjectId) {
+        // Only a provider-verified domain becomes the project's canonical
+        // public URL. A manually posted/unverified domain must never poison
+        // SEO or replace the branded fallback.
+        let saved;
+        try {
+          saved = await setProjectVerifiedCustomDomain(
+            resolution.appProjectId,
+            domain,
+          );
+        } catch (error) {
+          if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "23505"
+          ) {
+            return NextResponse.json(
+              { error: "Domänen är redan kopplad till ett annat projekt." },
+              { status: 409 },
+            );
+          }
+          throw error;
+        }
+        if (!saved) {
+          throw new Error("Den verifierade domänen kunde inte sparas på projektet.");
+        }
+        await setLatestDeploymentLiveUrlForChat(chatId, domain);
+      } else if (resolution.appProjectId) {
+        await clearProjectCustomDomainVerification(
+          resolution.appProjectId,
+          domain,
+        );
+      }
 
       return NextResponse.json({
         success: true,

@@ -131,7 +131,7 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
     expect(body.preferences.seo.optIn).toBe(true);
   });
 
-  it("rejects PATCH with optIn=true and missing siteUrl", async () => {
+  it("accepts optIn=true without fallback siteUrl for canonical project URLs", async () => {
     getProjectData.mockResolvedValue(null);
 
     const res = await PATCH(
@@ -139,11 +139,11 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
       makeParams(),
     );
 
-    expect(res.status).toBe(400);
-    expect(saveProjectData).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalled();
   });
 
-  it("rejects PATCH with optIn=true and siteUrl=null", async () => {
+  it("accepts optIn=true with siteUrl=null as canonical-only preference", async () => {
     getProjectData.mockResolvedValue(null);
 
     const res = await PATCH(
@@ -151,8 +151,8 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
       makeParams(),
     );
 
-    expect(res.status).toBe(400);
-    expect(saveProjectData).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalled();
   });
 
   it("rejects PATCH with non-https siteUrl", async () => {

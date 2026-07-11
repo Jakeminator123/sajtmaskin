@@ -54,8 +54,9 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Term | Kort |
 |---|---|
 | `previewUrl` | Nivå 1: VM-/preview_host-länken ("Öppna" under bygge). Delbar via Publik preview, men aldrig "publicerad sajt". |
-| `liveUrl` | Nivå 2: stabil publicerad produktions-URL för en användarsajt. En per projekt; uppdateras vid ompublicering, byts inte. |
-| `customDomain` | Nivå 3: kundens egen domän, kopplad till samma hosting-projekt som `liveUrl`. |
+| `liveUrl` | Nivå 2: aktuell publik produktions-URL. Resolveras till verifierad `customDomain`, annars verifierad Sajtmaskin-standardadress, annars `providerUrl`. Samma sajt/projekt består när URL-nivån uppgraderas. |
+| `customDomain` | Nivå 3: kundens verifierade egna domän, kopplad till samma hosting-projekt och vald som `liveUrl` när DNS/TLS är korrekt. |
+| `providerUrl` | Teknisk hosting-URL (t.ex. `*.vercel.app`) för status, felsökning och rollback. Visas bara som `liveUrl` när ingen verifierad varumärkt/kundägd adress finns. |
 | Publicera | Deploy av aktuell version till produktion (skapar/uppdaterar `liveUrl`). Inte GitHub, inte domänköp. |
 | Domänkoppling | Koppla + verifiera en domän mot kundprojektets hosting. Skilj från domänköp, som sker hos extern leverantör (Loopia m.fl.). |
 | GitHubExport | Valfri export av en versions filer till användarens GitHub-repo (user eller org). Power-user-flöde, inte en del av Publicera. |
