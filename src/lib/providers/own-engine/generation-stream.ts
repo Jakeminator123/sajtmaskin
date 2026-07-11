@@ -108,6 +108,7 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   enginePath: string;
   thinking: boolean;
   removedCapabilities?: string[];
+  readdedCapabilities?: string[];
   removedDossierIds?: string[];
   f3ApprovedCapabilities?: string[];
   f3ApprovedProviders?: string[];

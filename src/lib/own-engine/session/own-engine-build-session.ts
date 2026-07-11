@@ -196,6 +196,7 @@ export function buildOwnEngineGenerationStreamMeta(
     orch.dossierSelection?.selected.map((selected) => selected.entry.id) ?? [];
   const requestedCapabilities = orch.dossierRequestedCapabilities ?? [];
   const removedCapabilities = orch.removedCapabilities ?? [];
+  const readdedCapabilities = orch.readdedCapabilities ?? [];
   const briefSummary = filterRemovedCapabilitiesFromBriefSummary(
     extractBriefSummary(input.metaBrief),
     removedCapabilities,
@@ -237,6 +238,7 @@ export function buildOwnEngineGenerationStreamMeta(
     selectedDossierIds,
     requestedCapabilities,
     removedCapabilities,
+    readdedCapabilities,
     removedDossierIds: orch.removedDossierIds ?? [],
     f3ApprovedCapabilities: orch.f3ApprovedCapabilities ?? [],
     f3ApprovedProviders: orch.f3ApprovedProviders ?? [],

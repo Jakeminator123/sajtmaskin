@@ -248,3 +248,135 @@ describe("detectCapabilityRemoval — clause scoping (Codex on #447)", () => {
     ).toEqual(["payments"]);
   });
 });
+
+describe("detectCapabilityRemoval — readdedCapabilities (explicit re-activation)", () => {
+  it("surfaces an explicit re-add with no removal verb", () => {
+    const result = detectCapabilityRemoval("Lägg tillbaka Stripe-betalningen");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual(["payments"]);
+  });
+
+  it("generic additive language is NEVER a re-add — with or without a repeat word", () => {
+    // 2× Bugbot HIGH on #497: bare add verbs appear in branding/layout prompts
+    // ("Add Stripe accent colors", "Lägg till checkout-sektionen"), and a
+    // repeat word does not disambiguate ("Use Stripe for branding again").
+    // Only unambiguous restore verbs may clear a durable removal tombstone.
+    expect(
+      detectCapabilityRemoval("Lägg till Stripe-betalning").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Add Stripe accent colors").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg till checkout-sektionen").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Add Stripe accent colors again").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Use Stripe for branding again").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg till Stripe-betalningen igen").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("a pure removal yields no readd", () => {
+    const result = detectCapabilityRemoval("Ta bort Stripe-betalningen");
+    expect(result.removedCapabilities).toEqual(["payments"]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a neutral edit yields neither removal nor readd", () => {
+    const result = detectCapabilityRemoval("Gör rubriken större");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a provider swap vetoes removal but is NOT an explicit re-add", () => {
+    // "använd Klarna i stället" is additive (vetoes the removal) — but `använd`
+    // is a descriptive verb, not an intentional re-add, so no tombstone-clear.
+    const result = detectCapabilityRemoval(
+      "Ta bort Stripe och använd Klarna i stället",
+    );
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("descriptive 'använd/use' never produces a readd (would resurrect)", () => {
+    expect(
+      detectCapabilityRemoval("Jag vill inte använda Stripe").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("We use Stripe for branding").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("negated or 'without'-clauses never produce a readd", () => {
+    expect(
+      detectCapabilityRemoval("Skapa en sida utan betalning").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Don't add Stripe to the site").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("a UI-control compound is neither removal nor readd", () => {
+    const result = detectCapabilityRemoval("Lägg till checkout-knappen i menyn");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("a UI selector mention is layout work, not a payments re-add", () => {
+    const result = detectCapabilityRemoval("Add a drop-down checkout selector");
+    expect(result.removedCapabilities).toEqual([]);
+    expect(result.readdedCapabilities).toEqual([]);
+  });
+
+  it("restoring a checkout SECTION/PAGE is layout work, not an integration re-add", () => {
+    // Bugbot HIGH #3 on #497: a restore verb + section noun is a layout
+    // restore; it must not clear the payments tombstone.
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka checkout-sektionen").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Restore the checkout section").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka checkout-sidan").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("restoring a provider LOGO is branding work, not an integration re-add", () => {
+    // Codex P1 + VADE on #497: "Stripe" is descriptive in a logo/branding edit.
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka Stripe-logotypen").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Restore the Stripe logo for the footer").readdedCapabilities,
+    ).toEqual([]);
+    expect(
+      detectCapabilityRemoval("Lägg tillbaka Stripe-loggan i sidfoten").readdedCapabilities,
+    ).toEqual([]);
+  });
+
+  it("unambiguous restore phrasings count as re-adds", () => {
+    expect(
+      detectCapabilityRemoval("Återaktivera Stripe-betalningen").readdedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Restore the Stripe checkout").readdedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Bring back the Stripe payment flow").readdedCapabilities,
+    ).toEqual(["payments"]);
+  });
+
+  it("handles a compound re-add + removal of different capabilities in one prompt", () => {
+    const result = detectCapabilityRemoval(
+      "Lägg tillbaka Stripe-betalningen och ta bort inloggningen",
+    );
+    expect(result.readdedCapabilities).toEqual(["payments"]);
+    expect(result.removedCapabilities).toContain("auth");
+  });
+});
