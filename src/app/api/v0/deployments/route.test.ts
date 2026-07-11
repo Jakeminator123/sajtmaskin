@@ -1119,6 +1119,33 @@ describe("POST /api/v0/deployments", () => {
     expect(markProjectBrandedDomainVerified).not.toHaveBeenCalled();
   });
 
+  it("records a pending branded-domain check so later reloads are throttled", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_1",
+      branded_domain: "demo.sites.sajtmaskin.se",
+      branded_domain_verified_at: null,
+      branded_domain_checked_at: null,
+    });
+    checkVercelProjectDomain.mockResolvedValue(false);
+
+    const res = await GET(
+      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
+      "proj_1",
+      "demo.sites.sajtmaskin.se",
+    );
+  });
+
   // BUG-fix: the ZIP/download export already strips the generated F2
   // placeholder `.env.local` (see `strip-env-local-for-zip.ts`) but the
   // deploy file-assembly did not, so it could ship to Vercel and shadow the

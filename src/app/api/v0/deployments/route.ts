@@ -1216,6 +1216,14 @@ export async function GET(req: Request) {
               );
             }
           }
+        } else {
+          // Pending DNS and transient provider failures must also advance the
+          // check clock; otherwise every builder history reload repeats the
+          // same external request and defeats the five-minute throttle.
+          await clearProjectBrandedDomainVerification(
+            appProjectId,
+            appProject.branded_domain,
+          );
         }
       }
       const project = {
