@@ -497,10 +497,20 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
           (capability): capability is string => typeof capability === "string",
         )
       : [];
-  // Presence is authoritative even when the current floor is intentionally
-  // empty (explicit removal). Fall back only when the top-level key is absent
-  // on a legacy snapshot; otherwise stale briefSummary capabilities resurrect.
-  const inheritedCapabilities = Array.isArray(topLevelRaw)
+  const hasExplicitRemoval =
+    Array.isArray(
+      (snapshot as Record<string, unknown> | null)?.removedCapabilities,
+    ) &&
+    (
+      (snapshot as Record<string, unknown>)
+        .removedCapabilities as unknown[]
+    ).length > 0;
+  // Empty is authoritative only with an explicit-removal tombstone. Ordinary
+  // F2 snapshots intentionally mute integrations at the top level and must
+  // still inherit them from the brief when the user later enters F3.
+  const inheritedCapabilities =
+    Array.isArray(topLevelRaw) &&
+    (mergedCapabilities.length > 0 || hasExplicitRemoval)
     ? mergedCapabilities
     : briefCapabilities;
   return {

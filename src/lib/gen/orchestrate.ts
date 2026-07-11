@@ -1464,6 +1464,16 @@ export async function resolveOrchestrationBase(
     );
   }
 
+  const retainedContractCapabilities = Array.from(
+    new Set([
+      ...(input.followUpContract?.capabilities ?? []),
+      ...(input.requestedDossierCapabilities ?? []),
+      ...resolveDossierCapabilitiesFromInferredCapabilities(capabilities),
+    ]),
+  ).filter(
+    (capability) =>
+      !removedCapabilities.includes(capability.trim().toLowerCase()),
+  );
   const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
     inferPreGenerationContracts({
       prompt: input.contractsPrompt ?? prompt,
@@ -1473,6 +1483,7 @@ export async function resolveOrchestrationBase(
       contractAnswers,
     }),
     removedCapabilities,
+    retainedContractCapabilities,
   );
   const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,

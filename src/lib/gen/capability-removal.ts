@@ -77,12 +77,22 @@ export function suppressRemovedInferredCapabilities(
 export function filterRemovedCapabilitiesFromContracts(
   context: PreGenerationContractContext,
   removedCapabilities: readonly string[],
+  retainedCapabilities: readonly string[] = [],
 ): PreGenerationContractContext {
   const removed = normalizeCapabilitySet(removedCapabilities);
   if (removed.size === 0) return context;
+  const retained = normalizeCapabilitySet(retainedCapabilities);
+  const removePaymentResidue =
+    removed.has("subscriptions") && !retained.has("payments");
 
-  const removedIntegrations = context.contracts.integrations.filter((integration) =>
-    providerMatchesRemovedCapability(integration.provider, removed),
+  const removedIntegrations = context.contracts.integrations.filter(
+    (integration) =>
+      providerMatchesRemovedCapability(integration.provider, removed) ||
+      (removePaymentResidue &&
+        providerMatchesRemovedCapability(
+          integration.provider,
+          new Set(["payments"]),
+        )),
   );
   const retainedIntegrations = context.contracts.integrations.filter(
     (integration) => !removedIntegrations.includes(integration),
@@ -117,7 +127,12 @@ export function filterRemovedCapabilitiesFromContracts(
     paymentProvider: providerMatchesRemovedCapability(
       context.contracts.paymentProvider,
       removed,
-    )
+    ) ||
+    (removePaymentResidue &&
+      providerMatchesRemovedCapability(
+        context.contracts.paymentProvider,
+        new Set(["payments"]),
+      ))
       ? undefined
       : context.contracts.paymentProvider,
   };

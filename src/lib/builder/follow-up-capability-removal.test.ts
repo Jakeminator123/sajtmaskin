@@ -168,6 +168,25 @@ describe("detectCapabilityRemoval — subscriptions/payments split (Vercel Agent
     ).not.toContain("subscriptions");
   });
 
+  it("scopes subscription vetoes to the matched clause", () => {
+    expect(
+      detectCapabilityRemoval(
+        "ta bort prenumerationerna men behåll nyhetsbrevet",
+      ).removedCapabilities,
+    ).toContain("subscriptions");
+    expect(
+      detectCapabilityRemoval(
+        "remove one-time payments and subscriptions",
+      ).removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
+  it("matches plural memberships", () => {
+    expect(
+      detectCapabilityRemoval("remove memberships").removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
   it("still removes the newsletter capability on an explicit newsletter removal", () => {
     expect(detectCapabilityRemoval("ta bort nyhetsbrevet").removedCapabilities).toEqual([
       "newsletter-subscribe",

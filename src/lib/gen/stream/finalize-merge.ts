@@ -8,6 +8,7 @@ import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
+import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 
 interface ImportFix {
@@ -160,13 +161,17 @@ export function removeExplicitlyRemovedDossierFiles(params: {
 }): { files: CodeFile[]; removedPaths: string[] } {
   const activePaths = new Set(
     params.selectedDossiers.flatMap((dossier) =>
-      (dossier.files ?? []).map((file) => normalizeDossierPath(file.path)),
+      (dossier.files ?? []).map((file) =>
+        normalizeDossierPath(mapDossierPathToOutput(file.path)),
+      ),
     ),
   );
   const removablePaths = new Set(
     params.removedDossiers.flatMap((dossier) =>
       (dossier.files ?? [])
-        .map((file) => normalizeDossierPath(file.path))
+        .map((file) =>
+          normalizeDossierPath(mapDossierPathToOutput(file.path)),
+        )
         .filter((path) => !activePaths.has(path)),
     ),
   );

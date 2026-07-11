@@ -111,7 +111,7 @@ const REMOVAL_CAPABILITY_TERMS: RemovalCapabilityEntry[] = [
       // bare English "subscribe" token — it collides with newsletter signup
       // (mirrors the detection-side note).
       /(?<![\p{L}\p{N}_])(?:prenumeration[\p{L}]*|prenumerera[\p{L}]*|abonnemang[\p{L}]*|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:medlemskap[\p{L}]*|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:medlemskap[\p{L}]*|membership[\p{L}]*|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning[\p{L}]*|debitering[\p{L}]*)|recurring\s+(?:payments?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning[\p{L}]*)(?![\p{L}\p{N}_])/iu,
     ],
     // Newsletter "prenumerera på nyhetsbrevet" and one-off payments must NOT be
@@ -186,6 +186,23 @@ function nearestPreceding(positions: readonly number[], index: number): number |
   return best;
 }
 
+function clauseAt(text: string, index: number): string {
+  const separator =
+    /[,;]|\n|(?<![\p{L}\p{N}_])(?:och|men|and|but)(?![\p{L}\p{N}_])/giu;
+  let start = 0;
+  let end = text.length;
+  for (const match of text.matchAll(separator)) {
+    const position = match.index ?? 0;
+    if (position < index) {
+      start = position + match[0].length;
+      continue;
+    }
+    end = position;
+    break;
+  }
+  return text.slice(start, end);
+}
+
 /**
  * Detect explicit integration-capability removals in a follow-up prompt.
  *
@@ -215,10 +232,6 @@ export function detectCapabilityRemoval(message: string): CapabilityRemovalDetec
   const removedCapabilities: string[] = [];
   const matchedKeywords: string[] = [];
   for (const entry of REMOVAL_CAPABILITY_TERMS) {
-    // A veto match suppresses the whole entry (e.g. newsletter "prenumeration"
-    // or a one-off payment must not shrink the Paddle `subscriptions`
-    // capability). Mirrors `detectFollowUpCapabilities`.
-    if (entry.vetoes?.some((veto) => veto.test(trimmed))) continue;
     let removalMatched = false;
     let additiveMatched = false;
     const entryKeywords: string[] = [];
@@ -231,6 +244,11 @@ export function detectCapabilityRemoval(message: string): CapabilityRemovalDetec
         const matchedText = m[0];
         if (typeof matchedText !== "string" || matchedText.length === 0) continue;
         const index = m.index ?? 0;
+        if (
+          entry.vetoes?.some((veto) => veto.test(clauseAt(trimmed, index)))
+        ) {
+          continue;
+        }
         // UI-control compound ("checkout-knappen", "betalningsknappen") —
         // a layout edit, never an integration removal.
         const tail = trimmed.slice(index, index + matchedText.length + 16);

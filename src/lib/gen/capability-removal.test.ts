@@ -127,7 +127,7 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
 
     const result = filterRemovedCapabilitiesFromContracts(context, [
       "subscriptions",
-    ]);
+    ], ["payments"]);
 
     expect(result.contracts.paymentProvider).toBeUndefined();
     expect(result.contracts.integrations.map((item) => item.provider)).toEqual([
@@ -136,6 +136,13 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
     expect(result.contracts.envVars.map((item) => item.key)).toEqual([
       "STRIPE_SECRET_KEY",
     ]);
+
+    const noRetainedPayment = filterRemovedCapabilitiesFromContracts(
+      context,
+      ["subscriptions"],
+    );
+    expect(noRetainedPayment.contracts.integrations).toEqual([]);
+    expect(noRetainedPayment.contracts.paymentProvider).toBeUndefined();
   });
 });
 

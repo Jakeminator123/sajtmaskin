@@ -148,10 +148,23 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
       snapshot: {
         ...baseSnapshot(),
         requestedCapabilities: [],
+        removedCapabilities: ["payments"],
         briefSummary: { requestedCapabilities: ["payments"] },
       },
     });
     expect(contract.capabilities).toEqual([]);
+  });
+
+  it("keeps brief capabilities when an ordinary F2 snapshot mutes the top-level floor", () => {
+    const contract = buildFollowUpContract({
+      snapshot: {
+        ...baseSnapshot(),
+        requestedCapabilities: [],
+        removedCapabilities: [],
+        briefSummary: { requestedCapabilities: ["payments"] },
+      },
+    });
+    expect(contract.capabilities).toEqual(["payments"]);
   });
 });
 

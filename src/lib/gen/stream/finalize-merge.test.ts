@@ -241,7 +241,7 @@ describe("explicit dossier removal", () => {
   it("deletes file-evidenced dossier files while keeping unrelated files", () => {
     const stripe = makeDossier("stripe-checkout", "payments", [
       "components/checkout-button.tsx",
-      "app/api/checkout-session/route.ts",
+      "components/api/checkout-session/route.ts",
       "components/integration-config-notice.tsx",
     ]);
     const previousFiles = [
