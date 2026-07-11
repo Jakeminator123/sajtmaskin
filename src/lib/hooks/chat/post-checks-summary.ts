@@ -47,9 +47,19 @@ function isLikelyQuestionOrPrompt(content: string) {
   ].some((token) => lower.includes(token));
 }
 
+function isGeneratedContent(content: string) {
+  // Match the codegen markers that GenerationSummary collapses, not ordinary
+  // prose that happens to discuss a code fence or `file="..."` syntax.
+  return /(?:^|\n)(?:```)?[a-z0-9]+ file="[^"\r\n]+"\s*(?:\r?\n|$)/i.test(content);
+}
+
 function shouldAppendPostCheckSummary(content: string) {
   const trimmed = content.trim();
   if (!trimmed) return true;
+  // Codegen is rendered by GenerationSummary, which already extracts the
+  // generated file list. Keep the post-check as structured tooling instead of
+  // adding its near-duplicate file diff to the same assistant content.
+  if (isGeneratedContent(trimmed)) return false;
   if (isLikelyQuestionOrPrompt(trimmed)) return false;
   if (trimmed.endsWith(":")) return true;
   const tail = trimmed.slice(-160).toLowerCase();
