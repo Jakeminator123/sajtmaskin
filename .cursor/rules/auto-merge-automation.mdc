@@ -9,7 +9,11 @@ En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repo
 
 ## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **`/granska` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `review-window`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **`/granska` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** (numera tekniskt tvingat av required-checken `review-window`) · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+
+## review-window — 7-min/bot-fönstret är tekniskt tvingat
+
+Den required-checken `review-window` (`.github/workflows/review-window.yml`) håller sig **pending** — och blockerar därmed en icke-admin-merge via grenskyddet — tills (1) PR:en är ≥ 7 min gammal **och** (2) de kända externa bot-granskarna (Vercel Agent Review, Cursor "Find critical bugs", GitGuardian, ev. Codex) för nuvarande head-SHA är klara, dock aldrig längre än ett 10-min-tak (så den fastnar inte om en bot är avstängd). Den gör ingen verdict-bedömning — triagen av fynd är fortfarande agentens jobb (spårningstabellen nedan). Den gör bara det tidigare "mjuka" 7-min-fönstret till en hård grind. **`gh pr merge --admin` kan fortfarande överstyra den** — därför gäller `--admin`-förbudet nedan oförändrat.
 
 Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
 

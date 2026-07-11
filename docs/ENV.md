@@ -31,6 +31,8 @@ Utan dessa brukar kärnan inte vara användbar i **preview + production**:
 
 Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** för `development` / `preview` / `production` enligt behov.
 
+> **CI auto-migration-secret — `POSTGRES_URL_PROD`:** GitHub Actions-jobbet `prod-migrations-apply` ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) auto-applicerar DB-migrationer mot prod vid push till master, och kräver repo-secret:en `POSTGRES_URL_PROD` (poolad prod-URL, samma värde som Vercels `POSTGRES_URL` i production). Sätt/rotera med `gh secret set POSTGRES_URL_PROD`. **Saknas den på huvudrepot faller CI-jobbet rött** (inte tyst grönt) så en glömd migration inte kan slinka till prod oupptäckt. Detaljer: [`.cursor/rules/db-env-parity.mdc`](../.cursor/rules/db-env-parity.mdc).
+
 ---
 
 ## Vanliga tillägg (funktioner ovanpå)

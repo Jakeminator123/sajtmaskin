@@ -204,17 +204,82 @@ jobs:
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
 
-  # Blockerande gate: verifierar att PRODUKTIONS-databasen har ALLA migrations
+  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid merge till master —
+  # så en migration ALDRIG kan bli deployad utan att köras (grundorsaken till att
+  # add-branded-site-domains.sql saknades i prod: migrationer körs INTE automatiskt
+  # vid Vercel-deploy). Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-
+  # ledgern, så varje re-run är en no-op.
+  #
+  # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
+  # prod-migrations-applied / db-blob-sync-check) — bara trusted events (push
+  # master / manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds.
+  # Guard-steget SKIP:ar apply tyst om secret:en saknas (fork utan creds) så
+  # jobbet inte blir falskt rött där.
+  #
+  # Gate:as bakom quality + schema-drift så prod-schemat ALDRIG muteras för en
+  # trasig merge. Additiv migration parallellt med Vercels deploy är ofarligt;
+  # vill man ha helt race-fritt gate:ar man deployen bakom detta jobb separat.
+  prod-migrations-apply:
+    if: github.event_name != 'pull_request'
+    needs: [quality, schema-drift]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fork-/no-secret-säkerhet: en fork (annat repo) saknar secret:en och SKIP:ar
+      # apply i stället för att falla rött. MEN på HUVUDREPOT ska en saknad secret
+      # falla HÅRT RÖTT — annars återuppstår exakt den false-green som orsakade den
+      # ursprungliga saknade migrationen (apply skippas tyst + check exit 0 = grönt
+      # utan att prod migrerats). Buggsvärm 2026-07-11: 3 oberoende träffar.
+      - name: Detect prod credentials
+        id: creds
+        env:
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+        run: |
+          if [ -n "$POSTGRES_URL_PROD" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
+            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-migrationer kan inte auto-appliceras (false-green-risk). Sätt den: gh secret set POSTGRES_URL_PROD"
+            exit 1
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::POSTGRES_URL_PROD saknas — hoppar över auto-apply (fork/no-secret)."
+          fi
+
+      - name: Apply pending migrations to production (idempotent)
+        if: steps.creds.outputs.present == 'true'
+        run: npx tsx scripts/db/run-migrations.ts
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+          DB_ALLOW_PROD_LIKE_WRITE: "1"
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
+
+  # Verifierar EFTER auto-apply att PRODUKTIONS-databasen har ALLA migrations
   # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
-  # (bara SELECT). Rött = prod ligger efter → kör `npm run db:migrate:prod`.
+  # (bara SELECT). `needs: prod-migrations-apply` gör detta till en post-condition
+  # på apply-jobbet: rött = apply lyckades inte få prod i synk (ska aldrig hända
+  # när apply gått grönt) → kör `npm run db:migrate:prod` manuellt.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
   # db-blob-sync-check) — jobbet körs bara på trusted events (push master /
-  # manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds. Det gör
-  # detta till en POST-merge-signal (master blir röd tills prod migrerats), inte
-  # en pre-merge-block. Saknas secret (fork) SKIP:ar checken med exit 0.
+  # manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds. Saknas
+  # secret (fork) SKIP:ar checken med exit 0.
   prod-migrations-applied:
     if: github.event_name != 'pull_request'
+    needs: prod-migrations-apply
     runs-on: ubuntu-latest
 
     steps:

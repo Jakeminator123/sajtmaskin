@@ -27,8 +27,11 @@ Lägger du en migration i `src/lib/db/migrations/` (och rör en INSERT/kolumn): 
 Runners (`db:migrate`, `db:migrate:prod`, `db:init`) bokför varje applicerad migration i tabellen `schema_migrations` (idempotent, best-effort/warn-only). Gaten läser den:
 
 - Lokalt: `npm run db:migrate:check` (dev) / `npm run db:migrate:check:prod` (read-only mot prod-snapshot). Rött = DB:n ligger efter → kör migrate.
-- CI: jobbet `prod-migrations-applied` (`.github/workflows/ci.yml`) kör checken mot prod på **push till master / manuell dispatch** (aldrig på PR — prod-secret exponeras inte för PR-kod). **Röd master = prod saknar en migration → kör `npm run db:migrate:prod`.** Det är en post-merge-signal, inte en pre-merge-block.
-- Första gången efter att detta införts är prod-ledgern tom → kör `npm run db:migrate:prod` **en gång** så bokförs allt (migrationerna är idempotenta, så det är no-ops på schemat).
+- **CI auto-apply (idiotsäkerheten):** jobbet `prod-migrations-apply` (`.github/workflows/ci.yml`) kör `run-migrations.ts` mot prod vid **push till master / manuell dispatch** (aldrig på PR). Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge.
+- **CI-verifiering:** jobbet `prod-migrations-applied` (`needs: prod-migrations-apply`) läser prod-ledgern EFTER apply. Rött = apply fick inte prod i synk → kör `npm run db:migrate:prod` manuellt.
+- **Kräver secret:** `POSTGRES_URL_PROD` (poolad prod-URL) måste finnas som GitHub Actions-secret (`gh secret set POSTGRES_URL_PROD`). Saknas den SKIP:ar båda jobben tyst (false-green) — det var exakt varför en saknad migration kunde slinka till prod oupptäckt.
+- **SÄKERHET:** prod-secret injiceras bara på trusted events; PR-kod (inkl. forkar) ser aldrig prod-creds. Fork utan secret → guard-steget hoppar över apply i stället för att falla rött.
+- Vill du ha helt race-fritt (migrera FÖRE deploy): gate:a Vercel-deployen bakom `prod-migrations-apply` separat. Additiv `ADD COLUMN`-migration parallellt med deploy är annars ofarligt.
 
 ## Env-variabler
 
