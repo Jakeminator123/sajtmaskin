@@ -1,0 +1,103 @@
+name: review-window
+
+# Teknisk tvingad "minsta granskningsfönster" innan merge (variant B).
+#
+# Problemet detta löser: de vanliga CI-kontrollerna (quality/backoffice-tests/
+# schema-drift) blir gröna på några minuter — men de EXTERNA bot-granskarna
+# (Vercel Agent Review, Cursor "Find critical bugs", GitGuardian, ev. Codex)
+# lägger sina fynd först EFTER det. En ivrig agent som bara ser grönt CI kan då
+# hinna merga innan bot-fynden landat. 7-min-regeln i .cursor/rules är "mjuk"
+# (agent-disciplin) — detta jobb gör den till en hård, obligatorisk kontroll.
+#
+# Beteende: jobbet håller sig "pending" (och blockerar därmed merge via
+# grenskyddet) tills BÅDA är sanna:
+#   1. PR:en är minst 7 min gammal (räknat från createdAt), OCH
+#   2. de kända bot-granskarna för nuvarande head-SHA är KLARA — dvs minst en
+#      matchad bot-check finns, ingen matchad är kvar in_progress, OCH ett kort
+#      settle-golv (3 min från jobbstart) passerats så en snabb bot inte kan
+#      grönljusa innan långsammare granskare hunnit registrera sin check-run.
+# ...men aldrig längre än ett tak (10 min väntan på botar) så det aldrig
+# fastnar om en bot är avstängd (t.ex. Codex utan credits). Jobbet gör ingen
+# verdict-bedömning — själva triagen av fynden är fortfarande agentens jobb
+# (se pr-merge-review-gate.mdc). Det garanterar bara att botarna hunnit tala.
+#
+# Kör på ALLA PR:er (även forkar): läser bara publik check-run-status, inga
+# secrets. cancel-in-progress → en ny commit startar om fönstret för nya SHA:t.
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: review-window-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+jobs:
+  review-window:
+    # Drafts kan ändå inte merge:as — slösa inte fönster på dem.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Wait for minimum review window + external bots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          CREATED: ${{ github.event.pull_request.created_at }}
+        run: |
+          set -uo pipefail
+
+          MIN_PR_AGE=420      # 7 min golv från PR-skapande
+          MIN_BOT_SETTLE=180  # 3 min golv från JOBBSTART innan bot-villkoret får uppfyllas
+          MAX_BOT_WAIT=600    # 10 min tak för väntan på botar (från jobbstart)
+          # Substrängar (case-insensitive) mot check-run-namn. "agent review"
+          # träffar Vercel Agent Review men INTE Vercels deploy-check.
+          PATTERNS='agent review|find critical bugs|bugbot|codex|gitguardian'
+
+          created_epoch=$(date -u -d "$CREATED" +%s)
+          start_epoch=$(date -u +%s)
+
+          while true; do
+            now=$(date -u +%s)
+            pr_age=$(( now - created_epoch ))
+            waited=$(( now - start_epoch ))
+
+            runs=$(timeout 60 gh api --method GET --paginate -F per_page=100 \
+                "repos/${REPO}/commits/${SHA}/check-runs" \
+                --jq '.check_runs[] | [.name, .status] | @tsv' 2>/dev/null || true)
+
+            matched=$(printf '%s\n' "$runs" | grep -iE "$PATTERNS" || true)
+            matched_count=$(printf '%s' "$matched" | grep -c . || true)
+            pending=$(printf '%s\n' "$matched" | awk -F'\t' 'NF>=2 && $2!="completed"{c++} END{print c+0}')
+
+            # "Klara" kräver TRE saker:
+            #   (a) minst en bot-check har registrerats (matched_count>0) — 0 matchade
+            #       = botarna har inte startat än / gh api-fel → INTE klara;
+            #   (b) ingen matchad ligger kvar i queued/in_progress (pending==0); OCH
+            #   (c) jobbet har kört minst MIN_BOT_SETTLE sekunder — annars kan en enda
+            #       SNABB bot (t.ex. GitGuardian, klar på 1 s) grönljusa fönstret INNAN
+            #       långsammare granskare (Vercel Agent Review m.fl.) ens hunnit registrera
+            #       sin check-run för nya head-SHA:t (särskilt vid re-push på en gammal PR
+            #       där pr_age-golvet redan är passerat). Settle-golvet ger dem tid att dyka
+            #       upp som pending, varpå (b) håller grinden tills de blivit completed.
+            # Utan träffar väntar vi ändå till MAX_BOT_WAIT-taket (avstängd bot fastnar ej).
+            # (buggsvärm + Vercel Agent Review 2026-07-11, kategori logic.)
+            bots_done="false"
+            if [ "${matched_count:-0}" -gt 0 ] && [ "${pending:-0}" -eq 0 ] && [ "$waited" -ge "$MIN_BOT_SETTLE" ]; then bots_done="true"; fi
+
+            if [ "$pr_age" -ge "$MIN_PR_AGE" ] && { [ "$bots_done" = "true" ] || [ "$waited" -ge "$MAX_BOT_WAIT" ]; }; then
+              echo "✓ review-window uppfyllt (pr_age=${pr_age}s, matchade_botar=${matched_count}, pending=${pending}, väntat=${waited}s, settle-golv=${MIN_BOT_SETTLE}s)"
+              exit 0
+            fi
+
+            echo "väntar… pr_age=${pr_age}s (golv ${MIN_PR_AGE}s), matchade_botar=${matched_count}, pending=${pending}, väntat=${waited}s (settle-golv ${MIN_BOT_SETTLE}s, tak ${MAX_BOT_WAIT}s)"
+            sleep 20
+          done
