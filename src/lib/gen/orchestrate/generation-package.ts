@@ -15,6 +15,7 @@ interface OrchestrationBaseLike {
   routePlan: GenerationInputPackage["routePlan"];
   preGenerationContracts: GenerationInputPackage["preGenerationContracts"];
   capabilities: GenerationInputPackage["capabilities"];
+  effectiveBrief?: Record<string, unknown> | null;
   buildSpec: GenerationInputPackage["buildSpec"];
   serializeMode: GenerationInputPackage["serializeMode"];
   uiRecipes: GenerationInputPackage["uiRecipes"];
@@ -49,9 +50,10 @@ export function buildGenerationInputPackage(
   input: OrchestrationInputLike,
   finalized: FinalizedOrchestrationContextLike,
 ): GenerationInputPackage {
+  const effectiveBrief = base.effectiveBrief ?? input.brief ?? null;
   const lineageHash = computeLineageHash({
     userPrompt: input.prompt,
-    brief: input.brief,
+    brief: effectiveBrief,
     scaffoldMode: input.scaffoldMode ?? "auto",
     scaffoldContext: base.scaffoldContext,
     routePlan: base.routePlan,
@@ -76,7 +78,7 @@ export function buildGenerationInputPackage(
     ...base,
     userPrompt: input.prompt,
     rawPrompt: input.rawPrompt ?? input.prompt,
-    brief: (input.brief as Record<string, unknown>) ?? null,
+    brief: effectiveBrief,
     scaffoldMode: input.scaffoldMode ?? "auto",
     engineSystemPrompt: finalized.engineSystemPrompt,
     dynamicContext: finalized.dynamicContext,

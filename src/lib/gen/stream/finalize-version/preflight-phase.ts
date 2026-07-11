@@ -119,6 +119,8 @@ export async function runPreflightPhase(params: {
    * Om tom: verbatim-policy körs men hittar inga dossiers att skydda.
    */
   selectedDossiers?: DossierEntry[];
+  /** Dossiers explicitly removed by this follow-up. */
+  removedDossiers?: DossierEntry[];
   repairLedger?: RepairLedger;
   repairScopeId?: string;
 }): Promise<PreflightPhaseResult> {
@@ -135,6 +137,7 @@ export async function runPreflightPhase(params: {
     previousFiles,
     onProgress,
     selectedDossiers,
+    removedDossiers,
     repairLedger,
     repairScopeId,
   } = params;
@@ -159,6 +162,7 @@ export async function runPreflightPhase(params: {
     resolvedScaffold,
     previousFiles,
     selectedDossiers,
+    removedDossiers,
   });
   filesJson = mergeResult.filesJson;
   let rejectedShrinks = mergeResult.rejectedShrinks;
@@ -343,6 +347,7 @@ export async function runPreflightPhase(params: {
         resolvedScaffold,
         previousFiles,
         selectedDossiers,
+        removedDossiers,
       });
       filesJson = remergeResult.filesJson;
       // Concat shrink/structural rejections from the remerge so the SSE

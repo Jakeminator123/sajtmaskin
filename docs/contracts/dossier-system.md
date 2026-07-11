@@ -160,6 +160,27 @@ floor of the MOST RECENT round and legitimately SHRINKS after an F3 build (the
 next design round re-mutes integration capabilities): that shrink is intended,
 and file presence is what keeps a built integration visible/enforced through it.
 
+### Explicit capability removal
+
+A follow-up such as "ta bort Stripe" is an explicit exception to the
+can-only-grow floor. `detectCapabilityRemoval` emits the removed capability;
+orchestrate then subtracts it from inferred flags, Deep Brief capability lists,
+contracts, durable F3 approvals and dossier selection before codegen. The stream
+meta carries both `removedCapabilities` and the file-evidenced
+`removedDossierIds`, so finalize cannot resurrect the capability from a stale
+`briefSummary`. Both `f3ApprovedCapabilities` and `f3ApprovedProviders` are
+overwritten with the filtered sets in the next snapshot.
+
+After the normal follow-up merge and verbatim restoration,
+`removeExplicitlyRemovedDossierFiles` deletes paths owned by those removed
+dossiers. A path is preserved when a still-selected dossier also declares it;
+this protects shared helpers such as config notices. The removal hint still
+requires the model to remove imports, navigation and provider usage, while the
+deterministic post-merge deletion guarantees that omitted legacy dossier files
+do not survive by union-merge. Cross-file import checking runs once more after
+deletion so a missed importer is rewired/stubbed and surfaced as degraded
+instead of becoming a dangling module import.
+
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
 - `## Available Dossiers` — compact list of selected dossiers.

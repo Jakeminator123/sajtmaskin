@@ -240,6 +240,34 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     expect(meta.requestedCapabilities).toEqual(["payments", "unknown-capability"]);
   });
 
+  it("persists removal signals and shrinks stale brief capabilities", () => {
+    const meta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      metaBriefApplied: true,
+      metaBrief: {
+        projectTitle: "Butik",
+        requestedCapabilities: ["payments", "auth"],
+      },
+      orchestrationBase: {
+        ...common.orchestrationBase,
+        dossierRequestedCapabilities: ["auth"],
+        removedCapabilities: ["payments"],
+        removedDossierIds: ["stripe-checkout"],
+        f3ApprovedCapabilities: ["auth"],
+        f3ApprovedProviders: ["clerk"],
+      },
+    });
+
+    expect(meta.removedCapabilities).toEqual(["payments"]);
+    expect(meta.removedDossierIds).toEqual(["stripe-checkout"]);
+    expect(meta.f3ApprovedCapabilities).toEqual(["auth"]);
+    expect(meta.f3ApprovedProviders).toEqual(["clerk"]);
+    expect(meta.briefSummary).toMatchObject({
+      requestedCapabilities: ["auth"],
+    });
+  });
+
   it("persists brief design values for follow-up snapshot rehydration", () => {
     const meta = buildOwnEngineGenerationStreamMeta({
       ...common,

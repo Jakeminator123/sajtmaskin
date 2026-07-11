@@ -127,3 +127,83 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
     expect(base.dossierSelection?.selected ?? []).toEqual([]);
   });
 });
+
+describe("resolveOrchestrationBase — explicit capability removal", () => {
+  it("removes Stripe from inference, contracts, dossier selection, and file ownership", async () => {
+    const prompt = "Ta bort Stripe-betalningsgrejjen helt.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        prompt,
+        rawPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        contractsPrompt: prompt,
+        lifecycleStage: "design",
+        capabilities: { ...noCapabilities, needsPayments: true },
+        brief: { requestedCapabilities: ["payments"] },
+        followUpContract: {
+          ...followUpContract(["payments"]),
+          f3ApprovedCapabilities: ["payments"],
+          f3ApprovedProviders: ["stripe"],
+        },
+        previousFilePaths: [
+          "components/checkout-button.tsx",
+          "app/api/checkout-session/route.ts",
+          "components/integration-config-notice.tsx",
+        ],
+      }),
+    );
+
+    expect(base.removedCapabilities).toEqual(["payments"]);
+    expect(base.removedDossierIds).toEqual(["stripe-checkout"]);
+    expect(base.f3ApprovedCapabilities).toEqual([]);
+    expect(base.f3ApprovedProviders).toEqual([]);
+    expect(base.capabilities.needsPayments).toBe(false);
+    expect(base.effectiveBrief?.requestedCapabilities).toEqual([]);
+    expect(base.dossierRequestedCapabilities).not.toContain("payments");
+    expect(base.dossierSelection?.selected ?? []).toEqual([]);
+    expect(base.capabilityHints).toContain("Explicit capability removal");
+    expect(base.preGenerationContracts.contracts.paymentProvider).toBeUndefined();
+    expect(
+      base.preGenerationContracts.contracts.integrations.map(
+        (integration) => integration.provider,
+      ),
+    ).not.toContain("stripe");
+  });
+
+  it("persists current-round F3 approvals instead of overwriting them with empty arrays", async () => {
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        lifecycleStage: "integrations",
+        requestedDossierCapabilities: ["payments"],
+        dossierProviderHints: ["stripe"],
+        followUpContract: followUpContract([]),
+        previousFilePaths: ["app/page.tsx"],
+      }),
+    );
+
+    expect(base.f3ApprovedCapabilities).toContain("payments");
+    expect(base.f3ApprovedProviders).toContain("stripe");
+  });
+
+  it("keeps explicit removal authoritative over F3 file evidence", async () => {
+    const prompt = "Ta bort Stripe helt.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        prompt,
+        rawPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        lifecycleStage: "integrations",
+        capabilities: { ...noCapabilities, needsPayments: true },
+        followUpContract: followUpContract(["payments"]),
+        previousFilePaths: [
+          "app/api/checkout-session/route.ts",
+          "components/integration-config-notice.tsx",
+        ],
+      }),
+    );
+
+    expect(base.removedCapabilities).toEqual(["payments"]);
+    expect(base.dossierRequestedCapabilities).not.toContain("payments");
+    expect(base.dossierSelection?.selected ?? []).toEqual([]);
+  });
+});

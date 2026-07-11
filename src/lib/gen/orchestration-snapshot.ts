@@ -423,6 +423,8 @@ export interface FollowUpContract {
    * fixtures keep compiling; `buildFollowUpContract` always sets it.
    */
   f3ApprovedCapabilities?: string[];
+  /** Provider keys persisted by earlier F3 approval rounds. */
+  f3ApprovedProviders?: string[];
   /** Quality target inherited from the prior accepted version, or null. */
   qualityTarget: BuildSpecQualityTarget | null;
   /** Active preview session id carried on the snapshot, or null. */
@@ -495,8 +497,22 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
           (capability): capability is string => typeof capability === "string",
         )
       : [];
+  const hasExplicitRemoval =
+    Array.isArray(
+      (snapshot as Record<string, unknown> | null)?.removedCapabilities,
+    ) &&
+    (
+      (snapshot as Record<string, unknown>)
+        .removedCapabilities as unknown[]
+    ).length > 0;
+  // Empty is authoritative only with an explicit-removal tombstone. Ordinary
+  // F2 snapshots intentionally mute integrations at the top level and must
+  // still inherit them from the brief when the user later enters F3.
   const inheritedCapabilities =
-    mergedCapabilities.length > 0 ? mergedCapabilities : briefCapabilities;
+    Array.isArray(topLevelRaw) &&
+    (mergedCapabilities.length > 0 || hasExplicitRemoval)
+    ? mergedCapabilities
+    : briefCapabilities;
   return {
     baseVersionId: readSnapshotString(snapshot, "lastVersionId"),
     snapshotBrief,
@@ -513,6 +529,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
     },
     capabilities: [...inheritedCapabilities],
     f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
+    f3ApprovedProviders: readF3ApprovedFromSnapshot(snapshot).providers,
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
   };

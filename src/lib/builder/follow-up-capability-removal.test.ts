@@ -118,7 +118,102 @@ describe("detectCapabilityRemoval — must NOT over-trigger", () => {
   });
 });
 
+describe("detectCapabilityRemoval — subscriptions/payments split (Vercel Agent #475)", () => {
+  // The dossier-batch PR promoted `subscriptions` (Paddle, recurring) as a
+  // capability distinct from one-off `payments` (Stripe) and updated the
+  // DETECTION vocabulary — but the REMOVAL vocabulary was left unchanged, so a
+  // recurring-billing removal was mis-attributed to payments and Paddle could
+  // never be removed at all. These lock the mirrored split.
+  it("attributes recurring-billing removal to subscriptions, not payments", () => {
+    expect(
+      detectCapabilityRemoval("ta bort prenumerationsbetalning").removedCapabilities,
+    ).toEqual(["subscriptions"]);
+    expect(
+      detectCapabilityRemoval("remove subscription billing").removedCapabilities,
+    ).toEqual(["subscriptions"]);
+  });
+
+  it("can remove the Paddle subscriptions capability via a follow-up", () => {
+    expect(detectCapabilityRemoval("ta bort prenumerationen").removedCapabilities).toEqual([
+      "subscriptions",
+    ]);
+    expect(detectCapabilityRemoval("remove subscriptions").removedCapabilities).toEqual([
+      "subscriptions",
+    ]);
+    expect(detectCapabilityRemoval("ta bort Paddle").removedCapabilities).toEqual([
+      "subscriptions",
+    ]);
+    expect(detectCapabilityRemoval("ta bort medlemskapet").removedCapabilities).toEqual([
+      "subscriptions",
+    ]);
+  });
+
+  it("keeps one-off Stripe payments removal on the payments capability", () => {
+    expect(
+      detectCapabilityRemoval("Ta bort Stripe-betalningsgrejjen").removedCapabilities,
+    ).toEqual(["payments"]);
+    expect(
+      detectCapabilityRemoval("Remove the Stripe checkout").removedCapabilities,
+    ).toEqual(["payments"]);
+  });
+
+  it("vetoes newsletter / one-off phrases from firing the Paddle capability", () => {
+    // Newsletter "prenumeration" must not shrink Paddle subscriptions.
+    expect(
+      detectCapabilityRemoval("ta bort nyhetsbrevsprenumerationen").removedCapabilities,
+    ).not.toContain("subscriptions");
+    // One-off payment removal must not fire subscriptions.
+    expect(
+      detectCapabilityRemoval("ta bort engångsbetalningen").removedCapabilities,
+    ).not.toContain("subscriptions");
+  });
+
+  it("scopes subscription vetoes to the matched clause", () => {
+    expect(
+      detectCapabilityRemoval(
+        "ta bort prenumerationerna men behåll nyhetsbrevet",
+      ).removedCapabilities,
+    ).toContain("subscriptions");
+    expect(
+      detectCapabilityRemoval(
+        "remove one-time payments and subscriptions",
+      ).removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
+  it("matches plural memberships", () => {
+    expect(
+      detectCapabilityRemoval("remove memberships").removedCapabilities,
+    ).toContain("subscriptions");
+  });
+
+  it("still removes the newsletter capability on an explicit newsletter removal", () => {
+    expect(detectCapabilityRemoval("ta bort nyhetsbrevet").removedCapabilities).toEqual([
+      "newsletter-subscribe",
+    ]);
+  });
+
+  it("removes both when the prompt names Stripe AND the subscription", () => {
+    expect(
+      detectCapabilityRemoval("ta bort Stripe och prenumerationen").removedCapabilities,
+    ).toEqual(["payments", "subscriptions"]);
+  });
+
+  it("does not fire subscriptions on an additive prompt", () => {
+    expect(
+      detectCapabilityRemoval("Lägg till prenumerationer").removedCapabilities,
+    ).toEqual([]);
+  });
+});
+
 describe("detectCapabilityRemoval — clause scoping (Codex on #447)", () => {
+  it("does not shrink a capability when an additive provider precedes a removed sibling", () => {
+    expect(
+      detectCapabilityRemoval("Lägg till Stripe och ta bort Klarna")
+        .removedCapabilities,
+    ).not.toContain("payments");
+  });
+
   it("does not report an ADDED integration as removed in a compound add+remove prompt", () => {
     expect(
       detectCapabilityRemoval("Ta bort hero-sektionen och lägg till Stripe-betalning")

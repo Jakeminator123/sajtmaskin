@@ -46,6 +46,10 @@ Invariants:
 - F3-krav härleds från dossier-kontrakt: build-enforced env var eller server file surface.
 - Verbatim-filer ska skyddas både i prompt och post-merge.
 - `selectedDossierIds` är exakt signal för vilka dossiers som var aktiva i generationen.
+- Explicit removal är enda shrink-undantaget: `removedCapabilities` ska
+  subtraheras ur inference/contracts/brief/F3-godkännanden och
+  `removedDossierIds` ska nå finalize, där manifestägda filer raderas efter
+  merge med shared-path-skydd och en ny importkontroll.
 - Versionens filer är sanningen för dossier-NÄRVARO (version-presence): "valda
   dossiers för en chat/version" = snapshot-selektion ∪ filbevis, ägd av
   `resolveSelectedDossiersWithVersionPresence` (`version-presence.ts`).

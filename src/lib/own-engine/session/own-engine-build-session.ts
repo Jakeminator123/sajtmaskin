@@ -6,6 +6,7 @@ import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
+import { filterRemovedCapabilitiesFromBriefSummary } from "@/lib/gen/capability-removal";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
@@ -194,6 +195,11 @@ export function buildOwnEngineGenerationStreamMeta(
   const selectedDossierIds =
     orch.dossierSelection?.selected.map((selected) => selected.entry.id) ?? [];
   const requestedCapabilities = orch.dossierRequestedCapabilities ?? [];
+  const removedCapabilities = orch.removedCapabilities ?? [];
+  const briefSummary = filterRemovedCapabilitiesFromBriefSummary(
+    extractBriefSummary(input.metaBrief),
+    removedCapabilities,
+  );
   const meta: GenerationStreamMeta = {
     modelId: input.engineModel,
     modelTier: input.resolvedModelTier,
@@ -227,9 +233,13 @@ export function buildOwnEngineGenerationStreamMeta(
     buildSpec: input.buildSpec,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
-    briefSummary: extractBriefSummary(input.metaBrief),
+    briefSummary,
     selectedDossierIds,
     requestedCapabilities,
+    removedCapabilities,
+    removedDossierIds: orch.removedDossierIds ?? [],
+    f3ApprovedCapabilities: orch.f3ApprovedCapabilities ?? [],
+    f3ApprovedProviders: orch.f3ApprovedProviders ?? [],
     customInstructionsLength: input.customInstructionsLength,
     variantId: input.variantId ?? null,
   };

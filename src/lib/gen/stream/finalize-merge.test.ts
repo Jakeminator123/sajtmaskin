@@ -13,7 +13,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import type { DossierEntry } from "@/lib/gen/dossiers";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
+
+type CrossFileFix = {
+  sourceFile: string;
+  missingImport: string;
+  stubFile: string;
+};
+
+const checkCrossFileImports = vi.hoisted(() =>
+  vi.fn(
+    (files: unknown): { files: unknown; fixes: CrossFileFix[] } => ({
+      files,
+      fixes: [],
+    }),
+  ),
+);
 
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
@@ -26,7 +42,7 @@ vi.mock("@/lib/utils/debug", () => ({
   errorLog: vi.fn(),
 }));
 vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
-  checkCrossFileImports: (files: unknown) => ({ files, fixes: [] }),
+  checkCrossFileImports,
 }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion: vi.fn(),
@@ -68,6 +84,22 @@ function makeScaffold(): ScaffoldManifest {
       },
     ],
   } as unknown as ScaffoldManifest;
+}
+
+function makeDossier(
+  id: string,
+  capability: string,
+  paths: string[],
+): DossierEntry {
+  return {
+    id,
+    capability,
+    files: paths.map((path) => ({
+      path,
+      role: "shared",
+      injectionMode: "rewritable",
+    })),
+  } as unknown as DossierEntry;
 }
 
 describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
@@ -198,6 +230,145 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
     const layout = mergedFiles.find((f) => f.path === "app/layout.tsx");
     expect(layout).toBeDefined();
     expect(layout!.content).toContain("html");
+  });
+});
+
+describe("explicit dossier removal", () => {
+  beforeEach(() => {
+    checkCrossFileImports.mockClear();
+  });
+
+  it("deletes file-evidenced dossier files while keeping unrelated files", () => {
+    const stripe = makeDossier("stripe-checkout", "payments", [
+      "components/checkout-button.tsx",
+      "components/api/checkout-session/route.ts",
+      "components/integration-config-notice.tsx",
+    ]);
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page(){ return <main />; }",
+        language: "tsx",
+      },
+      {
+        path: "components/checkout-button.tsx",
+        content: "export function CheckoutButton(){ return null; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: "export async function POST(){ return new Response(); }",
+        language: "ts",
+      },
+      {
+        path: "components/integration-config-notice.tsx",
+        content: "export function IntegrationConfigNotice(){ return null; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "remove-stripe",
+      originalFilesJson: JSON.stringify([previousFiles[0]]),
+      generatedFiles: [previousFiles[0]],
+      resolvedScaffold: null,
+      previousFiles,
+      selectedDossiers: [],
+      removedDossiers: [stripe],
+    });
+    const paths = (JSON.parse(result.filesJson) as Array<{ path: string }>).map(
+      (file) => file.path,
+    );
+
+    expect(paths).toEqual(["app/page.tsx"]);
+  });
+
+  it("runs cross-file repair again after removal and surfaces its degradation", () => {
+    const stripe = makeDossier("stripe-checkout", "payments", [
+      "components/checkout-button.tsx",
+    ]);
+    const page = {
+      path: "app/page.tsx",
+      content:
+        'import { CheckoutButton } from "@/components/checkout-button"; export default function Page(){ return <CheckoutButton />; }',
+      language: "tsx",
+    };
+    const checkout = {
+      path: "components/checkout-button.tsx",
+      content: "export function CheckoutButton(){ return null; }",
+      language: "tsx",
+    };
+    const stub = {
+      path: "components/checkout-button.tsx",
+      content: "export function CheckoutButton(){ return null; }",
+      language: "tsx",
+    };
+    const fix = {
+      sourceFile: "app/page.tsx",
+      missingImport: "@/components/checkout-button",
+      stubFile: "components/checkout-button.tsx",
+    };
+    checkCrossFileImports
+      .mockImplementationOnce((files: unknown) => ({ files, fixes: [] }))
+      .mockImplementationOnce((files: unknown) => ({
+        files: [...(files as typeof page[]), stub],
+        fixes: [fix],
+      }));
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "remove-stripe-import",
+      originalFilesJson: JSON.stringify([page]),
+      generatedFiles: [page],
+      resolvedScaffold: null,
+      previousFiles: [page, checkout],
+      selectedDossiers: [],
+      removedDossiers: [stripe],
+    });
+
+    expect(checkCrossFileImports).toHaveBeenCalledTimes(2);
+    expect(result.crossFileStubs).toContainEqual(fix);
+    expect(
+      (JSON.parse(result.filesJson) as Array<{ path: string }>).map(
+        (file) => file.path,
+      ),
+    ).toContain("components/checkout-button.tsx");
+  });
+
+  it("preserves a shared path still owned by an active dossier", () => {
+    const removed = makeDossier("stripe-checkout", "payments", [
+      "components/checkout-button.tsx",
+      "components/integration-config-notice.tsx",
+    ]);
+    const active = makeDossier("resend-contact-form", "contact-form", [
+      "components/integration-config-notice.tsx",
+    ]);
+    const previousFiles = [
+      {
+        path: "components/checkout-button.tsx",
+        content: "export function CheckoutButton(){ return null; }",
+        language: "tsx",
+      },
+      {
+        path: "components/integration-config-notice.tsx",
+        content: "export function IntegrationConfigNotice(){ return null; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "remove-shared",
+      originalFilesJson: "[]",
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles,
+      selectedDossiers: [active],
+      removedDossiers: [removed],
+    });
+    const paths = (JSON.parse(result.filesJson) as Array<{ path: string }>).map(
+      (file) => file.path,
+    );
+
+    expect(paths).toEqual(["components/integration-config-notice.tsx"]);
   });
 });
 

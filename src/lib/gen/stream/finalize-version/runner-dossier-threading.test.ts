@@ -12,7 +12,10 @@ vi.mock("@/lib/db/client", () => ({
   isBuildPhase: () => true,
 }));
 
-const { resolveSelectedDossiersFromStreamMeta } = await import("./runner");
+const {
+  resolveRemovedDossiersFromStreamMeta,
+  resolveSelectedDossiersFromStreamMeta,
+} = await import("./runner");
 
 /**
  * Regressionstest för Wave 6 verbatim-policy:
@@ -90,6 +93,18 @@ describe("resolveSelectedDossiersFromStreamMeta — orchestration → finalize t
     expect(ids).toContain("stripe-checkout");
   });
 
+  it("låter removedCapabilities vinna över stale explicit ids och brief replay", () => {
+    const result = resolveSelectedDossiersFromStreamMeta({
+      selectedDossierIds: ["stripe-checkout"],
+      requestedCapabilities: [],
+      removedCapabilities: ["payments"],
+      briefSummary: {
+        requestedCapabilities: ["payments"],
+      },
+    });
+    expect(result).toEqual([]);
+  });
+
   it("ignorerar tomma/whitespace strings i requestedCapabilities", () => {
     const result = resolveSelectedDossiersFromStreamMeta({
       requestedCapabilities: ["", "   ", "visual-3d", ""],
@@ -103,5 +118,30 @@ describe("resolveSelectedDossiersFromStreamMeta — orchestration → finalize t
       requestedCapabilities: ["nonexistent-capability-xyz"],
     });
     expect(result).toEqual([]);
+  });
+});
+
+describe("resolveRemovedDossiersFromStreamMeta", () => {
+  it("resolves explicit removed dossier ids from orchestration", () => {
+    const result = resolveRemovedDossiersFromStreamMeta(
+      {
+        removedCapabilities: ["payments"],
+        removedDossierIds: ["stripe-checkout"],
+      },
+      [],
+    );
+    expect(result.map((entry) => entry.id)).toEqual(["stripe-checkout"]);
+  });
+
+  it("falls back to previous-file evidence when ids are unavailable", () => {
+    const result = resolveRemovedDossiersFromStreamMeta(
+      { removedCapabilities: ["payments"] },
+      [
+        { path: "components/checkout-button.tsx" },
+        { path: "app/api/checkout-session/route.ts" },
+        { path: "components/integration-config-notice.tsx" },
+      ],
+    );
+    expect(result.map((entry) => entry.id)).toEqual(["stripe-checkout"]);
   });
 });

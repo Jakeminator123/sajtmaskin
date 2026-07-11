@@ -37,6 +37,25 @@ describe("mergePersistedOrchestrationSnapshots", () => {
     expect(out).toEqual({ a: 1, b: 3, c: 4 });
   });
 
+  it("lets an explicit removal overwrite stale F3 approvals with empty arrays", () => {
+    const out = mergePersistedOrchestrationSnapshots(
+      {
+        f3ApprovedCapabilities: ["payments"],
+        f3ApprovedProviders: ["stripe"],
+      },
+      {
+        requestedCapabilities: [],
+        f3ApprovedCapabilities: [],
+        f3ApprovedProviders: [],
+        removedCapabilities: ["payments"],
+      },
+    );
+
+    expect(out.f3ApprovedCapabilities).toEqual([]);
+    expect(out.f3ApprovedProviders).toEqual([]);
+    expect(out.requestedCapabilities).toEqual([]);
+  });
+
   it("treats null previous as empty base", () => {
     const out = mergePersistedOrchestrationSnapshots(null, { x: "y" });
     expect(out).toEqual({ x: "y" });
