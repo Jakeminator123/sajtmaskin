@@ -50,7 +50,7 @@ describe("SeoOptInPanel", () => {
     });
   });
 
-  it("requires an https rollout fallback while SEO is enabled", async () => {
+  it("allows canonical-only SEO but validates a supplied fallback URL", async () => {
     const onValidityChange = vi.fn();
     const { rerender } = render(
       <SeoOptInPanel
@@ -60,7 +60,7 @@ describe("SeoOptInPanel", () => {
         onValidityChange={onValidityChange}
       />,
     );
-    await waitFor(() => expect(onValidityChange).toHaveBeenLastCalledWith(false));
+    await waitFor(() => expect(onValidityChange).toHaveBeenLastCalledWith(true));
 
     rerender(
       <SeoOptInPanel

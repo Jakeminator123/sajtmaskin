@@ -134,7 +134,8 @@ export function SeoOptInPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const urlValid = value.optIn ? isValidHttpUrl(value.siteUrl) : true;
+  const urlValid =
+    !value.optIn || !value.siteUrl.trim() || isValidHttpUrl(value.siteUrl);
   useEffect(() => {
     onValidityChange?.(urlValid);
   }, [onValidityChange, urlValid]);
@@ -196,7 +197,7 @@ export function SeoOptInPanel({
           {value.optIn ? (
             <div className="space-y-1">
               <Label htmlFor={inputId} className="text-[11px] font-medium text-foreground">
-                Reservadress för SEO
+                Reservadress för SEO (valfri)
               </Label>
               <Input
                 id={inputId}
@@ -216,8 +217,8 @@ export function SeoOptInPanel({
               </p>
               {!urlValid ? (
                 <p className="text-[10px] text-amber-500">
-                  Ange en fullständig https-adress. Den används bara tills en
-                  verifierad projektadress finns.
+                  Om du anger en reservadress måste den vara en fullständig
+                  https-adress. Annars används verifierad projektadress.
                 </p>
               ) : null}
             </div>

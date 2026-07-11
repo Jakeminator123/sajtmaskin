@@ -186,7 +186,14 @@ export function useBuilderDeployActions({
 
         const seoPayload =
           seo && seo.optIn
-            ? { seo: { optIn: true as const, siteUrl: seo.siteUrl.trim() } }
+            ? {
+                seo: {
+                  optIn: true as const,
+                  ...(seo.siteUrl.trim()
+                    ? { siteUrl: seo.siteUrl.trim() }
+                    : {}),
+                },
+              }
             : seo
               ? { seo: { optIn: false as const } }
               : {};
@@ -390,7 +397,12 @@ export function useBuilderDeployActions({
     // server side via `resolveDeploySeoOptions`.
     if (appProjectId && payload?.seo) {
       const seoPatch = payload.seo.optIn
-        ? { optIn: true as const, siteUrl: payload.seo.siteUrl.trim() }
+        ? {
+            optIn: true as const,
+            ...(payload.seo.siteUrl.trim()
+              ? { siteUrl: payload.seo.siteUrl.trim() }
+              : {}),
+          }
         : { optIn: false as const };
       try {
         await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {

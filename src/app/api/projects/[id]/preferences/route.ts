@@ -110,21 +110,6 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
         existingSeo,
         new Date().toISOString(),
       );
-      // Cross-field check on the merged result: even if the inbound
-      // patch alone would pass schema validation (e.g. only `optIn:true`
-      // sent while siteUrl is already persisted), we re-check the
-      // post-merge invariant so we never persist an inconsistent state.
-      // Schema-level superRefine catches the inbound case; this guard
-      // covers future patch shapes that might bypass it.
-      if (merged.optIn === true && !merged.siteUrl) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "siteUrl is required when SEO opt-in is enabled",
-          },
-          { status: 400 },
-        );
-      }
       existingMeta.seo = merged;
     }
 

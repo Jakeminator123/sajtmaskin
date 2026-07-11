@@ -247,15 +247,19 @@ export async function resolveDeploymentLiveUrlForChat(params: {
     .innerJoin(appProjects, eq(engineChats.projectId, appProjects.id))
     .where(eq(engineChats.id, params.chatId))
     .limit(1);
-  return (
-    resolveLiveUrl({
-      providerUrl: params.providerUrl,
-      brandedDomain: project?.brandedDomain ?? null,
-      brandedDomainVerifiedAt: project?.brandedDomainVerifiedAt ?? null,
-      customDomain: project?.customDomain ?? null,
-      customDomainVerifiedAt: project?.customDomainVerifiedAt ?? null,
-    }) ??
-    params.fallbackUrl ??
-    null
-  );
+  const resolved = resolveLiveUrl({
+    providerUrl: params.providerUrl,
+    brandedDomain: project?.brandedDomain ?? null,
+    brandedDomainVerifiedAt: project?.brandedDomainVerifiedAt ?? null,
+    customDomain: project?.customDomain ?? null,
+    customDomainVerifiedAt: project?.customDomainVerifiedAt ?? null,
+  });
+  if (resolved) return resolved;
+  // A persisted liveUrl may contain a formerly verified branded/custom host.
+  // Only a legacy Vercel hostname is safe as fallback when the feature gate or
+  // verification state has been revoked.
+  const fallbackHost = normalizeDomainHostname(params.fallbackUrl);
+  return fallbackHost?.endsWith(".vercel.app")
+    ? `https://${fallbackHost}`
+    : null;
 }
