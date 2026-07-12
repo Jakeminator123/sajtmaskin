@@ -81,7 +81,7 @@ Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) b
 
 Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept, 7 promoterade i två vågor #422/#430/#445; kvar: 5 promotions + preview-test/`lastVerified` för de 7 + F2-synlighet) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
 
-**Aktiv drivlinje 2026-07-12:** Dossier-grupper (10 st, presentations-lager) + fallback-kontrakt per capability — etapp 1 (beslut), 2+3 (terminologi/docs + gruppmapp, PR #498), 4 (CI-invariant, PR #499) och 5 (backoffice-kategorivy + radera, PR C) levererade; kvar: etapp 6 (UI-röktest); etapp 7 (F3-runtime-kontrakt) **spärrad** bakom P1 ReleaseGate + capability-provenance + `BB#f3det1` → [`2026-07-12-dossier-grupper-och-fallback-kontrakt.md`](2026-07-12-dossier-grupper-och-fallback-kontrakt.md).
+**Levererat (2026-07-12, PR #498/#499/#500):** Dossier-grupper (10 st, presentations-lager) + fallback-kontrakt per capability — terminologi/docs, gruppmapp 9→10, CI-invariant (hard-capability ⇒ default-dossier med `mock ≠ none` eller dokumenterat undantag), backoffice-kategorivy med lägg-till/radera, UI-röktest. **Etapp 7 (F3-runtime-kontrakt) SPÄRRAD** bakom P1 ReleaseGate TOCTOU + capability-provenance-P2 + `BB#f3det1` — kräver nytt ägar-OK → [`../avklarat/2026-07-12-dossier-grupper-och-fallback-kontrakt.md`](../avklarat/2026-07-12-dossier-grupper-och-fallback-kontrakt.md).
 
 OpenClaw edit-agent 2026-07-01 (2 av 3 spår levererade: mallar→Blob #336 mergad, follow-up-imported-repo-fix i koden; kvar: spår A = PR #346, draft, `[HOLD - MERGA INTE]`) → [`2026-07-01-openclaw-edit-agent-och-followup-fix.md`](2026-07-01-openclaw-edit-agent-och-followup-fix.md).
 
