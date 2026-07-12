@@ -75,7 +75,8 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles,
 }));
 
-import { DELETE, GET, PATCH } from "./route";
+import { DELETE, GET, PATCH, PUT } from "./route";
+import { VersionLeaseHeldError } from "@/lib/db/version-lease-error";
 
 describe("own-engine file route parity", () => {
   beforeEach(() => {
@@ -149,6 +150,82 @@ describe("own-engine file route parity", () => {
       JSON.stringify([{ path: "src/lib/util.ts", content: "util", language: "ts" }]),
       { invalidateVerification: true },
     );
+  });
+});
+
+describe("PUT/PATCH /files under an active version lease (P1 files_json false-green-rest)", () => {
+  beforeEach(() => {
+    shouldUseV0Fallback.mockReturnValue(false);
+    getEngineVersionForChatByIdForRequest.mockReset();
+    getVersionFiles.mockReset();
+    updateVersionFiles.mockReset();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "ver_1" } });
+    getVersionFiles.mockResolvedValue([
+      { path: "src/app/page.tsx", content: "old content", language: "tsx" },
+    ]);
+  });
+
+  it("PUT returns 409 version_busy (retryable) when a verify/repair job holds the lease", async () => {
+    // The canonical writer throws when a foreign lease blocks the write; the
+    // route must translate it to the same retryable 409 the quality-gate emits.
+    updateVersionFiles.mockRejectedValue(new VersionLeaseHeldError("ver_1"));
+
+    const response = await PUT(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver_1",
+          files: [{ name: "src/app/page.tsx", content: "new content" }],
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code?: string; retryable?: boolean };
+    expect(body.code).toBe("version_busy");
+    expect(body.retryable).toBe(true);
+    // The write was attempted once and blocked atomically — no retry-around.
+    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("PATCH returns 409 version_busy when a verify/repair job holds the lease", async () => {
+    updateVersionFiles.mockRejectedValue(new VersionLeaseHeldError("ver_1"));
+
+    const response = await PATCH(
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver_1",
+          fileName: "src/app/page.tsx",
+          content: "new content",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code?: string };
+    expect(body.code).toBe("version_busy");
+  });
+
+  it("DELETE returns 409 version_busy when a verify/repair job holds the lease", async () => {
+    updateVersionFiles.mockRejectedValue(new VersionLeaseHeldError("ver_1"));
+
+    const response = await DELETE(
+      new Request(
+        "https://example.com/api/engine/chats/chat_1/files?versionId=ver_1&fileName=src%2Fapp%2Fpage.tsx",
+        { method: "DELETE" },
+      ),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code?: string; retryable?: boolean };
+    expect(body.code).toBe("version_busy");
+    expect(body.retryable).toBe(true);
   });
 });
 

@@ -35,6 +35,11 @@ import {
   KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY,
   type KnownImageReplacementMap,
 } from "@/lib/utils/image-validator";
+import { VersionLeaseHeldError } from "./version-lease-error";
+
+// Re-exported so HTTP routes / helpers can translate a lease-blocked
+// `files_json` write into 409 `version_busy` without a second import site.
+export { VersionLeaseHeldError };
 
 export interface Chat {
   id: string;
@@ -692,6 +697,26 @@ export async function updateVersionFiles(
      * where the row's verdict still describes the same logical content.
      */
     invalidateVerification?: boolean;
+    /**
+     * Set by a verify/repair caller that OWNS the active version lease (the
+     * `runId` returned by {@link acquireVersionLease}). The write is then bound
+     * — atomically, in the UPDATE's WHERE — to this run still holding the
+     * unexpired lease ({@link versionWriteWhere}), so the lease holder can
+     * persist its own files while EVERY OTHER writer is blocked.
+     *
+     * Leave unset on user-edit / normalize / validate / heal paths: those are
+     * blocked whenever ANY unexpired lease owns the version, so a concurrent
+     * verify/repair snapshot can never be clobbered (ReleaseGate false-green).
+     * A blocked non-holder write throws {@link VersionLeaseHeldError} (→ 409
+     * `version_busy`) on the normal path, or no-ops (returns `false`) on the
+     * best-effort `lockTimeoutMs` heal path.
+     *
+     * NOTE: no current caller passes this — the verify/repair flow mutates via
+     * `saveRepairedFiles` / `promoteVersion` / `markVersion*` (which already use
+     * `versionWriteWhere(runId)`). It exists so a future lease-holding
+     * `files_json` writer has the escape hatch instead of being fail-closed.
+     */
+    holderRunId?: string;
   },
 ): Promise<boolean> {
   const baseValues = {
@@ -741,6 +766,36 @@ export async function updateVersionFiles(
     `,
       };
 
+  // ── Version-lease guard (P1 false-green-rest) ──────────────────────────────
+  // The canonical `files_json` writer must take the SAME lease the verify flow
+  // holds, so a user edit / normalize / validate / heal can't advance the DB
+  // snapshot to B while ReleaseGate verified in-memory A and then promotion
+  // (lease-conditioned only on the verify runId) stamps `promoted`/`passed` on
+  // unverified content. The guard is embedded in the UPDATE's WHERE, so the
+  // lease check + write are ONE atomic statement (no "check then write" race).
+  //
+  //  - `holderRunId` set  → the lease-holder exception: write only if THIS run
+  //    still holds the active unexpired lease (`versionWriteWhere`).
+  //  - `holderRunId` unset → block whenever ANY unexpired lease owns the row
+  //    (`NOT EXISTS`), the same predicate `failVersionVerificationIfUnleased`
+  //    and `acceptRepair` use. Fail-closed for the idempotent heal path too.
+  //
+  // Postgres resolves relation names at plan time, so we must decide whether to
+  // reference `engine_version_jobs` BEFORE building the statement (an
+  // in-statement guard can't short-circuit a missing table). Pre-migration /
+  // local drift → `leaseTableExists()` is false and the write degrades to the
+  // legacy unconditional behaviour (`hasActiveVersionLease` also fails open).
+  const holderRunId = options?.holderRunId;
+  const jobsExist = holderRunId ? true : await leaseTableExists();
+  const where = holderRunId
+    ? versionWriteWhere(versionId, holderRunId)
+    : jobsExist
+      ? and(
+          eq(engineVersions.id, versionId),
+          sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
+        )
+      : eq(engineVersions.id, versionId);
+
   const lockTimeoutMs = options?.lockTimeoutMs;
   if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {
     // Fail-fast, best-effort mode for HOT READ paths (GET /files heal-persist,
@@ -753,12 +808,14 @@ export async function updateVersionFiles(
     // stuck (a feedback loop). A transaction-local `lock_timeout` makes a
     // contended write give up in ~ms so ONE writer commits the (idempotent)
     // heal fast and the rest bail; NEVER throws, so a read can't 429/500.
+    // A lease block here is just a 0-row no-op (fail-closed skip): the next
+    // uncontended read after the lease releases re-persists the idempotent heal.
     try {
       return await db.transaction(async (tx) => {
         await tx.execute(
           sql`SELECT set_config('lock_timeout', ${String(Math.floor(lockTimeoutMs))}, true)`,
         );
-        const result = await tx.update(engineVersions).set(setValues).where(eq(engineVersions.id, versionId));
+        const result = await tx.update(engineVersions).set(setValues).where(where);
         return (result.rowCount ?? 0) > 0;
       });
     } catch {
@@ -769,8 +826,21 @@ export async function updateVersionFiles(
     }
   }
 
-  const result = await db.update(engineVersions).set(setValues).where(eq(engineVersions.id, versionId));
-  return (result.rowCount ?? 0) > 0;
+  const result = await db.update(engineVersions).set(setValues).where(where);
+  if ((result.rowCount ?? 0) > 0) {
+    return true;
+  }
+  // 0-row: distinguish a foreign-lease block (→ retryable 409 `version_busy`)
+  // from a plain no-op (missing row → the caller's existing `false`/404 path).
+  // Only the NON-holder guarded path can be lease-blocked; the holder path's
+  // 0-row means its own lease was lost/taken over, which its callers already
+  // treat as a plain `false` (same as `markVersionVerifying` et al.). The probe
+  // runs AFTER the atomic write already no-op'd — it never gates the write — so
+  // it introduces no TOCTOU (same shape as `saveRepairedFiles`'s stale probe).
+  if (!holderRunId && jobsExist && (await hasActiveVersionLease(versionId))) {
+    throw new VersionLeaseHeldError(versionId);
+  }
+  return false;
 }
 
 /**

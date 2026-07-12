@@ -200,6 +200,15 @@ Invariants:
 - `edit_kind = quick_edit` markerar minor-versioner.
 - `parent_version_id` binder F3-forkar och quick-edit-minors till basversion.
 - Muterande verify/repair/quick-edit-flöden ska respektera version lease.
+- `files_json`-skrivningar via den kanoniska skrivägaren `updateVersionFiles`
+  (user-edit `/files` PUT/PATCH/DELETE samt normalize-/validate-/heal-vägar) tar
+  samma lease atomiskt i UPDATE:ns WHERE: en främmande, ej utgången lease
+  blockerar skrivningen (retrybar `409 version_busy`, eller no-op på den
+  best-effort heal-vägen) så ett filset inte kan avancera till B medan
+  ReleaseGate verifierade A. `holderRunId` är en escape hatch för en FRAMTIDA
+  lease-hållande `files_json`-skrivare — ingen nuvarande caller använder den
+  (verify/repair skriver via `saveRepairedFiles`/`promoteVersion`/`markVersion*`
+  som redan är lease-bundna via `versionWriteWhere`).
 
 ## Env-kontrakt
 

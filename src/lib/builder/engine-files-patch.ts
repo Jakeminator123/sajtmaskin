@@ -109,8 +109,20 @@ function describeQuickEditHardError(result: { error: string; reason?: string }):
   if (result.error === "stale_base_version") {
     return "En nyare version finns redan. Ladda om för att fortsätta från den senaste versionen.";
   }
+  if (result.error === "base_busy") {
+    return VERSION_BUSY_USER_MESSAGE;
+  }
   return result.error;
 }
+
+/**
+ * Swedish user-copy for the retryable verify/repair lock (409 `version_busy`
+ * from the files_json lease guard, `base_busy` from the quick-edit lane).
+ * Nothing is lost — the local draft stays dirty; saving again after the
+ * verification finishes succeeds.
+ */
+const VERSION_BUSY_USER_MESSAGE =
+  "Versionen verifieras just nu — dina ändringar finns kvar lokalt. Vänta en stund och spara igen.";
 
 /**
  * Save a single file's full content. When the Fast Edit Lane flag is on this
@@ -179,8 +191,17 @@ export async function patchEngineChatFile(params: {
         content,
       }),
     });
-    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    const data = (await response.json().catch(() => null)) as {
+      error?: string;
+      code?: string;
+    } | null;
     if (!response.ok) {
+      // The files_json lease guard answers 409 `version_busy` while a
+      // verify/repair job holds the version — translate to honest Swedish
+      // copy instead of the server's raw English sentence.
+      if (data?.code === "version_busy") {
+        return { ok: false, error: VERSION_BUSY_USER_MESSAGE };
+      }
       return { ok: false, error: data?.error || `HTTP ${response.status}` };
     }
     return { ok: true };

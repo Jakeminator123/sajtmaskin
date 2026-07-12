@@ -5,6 +5,7 @@ import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { normalizeUnicodeEscapes } from "@/lib/utils/unicode-normalizer";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
+import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
 
 export const runtime = "nodejs";
 
@@ -79,6 +80,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       { status: 404 },
     );
   } catch (err) {
+    // A verify/repair job owns the version lease → retryable 409, nothing was
+    // written (the atomic guard in updateVersionFiles no-op'd).
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("Unicode normalization error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Normalization failed" },

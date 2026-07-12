@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
 
 function engineErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeProviderError(err);
@@ -288,6 +289,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
       ...previewUrlField(null),
     });
   } catch (err) {
+    // A verify/repair job owns the version lease → retryable 409, no file
+    // mutation happened (the atomic guard in updateVersionFiles no-op'd).
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("Error updating files:", err);
     return engineErrorResponse(err, "Failed to update files");
   }
@@ -356,6 +361,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       ...previewUrlField(null),
     });
   } catch (err) {
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("Error updating file:", err);
     return engineErrorResponse(err, "Failed to update file");
   }
@@ -393,6 +400,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
       remainingFiles: updatedFiles.length,
     });
   } catch (err) {
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("Error deleting file:", err);
     return engineErrorResponse(err, "Failed to delete file");
   }

@@ -9,6 +9,8 @@ import {
   recordKnownBrokenImageReplacements,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
+import { VersionLeaseHeldError } from "@/lib/db/version-lease-error";
+import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
 
 export const runtime = "nodejs";
 
@@ -75,6 +77,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
           fixed = true;
         } catch (updateError) {
+          // A foreign verify/repair lease must surface as a retryable 409 — do
+          // NOT swallow it into a soft warning (that would 200 as if nothing
+          // was busy). Re-throw so the outer catch translates it to
+          // `version_busy`; other write failures stay soft as before.
+          if (updateError instanceof VersionLeaseHeldError) throw updateError;
           console.error("[validate-images] Failed to update version:", updateError);
           result.warnings.push("Kunde inte spara fixade bilder till versionen.");
         }
@@ -107,6 +114,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       { status: 404 },
     );
   } catch (err) {
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("[validate-images] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Image validation failed" },

@@ -235,9 +235,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // running the F3 readiness check, so readiness → verify → promotion all
     // evaluate ONE lease-protected FILE snapshot (a concurrent repair/verify
     // can no longer swap the files between the readiness check and promotion).
-    // 409 if another job owns the lease. Known residuals (tracked in
-    // BUG-SWARM-BACKLOG, not closed by this fix): `updateVersionFiles` via
-    // PUT /files does not take this lease, and product-postcheck rows /
+    // 409 if another job owns the lease. `updateVersionFiles` (user edits via
+    // PUT/PATCH/DELETE /files, plus the normalize / validate / heal paths) now
+    // ALSO takes this lease — its write is blocked (retryable 409 `version_busy`,
+    // or a no-op on the best-effort heal path) whenever an unexpired lease owns
+    // the version, so a user edit can no longer advance the DB snapshot to B
+    // while this gate verified in-memory A. Residual (tracked in
+    // BUG-SWARM-BACKLOG, not closed by this fix): product-postcheck rows /
     // `orchestration_snapshot` are read outside the file snapshot.
     let qgRunId: string | undefined;
     if (dbConfigured) {

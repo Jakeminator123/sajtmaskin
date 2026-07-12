@@ -40,6 +40,7 @@ vi.mock("@/lib/utils/image-validator", async () => {
 });
 
 import { POST } from "./route";
+import { VersionLeaseHeldError } from "@/lib/db/version-lease-error";
 
 const DEAD_URL = "https://images.unsplash.com/photo-dead?w=800";
 const LIVE_URL = "https://images.unsplash.com/photo-live?w=800";
@@ -131,5 +132,21 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(res.status).toBe(200);
     expect(recordKnownBrokenImageReplacements).not.toHaveBeenCalled();
     expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a foreign version lease as 409 version_busy instead of swallowing it into a soft warning", async () => {
+    // The write happens inside a try/catch that soft-warns on failure — a lease
+    // block must NOT be swallowed there (that would 200 as if nothing was busy);
+    // it is re-thrown and translated to the canonical retryable 409.
+    updateVersionFiles.mockRejectedValue(new VersionLeaseHeldError("ver_1"));
+
+    const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code?: string; retryable?: boolean };
+    expect(body.code).toBe("version_busy");
+    expect(body.retryable).toBe(true);
   });
 });

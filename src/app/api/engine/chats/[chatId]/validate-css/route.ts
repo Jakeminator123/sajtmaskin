@@ -5,6 +5,7 @@ import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils
 import { z } from "zod";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
+import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       { status: 404 },
     );
   } catch (err) {
+    // A verify/repair job owns the version lease → retryable 409, no CSS fix
+    // was written (the atomic guard in updateVersionFiles no-op'd).
+    const busy = versionBusyResponseIfLeaseHeld(err);
+    if (busy) return busy;
     console.error("CSS validation error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Validation failed" },
