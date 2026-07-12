@@ -251,10 +251,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // recovers; no lease was taken, so there is nothing to release.
         // warnLog (not just console.error) so the failure reaches the same
         // structured observability as server-verify's lease errors.
-        warnLog(
-          "[quality-gate] Lease acquire threw; failing closed (retryable):",
-          err instanceof Error ? err.message : String(err),
-        );
+        warnLog("quality-gate", "Lease acquire threw; failing closed (retryable)", {
+          error: err instanceof Error ? err.message : String(err),
+        });
         return NextResponse.json(
           {
             error: "Version lease unavailable (database error). Try again shortly.",

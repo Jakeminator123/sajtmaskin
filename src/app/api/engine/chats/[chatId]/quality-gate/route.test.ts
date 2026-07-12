@@ -746,15 +746,26 @@ describe("POST quality-gate", () => {
     exportableToQualityGateFiles.mockReturnValue([
       { name: "app/page.tsx", content: "export default function Page(){}" },
     ]);
-    runQualityGateChecks.mockResolvedValue({ passed: true, checks: [] });
+    // Real runQualityGateChecks response shape (Codex P1 on #504): a stub
+    // shape made the handler throw before promotion while the test stayed
+    // green because it discarded the response — the assertions below must
+    // prove the FULL readiness→verify→promote path ran on the same snapshot.
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
     qualityGateAllPassed.mockReturnValue(true);
     describeQualityGateVerification.mockReturnValue("ok");
     buildServerVerifyQualityGateMeta.mockReturnValue({});
     maybeAnalyzeVisualQAForPassedExportable.mockResolvedValue(null);
-    assertPromoteAllowed.mockResolvedValue(undefined);
-    promoteVersion.mockResolvedValue(undefined);
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+    promoteVersion.mockResolvedValue({ id: "ver-1" });
 
-    await POST(
+    const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -763,6 +774,14 @@ describe("POST quality-gate", () => {
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
 
+    // The full readiness→verify→promote path actually ran and succeeded —
+    // otherwise the fileset assertions below could pass on a handler that
+    // threw before promotion (Codex P1 on #504).
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.passed).toBe(true);
+    expect(body.promoted).toBe(true);
+    expect(promoteVersion).toHaveBeenCalled();
     // One read under the lease…
     expect(getVersionFiles).toHaveBeenCalledTimes(1);
     // …fed byte-identically to BOTH the readiness gate and the export step.
