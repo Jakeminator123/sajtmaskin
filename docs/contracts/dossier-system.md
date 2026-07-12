@@ -50,32 +50,35 @@ capability via kanonisk mappning i
 | 9 | `visual-interaction` | Visuellt & interaktion | `carousel`, `marquee`, `gallery-lightbox`, `parallax-scroll`, `parallax-pointer`, `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`, `command-search` |
 | 10 | `other` | Övrigt | (fångstnät för omappade capabilities) |
 
-**Fallback-principen på capability-nivå:** capabilityns standard-demo i F2 =
-default-dossierns (`defaultForCapability: true`) `mock`-läge (se **Mock/demo-
-läge** nedan). Providers under samma capability delar samma demo-yta i den
-meningen att demo-mönstret (seed-data, canned-svar, config-notis) är gemensamt —
-men runtime läser alltid den *valda* dossierns eget `mock`-fält: väljs en
-icke-default provider via `relevanceKeywords` (t.ex. "mongodb" → `mongodb-atlas`)
-används den dossierns mock-läge, och saknas det degraderar den till
-config-notisen (`none`-beteendet). Det är en ärlig, medveten degradering — inte
-ett kontraktsbrott.
+**Fallback-principen:** demo-*mönstret* (seed-data, canned-svar, fejkad
+success) är gemensamt per capability, men garantin gäller **per dossier**:
+runtime läser alltid den *valda* dossierns eget `mock`-fält — väljs en
+icke-default provider via `relevanceKeywords` (t.ex. "mongodb" →
+`mongodb-atlas`) används den dossierns mock-läge. Därför kräver kontraktet
+(ägarbeslut 2026-07-12, skärpning av det ursprungliga capability-beslutet B3)
+att **varje** hard-dossier under en icke-undantagen capability deklarerar ett
+riktigt mock-läge — inte bara defaulten.
 
-**CI-invariant (tvingande sedan 2026-07-12):** varje **hard**-capability
-(capability med minst en dossier i `data/dossiers/hard/`) ska ha exakt en
-default-dossier vars `mock`-läge är ≠ `none` — annars måste capabilityn stå på
-undantagslistan nedan. Kontrollen är CI-blockerande via
-`npm run dossiers:validate-all` och implementeras av `findMissingMockFallbacks()`
-i [`validate-manifest.ts`](../../src/lib/gen/dossiers/validate-manifest.ts)
-(ingen ny schemadimension). Avgränsning (medveten): invarianten tvingar bara
-**capabilityns default-dossier** — icke-default providers får sakna mock
-(degraderar till config-notis, se ovan), och undantagen är **capability-breda**
-(en framtida provider under t.ex. `payments` ärver undantaget). Default-
-upplösningen är avsiktligt **strängare än runtime-selektionen**: CI godkänner
-den enda dossiern med `defaultForCapability: true`, eller — om ingen är flaggad —
-capabilityns *enda* dossier. Flera hard-dossiers utan flaggad default är ett
-CI-fel här (ingen upplösbar standard-demo), medan `select.ts` i det läget
-tyst väljer första dossiern i id-ordning; flera *flaggade* defaults ägs av
-`defaultForCapability`-unikhetskontrollen.
+**CI-invariant (tvingande sedan 2026-07-12; per-dossier sedan samma dag):**
+**varje hard-dossier** i en icke-undantagen capability ska ha `mock ≠ none`,
+och varje hard-capability ska ha exakt en upplösbar default-dossier — annars
+måste capabilityn stå på undantagslistan nedan. Kontrollen är CI-blockerande
+via `npm run dossiers:validate-all` och implementeras av
+`findMissingMockFallbacks()` i
+[`validate-manifest.ts`](../../src/lib/gen/dossiers/validate-manifest.ts)
+(ingen ny schemadimension). Undantagen är **capability-breda** (en framtida
+provider under t.ex. `payments` ärver undantaget). Default-upplösningen är
+avsiktligt **strängare än runtime-selektionen**: CI godkänner den enda dossiern
+med `defaultForCapability: true`, eller — om ingen är flaggad — capabilityns
+*enda* dossier. Flera hard-dossiers utan flaggad default är ett CI-fel här
+(ingen upplösbar standard-demo), medan `select.ts` i det läget tyst väljer
+första dossiern i id-ordning; flera *flaggade* defaults ägs av
+`defaultForCapability`-unikhetskontrollen. **Obs:** detta är en
+metadata-invariant — beteendegarantin (monterar utan krasch, känner igen
+placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
+är acceptanskriterium i etapp 7 av plan
+`2026-07-12-dossier-grupper-och-fallback-kontrakt` och ska bevisas med tester,
+inte bara manifest-fält.
 
 **Undantagslistan** (`MOCKLESS_CAPABILITY_EXCEPTIONS` i samma fil) — capabilities
 där `mock: none` är legitimt eftersom ytan inte kan mockas meningsfullt utan
@@ -124,7 +127,7 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 
 Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en *riktig* primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
-**Satt på 15 av 18 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka). Att en hard-capabilitys default-dossier har `mock ≠ none` (eller står på undantagslistan) är **CI-tvingat** — se **Fallback-principen på capability-nivå** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
+**Satt på 15 av 18 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capabilities `analytics`/`error-tracking` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 

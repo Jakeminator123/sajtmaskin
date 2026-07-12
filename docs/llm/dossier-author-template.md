@@ -97,7 +97,7 @@ The `<id>` MUST equal the directory name and match the regex
 | `codeFidelity` | enum | yes | `verbatim` for SDK glue/webhooks/auth that must not be paraphrased. `rewritable` for UI components the LLM may adapt. |
 | `complexity` | enum | yes | `simple` = 1-2 files, no env. `medium` = 3-5 files OR env required. `advanced` = >5 files or multi-step setup. |
 | `defaultForCapability` | bool | no (default false) | Set `true` for the canonical implementation. When two dossiers share a capability the default wins selection. |
-| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without a real key: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `none` (config banner only). **Hard-capability defaults must declare `mock ≠ none`** unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` — enforced by `dossiers:validate-all` (see checklist item 8). Omit for soft dossiers. |
+| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without a real key: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `none` (config banner only). **EVERY hard dossier must declare `mock ≠ none`** (per-dossier since 2026-07-12) unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` — enforced by `dossiers:validate-all` (see checklist item 8). Omit for soft dossiers. |
 | `summary` | string (30-600) | yes | 1-3 sentences: what it does, when to use, key safety contract. Written for the codegen LLM, not for humans. Verbs in present tense. |
 | `envVars` | array | no | Only for `hard` dossiers. Each entry needs `key` (UPPER_SNAKE_CASE), `required` (bool), `purpose` (10-240 chars), and optional `enforcement` (see below). |
 | `envVars[].enforcement` | enum | no | Defaults to `"build"`. One of: `"build"` (real value required at F3 build time — secret keys, server-side database URLs, anything where a placeholder crashes deploy); `"feature-runtime"` (the SDK is imported but the dossier's UI shows a configuration banner / popup at runtime when the value is missing — the "Klarna-popup" pattern; F3 surfaces as warning, not blocker); `"warn-only"` (component self-disables on empty value, e.g. `if (!domain) return null` — surfaced only as info). The F3 readiness gate filters `requiredRealEnvKeys` to `build`-enforcement only, so getting this wrong either blocks deploy unnecessarily or lets a deploy succeed with broken integrations. Be honest about whether the dossier's runtime actually has graceful fallback before tagging `feature-runtime`. |
@@ -209,8 +209,8 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
    exposed symbols.
 8. Run `npm run dossiers:validate-all` — the CI-blocking gate. Beyond the
    schema it enforces exposes/import-closure, default uniqueness, and the
-   mock-fallback invariant: a hard capability's DEFAULT dossier must declare
-   `mock ≠ none` unless the capability is listed in
+   mock-fallback invariant (per-dossier since 2026-07-12): EVERY hard dossier
+   must declare `mock ≠ none` unless the capability is listed in
    `MOCKLESS_CAPABILITY_EXCEPTIONS` (see
    `docs/contracts/dossier-system.md` § CI-invariant).
 

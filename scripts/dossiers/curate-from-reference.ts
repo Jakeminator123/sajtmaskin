@@ -211,7 +211,7 @@ Rules:
 - Class is "${args.class}" (already decided): hard = needs external secrets, soft = self-contained.
 - codeFidelity: "verbatim" for integration glue (auth callbacks, webhooks, SDK init, api-routes); "rewritable" for UI components.
 - envVars: only ones that come from the .env.example AND are actually used in the source code. Skip placeholders.
-- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), or "none" (cannot be mocked meaningfully, e.g. payments/auth — a discreet config banner is shown). CI requires the capability's default dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
+- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), or "none" (cannot be mocked meaningfully, e.g. payments/auth — a discreet config banner is shown). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
 - files: list only files that should be injected into the user's project. Strip the upstream's "src/" prefix; output paths should start with "components/".
 - summary: write it for an LLM that needs to decide *when* to use this dossier. No marketing language.
 

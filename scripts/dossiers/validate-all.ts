@@ -6,7 +6,7 @@
  * invariants:
  *
  *   1. defaultForCapability: true must be unique per capability
- *   1b. fallback-invariant: every hard capability's default dossier must declare
+ *   1b. fallback-invariant: every hard dossier (per-dossier since 2026-07-12) must declare
  *      a demo mock mode (≠ none) unless the capability is on the documented
  *      MOCKLESS_CAPABILITY_EXCEPTIONS list — see findMissingMockFallbacks
  *   2. instructions.md headings: the REQUIRED canonical H1 headings block (fail),
@@ -142,11 +142,11 @@ function main(): void {
   // validate-manifest.ts and docs/contracts/dossier-system.md.
   const mockFallbackErrors = findMissingMockFallbacks(validRows);
   if (mockFallbackErrors.length > 0) {
-    console.error("✗ hard-capability mock-fallback (default-dossier med mock ≠ none, annars undantag)");
+    console.error("✗ hard-dossier mock-fallback (varje hard-dossier med mock ≠ none + upplösbar default per capability, annars capability-undantag)");
     for (const e of mockFallbackErrors) console.error(`    ${e}`);
   } else {
     console.log(
-      "✓ varje hard-capability har en default-dossier med mock-fallback (eller dokumenterat undantag)",
+      "✓ varje hard-dossier har mock-fallback + varje hard-capability en upplösbar default (eller dokumenterat capability-undantag)",
     );
   }
 

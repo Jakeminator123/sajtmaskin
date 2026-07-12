@@ -128,6 +128,35 @@ class DeleteDossierDirTests(unittest.TestCase):
         self.assertTrue(link.is_symlink())
 
 
+class CapabilityGroupHintTests(unittest.TestCase):
+    GROUPS = {
+        "payments": {"label": "Betalningar", "capabilities": ["payments", "subscriptions"]},
+        "ai": {"label": "AI", "capabilities": ["ai-chat", "rag-chat"]},
+        "other": {"label": "Övrigt", "capabilities": []},
+    }
+
+    def test_capability_in_chosen_group_shows_chosen_group(self) -> None:
+        hint = dossiers_page._describe_capability_group_hint("ai-chat", "ai", self.GROUPS)
+        self.assertIn("grupp: AI", hint)
+
+    def test_existing_capability_from_other_group_shows_real_group(self) -> None:
+        # Coach regression on #500: group "AI" picked but existing `payments`
+        # typed in the free field — must NOT be reported as "ny → Övrigt".
+        hint = dossiers_page._describe_capability_group_hint("payments", "ai", self.GROUPS)
+        self.assertIn("Betalningar", hint)
+        self.assertIn("ligger kvar", hint)
+        self.assertNotIn("ny capability", hint)
+
+    def test_unknown_capability_reports_new_and_ovrigt(self) -> None:
+        hint = dossiers_page._describe_capability_group_hint("map-search", "ai", self.GROUPS)
+        self.assertIn("ny capability", hint)
+        self.assertIn("Övrigt", hint)
+
+    def test_no_chosen_group_still_resolves_real_group(self) -> None:
+        hint = dossiers_page._describe_capability_group_hint("payments", None, self.GROUPS)
+        self.assertIn("Betalningar", hint)
+
+
 class RebuildCapabilityMapTests(unittest.TestCase):
     def test_keys_by_directory_name_not_manifest_id(self) -> None:
         # The canonical TS script keys dossier ids by FOLDER name; a divergent

@@ -497,25 +497,30 @@ export interface DossierMockFallbackEntry {
 }
 
 /**
- * Fallback-invariant (plan: dossier-grupper-och-fallback-kontrakt, etapp 4).
+ * Fallback-invariant (plan: dossier-grupper-och-fallback-kontrakt, etapp 4;
+ * skärpt till PER-DOSSIER på ägarbeslut 2026-07-12).
  *
- * Every HARD capability (a capability with ≥1 dossier under `data/dossiers/hard/`)
- * must have exactly one resolvable default dossier whose `mock` mode is ≠ `none`,
- * so the capability has a working F2/preview demo without real keys — UNLESS the
- * capability is on {@link MOCKLESS_CAPABILITY_EXCEPTIONS}. `mock` omitted counts
- * as `none` (per {@link DossierMockMode}).
+ * EVERY hard dossier in a non-exempt capability must declare a real `mock`
+ * mode (`canned`/`seed`/`success`) — not only the capability default. Owner
+ * directive 2026-07-12: "allt ska vara lika för alla hard dossiers", so a
+ * keyword-selected non-default provider (e.g. "mongodb" → `mongodb-atlas`)
+ * carries the same keyless F2 demo guarantee as the default. `mock` omitted
+ * counts as `none` (per {@link DossierMockMode}). Exceptions stay
+ * capability-wide ({@link MOCKLESS_CAPABILITY_EXCEPTIONS}).
  *
- * Default resolution is DELIBERATELY STRICTER than runtime selection: CI
- * accepts the single dossier flagged `defaultForCapability: true`, or — when
- * none is flagged — the sole dossier for that capability. "Several dossiers,
- * none flagged" is reported as an error here (no resolvable demo fallback),
- * whereas `select.ts` silently falls back to the first dossier by id-sort in
- * that case. Several flagged defaults are left to
- * {@link findDuplicateDefaults} (already a build failure) and skipped here to
- * avoid double-reporting. Scope is the capability DEFAULT only: non-default
- * provider dossiers may omit `mock` (they degrade to the config-notice path),
- * and exceptions are capability-wide by design — see the invariant section in
- * docs/contracts/dossier-system.md.
+ * Each hard capability must ALSO have exactly one resolvable default dossier
+ * (including exempt capabilities — the exception only waives the mock
+ * requirement). Default resolution is DELIBERATELY STRICTER than runtime
+ * selection: CI accepts the single dossier flagged
+ * `defaultForCapability: true`, or — when none is flagged — the sole dossier
+ * for that capability. "Several dossiers, none flagged" is an error here,
+ * whereas `select.ts` silently falls back to the first dossier by id-sort.
+ * Several flagged defaults are left to {@link findDuplicateDefaults} (already
+ * a build failure) and skipped to avoid double-reporting.
+ *
+ * NOTE: this is a METADATA invariant. The behavioral guarantee (mounts
+ * without crash, recognizes placeholders, no real provider calls, honest
+ * config-notice) is etapp 7 acceptance-criteria territory — see the plan.
  *
  * Pure over the entry list (like {@link findDuplicateDefaults}) — no disk access.
  * Called by `scripts/dossiers/validate-all.ts`.
@@ -538,12 +543,7 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
     // let e.g. `analytics` lose its default silently while select.ts fell
     // back to id-sort — exactly the false-green this invariant exists for).
     const flaggedDefaults = dossiers.filter((d) => d.defaultForCapability);
-    let theDefault: DossierMockFallbackEntry | undefined;
-    if (flaggedDefaults.length === 1) {
-      theDefault = flaggedDefaults[0];
-    } else if (flaggedDefaults.length === 0 && dossiers.length === 1) {
-      theDefault = dossiers[0];
-    } else if (flaggedDefaults.length === 0) {
+    if (flaggedDefaults.length === 0 && dossiers.length > 1) {
       errors.push(
         `hard capability "${cap}" has ${dossiers.length} dossiers but none with defaultForCapability=true — no resolvable default demo (candidates: ${dossiers
           .map((d) => d.id)
@@ -551,17 +551,22 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
           .join(", ")})`,
       );
       continue;
-    } else {
-      // Several flagged defaults → owned by findDuplicateDefaults; skip here.
-      continue;
     }
+    // Several flagged defaults → owned by findDuplicateDefaults; skip the
+    // mock check to avoid double-reporting on an already-failing pool.
+    if (flaggedDefaults.length > 1) continue;
 
     if (Object.prototype.hasOwnProperty.call(MOCKLESS_CAPABILITY_EXCEPTIONS, cap)) continue;
 
-    if ((theDefault.mock ?? "none") === "none") {
-      errors.push(
-        `hard capability "${cap}" default dossier "${theDefault.id}" has mock="none" — needs a demo fallback (canned/seed/success) or must be added to MOCKLESS_CAPABILITY_EXCEPTIONS with a rationale`,
-      );
+    // Per-dossier check: every provider under the capability needs a real
+    // mock mode, not just the default (owner directive 2026-07-12).
+    for (const dossier of [...dossiers].sort((a, b) => a.id.localeCompare(b.id))) {
+      if ((dossier.mock ?? "none") === "none") {
+        const role = dossier.defaultForCapability ? "default dossier" : "dossier";
+        errors.push(
+          `hard capability "${cap}" ${role} "${dossier.id}" has mock="none" — needs a demo fallback (canned/seed/success) or the capability must be added to MOCKLESS_CAPABILITY_EXCEPTIONS with a rationale`,
+        );
+      }
     }
   }
   return errors;

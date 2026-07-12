@@ -1,8 +1,8 @@
 ---
-status: done (etapp 1–6 levererade 2026-07-12 i PR #498/#499/#500; etapp 7 SPÄRRAD — se sektionen nedan, startas inte utan nytt ägar-OK)
+status: done (etapp 1–6 levererade 2026-07-12 i PR #498/#499/#500; etapp 7 UPPLÅST med ägar-OK 2026-07-12 — blockers under fix, se etapp 7-sektionen. Obs: "100 % klart" avser etapp 1–6; det ursprungliga end-to-end-målet — vilande riktig integrationskod i F3 utan nycklar — är klart först när etapp 7 levererats.)
 owner: orchestrator-agent (chatt 2026-07-12)
 created: 2026-07-12
-topic: Dossier-grupper (10 st) + fallback-kontrakt per capability — docs/UI/backoffice/CI-invariant, med spärrad F3-runtime-etapp
+topic: Dossier-grupper (10 st) + fallback-kontrakt (per capability, skärpt till per-dossier 2026-07-12) — docs/UI/backoffice/CI-invariant + upplåst F3-runtime-etapp
 source: Ägardialog 2026-07-12 (inkl. extern coach-analys, verifierad mot master 61cfd7f / PR #490–#497 + BUG-SWARM-BACKLOG)
 ---
 
@@ -21,9 +21,11 @@ Leveransen kräver **ingen ny schema-dimension**: grupper är presentations-lage
 etapp 3), fallbacken finns
 redan som `mock`-fältet per dossier. Det nya är: (a) 10-grupplistan beslutas och
 implementeras, (b) en CI-invariant som **garanterar** att varje hard-capability
-har en default-dossier med meningsfullt mock-läge, (c) backoffice-gruppvy med
+har en default-dossier med meningsfullt mock-läge (skärpt 2026-07-12 till
+**varje** hard-dossier), (c) backoffice-gruppvy med
 lägg-till/ta-bort inom kategori, (d) docs/terminologi/tester synkas. Runtime-
-kontraktet i F3 (etapp 7) är **spärrat** bakom öppna backlogposter.
+kontraktet i F3 (etapp 7) var initialt spärrat bakom öppna backlogposter —
+**upplåst med ägar-OK 2026-07-12**, se etapp 7-sektionen.
 
 ## Låsta beslut (ägare, 2026-07-12)
 
@@ -31,11 +33,11 @@ kontraktet i F3 (etapp 7) är **spärrat** bakom öppna backlogposter.
 |---|---|
 | B1 | Trenivåmodell: **Grupp** (UI-rubrik, styr aldrig selektion) → **Capability** (exakt funktion, styr dossier-val) → **Dossier/provider** (implementation; flera per capability, en är default). `hard`/`soft` förblir en teknisk egenskap hos dossiern, inte en kategori. |
 | B2 | Inget nytt schemafält för grupp. Grupp härleds från capability via mappning i `dossier-groups.ts` (kanonisk källa). Selektionen förblir platt och capability-driven ("No embeddings. No fuzzy matching. No category boost."). |
-| B3 | **Fallback per capability, inte per provider.** Capabilityns standard-demo = default-dossierns (`defaultForCapability`) `mock`-läge. Providers under samma capability delar demo-ytan (`DbConfigNotice`, `IntegrationConfigNotice` m.fl.). |
+| B3 | **Fallback per capability, inte per provider.** Capabilityns standard-demo = default-dossierns (`defaultForCapability`) `mock`-läge. Providers under samma capability delar demo-ytan (`DbConfigNotice`, `IntegrationConfigNotice` m.fl.). **Skärpt 2026-07-12 (nytt ägarbeslut):** demo-MÖNSTRET är fortsatt gemensamt per capability, men mock-kravet gäller **varje** hard-dossier (CI-invarianten kontrollerar alla providers, inte bara defaulten). |
 | B4 | **Ingen SQLite-fallback.** Seed-data-linjen behålls (native-build-risk på preview-VM; ingen tyst provider-ersättning). SQLite får ev. bli en egen explicit valbar `database`-dossier senare. |
 | B5 | Placeholder-/mockvärden räknas aldrig som riktig konfiguration, persisteras aldrig som användar-secrets och skickas aldrig till riktig deploy (bekräftar befintligt kontrakt i `dossier-system.md`). |
 | B6 | Nya behov blir nya **capabilities i befintliga grupper** (t.ex. framtida `maps`), inte nya grupper. Grupplistan hålls på 10. |
-| B7 | Etapp 7 (F3-runtime-kontraktet) startas inte förrän inträdeskriterierna nedan är uppfyllda + nytt ägar-OK. |
+| B7 | Etapp 7 (F3-runtime-kontraktet) startas inte förrän inträdeskriterierna nedan är uppfyllda + nytt ägar-OK. **Uppfyllt 2026-07-12:** ägar-OK gavs; kriteriernas status i etapp 7-sektionen. |
 
 ## De 10 grupperna (kanonisk lista)
 
@@ -56,13 +58,16 @@ visuellt/interaktion; `cms` flyttas från innehåll till Data & lagring.
 | 9 | `visual-interaction` | Visuellt & interaktion | `carousel`, `marquee`, `gallery-lightbox`, `parallax-scroll`, `parallax-pointer`, `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`, `command-search` |
 | 10 | `other` | Övrigt | (fångstnät för omappade capabilities) |
 
-## Fallback-invarianten (etapp 4, kärnan i kontraktet)
+## Fallback-invarianten (etapp 4, kärnan i kontraktet; skärpt per-dossier 2026-07-12)
 
-> Varje **hard**-capability ska ha exakt en default-dossier, och den dossierns
-> `mock`-läge ska vara ≠ `none` — **om inte** capabilityn står på den
-> dokumenterade undantagslistan (funktioner som inte kan mockas meningsfullt:
-> betalning/inloggning/realtid visar `IntegrationConfigNotice`; analytics
-> self-disablar via `warn-only`).
+> **Varje hard-dossier** i en icke-undantagen capability ska ha `mock ≠ none`,
+> och varje hard-capability ska ha exakt en upplösbar default-dossier —
+> **om inte** capabilityn står på den dokumenterade undantagslistan
+> (funktioner som inte kan mockas meningsfullt: betalning/inloggning/realtid
+> visar `IntegrationConfigNotice`; analytics self-disablar via `warn-only`).
+> *(Ursprungligen gällde mock-kravet bara capabilityns default-dossier;
+> skärpt till per-dossier på ägarbeslut 2026-07-12 — "allt ska vara lika för
+> alla hard dossiers".)*
 
 Utgångsförslag undantagslista (fastställd oförändrad i aktivitet 4.1):
 `payments`, `subscriptions`, `auth`, `supabase-auth`, `realtime`, `analytics`,
@@ -136,28 +141,38 @@ Arbetsregler:
 
 | Akt | Vad | Verifiering |
 |---|---|---|
-| 6.1 | Bekräfta att `PreviewPanelDossiers` renderar de 10 grupperna korrekt efter etapp 3 (förväntas automatiskt) | ✅ dev-röktest: `GET /api/dossiers/catalog` mot lokal dev-server gav alla 9 icke-tomma grupper i `DOSSIER_GROUP_ORDER`-ordning med rätt labels (tomma `other` utelämnas korrekt); komponent-/API-tester 50/50 gröna |
+| 6.1 | Bekräfta att `PreviewPanelDossiers` renderar de 10 grupperna korrekt efter etapp 3 (förväntas automatiskt) | ✅ **catalog/API- och komponenttest** (precisering efter coach-review — inget visuellt browser-test av panelen gjordes): `GET /api/dossiers/catalog` mot lokal dev-server gav alla 9 icke-tomma grupper i `DOSSIER_GROUP_ORDER`-ordning med rätt labels (tomma `other` utelämnas korrekt); komponent-/API-tester 50/50 gröna |
 | 6.2 | UI-copy-svep: "Byggblock" i användarsynlig text, svenska labels, inga "dossier" i user-copy | ✅ kodläsning: all user-copy i `PreviewPanelDossiers.tsx` använder "Byggblock"; `dossier` förekommer bara i kodidentifierare/API-paths (per terminologiregeln) |
 
-### Etapp 7 — F3-runtime-kontrakt 🔒 SPÄRRAD (Opus 4.8 / Fable 5)
+### Etapp 7 — F3-runtime-kontrakt — UPPLÅST (ägar-OK 2026-07-12), pågår
 
-**Inträdeskriterier (alla ska vara uppfyllda + nytt ägar-OK):**
+**Ägar-OK gavs 2026-07-12** ("du får ändå mitt OK"). Inträdeskriteriernas status:
 
-1. P1 stängd: F3 ReleaseGate TOCTOU (`quality-gate/route.ts`, readiness före lease).
-2. P2 capability-provenance åtgärdad eller ägarbeslutad (kanonisk `CapabilityIntentDelta`).
-3. `BB#f3det1` verifierad/fixad (deterministisk F3-väg kan hoppa över dossier-injektion för godkänd provider utan build-nycklar).
+1. P1 F3 ReleaseGate TOCTOU → fixas i PR `fix/releasegate-toctou` (lease före readiness, en filläsning under lease, fail-closed på lease-fel).
+2. P2 capability-provenance → **ägarbeslut 2026-07-12: accepterad som deferred.** Tombstone-lagret från #494→#497 + rund-scopad filtrering är tillräcklig mitigering nu; den kanoniska `CapabilityIntentDelta`-refaktorn tas som eget initiativ när området rörs nästa gång. Splittrat ägarskap kvarstår som känd, dokumenterad risk (backlograden behålls).
+3. `BB#f3det1` (+ syskonet `BB#f3det2`) → fixas i PR `fix/f3-deterministic-approve` (approve-runda med ny provider utan filbevis går LLM-/dossier-väg; user-rad persisteras efter lyckad marker-consume).
 
-| Akt | Vad |
-|---|---|
-| 7.1 | Verifiera backlog-status mot `BUG-SWARM-BACKLOG.md § Aktiv kö` |
-| 7.2 | Designnotat: "F3 utan nycklar installerar vilande integrationskod" — approve-vägen ska gå LLM-/dossier-runda när godkänd provider saknar filer i parent-versionen |
-| 7.3 | Implementation + tester (scope sätts i 7.2; egen PR) |
+| Akt | Vad | Status |
+|---|---|---|
+| 7.1 | Verifiera backlog-status mot `BUG-SWARM-BACKLOG.md § Aktiv kö` | ✅ 2026-07-12 (P1 + f3det1/2 under fix, provenance ägarbeslutad-deferred) |
+| 7.2 | Designnotat: "F3 utan nycklar installerar vilande integrationskod" — approve-vägen ska gå LLM-/dossier-runda när godkänd provider saknar filer i parent-versionen | levereras med PR-rundan |
+| 7.3 | Implementation + tester | kärnan = f3det1-fixen; residualscope enligt 7.2 |
+
+**Acceptanskriterier för etapp 7 (tillagda efter coach-review 2026-07-12):**
+
+- Demo-ytan får vara gemensam per capability, men **säker degradering ska bevisas per hard-dossier/provider** — även icke-default providers och capabilities på undantagslistan:
+  1. kan monteras/byggas utan krasch när konfiguration saknas,
+  2. känner igen saknad/placeholder-konfiguration,
+  3. gör aldrig riktiga provider-anrop med placeholder-värden,
+  4. visar ärlig config-notis eller self-disable.
+- Metadata-fältet `mock` räcker inte som bevis — beteendet ska täckas av tester (utöka `dossier-config-fallback`-testmönstret till samtliga hard-dossiers).
+- F3 utan nycklar producerar en version som innehåller den riktiga integrationskoden (vilande), och ifyllda nycklar aktiverar den utan ny strukturell generering.
 
 ## Definition of done (hela planen, exkl. etapp 7) — ALLA UPPFYLLDA 2026-07-12
 
-- [x] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem (dev-röktest etapp 6)
+- [x] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem (catalog/API- och komponenttest, etapp 6)
 - [x] Glossary/terminology/dossier-system.md speglar grupp vs capability + fallback-kontraktet (PR #498 + #499)
-- [x] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt
+- [x] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt. **Skärpt 2026-07-12 (ägarbeslut): per-dossier** — varje hard-dossier i icke-undantagen capability kräver mock ≠ none.
 - [x] Backoffice: kategorivy + genererad gruppvy i `_index/` (etapp 5). Lägg-till (skapa inom kategori) och ta-bort (radera med checklista + id-bekräftelse) levererade.
 - [x] `npm run typecheck` + `npm run lint` + `npx vitest run` gröna per PR; `/granska` + bugbot-postcheck körda och triagedokumenterade på alla tre PR:er (#498, #499, #500)
-- [x] Planen flyttad till `docs/plans/avklarat/`; etapp 7 kvar som SPÄRRAD post i denna fil (inträdeskriterier ovan + nytt ägar-OK krävs)
+- [x] Planen flyttad till `docs/plans/avklarat/`; etapp 7 UPPLÅST 2026-07-12 (ägar-OK + inträdeskriteriernas status dokumenterad i etapp 7-sektionen)
