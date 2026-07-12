@@ -128,6 +128,23 @@ class DeleteDossierDirTests(unittest.TestCase):
         self.assertTrue(link.is_symlink())
 
 
+class RebuildCapabilityMapTests(unittest.TestCase):
+    def test_keys_by_directory_name_not_manifest_id(self) -> None:
+        # The canonical TS script keys dossier ids by FOLDER name; a divergent
+        # manifest.id must not make the drift preview disagree with a freshly
+        # regenerated file (Bugbot medium on #500, round 2).
+        pool = [
+            {
+                "id": "renamed-in-manifest",
+                "capability": " payments ",
+                "_class": "hard",
+                "_path": "data/dossiers/hard/stripe-checkout",
+            }
+        ]
+        fresh = dossiers_page._rebuild_capability_map(pool)
+        self.assertEqual(fresh["capabilities"], {"payments": ["stripe-checkout"]})
+
+
 class ApplyCapabilityOverrideTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()

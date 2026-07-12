@@ -216,8 +216,15 @@ def _rebuild_capability_map(dossiers: list[dict[str, Any]]) -> dict[str, Any]:
     view from `dossier-groups.ts` — something Python deliberately cannot do."""
     by_cap: dict[str, list[str]] = {}
     for d in dossiers:
-        cap = d.get("capability") or "uncategorized"
-        by_cap.setdefault(cap, []).append(d["id"])
+        # Trim to mirror the TS script (`cap.trim()`), keeping the drift
+        # preview byte-identical with what --write would produce.
+        cap = str(d.get("capability") or "").strip() or "uncategorized"
+        # Key by DIRECTORY name (last segment of _path), not manifest.id — the
+        # canonical TS script keys ids by folder name, and a divergent
+        # manifest.id would otherwise show "out of sync" forever even right
+        # after a successful rebuild (Bugbot medium on #500, round 2).
+        dir_name = str(d.get("_path") or "").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        by_cap.setdefault(cap, []).append(dir_name or str(d.get("id") or ""))
     for cap in by_cap:
         by_cap[cap].sort()
     return {
@@ -362,6 +369,22 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
         st.cache_data.clear()
 
 
+def _is_link_like(path: Path) -> bool:
+    """True for symlinks AND Windows directory junctions. `Path.is_symlink()`
+    misses junctions (they are reparse points, not symlinks), so on Windows we
+    read the lstat file attribute directly."""
+    if path.is_symlink():
+        return True
+    if os.name == "nt":
+        try:
+            attrs = os.lstat(path).st_file_attributes
+        except (OSError, AttributeError):
+            return False
+        # FILE_ATTRIBUTE_REPARSE_POINT = 0x400 — covers junctions + symlinks.
+        return bool(attrs & 0x400)
+    return False
+
+
 def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
     """Guarded deletion of a dossier directory from the live pool. Pure
     (no Streamlit) so the destructive path is unit-testable. Deletes the
@@ -375,12 +398,14 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
     rel_path = str(chosen.get("_path") or "")
     if not rel_path:
         return False, "Saknar katalogsökväg för dossiern — inget raderades."
-    # Symlink check MUST run on the unresolved path — `resolve()` follows the
+    # Link check MUST run on the unresolved path — `resolve()` follows the
     # link, so checking afterwards always says False and rmtree would hit the
-    # link TARGET (Bugbot high on #500).
+    # link TARGET (Bugbot high on #500). `_is_link_like` also catches Windows
+    # directory junctions, which `is_symlink()` does NOT flag (Bugbot high,
+    # round 2): junctions are reparse points, so inspect the lstat attribute.
     raw_dir = REPO_ROOT / rel_path
-    if raw_dir.is_symlink():
-        return False, f"`{rel_path}` är en symlink — raderas manuellt, inte härifrån."
+    if _is_link_like(raw_dir):
+        return False, f"`{rel_path}` är en symlink/junction — raderas manuellt, inte härifrån."
     target_dir = raw_dir.resolve()
     klass_root = (DOSSIER_ROOT / str(chosen.get("_class") or "")).resolve()
     if klass_root not in target_dir.parents:
