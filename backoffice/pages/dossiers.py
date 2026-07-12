@@ -438,10 +438,15 @@ def _section_delete(dossiers: list[dict[str, Any]]) -> None:
         return
     chosen = options[pick_key]
     capability = chosen.get("capability") or ""
+    # Normalized comparison (trim + lowercase) — mirrors resolveDossierGroup
+    # and the TS capability-map script, so a manifest edited with stray
+    # casing/whitespace still counts as a sibling in the checklist.
+    cap_norm = str(capability).strip().lower()
     siblings = [
         d
         for d in dossiers
-        if d.get("capability") == capability and d.get("id") != chosen.get("id")
+        if str(d.get("capability") or "").strip().lower() == cap_norm
+        and d.get("id") != chosen.get("id")
     ]
     env_keys = [
         str(ev.get("key")) for ev in (chosen.get("envVars") or []) if isinstance(ev, dict)
@@ -839,10 +844,14 @@ def _section_curate() -> None:
             st.error("Ange ett ID för den nya dossiern.")
             return
         # Validate the picked capability BEFORE the expensive LLM run — a typo
-        # in the free field must not cost a ~5 min curation first.
-        if decided_capability and not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", decided_capability):
+        # in the free field must not cost a ~5 min curation first. Mirror the
+        # strict schema fully: kebab-case pattern + 2-60 tecken.
+        if decided_capability and (
+            not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", decided_capability)
+            or not (2 <= len(decided_capability) <= 60)
+        ):
             st.error(
-                f"Ogiltig capability (måste vara kebab-case, t.ex. `image-generation`): "
+                f"Ogiltig capability (kebab-case, 2-60 tecken, t.ex. `image-generation`): "
                 f"`{decided_capability}` — kurationen startades inte."
             )
             return
