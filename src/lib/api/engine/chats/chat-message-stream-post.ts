@@ -206,6 +206,59 @@ function buildF3RejectAckStream(params: {
   });
 }
 
+/**
+ * BB#f3det1: does an APPROVE-continuation still need the real LLM build round
+ * to inject dossier code, even though the parent version's file-derived spec
+ * carries no required real build keys?
+ *
+ * True when at least one approved provider maps to a dossier capability whose
+ * files are NOT already present in the parent version. File presence is the
+ * canonical version-presence signal (docs/contracts/dossier-system.md
+ * § Version-presence union → `resolveCapabilitiesPresentInVersion`), so this
+ * reuses the same provider→capability mapping the build round applies
+ * (`mapProviderKeysToDossierCapabilities` ∪ persisted snapshot approvals).
+ *
+ * Used to exempt such a round from the #493 deterministic-release backstop:
+ * the deterministic path only governs a no-build-key parent WITHOUT new
+ * providers (the accepted normal case — the round would just re-emit the F2
+ * files). A newly approved provider whose dossier is absent must instead run
+ * the LLM/dossier round so F3 installs the dormant-but-real integration code.
+ */
+function approveRoundNeedsDossierInjection(params: {
+  markerSuggestedProviders: string[];
+  snapshot: Record<string, unknown> | null;
+  parentFilePaths: string[];
+}): boolean {
+  const persistedApproved = readF3ApprovedFromSnapshot(params.snapshot);
+  const effectiveApprovedProviders =
+    params.markerSuggestedProviders.length > 0
+      ? params.markerSuggestedProviders
+      : persistedApproved.providers;
+  let approvedCapabilities: string[] = [];
+  try {
+    approvedCapabilities = mapProviderKeysToDossierCapabilities(
+      effectiveApprovedProviders,
+    );
+  } catch {
+    approvedCapabilities = [];
+  }
+  const requiredCapabilities = new Set(
+    [...approvedCapabilities, ...persistedApproved.capabilities].map((capability) =>
+      capability.toLowerCase(),
+    ),
+  );
+  if (requiredCapabilities.size === 0) return false;
+  const presentCapabilities = new Set(
+    resolveCapabilitiesPresentInVersion(params.parentFilePaths).map((capability) =>
+      capability.toLowerCase(),
+    ),
+  );
+  for (const capability of requiredCapabilities) {
+    if (!presentCapabilities.has(capability)) return true;
+  }
+  return false;
+}
+
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
 
@@ -785,49 +838,87 @@ export async function handleMessageStreamRequest(
               fileDerivedTier3BuildSpec =
                 gate.spec.requirements.length > 0 ? gate.spec : null;
               if (!hasRequiredRealBuildKeys(gate.spec)) {
-                // Server-side backstop for the accepted deterministic F3
-                // policy. The intended client path receives this action from
-                // finalize-design, which creates an exact-file integrations
-                // fork before the client invokes ReleaseGate on that F3 row.
-                // A stale/custom client must not spend credits on a general
-                // LLM round. An approval marker is consumed here because this
-                // early handoff returns before the normal Phase B boundary.
-                if (f3ContinuationDecision?.replyIntent === "approve") {
-                  await chatRepo.addMessage(engineChat.id, "user", message);
-                  if (f3ContinuationDecision.markerMessageId) {
-                    const consumed =
-                      await chatRepo.consumeF3ContinuationMarker(
-                        engineChat.id,
-                        f3ContinuationDecision.markerMessageId,
-                      );
-                    if (!consumed) {
-                      return attachSessionCookie(
-                        NextResponse.json(
-                          {
-                            error: "f3_continuation_race_lost",
-                            ready: false,
-                            message:
-                              "F3-förslaget hanterades redan av en annan förfrågan. Ladda om versionerna.",
-                          },
-                          { status: 409 },
-                        ),
-                      );
+                // BB#f3det1: an approve-continuation whose approved providers
+                // still need dossier injection (their dossier files are NOT
+                // already present in the parent version) must run the real LLM
+                // build round — that is how F3 "installs dormant but real
+                // integration code" even when no real build keys are required.
+                // The #493 deterministic policy still governs a no-build-key
+                // parent WITHOUT new providers (the accepted normal case).
+                const approveNeedsDossierInjection =
+                  f3ContinuationDecision?.replyIntent === "approve" &&
+                  approveRoundNeedsDossierInjection({
+                    markerSuggestedProviders:
+                      f3ContinuationDecision.markerSuggestedProviders,
+                    snapshot:
+                      (engineChat.orchestration_snapshot as
+                        | Record<string, unknown>
+                        | null) ?? null,
+                    parentFilePaths: previousFiles.map((file) => file.path),
+                  });
+                if (approveNeedsDossierInjection) {
+                  // Fall through to the LLM build round. The marker is consumed
+                  // at the Phase B persistence boundary like any approve round,
+                  // so an aborted pre-check leaves it pending for a retry.
+                  devLogAppend("in-progress", {
+                    type: "f3.deterministic_release_exempted",
+                    chatId,
+                    reason: "approve_needs_dossier_injection",
+                    parentVersionId: gateVersionId,
+                  });
+                  debugLog(
+                    "orchestration",
+                    "F3 approve-continuation exempts deterministic release (dossier injection required)",
+                    { chatId, parentVersionId: gateVersionId },
+                  );
+                } else {
+                  // Server-side backstop for the accepted deterministic F3
+                  // policy. The intended client path receives this action from
+                  // finalize-design, which creates an exact-file integrations
+                  // fork before the client invokes ReleaseGate on that F3 row.
+                  // A stale/custom client must not spend credits on a general
+                  // LLM round. An approval marker is consumed here because this
+                  // early handoff returns before the normal Phase B boundary.
+                  if (f3ContinuationDecision?.replyIntent === "approve") {
+                    // BB#f3det2: consume the marker BEFORE persisting the user
+                    // row so a lost race returns 409 without leaving an orphan
+                    // user message (a retry would otherwise double-write it).
+                    if (f3ContinuationDecision.markerMessageId) {
+                      const consumed =
+                        await chatRepo.consumeF3ContinuationMarker(
+                          engineChat.id,
+                          f3ContinuationDecision.markerMessageId,
+                        );
+                      if (!consumed) {
+                        return attachSessionCookie(
+                          NextResponse.json(
+                            {
+                              error: "f3_continuation_race_lost",
+                              ready: false,
+                              message:
+                                "F3-förslaget hanterades redan av en annan förfrågan. Ladda om versionerna.",
+                            },
+                            { status: 409 },
+                          ),
+                        );
+                      }
                     }
+                    await chatRepo.addMessage(engineChat.id, "user", message);
                   }
+                  return attachSessionCookie(
+                    NextResponse.json(
+                      {
+                        error: "f3_deterministic_release_required",
+                        ready: false,
+                        action: "deterministic_release",
+                        parentVersionId: gateVersionId,
+                        message:
+                          "Inga riktiga build-nycklar krävs. Skapa en exakt F3-fork via finalize-design och kör ReleaseGate utan LLM-generering.",
+                      },
+                      { status: 409 },
+                    ),
+                  );
                 }
-                return attachSessionCookie(
-                  NextResponse.json(
-                    {
-                      error: "f3_deterministic_release_required",
-                      ready: false,
-                      action: "deterministic_release",
-                      parentVersionId: gateVersionId,
-                      message:
-                        "Inga riktiga build-nycklar krävs. Skapa en exakt F3-fork via finalize-design och kör ReleaseGate utan LLM-generering.",
-                    },
-                    { status: 409 },
-                  ),
-                );
               }
             }
           } catch (gateErr) {

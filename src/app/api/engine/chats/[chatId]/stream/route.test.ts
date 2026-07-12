@@ -2288,13 +2288,19 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
     });
 
-    it("consumes the pending F3 marker before deterministic ReleaseGate handoff", async () => {
+    it("BB#f3det1: approve-continuation with a NEW provider missing from the parent runs the LLM build round, not deterministic release", async () => {
+      // stripe was approved on the marker, but the parent version carries NO
+      // stripe-checkout files (default previousFiles = page.tsx only). Even
+      // though the file-derived spec has no required real build keys, the
+      // dossier must be INJECTED via the LLM/dossier round — F3 installs the
+      // dormant-but-real integration code. The deterministic backstop must be
+      // exempted for this round.
       getEngineChatByIdForRequest.mockResolvedValueOnce({
         id: "chat_1",
         project_id: "app_proj_1",
         scaffold_id: "scaffold_1",
         messages: f3AwaitingHistory("ver_f2_parent", {
-          suggestedProviders: ["openai"],
+          suggestedProviders: ["stripe"],
         }),
         orchestration_snapshot: null,
       });
@@ -2305,8 +2311,83 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         spec: {
           requirements: [
             {
+              key: "stripe",
               requiredRealEnvKeys: [],
-              featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Stripe wired</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      // NOT the deterministic 409 — a real integrations LLM round runs instead.
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalled();
+      expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycleStage: "integrations" }),
+      );
+      // The marker is consumed at the Phase B persistence boundary, not the
+      // deterministic backstop.
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      // The approved provider's dossier capability reaches orchestration so the
+      // hard-dossier templates get injected (stripe → payments).
+      const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+        requestedDossierCapabilities?: string[];
+      };
+      expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
+    });
+
+    it("BB#f3det1: approve-continuation whose provider already has files in the parent still takes the deterministic release (marker consumed before handoff)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["stripe"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      // The parent version already carries the stripe-checkout dossier (its
+      // distinctive server route is present) → payments capability present →
+      // no injection needed → the #493 deterministic policy still applies.
+      resolveFollowUpPreviousFiles.mockResolvedValue([
+        {
+          path: "app/api/checkout-session/route.ts",
+          content: "export async function POST() { return new Response(); }",
+          language: "ts",
+        },
+        {
+          path: "components/checkout-button.tsx",
+          content: "export function CheckoutButton() { return null; }",
+          language: "tsx",
+        },
+      ]);
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "stripe",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
             },
           ],
         },
@@ -2329,12 +2410,219 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         ready: false,
         parentVersionId: "ver_f2_parent",
       });
-      expect(consumeF3ContinuationMarker).toHaveBeenCalled();
-      expect(addMessage).toHaveBeenCalledWith(
-        "chat_1",
-        "user",
-        "Godkänn förslag",
+      // BB#f3det2 ordering: the marker is consumed BEFORE the user row is
+      // persisted…
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      // …and on a confirmed consume the user reply IS persisted.
+      expect(addMessage).toHaveBeenCalledWith("chat_1", "user", "Godkänn förslag");
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+    });
+
+    it("BB#f3det1: a MIXED approval (one provider with parent files, one without) still runs the LLM round", async () => {
+      // stripe's dossier files are present in the parent, but resend's are
+      // not — ANY approved capability missing file evidence must exempt the
+      // round from the deterministic backstop (helper returns true on first
+      // missing capability).
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["stripe", "resend"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      resolveFollowUpPreviousFiles.mockResolvedValue([
+        {
+          path: "app/api/checkout-session/route.ts",
+          content: "export async function POST() { return new Response(); }",
+          language: "ts",
+        },
+      ]);
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "stripe",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Resend wired</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
       );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalled();
+    });
+
+    it("BB#f3det1: an approve round with NO resolvable approvals keeps the deterministic backstop", async () => {
+      // Empty marker providers + no persisted snapshot approvals → nothing to
+      // inject → the #493 deterministic policy still applies (fail-open toward
+      // the cheap path, never toward a silent skipped injection).
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: [],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "stripe",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: "f3_deterministic_release_required",
+      });
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+    });
+
+    it("BB#f3det1: snapshot-persisted approved CAPABILITIES (empty providers) also exempt the deterministic backstop", async () => {
+      // The union logic must honor durable f3ApprovedCapabilities from the
+      // orchestration snapshot even when marker/persisted providers are empty.
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: [],
+        }),
+        orchestration_snapshot: { f3ApprovedCapabilities: ["payments"] },
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "stripe",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Payments wired</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalled();
+    });
+
+    it("BB#f3det2: a lost consume race on the deterministic approve path returns 409 without persisting an orphan user row", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["stripe"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      // Provider files present → deterministic branch (not the injection path).
+      resolveFollowUpPreviousFiles.mockResolvedValue([
+        {
+          path: "app/api/checkout-session/route.ts",
+          content: "export async function POST() { return new Response(); }",
+          language: "ts",
+        },
+      ]);
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "stripe",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+        },
+      });
+      // A concurrent reply already claimed the marker: this consume reports 0 rows.
+      consumeF3ContinuationMarker.mockResolvedValue(false);
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: "f3_continuation_race_lost",
+        ready: false,
+      });
+      expect(consumeF3ContinuationMarker).toHaveBeenCalledWith("chat_1", "msg_marker");
+      // BB#f3det2: the user row must NOT be persisted on a lost race, so a
+      // retry cannot double-write it.
+      expect(addMessage).not.toHaveBeenCalledWith("chat_1", "user", "Godkänn förslag");
       expect(createGenerationPipeline).not.toHaveBeenCalled();
     });
 
