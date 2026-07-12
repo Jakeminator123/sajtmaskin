@@ -81,6 +81,8 @@ Parkerad merge-fordon → split per kluster: PR #355 bug-swarm-batch (26 fynd) b
 
 Dossier legacy-import 2026-07-08 (levererat: normalizer + backoffice-flik mergade i #419, 12 utkast accept, 7 promoterade i två vågor #422/#430/#445; kvar: 5 promotions + preview-test/`lastVerified` för de 7 + F2-synlighet) → [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md).
 
+**Aktiv drivlinje 2026-07-12:** Dossier-grupper (10 st, presentations-lager) + fallback-kontrakt per capability — etapp 1 (beslut) klar; etapp 2+3 (terminologi/docs + gruppmapp 9→10) levereras i PR A (denna PR); kvar: etapp 4 (CI-invariant), 5 (backoffice-kategorivy), 6 (UI-röktest); etapp 7 (F3-runtime-kontrakt) **spärrad** bakom P1 ReleaseGate + capability-provenance + `BB#f3det1` → [`2026-07-12-dossier-grupper-och-fallback-kontrakt.md`](2026-07-12-dossier-grupper-och-fallback-kontrakt.md).
+
 OpenClaw edit-agent 2026-07-01 (2 av 3 spår levererade: mallar→Blob #336 mergad, follow-up-imported-repo-fix i koden; kvar: spår A = PR #346, draft, `[HOLD - MERGA INTE]`) → [`2026-07-01-openclaw-edit-agent-och-followup-fix.md`](2026-07-01-openclaw-edit-agent-och-followup-fix.md).
 
 Backoffice-stringensplan 2026-07-08 (underlag klart: 34 sidor granskade, 2 triviala sanningsfel redan rättade i samma pass; resten väntar på prioritering — domain-map-täckning, dubbla manifest-editorer, scaffold-navigation, testluckor) → [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md).

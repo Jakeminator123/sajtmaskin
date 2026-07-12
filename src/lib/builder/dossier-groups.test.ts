@@ -40,20 +40,86 @@ describe("resolveDossierGroup", () => {
     expect(resolveDossierGroup(undefined).id).toBe("other");
   });
 
-  it("groups the documented capability buckets as expected", () => {
+  it("matches the documented capability→group table exactly (docs/contracts/dossier-system.md)", () => {
+    // Full canonical mapping — one entry per capability in the docs table.
+    // A capability landing in the wrong bucket (not just "Övrigt") must fail.
+    const expectedGroupByCapability: Record<string, string> = {
+      database: "data-storage",
+      cms: "data-storage",
+      payments: "payments",
+      subscriptions: "payments",
+      auth: "auth",
+      "supabase-auth": "auth",
+      "ai-chat": "ai",
+      "ai-tool-calling": "ai",
+      "rag-chat": "ai",
+      "image-generation": "ai",
+      "contact-form": "email",
+      "newsletter-subscribe": "email",
+      analytics: "analytics",
+      "error-tracking": "analytics",
+      realtime: "realtime",
+      "cta-section": "content",
+      "faq-section": "content",
+      "pricing-section": "content",
+      "testimonials-section": "content",
+      "feature-grid": "content",
+      "stats-counter": "content",
+      stepper: "content",
+      "logo-cloud": "content",
+      carousel: "visual-interaction",
+      marquee: "visual-interaction",
+      "gallery-lightbox": "visual-interaction",
+      "parallax-scroll": "visual-interaction",
+      "parallax-pointer": "visual-interaction",
+      "visual-3d": "visual-interaction",
+      "physics-3d": "visual-interaction",
+      "interactive-game": "visual-interaction",
+      "dashboard-charts": "visual-interaction",
+      "command-search": "visual-interaction",
+    };
+
+    for (const [capability, expectedGroupId] of Object.entries(expectedGroupByCapability)) {
+      expect({ capability, group: resolveDossierGroup(capability).id }).toEqual({
+        capability,
+        group: expectedGroupId,
+      });
+    }
+
+    // Every capability in the generated capability-map must be covered by the
+    // canonical table above — a NEW capability without a decided bucket fails
+    // here instead of silently landing in "Övrigt".
+    const mapped = new Set(Object.keys(expectedGroupByCapability));
+    const uncovered = readCapabilityMapCapabilities().filter((cap) => !mapped.has(cap));
+    expect(uncovered).toEqual([]);
+  });
+
+  it("uses the documented Swedish labels", () => {
     expect(resolveDossierGroup("database").label).toBe("Data & lagring");
     expect(resolveDossierGroup("payments").label).toBe("Betalningar");
-    expect(resolveDossierGroup("contact-form").label).toBe("E-post & utskick");
-    expect(resolveDossierGroup("newsletter-subscribe").label).toBe("E-post & utskick");
-    expect(resolveDossierGroup("analytics").label).toBe("Analys & övervakning");
-    expect(resolveDossierGroup("error-tracking").label).toBe("Analys & övervakning");
+    expect(resolveDossierGroup("auth").label).toBe("Inloggning & konton");
+    expect(resolveDossierGroup("supabase-auth").label).toBe("Inloggning & konton");
     expect(resolveDossierGroup("ai-chat").label).toBe("AI");
-    expect(resolveDossierGroup("ai-tool-calling").label).toBe("AI");
-    expect(resolveDossierGroup("image-generation").label).toBe("AI");
-    expect(resolveDossierGroup("auth").label).toBe("Inloggning");
+    expect(resolveDossierGroup("contact-form").label).toBe("E-post & utskick");
+    expect(resolveDossierGroup("analytics").label).toBe("Analys & övervakning");
     expect(resolveDossierGroup("realtime").label).toBe("Realtid");
-    expect(resolveDossierGroup("visual-3d").label).toBe("Innehåll & sektioner");
     expect(resolveDossierGroup("cta-section").label).toBe("Innehåll & sektioner");
+    expect(resolveDossierGroup("carousel").label).toBe("Visuellt & interaktion");
+  });
+
+  it("has 10 groups in the documented order", () => {
+    expect(DOSSIER_GROUP_ORDER.map((group) => group.id)).toEqual([
+      "data-storage",
+      "payments",
+      "auth",
+      "ai",
+      "email",
+      "analytics",
+      "realtime",
+      "content",
+      "visual-interaction",
+      "other",
+    ]);
   });
 
   it("every mapped group id is present in the render order", () => {
