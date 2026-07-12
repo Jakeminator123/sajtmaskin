@@ -5,9 +5,11 @@ import {
   deriveTier3BuildSpecForProviderKeys,
   hasRequiredRealBuildKeys,
   mapProviderKeysToDossierCapabilities,
+  providerKeysWithoutBackingDossier,
   renderTier3BuildPlanBlock,
   validateTier3Readiness,
 } from "./tier3-build-spec";
+import { resolveIntegrationIdentityKey } from "./suggestion-display";
 import type { PlanContracts } from "@/lib/gen/plan/schema";
 
 const emptyContracts: PlanContracts = {
@@ -21,6 +23,66 @@ it("derives build requirements directly from explicit provider approvals", () =>
   expect(spec.requirements.map((requirement) => requirement.key)).toContain(
     "stripe",
   );
+});
+
+describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
+  it("flags registry providers without a backing dossier (posthog, google-analytics)", () => {
+    expect(providerKeysWithoutBackingDossier(["posthog"])).toEqual(["posthog"]);
+    expect(providerKeysWithoutBackingDossier(["google-analytics"])).toEqual([
+      "google-analytics",
+    ]);
+  });
+
+  it("does NOT flag dossier-backed providers (stripe, mongodb)", () => {
+    expect(providerKeysWithoutBackingDossier(["stripe"])).toEqual([]);
+    expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual([]);
+  });
+
+  it("skips unknown providers and empty input", () => {
+    expect(providerKeysWithoutBackingDossier(["not-a-real-provider"])).toEqual([]);
+    expect(providerKeysWithoutBackingDossier([])).toEqual([]);
+  });
+});
+
+describe("config-notice advertisement uses strict backing (Codex P1 on #506)", () => {
+  it("does NOT advertise a category sibling's config notice for a dossierless provider (contentful vs sanity-cms)", () => {
+    const spec = deriveTier3BuildSpecForProviderKeys(["contentful"]);
+    const contentful = spec.requirements.find((r) => r.key === "contentful");
+    expect(contentful).toBeDefined();
+    // sanity-cms matches contentful only via the category fallback ("cms") —
+    // it is never injected for a contentful approval, so its notice file must
+    // not be advertised (the model would import a component never emitted).
+    expect(contentful?.hasConfigNoticeComponent).toBe(false);
+  });
+
+  it("still advertises the notice for a strict-backed provider (stripe → stripe-checkout)", () => {
+    const spec = deriveTier3BuildSpecForProviderKeys(["stripe"]);
+    const stripe = spec.requirements.find((r) => r.key === "stripe");
+    expect(stripe?.hasConfigNoticeComponent).toBe(true);
+  });
+});
+
+describe("resolveIntegrationIdentityKey generic-provider guard (Codex P1 on #506)", () => {
+  it("falls through to the named provider when provider is the generic 'other'", () => {
+    expect(
+      resolveIntegrationIdentityKey({ provider: "other", name: "PostHog" }),
+    ).toBe("posthog");
+    expect(
+      resolveIntegrationIdentityKey({ provider: "custom", name: "Google Analytics" }),
+    ).toBe("googleanalytics");
+  });
+
+  it("keeps a real provider identity untouched", () => {
+    expect(
+      resolveIntegrationIdentityKey({ provider: "stripe", name: "Stripe Checkout" }),
+    ).toBe("stripe");
+  });
+
+  it("returns null when both provider and name are generic", () => {
+    expect(
+      resolveIntegrationIdentityKey({ provider: "other", name: "integration" }),
+    ).toBeNull();
+  });
 });
 
 describe("deriveTier3BuildSpec", () => {

@@ -576,8 +576,15 @@ export function deriveTier3BuildSpec(
     // suppressed dossier still legitimately "backs nothing" for that clamp.
     const defProviderCompact = compactProviderKey(def.provider ?? def.key);
     const defKeyCompact = compactProviderKey(def.key);
+    // STRICT match required (Codex P1 on #506): `backingDossiers` uses the
+    // category fallback (right for the env-clamp above), but config-notice
+    // advertisement must mirror INJECTION semantics — a category sibling
+    // (contentful → sanity-cms under "cms") is never injected on a provider
+    // approval, so advertising its notice file would make the model import a
+    // component that was never emitted (build break).
     const configNoticeBacking = backingDossiers.filter(
       (m) =>
+        m.matchesStrict(def) &&
         !isSuppressedProviderBacking(defProviderCompact, m.capability) &&
         !isSuppressedProviderBacking(defKeyCompact, m.capability),
     );

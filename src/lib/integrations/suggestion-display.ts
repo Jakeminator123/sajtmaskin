@@ -10,6 +10,13 @@ const GENERIC_INTEGRATION_NAME_KEYS = new Set([
   "integrationsuggestion",
   "unknown",
   "provider",
+  // Codex P1 on #506: `suggestIntegration({ provider: "other", name: "PostHog" })`
+  // must resolve to the NAMED provider, not the generic bucket — otherwise the
+  // F3 marker stores "other" and the approval round can neither map a backing
+  // dossier nor fire the dossierless-provider exemption.
+  "other",
+  "custom",
+  "customenv",
 ]);
 
 const DISPLAY_TOKEN_OVERRIDES: Record<string, string> = {
@@ -92,8 +99,11 @@ export function deriveIntegrationNameFromProvider(
 export function resolveIntegrationIdentityKey(
   input: IntegrationIdentityInput,
 ): string | null {
+  // Generic guard on the provider field too (Codex P1 on #506): a generic
+  // `provider: "other"/"custom"` must fall through to the human `name` so a
+  // named suggestion ("PostHog") keeps its real identity in the F3 marker.
   const providerKey = normalizeIntegrationIdentity(input.provider);
-  if (providerKey) return providerKey;
+  if (providerKey && !isGenericIntegrationName(input.provider)) return providerKey;
 
   const key = normalizeIntegrationIdentity(input.key);
   if (key && !isGenericIntegrationName(key)) return key;
