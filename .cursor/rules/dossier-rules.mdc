@@ -19,7 +19,7 @@ Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGE
 | Yta | Path | Roll |
 |---|---|---|
 | Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` | **Enda** source of truth för dossiers i runtime (läses av `src/lib/gen/dossiers/registry.ts`) |
-| Capability map | `data/dossiers/_index/capability-map.json` | Genererad/tooling-index, läses inte i runtime |
+| Capability map | `data/dossiers/_index/capability-map.json` | Genererad/tooling-index (`capabilities` + `groups`-vy), läses inte i runtime |
 | Dossier scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
 | Backoffice | `backoffice/pages/dossiers.py` | Adminvy för runtime dossiers |
 | Template reference repos | `data/template-references/repos/<id>/` | Rå input till AI-kuration (gitignorerad, lokal) |
@@ -29,7 +29,7 @@ Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGE
 ## Regler
 
 - Flytta inte runtime dossiers till template-reference-mappar.
-- Behandla `capability-map.json` som genererad vy; bygg om från manifests (`npm run dossiers:capability-map:write`).
+- Behandla `capability-map.json` som genererad vy; bygg om från manifests (`npm run dossiers:capability-map:write`). Vyn bär även ett `groups`-fält (grupp-id → `{label, capabilities[]}`, härlett från `dossier-groups.ts`) som backoffice läser (gruppvy i Lista, kategori-väljare i AI-kuration, grupptabell i Capability map) — duplicera aldrig den mappningen i Python.
 - Efter manifeständring: kör `npm run dossiers:validate-all`. Capability-map är en genererad vy (läses ej i runtime, ej CI-tvingad) — regenerera vid behov med `npm run dossiers:capability-map:write`.
 - `sourceTemplateIds` är bara en proveniens-etikett — bygg ingen runtime-logik som slår upp `catalog.json` (legacy).
 - Vid radering av en dossier: kontrollera capability, defaultForCapability, envVars, dependencies och `capability-map`.

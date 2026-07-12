@@ -7,11 +7,15 @@ Reads the new minimal layout:
     data/dossiers/_index/capability-map.json
 
 Lets you:
-- Browse all dossiers (hard + soft) with the 4-field summary.
+- Browse all dossiers (hard + soft) with the 4-field summary, optionally
+  grouped per dossier-grupp (kategori).
 - Edit a manifest in-place (text area, validates JSON before save).
+- Delete a dossier from the live pool (dossier-rules checklist + explicit
+  id confirmation).
 - Trigger an AI-curation run from a template-references repo (single dossier
-  at a time, not batch).
-- Rebuild capability-map.json from the manifests.
+  at a time, not batch), optionally within a chosen kategori/capability.
+- Rebuild capability-map.json (incl. the groups view) via the canonical TS
+  script.
 
 Source-of-truth for the format: docs/contracts/dossier-system.md
 """
@@ -135,22 +139,95 @@ def _summarize_enforcement(data: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+def _load_group_view() -> dict[str, Any]:
+    """Read the generated dossier-grupp (kategori) view from
+    `capability-map.json`'s `groups` field. Never a hand-written Python copy
+    of the capability→group mapping — the canonical source is
+    `src/lib/builder/dossier-groups.ts` (`DOSSIER_GROUP_ORDER` /
+    `resolveDossierGroup`), rendered into this view by
+    `scripts/dossiers/regenerate-capability-map.ts`. Returns `{}` when the
+    map hasn't been regenerated since this view was added (fallback callers
+    should fall back to "Övrigt" and prompt a "Bygg om")."""
+    data = _load_json(CAPABILITY_MAP_PATH) or {}
+    groups = data.get("groups")
+    return groups if isinstance(groups, dict) else {}
+
+
+def _group_label_for_capability(capability: str | None, groups: dict[str, Any]) -> str:
+    """Look up a capability's Swedish dossier-grupp label in the generated
+    `groups` view. Falls back to "Övrigt" for a capability that isn't listed
+    under any group yet (e.g. a brand-new capability before the next
+    'Bygg om'). Case-insensitive + trimmed, mirroring `resolveDossierGroup`."""
+    key = (capability or "").strip().lower()
+    if key:
+        for info in groups.values():
+            listed = [str(c).strip().lower() for c in (info.get("capabilities") or [])]
+            if key in listed:
+                return info.get("label") or "Övrigt"
+    return "Övrigt"
+
+
+def _groups_view_is_stale(groups: dict[str, Any], dossiers: list[dict[str, Any]]) -> bool:
+    """True when the generated `groups` view no longer covers the live pool's
+    capability set (e.g. a new capability added since the last 'Bygg om').
+    Python cannot recompute the TS group mapping, but it CAN detect coverage
+    drift — label/bucket drift inside `dossier-groups.ts` is caught by the TS
+    check (`regenerate-capability-map.ts` check-mode) instead."""
+    if not groups:
+        return True
+    covered: set[str] = set()
+    for info in groups.values():
+        for cap in info.get("capabilities") or []:
+            covered.add(str(cap).strip().lower())
+    live = {str(d.get("capability") or "").strip().lower() for d in dossiers if d.get("capability")}
+    return not live.issubset(covered)
+
+
+def _run_capability_map_write() -> tuple[bool, str]:
+    """Regenerate capability-map.json via the canonical TS script
+    (`npm run dossiers:capability-map:write` → `regenerate-capability-map.ts`)
+    instead of duplicating the capability→group mapping in Python. Keeps the
+    `groups` view in lockstep with `src/lib/builder/dossier-groups.ts`."""
+    try:
+        result = subprocess.run(
+            [_npm_binary(), "run", "dossiers:capability-map:write"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        out = (result.stdout or "") + (result.stderr or "")
+        return result.returncode == 0, out
+    except subprocess.TimeoutExpired:
+        return False, (
+            "Regenereringen tog mer än 120s — kör "
+            "`npm run dossiers:capability-map:write` från terminalen istället."
+        )
+    except FileNotFoundError as exc:
+        return False, f"Saknar binär (npm): {exc}"
+
+
 def _rebuild_capability_map(dossiers: list[dict[str, Any]]) -> dict[str, Any]:
+    """DRIFT-PREVIEW ONLY — computes the expected `capabilities` field so the
+    Capability map tab can warn when the file is stale. It is NEVER written to
+    disk anymore: 'Bygg om' shells out to the canonical TS script
+    (`npm run dossiers:capability-map:write`), which also derives the `groups`
+    view from `dossier-groups.ts` — something Python deliberately cannot do."""
     by_cap: dict[str, list[str]] = {}
     for d in dossiers:
-        cap = d.get("capability") or "uncategorized"
-        by_cap.setdefault(cap, []).append(d["id"])
+        # Trim to mirror the TS script (`cap.trim()`), keeping the drift
+        # preview byte-identical with what --write would produce.
+        cap = str(d.get("capability") or "").strip() or "uncategorized"
+        # Key by DIRECTORY name (last segment of _path), not manifest.id — the
+        # canonical TS script keys ids by folder name, and a divergent
+        # manifest.id would otherwise show "out of sync" forever even right
+        # after a successful rebuild (Bugbot medium on #500, round 2).
+        dir_name = str(d.get("_path") or "").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        by_cap.setdefault(cap, []).append(dir_name or str(d.get("id") or ""))
     for cap in by_cap:
         by_cap[cap].sort()
     return {
-        "$comment": (
-            "View of capability → dossier ids. Can be regenerated from either "
-            "backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') "
-            "or `npm run dossiers:capability-map:write` "
-            "(scripts/dossiers/regenerate-capability-map.ts). "
-            "Runtime walks data/dossiers/{hard,soft}/ directly; this file is "
-            "for tooling + sanity check during curation."
-        ),
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "capabilities": dict(sorted(by_cap.items())),
     }
@@ -205,13 +282,64 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "files": len(d.get("files") or []),
             "lastVerified": d.get("lastVerified"),
         })
-    rows.sort(key=lambda r: (r["class"], r["capability"] or "", r["id"]))
-    st.dataframe(rows, width="stretch", hide_index=True)
-    st.caption(
+
+    caption = (
         "Enforcement-kolumn: B=build (blockerar F3), F=feature-runtime "
         "(UI-banner / popup vid runtime), W=warn-only (komponent self-disablar). "
         "Saknat tag på en envVar tolkas som B."
     )
+
+    groups = _load_group_view()
+    grouped_view = st.checkbox(
+        "Visa grupperad per dossier-grupp (kategori)",
+        key="dossier_list_grouped",
+        help=(
+            "Grupperar listan efter dossier-grupp — läst från "
+            "capability-map.json:s genererade `groups`-fält (kanonisk källa: "
+            "src/lib/builder/dossier-groups.ts). Kör 'Bygg om' i "
+            "Capability map-fliken om grupperna saknas/är inaktuella."
+        ),
+    )
+    if grouped_view and not groups:
+        st.warning(
+            "`capability-map.json` saknar `groups`-fältet ännu — kör 'Bygg om' "
+            "i Capability map-fliken (eller `npm run dossiers:capability-map:write`) "
+            "för att aktivera gruppvyn."
+        )
+        grouped_view = False
+    elif grouped_view and _groups_view_is_stale(groups, dossiers):
+        st.warning(
+            "`groups`-vyn täcker inte alla capabilities i live-poolen (inaktuell) "
+            "— rader kan hamna under Övrigt. Kör 'Bygg om' i Capability map-fliken."
+        )
+
+    if not grouped_view:
+        rows.sort(key=lambda r: (r["class"], r["capability"] or "", r["id"]))
+        st.dataframe(rows, width="stretch", hide_index=True)
+        st.caption(caption)
+        return
+
+    rows_by_label: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = _group_label_for_capability(row["capability"], groups)
+        rows_by_label.setdefault(label, []).append(row)
+
+    ordered_labels = [info.get("label") or "Övrigt" for info in groups.values()]
+    for label in ordered_labels:
+        group_rows = rows_by_label.pop(label, None)
+        if not group_rows:
+            continue
+        group_rows.sort(key=lambda r: (r["capability"] or "", r["class"], r["id"]))
+        st.markdown(f"**{label}** ({len(group_rows)})")
+        st.dataframe(group_rows, width="stretch", hide_index=True)
+    # Safety net: any label not present in the generated view (should not
+    # happen once regenerated, but never silently drop rows).
+    for label, group_rows in rows_by_label.items():
+        group_rows.sort(key=lambda r: (r["capability"] or "", r["class"], r["id"]))
+        st.markdown(f"**{label}** ({len(group_rows)})")
+        st.dataframe(group_rows, width="stretch", hide_index=True)
+
+    st.caption(caption)
 
 
 def _section_edit(dossiers: list[dict[str, Any]]) -> None:
@@ -239,6 +367,148 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
         manifest_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
         st.cache_data.clear()
+
+
+def _is_link_like(path: Path) -> bool:
+    """True for symlinks AND Windows directory junctions. `Path.is_symlink()`
+    misses junctions (they are reparse points, not symlinks), so on Windows we
+    read the lstat file attribute directly."""
+    if path.is_symlink():
+        return True
+    if os.name == "nt":
+        try:
+            attrs = os.lstat(path).st_file_attributes
+        except (OSError, AttributeError):
+            return False
+        # FILE_ATTRIBUTE_REPARSE_POINT = 0x400 — covers junctions + symlinks.
+        return bool(attrs & 0x400)
+    return False
+
+
+def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
+    """Guarded deletion of a dossier directory from the live pool. Pure
+    (no Streamlit) so the destructive path is unit-testable. Deletes the
+    ACTUAL walked directory (`_path` from `_walk_all_dossiers`) — never a
+    path reconstructed from `manifest.id`, which could diverge from the
+    directory name and hit the wrong sibling. Guards: kebab-case id,
+    containment under data/dossiers/<class>/, symlink refusal."""
+    target_id = str(chosen.get("id") or "")
+    if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", target_id):
+        return False, f"Ogiltigt dossier-id: {target_id!r} — inget raderades."
+    rel_path = str(chosen.get("_path") or "")
+    if not rel_path:
+        return False, "Saknar katalogsökväg för dossiern — inget raderades."
+    # Link check MUST run on the unresolved path — `resolve()` follows the
+    # link, so checking afterwards always says False and rmtree would hit the
+    # link TARGET (Bugbot high on #500). `_is_link_like` also catches Windows
+    # directory junctions, which `is_symlink()` does NOT flag (Bugbot high,
+    # round 2): junctions are reparse points, so inspect the lstat attribute.
+    raw_dir = REPO_ROOT / rel_path
+    if _is_link_like(raw_dir):
+        return False, f"`{rel_path}` är en symlink/junction — raderas manuellt, inte härifrån."
+    target_dir = raw_dir.resolve()
+    klass_root = (DOSSIER_ROOT / str(chosen.get("_class") or "")).resolve()
+    if klass_root not in target_dir.parents:
+        return False, f"Sökvägen ligger utanför dossier-poolen: `{rel_path}` — inget raderades."
+    if not target_dir.exists():
+        return False, f"Katalogen finns inte längre: `{rel_path}`."
+    shutil.rmtree(target_dir)
+    return True, (
+        f"Raderade `{rel_path}`.\n\n"
+        "Nästa steg: bygg om capability-map (Capability map-fliken) och kör "
+        "`npm run dossiers:validate-all`. Ångra: `git checkout -- <sökvägen>` "
+        "funkar bara för dossiers som redan är incheckade — en ny, ocommittad "
+        "dossier (t.ex. ett färskt AI-utkast) kan INTE återställas via git."
+    )
+
+
+def _section_delete(dossiers: list[dict[str, Any]]) -> None:
+    """Radera en dossier ur live-poolen med checklistan från
+    `.cursor/rules/dossier-rules.mdc` (capability, defaultForCapability,
+    envVars, dependencies, capability-map) renderad som konkret läges-info
+    för just den valda dossiern. Kräver kryssad checklista + exakt
+    id-bekräftelse."""
+    st.divider()
+    st.subheader("Radera dossier")
+    if not dossiers:
+        return
+    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
+    pick_key = st.selectbox("Välj dossier att radera", list(options.keys()), key="delete_pick")
+    if not pick_key:
+        return
+    chosen = options[pick_key]
+    capability = chosen.get("capability") or ""
+    # Normalized comparison (trim + lowercase) — mirrors resolveDossierGroup
+    # and the TS capability-map script, so a manifest edited with stray
+    # casing/whitespace still counts as a sibling in the checklist.
+    cap_norm = str(capability).strip().lower()
+    siblings = [
+        d
+        for d in dossiers
+        if str(d.get("capability") or "").strip().lower() == cap_norm
+        and d.get("id") != chosen.get("id")
+    ]
+    env_keys = [
+        str(ev.get("key")) for ev in (chosen.get("envVars") or []) if isinstance(ev, dict)
+    ]
+    deps = [str(dep) for dep in (chosen.get("dependencies") or [])]
+
+    if siblings:
+        cap_line = (
+            f"{len(siblings)} syskon-dossier(s) kvar under `{capability}`: "
+            + ", ".join(sorted(str(d.get("id")) for d in siblings))
+            + "."
+        )
+    else:
+        cap_line = (
+            f"detta är ENDA dossiern under `{capability}` — capabilityn försvinner "
+            "ur poolen; kontrollera referenser (brief-prompt, follow-up-vokabulär, "
+            "capability-inference)."
+        )
+    if chosen.get("defaultForCapability") and siblings:
+        default_line = (
+            "denna är capabilityns **default** — flagga ett syskon som ny default, "
+            "annars stoppar `dossiers:validate-all` (mock-fallback-invarianten "
+            "kräver en upplösbar default)."
+        )
+    elif chosen.get("defaultForCapability"):
+        default_line = "denna är default, men hela capabilityn försvinner med den."
+    else:
+        default_line = "ingen default-flytt behövs (dossiern är inte default)."
+
+    st.markdown(
+        "**Checklista före radering** (per `dossier-rules.mdc`):\n"
+        f"- **capability**: {cap_line}\n"
+        f"- **defaultForCapability**: {default_line}\n"
+        f"- **envVars**: {', '.join(env_keys) if env_keys else 'inga'} — städa ev. lagrade projekt-env/placeholder-flöden.\n"
+        f"- **dependencies**: {', '.join(deps) if deps else 'inga'}.\n"
+        "- **capability-map**: bygg om efter radering (Capability map-fliken) och kör `npm run dossiers:validate-all`."
+    )
+
+    ack = st.checkbox("Jag har gått igenom checklistan ovan", key="delete_ack")
+    confirm = st.text_input(
+        f"Skriv dossierns id (`{chosen.get('id')}`) för att bekräfta",
+        key="delete_confirm",
+    ).strip()
+    if st.button(
+        "Radera från live-poolen",
+        type="primary",
+        key="delete_button",
+        disabled=not ack,
+    ):
+        target_id = str(chosen.get("id") or "")
+        if confirm != target_id:
+            st.error("Bekräftelsen matchar inte dossierns id — inget raderades.")
+            return
+        ok, msg = _delete_dossier_dir(chosen)
+        (st.success if ok else st.error)(msg)
+        if ok:
+            # Drop the widget state that points at the now-deleted dossier —
+            # otherwise the next rerun's selectbox/text_input restore a value
+            # that no longer exists in options (StreamlitAPIException).
+            for state_key in ("delete_pick", "delete_ack", "delete_confirm"):
+                st.session_state.pop(state_key, None)
+            st.cache_data.clear()
 
 
 def _section_enforcement_overview(dossiers: list[dict[str, Any]]) -> None:
@@ -299,19 +569,59 @@ def _section_capability_tiers() -> None:
 def _section_capability_map(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Capability map")
     st.caption(
-        "Översikt över vilka dossiers som är registrerade per capability. "
-        "Brief-LLM:n deklarerar `requestedCapabilities` och varje capability "
-        "matchar mot exakt en dossier (eller ingen om kapabiliteten saknas)."
+        "Översikt över vilka dossiers som är registrerade per capability, plus "
+        "en genererad gruppvy (dossier-grupp/kategori — presentations-lager, "
+        "kanonisk källa `src/lib/builder/dossier-groups.ts`). Brief-LLM:n "
+        "deklarerar `requestedCapabilities` och varje capability matchar mot "
+        "exakt en dossier (eller ingen om kapabiliteten saknas)."
     )
-    current = _load_json(CAPABILITY_MAP_PATH)
+    current = _load_json(CAPABILITY_MAP_PATH) or {}
     fresh = _rebuild_capability_map(dossiers)
-    diff = (current or {}).get("capabilities") != fresh["capabilities"]
+    diff = current.get("capabilities") != fresh["capabilities"]
+    current_groups = current.get("groups") if isinstance(current.get("groups"), dict) else {}
+    groups_stale = _groups_view_is_stale(current_groups, dossiers)
     if diff:
         st.warning("`capability-map.json` är inte i synk med manifests. Klicka för att bygga om.")
-    if st.button("Bygg om capability-map.json"):
-        _save_json(CAPABILITY_MAP_PATH, fresh)
-        st.success(f"Skrev {CAPABILITY_MAP_PATH.relative_to(REPO_ROOT)}")
-    st.json(fresh["capabilities"])
+    elif groups_stale:
+        st.warning(
+            "`groups`-vyn saknas eller täcker inte poolens capabilities — bygg om. "
+            "(Label-/bucket-drift mot `dossier-groups.ts` fångas av TS-checkens "
+            "check-läge, inte här.)"
+        )
+    if st.button("Bygg om capability-map.json (inkl. grupper)"):
+        with st.spinner("Kör `npm run dossiers:capability-map:write`…"):
+            ok, output = _run_capability_map_write()
+        if ok:
+            st.success(f"Skrev {CAPABILITY_MAP_PATH.relative_to(REPO_ROOT)} (capabilities + grupper).")
+            st.cache_data.clear()
+            current = _load_json(CAPABILITY_MAP_PATH) or {}
+        else:
+            st.error("Kunde inte köra regenerate-skriptet:\n" + output[-3000:])
+    st.caption(
+        "Regenereringen körs via TS-skriptet (`npm run dossiers:capability-map:write`, "
+        "`scripts/dossiers/regenerate-capability-map.ts`) i stället för en egen "
+        "Python-implementation, så `groups`-fältet aldrig kan hamna i otakt med "
+        "`dossier-groups.ts`."
+    )
+    st.json((current.get("capabilities") if current else None) or fresh["capabilities"])
+
+    st.markdown("**Dossier-grupper (kategorier)**")
+    groups = current.get("groups") if isinstance(current.get("groups"), dict) else {}
+    if not groups:
+        st.info(
+            "Ingen `groups`-vy hittad ännu i capability-map.json — klicka "
+            "'Bygg om' ovan för att generera den."
+        )
+    else:
+        group_rows = [
+            {
+                "grupp": group_id,
+                "label": info.get("label"),
+                "capabilities": ", ".join(info.get("capabilities") or []) or "—",
+            }
+            for group_id, info in groups.items()
+        ]
+        st.dataframe(group_rows, width="stretch", hide_index=True)
 
 
 def _run_sdk_version_check() -> dict[str, Any]:
@@ -423,6 +733,45 @@ def _run_curate(reference_id: str, target_class: str, target_id: str) -> tuple[b
         return False, f"Saknar binär: {exc}"
 
 
+def _apply_capability_override(target_class: str, target_id: str, capability: str) -> tuple[bool, str]:
+    """Overwrite a freshly-curated draft's `capability` with the dossier-grupp
+    capability the curator explicitly picked, so a brand-new dossier lands on
+    a decided capability instead of whatever the LLM guessed. Runs AFTER
+    `curate-from-reference.ts` has already written + AJV-validated the
+    manifest — this does not touch the script or its LLM contract. Fail-closed:
+    nothing is saved unless BOTH the light pre-check and the strict schema
+    (same gate as `_promote_prospect`) pass on the patched manifest."""
+    if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", capability):
+        return False, f"Ogiltig capability (måste vara kebab-case): {capability!r}"
+    manifest_path = DOSSIER_ROOT / target_class / target_id / "manifest.json"
+    manifest = _load_json(manifest_path)
+    if not manifest:
+        return False, f"Kunde inte läsa {manifest_path.relative_to(REPO_ROOT)} efter kurationen."
+    manifest["capability"] = capability
+    # Kuratorn styr capabilityn — men LLM:en kan ha satt defaultForCapability
+    # true, och mot en BEFINTLIG capability med redan flaggad default skulle
+    # det ge dubbla defaults (stoppas först i validate-all). Tvinga false;
+    # default-flytt är ett medvetet kuratorsbeslut i Redigera-tabben.
+    if manifest.get("defaultForCapability"):
+        manifest["defaultForCapability"] = False
+    errors = _validate_manifest(manifest)
+    if errors:
+        return False, "Manifestet blev ogiltigt efter capability-bytet:\n" + "\n".join(f"- {e}" for e in errors)
+    try:
+        from backoffice.shared import validate_json_against_schema
+
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - fail closed, never save unvalidated
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades efter "
+            "capability-bytet — sparar inte:\n" + "\n".join(f"- {e}" for e in schema_errors)
+        )
+    _save_json(manifest_path, manifest)
+    return True, ""
+
+
 def _section_curate() -> None:
     st.subheader("AI-kuration från template-references")
     st.caption(
@@ -438,6 +787,63 @@ def _section_curate() -> None:
             "`git clone <url> data/template-references/repos/<id>` från terminalen."
         )
         return
+
+    st.markdown("**Skapa inom kategori (valfritt)**")
+    groups = _load_group_view()
+    if not groups:
+        st.info(
+            "Ingen `groups`-vy hittad i capability-map.json ännu — kör 'Bygg om' "
+            "i Capability map-fliken för att välja kategori här. Du kan ändå "
+            "skriva en capability fritt nedan."
+        )
+    group_ids = list(groups.keys())
+    group_labels = {gid: (groups[gid].get("label") or gid) for gid in group_ids}
+    group_cols = st.columns(2)
+    with group_cols[0]:
+        chosen_group_id = st.selectbox(
+            "Dossier-grupp (kategori)",
+            group_ids,
+            format_func=lambda gid: group_labels.get(gid, gid),
+            key="curate_group_id",
+        ) if group_ids else None
+    group_capabilities = groups.get(chosen_group_id, {}).get("capabilities") or [] if chosen_group_id else []
+    with group_cols[1]:
+        capability_choice = st.selectbox(
+            "Capability i gruppen",
+            ["(ingen — se fritt fält)"] + group_capabilities,
+            key="curate_capability_choice",
+        )
+    free_capability = st.text_input(
+        "…eller ny capability (fritt fält, kebab-case, tar över valet ovan)",
+        key="curate_capability_free",
+    ).strip()
+    decided_capability = free_capability or (
+        capability_choice if capability_choice != "(ingen — se fritt fält)" else ""
+    )
+    if decided_capability:
+        # Honest group hint (Codex P2 på #500): gruppen härleds ALLTID från
+        # dossier-groups.ts vid regenerering — en NY capability landar i
+        # "Övrigt" tills mappningen uppdaterats, oavsett valet ovan.
+        if decided_capability in group_capabilities:
+            group_hint = group_labels.get(chosen_group_id, "Övrigt") if chosen_group_id else "Övrigt"
+            st.caption(
+                f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {group_hint})."
+            )
+        else:
+            st.caption(
+                f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
+                "hamnar under **Övrigt** tills den mappas i "
+                "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
+                "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
+            )
+    st.caption(
+        "Påminnelse: en **hard**-capabilitys default-dossier måste ha `mock` ≠ "
+        "`none` — om inte capabilityn står på undantagslistan "
+        "(`MOCKLESS_CAPABILITY_EXCEPTIONS` i `src/lib/gen/dossiers/validate-manifest.ts`, "
+        "dokumenterad i `docs/contracts/dossier-system.md`). Annars stoppar "
+        "`npm run dossiers:validate-all`."
+    )
+
     cols = st.columns(3)
     with cols[0]:
         ref_id = st.selectbox("Referens-repo", refs)
@@ -450,9 +856,35 @@ def _section_curate() -> None:
         if not target_id:
             st.error("Ange ett ID för den nya dossiern.")
             return
+        # Validate the picked capability BEFORE the expensive LLM run — a typo
+        # in the free field must not cost a ~5 min curation first. Mirror the
+        # strict schema fully: kebab-case pattern + 2-60 tecken.
+        if decided_capability and (
+            not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", decided_capability)
+            or not (2 <= len(decided_capability) <= 60)
+        ):
+            st.error(
+                f"Ogiltig capability (kebab-case, 2-60 tecken, t.ex. `image-generation`): "
+                f"`{decided_capability}` — kurationen startades inte."
+            )
+            return
         with st.spinner("Kör kurations-skriptet…"):
             ok, output = _run_curate(ref_id, target_class, target_id)
+        override_failed = False
+        if ok and decided_capability:
+            override_ok, override_msg = _apply_capability_override(target_class, target_id, decided_capability)
+            if override_ok:
+                output += f"\n[backoffice] satte capability={decided_capability!r} enligt vald kategori."
+            else:
+                override_failed = True
+                output += f"\n[backoffice] KUNDE INTE sätta vald capability: {override_msg}"
         (st.success if ok else st.error)(output[-3000:])
+        if ok and override_failed:
+            st.warning(
+                "Kurationen lyckades men den valda capabilityn kunde INTE sättas "
+                "— utkastet har kvar LLM:ns egen capability. Rätta manuellt i "
+                "Redigera-tabben innan dossiern används."
+            )
         if ok:
             st.info(
                 f"Granska och redigera `data/dossiers/{target_class}/{target_id}/` i Redigera-tabben "
@@ -810,6 +1242,7 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
         _section_capability_tiers()
     with tabs[4]:
         _section_edit(dossiers)
+        _section_delete(dossiers)
     with tabs[5]:
         _section_capability_map(dossiers)
     with tabs[6]:

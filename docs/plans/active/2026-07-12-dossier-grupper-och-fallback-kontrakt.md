@@ -124,13 +124,13 @@ Arbetsregler:
 | 4.3 | Test för invarianten (bredvid `validate-manifest.test.ts`-mönstret) | ✅ 9 enhetstester + drift-guard mot live-poolen i `validate-manifest.test.ts`; `npx vitest run` grönt (35 tests i filen) |
 | 4.4 | Kör invarianten mot live-poolen; åtgärda fynd (saknade/felaktiga `mock`-fält) en dossier i taget | ✅ 36 dossiers validerar. 8 hard-capabilities passerar via mock (`cms`/`contact-form`/`rag-chat`/`database`/`ai-chat`/`newsletter-subscribe`/`image-generation`/`ai-tool-calling`), 7 via undantagslistan. **Inga fynd — inga dossier-/manifest-ändringar behövdes.** |
 
-### Etapp 5 — Backoffice: kategorivy + hantering (Sonnet 5, Opus 4.8 vid behov) — PR C
+### Etapp 5 — Backoffice: kategorivy + hantering (Sonnet 5, Opus 4.8 vid behov) — PR C ✅ levererad i PR C
 
 | Akt | Vad | Verifiering |
 |---|---|---|
-| 5.1 | Undvik TS/Python-dubbelunderhåll: utöka `scripts/dossiers/regenerate-capability-map.ts` så den genererade vyn i `_index/` även bär grupp per capability (grupp-kartan förblir kanonisk i `dossier-groups.ts`) | regenerera + diff-koll |
-| 5.2 | `backoffice/pages/dossiers.py`: gruppvy (dossiers listade per kategori); skapa ny dossier inom vald kategori (förifylld capability); radera med checklista per `dossier-rules.mdc` (capability, defaultForCapability, envVars, dependencies, capability-map) | manuellt backoffice-röktest |
-| 5.3 | Regenerera capability-map + `npm run dossiers:validate-all` | grönt |
+| 5.1 | Undvik TS/Python-dubbelunderhåll: utöka `scripts/dossiers/regenerate-capability-map.ts` så den genererade vyn i `_index/` även bär grupp per capability (grupp-kartan förblir kanonisk i `dossier-groups.ts`) | ✅ Nytt toppnivåfält `groups` (`{ "<group-id>": { label, capabilities[] } }`, `DOSSIER_GROUP_ORDER`-ordning) byggt i `regenerate-capability-map.ts` via import av `DOSSIER_GROUP_ORDER`/`resolveDossierGroup`. `npm run dossiers:capability-map:write` regenererad och diff-kollad — matchar plans grupptabell exakt (10 grupper, `other` tom). |
+| 5.2 | `backoffice/pages/dossiers.py`: gruppvy (dossiers listade per kategori); skapa ny dossier inom vald kategori (förifylld capability); radera med checklista per `dossier-rules.mdc` (capability, defaultForCapability, envVars, dependencies, capability-map) | ✅ **Gruppvy:** ny checkbox i "Lista"-fliken grupperar raderna per dossier-grupp (läser `groups` från capability-map.json — ingen Python-kopia av mappningen; fallback-varning om vyn saknas). **Skapa inom kategori:** "AI-kuration"-fliken (den faktiska skapa-flödet) har fått en grupp→capability-väljare (+ fritt fält för ny capability) som patchar draftens `capability` efter kurationen, plus en textpåminnelse om mock-invarianten (hänvisar till `MOCKLESS_CAPABILITY_EXCEPTIONS`, hårdkodar inte listan). "Capability map"-fliken visar nu även en tabell över grupperna och kör om via `npm run dossiers:capability-map:write` (subprocess) i stället för en egen Python-implementation. **Radera:** ny "Radera dossier"-sektion i Redigera-fliken (ägarkravet "ta bort inom kategori"): dossier-rules-checklistan renderas med konkret läges-info (syskon under capabilityn, default-flytt-varning, envVars/deps, capability-map-påminnelse) + kryssad bekräftelse + exakt id-inmatning innan `shutil.rmtree`; återställbart via git före commit. |
+| 5.3 | Regenerera capability-map + `npm run dossiers:validate-all` | ✅ Båda gröna (36/36 dossiers, 33 capabilities). Dessutom: `npx vitest run src/lib/builder/dossier-groups.test.ts` (7/7), `npm run backoffice:test` (52/52), typecheck (0 fel), `python -m py_compile backoffice/pages/dossiers.py` (0 fel). |
 
 ### Etapp 6 — Builder-UI (Sonnet 5) — ev. noll-arbete, annars PR D
 
@@ -156,8 +156,8 @@ Arbetsregler:
 ## Definition of done (hela planen, exkl. etapp 7)
 
 - [ ] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem
-- [ ] Glossary/terminology/dossier-system.md speglar grupp vs capability + fallback-kontraktet
+- [x] Glossary/terminology/dossier-system.md speglar grupp vs capability + fallback-kontraktet (PR #498 + #499)
 - [x] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt
-- [ ] Backoffice: kategorivy med lägg-till/ta-bort; genererad gruppvy i `_index/`
+- [x] Backoffice: kategorivy + genererad gruppvy i `_index/` (etapp 5). Lägg-till (skapa inom kategori) och ta-bort (radera med checklista + id-bekräftelse) levererade.
 - [ ] `npm run typecheck` + `npm run lint` + `npx vitest run` gröna per PR; `/granska` + bugbot-postcheck körda per PR
 - [ ] Planen flyttad till `docs/plans/avklarat/` med etapp 7 utbruten till egen post (spärrad, i denna fil eller backloggen)

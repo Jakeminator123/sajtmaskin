@@ -70,6 +70,13 @@ Kostnad: ~$0.01-0.05 per dossier. Tid: ~10-30 sek.
 
 **Granska alltid utkastet** i backoffice (Dossiers-sidan → Redigera-tab) innan du litar på det. Dossier-id sätts till exakt vad du angav (`--id=`). `lastVerified` sätts till dagens datum men markera om efter manuell verifiering.
 
+### Backoffice-flikarna (Dossiers-sidan)
+
+- **Lista** har en valfri gruppvy per dossier-grupp/kategori (läser `groups`-fältet ur capability-map — kör "Bygg om" om vyn saknas/är inaktuell).
+- **Redigera** har även **Radera dossier**: checklista per `dossier-rules.mdc` + exakt id-bekräftelse innan katalogen tas bort.
+- **AI-kuration** kan skapa inom vald kategori: grupp → capability-väljare (+ fritt kebab-case-fält) som sätter draftens `capability` efter kurationen.
+- **Capability map → "Bygg om"** kör TS-scriptet (`npm run dossiers:capability-map:write`) så `groups`-vyn aldrig driftar från `dossier-groups.ts`.
+
 ## Verifiera generering
 
 Efter att du satt `SAJTMASKIN_DOSSIER_PIPELINE=true`, trigga en generering med en prompt som behöver en capability och kolla loggen:

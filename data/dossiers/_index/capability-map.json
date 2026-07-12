@@ -1,6 +1,6 @@
 {
-  "$comment": "View of capability → dossier ids. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-07-09T12:12:51.583Z",
+  "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
+  "generatedAt": "2026-07-12T16:49:58.701Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -104,5 +104,89 @@
     "visual-3d": [
       "three-fiber-canvas"
     ]
+  },
+  "groups": {
+    "data-storage": {
+      "label": "Data & lagring",
+      "capabilities": [
+        "cms",
+        "database"
+      ]
+    },
+    "payments": {
+      "label": "Betalningar",
+      "capabilities": [
+        "payments",
+        "subscriptions"
+      ]
+    },
+    "auth": {
+      "label": "Inloggning & konton",
+      "capabilities": [
+        "auth",
+        "supabase-auth"
+      ]
+    },
+    "ai": {
+      "label": "AI",
+      "capabilities": [
+        "ai-chat",
+        "ai-tool-calling",
+        "image-generation",
+        "rag-chat"
+      ]
+    },
+    "email": {
+      "label": "E-post & utskick",
+      "capabilities": [
+        "contact-form",
+        "newsletter-subscribe"
+      ]
+    },
+    "analytics": {
+      "label": "Analys & övervakning",
+      "capabilities": [
+        "analytics",
+        "error-tracking"
+      ]
+    },
+    "realtime": {
+      "label": "Realtid",
+      "capabilities": [
+        "realtime"
+      ]
+    },
+    "content": {
+      "label": "Innehåll & sektioner",
+      "capabilities": [
+        "cta-section",
+        "faq-section",
+        "feature-grid",
+        "logo-cloud",
+        "pricing-section",
+        "stats-counter",
+        "stepper",
+        "testimonials-section"
+      ]
+    },
+    "visual-interaction": {
+      "label": "Visuellt & interaktion",
+      "capabilities": [
+        "carousel",
+        "command-search",
+        "dashboard-charts",
+        "gallery-lightbox",
+        "interactive-game",
+        "marquee",
+        "parallax-pointer",
+        "parallax-scroll",
+        "physics-3d",
+        "visual-3d"
+      ]
+    },
+    "other": {
+      "label": "Övrigt",
+      "capabilities": []
+    }
   }
 }
