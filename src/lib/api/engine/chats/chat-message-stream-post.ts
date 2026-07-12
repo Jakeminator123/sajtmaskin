@@ -845,6 +845,13 @@ export async function handleMessageStreamRequest(
                 // integration code" even when no real build keys are required.
                 // The #493 deterministic policy still governs a no-build-key
                 // parent WITHOUT new providers (the accepted normal case).
+                // `previousFiles` and `gateVersionId` resolve from the SAME
+                // explicit `engineBaseVersionId` (or the same preferred
+                // fallback). The only divergence window is an explicit base
+                // whose stored files parse EMPTY — and that case never reaches
+                // this block: the gate above already answered 409
+                // `version_files_unavailable` for an unreadable base (Bugbot
+                // on #503, dismissed with this invariant).
                 const approveNeedsDossierInjection =
                   f3ContinuationDecision?.replyIntent === "approve" &&
                   approveRoundNeedsDossierInjection({
