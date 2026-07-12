@@ -16,7 +16,7 @@ No embeddings. No fuzzy matching. No category boost. No domain veto. What the br
 data/dossiers/
   hard/<id>/manifest.json   # needs external secrets (Stripe, OpenAI, Postgres)
   soft/<id>/manifest.json   # self-contained (UI sections, R3F 3D, FAQ accordion)
-  _index/capability-map.json   # generated view: capability → [ids]
+  _index/capability-map.json   # generated view: capability → [ids] + groups (dossier-grupp)
 ```
 
 | Class | When to use | Behavior |
@@ -321,7 +321,18 @@ view only** (backoffice + curation tooling); the runtime registry walks
 `data/dossiers/{hard,soft}/` directly and never reads it. It is **not** CI-enforced
 (the former `dossiers:capability-map:check` drift-gate was removed as maintenance
 tax). Regenerate on demand with `npm run dossiers:capability-map:write` or the
-backoffice "Bygg om" tab when curating.
+backoffice "Capability map" tab's "Bygg om" button when curating.
+
+Since etapp 5 (2026-07-12) the generated file also carries a top-level
+**`groups`** field: `{ "<group-id>": { "label": "<svensk label>", "capabilities":
+["..."] } }`, in `DOSSIER_GROUP_ORDER` order, built by
+[`regenerate-capability-map.ts`](../../scripts/dossiers/regenerate-capability-map.ts)
+from `resolveDossierGroup`/`DOSSIER_GROUP_ORDER` (`dossier-groups.ts` stays the
+one canonical mapping — no Python copy). The backoffice Dossiers page reads this
+field to render dossiers grouped by dossier-grupp in the "Lista" tab (checkbox
+toggle) and to let a curator pick a group → capability before running AI-kuration
+on a new dossier ("AI-kuration" tab); its own "Bygg om" button shells out to
+`npm run dossiers:capability-map:write` rather than re-implementing the mapping.
 
 ## Disabling the pipeline
 
@@ -334,7 +345,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | Path | Role |
 |---|---|
 | `data/dossiers/hard/<id>/`, `data/dossiers/soft/<id>/` | Manifests + instructions + components |
-| `data/dossiers/_index/capability-map.json` | Generated view (backoffice + tooling) |
+| `data/dossiers/_index/capability-map.json` | Generated view: `capabilities` + `groups` (backoffice + tooling) |
 | `data/template-references/repos/<reference>/` | Cloned upstream repos (input to AI curation) |
 | `data/template-references/_metadata/<reference>.github.json` | GitHub stars + last-pushed metadata for ranking |
 | `src/lib/gen/dossiers/registry.ts` | Disk reader + mtime cache |
@@ -344,5 +355,5 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
 | `scripts/dossiers/curate-from-reference.ts` | AI-curation script (single dossier from a cloned reference repo) |
 | `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`. |
-| `backoffice/pages/dossiers.py` | Backoffice UI for browsing + editing + curating |
+| `backoffice/pages/dossiers.py` | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet |
 | Old 96-dossier v1 pool, 16-script pipeline, scaffold-recommendations, embeddings | Gitignored local archive (`/archive/` in `.gitignore`), not guaranteed present on every checkout. Current legacy-import work-in-progress state (prospects, normalization reports, drafts) lives outside the repo — see `docs/plans/active/2026-07-08-dossier-legacy-import.md`. |

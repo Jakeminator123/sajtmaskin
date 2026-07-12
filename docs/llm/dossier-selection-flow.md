@@ -163,11 +163,14 @@ Skriptet samplar README + package.json + .env.example + ~6 source-filer från `d
     "payments": ["stripe-checkout"],
     "ai-chat": ["openai-chat"],
     "pricing-section": ["pricing-tier-table"]
+  },
+  "groups": {
+    "payments": { "label": "Betalningar", "capabilities": ["payments", "subscriptions"] }
   }
 }
 ```
 
-Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` direkt. Filen finns för backoffice-listningar + sanity-check vid curation. Bygg om via backoffice-tab.
+Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` direkt. Filen finns för backoffice-listningar + sanity-check vid curation. `groups` är dossier-grupp-vyn (kategori-rubriker; kanonisk källa `src/lib/builder/dossier-groups.ts`) som backoffice läser. Bygg om via backoffice-tab (kör TS-scriptet).
 
 ## Nuvarande pool
 

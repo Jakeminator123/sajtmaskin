@@ -20,16 +20,42 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { DOSSIER_GROUP_ORDER, resolveDossierGroup } from "../../src/lib/builder/dossier-groups";
+
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const INDEX_DIR = join(ROOT, "_index");
 const MAP_PATH = join(INDEX_DIR, "capability-map.json");
 const CLASSES = ["hard", "soft"] as const;
 
+type CapabilityGroupView = {
+  label: string;
+  capabilities: string[];
+};
+
 type CapabilityMap = {
   $comment: string;
   generatedAt: string;
   capabilities: Record<string, string[]>;
+  groups: Record<string, CapabilityGroupView>;
 };
+
+/**
+ * Presentation-only grouping of the live capability pool, derived from the
+ * canonical `dossier-groups.ts` map (`DOSSIER_GROUP_ORDER` / `resolveDossierGroup`).
+ * Keeps backoffice (Python) from needing its own hand-written copy of the
+ * capability→group mapping — see `docs/contracts/dossier-system.md` § Grupper.
+ */
+function buildGroups(capabilities: Record<string, string[]>): Record<string, CapabilityGroupView> {
+  const groups: Record<string, CapabilityGroupView> = {};
+  for (const group of DOSSIER_GROUP_ORDER) {
+    groups[group.id] = { label: group.label, capabilities: [] };
+  }
+  for (const capability of Object.keys(capabilities).sort()) {
+    const group = resolveDossierGroup(capability);
+    groups[group.id].capabilities.push(capability);
+  }
+  return groups;
+}
 
 function listIds(klass: string): string[] {
   const dir = join(ROOT, klass);
@@ -100,6 +126,19 @@ function sameCapabilities(a: Record<string, string[]>, b: Record<string, string[
   return true;
 }
 
+/**
+ * Check-mode must also catch a stale/missing `groups` view (e.g. after a
+ * `dossier-groups.ts` change without --write) — capabilities alone matching
+ * is not "in sync" anymore.
+ */
+function sameGroups(
+  existing: Record<string, CapabilityGroupView> | undefined,
+  fresh: Record<string, CapabilityGroupView>,
+): boolean {
+  if (!existing || typeof existing !== "object") return false;
+  return JSON.stringify(existing) === JSON.stringify(fresh);
+}
+
 function main(): void {
   const writeMode = process.argv.includes("--write");
   const capabilities = collectCapabilities();
@@ -111,7 +150,14 @@ function main(): void {
     process.exit(2);
   }
 
-  if (existing && sameCapabilities(existing.capabilities, capabilities) && !writeMode) {
+  const freshGroups = buildGroups(capabilities);
+
+  if (
+    existing &&
+    sameCapabilities(existing.capabilities, capabilities) &&
+    sameGroups(existing.groups, freshGroups) &&
+    !writeMode
+  ) {
     console.log(
       `[capability-map] in sync (${Object.keys(capabilities).length} capabilities across ${
         dossierCount
@@ -129,6 +175,9 @@ function main(): void {
       const removed = [...existingKeys].filter((k) => !diskKeys.has(k));
       if (added.length) console.error(`  Added on disk: ${added.join(", ")}`);
       if (removed.length) console.error(`  Removed on disk: ${removed.join(", ")}`);
+      if (!sameGroups(existing.groups, freshGroups)) {
+        console.error("  `groups` view is missing or stale vs src/lib/builder/dossier-groups.ts.");
+      }
     } else {
       console.error("  (no existing capability-map.json found)");
     }
@@ -141,9 +190,10 @@ function main(): void {
   }
   const next: CapabilityMap = {
     $comment:
-      "View of capability → dossier ids. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
+      "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
     generatedAt: new Date().toISOString(),
     capabilities,
+    groups: freshGroups,
   };
   writeFileSync(MAP_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
   console.log(

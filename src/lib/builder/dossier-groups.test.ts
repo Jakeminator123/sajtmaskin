@@ -8,12 +8,18 @@ import {
   resolveDossierGroup,
 } from "./dossier-groups";
 
-function readCapabilityMapCapabilities(): string[] {
+interface CapabilityMapFile {
+  capabilities?: Record<string, unknown>;
+  groups?: Record<string, { label?: string; capabilities?: string[] }>;
+}
+
+function readCapabilityMap(): CapabilityMapFile {
   const path = join(process.cwd(), "data", "dossiers", "_index", "capability-map.json");
-  const parsed = JSON.parse(readFileSync(path, "utf8")) as {
-    capabilities?: Record<string, unknown>;
-  };
-  return Object.keys(parsed.capabilities ?? {});
+  return JSON.parse(readFileSync(path, "utf8")) as CapabilityMapFile;
+}
+
+function readCapabilityMapCapabilities(): string[] {
+  return Object.keys(readCapabilityMap().capabilities ?? {});
 }
 
 describe("resolveDossierGroup", () => {
@@ -127,5 +133,29 @@ describe("resolveDossierGroup", () => {
     for (const group of Object.values(DOSSIER_GROUPS)) {
       expect(orderIds.has(group.id)).toBe(true);
     }
+  });
+
+  it("the committed capability-map `groups` view matches this canonical map (drift-guard)", () => {
+    // Guards the generated view backoffice reads: labels, group order and
+    // per-capability placement must equal what resolveDossierGroup computes.
+    // Fails when dossier-groups.ts changes without `dossiers:capability-map:write`.
+    const map = readCapabilityMap();
+    expect(map.groups, "groups view missing — run npm run dossiers:capability-map:write").toBeTruthy();
+    const groups = map.groups ?? {};
+
+    expect(Object.keys(groups)).toEqual(DOSSIER_GROUP_ORDER.map((group) => group.id));
+    for (const group of DOSSIER_GROUP_ORDER) {
+      expect(groups[group.id]?.label).toBe(group.label);
+    }
+    for (const [groupId, info] of Object.entries(groups)) {
+      for (const capability of info.capabilities ?? []) {
+        expect({ capability, group: resolveDossierGroup(capability).id }).toEqual({
+          capability,
+          group: groupId,
+        });
+      }
+    }
+    const listed = Object.values(groups).flatMap((info) => info.capabilities ?? []);
+    expect([...listed].sort()).toEqual(readCapabilityMapCapabilities().sort());
   });
 });
