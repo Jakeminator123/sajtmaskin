@@ -821,8 +821,21 @@ def _section_curate() -> None:
         capability_choice if capability_choice != "(ingen — se fritt fält)" else ""
     )
     if decided_capability:
-        group_hint = group_labels.get(chosen_group_id, "Övrigt") if chosen_group_id else "Övrigt"
-        st.caption(f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {group_hint}).")
+        # Honest group hint (Codex P2 på #500): gruppen härleds ALLTID från
+        # dossier-groups.ts vid regenerering — en NY capability landar i
+        # "Övrigt" tills mappningen uppdaterats, oavsett valet ovan.
+        if decided_capability in group_capabilities:
+            group_hint = group_labels.get(chosen_group_id, "Övrigt") if chosen_group_id else "Övrigt"
+            st.caption(
+                f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {group_hint})."
+            )
+        else:
+            st.caption(
+                f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
+                "hamnar under **Övrigt** tills den mappas i "
+                "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
+                "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
+            )
     st.caption(
         "Påminnelse: en **hard**-capabilitys default-dossier måste ha `mock` ≠ "
         "`none` — om inte capabilityn står på undantagslistan "
