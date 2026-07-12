@@ -103,7 +103,10 @@ import {
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
-import { resolveCapabilitiesPresentInVersion } from "@/lib/gen/dossiers/version-presence";
+import {
+  resolveCapabilitiesPresentInVersion,
+  resolveDossierIdsPresentInVersion,
+} from "@/lib/gen/dossiers/version-presence";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
@@ -121,6 +124,7 @@ import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readines
 import {
   approvedProvidersShipConfigNotice,
   hasRequiredRealBuildKeys,
+  mapProviderKeysToBackingDossierIds,
   mapProviderKeysToDossierCapabilities,
   type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
@@ -211,12 +215,13 @@ function buildF3RejectAckStream(params: {
  * to inject dossier code, even though the parent version's file-derived spec
  * carries no required real build keys?
  *
- * True when at least one approved provider maps to a dossier capability whose
- * files are NOT already present in the parent version. File presence is the
- * canonical version-presence signal (docs/contracts/dossier-system.md
- * § Version-presence union → `resolveCapabilitiesPresentInVersion`), so this
- * reuses the same provider→capability mapping the build round applies
- * (`mapProviderKeysToDossierCapabilities` ∪ persisted snapshot approvals).
+ * True when at least one approved provider maps to a BACKING DOSSIER whose
+ * files are NOT already present in the parent version (dossier-id granularity
+ * per Codex P1 on #503 — a present sibling like `postgres-drizzle` must not
+ * satisfy an approved `mongodb`), or when a durable snapshot-approved
+ * CAPABILITY (which carries no provider identity) lacks file presence. File
+ * presence is the canonical version-presence signal
+ * (docs/contracts/dossier-system.md § Version-presence union).
  *
  * Used to exempt such a round from the #493 deterministic-release backstop:
  * the deterministic path only governs a no-build-key parent WITHOUT new
@@ -234,26 +239,40 @@ function approveRoundNeedsDossierInjection(params: {
     params.markerSuggestedProviders.length > 0
       ? params.markerSuggestedProviders
       : persistedApproved.providers;
-  let approvedCapabilities: string[] = [];
+
+  // Provider approvals compare at DOSSIER-ID granularity (Codex P1 on #503):
+  // capability granularity would treat a present SIBLING dossier
+  // (postgres-drizzle under `database`) as satisfying a newly approved
+  // provider (mongodb → mongodb-atlas) and skip its injection forever.
+  let requiredDossierIds: string[] = [];
   try {
-    approvedCapabilities = mapProviderKeysToDossierCapabilities(
+    requiredDossierIds = mapProviderKeysToBackingDossierIds(
       effectiveApprovedProviders,
     );
   } catch {
-    approvedCapabilities = [];
+    requiredDossierIds = [];
   }
-  const requiredCapabilities = new Set(
-    [...approvedCapabilities, ...persistedApproved.capabilities].map((capability) =>
-      capability.toLowerCase(),
-    ),
+  if (requiredDossierIds.length > 0) {
+    const presentIds = new Set(
+      resolveDossierIdsPresentInVersion(params.parentFilePaths),
+    );
+    for (const dossierId of requiredDossierIds) {
+      if (!presentIds.has(dossierId)) return true;
+    }
+  }
+
+  // Durable snapshot approvals are capability strings (no provider identity
+  // to sharpen with) — capability-level presence is the best available signal.
+  const persistedCapabilities = new Set(
+    persistedApproved.capabilities.map((capability) => capability.toLowerCase()),
   );
-  if (requiredCapabilities.size === 0) return false;
+  if (persistedCapabilities.size === 0) return false;
   const presentCapabilities = new Set(
     resolveCapabilitiesPresentInVersion(params.parentFilePaths).map((capability) =>
       capability.toLowerCase(),
     ),
   );
-  for (const capability of requiredCapabilities) {
+  for (const capability of persistedCapabilities) {
     if (!presentCapabilities.has(capability)) return true;
   }
   return false;
@@ -910,7 +929,27 @@ export async function handleMessageStreamRequest(
                         );
                       }
                     }
-                    await chatRepo.addMessage(engineChat.id, "user", message);
+                    // Codex P2 (#503): the marker is already consumed at this
+                    // point. If the user-row insert fails transiently we must
+                    // STILL return the deterministic-release action — throwing
+                    // here would leave the approval unretryable (consumed
+                    // marker, no pending F3 dialog). A missing chat row is
+                    // minor data-quality; a dead-ended approval is not.
+                    await chatRepo
+                      .addMessage(engineChat.id, "user", message)
+                      .catch((persistErr) => {
+                        debugLog(
+                          "orchestration",
+                          "F3 deterministic approve: user-row persist failed after consume (continuing)",
+                          {
+                            chatId,
+                            error:
+                              persistErr instanceof Error
+                                ? persistErr.message
+                                : String(persistErr),
+                          },
+                        );
+                      });
                   }
                   return attachSessionCookie(
                     NextResponse.json(

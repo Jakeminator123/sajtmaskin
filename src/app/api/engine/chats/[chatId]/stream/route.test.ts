@@ -2418,6 +2418,67 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(createGenerationPipeline).not.toHaveBeenCalled();
     });
 
+    it("BB#f3det1 (Codex P1): an approved SIBLING provider of an already-present capability still runs the LLM round (dossier-id granularity)", async () => {
+      // The parent carries postgres-drizzle (capability `database` present at
+      // capability level). Approving `mongodb` must still exempt the
+      // deterministic backstop — capability-granularity would wrongly treat
+      // the postgres sibling as satisfying the MongoDB approval and the
+      // mongodb-atlas dossier would never be injected.
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["mongodb"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      resolveFollowUpPreviousFiles.mockResolvedValue([
+        { path: "lib/db/schema.ts", content: "export const schema = {};", language: "ts" },
+        { path: "lib/db/index.ts", content: "export const db = {};", language: "ts" },
+        { path: "drizzle.config.ts", content: "export default {};", language: "ts" },
+        {
+          path: "app/api/health/db/route.ts",
+          content: "export async function GET() { return new Response(); }",
+          language: "ts",
+        },
+      ]);
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "postgres",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["DATABASE_URL"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Mongo wired</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalled();
+    });
+
     it("BB#f3det1: a MIXED approval (one provider with parent files, one without) still runs the LLM round", async () => {
       // stripe's dossier files are present in the parent, but resend's are
       // not — ANY approved capability missing file evidence must exempt the
