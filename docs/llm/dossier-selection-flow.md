@@ -139,7 +139,8 @@ Två vägar (full guide i [`docs/operating/dossier-cheatsheet.md`](../operating/
 2. Skriv `manifest.json` (validera mot [`dossier.schema.json`](../schemas/strict/dossier.schema.json)).
 3. Skriv `instructions.md` (5 sektioner).
 4. Lägg ev. komponentfiler under `<id>/components/`.
-5. Backoffice → Dossiers → Capability map → "Bygg om" så `_index/capability-map.json` synkar.
+5. Kör `npm run dossiers:validate-all` (CI-blockerande; inkluderar mock-fallback-invarianten — hard-capabilityns default-dossier behöver `mock ≠ none` eller ett dokumenterat undantag, se `docs/contracts/dossier-system.md`).
+6. Backoffice → Dossiers → Capability map → "Bygg om" så `_index/capability-map.json` synkar.
 
 ### B. AI-curate från upstream-repo
 

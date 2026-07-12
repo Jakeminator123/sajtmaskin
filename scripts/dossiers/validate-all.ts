@@ -2,14 +2,18 @@
  * Dossier validator — CI entry point.
  *
  * Runs the canonical AJV validator (src/lib/gen/dossiers/validate-manifest.ts)
- * against every manifest under data/dossiers/{hard,soft}/ and the three
- * cross-dossier invariants:
+ * against every manifest under data/dossiers/{hard,soft}/ and the cross-dossier
+ * invariants:
  *
  *   1. defaultForCapability: true must be unique per capability
+ *   1b. fallback-invariant: every hard capability's default dossier must declare
+ *      a demo mock mode (≠ none) unless the capability is on the documented
+ *      MOCKLESS_CAPABILITY_EXCEPTIONS list — see findMissingMockFallbacks
  *   2. instructions.md headings: the REQUIRED canonical H1 headings block (fail),
  *      the RECOMMENDED ones warn only — see REQUIRED_INSTRUCTIONS_HEADINGS /
  *      RECOMMENDED_INSTRUCTIONS_HEADINGS in validate-manifest.ts
  *   3. every file declared with injectionMode: "verbatim" must exist on disk
+ *   4. no dossier constructs an env-dependent SDK client at module scope
  *
  * Exits 1 on any failure. Keep output human-readable — backoffice tails this.
  */
@@ -19,13 +23,14 @@ import { join, resolve } from "node:path";
 import {
   findDuplicateDefaults,
   findMissingInstructionsHeadingsPartitioned,
+  findMissingMockFallbacks,
   findModuleLevelSdkConstructions,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
   REQUIRED_INSTRUCTIONS_HEADINGS,
   validateDossierImportClosure,
   validateDossierManifest,
 } from "../../src/lib/gen/dossiers/validate-manifest";
-import type { DossierClass, DossierFile } from "../../src/lib/gen/dossiers/types";
+import type { DossierClass, DossierFile, DossierMockMode } from "../../src/lib/gen/dossiers/types";
 import { landingPageManifest } from "../../src/lib/gen/scaffolds/landing-page/manifest";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
@@ -44,6 +49,7 @@ interface ValidRow {
   class: DossierClass;
   capability: string;
   defaultForCapability: boolean;
+  mock?: DossierMockMode;
   dir: string;
   files: DossierFile[];
   dependencies: string[];
@@ -109,6 +115,7 @@ function main(): void {
         class: klass,
         capability: result.data.capability,
         defaultForCapability: result.data.defaultForCapability === true,
+        mock: result.data.mock,
         dir,
         files: result.data.files ?? [],
         dependencies: result.data.dependencies ?? [],
@@ -126,6 +133,21 @@ function main(): void {
     for (const e of defaultErrors) console.error(`    ${e}`);
   } else {
     console.log("✓ defaultForCapability uniqueness (each capability has ≤1 default)");
+  }
+
+  // Cross-cutting 1b: fallback-invariant — every hard capability's default
+  // dossier must declare a demo mock mode (≠ none) so it degrades to a working
+  // keyless F2 demo, unless the capability is a documented exception. See
+  // findMissingMockFallbacks + MOCKLESS_CAPABILITY_EXCEPTIONS in
+  // validate-manifest.ts and docs/contracts/dossier-system.md.
+  const mockFallbackErrors = findMissingMockFallbacks(validRows);
+  if (mockFallbackErrors.length > 0) {
+    console.error("✗ hard-capability mock-fallback (default-dossier med mock ≠ none, annars undantag)");
+    for (const e of mockFallbackErrors) console.error(`    ${e}`);
+  } else {
+    console.log(
+      "✓ varje hard-capability har en default-dossier med mock-fallback (eller dokumenterat undantag)",
+    );
   }
 
   // Cross-cutting 2: instructions.md rubriker — required (blocker) vs
@@ -229,6 +251,7 @@ function main(): void {
     schemaFailures +
     importClosureFailures +
     defaultErrors.length +
+    mockFallbackErrors.length +
     headingErrors.length +
     verbatimErrors.length +
     sdkInitErrors.length;

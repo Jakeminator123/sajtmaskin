@@ -8,7 +8,15 @@
  *   - instructions.md heading check
  */
 import { describe, it, expect } from "vitest";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,12 +24,15 @@ import {
   findDuplicateDefaults,
   findMissingInstructionsHeadings,
   findMissingInstructionsHeadingsPartitioned,
+  findMissingMockFallbacks,
   findModuleLevelSdkConstructions,
+  MOCKLESS_CAPABILITY_EXCEPTIONS,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
   REQUIRED_INSTRUCTIONS_HEADINGS,
   validateDossierImportClosure,
   validateDossierManifest,
 } from "./validate-manifest";
+import type { DossierMockFallbackEntry } from "./validate-manifest";
 
 const VALID_MANIFEST = {
   $schema: "../../../../docs/schemas/strict/dossier.schema.json",
@@ -157,6 +168,129 @@ describe("findDuplicateDefaults", () => {
     expect(errors[0]).toContain("payments");
     expect(errors[0]).toContain("klarna");
     expect(errors[0]).toContain("stripe");
+  });
+});
+
+describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
+  const hard = (
+    id: string,
+    capability: string,
+    defaultForCapability: boolean,
+    mock?: DossierMockFallbackEntry["mock"],
+  ): DossierMockFallbackEntry => ({
+    id,
+    capability,
+    class: "hard",
+    defaultForCapability,
+    mock,
+  });
+
+  it("flags a non-exempt hard capability whose default dossier has mock=none", () => {
+    const errors = findMissingMockFallbacks([hard("acme-cms", "cms", true, "none")]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("cms");
+    expect(errors[0]).toContain("acme-cms");
+  });
+
+  it("treats an omitted mock as none (still fails for a non-exempt capability)", () => {
+    const errors = findMissingMockFallbacks([hard("acme-cms", "cms", true)]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("cms");
+  });
+
+  it("accepts a default dossier with a real mock mode (canned/seed/success)", () => {
+    for (const mock of ["canned", "seed", "success"] as const) {
+      expect(findMissingMockFallbacks([hard("acme-db", "database", true, mock)])).toEqual([]);
+    }
+  });
+
+  it("accepts every exempt capability shipping mock=none", () => {
+    for (const cap of Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS)) {
+      expect(findMissingMockFallbacks([hard(`${cap}-provider`, cap, true, "none")])).toEqual([]);
+    }
+  });
+
+  it("accepts an exempt capability even when its default later gains a mock", () => {
+    expect(findMissingMockFallbacks([hard("stripe-checkout", "payments", true, "canned")])).toEqual(
+      [],
+    );
+  });
+
+  it("still requires a resolvable default for exempt capabilities (exception only waives mock)", () => {
+    const errors = findMissingMockFallbacks([
+      hard("vercel-analytics", "analytics", false, "none"),
+      hard("plausible-analytics", "analytics", false, "none"),
+    ]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("analytics");
+    expect(errors[0]).toContain("none with defaultForCapability");
+  });
+
+  it("only checks the default — a non-default sibling without mock passes", () => {
+    expect(
+      findMissingMockFallbacks([
+        hard("postgres-drizzle", "database", true, "seed"),
+        hard("mongodb-atlas", "database", false, "none"),
+        hard("neon-postgres", "database", false),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("flags a hard capability with several dossiers but no flagged default", () => {
+    const errors = findMissingMockFallbacks([
+      hard("db-a", "database", false, "seed"),
+      hard("db-b", "database", false, "seed"),
+    ]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("database");
+    expect(errors[0]).toContain("none with defaultForCapability");
+  });
+
+  it("resolves the sole dossier as default when none is flagged", () => {
+    expect(findMissingMockFallbacks([hard("db-a", "database", false, "seed")])).toEqual([]);
+    expect(findMissingMockFallbacks([hard("db-a", "database", false, "none")])).toHaveLength(1);
+  });
+
+  it("stays silent on >1 flagged default (owned by findDuplicateDefaults)", () => {
+    expect(
+      findMissingMockFallbacks([
+        hard("db-a", "database", true, "none"),
+        hard("db-b", "database", true, "none"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("ignores soft dossiers entirely", () => {
+    const soft: DossierMockFallbackEntry = {
+      id: "faq-accordion",
+      capability: "faq-section",
+      class: "soft",
+      defaultForCapability: true,
+    };
+    expect(findMissingMockFallbacks([soft])).toEqual([]);
+  });
+
+  it("holds against the real dossier pool (drift-guard)", () => {
+    const entries: DossierMockFallbackEntry[] = [];
+    for (const klass of ["hard", "soft"] as const) {
+      const classRoot = join("data", "dossiers", klass);
+      if (!existsSync(classRoot)) continue;
+      for (const dirent of readdirSync(classRoot, { withFileTypes: true })) {
+        if (!dirent.isDirectory() || dirent.name.startsWith("_")) continue;
+        const manifestPath = join(classRoot, dirent.name, "manifest.json");
+        if (!existsSync(manifestPath)) continue;
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+        entries.push({
+          id: manifest.id,
+          capability: manifest.capability,
+          class: klass,
+          defaultForCapability: manifest.defaultForCapability === true,
+          mock: manifest.mock,
+        });
+      }
+    }
+    expect(entries.length).toBeGreaterThan(0);
+    expect(findMissingMockFallbacks(entries)).toEqual([]);
   });
 });
 
