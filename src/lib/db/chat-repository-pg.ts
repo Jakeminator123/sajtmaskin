@@ -782,11 +782,24 @@ export async function updateVersionFiles(
   //
   // Postgres resolves relation names at plan time, so we must decide whether to
   // reference `engine_version_jobs` BEFORE building the statement (an
-  // in-statement guard can't short-circuit a missing table). Pre-migration /
-  // local drift → `leaseTableExists()` is false and the write degrades to the
-  // legacy unconditional behaviour (`hasActiveVersionLease` also fails open).
+  // in-statement guard can't short-circuit a missing table). ONLY a definitive
+  // "table missing" (`to_regclass` → null) may degrade to the legacy
+  // unconditional write — a TRANSIENT probe error keeps the guard ON
+  // (fail-closed, Codex P1 on #507): if the table then really is missing the
+  // guarded UPDATE fails loudly instead of silently saving through a lease.
   const holderRunId = options?.holderRunId;
-  const jobsExist = holderRunId ? true : await leaseTableExists();
+  let jobsExist = true;
+  if (!holderRunId) {
+    try {
+      const res = await db.execute(
+        sql`SELECT to_regclass('public.engine_version_jobs') AS oid`,
+      );
+      const rows = (res as unknown as { rows?: Array<{ oid: string | null }> }).rows ?? [];
+      jobsExist = rows.length > 0 && rows[0]?.oid != null;
+    } catch {
+      jobsExist = true;
+    }
+  }
   const where = holderRunId
     ? versionWriteWhere(versionId, holderRunId)
     : jobsExist
@@ -815,6 +828,13 @@ export async function updateVersionFiles(
         await tx.execute(
           sql`SELECT set_config('lock_timeout', ${String(Math.floor(lockTimeoutMs))}, true)`,
         );
+        // Lock-then-second-statement (Codex P1 on #507): serialize against an
+        // in-flight `acquireVersionLease` (which locks this row before
+        // committing its lease) so the guarded UPDATE below re-snapshots and
+        // SEES the committed lease. A single-statement UPDATE's NOT EXISTS
+        // subquery keeps the pre-wait snapshot after a lock wait (EvalPlanQual
+        // does not refresh subqueries) and could save through the new lease.
+        await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
         const result = await tx.update(engineVersions).set(setValues).where(where);
         return (result.rowCount ?? 0) > 0;
       });
@@ -826,7 +846,28 @@ export async function updateVersionFiles(
     }
   }
 
-  const result = await db.update(engineVersions).set(setValues).where(where);
+  // Lock-then-second-statement for the normal path too (Codex P1 on #507; same
+  // pattern as `acceptRepair` / `failVersionVerificationIfUnleased`): take the
+  // version row lock FIRST — waiting out any in-flight lease acquisition —
+  // then run the guarded UPDATE as a SEPARATE statement whose fresh
+  // READ COMMITTED snapshot sees the committed lease. Bounded lock wait: a
+  // timeout means a verify/repair (or another save) owns the row right now →
+  // honest retryable busy.
+  let result: { rowCount: number | null };
+  try {
+    result = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+      );
+      await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+      return await tx.update(engineVersions).set(setValues).where(where);
+    });
+  } catch (err) {
+    if (!holderRunId && isLockTimeoutError(err)) {
+      throw new VersionLeaseHeldError(versionId);
+    }
+    throw err;
+  }
   if ((result.rowCount ?? 0) > 0) {
     return true;
   }
