@@ -418,6 +418,37 @@ export function mapProviderKeysToBackingDossierIds(
   return Array.from(ids);
 }
 
+/**
+ * Registry-resolvable provider keys (canonical `def.key`) that have ZERO
+ * strict backing dossiers. These providers (e.g. `posthog`,
+ * `google-analytics`) can be legitimately approved via `suggestIntegration`
+ * but have no dossier templates to inject — an approve round must still run
+ * the GENERIC LLM build path for them (coach review on #503: a deterministic
+ * exact-file fork would silently ship zero integration code). Unknown keys
+ * (no registry definition) are skipped — they cannot be built deterministically
+ * or generically and are handled by the approval prompt's fallback contract.
+ */
+export function providerKeysWithoutBackingDossier(
+  providerKeys: string[],
+): string[] {
+  const keys = new Set<string>();
+  if (providerKeys.length === 0) return [];
+  const backingIndex = buildDossierBackingIndex();
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const compact = compactProviderKey(raw);
+    const def = findRegistryDefinitionByProviderKey(raw);
+    if (!def) continue;
+    const hasBacking = backingIndex.matchers.some(
+      (matcher) =>
+        matcher.matchesStrict(def) &&
+        !isSuppressedProviderBacking(compact, matcher.capability),
+    );
+    if (!hasBacking) keys.add(def.key.toLowerCase());
+  }
+  return Array.from(keys);
+}
+
 /** Build F3 requirements directly from explicit provider approvals. */
 export function deriveTier3BuildSpecForProviderKeys(
   providerKeys: readonly string[],

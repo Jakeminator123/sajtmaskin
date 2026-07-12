@@ -126,6 +126,7 @@ import {
   hasRequiredRealBuildKeys,
   mapProviderKeysToBackingDossierIds,
   mapProviderKeysToDossierCapabilities,
+  providerKeysWithoutBackingDossier,
   type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
 import {
@@ -218,10 +219,15 @@ function buildF3RejectAckStream(params: {
  * True when at least one approved provider maps to a BACKING DOSSIER whose
  * files are NOT already present in the parent version (dossier-id granularity
  * per Codex P1 on #503 — a present sibling like `postgres-drizzle` must not
- * satisfy an approved `mongodb`), or when a durable snapshot-approved
- * CAPABILITY (which carries no provider identity) lacks file presence. File
- * presence is the canonical version-presence signal
- * (docs/contracts/dossier-system.md § Version-presence union).
+ * satisfy an approved `mongodb`), when a DOSSIER-LESS registry provider
+ * (e.g. `posthog` — approvable via suggestIntegration but with no dossier
+ * templates) is not already evidenced in the parent's file-derived spec
+ * (coach review on #503: a deterministic exact-file fork would ship ZERO
+ * integration code for it — the generic LLM build path must wire it), or
+ * when a durable snapshot-approved CAPABILITY (which carries no provider
+ * identity) lacks file presence. File presence is the canonical
+ * version-presence signal (docs/contracts/dossier-system.md
+ * § Version-presence union).
  *
  * Used to exempt such a round from the #493 deterministic-release backstop:
  * the deterministic path only governs a no-build-key parent WITHOUT new
@@ -233,6 +239,13 @@ function approveRoundNeedsDossierInjection(params: {
   markerSuggestedProviders: string[];
   snapshot: Record<string, unknown> | null;
   parentFilePaths: string[];
+  /**
+   * Provider keys already evidenced in the parent version's file-derived
+   * Tier-3 spec (`gate.spec.requirements[].key`, lowercased) — the honest
+   * "already wired" signal for providers WITHOUT a backing dossier, where
+   * dossier file presence cannot answer the question.
+   */
+  parentSpecProviderKeys: ReadonlySet<string>;
 }): boolean {
   const persistedApproved = readF3ApprovedFromSnapshot(params.snapshot);
   const effectiveApprovedProviders =
@@ -259,6 +272,22 @@ function approveRoundNeedsDossierInjection(params: {
     for (const dossierId of requiredDossierIds) {
       if (!presentIds.has(dossierId)) return true;
     }
+  }
+
+  // Dossier-less registry providers (posthog, google-analytics, …): policy
+  // decided 2026-07-13 — an approved provider without dossier templates goes
+  // the GENERIC LLM build path unless the parent's file-derived spec already
+  // carries it. Never a deterministic fork with zero integration code.
+  let dossierlessProviderKeys: string[] = [];
+  try {
+    dossierlessProviderKeys = providerKeysWithoutBackingDossier(
+      effectiveApprovedProviders,
+    );
+  } catch {
+    dossierlessProviderKeys = [];
+  }
+  for (const providerKey of dossierlessProviderKeys) {
+    if (!params.parentSpecProviderKeys.has(providerKey)) return true;
   }
 
   // Durable snapshot approvals are capability strings (no provider identity
@@ -881,6 +910,11 @@ export async function handleMessageStreamRequest(
                         | Record<string, unknown>
                         | null) ?? null,
                     parentFilePaths: previousFiles.map((file) => file.path),
+                    parentSpecProviderKeys: new Set(
+                      gate.spec.requirements.map((requirement) =>
+                        requirement.key.toLowerCase(),
+                      ),
+                    ),
                   });
                 if (approveNeedsDossierInjection) {
                   // Fall through to the LLM build round. The marker is consumed

@@ -240,19 +240,32 @@ no required real build keys (`hasRequiredRealBuildKeys(gate.spec) === false`), i
 normally refuses a general LLM round and returns `f3_deterministic_release_required`
 (409, PR #493) — finalize-design should instead create an exact-file integrations
 fork and run ReleaseGate without codegen. That deterministic policy only holds for
-a no-build-key parent **without new providers**. An APPROVE-continuation whose
-approved providers map to a dossier capability that is **not yet present in the
-parent version** (same version-presence signal as above,
-`resolveCapabilitiesPresentInVersion`) is exempted: it falls through to the real
-LLM/dossier round so F3 still installs the dormant-but-real integration code (the
-"F3 utan nycklar installerar vilande integrationskod" goal). Approvals resolve as
-marker `suggestedProviders` (else persisted snapshot providers) mapped via
-`mapProviderKeysToDossierCapabilities`, UNIONED with durable snapshot
-`f3ApprovedCapabilities`. On the exemption path the marker is consumed at the
-normal Phase B persistence boundary; the consume-before-persist ordering
-(BB#f3det2) applies specifically to the deterministic backstop branch — Phase B
-keeps its pre-existing persist-then-consume semantics (lost race downgrades the
-round to non-approval instead of 409, tracked as a P3 backlog note).
+a no-build-key parent **without new providers**. An APPROVE-continuation is
+exempted (falls through to the real LLM/dossier round, the "F3 utan nycklar
+installerar vilande integrationskod" goal) in three cases:
+
+1. **Dossier-backed provider, DOSSIER-ID granularity** (Codex P1 on #503): an
+   approved provider maps via `mapProviderKeysToBackingDossierIds` (strict
+   id/dependency matching) to a backing dossier whose files are NOT present in
+   the parent (`resolveDossierIdsPresentInVersion`). Capability granularity is
+   deliberately NOT used here — a present sibling (`postgres-drizzle` under
+   `database`) must not satisfy an approved `mongodb`.
+2. **Dossier-LESS registry provider** (coach review on #503, policy
+   2026-07-13): an approved provider that resolves in `integrationRegistry`
+   but has no backing dossier (e.g. `posthog`, `google-analytics` —
+   `providerKeysWithoutBackingDossier`) and is not already evidenced in the
+   parent's file-derived spec goes the GENERIC LLM build path — never a
+   deterministic exact-file fork that would ship zero integration code.
+3. **Durable snapshot capability**: a persisted `f3ApprovedCapabilities` entry
+   (no provider identity to sharpen with) lacking file presence, compared at
+   capability level.
+
+Approvals resolve as marker `suggestedProviders` (else persisted snapshot
+providers). On the exemption path the marker is consumed at the normal Phase B
+persistence boundary; the consume-before-persist ordering (BB#f3det2) applies
+specifically to the deterministic backstop branch — Phase B keeps its
+pre-existing persist-then-consume semantics (lost race downgrades the round to
+non-approval instead of 409, tracked as a P3 backlog note).
 
 ### Explicit capability removal
 
