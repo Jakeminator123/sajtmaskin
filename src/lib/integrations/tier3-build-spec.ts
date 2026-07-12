@@ -251,6 +251,8 @@ interface DossierBackingMatcher {
   readonly files: ReadonlyArray<{ path: string }>;
   /** Capability of the dossier behind this matcher (e.g. "payments"). */
   readonly capability: string;
+  /** Id of the dossier behind this matcher (e.g. "stripe-checkout"). */
+  readonly dossierId: string;
 }
 
 interface DossierBackingIndex {
@@ -277,6 +279,7 @@ function buildDossierBackingIndex(): DossierBackingIndex {
     matchers.push({
       files: entry.files ?? [],
       capability: entry.capability,
+      dossierId: entry.id,
       matchesStrict,
       matches: (def: IntegrationDefinition) => {
         if (matchesStrict(def)) return true;
@@ -382,6 +385,37 @@ export function mapProviderKeysToDossierCapabilities(
     }
   }
   return Array.from(capabilities);
+}
+
+/**
+ * DOSSIER-ID variant of {@link mapProviderKeysToDossierCapabilities} — same
+ * strict matching + suppression, but returns the backing dossier ids. Needed
+ * where capability granularity is too coarse: version-presence comparisons
+ * (Codex P1 on #503) must not treat a present SIBLING dossier
+ * (`postgres-drizzle` under `database`) as satisfying a newly approved
+ * provider (`mongodb` → `mongodb-atlas`).
+ */
+export function mapProviderKeysToBackingDossierIds(
+  providerKeys: string[],
+): string[] {
+  const ids = new Set<string>();
+  if (providerKeys.length === 0) return [];
+  const backingIndex = buildDossierBackingIndex();
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const compact = compactProviderKey(raw);
+    const def = findRegistryDefinitionByProviderKey(raw);
+    if (!def) continue;
+    for (const matcher of backingIndex.matchers) {
+      if (
+        matcher.matchesStrict(def) &&
+        !isSuppressedProviderBacking(compact, matcher.capability)
+      ) {
+        ids.add(matcher.dossierId);
+      }
+    }
+  }
+  return Array.from(ids);
 }
 
 /** Build F3 requirements directly from explicit provider approvals. */

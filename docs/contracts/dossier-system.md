@@ -234,6 +234,26 @@ floor of the MOST RECENT round and legitimately SHRINKS after an F3 build (the
 next design round re-mutes integration capabilities): that shrink is intended,
 and file presence is what keeps a built integration visible/enforced through it.
 
+**F3 deterministic-release backstop + approve-injection exception (BB#f3det1).**
+When the stream route's F3 gate finds the parent version's file-derived spec has
+no required real build keys (`hasRequiredRealBuildKeys(gate.spec) === false`), it
+normally refuses a general LLM round and returns `f3_deterministic_release_required`
+(409, PR #493) — finalize-design should instead create an exact-file integrations
+fork and run ReleaseGate without codegen. That deterministic policy only holds for
+a no-build-key parent **without new providers**. An APPROVE-continuation whose
+approved providers map to a dossier capability that is **not yet present in the
+parent version** (same version-presence signal as above,
+`resolveCapabilitiesPresentInVersion`) is exempted: it falls through to the real
+LLM/dossier round so F3 still installs the dormant-but-real integration code (the
+"F3 utan nycklar installerar vilande integrationskod" goal). Approvals resolve as
+marker `suggestedProviders` (else persisted snapshot providers) mapped via
+`mapProviderKeysToDossierCapabilities`, UNIONED with durable snapshot
+`f3ApprovedCapabilities`. On the exemption path the marker is consumed at the
+normal Phase B persistence boundary; the consume-before-persist ordering
+(BB#f3det2) applies specifically to the deterministic backstop branch — Phase B
+keeps its pre-existing persist-then-consume semantics (lost race downgrades the
+round to non-approval instead of 409, tracked as a P3 backlog note).
+
 ### Explicit capability removal
 
 A follow-up such as "ta bort Stripe" is an explicit exception to the
