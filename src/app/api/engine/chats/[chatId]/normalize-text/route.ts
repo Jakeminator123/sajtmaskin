@@ -57,7 +57,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         });
       }
 
-      await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
+      const updated = await updateVersionFiles(
+        scopedVersion.version.id,
+        JSON.stringify(updatedFiles),
+      );
+      if (!updated) {
+        // Bugbot on #507: never answer `normalized: true` when the write
+        // no-op'd — the normalization was NOT persisted.
+        return NextResponse.json(
+          { error: "Failed to persist normalized files" },
+          { status: 500 },
+        );
+      }
 
       return NextResponse.json({
         normalized: true,

@@ -70,7 +70,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           return file;
         });
 
-        await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
+        const updated = await updateVersionFiles(
+          scopedVersion.version.id,
+          JSON.stringify(updatedFiles),
+        );
+        if (!updated) {
+          // Bugbot on #507: never answer `fixed: true` when the write no-op'd
+          // (missing row / degraded guard) — the fix was NOT persisted.
+          return NextResponse.json(
+            { error: "Failed to persist CSS fixes" },
+            { status: 500 },
+          );
+        }
 
         return NextResponse.json({
           valid: false,

@@ -837,8 +837,29 @@ export async function updateVersionFiles(
   // treat as a plain `false` (same as `markVersionVerifying` et al.). The probe
   // runs AFTER the atomic write already no-op'd — it never gates the write — so
   // it introduces no TOCTOU (same shape as `saveRepairedFiles`'s stale probe).
-  if (!holderRunId && jobsExist && (await hasActiveVersionLease(versionId))) {
-    throw new VersionLeaseHeldError(versionId);
+  //
+  // FAIL-CLOSED probe (Bugbot on #507): `hasActiveVersionLease` fail-opens to
+  // `false` on DB errors, which would mislabel a blocked write as a plain
+  // no-op (500 / false `fixed:true` instead of the retryable 409). The table
+  // is known to exist here (`jobsExist`), so a probe error is a real DB
+  // hiccup — classify as busy (retryable) rather than silently downgrading.
+  if (!holderRunId && jobsExist) {
+    const leaseBlocked = await db
+      .select({ id: engineVersionJobs.id })
+      .from(engineVersionJobs)
+      .where(
+        and(
+          eq(engineVersionJobs.versionId, versionId),
+          eq(engineVersionJobs.status, "running"),
+          gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows.length > 0)
+      .catch(() => true);
+    if (leaseBlocked) {
+      throw new VersionLeaseHeldError(versionId);
+    }
   }
   return false;
 }

@@ -74,8 +74,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
             const replacement = result.files.find((f) => f.name === file.path);
             return replacement ? { ...file, content: replacement.content } : file;
           });
-          await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
-          fixed = true;
+          const updated = await updateVersionFiles(
+            scopedVersion.version.id,
+            JSON.stringify(updatedFiles),
+          );
+          // Bugbot on #507: only report `fixed` when the write actually
+          // persisted — a no-op (missing row / degraded guard) must not 200
+          // as if the replacement images were saved.
+          fixed = updated;
         } catch (updateError) {
           // A foreign verify/repair lease must surface as a retryable 409 — do
           // NOT swallow it into a soft warning (that would 200 as if nothing

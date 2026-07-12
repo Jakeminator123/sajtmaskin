@@ -109,7 +109,9 @@ function describeQuickEditHardError(result: { error: string; reason?: string }):
   if (result.error === "stale_base_version") {
     return "En nyare version finns redan. Ladda om för att fortsätta från den senaste versionen.";
   }
-  if (result.error === "base_busy") {
+  // /quick-edit carries the token in `reason` ("base_busy") — `error` is the
+  // English sentence (Bugbot on #507: matching on `error` never fired).
+  if (result.reason === "base_busy" || result.error === "base_busy") {
     return VERSION_BUSY_USER_MESSAGE;
   }
   return result.error;
