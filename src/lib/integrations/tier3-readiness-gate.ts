@@ -162,6 +162,14 @@ export async function checkTier3ReadinessForVersion(params: {
   /** The chat's `orchestration_snapshot` (or null when absent). */
   orchestrationSnapshot: unknown;
   projectId: string | null;
+  /**
+   * Version files the caller already read (TOCTOU fix in the quality-gate
+   * route: the fileset is read exactly once under the version lease and threaded
+   * here so readiness evaluates the SAME snapshot verify/promotion will use).
+   * `undefined` keeps the legacy load-by-versionId behavior; any explicit value
+   * (incl. `null`/empty) is used verbatim without a second read.
+   */
+  preloadedFiles?: CodeFile[] | null;
 }): Promise<Tier3GateResult> {
   if (
     await isProductPostcheckBlocked(
@@ -170,7 +178,10 @@ export async function checkTier3ReadinessForVersion(params: {
   ) {
     return { ok: false, reason: "product_postcheck_blocked" };
   }
-  const versionFiles = await getVersionFiles(params.versionId);
+  const versionFiles =
+    params.preloadedFiles !== undefined
+      ? params.preloadedFiles
+      : await getVersionFiles(params.versionId);
   const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: params.orchestrationSnapshot,
     versionFiles,

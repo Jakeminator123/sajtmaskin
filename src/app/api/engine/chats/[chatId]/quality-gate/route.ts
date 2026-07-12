@@ -18,6 +18,7 @@ import {
   resetVersionVerificationToPending,
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
+import { warnLog } from "@/lib/utils/debug";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
@@ -180,6 +181,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         ? "integrationsBuild"
         : gate;
 
+    // F3 preflight validation that does NOT consume the version fileset stays
+    // BEFORE the lease (cheap checks; avoids lease churn on pure 409/404 bails).
+    // The fileset-consuming readiness check runs AFTER the lease (see below), so
+    // it evaluates the same lease-protected snapshot the verifier/promotion use.
+    let parentVersionId: string | null = null;
     if (effectiveGate === "integrationsBuild") {
       if (scopedVersion.version.lifecycle_stage !== "integrations") {
         return NextResponse.json(
@@ -190,7 +196,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           { status: 409 },
         );
       }
-      const parentVersionId = scopedVersion.version.parent_version_id;
+      parentVersionId = scopedVersion.version.parent_version_id;
       if (!parentVersionId) {
         return NextResponse.json(
           {
@@ -205,44 +211,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(
           { error: "Parent version not found for chat" },
           { status: 404 },
-        );
-      }
-      const readiness = await checkTier3ReadinessForVersion({
-        versionId: internalVersionId,
-        productPostcheckVersionId: parentVersionId,
-        orchestrationSnapshot: scopedVersion.chat.orchestration_snapshot,
-        projectId: scopedVersion.chat.project_id ?? null,
-      });
-      if (!readiness.ok && readiness.reason === "missing_env") {
-        return NextResponse.json(
-          {
-            error: "tier3_env_not_ready",
-            ready: false,
-            parentVersionId,
-            projectId: scopedVersion.chat.project_id ?? null,
-            missingByIntegration: readiness.readiness.missingByIntegration,
-          },
-          { status: 412 },
-        );
-      }
-      if (!readiness.ok && readiness.reason === "product_postcheck_blocked") {
-        return NextResponse.json(
-          {
-            error: "product_postcheck_blocked",
-            ready: false,
-            parentVersionId,
-          },
-          { status: 409 },
-        );
-      }
-      if (!readiness.ok) {
-        return NextResponse.json(
-          {
-            error: "version_files_unavailable",
-            ready: false,
-            parentVersionId,
-          },
-          { status: 409 },
         );
       }
     }
@@ -263,57 +231,126 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         ? [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]
         : checks;
 
-    const codeFiles = await getVersionFiles(internalVersionId);
-    if (codeFiles && codeFiles.length > 0) {
-      if (!isQualityGateConfigured()) {
+    // TOCTOU fix (P1): acquire the per-version lease BEFORE reading files or
+    // running the F3 readiness check, so readiness → verify → promotion all
+    // evaluate ONE lease-protected FILE snapshot (a concurrent repair/verify
+    // can no longer swap the files between the readiness check and promotion).
+    // 409 if another job owns the lease. Known residuals (tracked in
+    // BUG-SWARM-BACKLOG, not closed by this fix): `updateVersionFiles` via
+    // PUT /files does not take this lease, and product-postcheck rows /
+    // `orchestration_snapshot` are read outside the file snapshot.
+    let qgRunId: string | undefined;
+    if (dbConfigured) {
+      let lease: { runId: string } | null = null;
+      try {
+        lease = await acquireVersionLease(internalVersionId, "server_verify");
+      } catch (err) {
+        // Fail-CLOSED: a thrown acquire (DB error) must NOT proceed as if the
+        // lease were held — the historic fail-open let a stale pre-lease snapshot
+        // promote. Surface a retryable 503 so the client retries once the DB
+        // recovers; no lease was taken, so there is nothing to release.
+        // warnLog (not just console.error) so the failure reaches the same
+        // structured observability as server-verify's lease errors.
+        warnLog(
+          "[quality-gate] Lease acquire threw; failing closed (retryable):",
+          err instanceof Error ? err.message : String(err),
+        );
         return NextResponse.json(
           {
-            error: "Quality gate not configured (missing preview-host verify lane).",
-            code: "quality_gate_disabled",
-            hint: QUALITY_GATE_SETUP_HINT,
+            error: "Version lease unavailable (database error). Try again shortly.",
+            code: "lease_unavailable",
+            retryable: true,
           },
-          { status: 501 },
+          { status: 503 },
         );
       }
+      if (!lease) {
+        return NextResponse.json(
+          {
+            error: "Version is busy (another verify/repair job holds the lock). Try again shortly.",
+            code: "version_busy",
+          },
+          { status: 409 },
+        );
+      }
+      qgRunId = lease.runId;
+    }
 
-      // Distributed lease (Plan C / P1 + Codex P2): take the per-version lease
-      // BEFORE materializing inputs, so the gate can't verify/promote a stale
-      // pre-lease snapshot that a concurrent repair already replaced. 409 if
-      // another job owns it. Fail-safe: a DB error degrades to the unlocked path.
-      let qgRunId: string | undefined;
-      if (dbConfigured) {
-        try {
-          const lease = await acquireVersionLease(internalVersionId, "server_verify");
-          if (!lease) {
-            return NextResponse.json(
-              {
-                error: "Version is busy (another verify/repair job holds the lock). Try again shortly.",
-                code: "version_busy",
-              },
-              { status: 409 },
-            );
-          }
-          qgRunId = lease.runId;
-        } catch (err) {
-          console.warn("[quality-gate] Lease acquire failed; proceeding without distributed lock:", err);
-          qgRunId = undefined;
+    // Codex P2 (lease leak): everything after a successful acquire runs inside
+    // this try/finally, so the lease is ALWAYS released — even if the read /
+    // readiness / buildExportableProject / exportableToQualityGateFiles throws
+    // (otherwise the row stayed `running` until the TTL and every accept/
+    // verify/repair returned version_busy for ~15 min).
+    //
+    // `verifyLaneStarted` guards the catch below: a throw BEFORE the verify
+    // lane starts (file read, readiness, export) must not mark the version
+    // `failed` — the gate never evaluated the code, so that would be a
+    // false-RED on a transient error (granska-svärm F1 on the TOCTOU fix).
+    let verifyLaneStarted = false;
+    try {
+      // Read the version files EXACTLY ONCE under the lease and feed the SAME
+      // set to readiness/export/verify/promotion — no re-read that could observe
+      // a different snapshot (TOCTOU + Codex P2 stale-snapshot fix).
+      const codeFiles = await getVersionFiles(internalVersionId);
+
+      if (effectiveGate === "integrationsBuild") {
+        const readiness = await checkTier3ReadinessForVersion({
+          versionId: internalVersionId,
+          productPostcheckVersionId: parentVersionId ?? undefined,
+          orchestrationSnapshot: scopedVersion.chat.orchestration_snapshot,
+          projectId: scopedVersion.chat.project_id ?? null,
+          preloadedFiles: codeFiles,
+        });
+        if (!readiness.ok && readiness.reason === "missing_env") {
+          return NextResponse.json(
+            {
+              error: "tier3_env_not_ready",
+              ready: false,
+              parentVersionId,
+              projectId: scopedVersion.chat.project_id ?? null,
+              missingByIntegration: readiness.readiness.missingByIntegration,
+            },
+            { status: 412 },
+          );
+        }
+        if (!readiness.ok && readiness.reason === "product_postcheck_blocked") {
+          return NextResponse.json(
+            {
+              error: "product_postcheck_blocked",
+              ready: false,
+              parentVersionId,
+            },
+            { status: 409 },
+          );
+        }
+        if (!readiness.ok) {
+          return NextResponse.json(
+            {
+              error: "version_files_unavailable",
+              ready: false,
+              parentVersionId,
+            },
+            { status: 409 },
+          );
         }
       }
 
-      // Codex P2 (lease leak): everything after a successful acquire runs inside
-      // this try/finally, so the lease is ALWAYS released — even if the leased
-      // re-read / buildExportableProject / exportableToQualityGateFiles throws
-      // (otherwise the row stayed `running` until the TTL and every accept/
-      // verify/repair returned version_busy for ~15 min).
-      try {
-        // Re-read under the lease so verification runs on the lease-protected
-        // snapshot, not the pre-acquire read above (Codex P2 stale-snapshot fix).
-        const leasedCodeFiles = qgRunId
-          ? (await getVersionFiles(internalVersionId)) ?? codeFiles
-          : codeFiles;
-        const completeProjectFiles = await buildExportableProject(leasedCodeFiles);
+      if (codeFiles && codeFiles.length > 0) {
+        if (!isQualityGateConfigured()) {
+          return NextResponse.json(
+            {
+              error: "Quality gate not configured (missing preview-host verify lane).",
+              code: "quality_gate_disabled",
+              hint: QUALITY_GATE_SETUP_HINT,
+            },
+            { status: 501 },
+          );
+        }
+
+        const completeProjectFiles = await buildExportableProject(codeFiles);
         const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
+        verifyLaneStarted = true;
         await markVersionVerifying(internalVersionId, undefined, qgRunId).catch((err) => {
           console.warn("[quality-gate] Failed to mark version verifying:", err);
         });
@@ -639,63 +676,78 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           ...gateResult,
           promoted: promotionSucceeded,
         });
-      } catch (err) {
-        // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
-        // the gate never evaluated the code, so do NOT mark the version `failed`
-        // (a false-RED verdict) and do NOT hard-500. Surface a retryable 503 the
-        // client can retry; the version stays unpromoted (never false-green) and
-        // the `finally` below still releases the lease. A real check failure does
-        // not reach here — it returns `passed:false` above.
-        if (err instanceof QualityGateUnavailableError) {
-          // Revert the optimistic `markVersionVerifying` above (Codex P2 on #296):
-          // leaving the row `verifying` with no running job would let the
-          // readiness stale-verification watchdog later mark it `failed` (a
-          // delayed false-RED). Reset to `pending` so the version honestly reads
-          // "awaiting verification, retryable" instead.
-          await resetVersionVerificationToPending(internalVersionId, undefined, qgRunId).catch(
-            (resetErr) => {
-              console.warn(
-                "[quality-gate] Failed to reset version to pending after unavailable verify lane:",
-                resetErr,
-              );
-            },
-          );
-          return NextResponse.json(
-            {
-              error: err.message,
-              code: "quality_gate_unavailable",
-              retryable: err.retryable,
-              hint: QUALITY_GATE_SETUP_HINT,
-            },
-            { status: 503 },
-          );
-        }
-        await failVersionVerification(
-          internalVersionId,
-          "Automatic verification could not complete.",
-          qgRunId,
-        ).catch((updateErr) => {
-          console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
-        });
-        if (err instanceof QualityGateNotConfiguredError) {
-          return NextResponse.json(
-            {
-              error: err.message,
-              code: "quality_gate_disabled",
-              hint: QUALITY_GATE_SETUP_HINT,
-            },
-            { status: 501 },
-          );
-        }
-        throw err;
-      } finally {
-        if (qgRunId) {
-          await releaseVersionLease(internalVersionId, qgRunId).catch(() => {});
-        }
+      }
+
+      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
+    } catch (err) {
+      // Unreachable verify lane (network / timeout / HTTP 4xx-5xx / disk-full):
+      // the gate never evaluated the code, so do NOT mark the version `failed`
+      // (a false-RED verdict) and do NOT hard-500. Surface a retryable 503 the
+      // client can retry; the version stays unpromoted (never false-green) and
+      // the `finally` below still releases the lease. A real check failure does
+      // not reach here — it returns `passed:false` above.
+      if (err instanceof QualityGateUnavailableError) {
+        // Revert the optimistic `markVersionVerifying` above (Codex P2 on #296):
+        // leaving the row `verifying` with no running job would let the
+        // readiness stale-verification watchdog later mark it `failed` (a
+        // delayed false-RED). Reset to `pending` so the version honestly reads
+        // "awaiting verification, retryable" instead.
+        await resetVersionVerificationToPending(internalVersionId, undefined, qgRunId).catch(
+          (resetErr) => {
+            console.warn(
+              "[quality-gate] Failed to reset version to pending after unavailable verify lane:",
+              resetErr,
+            );
+          },
+        );
+        return NextResponse.json(
+          {
+            error: err.message,
+            code: "quality_gate_unavailable",
+            retryable: err.retryable,
+            hint: QUALITY_GATE_SETUP_HINT,
+          },
+          { status: 503 },
+        );
+      }
+      if (!verifyLaneStarted) {
+        // The throw happened during file read / readiness / export — the
+        // verify lane never ran, so the version state must stay untouched
+        // (no false-RED). Retryable 503, mirroring the lease/verify-lane
+        // unavailability contract.
+        console.error("[quality-gate] Pre-verify step threw; version state untouched:", err);
+        return NextResponse.json(
+          {
+            error: "Quality gate pre-checks failed before verification started. Try again shortly.",
+            code: "quality_gate_unavailable",
+            retryable: true,
+          },
+          { status: 503 },
+        );
+      }
+      await failVersionVerification(
+        internalVersionId,
+        "Automatic verification could not complete.",
+        qgRunId,
+      ).catch((updateErr) => {
+        console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
+      });
+      if (err instanceof QualityGateNotConfiguredError) {
+        return NextResponse.json(
+          {
+            error: err.message,
+            code: "quality_gate_disabled",
+            hint: QUALITY_GATE_SETUP_HINT,
+          },
+          { status: 501 },
+        );
+      }
+      throw err;
+    } finally {
+      if (qgRunId) {
+        await releaseVersionLease(internalVersionId, qgRunId).catch(() => {});
       }
     }
-
-    return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("[quality-gate] Error:", err);
     return NextResponse.json(

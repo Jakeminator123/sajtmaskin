@@ -465,10 +465,9 @@ describe("POST quality-gate", () => {
     expect(body.passed).toBe(true);
     expect(body.promotionBlocked).toBeUndefined();
     expect(body.promoteError).toBeUndefined();
-    // Codex P2 (stale snapshot): once the lease is held, the route re-reads the
-    // version files under the lease before materializing gate inputs — so
-    // getVersionFiles is called twice (initial 404-check read + leased re-read).
-    expect(getVersionFiles).toHaveBeenCalledTimes(2);
+    // TOCTOU fix: the fileset is read EXACTLY ONCE under the lease and threaded
+    // to readiness/export/verify — no pre-lease read and no leased re-read.
+    expect(getVersionFiles).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed (retryable) without promoting or failing when the guard is indeterminate (B08)", async () => {
@@ -610,6 +609,167 @@ describe("POST quality-gate", () => {
     expect(markVersionVerifying).not.toHaveBeenCalled();
     expect(runQualityGateChecks).not.toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with a retryable 503 (lease_unavailable) when acquiring the lease throws — never reaches readiness/verify (TOCTOU)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    // A thrown acquire (DB error) must NOT fall through as if the lease were held
+    // (the historic fail-open let a stale pre-lease snapshot promote).
+    acquireVersionLease.mockRejectedValue(new Error("db connection reset"));
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-1",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("lease_unavailable");
+    expect(body.retryable).toBe(true);
+    // Fail-closed: the lease gate runs FIRST, so a thrown acquire short-circuits
+    // before the file read, the readiness check, verify and any state mutation —
+    // and never releases a lease that was never taken.
+    expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+  });
+
+  it("a throw BEFORE the verify lane (export step) returns retryable 503 without false-RED, and still releases the lease", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    // Transient failure during export — the verify lane never evaluated the
+    // code, so the version must NOT be marked failed (granska-svärm F1 on the
+    // TOCTOU fix: the widened try/catch previously false-REDed this case).
+    buildExportableProject.mockRejectedValue(new Error("disk full"));
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("quality_gate_unavailable");
+    expect(body.retryable).toBe(true);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+  });
+
+  it("releases the lease when the F3 readiness check bails (412) after acquire", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "missing_env",
+      readiness: { missingByIntegration: { stripe: ["STRIPE_SECRET_KEY"] } },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", gate: "integrationsBuild" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(412);
+    // The lease was taken before readiness, so the early 412 return must
+    // still release it (finally-block contract).
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("TOCTOU core: the exported/verified fileset is the SAME lease-protected read that fed readiness", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    const snapshotFiles = [
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ];
+    getVersionFiles.mockResolvedValue(snapshotFiles);
+    isQualityGateConfigured.mockReturnValue(true);
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: { requirements: [] },
+    });
+    buildExportableProject.mockResolvedValue(snapshotFiles);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({ passed: true, checks: [] });
+    qualityGateAllPassed.mockReturnValue(true);
+    describeQualityGateVerification.mockReturnValue("ok");
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    maybeAnalyzeVisualQAForPassedExportable.mockResolvedValue(null);
+    assertPromoteAllowed.mockResolvedValue(undefined);
+    promoteVersion.mockResolvedValue(undefined);
+
+    await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", gate: "integrationsBuild" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    // One read under the lease…
+    expect(getVersionFiles).toHaveBeenCalledTimes(1);
+    // …fed byte-identically to BOTH the readiness gate and the export step.
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ preloadedFiles: snapshotFiles }),
+    );
+    expect(buildExportableProject).toHaveBeenCalledWith(snapshotFiles);
   });
 
   it("returns a retryable 503 (NOT failed) when the verify lane is unreachable", async () => {
@@ -770,11 +930,18 @@ describe("POST quality-gate", () => {
     expect(runQualityGateChecks.mock.invocationCallOrder[0]).toBeLessThan(
       promoteVersion.mock.invocationCallOrder[0],
     );
+    // TOCTOU fix: the lease is acquired BEFORE the readiness check runs, so both
+    // readiness and the verify/promote all evaluate one lease-protected snapshot.
+    expect(acquireVersionLease.mock.invocationCallOrder[0]).toBeLessThan(
+      checkTier3ReadinessForVersion.mock.invocationCallOrder[0],
+    );
+    // Readiness is fed the SAME fileset the route read once under the lease.
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith({
       versionId: "ver-1",
       productPostcheckVersionId: "ver-f2",
       orchestrationSnapshot: { selectedDossierIds: ["openai-chat"] },
       projectId: "project-1",
+      preloadedFiles: [{ path: "app/page.tsx", content: "export default function Page(){}" }],
     });
     expect(await res.json()).toMatchObject({ passed: true, promoted: true });
   });
