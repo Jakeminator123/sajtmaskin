@@ -226,12 +226,32 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     expect(errors[0]).toContain("none with defaultForCapability");
   });
 
-  it("only checks the default — a non-default sibling without mock passes", () => {
+  it("checks EVERY hard dossier — a non-default sibling without mock fails (per-dossier, ägarbeslut 2026-07-12)", () => {
+    const errors = findMissingMockFallbacks([
+      hard("postgres-drizzle", "database", true, "seed"),
+      hard("mongodb-atlas", "database", false, "none"),
+      hard("neon-postgres", "database", false),
+    ]);
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toContain("mongodb-atlas");
+    expect(errors[1]).toContain("neon-postgres");
+  });
+
+  it("passes when every sibling declares a real mock mode", () => {
     expect(
       findMissingMockFallbacks([
         hard("postgres-drizzle", "database", true, "seed"),
-        hard("mongodb-atlas", "database", false, "none"),
-        hard("neon-postgres", "database", false),
+        hard("mongodb-atlas", "database", false, "seed"),
+        hard("neon-postgres", "database", false, "seed"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("exempt capabilities waive the mock check for ALL siblings, not just the default", () => {
+    expect(
+      findMissingMockFallbacks([
+        hard("vercel-analytics", "analytics", true, "none"),
+        hard("plausible-analytics", "analytics", false),
       ]),
     ).toEqual([]);
   });

@@ -772,6 +772,46 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
     return True, ""
 
 
+def _describe_capability_group_hint(
+    decided_capability: str, chosen_group_id: str | None, groups: dict[str, Any]
+) -> str:
+    """Honest group hint for the AI-curation category picker (coach review on
+    #500). The group is ALWAYS derived from `dossier-groups.ts` at regenerate
+    time — the picker never moves a capability. Three cases:
+
+    1. Capability belongs to the CHOSEN group → show the chosen group.
+    2. Capability already exists in ANOTHER group (e.g. group "AI" picked but
+       `payments` typed in the free field) → show its REAL group and say the
+       group choice does not move it. Previously this case was misreported
+       as "ny capability → Övrigt".
+    3. Capability is unknown everywhere → genuinely new → lands under
+       "Övrigt" until `CAPABILITY_TO_GROUP_ID` is updated + map regenerated.
+    """
+    chosen_capabilities = (
+        groups.get(chosen_group_id, {}).get("capabilities") or [] if chosen_group_id else []
+    )
+    if decided_capability in chosen_capabilities:
+        label = (
+            (groups.get(chosen_group_id, {}).get("label") or "Övrigt")
+            if chosen_group_id
+            else "Övrigt"
+        )
+        return f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {label})."
+    real_label = _group_label_for_capability(decided_capability, groups)
+    if real_label != "Övrigt":
+        return (
+            f"Beslutad capability vid skapande: `{decided_capability}` — **befintlig "
+            f"capability i gruppen {real_label}**; den ligger kvar där (gruppvalet "
+            "ovan flyttar inget, det styr bara förslagslistan)."
+        )
+    return (
+        f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
+        "hamnar under **Övrigt** tills den mappas i "
+        "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
+        "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
+    )
+
+
 def _section_curate() -> None:
     st.subheader("AI-kuration från template-references")
     st.caption(
@@ -821,24 +861,12 @@ def _section_curate() -> None:
         capability_choice if capability_choice != "(ingen — se fritt fält)" else ""
     )
     if decided_capability:
-        # Honest group hint (Codex P2 på #500): gruppen härleds ALLTID från
-        # dossier-groups.ts vid regenerering — en NY capability landar i
-        # "Övrigt" tills mappningen uppdaterats, oavsett valet ovan.
-        if decided_capability in group_capabilities:
-            group_hint = group_labels.get(chosen_group_id, "Övrigt") if chosen_group_id else "Övrigt"
-            st.caption(
-                f"Beslutad capability vid skapande: `{decided_capability}` (grupp: {group_hint})."
-            )
-        else:
-            st.caption(
-                f"Beslutad capability vid skapande: `{decided_capability}` — **ny capability**, "
-                "hamnar under **Övrigt** tills den mappas i "
-                "`src/lib/builder/dossier-groups.ts` (`CAPABILITY_TO_GROUP_ID`) och "
-                "capability-map byggs om. Gruppvalet ovan styr bara förslagslistan."
-            )
+        st.caption(
+            _describe_capability_group_hint(decided_capability, chosen_group_id, groups)
+        )
     st.caption(
-        "Påminnelse: en **hard**-capabilitys default-dossier måste ha `mock` ≠ "
-        "`none` — om inte capabilityn står på undantagslistan "
+        "Påminnelse: **varje** hard-dossier måste ha `mock` ≠ `none` — om inte "
+        "capabilityn står på undantagslistan "
         "(`MOCKLESS_CAPABILITY_EXCEPTIONS` i `src/lib/gen/dossiers/validate-manifest.ts`, "
         "dokumenterad i `docs/contracts/dossier-system.md`). Annars stoppar "
         "`npm run dossiers:validate-all`."
