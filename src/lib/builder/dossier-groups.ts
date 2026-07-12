@@ -23,12 +23,13 @@ export interface DossierGroup {
 export const DOSSIER_GROUPS = {
   "data-storage": { id: "data-storage", label: "Data & lagring" },
   payments: { id: "payments", label: "Betalningar" },
-  auth: { id: "auth", label: "Inloggning" },
+  auth: { id: "auth", label: "Inloggning & konton" },
   ai: { id: "ai", label: "AI" },
   email: { id: "email", label: "E-post & utskick" },
   analytics: { id: "analytics", label: "Analys & övervakning" },
   realtime: { id: "realtime", label: "Realtid" },
   content: { id: "content", label: "Innehåll & sektioner" },
+  "visual-interaction": { id: "visual-interaction", label: "Visuellt & interaktion" },
   other: { id: "other", label: "Övrigt" },
 } as const satisfies Record<string, DossierGroup>;
 
@@ -44,6 +45,7 @@ export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
   DOSSIER_GROUPS.analytics,
   DOSSIER_GROUPS.realtime,
   DOSSIER_GROUPS.content,
+  DOSSIER_GROUPS["visual-interaction"],
   DOSSIER_GROUPS.other,
 ];
 
@@ -54,15 +56,16 @@ export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
  */
 const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   database: "data-storage",
+  // Headless CMS (sanity-cms): storage/content-management, same bucket as
+  // the database dossiers rather than the visual "content sections" group.
+  cms: "data-storage",
   payments: "payments",
   // Recurring billing (paddle-billing) is money-flow — same user-facing bucket
   // as one-off payments.
   subscriptions: "payments",
   auth: "auth",
-  // Supabase-specific auth (explicit-ask capability) is still "Inloggning".
+  // Supabase-specific auth (explicit-ask capability) shares the auth bucket.
   "supabase-auth": "auth",
-  // Headless CMS (sanity-cms): user-facing intent is content management.
-  cms: "content",
   "ai-chat": "ai",
   "ai-tool-calling": "ai",
   "rag-chat": "ai",
@@ -72,25 +75,28 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   analytics: "analytics",
   "error-tracking": "analytics",
   realtime: "realtime",
-  // Content & visual sections (self-contained soft dossiers).
+  // Content sections: informational page sections — copy/structure first
+  // (stepper included per owner decision, despite its interactive surface).
   "cta-section": "content",
   "faq-section": "content",
   "pricing-section": "content",
-  carousel: "content",
-  marquee: "content",
-  "gallery-lightbox": "content",
-  "feature-grid": "content",
   "testimonials-section": "content",
+  "feature-grid": "content",
   "stats-counter": "content",
   stepper: "content",
   "logo-cloud": "content",
-  "dashboard-charts": "content",
-  "command-search": "content",
-  "parallax-pointer": "content",
-  "parallax-scroll": "content",
-  "physics-3d": "content",
-  "visual-3d": "content",
-  "interactive-game": "content",
+  // Visual & interaction: motion, 3D, games and data-viz — presentation is
+  // the point, not the copy.
+  carousel: "visual-interaction",
+  marquee: "visual-interaction",
+  "gallery-lightbox": "visual-interaction",
+  "parallax-scroll": "visual-interaction",
+  "parallax-pointer": "visual-interaction",
+  "visual-3d": "visual-interaction",
+  "physics-3d": "visual-interaction",
+  "interactive-game": "visual-interaction",
+  "dashboard-charts": "visual-interaction",
+  "command-search": "visual-interaction",
 };
 
 /**

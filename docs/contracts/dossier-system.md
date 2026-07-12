@@ -26,6 +26,42 @@ data/dossiers/
 
 Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
+## Grupper (presentations-lager, 10 st)
+
+Grupper är UI-rubriker för backoffice och builderns Byggblock-panel — inte en
+ny schemadimension. Trenivåmodellen: **Grupp** (UI-rubrik, styr aldrig
+selektion) → **Capability** (exakt funktion, styr dossier-val enligt
+selektionsalgoritmen ovan) → **Dossier/provider** (implementation; flera per
+capability, en är default via `defaultForCapability`). Grupp härleds från
+capability via kanonisk mappning i
+[`src/lib/builder/dossier-groups.ts`](../../src/lib/builder/dossier-groups.ts)
+(`resolveDossierGroup`) — inget nytt manifestfält, ingen runtime-/selektionspåverkan.
+
+| # | Grupp-id | Svensk label | Capabilities |
+|---|---|---|---|
+| 1 | `data-storage` | Data & lagring | `database`, `cms` |
+| 2 | `payments` | Betalningar | `payments`, `subscriptions` |
+| 3 | `auth` | Inloggning & konton | `auth`, `supabase-auth` |
+| 4 | `ai` | AI | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation` |
+| 5 | `email` | E-post & utskick | `contact-form`, `newsletter-subscribe` |
+| 6 | `analytics` | Analys & övervakning | `analytics`, `error-tracking` |
+| 7 | `realtime` | Realtid | `realtime` |
+| 8 | `content` | Innehåll & sektioner | `cta-section`, `faq-section`, `pricing-section`, `testimonials-section`, `feature-grid`, `logo-cloud`, `stats-counter`, `stepper` |
+| 9 | `visual-interaction` | Visuellt & interaktion | `carousel`, `marquee`, `gallery-lightbox`, `parallax-scroll`, `parallax-pointer`, `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`, `command-search` |
+| 10 | `other` | Övrigt | (fångstnät för omappade capabilities) |
+
+**Fallback-principen på capability-nivå:** capabilityns standard-demo i F2 =
+default-dossierns (`defaultForCapability: true`) `mock`-läge (se **Mock/demo-
+läge** nedan). Providers under samma capability delar samma demo-yta. Detta är
+kontraktets princip idag — en CI-invariant som **tvingar** varje hard-
+capability att ha en default-dossier med meningsfullt mock-läge byggs i en
+senare etapp (se `docs/plans/`) och är inte redan CI-blockerande. När
+invarianten landar dokumenteras även **undantagslistan** (capabilities där
+`mock: none` är legitimt — t.ex. betalning/inloggning som inte kan mockas
+meningsfullt, och analytics som self-disablar) här i denna sektion. Nya behov
+blir nya capabilities i en befintlig grupp (t.ex. en framtida `maps`-
+capability i `content` eller `visual-interaction`), inte en ny grupp.
+
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:

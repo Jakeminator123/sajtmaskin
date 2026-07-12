@@ -21,6 +21,7 @@ Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras sem
 | "templates" om capability-moduler | `dossiers` — templates (= v0-mallar, Blob-galleriet) är ett helt separat system |
 | dossiers i user-synlig UI-copy | `Byggblock` (UI-label; kodidentifierare/routes behåller `dossier`) |
 | "dossier" om galleri-mallar | `Template (v0-mall)` — dossiers har inga kategorier/thumbnails |
+| "kategori"/"grupp" som synonym för capability | `dossier-grupp` för UI-bucketen (10 st, presentations-lager i backoffice/builder) — `capability` är den selektionsstyrande funktionen, grupp styr aldrig val |
 | scaffold family, style direction | `scaffold variant` |
 | blandad “brief” | `Deep Brief` för init, `Snapshot-Brief` för follow-up |
 | blandad “autofix”, mekanisk autofix, url-expand, deterministisk import-repair | `Normalize` |
