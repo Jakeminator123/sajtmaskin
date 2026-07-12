@@ -148,15 +148,56 @@ Arbetsregler:
 
 **Ägar-OK gavs 2026-07-12** ("du får ändå mitt OK"). Inträdeskriteriernas status:
 
-1. P1 F3 ReleaseGate TOCTOU → fixas i PR `fix/releasegate-toctou` (lease före readiness, en filläsning under lease, fail-closed på lease-fel).
-2. P2 capability-provenance → **ägarbeslut 2026-07-12: accepterad som deferred.** Tombstone-lagret från #494→#497 + rund-scopad filtrering är tillräcklig mitigering nu; den kanoniska `CapabilityIntentDelta`-refaktorn tas som eget initiativ när området rörs nästa gång. Splittrat ägarskap kvarstår som känd, dokumenterad risk (backlograden behålls).
-3. `BB#f3det1` (+ syskonet `BB#f3det2`) → fixas i PR `fix/f3-deterministic-approve` (approve-runda med ny provider utan filbevis går LLM-/dossier-väg; user-rad persisteras efter lyckad marker-consume).
+1. P1 F3 ReleaseGate TOCTOU → ✅ **fixad i PR #504** (lease före readiness, EN filläsning under lease trådad till readiness/export/verify/promotion, fail-closed 503 på lease-fel, false-RED-guard för pre-verify-fel).
+2. P2 capability-provenance → **ägarbeslut 2026-07-12: accepterad som deferred.** Tombstone-lagret från #494→#497 + rund-scopad filtrering är tillräcklig mitigering nu; den kanoniska `CapabilityIntentDelta`-refaktorn tas som eget initiativ när området rörs nästa gång. Splittrat ägarskap kvarstår som känd, dokumenterad risk (backlograden behålls, F3-frysen hävd).
+3. `BB#f3det1` (+ syskonet `BB#f3det2`) → ✅ **fixade i PR #503**.
 
 | Akt | Vad | Status |
 |---|---|---|
-| 7.1 | Verifiera backlog-status mot `BUG-SWARM-BACKLOG.md § Aktiv kö` | ✅ 2026-07-12 (P1 + f3det1/2 under fix, provenance ägarbeslutad-deferred) |
-| 7.2 | Designnotat: "F3 utan nycklar installerar vilande integrationskod" — approve-vägen ska gå LLM-/dossier-runda när godkänd provider saknar filer i parent-versionen | levereras med PR-rundan |
-| 7.3 | Implementation + tester | kärnan = f3det1-fixen; residualscope enligt 7.2 |
+| 7.1 | Verifiera backlog-status mot `BUG-SWARM-BACKLOG.md § Aktiv kö` | ✅ 2026-07-12 (P1 + f3det1/2 fixade i #503/#504, provenance ägarbeslutad-deferred) |
+| 7.2 | Designnotat: "F3 utan nycklar installerar vilande integrationskod" | ✅ 2026-07-12 — se designnotatet nedan |
+| 7.3 | Implementation + tester | **Kärnan levererad** (#503: approve-injektionsvägen; #504: race-fri ReleaseGate). **Residualscope öppet:** acceptanskriteriernas beteendetester per hard-dossier + aktivering-utan-regenerering-verifiering (E2E). |
+
+### Designnotat 7.2 — "F3 utan nycklar installerar vilande integrationskod" (levererat 2026-07-12)
+
+**Kontraktet.** När användaren godkänner en integrations-provider i F3 utan att
+ha riktiga nycklar ska systemet ändå installera den RIKTIGA integrationskoden
+(dossierns verbatim-filer + wiring) i en ny F3-version — vilande, ärligt
+degraderad enligt dossierns `mock`-läge/config-notis — så att ifyllda nycklar
+senare bara *aktiverar* koden utan ny strukturell generering.
+
+**Beslutslogik (implementerad i #503).** Den deterministiska F3-vägen (#493,
+`f3_deterministic_release_required` 409 → exakt-fil-fork utan LLM) gäller
+enbart no-build-key-parents UTAN nya providers. En approve-continuation
+undantas när `approveRoundNeedsDossierInjection` är sann: någon godkänd
+provider (marker-providers, annars persisterade snapshot-providers) mappar via
+`mapProviderKeysToBackingDossierIds` (strikt id-/dependency-matchning, samma
+suppression som capability-varianten) till en backing-dossier vars filer
+SAKNAS i parent-versionen per den kanoniska version-presence-signalen
+(`resolveDossierIdsPresentInVersion`) — dossier-ID-granularitet, så en
+närvarande syskon-dossier aldrig tillfredsställer en nygodkänd provider.
+Durabla snapshot-approvals (`f3ApprovedCapabilities`, utan provider-identitet)
+jämförs på capability-nivå. Rundan går då den vanliga LLM-/dossier-vägen:
+dossier-injektion, kreditgate (`prepareCredits`), #374-graceful-kontraktet
+(placeholders OK, inga riktiga anrop).
+
+**Env-policyn (medveten, bekräftad vid Codex-triage på #503).** Nygodkända
+providers env-gate:as INTE vid bygget — bygg-med-placeholders + ReleaseGate
+412 vid release är kontraktet (endast `clerk-auth` har build-nycklar, och dess
+middleware key-gate:ar sig själv). Att blockera vid bygget skulle hindra exakt
+den vilande-kod-installation som är målet.
+
+**Aktivering.** Ifyllda nycklar via env-panelen träffar den redan installerade
+koden: `feature-runtime`-nycklar aktiverar direkt vid nästa runtime-anrop;
+`build`-nycklar släpper ReleaseGate-412:an. Ingen ny generering krävs.
+
+**Residual (öppet 7.3-scope, ägs av acceptanskriterierna nedan):**
+beteendetester per hard-dossier (montera utan konfiguration → ingen krasch,
+placeholder-igenkänning, inga riktiga provider-anrop, ärlig notis) utöver
+dagens `dossier-config-fallback`-mönster, samt en E2E-verifiering av
+aktiverings-flödet. Kända P3-residualer från granskningen: Phase B:s
+persist-före-consume-asymmetri och exempted-telemetrins prod-synlighet
+(loggade i backloggen).
 
 **Acceptanskriterier för etapp 7 (tillagda efter coach-review 2026-07-12):**
 
