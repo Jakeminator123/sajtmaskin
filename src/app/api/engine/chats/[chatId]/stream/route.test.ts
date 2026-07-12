@@ -2630,6 +2630,94 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(createGenerationPipeline).toHaveBeenCalled();
     });
 
+    it("coach #503: an approved DOSSIER-LESS registry provider (posthog) runs the generic LLM round, never a deterministic fork without its code", async () => {
+      // posthog exists in integrationRegistry (approvable via
+      // suggestIntegration) but has NO backing dossier. The parent has no
+      // posthog evidence in its file-derived spec → the deterministic
+      // exact-file fork would ship zero PostHog code. Policy (2026-07-13):
+      // generic LLM build path.
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["posthog"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: { requirements: [] },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>PostHog wired</main>" } },
+          { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+        ]),
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalled();
+    });
+
+    it("coach #503: a dossier-less provider ALREADY in the parent's file-derived spec keeps the deterministic release", async () => {
+      // The parent's spec already carries posthog (its wiring exists in the
+      // files) → nothing new to inject → #493's deterministic policy applies.
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["posthog"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockResolvedValue({
+        ok: true,
+        spec: {
+          requirements: [
+            {
+              key: "posthog",
+              requiredRealEnvKeys: [],
+              featureRuntimeEnvKeys: ["NEXT_PUBLIC_POSTHOG_KEY"],
+            },
+          ],
+        },
+      });
+      consumeF3ContinuationMarker.mockResolvedValue(true);
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: "f3_deterministic_release_required",
+      });
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+    });
+
     it("BB#f3det2: a lost consume race on the deterministic approve path returns 409 without persisting an orphan user row", async () => {
       getEngineChatByIdForRequest.mockResolvedValueOnce({
         id: "chat_1",
