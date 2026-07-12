@@ -109,6 +109,24 @@ class DeleteDossierDirTests(unittest.TestCase):
         self.assertFalse(ok2)
         self.assertIn("finns inte längre", msg2)
 
+    def test_refuses_symlinked_dossier_dir(self) -> None:
+        # The guard must run on the UNRESOLVED path — resolve() follows the
+        # link, and rmtree would otherwise delete the link target (Bugbot #500).
+        real_target = self.repo_root / "elsewhere"
+        real_target.mkdir()
+        link = self.dossier_root / "hard" / "linked-dossier"
+        try:
+            link.symlink_to(real_target, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlink creation not permitted in this environment")
+        ok, msg = dossiers_page._delete_dossier_dir(
+            self._chosen(id="linked-dossier", _path="data/dossiers/hard/linked-dossier")
+        )
+        self.assertFalse(ok)
+        self.assertIn("symlink", msg)
+        self.assertTrue(real_target.exists())
+        self.assertTrue(link.is_symlink())
+
 
 class ApplyCapabilityOverrideTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -154,6 +172,19 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("kebab-case", msg)
         self.assertEqual(self._read_capability(), "cms")
+
+    def test_llm_set_default_flag_is_forced_false_on_override(self) -> None:
+        # An LLM draft with defaultForCapability=true retargeted onto an
+        # existing capability must not silently create a duplicate default
+        # (Bugbot medium on #500) — the override forces false.
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest["defaultForCapability"] = True
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", "payments")
+        self.assertTrue(ok, msg)
+        saved = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved["capability"], "payments")
+        self.assertFalse(saved["defaultForCapability"])
 
     def test_strict_schema_failure_is_fail_closed(self) -> None:
         # Strict schema caps capability at 60 chars — the light pre-check does

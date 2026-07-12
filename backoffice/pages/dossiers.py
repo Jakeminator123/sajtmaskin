@@ -375,12 +375,16 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
     rel_path = str(chosen.get("_path") or "")
     if not rel_path:
         return False, "Saknar katalogsökväg för dossiern — inget raderades."
-    target_dir = (REPO_ROOT / rel_path).resolve()
+    # Symlink check MUST run on the unresolved path — `resolve()` follows the
+    # link, so checking afterwards always says False and rmtree would hit the
+    # link TARGET (Bugbot high on #500).
+    raw_dir = REPO_ROOT / rel_path
+    if raw_dir.is_symlink():
+        return False, f"`{rel_path}` är en symlink — raderas manuellt, inte härifrån."
+    target_dir = raw_dir.resolve()
     klass_root = (DOSSIER_ROOT / str(chosen.get("_class") or "")).resolve()
     if klass_root not in target_dir.parents:
         return False, f"Sökvägen ligger utanför dossier-poolen: `{rel_path}` — inget raderades."
-    if target_dir.is_symlink():
-        return False, f"`{rel_path}` är en symlink — raderas manuellt, inte härifrån."
     if not target_dir.exists():
         return False, f"Katalogen finns inte längre: `{rel_path}`."
     shutil.rmtree(target_dir)
@@ -714,6 +718,12 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
     if not manifest:
         return False, f"Kunde inte läsa {manifest_path.relative_to(REPO_ROOT)} efter kurationen."
     manifest["capability"] = capability
+    # Kuratorn styr capabilityn — men LLM:en kan ha satt defaultForCapability
+    # true, och mot en BEFINTLIG capability med redan flaggad default skulle
+    # det ge dubbla defaults (stoppas först i validate-all). Tvinga false;
+    # default-flytt är ett medvetet kuratorsbeslut i Redigera-tabben.
+    if manifest.get("defaultForCapability"):
+        manifest["defaultForCapability"] = False
     errors = _validate_manifest(manifest)
     if errors:
         return False, "Manifestet blev ogiltigt efter capability-bytet:\n" + "\n".join(f"- {e}" for e in errors)
