@@ -216,6 +216,16 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     );
   });
 
+  it("still requires a resolvable default for exempt capabilities (exception only waives mock)", () => {
+    const errors = findMissingMockFallbacks([
+      hard("vercel-analytics", "analytics", false, "none"),
+      hard("plausible-analytics", "analytics", false, "none"),
+    ]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("analytics");
+    expect(errors[0]).toContain("none with defaultForCapability");
+  });
+
   it("only checks the default — a non-default sibling without mock passes", () => {
     expect(
       findMissingMockFallbacks([

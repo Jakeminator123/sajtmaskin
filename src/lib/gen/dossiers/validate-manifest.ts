@@ -531,8 +531,12 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
 
   const errors: string[] = [];
   for (const [cap, dossiers] of hardByCap) {
-    if (Object.prototype.hasOwnProperty.call(MOCKLESS_CAPABILITY_EXCEPTIONS, cap)) continue;
-
+    // Default resolution runs for EVERY hard capability — including exempt
+    // ones. The exception only waives the mock requirement below; an exempt
+    // capability with several dossiers and no flagged default is still a
+    // missing-default error (Codex P2 on #499: checking the exception first
+    // let e.g. `analytics` lose its default silently while select.ts fell
+    // back to id-sort — exactly the false-green this invariant exists for).
     const flaggedDefaults = dossiers.filter((d) => d.defaultForCapability);
     let theDefault: DossierMockFallbackEntry | undefined;
     if (flaggedDefaults.length === 1) {
@@ -551,6 +555,8 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
       // Several flagged defaults → owned by findDuplicateDefaults; skip here.
       continue;
     }
+
+    if (Object.prototype.hasOwnProperty.call(MOCKLESS_CAPABILITY_EXCEPTIONS, cap)) continue;
 
     if ((theDefault.mock ?? "none") === "none") {
       errors.push(
