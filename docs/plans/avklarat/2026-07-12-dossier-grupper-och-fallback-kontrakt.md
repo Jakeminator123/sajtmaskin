@@ -1,5 +1,5 @@
 ---
-status: active
+status: done (etapp 1–6 levererade 2026-07-12 i PR #498/#499/#500; etapp 7 SPÄRRAD — se sektionen nedan, startas inte utan nytt ägar-OK)
 owner: orchestrator-agent (chatt 2026-07-12)
 created: 2026-07-12
 topic: Dossier-grupper (10 st) + fallback-kontrakt per capability — docs/UI/backoffice/CI-invariant, med spärrad F3-runtime-etapp
@@ -132,12 +132,12 @@ Arbetsregler:
 | 5.2 | `backoffice/pages/dossiers.py`: gruppvy (dossiers listade per kategori); skapa ny dossier inom vald kategori (förifylld capability); radera med checklista per `dossier-rules.mdc` (capability, defaultForCapability, envVars, dependencies, capability-map) | ✅ **Gruppvy:** ny checkbox i "Lista"-fliken grupperar raderna per dossier-grupp (läser `groups` från capability-map.json — ingen Python-kopia av mappningen; fallback-varning om vyn saknas). **Skapa inom kategori:** "AI-kuration"-fliken (den faktiska skapa-flödet) har fått en grupp→capability-väljare (+ fritt fält för ny capability) som patchar draftens `capability` efter kurationen, plus en textpåminnelse om mock-invarianten (hänvisar till `MOCKLESS_CAPABILITY_EXCEPTIONS`, hårdkodar inte listan). "Capability map"-fliken visar nu även en tabell över grupperna och kör om via `npm run dossiers:capability-map:write` (subprocess) i stället för en egen Python-implementation. **Radera:** ny "Radera dossier"-sektion i Redigera-fliken (ägarkravet "ta bort inom kategori"): dossier-rules-checklistan renderas med konkret läges-info (syskon under capabilityn, default-flytt-varning, envVars/deps, capability-map-påminnelse) + kryssad bekräftelse + exakt id-inmatning innan `shutil.rmtree`; återställbart via git före commit. |
 | 5.3 | Regenerera capability-map + `npm run dossiers:validate-all` | ✅ Båda gröna (36/36 dossiers, 33 capabilities). Dessutom: `npx vitest run src/lib/builder/dossier-groups.test.ts` (7/7), `npm run backoffice:test` (52/52), typecheck (0 fel), `python -m py_compile backoffice/pages/dossiers.py` (0 fel). |
 
-### Etapp 6 — Builder-UI (Sonnet 5) — ev. noll-arbete, annars PR D
+### Etapp 6 — Builder-UI ✅ (noll kodarbete, verifierad 2026-07-12)
 
 | Akt | Vad | Verifiering |
 |---|---|---|
-| 6.1 | Bekräfta att `PreviewPanelDossiers` renderar de 10 grupperna korrekt efter etapp 3 (förväntas automatiskt) | dev-röktest |
-| 6.2 | UI-copy-svep: "Byggblock" i användarsynlig text, svenska labels, inga "dossier" i user-copy | kodläsning |
+| 6.1 | Bekräfta att `PreviewPanelDossiers` renderar de 10 grupperna korrekt efter etapp 3 (förväntas automatiskt) | ✅ dev-röktest: `GET /api/dossiers/catalog` mot lokal dev-server gav alla 9 icke-tomma grupper i `DOSSIER_GROUP_ORDER`-ordning med rätt labels (tomma `other` utelämnas korrekt); komponent-/API-tester 50/50 gröna |
+| 6.2 | UI-copy-svep: "Byggblock" i användarsynlig text, svenska labels, inga "dossier" i user-copy | ✅ kodläsning: all user-copy i `PreviewPanelDossiers.tsx` använder "Byggblock"; `dossier` förekommer bara i kodidentifierare/API-paths (per terminologiregeln) |
 
 ### Etapp 7 — F3-runtime-kontrakt 🔒 SPÄRRAD (Opus 4.8 / Fable 5)
 
@@ -153,11 +153,11 @@ Arbetsregler:
 | 7.2 | Designnotat: "F3 utan nycklar installerar vilande integrationskod" — approve-vägen ska gå LLM-/dossier-runda när godkänd provider saknar filer i parent-versionen |
 | 7.3 | Implementation + tester (scope sätts i 7.2; egen PR) |
 
-## Definition of done (hela planen, exkl. etapp 7)
+## Definition of done (hela planen, exkl. etapp 7) — ALLA UPPFYLLDA 2026-07-12
 
-- [ ] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem
+- [x] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem (dev-röktest etapp 6)
 - [x] Glossary/terminology/dossier-system.md speglar grupp vs capability + fallback-kontraktet (PR #498 + #499)
 - [x] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt
 - [x] Backoffice: kategorivy + genererad gruppvy i `_index/` (etapp 5). Lägg-till (skapa inom kategori) och ta-bort (radera med checklista + id-bekräftelse) levererade.
-- [ ] `npm run typecheck` + `npm run lint` + `npx vitest run` gröna per PR; `/granska` + bugbot-postcheck körda per PR
-- [ ] Planen flyttad till `docs/plans/avklarat/` med etapp 7 utbruten till egen post (spärrad, i denna fil eller backloggen)
+- [x] `npm run typecheck` + `npm run lint` + `npx vitest run` gröna per PR; `/granska` + bugbot-postcheck körda och triagedokumenterade på alla tre PR:er (#498, #499, #500)
+- [x] Planen flyttad till `docs/plans/avklarat/`; etapp 7 kvar som SPÄRRAD post i denna fil (inträdeskriterier ovan + nytt ägar-OK krävs)
