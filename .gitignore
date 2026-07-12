@@ -291,3 +291,5 @@ scratch-*.json
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
+
+.vercel
