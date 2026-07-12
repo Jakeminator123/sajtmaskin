@@ -205,6 +205,12 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
    so prompts actually trigger it. Add a corresponding hint in
    `buildCapabilityHints` so the codegen LLM gets pointed at the dossier's
    exposed symbols.
+8. Run `npm run dossiers:validate-all` — the CI-blocking gate. Beyond the
+   schema it enforces exposes/import-closure, default uniqueness, and the
+   mock-fallback invariant: a hard capability's DEFAULT dossier must declare
+   `mock ≠ none` unless the capability is listed in
+   `MOCKLESS_CAPABILITY_EXCEPTIONS` (see
+   `docs/contracts/dossier-system.md` § CI-invariant).
 
 ## Anti-patterns (do not ship a dossier that does these)
 

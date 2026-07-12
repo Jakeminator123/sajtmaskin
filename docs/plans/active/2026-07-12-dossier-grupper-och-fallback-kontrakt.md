@@ -64,10 +64,11 @@ visuellt/interaktion; `cms` flyttas från innehåll till Data & lagring.
 > betalning/inloggning/realtid visar `IntegrationConfigNotice`; analytics
 > self-disablar via `warn-only`).
 
-Utgångsförslag undantagslista (fastställs i aktivitet 4.1): `payments`,
-`subscriptions`, `auth`, `supabase-auth`, `realtime`, `analytics`,
-`error-tracking`. Invarianten implementeras i `scripts/dossiers/validate-all.ts`
-(CI-blockerande) — inte som nytt schemafält.
+Utgångsförslag undantagslista (fastställd oförändrad i aktivitet 4.1):
+`payments`, `subscriptions`, `auth`, `supabase-auth`, `realtime`, `analytics`,
+`error-tracking`. Invarianten implementeras som ren funktion i
+`src/lib/gen/dossiers/validate-manifest.ts` och wiras CI-blockerande i
+`scripts/dossiers/validate-all.ts` — inte som nytt schemafält.
 
 ## Orkestrerings- och modellplan
 
@@ -104,7 +105,7 @@ Arbetsregler:
 |---|---|---|
 | 2.1 | `docs/architecture/glossary.md`: registrera **dossier-grupp** (UI-kategori, styr ej selektion) vs **capability**; capability-nivå-fallback via default-dossierns mock | länk-/diff-koll |
 | 2.2 | `.cursor/rules/terminology.mdc`: rad i förväxlingstabellen — "kategori/grupp" om dossier-UI → `dossier-grupp`, aldrig synonym med capability | — |
-| 2.3 | `docs/contracts/dossier-system.md`: grupptabellen ovan + fallback-invariantens kontraktstext + undantagslistans plats | — |
+| 2.3 | `docs/contracts/dossier-system.md`: grupptabellen ovan + fallback-invariantens kontraktstext + undantagslistans plats | ✅ grupptabell + princip i PR A; undantagslista + CI-invariant-text kompletterad i PR B (etapp 4) |
 
 ### Etapp 3 — Gruppmapp 9→10 (Sonnet 5) — PR A ✅ levererad i PR A
 
@@ -114,14 +115,14 @@ Arbetsregler:
 | 3.2 | `dossier-groups.test.ts`: uppdatera förväntningar (alla capabilities i capability-map → icke-"Övrigt") | riktad `npx vitest run` |
 | 3.3 | Verifiera att builder-popovern (`PreviewPanelDossiers`) följer automatiskt (konsumerar gruppmappen) | kodläsning ✅ (konsumerar `DOSSIER_GROUP_ORDER`/`resolveDossierGroup` + catalog-API:t samma buckets); dev-röktest → etapp 6 |
 
-### Etapp 4 — Fallback-invariant i CI (Opus 4.8) — PR B
+### Etapp 4 — Fallback-invariant i CI (Opus 4.8) — PR B ✅ levererad i PR B
 
 | Akt | Vad | Verifiering |
 |---|---|---|
-| 4.1 | Fastställ undantagslistan (utgångsförslag ovan); dokumentera i `dossier-system.md` | ägar-ping endast vid avvikelse från förslaget |
-| 4.2 | Implementera invarianten i `scripts/dossiers/validate-all.ts` (hard-capability ⇒ default-dossier med `mock ≠ none`, annars undantag) | `npm run dossiers:validate-all` |
-| 4.3 | Test för invarianten (bredvid `validate-manifest.test.ts`-mönstret) | `npx vitest run` |
-| 4.4 | Kör invarianten mot live-poolen; åtgärda fynd (saknade/felaktiga `mock`-fält) en dossier i taget | validate-all grönt |
+| 4.1 | Fastställ undantagslistan (utgångsförslag ovan); dokumentera i `dossier-system.md` | ✅ **Fastställd lista (7, ingen avvikelse från förslaget):** `payments`, `subscriptions`, `auth`, `supabase-auth`, `realtime`, `analytics`, `error-tracking`. Dokumenterad med motivering per capability i `dossier-system.md` (grupp-sektionen) + `MOCKLESS_CAPABILITY_EXCEPTIONS` i `validate-manifest.ts`. |
+| 4.2 | Implementera invarianten i `scripts/dossiers/validate-all.ts` (hard-capability ⇒ default-dossier med `mock ≠ none`, annars undantag) | ✅ Ren funktion `findMissingMockFallbacks()` i `validate-manifest.ts`, wired som blockerande cross-cutting-check i `validate-all.ts`; `npm run dossiers:validate-all` grönt |
+| 4.3 | Test för invarianten (bredvid `validate-manifest.test.ts`-mönstret) | ✅ 9 enhetstester + drift-guard mot live-poolen i `validate-manifest.test.ts`; `npx vitest run` grönt (35 tests i filen) |
+| 4.4 | Kör invarianten mot live-poolen; åtgärda fynd (saknade/felaktiga `mock`-fält) en dossier i taget | ✅ 36 dossiers validerar. 8 hard-capabilities passerar via mock (`cms`/`contact-form`/`rag-chat`/`database`/`ai-chat`/`newsletter-subscribe`/`image-generation`/`ai-tool-calling`), 7 via undantagslistan. **Inga fynd — inga dossier-/manifest-ändringar behövdes.** |
 
 ### Etapp 5 — Backoffice: kategorivy + hantering (Sonnet 5, Opus 4.8 vid behov) — PR C
 
@@ -156,7 +157,7 @@ Arbetsregler:
 
 - [ ] 10 grupper i `dossier-groups.ts` + test grönt; builder-popovern visar dem
 - [ ] Glossary/terminology/dossier-system.md speglar grupp vs capability + fallback-kontraktet
-- [ ] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt
+- [x] CI-invariant: hard-capability ⇒ default-dossier med mock ≠ none (eller dokumenterat undantag); `dossiers:validate-all` grönt
 - [ ] Backoffice: kategorivy med lägg-till/ta-bort; genererad gruppvy i `_index/`
 - [ ] `npm run typecheck` + `npm run lint` + `npx vitest run` gröna per PR; `/granska` + bugbot-postcheck körda per PR
 - [ ] Planen flyttad till `docs/plans/avklarat/` med etapp 7 utbruten till egen post (spärrad, i denna fil eller backloggen)

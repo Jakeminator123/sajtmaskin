@@ -33,7 +33,8 @@ Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELIN
 2. Skriv `manifest.json` (validera mot `docs/schemas/strict/dossier.schema.json`).
 3. Skriv `instructions.md` med fem sektioner: When to use / How to integrate / UX rules / Avoid / Verification.
 4. Lägg ev. komponentfiler under `<id>/components/`.
-5. Backoffice → "Dossiers" → "Capability map" → "Bygg om" så `_index/capability-map.json` uppdateras.
+5. Kör `npm run dossiers:validate-all` — CI-blockerande. Obs mock-invarianten: en hard-capabilitys **default**-dossier måste ha `mock ≠ none` (eller capabilityn stå i `MOCKLESS_CAPABILITY_EXCEPTIONS`) — se `docs/contracts/dossier-system.md` § CI-invariant.
+6. Backoffice → "Dossiers" → "Capability map" → "Bygg om" så `_index/capability-map.json` uppdateras.
 
 ### B. AI-kuration från ett klonat upstream-repo
 
