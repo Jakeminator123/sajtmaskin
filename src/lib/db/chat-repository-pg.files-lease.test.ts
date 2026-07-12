@@ -17,8 +17,10 @@ const updateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
 const updateRowCount = vi.hoisted(() => ({ value: 0 }));
 // leaseTableExists() → db.execute(to_regclass) — null oid means "table missing".
 const regclassOid = vi.hoisted(() => ({ value: "12345" as string | null }));
-// hasActiveVersionLease() → db.select(...).limit(1) rows.
-const activeLeaseRows = vi.hoisted(() => ({ value: [] as unknown[] }));
+// Row-existence probe after a 0-row guarded UPDATE → db.select(...).limit(1).
+// Non-empty = the version row EXISTS, so the 0-row can only mean the lease
+// blocked the write (exact classification, no lease re-probe race).
+const probeRows = vi.hoisted(() => ({ value: [] as unknown[] }));
 // getStoredVersion is not exercised (we assert on the boolean/throw), but keep
 // the select chain alive for any incidental read.
 
@@ -41,7 +43,7 @@ vi.mock("@/lib/db/client", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: () => Promise.resolve(activeLeaseRows.value),
+            limit: () => Promise.resolve(probeRows.value),
           }),
         }),
       }),
@@ -79,14 +81,14 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     updateWhere.value = undefined;
     updateRowCount.value = 0;
     regclassOid.value = "12345"; // lease table exists by default
-    activeLeaseRows.value = [];
+    probeRows.value = [];
   });
 
   it("(a) blocks a user edit while a FOREIGN lease is active — throws version_busy, WHERE guards on NOT EXISTS lease", async () => {
     // A foreign, unexpired lease owns the row → the NOT EXISTS predicate fails →
     // 0-row UPDATE. The post-write probe sees the active lease → typed throw.
     updateRowCount.value = 0;
-    activeLeaseRows.value = [{ id: "job-1" }];
+    probeRows.value = [{ id: "job-1" }];
 
     await expect(updateVersionFiles("ver-1", FILES, { invalidateVerification: true })).rejects.toBeInstanceOf(
       VersionLeaseHeldError,
@@ -104,7 +106,7 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
 
   it("(a') carries version_busy on the thrown error for the 409 translation", async () => {
     updateRowCount.value = 0;
-    activeLeaseRows.value = [{ id: "job-1" }];
+    probeRows.value = [{ id: "job-1" }];
     const err = await updateVersionFiles("ver-1", FILES).catch((e) => e);
     expect(err).toBeInstanceOf(VersionLeaseHeldError);
     expect((err as VersionLeaseHeldError).code).toBe("version_busy");
@@ -113,7 +115,7 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
 
   it("returns false (NOT a lease throw) when the row is simply missing — so callers 404, not 409", async () => {
     updateRowCount.value = 0;
-    activeLeaseRows.value = []; // no lease held → the 0-row is a missing row
+    probeRows.value = []; // no lease held → the 0-row is a missing row
     const ok = await updateVersionFiles("ver-1", FILES, { invalidateVerification: true });
     expect(ok).toBe(false);
   });
@@ -149,7 +151,7 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     // can't clobber a lease-protected snapshot; it just skips (returns false)
     // and the next uncontended read re-persists the idempotent heal.
     updateRowCount.value = 0;
-    activeLeaseRows.value = [{ id: "job-1" }];
+    probeRows.value = [{ id: "job-1" }];
     const ok = await updateVersionFiles("ver-1", FILES, { lockTimeoutMs: 2000 });
     expect(ok).toBe(false);
     const sql = renderWhere();

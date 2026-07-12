@@ -834,30 +834,26 @@ export async function updateVersionFiles(
   // from a plain no-op (missing row → the caller's existing `false`/404 path).
   // Only the NON-holder guarded path can be lease-blocked; the holder path's
   // 0-row means its own lease was lost/taken over, which its callers already
-  // treat as a plain `false` (same as `markVersionVerifying` et al.). The probe
-  // runs AFTER the atomic write already no-op'd — it never gates the write — so
-  // it introduces no TOCTOU (same shape as `saveRepairedFiles`'s stale probe).
+  // treat as a plain `false` (same as `markVersionVerifying` et al.).
   //
-  // FAIL-CLOSED probe (Bugbot on #507): `hasActiveVersionLease` fail-opens to
-  // `false` on DB errors, which would mislabel a blocked write as a plain
-  // no-op (500 / false `fixed:true` instead of the retryable 409). The table
-  // is known to exist here (`jobsExist`), so a probe error is a real DB
-  // hiccup — classify as busy (retryable) rather than silently downgrading.
+  // EXACT classification via ROW-EXISTENCE, not a lease re-probe (Bugbot on
+  // #507, two rounds): the guarded WHERE is `id = X AND NOT EXISTS(active
+  // lease)`, so a 0-row result while the ROW EXISTS can only mean the lease
+  // blocked the write AT EXECUTION TIME — even if the lease was released
+  // between the UPDATE and this probe (the re-probe race), and regardless of
+  // probe-query hiccups (`.catch` classifies as busy: the table is known to
+  // exist via `jobsExist`, so an error here is a real DB hiccup and busy is
+  // the retryable, honest answer). The probe runs AFTER the atomic write
+  // no-op'd — it never gates the write, so no TOCTOU.
   if (!holderRunId && jobsExist) {
-    const leaseBlocked = await db
-      .select({ id: engineVersionJobs.id })
-      .from(engineVersionJobs)
-      .where(
-        and(
-          eq(engineVersionJobs.versionId, versionId),
-          eq(engineVersionJobs.status, "running"),
-          gt(engineVersionJobs.leaseExpiresAt, sql`now()`),
-        ),
-      )
+    const rowExists = await db
+      .select({ id: engineVersions.id })
+      .from(engineVersions)
+      .where(eq(engineVersions.id, versionId))
       .limit(1)
       .then((rows) => rows.length > 0)
       .catch(() => true);
-    if (leaseBlocked) {
+    if (rowExists) {
       throw new VersionLeaseHeldError(versionId);
     }
   }
