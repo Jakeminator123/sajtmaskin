@@ -5,11 +5,13 @@ WHAT THIS IS (kort svensk forklaring)
 -------------------------------------
 Det har ar ett ordningstest (regression-/sanity-test) som verifierar att de tva
 Supabase-Postgres-databaserna (dev + prod) och den enda Vercel Blob-storen ar i
-forvantat lage. DEV ar reset/test-databasen och forvantas fortfarande vara i det
-"ny-omstartade" tomma laget (EMPTY-gruppen = 0 rader). PROD bar riktig
-anvandardata, sa dar verifieras bara connectivity, schema och PRESERVED-tabeller;
-EMPTY-radantal ar informationella (den gamla "prod ar ocksa tom"-forvantan var
-forlegad). Det laser BARA (inga skrivningar mot databasen som standard) och
+forvantat lage. DEV ar en anvand dev/preview-scratch-DB (preview-deployer och
+lokal dev skriver genererade-sajt-rader dit), sa ackumulerade EMPTY-grupp-rader ar
+en Advisory (WARN) dar - inte ett hard fel. PROD bar riktig anvandardata, sa dar
+ar EMPTY-radantal informationella (den gamla "prod ar ocksa tom"-forvantan var
+forlegad; samma forlegade "dev ar alltid tom"-forvantan gjorde forut gaten rod pa
+en anvand dev-DB). Bada verifierar fortfarande connectivity, schema, PRESERVED och
+paritet hart. Det laser BARA (inga skrivningar mot databasen som standard) och
 flaggar varje avvikelse.
 Det kan koras manuellt (med fa, valfria atgardsfragor) eller helt icke-interaktivt
 som en CI-grind (gate) pa varje push / PR-merge.
@@ -17,17 +19,19 @@ som en CI-grind (gate) pa varje push / PR-merge.
 THE "IN SYNC" DIRECTIVES IT ENFORCES
 ------------------------------------
 Two Supabase Postgres databases share the same SCHEMA but have different
-row-state contracts (dev enforces the EMPTY reset state, prod treats it as
-informational — see the table classification below):
+row-state contracts (dev treats EMPTY-group rows as an Advisory/WARN, prod treats
+them as informational — see the table classification below):
   - dev  -> Vercel env target `development` (host like aws-1-eu-north-1.pooler.supabase.com)
   - prod -> Vercel env target `production`  (us-east-1)
 
 Table classification:
-  - EMPTY     : generated user sites + byproducts -> must have 0 rows in DEV
-                (the reset/test DB). In PROD these carry live user data, so their
-                row counts are INFORMATIONAL only (the old "prod is also empty"
-                assumption was stale and made this gate permanently red on a used
-                production database).
+  - EMPTY     : generated user sites + byproducts. DEV is a used dev/preview
+                scratch DB, so accumulated rows there are an Advisory (WARN,
+                consider a periodic dev reset) — not a hard fail. In PROD these
+                carry live user data, so their row counts are INFORMATIONAL only
+                (the old "prod is also empty" assumption was stale and made this
+                gate permanently red on a used production database — the same now
+                applies to the actively-used dev DB).
   - PRESERVED : credentials / business / analytics -> must exist (rows allowed).
   - CACHE     : regeneratable -> must exist, row count is informational.
 
@@ -43,10 +47,11 @@ CHECKS (all read-only)
   2. Schema present - all expected tables exist in both DBs. Unclassified tables
                       FAIL as drift, except acknowledged infra tables (the
                       `schema_migrations` migration ledger) which are allowed.
-  3. Restart state  - EMPTY-group tables have 0 rows in DEV; PRESERVED exist in
-                      both. In PROD the EMPTY group is informational (live data).
+  3. Restart state  - EMPTY-group rows in DEV are an Advisory (WARN) not a fail;
+                      PRESERVED exist in both. In PROD the EMPTY group is
+                      informational (live data).
   4. Dev/prod parity- same tables exist in both; empty-group divergence between a
-                      reset dev and a live prod is expected (informational).
+                      used dev and a live prod is expected (informational).
   5. Blob sync      - only the `v0-templates/` top-level prefix exists.
 
 EXIT CODE
@@ -457,8 +462,59 @@ class DbState:
         self.error: Optional[str] = None
 
 
+def _empty_group_detail(
+    non_empty: Dict[str, int], unverified: List[str], rows_label: str
+) -> str:
+    parts = []
+    if non_empty:
+        parts.append(rows_label + ": " + ", ".join(f"{t}={c}" for t, c in non_empty.items()))
+    if unverified:
+        parts.append("unverified (count failed): " + ", ".join(unverified))
+    return "; ".join(parts)
+
+
+def classify_empty_group(
+    mode: str,
+    present_empty: List[str],
+    non_empty: Dict[str, int],
+    unverified: List[str],
+) -> Tuple[str, str, str]:
+    """Pure decision for the EMPTY-group restart-state check (unit-testable).
+
+    mode:
+      - 'enforce': EMPTY-group must be 0 rows; non-zero/unverified -> FAIL (hard reset DB).
+      - 'warn'   : dev is a used dev/preview scratch DB; accumulated rows are an
+                   Advisory (WARN), not a Blocker. A failed COUNT is still a WARN.
+      - 'info'   : prod carries live data; row counts are informational (PASS),
+                   only a failed COUNT warns.
+    Returns (status, name_suffix, detail).
+    """
+    has_rows = bool(non_empty)
+    has_issue = has_rows or bool(unverified)
+    if mode == "enforce":
+        if has_issue:
+            return (FAIL, "restart state (EMPTY group)", _empty_group_detail(non_empty, unverified, "non-zero rows"))
+        return (PASS, "restart state (EMPTY group)", f"{len(present_empty)} table(s) at 0 rows")
+    if mode == "warn":
+        if has_issue:
+            return (
+                WARN,
+                "restart state (EMPTY group, advisory)",
+                _empty_group_detail(non_empty, unverified, "accumulated rows (advisory; consider a dev reset)"),
+            )
+        return (PASS, "restart state (EMPTY group)", f"{len(present_empty)} table(s) at 0 rows")
+    # 'info' (prod): live data expected; only a failed COUNT is worth a WARN.
+    if unverified:
+        return (WARN, "restart state (EMPTY group)", "count failed: " + ", ".join(unverified))
+    return (
+        PASS,
+        "restart state (EMPTY group, informational)",
+        f"{len(non_empty)}/{len(present_empty)} table(s) hold live rows (expected in prod)",
+    )
+
+
 def inspect_db(
-    name: str, urls: List[str], report: Report, *, enforce_empty: bool
+    name: str, urls: List[str], report: Report, *, empty_mode: str
 ) -> DbState:
     state = DbState(name)
     label = name.upper()
@@ -542,34 +598,10 @@ def inspect_db(
         # A failed count is stored as -1; it must NOT be treated as "0 rows" or the
         # gate could pass without ever confirming the EMPTY state where enforced.
         unverified = [t for t in present_empty if state.counts[t] < 0]
-        if enforce_empty:
-            # Dev is the reset/test DB: the post-restart EMPTY contract is enforced.
-            if non_empty or unverified:
-                parts = []
-                if non_empty:
-                    parts.append("non-zero rows: " + ", ".join(f"{t}={c}" for t, c in non_empty.items()))
-                if unverified:
-                    parts.append("unverified (count failed): " + ", ".join(unverified))
-                report.add(FAIL, f"{label} restart state (EMPTY group)", "; ".join(parts))
-            else:
-                report.add(PASS, f"{label} restart state (EMPTY group)", f"{len(present_empty)} table(s) at 0 rows")
-        else:
-            # Prod carries live user-site data, so the "0 rows" post-restart
-            # assumption does not apply there (that stale assumption is what made
-            # this gate red on live prod). Row counts stay informational; only a
-            # failed COUNT (an actual read problem) is worth a WARN.
-            if unverified:
-                report.add(
-                    WARN,
-                    f"{label} restart state (EMPTY group)",
-                    "count failed: " + ", ".join(unverified),
-                )
-            else:
-                report.add(
-                    PASS,
-                    f"{label} restart state (EMPTY group, informational)",
-                    f"{len(non_empty)}/{len(present_empty)} table(s) hold live rows (expected in prod)",
-                )
+        status, name_suffix, detail = classify_empty_group(
+            empty_mode, present_empty, non_empty, unverified
+        )
+        report.add(status, f"{label} {name_suffix}", detail)
 
         preserved_present = [t for t in PRESERVED_TABLES if t in state.tables]
         report.add(
@@ -700,11 +732,11 @@ def check_parity(dev: DbState, prod: DbState, report: Report) -> None:
         if dc is not None and pc is not None and (dc > 0) != (pc > 0):
             empty_div.append(f"{t} (dev={dc}, prod={pc})")
 
-    # Empty-group divergence between a reset dev and a live prod is EXPECTED now,
+    # Empty-group divergence between a used dev and a live prod is EXPECTED now,
     # so it is reported as an informational note rather than a WARN. Only a real
     # schema-set difference (a table present in one DB but not the other) warns.
     empty_note = (
-        f"empty-group divergence (informational, dev reset vs prod live): {', '.join(empty_div)}"
+        f"empty-group divergence (informational, dev vs prod): {', '.join(empty_div)}"
         if empty_div
         else ""
     )
@@ -766,8 +798,8 @@ def print_count_table(dev: DbState, prod: DbState) -> None:
     print(fmt.format("table", "group", "dev", "prod", "expect"), flush=True)
     print("  " + "-" * (name_w + 38), flush=True)
     for table in EXPECTED_TABLES:
-        # EMPTY is enforced (0 rows) only in dev; prod counts are informational.
-        expect = "0 rows (dev)" if GROUP_OF[table] == "EMPTY" else "exists"
+        # EMPTY: 0 rows is only an advisory in dev now; prod counts are informational.
+        expect = "0 rows adv (dev)" if GROUP_OF[table] == "EMPTY" else "exists"
         print(
             fmt.format(table, GROUP_OF[table], cell(dev, table), cell(prod, table), expect),
             flush=True,
@@ -816,8 +848,9 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="pydatabastest.py",
         description="Order/regression test: verify dev+prod Postgres and the Vercel Blob "
-        "store are in the expected state — dev in the reset/EMPTY post-restart state, "
-        "prod with live data (schema + preserved enforced, EMPTY informational) (read-only).",
+        "store are in the expected state — dev is a used scratch DB (EMPTY-group rows are "
+        "an advisory WARN), prod has live data (schema + preserved enforced, EMPTY "
+        "informational) (read-only).",
     )
     parser.add_argument("--ci", action="store_true", help="non-interactive CI gate (no prompts, no Vercel pull)")
     parser.add_argument("--no-input", action="store_true", help="non-interactive (alias of --ci's no-prompt behaviour)")
@@ -862,10 +895,13 @@ def main(argv: List[str]) -> int:
         print(f"  (dev creds via {dev_src[0]})", flush=True)
     if prod_src:
         print(f"  (prod creds via {prod_src[0]})", flush=True)
-    # Dev is the reset/test DB → the post-restart EMPTY contract is enforced.
-    # Prod carries live user-site data → EMPTY rows are informational there.
-    dev = inspect_db("dev", dev_urls, report, enforce_empty=True)
-    prod = inspect_db("prod", prod_urls, report, enforce_empty=False)
+    # Dev is a used dev/preview scratch DB (preview deployments + local dev write
+    # generated-site rows here), so accumulated EMPTY-group rows are an Advisory
+    # (WARN), not a Blocker. Prod carries live user-site data → EMPTY rows are
+    # informational there. Both still enforce connectivity, schema, no drift,
+    # preserved tables and parity.
+    dev = inspect_db("dev", dev_urls, report, empty_mode="warn")
+    prod = inspect_db("prod", prod_urls, report, empty_mode="info")
 
     header("4. Dev/prod parity")
     check_parity(dev, prod, report)
