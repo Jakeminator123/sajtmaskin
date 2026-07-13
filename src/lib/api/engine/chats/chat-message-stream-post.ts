@@ -824,12 +824,26 @@ export async function handleMessageStreamRequest(
               );
             }
             if (gateVersionId) {
+              const pendingApprovedProviderKeys =
+                f3ContinuationDecision?.replyIntent === "approve"
+                  ? (() => {
+                      const persistedApproved = readF3ApprovedFromSnapshot(
+                        (engineChat.orchestration_snapshot as Record<string, unknown> | null) ??
+                          null,
+                      );
+                      const markerProviders = f3ContinuationDecision.markerSuggestedProviders;
+                      return markerProviders.length > 0
+                        ? markerProviders
+                        : persistedApproved.providers;
+                    })()
+                  : [];
               // Dossier scoping (snapshot ∪ version-presence) resolves inside
               // the gate — one owner shared with the readiness/dossiers routes.
               const gate = await checkTier3ReadinessForVersion({
                 versionId: gateVersionId,
                 orchestrationSnapshot: engineChat.orchestration_snapshot,
                 projectId: engineChat.project_id ?? null,
+                pendingApprovedProviderKeys,
               });
               if (!gate.ok && gate.reason === "missing_env") {
                 debugLog("orchestration", "F3 stream gated on env readiness (412)", {
