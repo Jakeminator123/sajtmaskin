@@ -33,6 +33,14 @@ Set-Location ..\sajtmaskin
 git worktree remove ..\sajtmaskin-feat-X
 ```
 
+## Flera agenter samtidigt
+
+Delad checkout = **en** HEAD, **ett** index, **ett** working tree. Körs flera agenter parallellt:
+
+- **Max en git-mutator i huvudcheckouten.** Alla andra som ska committa/pusha/branch:a gör det i **egen worktree** (ovan) — aldrig `switch`/`merge`/`pull`/`reset` i den delade checkouten medan någon annan är aktiv.
+- **En merge-agent landar allt.** Övriga agenter lämnar antingen en pushad worktree-branch + PR, eller en ocommittad diff som merge-agenten tar. Stage bara **egna** filer (`git add <path>`), aldrig `git add -A` i delad tree.
+- **HEAD kan flyttas under dig** av en parallell process — en branch som "försvinner" är oftast redan mergad, inte tappad. Verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat; rädda ocommittat med `git stash push -m ... -- <filer>`.
+
 ## Om regeln brutits
 
 Stoppa. Kör `git status`. Rädda ändringar med `git stash push -u -m "rescue-<kort>-<tid>"`. Rapportera branch, stash-namn och ändrade filer.
