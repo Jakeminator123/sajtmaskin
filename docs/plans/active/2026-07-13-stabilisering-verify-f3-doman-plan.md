@@ -9,6 +9,8 @@ relates_to: BUG-SWARM-BACKLOG.md (M#f3env1, M#vlane1–3, BB#299, #486-raden, BB
 
 # Stabiliseringsplan: verify-ägarskap, F3-env-gate och domänrester
 
+> **Leveransstatus 2026-07-13 (samma dag):** PR 1 = **#517 mergad** · PR 2 = **#518 mergad** (9 externa review-fynd triagerade: 8 fixade, 1 dismissad — se PR-kommentarerna) · PR 3 = **#519 mergad** (6 externa fynd, alla fixade — inkl. ny kanonisk `resolveCanonicalVercelProjectForDomain`). Backlog-raderna M#f3env1, M#vlane1–2, BB#299, #486 a–c och BB#deploy4 är arkiverade. **PR-sektionerna 1–3 nedan är därmed historik/kontext**, inte öppet arbete — radreferenserna gällde master `2459042eb`. Kvar i planen: PR 4 (review-freshness), PR 5 (verification-invalidation), § 6-svansarna och § 7.
+
 ## Startläge (snapshot 2026-07-13 ~08:00 — verifiera om vid start)
 
 - `origin/master` = `2459042eb` (#514). CI grön; Vercel prod `READY` (verifierat via Vercel MCP mot #512, två docs-/test-PR:er senare).
