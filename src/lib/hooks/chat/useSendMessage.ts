@@ -387,6 +387,10 @@ export function useSendMessage(
             errorData?.error === "f3_deterministic_release_required" &&
             typeof errorData.parentVersionId === "string"
           ) {
+            // The nested finalize is its own gate round — its verdict
+            // supersedes saves made during the ORIGINAL stream request, so
+            // its 412 must carry its own start time (Bugbot on #525).
+            const finalizeRequestStartedAt = Date.now();
             const release = await runF3FinalizeAction({
               chatId,
               parentVersionId: errorData.parentVersionId,
@@ -419,7 +423,7 @@ export function useSendMessage(
               dispatchF3Requirements({
                 parentVersionId: release.parentVersionId,
                 chatId,
-                requestStartedAt: streamRequestStartedAt,
+                requestStartedAt: finalizeRequestStartedAt,
                 projectId: release.projectId,
                 missingByIntegration: release.missingByIntegration,
               });
