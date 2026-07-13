@@ -1,14 +1,16 @@
 name: DB + Blob sync check
 
 # Order/regression gate: verifies the dev + prod Supabase Postgres databases and
-# the Vercel Blob store are in the expected state. Read-only. DEV is the reset DB
-# (EMPTY-group must be 0 rows); PROD carries live user data, so there only
-# connectivity, schema and PRESERVED tables are enforced and the EMPTY-group row
+# the Vercel Blob store are in the expected state. Read-only. DEV is a used
+# dev/preview scratch DB, so accumulated EMPTY-group rows there are an Advisory
+# (WARN), not a fail; PROD carries live user data, so there the EMPTY-group row
 # counts are informational (the old "prod is also empty" assumption was stale and
-# kept this gate red on a used production DB). Runs pydatabastest.py --ci, which
-# never prompts and exits non-zero on any FAIL. If a DB/blob secret is empty, that
-# target is SKIPPED with a WARN so the job still passes meaningfully in forks /
-# environments without prod credentials.
+# kept this gate red on a used production DB — the same now applies to the
+# actively-used dev DB). Both still enforce connectivity, schema, no drift,
+# PRESERVED tables and parity. Runs pydatabastest.py --ci, which never prompts and
+# exits non-zero on any FAIL. If a DB/blob secret is empty, that target is SKIPPED
+# with a WARN so the job still passes meaningfully in forks / environments without
+# prod credentials.
 
 on:
   push:
@@ -43,6 +45,11 @@ jobs:
 
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -r requirements.dbtest.txt
+
+      # Behavior tests for the gate's EMPTY-group decision logic (enforce/warn/info).
+      # No DB or credentials needed, so they run on every event including PRs.
+      - name: Run gate unit tests
+        run: python -m unittest test_pydatabastest -v
 
       # SECURITY: production credentials are injected ONLY on trusted events (push to
       # master / manual dispatch). On pull_request a separate no-secret step runs the
