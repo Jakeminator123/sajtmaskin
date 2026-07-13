@@ -6,6 +6,7 @@ const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const promoteVersionIfUnleased = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
+const emit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -17,6 +18,7 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/logging/event-bus", () => ({
   readAll,
+  emit,
 }));
 
 // Both of these transitively import `@/lib/db/client`, which throws at module
@@ -241,6 +243,73 @@ describe("GET version-status (engine)", () => {
 
     expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(false);
     expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("emits version.degraded after a reconcile-promote on an ADVISORY verdict (bugbot medium #518)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    readAll.mockReturnValue(spinningBus);
+    // Latest gate verdict is an F2 typecheck-advisory (warning, no repass).
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "v1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      (version: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version, failed: false };
+      },
+    );
+
+    await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        versionId: "v1",
+        chatId: "chat_1",
+        kind: "typecheck_advisory",
+      }),
+    );
+  });
+
+  it("does NOT emit version.degraded after a reconcile-promote on a clean PASS (bugbot medium #518)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    readAll.mockReturnValue(spinningBus);
+    // Latest gate verdict is a clean pass.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "info", meta: { passed: true } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "v1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      (version: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version, failed: false };
+      },
+    );
+
+    await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(emit).not.toHaveBeenCalled();
   });
 
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {

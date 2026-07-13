@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
+  isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
   resolveGateFailureSummaryFromLogs,
 } from "./gate-failure-summary";
@@ -260,5 +261,79 @@ describe("isLatestGateVerdictGreen (BB#299 watchdog reconciliation)", () => {
       }),
     ];
     expect(isLatestGateVerdictGreen(logs)).toBe(false);
+  });
+});
+
+describe("isLatestGateVerdictAdvisory (bugbot medium #518 — degraded-emit on reconcile)", () => {
+  it("is false when there is no quality-gate verdict at all", () => {
+    expect(
+      isLatestGateVerdictAdvisory([makeLog({ category: "preview", level: "warning" })]),
+    ).toBe(false);
+  });
+
+  it("is TRUE for an F2 render-first typecheck-advisory verdict (warning, no repass)", () => {
+    expect(
+      isLatestGateVerdictAdvisory([
+        makeLog({
+          category: "preflight:quality-gate",
+          level: "warning",
+          meta: { passed: false, firstFailureCheck: "typecheck" },
+        }),
+      ]),
+    ).toBe(true);
+  });
+
+  it("is FALSE for a clean pass (meta.passed === true) — never advisory", () => {
+    expect(
+      isLatestGateVerdictAdvisory([
+        makeLog({
+          category: "preflight:quality-gate",
+          level: "info",
+          meta: { passed: true },
+        }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("is FALSE for a hard-failed verdict (error level)", () => {
+    expect(
+      isLatestGateVerdictAdvisory([
+        makeLog({
+          category: "preflight:quality-gate",
+          level: "error",
+          meta: { firstFailureCheck: "build" },
+        }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("is FALSE for a post-repair 'did not pass' warning (meta.repass === true)", () => {
+    expect(
+      isLatestGateVerdictAdvisory([
+        makeLog({
+          category: "preflight:quality-gate",
+          level: "warning",
+          meta: { repass: true, promoted: false },
+        }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("uses the NEWEST verdict: a later clean pass is not advisory over an older advisory", () => {
+    const logs = [
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "info",
+        created_at: at("2026-06-22T10:05:00.000Z"),
+        meta: { passed: true },
+      }),
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "warning",
+        created_at: at("2026-06-22T10:00:00.000Z"),
+        meta: { firstFailureCheck: "typecheck" },
+      }),
+    ];
+    expect(isLatestGateVerdictAdvisory(logs)).toBe(false);
   });
 });

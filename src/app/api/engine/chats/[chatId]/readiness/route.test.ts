@@ -22,8 +22,11 @@ const resolveEnvRequirementsFromVersionFiles = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
+const emit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: false }));
+
+vi.mock("@/lib/logging/event-bus", () => ({ emit }));
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -248,5 +251,76 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(false);
+  });
+
+  it("emits version.degraded after a reconcile-promote on an ADVISORY verdict (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Latest gate verdict is an F2 typecheck-advisory (warning, no repass).
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        versionId: "ver_1",
+        chatId: "chat_1",
+        kind: "typecheck_advisory",
+      }),
+    );
+  });
+
+  it("does NOT emit version.degraded after a reconcile-promote on a clean PASS (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Latest gate verdict is a clean pass.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "info", meta: { passed: true } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(emit).not.toHaveBeenCalled();
   });
 });

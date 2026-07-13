@@ -16,9 +16,11 @@ import {
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
 import {
+  isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
   resolveGateFailureSummaryFromLogs,
 } from "@/lib/gen/verify/gate-failure-summary";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
@@ -283,8 +285,32 @@ async function buildEngineReadiness(
     // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
     // instead of leaving it in limbo — never promotes while a verify/repair job
     // holds the lease and re-runs checks.
-    promoteReconciledVersion: () =>
-      promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+    promoteReconciledVersion: async () => {
+      const promoted = await promoteVersionIfUnleased(
+        versionIdForReconcile,
+        RECONCILED_PROMOTE_SUMMARY,
+      );
+      // Bugbot medium (#518): mirror the quality-gate route — an advisory
+      // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
+      // after the reconcile-promote takes, else the builder would read a false
+      // green `done`. A clean pass emits nothing. Best-effort telemetry.
+      if (promoted && isLatestGateVerdictAdvisory(errorLogs)) {
+        try {
+          emitBusEvent({
+            t: "version.degraded",
+            versionId: versionIdForReconcile,
+            chatId: chat.id,
+            kind: "typecheck_advisory",
+            message:
+              "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+            meta: { advisoryChecks: ["typecheck"] },
+          });
+        } catch {
+          // Telemetry only — never block readiness on a bus failure.
+        }
+      }
+      return promoted;
+    },
   });
   version = settledVersion;
 

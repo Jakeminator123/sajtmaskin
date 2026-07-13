@@ -30,10 +30,11 @@ import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { readAll } from "@/lib/logging/event-bus";
+import { emit as emitBusEvent, readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import {
+  isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
   resolveGateFailureSummaryFromLogs,
 } from "@/lib/gen/verify/gate-failure-summary";
@@ -123,8 +124,33 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
         // instead of leaving it spinning — so this 4s poll can reconcile the bus
         // to `done` without ever racing a verify/repair job that holds the lease.
-        promoteReconciledVersion: () =>
-          promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+        promoteReconciledVersion: async () => {
+          const promoted = await promoteVersionIfUnleased(
+            versionIdForReconcile,
+            RECONCILED_PROMOTE_SUMMARY,
+          );
+          // Bugbot medium (#518): mirror the quality-gate route — an advisory
+          // (typecheck-only) promotion is NOT solid-green, so emit
+          // `version.degraded` after the reconcile-promote takes, else this poll
+          // would reconcile the bus to a false green `done`. Clean pass emits
+          // nothing. Best-effort telemetry (reuses the memoised log read).
+          if (promoted && isLatestGateVerdictAdvisory(await loadLogs())) {
+            try {
+              emitBusEvent({
+                t: "version.degraded",
+                versionId: versionIdForReconcile,
+                chatId,
+                kind: "typecheck_advisory",
+                message:
+                  "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+                meta: { advisoryChecks: ["typecheck"] },
+              });
+            } catch {
+              // Telemetry only — never block the poll on a bus failure.
+            }
+          }
+          return promoted;
+        },
       });
       dbVersion = settled.version;
     }
