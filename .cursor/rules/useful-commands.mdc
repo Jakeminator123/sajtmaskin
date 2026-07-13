@@ -29,3 +29,17 @@ alwaysApply: false
 | `npm --prefix preview-host run test:guards` | runtime-, prewarm- och proxykontrakt |
 | `npm --prefix preview-host run test:proxy-contract` | HTTP/HMR-skydd + last-good-kontrakt |
 | `npm --prefix preview-host run smoke` | lokal preview-host end-to-end-smoke |
+
+## Token-/kontext-hygien (orkestratorns kontext är dyr)
+
+Gäller **brus**, inte kontroller: verifieringsdjup, tester och bugbot-pass ska aldrig skäras — bara meningslösa tokens (progressbarer, upprepade statustabeller, omläsning) och sessionens längd.
+
+| Gör | I stället för |
+|---|---|
+| `git worktree add … 2>$null` · `git clone … -q` | låta `Updating files: N%`-progressen fylla kontexten |
+| `npm ci --silent --no-progress --no-audit --no-fund` | full npm-progress |
+| **Strömma aldrig** `gh pr checks --watch` in i kontext: kör bakgrundspoll och läs bara svansen (`… --watch 2>&1 \| Select-Object -Last 15`), engångs-`gh pr checks <n>`, eller `notify_on_output` med sentinel | `gh pr checks --watch` som skriver hela 13-raderstabellen var 30:e sek in i svaret |
+| Läs stora filer riktat: `Grep`-slice eller `Read` med offset+limit; läs en fil **en gång** per session | full `Read` av 1000+ raders filer, upprepat i varje worktree |
+| Subagenter: terse output (tabell, bara fynd med impact ≥ 3, en rad styck); färre vinklar på lågrisk-diff; **bugbot (1 pass)** är standardfiltret, inte 8-svärm | 8-agentssvärm som default (8 långa rapporter som ligger kvar i kontexten) |
+
+**Största hävstången:** dela upp stora initiativ i **en chatt per arbetskluster** (varje PR-familj) — en pågående sessions historik skickas om varje tur, så den växer monotont. Plan-/backlog-docs är handoff-tillståndet: en färsk session läser dem och fortsätter utan kvalitetstapp.
