@@ -168,11 +168,28 @@ export function PreviewPanelDossiers({
 
   // Keep the attention badge fresh without polling: refetch when env vars are
   // saved anywhere in the builder (the missing-key set may have just cleared).
+  // A delete additionally clears any local draft for those keys (Bugbot on
+  // #525): the input would otherwise still hold a pre-delete value, and one
+  // "Spara och aktivera"-click could re-persist what the user just removed.
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);
       // Refetch when the update targets this chat, or carries no chat scope.
       if (!detail || !detail.chatId || detail.chatId === chatId) {
+        if (detail?.action === "deleted" && detail.envKeys && detail.envKeys.length > 0) {
+          const deleted = new Set(detail.envKeys.map((key) => key.trim().toUpperCase()));
+          setKeyValues((current) => {
+            const next = { ...current };
+            let changed = false;
+            for (const key of Object.keys(next)) {
+              if (deleted.has(key.trim().toUpperCase())) {
+                delete next[key];
+                changed = true;
+              }
+            }
+            return changed ? next : current;
+          });
+        }
         void load();
       }
     };
