@@ -490,11 +490,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     return () =>
       window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
   }, [vm.chatId]);
-  // A fresh 412 (or chat switch) restarts the reconciliation from the
-  // server's verdict — earlier client-side saves are already reflected in it.
+  // Only a chat switch restarts the reconciliation. Deliberately NOT on a
+  // fresh 412 (Bugbot follow-up): a save can complete while finalize is in
+  // flight, so the arriving 412 may predate the save — wiping the set there
+  // would falsely re-list already-persisted keys. Keeping it is safe: every
+  // entry comes from a confirmed successful save (or was removed by a
+  // delete), and subtracting a key the server no longer lists is a no-op.
   useEffect(() => {
     setF3SavedEnvKeys(new Set());
-  }, [f3Requirements, vm.chatId]);
+  }, [vm.chatId]);
   const visibleF3Requirements = useMemo(
     () => subtractSavedKeysFromF3Requirements(f3Requirements, Array.from(f3SavedEnvKeys)),
     [f3Requirements, f3SavedEnvKeys],
