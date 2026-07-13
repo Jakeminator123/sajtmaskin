@@ -13,6 +13,7 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const maybeAutoAcceptTimedOutRepair = vi.hoisted(() => vi.fn());
+const promoteVersion = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
@@ -37,6 +38,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
+  promoteVersion,
 }));
 
 vi.mock("@/lib/db/services/version-errors", () => ({
@@ -59,6 +61,7 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
 
 vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   settleStaleVerificationIfNeeded,
+  RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
 }));
 
 const { GET } = await import("./route");
@@ -101,6 +104,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       wasAutoAccepted: false,
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
+    promoteVersion.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
     getVersionFiles.mockResolvedValue([]);
     resolveProjectEnv.mockResolvedValue({
       source: "none",
@@ -177,5 +181,34 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     const { req, ctx } = readinessRequest();
     const res = await GET(req, ctx);
     expect(res.status).toBe(404);
+  });
+
+  it("threads a guarded promote callback into the stale watchdog (Codex P1 #518 wiring)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
+    // Invoking the threaded callback runs the canonical (guarded) promote.
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersion).toHaveBeenCalledWith("ver_1", expect.any(String));
   });
 });

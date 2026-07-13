@@ -172,6 +172,65 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  // Codex P1 (#518): a proven-green stale row must reach a TERMINAL state, not
+  // linger in `verifying` forever. When a guarded promote is threaded and takes,
+  // the watchdog returns the promoted row.
+  it("promotes a stale green row to terminal via the guarded promote callback (Codex P1 #518)", async () => {
+    const promotedRow = makeVersion({
+      verification_state: "passed",
+      release_state: "promoted",
+    });
+    const promoteReconciledVersion = vi.fn().mockResolvedValue(promotedRow);
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(promotedRow);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("no-ops (never fails) a green row when the guarded promote is declined/transient (returns null)", async () => {
+    const v = makeVersion();
+    const promoteReconciledVersion = vi.fn().mockResolvedValue(null);
+    const res = await settleStaleVerificationIfNeeded(v, {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("no-ops (never fails) a green row when the guarded promote throws", async () => {
+    const v = makeVersion();
+    const promoteReconciledVersion = vi.fn().mockRejectedValue(new Error("db timeout"));
+    const res = await settleStaleVerificationIfNeeded(v, {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("does NOT attempt promotion when the gate is not green (no callback invocation, fails as today)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const promoteReconciledVersion = vi.fn();
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => false,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).not.toHaveBeenCalled();
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
   it("still fails a stale verifying row when the latest gate verdict is NOT green (no passing gate log)", async () => {
     failVersionVerificationIfUnleased.mockResolvedValue(
       makeVersion({ verification_state: "failed" }),

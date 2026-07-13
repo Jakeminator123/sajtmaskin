@@ -4,6 +4,7 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const readAll = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const promoteVersion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -26,6 +27,16 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 
 vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   settleStaleVerificationIfNeeded,
+  // Plain string constant; stubbed so importing the route does not pull the
+  // real settle module (which imports `@/lib/db/chat-repository-pg`).
+  RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
+}));
+
+// The route now imports `promoteVersion` directly; mocking chat-repository-pg
+// keeps the real module (and its `@/lib/db/client` import that throws without a
+// connection string) out of the test graph.
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  promoteVersion,
 }));
 
 import { GET } from "./route";
@@ -39,6 +50,7 @@ describe("GET version-status (engine)", () => {
       failed: false,
     }));
     getEngineVersionErrorLogs.mockResolvedValue([]);
+    promoteVersion.mockResolvedValue({ id: "v1", verification_state: "passed" });
   });
 
   it("returns 400 when versionId is missing", async () => {
@@ -160,6 +172,33 @@ describe("GET version-status (engine)", () => {
     expect(body.ok).toBe(true);
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
     expect(body.status?.phase).toBe("failed");
+  });
+
+  it("threads a guarded promote callback into the watchdog for a stuck row (Codex P1 #518 wiring)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    readAll.mockReturnValue(spinningBus);
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      (version: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+        capturedOpts = opts;
+        return { version, failed: false };
+      },
+    );
+
+    await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
+    // Invoking the threaded callback runs the canonical (guarded) promote.
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersion).toHaveBeenCalledWith("v1", expect.any(String));
   });
 
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {

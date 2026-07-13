@@ -39,7 +39,11 @@ import {
 } from "@/lib/gen/verify/gate-failure-summary";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
 import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
-import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
+import {
+  RECONCILED_PROMOTE_SUMMARY,
+  settleStaleVerificationIfNeeded,
+} from "@/lib/gen/verify/settle-stale-verification";
+import { promoteVersion } from "@/lib/db/chat-repository-pg";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -92,11 +96,17 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         }
         return cachedLogs;
       };
+      const versionIdForReconcile = dbVersion.id;
       const settled = await settleStaleVerificationIfNeeded(dbVersion, {
         resolveFailureSummary: async () =>
           resolveGateFailureSummaryFromLogs(await loadLogs()),
         // BB#299: don't false-red a stale row whose latest gate verdict is green.
         resolveLatestGateGreen: async () => isLatestGateVerdictGreen(await loadLogs()),
+        // Codex P1 (#518): recover a proven-green stale row to a terminal
+        // promoted state (guarded promote) instead of leaving it spinning — so
+        // this 4s poll can reconcile the bus to `done` on the next read.
+        promoteReconciledVersion: () =>
+          promoteVersion(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
       });
       dbVersion = settled.version;
     }

@@ -4,6 +4,7 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
+  promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import {
   resolveDeployReleaseGate,
@@ -42,7 +43,10 @@ import {
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { REPAIR_ACCEPT_TIMEOUT_MINUTES } from "@/lib/gen/defaults";
-import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
+import {
+  RECONCILED_PROMOTE_SUMMARY,
+  settleStaleVerificationIfNeeded,
+} from "@/lib/gen/verify/settle-stale-verification";
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
@@ -253,10 +257,15 @@ async function buildEngineReadiness(
   // a version stuck past the route budget ONLY when no job holds an active
   // lease, and prefers the concrete already-logged gate failure over the
   // generic "took too long" copy. Fail-safe: a DB error leaves state unchanged.
+  const versionIdForReconcile = version.id;
   const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
     resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
     // BB#299: don't false-red a stale row whose latest gate verdict is green.
     resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
+    // Codex P1 (#518): recover a proven-green stale row to a terminal promoted
+    // state via the canonical (guarded) promote instead of leaving it in limbo.
+    promoteReconciledVersion: () =>
+      promoteVersion(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
   });
   version = settledVersion;
 
