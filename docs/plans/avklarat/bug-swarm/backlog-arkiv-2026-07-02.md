@@ -2,6 +2,26 @@
 
 > Flyttade `[x]`-rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter 818-svärmens verifiering + batch-fix-PR (branch `fix/bug-swarm-batch-0702`) 2026-07-02. Äldre historik: [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Stabiliseringsplanens PR 2+3 2026-07-13 — verify-lane + domänrester fixade (PR #518/#519)
+
+Stabiliseringsplanen (`docs/plans/active/2026-07-13-stabilisering-verify-f3-doman-plan.md`) PR 2 och PR 3 mergade med fulla externa review-varv (Codex + Bugbot + VADE, 15 fynd totalt varav 14 fixade och 1 dismissed — triage dokumenterad i respektive PR). Residual noterad på B3/E2-raden: `version.degraded`-emits (inkl. #518:s reconcile-emit) delar den kända efemära in-memory-bus-begränsningen cross-instance; löses av durable bus-initiativet, inte per emit-site.
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | **Follow-up F2 dubbel verify-lane → promote-timeout → false-red:** `resolvePostFinalizeServerVerifyDecision` skippade server-verify bara för init; follow-up med advisory-profil fick två `server_verify`-aktörer på samma versionsrad → radlås-konkurrens → promote-`statement_timeout` → false-red. | M#vlane1 (prod-incident 2026-07-13, DB-bevisad) | **PR #518** (`dc16e7f51`): skip-beslutet täcker alla F2-design-rundor — klientens quality-gate-route är enda F2-verify/promotion-ägaren. Regressionstester för hela beslutmatrisen. |
+| [x] | Fixad | P2 | **Grön grind men promote-timeout → false-red `failed`:** ingen retry på promote-UPDATE:n; watchdogen settlade grön-gated rad till `failed`. | M#vlane2 (samma incident) | **PR #518**: bounded promote-retry (3 försök, transienta SQLSTATEs) + watchdog-rekonciliering — grön stale head-rad promotas guardat (`promoteVersionIfUnleased`: radlås + no-active-lease + `verification_state='verifying'` + promote-guard, `guard_denied` settlar terminalt) i st.f. false-red. |
+| [x] | Fixad | P2 | **`promoteGuardUnavailable`-rad kunde false-red:as av stale-verification-watchdog:** `settle-stale-verification` terminal-failade `verifying`-rader trots passerad gate-logg. | BB#299 (Bugbot; kodverifierad 2026-07-13) | **PR #518**: watchdogen rekoncilerar mot senaste gate-verdiktet (grön/advisory → guardad promotion eller retrybar no-op; advisory-promotion emittar `version.degraded` och samma poll re-läser bussen). Scopat till `verifying` + chat-head; `repairing`/icke-head behåller terminal-fail. |
+| [x] | Fixad | P2 | **#486 branded-URL residualer (a/b/c):** falskt projektnamn-lås vid ren displaynamnsändring; SEO-fallback gick ej att rensa (blank utelämnades ur PATCH); verifierad branded-domän omverifierades aldrig (`!brandedDomainVerifiedAt`-guard). | Extern coach-review på #486; kodverifierad 2026-07-13 | **PR #519** (`68dacb5e8`): lås följer deploy-targets id-först-logik; PATCH skickar `siteUrl: null` (rensning avbryter deploy vid PATCH-fel); branded recheckas throttlat oavsett verifieringsstatus (bara definitivt false revokar, liveUrl stämplas bara vid äkta övergång och aldrig över verifierad custom-domän). |
+| [x] | Fixad | P2 | **BB#deploy4 implicit orphan:** tom/stale `vercel_project_name` kunde låta ompublicering skapa/återanvända annat Vercel-projekt än domänens. | BB#deploy4 (bugbot 2026-07-08) | **PR #519**: kanonisk källhärledning `resolveCanonicalVercelProjectForDomain` + `resolveLatestOrCachedVercelProjectId` (`src/lib/deployment.ts`) delas av POST-lås, deploy-target och GET-recheck — projekt-id-företrädet speglar domänkällans företräde (custom/branded → generisk ordning; legacy-rad → radens eget id). |
+
+## Incident-uppföljning 2026-07-13 — M#f3env1 fixad (PR #517)
+
+Under en /logg-incidentanalys (chat `747636c8`) bekräftades att den öppna P1:an M#f3env1 var åtgärdad och mergad. Flyttad hit ur `## Aktiv kö`.
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P1 | **F3 approved provider passerade env-gaten före codegen:** readiness på approval-rundan kördes enbart mot parent-versionens filbevis → en nyligen godkänd provider med backing hard dossier och `enforcement: "build"` fick `requirements.length === 0` → gaten svarade `ok: true`, credits debiterades och LLM-rundan startade utan 412. | M#f3env1 (extern coach-hypotes 2026-07-13, kodverifierad samma dag) | **Fixad + mergad i PR #517** (`fix(gen): F3 approved provider med build-nycklar blockerar 412 före credits/codegen (M#f3env1, P1)`, merged 2026-07-13T06:36Z). Union:ar pending-approved-spec in i gaten före credits + regressionstest. |
+
 ## Backlog-hygien 2026-07-13 — B13 + U#77 kodverifierade + regressionstestade
 
 Coach-granskad hygien-runda (24-agents read-only-triage + riktad kodläsning). Båda raderna var redan kodfixade men saknade ett exakt regressionstest för just det scenario raden beskrev. Testerna lades till och kördes gröna (typecheck + riktad vitest, 74 tester) innan raderna flyttades hit ur `## Behöver repro`.
