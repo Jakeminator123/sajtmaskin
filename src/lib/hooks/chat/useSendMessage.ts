@@ -322,6 +322,7 @@ export function useSendMessage(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
+        const streamRequestStartedAt = Date.now();
         const response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -345,6 +346,7 @@ export function useSendMessage(
             dispatchF3Requirements({
               parentVersionId: errorData.parentVersionId,
               chatId,
+              requestStartedAt: streamRequestStartedAt,
               projectId:
                 typeof errorData.projectId === "string"
                   ? errorData.projectId
@@ -417,6 +419,7 @@ export function useSendMessage(
               dispatchF3Requirements({
                 parentVersionId: release.parentVersionId,
                 chatId,
+                requestStartedAt: streamRequestStartedAt,
                 projectId: release.projectId,
                 missingByIntegration: release.missingByIntegration,
               });

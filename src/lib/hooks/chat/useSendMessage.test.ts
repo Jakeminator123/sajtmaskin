@@ -325,6 +325,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(dispatchF3Requirements).toHaveBeenCalledWith({
       parentVersionId: "ver_f2_parent",
       chatId: "chat_1",
+      requestStartedAt: expect.any(Number),
       projectId: "project_1",
       missingByIntegration: [
         {
@@ -368,6 +369,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(dispatchF3Requirements).toHaveBeenCalledWith({
       parentVersionId: "ver_f2_parent",
       chatId: "chat_1",
+      requestStartedAt: expect.any(Number),
       projectId: "project_1",
       missingByIntegration: [
         {

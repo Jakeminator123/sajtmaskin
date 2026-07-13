@@ -31,6 +31,10 @@ export interface PreviewPanelF3TriggerProps {
     /** Chat the 412 belongs to (captured at request time), so a slow
      *  response cannot repopulate the surface after a chat switch. */
     chatId?: string | null;
+    /** Epoch ms when the finalize request STARTED. Lets the consumer keep
+     *  client-side saves that happened while the request was in flight
+     *  (the server verdict predates them). */
+    requestStartedAt?: number;
     missingByIntegration: Array<{
       key: string;
       name: string;
@@ -153,6 +157,7 @@ export function PreviewPanelF3Trigger({
       return;
     }
     setIsLoading(true);
+    const requestStartedAt = Date.now();
     try {
       const result = await runF3FinalizeAction({
         chatId,
@@ -171,6 +176,7 @@ export function PreviewPanelF3Trigger({
           parentVersionId: result.parentVersionId,
           projectId: result.projectId,
           chatId,
+          requestStartedAt,
           missingByIntegration: result.missingByIntegration,
         });
         return;

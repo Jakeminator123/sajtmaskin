@@ -81,6 +81,13 @@ export type F3RequirementsDetail = {
    * missing keys). Absent on legacy dispatches → treated as current-chat.
    */
   chatId?: string | null;
+  /**
+   * Epoch ms when the request that produced this 412 STARTED. Saves made
+   * BEFORE this are already reflected in the server verdict and must not be
+   * subtracted from it; saves made DURING the request are kept. Absent →
+   * the verdict supersedes all earlier saves.
+   */
+  requestStartedAt?: number;
   missingByIntegration: Array<{
     key: string;
     name: string;
@@ -144,6 +151,9 @@ export function readF3RequirementsDetail(
       typeof detail.chatId === "string" && detail.chatId.trim()
         ? detail.chatId.trim()
         : null,
+    ...(typeof detail.requestStartedAt === "number"
+      ? { requestStartedAt: detail.requestStartedAt }
+      : {}),
     missingByIntegration: detail.missingByIntegration.filter(
       (entry) =>
         entry &&

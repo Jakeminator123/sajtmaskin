@@ -289,6 +289,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [f3Requirements, setF3Requirements] = useState<{
     parentVersionId: string;
     projectId?: string | null;
+    requestStartedAt?: number;
     missingByIntegration: F3MissingIntegration[];
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
@@ -464,24 +465,26 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)
   // reconcile the DISPLAYED 412 payload. The server's original key scope in
-  // `f3Requirements` is never mutated — saves accumulate in `f3SavedEnvKeys`
-  // and the visible surface is derived by subtraction. A delete removes the
-  // key from the saved set again, so the requirement honestly reappears
-  // (Codex P2 + Bugbot follow-up on #525) instead of leaving a false
-  // all-clear. The scope itself stays server-owned: only keys the 412 listed
-  // can ever be shown.
-  const [f3SavedEnvKeys, setF3SavedEnvKeys] = useState<Set<string>>(new Set());
+  // `f3Requirements` is never mutated — saves accumulate (timestamped) in
+  // `f3SavedEnvKeys` and the visible surface is derived by subtraction. A
+  // delete removes the key again, so the requirement honestly reappears
+  // (Codex P2 + Bugbot follow-ups on #525). Server-verdict precedence: when
+  // a NEW 412 lands, saves made BEFORE that request started are pruned —
+  // the server already saw them and still says the key is missing — while
+  // saves made DURING the in-flight request are kept.
+  const [f3SavedEnvKeys, setF3SavedEnvKeys] = useState<Map<string, number>>(new Map());
   useEffect(() => {
     const handleEnvUpdated = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);
       if (!detail || !detail.envKeys || detail.envKeys.length === 0) return;
       if (detail.chatId && detail.chatId !== vm.chatId) return;
       const keys = detail.envKeys.map((key) => key.trim().toUpperCase());
+      const now = Date.now();
       setF3SavedEnvKeys((current) => {
-        const next = new Set(current);
+        const next = new Map(current);
         for (const key of keys) {
           if (detail.action === "deleted") next.delete(key);
-          else next.add(key);
+          else next.set(key, now);
         }
         return next;
       });
@@ -490,17 +493,28 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     return () =>
       window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
   }, [vm.chatId]);
-  // Only a chat switch restarts the reconciliation. Deliberately NOT on a
-  // fresh 412 (Bugbot follow-up): a save can complete while finalize is in
-  // flight, so the arriving 412 may predate the save — wiping the set there
-  // would falsely re-list already-persisted keys. Keeping it is safe: every
-  // entry comes from a confirmed successful save (or was removed by a
-  // delete), and subtracting a key the server no longer lists is a no-op.
   useEffect(() => {
-    setF3SavedEnvKeys(new Set());
+    setF3SavedEnvKeys(new Map());
   }, [vm.chatId]);
+  // Prune on each new 412: entries older than the request start are stale —
+  // the server verdict supersedes them (a retry that still 412s must re-show
+  // those keys). No `requestStartedAt` → the verdict supersedes everything.
+  useEffect(() => {
+    if (!f3Requirements) return;
+    const cutoff = f3Requirements.requestStartedAt ?? Number.POSITIVE_INFINITY;
+    setF3SavedEnvKeys((current) => {
+      let changed = false;
+      const next = new Map<string, number>();
+      for (const [key, savedAt] of current) {
+        if (savedAt >= cutoff) next.set(key, savedAt);
+        else changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [f3Requirements]);
   const visibleF3Requirements = useMemo(
-    () => subtractSavedKeysFromF3Requirements(f3Requirements, Array.from(f3SavedEnvKeys)),
+    () =>
+      subtractSavedKeysFromF3Requirements(f3Requirements, Array.from(f3SavedEnvKeys.keys())),
     [f3Requirements, f3SavedEnvKeys],
   );
 
