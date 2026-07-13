@@ -72,6 +72,41 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     }
   });
 
+  it("blocks on a pending approved clerk provider even when parent files have no clerk evidence (M#f3env1)", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["clerk"],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.reason === "missing_env") {
+      expect(result.readiness.missingByIntegration).toEqual([
+        expect.objectContaining({
+          key: "clerk",
+          missing: expect.arrayContaining([
+            "CLERK_SECRET_KEY",
+            "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+          ]),
+        }),
+      ]);
+    } else {
+      throw new Error(`expected missing_env from pending provider, got ${JSON.stringify(result)}`);
+    }
+  });
+
+  it("keeps a pending dossierless provider (posthog) non-blocking (warn-only policy)", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["posthog"],
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it("passes when the required key has a real stored value", async () => {
     getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_test_real" });
     const result = await checkTier3ReadinessForVersion({

@@ -22,10 +22,14 @@ import {
 } from "@/lib/project-env-vars";
 import {
   deriveTier3BuildSpec,
+  deriveTier3BuildSpecForProviderKeys,
+  mapProviderKeysToBackingDossierIds,
   validateTier3Readiness,
   type Tier3BuildSpec,
+  type Tier3IntegrationRequirement,
   type Tier3ReadinessReport,
 } from "@/lib/integrations/tier3-build-spec";
+import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import type {
   PlanContracts,
@@ -138,6 +142,129 @@ export async function isProductPostcheckBlocked(versionId: string): Promise<bool
   }
 }
 
+function dedupeApprovedProviderKeys(providerKeys: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const lower = trimmed.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
+function mergeUnique(listA: readonly string[], listB: readonly string[]): string[] {
+  return Array.from(new Set([...listA, ...listB]));
+}
+
+function cloneRequirement(
+  requirement: Tier3IntegrationRequirement,
+): Tier3IntegrationRequirement {
+  return {
+    ...requirement,
+    requiredRealEnvKeys: [...requirement.requiredRealEnvKeys],
+    placeholderOkEnvKeys: [...requirement.placeholderOkEnvKeys],
+    featureRuntimeEnvKeys: [...requirement.featureRuntimeEnvKeys],
+    warnOnlyEnvKeys: [...requirement.warnOnlyEnvKeys],
+    buildInstructions: [...requirement.buildInstructions],
+  };
+}
+
+function mergeBuildSpecs(
+  baseSpec: Tier3BuildSpec,
+  pendingSpec: Tier3BuildSpec,
+): Tier3BuildSpec {
+  if (pendingSpec.requirements.length === 0) return baseSpec;
+  const byKey = new Map<string, Tier3IntegrationRequirement>();
+  const upsert = (requirement: Tier3IntegrationRequirement) => {
+    const key = requirement.key.toLowerCase();
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, cloneRequirement(requirement));
+      return;
+    }
+    existing.name = existing.name || requirement.name;
+    existing.provider = existing.provider || requirement.provider;
+    existing.requiredRealEnvKeys = mergeUnique(
+      existing.requiredRealEnvKeys,
+      requirement.requiredRealEnvKeys,
+    );
+    existing.placeholderOkEnvKeys = mergeUnique(
+      existing.placeholderOkEnvKeys,
+      requirement.placeholderOkEnvKeys,
+    );
+    existing.featureRuntimeEnvKeys = mergeUnique(
+      existing.featureRuntimeEnvKeys,
+      requirement.featureRuntimeEnvKeys,
+    );
+    existing.warnOnlyEnvKeys = mergeUnique(
+      existing.warnOnlyEnvKeys,
+      requirement.warnOnlyEnvKeys,
+    );
+    existing.buildInstructions = mergeUnique(
+      existing.buildInstructions,
+      requirement.buildInstructions,
+    );
+    existing.setupGuide = existing.setupGuide || requirement.setupGuide;
+    existing.hasConfigNoticeComponent =
+      existing.hasConfigNoticeComponent || requirement.hasConfigNoticeComponent;
+  };
+  for (const requirement of baseSpec.requirements) upsert(requirement);
+  for (const requirement of pendingSpec.requirements) upsert(requirement);
+  return {
+    requirements: Array.from(byKey.values()).sort((a, b) =>
+      a.key.localeCompare(b.key),
+    ),
+  };
+}
+
+function promotePendingProviderBuildKeys(
+  pendingSpec: Tier3BuildSpec,
+): Tier3BuildSpec {
+  if (pendingSpec.requirements.length === 0) return pendingSpec;
+  return {
+    requirements: pendingSpec.requirements.map((requirement) => {
+      const strictBackingIds = mapProviderKeysToBackingDossierIds([requirement.key]);
+      if (strictBackingIds.length === 0) return requirement;
+      const enforcedBuildKeys = new Set<string>();
+      for (const dossierId of strictBackingIds) {
+        const dossier = getDossierById(dossierId);
+        if (!dossier || dossier.class !== "hard") continue;
+        for (const envVar of dossier.envVars ?? []) {
+          if (typeof envVar?.key !== "string" || !envVar.key.trim()) continue;
+          if (envVar.required === false) continue;
+          if ((envVar.enforcement ?? "build") === "build") {
+            enforcedBuildKeys.add(envVar.key);
+          }
+        }
+      }
+      if (enforcedBuildKeys.size === 0) return requirement;
+      const promotedBuildKeys = mergeUnique(
+        requirement.requiredRealEnvKeys,
+        Array.from(enforcedBuildKeys),
+      );
+      const promotedSet = new Set(promotedBuildKeys);
+      return {
+        ...requirement,
+        requiredRealEnvKeys: promotedBuildKeys,
+        placeholderOkEnvKeys: requirement.placeholderOkEnvKeys.filter(
+          (key) => !promotedSet.has(key),
+        ),
+        featureRuntimeEnvKeys: requirement.featureRuntimeEnvKeys.filter(
+          (key) => !promotedSet.has(key),
+        ),
+        warnOnlyEnvKeys: requirement.warnOnlyEnvKeys.filter(
+          (key) => !promotedSet.has(key),
+        ),
+      };
+    }),
+  };
+}
+
 /**
  * Full readiness decision for starting F3 from `versionId`: enforce the
  * Product Postcheck block, derive the file-based build spec, load the
@@ -170,6 +297,13 @@ export async function checkTier3ReadinessForVersion(params: {
    * (incl. `null`/empty) is used verbatim without a second read.
    */
   preloadedFiles?: CodeFile[] | null;
+  /**
+   * Provider approvals carried by a pending F3 continuation marker. Their
+   * build-key requirements are unioned into the readiness validation so a
+   * newly approved integration (no parent-file evidence yet) can still block
+   * with `missing_env` before credits/codegen.
+   */
+  pendingApprovedProviderKeys?: readonly string[];
 }): Promise<Tier3GateResult> {
   if (
     await isProductPostcheckBlocked(
@@ -194,7 +328,17 @@ export async function checkTier3ReadinessForVersion(params: {
   if (!spec) {
     return { ok: false, reason: "version_files_unavailable" };
   }
-  if (spec.requirements.length === 0) {
+  const normalizedPendingApproved = dedupeApprovedProviderKeys(
+    params.pendingApprovedProviderKeys ?? [],
+  );
+  const pendingApprovalSpec =
+    normalizedPendingApproved.length > 0
+      ? promotePendingProviderBuildKeys(
+          deriveTier3BuildSpecForProviderKeys(normalizedPendingApproved),
+        )
+      : { requirements: [] };
+  const readinessSpec = mergeBuildSpecs(spec, pendingApprovalSpec);
+  if (readinessSpec.requirements.length === 0) {
     return { ok: true, spec };
   }
 
@@ -204,7 +348,7 @@ export async function checkTier3ReadinessForVersion(params: {
       )
     : ({} as Record<string, string>);
   const allowPlaceholdersInF3 = await readAllowPlaceholdersInF3(params.projectId);
-  const readiness = validateTier3Readiness(spec, projectEnvVars, {
+  const readiness = validateTier3Readiness(readinessSpec, projectEnvVars, {
     allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
     placeholderEnvKeys: loadPlaceholderKeySet(),
   });

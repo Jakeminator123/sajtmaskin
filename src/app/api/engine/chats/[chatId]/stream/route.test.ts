@@ -2760,6 +2760,12 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
 
       expect(response.status).toBe(200);
+      expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          versionId: "ver_f2_parent",
+          pendingApprovedProviderKeys: ["posthog"],
+        }),
+      );
       expect(createGenerationPipeline).toHaveBeenCalled();
     });
 
@@ -2903,6 +2909,83 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       // after the user fixes the env keys, the same approval inherits F3.
       expect(consumeF3ContinuationMarker).not.toHaveBeenCalled();
       // Nothing was persisted either, so the pending walk stays armed.
+      expect(addMessage).not.toHaveBeenCalled();
+    });
+
+    it("M#f3env1: pending approved clerk blocks with 412 before credits and marker consume", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: "scaffold_1",
+        messages: f3AwaitingHistory("ver_f2_parent", {
+          suggestedProviders: ["clerk"],
+        }),
+        orchestration_snapshot: null,
+      });
+      resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
+      getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
+      checkTier3ReadinessForVersion.mockImplementation(
+        async (params: { pendingApprovedProviderKeys?: string[] }) => {
+          const pending = Array.isArray(params.pendingApprovedProviderKeys)
+            ? params.pendingApprovedProviderKeys.map((key) => key.toLowerCase())
+            : [];
+          if (pending.includes("clerk")) {
+            return {
+              ok: false,
+              reason: "missing_env",
+              spec: { requirements: [] },
+              readiness: {
+                ready: false,
+                missingByIntegration: [
+                  {
+                    key: "clerk",
+                    name: "Clerk",
+                    missing: [
+                      "CLERK_SECRET_KEY",
+                      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+                    ],
+                  },
+                ],
+              },
+            };
+          }
+          return { ok: true, spec: { requirements: [] } };
+        },
+      );
+      mockApprovalReplyRequestMeta();
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Godkänn förslag" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(412);
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body.error).toBe("tier3_env_not_ready");
+      expect(body.missingByIntegration).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: "clerk",
+            missing: expect.arrayContaining([
+              "CLERK_SECRET_KEY",
+              "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+            ]),
+          }),
+        ]),
+      );
+      expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          versionId: "ver_f2_parent",
+          pendingApprovedProviderKeys: ["clerk"],
+        }),
+      );
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+      expect(prepareCredits).not.toHaveBeenCalled();
+      expect(consumeF3ContinuationMarker).not.toHaveBeenCalled();
       expect(addMessage).not.toHaveBeenCalled();
     });
 
