@@ -282,6 +282,64 @@ describe("GET version-status (engine)", () => {
     );
   });
 
+  it("re-reads the bus after a settle-mutated row so THIS poll already reflects the degraded emit (bugbot medium #518, 6th iteration)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    // First bus read (top of handler): still spinning. Second read (after the
+    // settle promoted the row + emitted version.degraded): carries the event.
+    readAll
+      .mockReturnValueOnce(spinningBus)
+      .mockReturnValueOnce([
+        ...spinningBus,
+        {
+          t: "version.degraded",
+          id: "e2",
+          ts: "2026-07-13T10:00:00.000Z",
+          runId: "root",
+          versionId: "v1",
+          chatId: "chat_1",
+          kind: "typecheck_advisory",
+          message: "advisory",
+          meta: { advisoryChecks: ["typecheck"] },
+        },
+      ]);
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({
+      id: "v1",
+      verification_state: "passed",
+      release_state: "promoted",
+    });
+    // Simulate the real settle flow: the callback runs INSIDE settle and the
+    // promoted row (a NEW object) is returned — which must trigger the re-read.
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (
+        _version: unknown,
+        opts: { promoteReconciledVersion?: () => Promise<unknown> },
+      ) => {
+        const promoted = await opts.promoteReconciledVersion?.();
+        return { version: promoted, failed: false };
+      },
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = (await res.json()) as {
+      ok: boolean;
+      status?: { degradations: Array<{ kind: string }> };
+    };
+
+    expect(readAll).toHaveBeenCalledTimes(2);
+    expect(body.ok).toBe(true);
+    // The SAME poll that reconciled the row already carries the degradation —
+    // no one-poll solid-green window.
+    expect(body.status?.degradations.map((d) => d.kind)).toEqual(["typecheck_advisory"]);
+  });
+
   it("does NOT emit version.degraded after a reconcile-promote on a clean PASS (bugbot medium #518)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },

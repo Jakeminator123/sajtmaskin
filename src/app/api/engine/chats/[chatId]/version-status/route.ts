@@ -155,13 +155,26 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       dbVersion = settled.version;
     }
 
+    // Bugbot medium (#518, 6th iteration): the settle above may have JUST
+    // emitted `version.degraded` (advisory reconcile-promote) — after the bus
+    // snapshot at the top of this handler was taken. Re-read the (in-memory)
+    // bus when the settle actually changed the row, so THIS poll already
+    // reflects the degradation instead of returning one solid-green response
+    // until the next ~4s poll — the exact transient false-green the emit was
+    // meant to prevent. Cheap: `readAll` is an in-memory read, and the branch
+    // only runs on the rare settle-mutated path.
+    const effectiveBusStatus =
+      dbVersion !== scopedVersion.version
+        ? selectVersionStatus(readAll(dbVersion.id))
+        : busStatus;
+
     // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
     // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
     // no-op when the DB is non-terminal (e.g. a pending design preview), so this
     // never fabricates a terminal state. release_state is threaded so a
     // promoted+passed row can upgrade a stale terminal bus `failed` (M#flap1).
     const status = reconcileTerminalDbState(
-      busStatus,
+      effectiveBusStatus,
       dbVersion.verification_state,
       dbVersion.release_state,
     );
