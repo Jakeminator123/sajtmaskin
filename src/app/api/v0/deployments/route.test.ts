@@ -877,6 +877,36 @@ describe("POST /api/v0/deployments", () => {
       expect(commit).not.toHaveBeenCalled();
       expect(createVercelDeployment).not.toHaveBeenCalled();
     });
+
+    // Bugbot på #519: en whitespace-only `vercel_project_name` får inte räknas
+    // som "känt projekt" — då jämför låset två identiska genererade fallbacks
+    // (låser aldrig) medan deployen kan träffa ett annat projekt än domänens.
+    // Ska bete sig exakt som legacy-raden ovan: äkta retargeting → 409.
+    it("treats a whitespace-only vercel_project_name as no known project (lock still applies)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_name: "   ",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "renamed-project",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_DOMAIN_LOCKED_PROJECT_NAME");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
   });
 
   // A#425 #4 (test gap): happy-path POST must insert the deployment row keyed by

@@ -576,8 +576,16 @@ export async function POST(req: Request) {
             engineProjectId,
           ),
       );
+      // Bugbot (#519): trim the name cache — a whitespace-only
+      // `vercel_project_name` must NOT count as a known project, or the lock
+      // would compare two identical generated fallbacks (never locking) while
+      // the deploy below targets a generated-name project the linked domain
+      // may not be attached to. Matches the trim `currentVercelProjectName`
+      // already applies.
       const hasKnownVercelProject = Boolean(
-        ownedProject.vercel_project_name || existingVercelProjectId,
+        (typeof ownedProject.vercel_project_name === "string" &&
+          ownedProject.vercel_project_name.trim()) ||
+          existingVercelProjectId,
       );
       const requestedVercelProjectName =
         typeof projectName === "string" && projectName.trim().length > 0
