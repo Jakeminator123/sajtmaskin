@@ -824,7 +824,7 @@ export async function runPreviewHostQualityGate(params: {
               const passed = row.passed === true;
               const advisory = row.advisory === true;
               const repairable = row.repairable !== false;
-              const failureKind =
+              const failureKind: PreviewHostVerifyCheckResult["failureKind"] =
                 row.failureKind === "code" || row.failureKind === "tooling"
                   ? row.failureKind
                   : null;
@@ -854,7 +854,7 @@ export async function runPreviewHostQualityGate(params: {
                 durationMs,
               };
             })
-            .filter((entry): entry is PreviewHostVerifyCheckResult => Boolean(entry))
+            .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
         : [];
       return {
         ok: true,

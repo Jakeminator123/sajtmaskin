@@ -415,6 +415,11 @@ export async function runPostGenerationChecks(params: {
 type QualityGateCheckResult = {
   check: string;
   passed: boolean;
+  advisory?: boolean;
+  repairable?: boolean;
+  failureKind?: "code" | "tooling" | null;
+  errorCount?: number;
+  warningCount?: number;
   exitCode: number;
   output: string;
   durationMs?: number | null;

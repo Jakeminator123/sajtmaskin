@@ -203,11 +203,19 @@ export function buildServerVerifyQualityGateMeta(
       results?.map((result) => ({
         check: result.check,
         passed: result.passed,
-        advisory: result.advisory === true,
-        repairable: result.repairable !== false,
-        failureKind: result.failureKind ?? null,
-        errorCount: result.errorCount ?? null,
-        warningCount: result.warningCount ?? null,
+        ...(typeof result.advisory === "boolean"
+          ? { advisory: result.advisory }
+          : {}),
+        ...(typeof result.repairable === "boolean"
+          ? { repairable: result.repairable }
+          : {}),
+        ...(result.failureKind ? { failureKind: result.failureKind } : {}),
+        ...(typeof result.errorCount === "number"
+          ? { errorCount: result.errorCount }
+          : {}),
+        ...(typeof result.warningCount === "number"
+          ? { warningCount: result.warningCount }
+          : {}),
         exitCode: result.exitCode,
         durationMs: result.durationMs ?? null,
       })) ?? null,

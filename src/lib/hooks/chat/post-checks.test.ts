@@ -683,6 +683,7 @@ describe("runPostGenerationChecks", () => {
       setMessages: store.setMessages,
       onAutoFix,
     });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const qualityGate = getToolPart("Quality gate", store);
     const output = (qualityGate?.output as Record<string, unknown>) ?? {};
