@@ -42,6 +42,17 @@ Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit 
 3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska bugg-efterkontroll (bugbot **eller** dokumenterad manuell review, se `Bugg-efterkontroll` nedan) — den krävs alltid; Codex är ett tillägg, inte en ersättning.
 4. Ett **bugbot-pass på egen diff** ska ha körts vid PR-skapandet (se `workflow.mdc`/`git.mdc`) — samma obligatoriska bugg-efterkontroll som punkt 2/3 och `Bugg-efterkontroll`-sektionen nedan (kör bugbot om på varje ny commit + på protected paths). (`/granska`-svärmen är numera valfri, ej krav.) Det ersätter inte den externa buggkollen ovan.
 
+### Spendera fönstret utan att blocka (token-hygien)
+
+Väggklockan (7 min + bot-settle) går **inte** att korta bort — `review-window` är en required check som håller merge pending tills den är uppfylld, och på `--admin`-merge (egna PR:er som inte kan självgodkännas) överstyrs checken så väntan blir ren disciplin. Vinsten ligger i att **inte binda upp agenten** under tiden. Blocka därför aldrig hela fönstret med `AwaitShell`-polling eller `gh run watch` — det bränner kontext utan nytta (se `useful-commands.mdc` → token-hygien).
+
+| Diff-typ | Mönster |
+|---|---|
+| **Default (docs/lågrisk/de flesta PR:er)** | Posta PR → kör bugbot-passet → starta **EN** bakgrundsshell som sover till fönstrets slut och sedan dumpar `gh pr checks <n>` + nya review-kommentarer (`gh api …/pulls/<n>/comments`) till fil → **avsluta turen**. Slutförande-notisen tar agenten tillbaka i en kort ny tur för triage + merge. Ingen blockerande poll. |
+| **Protected paths / risk ≥ 3** | Uppgradera bevakaren till en **bakgrunds-subagent** (`run_in_background: true`) som *läser och triagerar* inkommande Codex/Vercel/Bugbot-fynd live och rapporterar bara de åtgärdbara tillbaka. Dyrare men fångar en sen P1 direkt. |
+
+Oavsett mönster: läs om reviews **precis före merge** (Codex kan landa sent), verifiera head-SHA stabil sedan sign-off, och merga först när hela grinden nedan är grön. `--admin`: verifiera PR-åldern manuellt eftersom checken är överstyrd.
+
 ## merge:ready — författar-sign-off (maskinläsbart godkännande)
 
 Ingen agent mergar en PR utan att författaren först intygat att buggkollen är gjord. Signalen är en **label + en sign-off-rad** så mergaren kan verifiera den utan att gissa:
