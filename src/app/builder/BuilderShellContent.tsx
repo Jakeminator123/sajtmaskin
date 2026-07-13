@@ -488,6 +488,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         }
         return next;
       });
+      // Deleting a key OUTSIDE the 412's missing-scope (Codex P1 on #525):
+      // that key may have been the reason its integration was satisfied at
+      // verdict time, and the client cannot re-add keys to a server-owned
+      // scope — the whole verdict is stale. Drop the surface; the next
+      // "Bygg integrationer" attempt fetches a fresh 412 with the correct
+      // scope (the server gate itself was never bypassable, #517).
+      if (detail.action === "deleted") {
+        setF3Requirements((current) => {
+          if (!current) return current;
+          const scope = new Set(
+            current.missingByIntegration.flatMap((entry) =>
+              entry.missing.map((key) => key.trim().toUpperCase()),
+            ),
+          );
+          const deletedOutsideScope = keys.some((key) => !scope.has(key));
+          return deletedOutsideScope ? null : current;
+        });
+      }
     };
     window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
     return () =>

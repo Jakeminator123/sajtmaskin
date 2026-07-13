@@ -331,6 +331,9 @@ export function PreviewPanelDossiers({
   // cleared. The panel never reads secrets back — status flips come from the
   // refetch triggered by `dispatchProjectEnvVarsUpdated`.
   const [keyValues, setKeyValues] = useState<Record<string, string>>({});
+  // Configured keys the user explicitly opted to replace via "Ändra" — the
+  // F2 correction path (the full env editor is F3-only), Codex P2 on #525.
+  const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
   const [savingDossierId, setSavingDossierId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<{ dossierId: string; message: string } | null>(
     null,
@@ -343,6 +346,7 @@ export function PreviewPanelDossiers({
   // switches within the same chat keep drafts (env vars are project-scoped).
   useEffect(() => {
     setKeyValues({});
+    setEditingKeys(new Set());
     setSaveError(null);
     setPendingFocusKeys(null);
   }, [chatId]);
@@ -350,10 +354,12 @@ export function PreviewPanelDossiers({
   const handleSaveKeys = useCallback(
     async (dossier: DossierOverviewEntry) => {
       if (!projectId || savingDossierId) return;
-      const missingEnvKeys = dossier.envVars
-        .filter((env) => !env.hasRealValue)
+      // Writable = missing keys + configured keys the user explicitly chose
+      // to replace ("Ändra" — the F2 correction path, Codex P2 on #525).
+      const writableEnvKeys = dossier.envVars
+        .filter((env) => !env.hasRealValue || editingKeys.has(env.key))
         .map((env) => env.key);
-      const filled = missingEnvKeys.filter((key) => (keyValues[key] ?? "").trim().length > 0);
+      const filled = writableEnvKeys.filter((key) => (keyValues[key] ?? "").trim().length > 0);
       if (filled.length === 0) return;
       setSavingDossierId(dossier.id);
       setSaveError(null);
@@ -387,6 +393,12 @@ export function PreviewPanelDossiers({
           for (const key of filled) delete next[key];
           return next;
         });
+        setEditingKeys((current) => {
+          if (current.size === 0) return current;
+          const next = new Set(current);
+          for (const key of filled) next.delete(key);
+          return next;
+        });
         // Notifies every builder surface (incl. this panel's own listener →
         // refetch → fresh hasRealValue/status) and the preview VM env sync.
         dispatchProjectEnvVarsUpdated({
@@ -407,7 +419,7 @@ export function PreviewPanelDossiers({
         setSavingDossierId(null);
       }
     },
-    [chatId, keyValues, projectId, savingDossierId, versionId],
+    [chatId, editingKeys, keyValues, projectId, savingDossierId, versionId],
   );
 
   // Nothing wired yet: default the popover straight to "Bläddra katalog"
@@ -560,8 +572,10 @@ export function PreviewPanelDossiers({
                         {/* Write-only masked input for keys without a stored
                             real value — available in both F2 and F3 (owner
                             decision 2026-07-13). Saved values are never read
-                            back; only `hasRealValue` flips. */}
-                        {!env.hasRealValue ? (
+                            back; only `hasRealValue` flips. Configured keys
+                            get an explicit "Ändra"-toggle instead (the F2
+                            correction path — the full editor is F3-only). */}
+                        {!env.hasRealValue || editingKeys.has(env.key) ? (
                           <span className="flex items-center gap-1.5">
                             <KeyRound className="h-3 w-3 shrink-0 text-gray-500" />
                             <Input
@@ -578,17 +592,31 @@ export function PreviewPanelDossiers({
                                 }))
                               }
                               placeholder={
-                                projectId ? "Klistra in riktigt värde" : "Projekt saknas"
+                                projectId
+                                  ? env.hasRealValue
+                                    ? "Klistra in nytt värde"
+                                    : "Klistra in riktigt värde"
+                                  : "Projekt saknas"
                               }
                               className="h-7 border-gray-700 bg-black/30 text-[11px]"
                             />
                           </span>
-                        ) : null}
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingKeys((current) => new Set(current).add(env.key))
+                            }
+                            className="text-[10px] text-sky-300 hover:text-sky-200"
+                          >
+                            Ändra värde
+                          </button>
+                        )}
                       </li>
                     );
                   })}
                 </ul>
-                {entry.envVars.some((env) => !env.hasRealValue) ? (
+                {entry.envVars.some((env) => !env.hasRealValue || editingKeys.has(env.key)) ? (
                   <div className="mt-2 space-y-1">
                     <Button
                       size="sm"
@@ -599,7 +627,8 @@ export function PreviewPanelDossiers({
                         savingDossierId !== null ||
                         !entry.envVars.some(
                           (env) =>
-                            !env.hasRealValue && (keyValues[env.key] ?? "").trim().length > 0,
+                            (!env.hasRealValue || editingKeys.has(env.key)) &&
+                            (keyValues[env.key] ?? "").trim().length > 0,
                         )
                       }
                       onClick={() => void handleSaveKeys(entry)}
