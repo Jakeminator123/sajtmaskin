@@ -63,7 +63,7 @@ Kort tabell till användaren: fynd × utfall (fixat/loggat/avfärdat). Sedan pus
 
 ## Regler
 
-- **Obligatoriskt före PR-skapande och före push till master** (se `git.mdc`/`workflow.mdc`). Inte valfritt på egen diff som rör kod.
+- **Valfritt** (ägarbeslut 2026-07-13): det obligatoriska för-filtret före PR/push är bugbot-passet (se `git.mdc`/`workflow.mdc`). Den här svärmen körs bara på uttrycklig begäran eller för extra bredd på en ovanligt riskabel diff.
 - Svärmen ändrar ALDRIG kod och kör ALDRIG git-åtgärder.
 - Endast `composer-2.5-fast` (eller `composer-2.5` om användaren ber om det) för svärm-agenterna.
 - Rundor konvergerar: max 1 omsvärmning efter fixar. Kvarvarande nits → logga, inte ny runda (undvik oändlig loop).
