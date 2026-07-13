@@ -9,7 +9,7 @@ En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repo
 
 ## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `review-window`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **`/granska` körd på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** (numera tekniskt tvingat av required-checken `review-window`) · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `review-window`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **bugbot-pass kört på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** (numera tekniskt tvingat av required-checken `review-window`) · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
 
 ## review-window — 7-min/bot-fönstret är tekniskt tvingat
 

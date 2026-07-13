@@ -32,7 +32,7 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - `node scripts/dev/check-unicode-regex.mjs` om du rört regex
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
-- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör `/granska` före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
+- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
 
 ## Vercel-åtkomst (CLI + MCP) — inloggat läge
 
@@ -54,7 +54,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 - Ignore taste/style unless it is a real UX/runtime/maintainability risk. Keep comments to concrete, merge-blocking problems.
 - **Proportionality (the gate protects, it does not brake):** a well-motivated improvement is **never** held back by style nits — log the nit (P2/backlog) and merge. Restrictive on real breakage (P0/P1, security, broken schema/policy/test/contract, false-green), generous on value. A nitpicky/flaky gate that catches no real risk → log + merge, fix the gate separately. Canonical table: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Proportionalitet".
 
-**Before opening the PR:** run `/granska` (8 `composer-2.5-fast` subagents on your own diff) as a pre-filter — also before any push to master. See [`git.mdc`](.cursor/rules/git.mdc). It does **not** replace the post-check below.
+**Before opening the PR:** run a **Cursor Bugbot pass** on your own diff (`bugbot` subagent, `readonly: true`) as the pre-filter — also before any push to master. This IS the author bug post-check below (same pass), just run before push instead of after open, so it satisfies both for that head SHA. The rules below are unchanged: **re-run bugbot on every new commit** (SHA-freshness / `merge:ready`), and the protected-path pass + 7-min/Codex window still apply. See [`git.mdc`](.cursor/rules/git.mdc). (The old 8-agent `/granska` swarm is now an **optional** manual deep-dive — costly in orchestrator context — not a requirement.)
 
 **Bug post-check (run by the PR author, before or right after opening the PR):**
 
@@ -62,7 +62,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 2. If Bugbot is unavailable, do a structured manual review of the diff: read `git diff`, identify changed owners/files, hunt for regressions / missing tests / env-DB-preview risk / false-green / broken contracts, run the repo verifications (`npm run typecheck`, targeted `npx vitest run`, `npm run lint`, `npm run db:schema-drift`, …), and summarize findings with file/line refs.
 3. Document the outcome in the PR (which path was used + finding triage) so the merging agent does not redo the pass — the merger's job is to verify the post-check is documented, checks are green, and no P0/P1 is open.
 
-**7-min external-review window:** after opening the PR, wait up to 7 min for a Codex review to land; if none does, run the `bugbot` subagent (above). Never merge a PR younger than 7 min (`gh pr view <n> --json createdAt`) — external reviewers need time to look. This window is now **technically enforced** by the required check `review-window` (`.github/workflows/review-window.yml`), which stays pending until the PR is ≥ 7 min old **and** the known external bots for the head SHA have finished (10-min cap). A normal `gh pr merge` therefore cannot happen too early; `--admin` can still override it, so verify age manually on admin merges. Detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Minsta granskning innan merge".
+**7-min external-review window:** after opening the PR, wait up to 7 min for a Codex review to land; if none does, run the `bugbot` subagent (above) — unless the current head SHA's pre-push bugbot pass already covers it and no new commit has landed since. Never merge a PR younger than 7 min (`gh pr view <n> --json createdAt`) — external reviewers need time to look. This window is now **technically enforced** by the required check `review-window` (`.github/workflows/review-window.yml`), which stays pending until the PR is ≥ 7 min old **and** the known external bots for the head SHA have finished (10-min cap). A normal `gh pr merge` therefore cannot happen too early; `--admin` can still override it, so verify age manually on admin merges. Detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Minsta granskning innan merge".
 
 **Author-is-merger rule:** re-reading your own diff is never review. The `bugbot` subagent pass (a separate agent) is the minimum on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't self-approve around a `NEEDS_HUMAN` verdict. (The dashboard PR Auto-Merger is off per the 2026-07-09 agent-merger decision; if it is ever re-enabled, the same no-self-approval rule applies to its verdict.)
 

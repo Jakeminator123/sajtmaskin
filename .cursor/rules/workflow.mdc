@@ -41,7 +41,7 @@ Docs ska spegla runtime. Ersätt gammal text, lägg inte nya lager ovanpå. Ta b
 
 ## Innan PR eller push till master
 
-Kör `/granska` (buggsvärm på egen diff — 8 st `composer-2.5-fast` mot bara dina ändringar) före du skapar PR eller pushar till master. Det är ett för-filter, inte hela grinden: merge-grind, 7-min-fönster och extern buggkoll ligger i `pr-merge-review-gate.mdc` + `auto-merge-automation.mdc`. Kör `/automat` bara för bred repo-audit — inte som diff-granskning.
+Kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`) före du skapar PR eller pushar till master. Detta pass **ÄR** författarens obligatoriska bugg-efterkontroll (`pr-merge-review-gate.mdc`) — samma pass, bara kört före push i stället för efter PR-öppning, så för-filter och efterkontroll är ett och samma för den aktuella head-SHA:n. Reglerna nedåt gäller oförändrat: **kör om bugbot på varje ny commit** (SHA-färskhet, `merge:ready`), protected-path-passet och 7-min/Codex-fönstret ligger kvar i `pr-merge-review-gate.mdc`. Det ersätter den tidigare `/granska`-8-agentssvärmen, som nu är ett **valfritt** manuellt djupdyk (dyrt i orkestratorns kontext: 8 rapporter som ligger kvar; kör bara på uttrycklig begäran eller vid ovanligt riskabel diff). Kör `/automat` bara för bred repo-audit — inte som diff-granskning.
 
 ## När du ska pausa
 

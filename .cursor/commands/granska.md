@@ -1,8 +1,10 @@
-# /granska — buggsvärm på din egen diff (före push/PR)
+# /granska — buggsvärm på din egen diff (VALFRITT djupdyk)
+
+> **Status (ägarbeslut 2026-07-13): valfri, ej krav.** Obligatoriskt för-filter före push/PR är numera **ett Cursor Bugbot-pass** på egen diff (bugbot-subagent) — se `git.mdc`/`workflow.mdc`. Skälet: 8-svärmen returnerar 8 rapporter som ligger kvar i orkestratorns (dyra) kontext hela sessionen, och sessionens allvarliga fynd kom ändå från Bugbot/Codex. Kör `/granska` bara på uttrycklig begäran eller vid ovanligt riskabel diff där du vill ha extra bredd (docs-sync, referens-svep).
 
 Kör **8 parallella read-only** Composer-subagenter riktade mot **exakt det du själv just ändrat** (working tree-diff eller branch-diff mot master). Varje agent granskar diffen från sin egen vinkel och rapporterar kort: **bugg-% + impact (1–5) + en menings motivering + fil:rad**. Du (den PR-ande/pushande/mergande agenten) är den **kritiska grindvakten**: subagenterna är snabba men dumma — verifiera varje fynd mot koden innan du agerar.
 
-**Syfte:** sänka buggigheten i det som är på väg ut, INNAN push/PR — komplement till bugbot-passet (som körs på PR:en efteråt), inte ersättning.
+**Syfte:** extra bredd (docs-sync, referens-svep) på en riskabel diff — komplement till det obligatoriska bugbot-passet, inte ersättning.
 
 ## När den körs
 
@@ -19,7 +21,7 @@ Kör **8 parallella read-only** Composer-subagenter riktade mot **exakt det du s
 3. **Var kritisk:** för varje rapporterat fynd — läs koden själv och avgör om det stämmer. Subagenterna gissar ibland (de ser inte alltid hela kontexten). Ett fynd med 80 % + impact 4 som inte stämmer vid läsning = avfärda med en rad.
 4. **Triagera** (samma tre utfall som review-gaten): **Fixa** i diffen · **Logga** i `BUG-SWARM-BACKLOG.md` · **Avfärda** med en rad varför.
 5. **Verifiera efter fix:** `npm run typecheck` + riktade `vitest` + `ReadLints` på ändrade filer.
-6. **Sedan** push/PR som vanligt (bugbot-passet på PR:en gäller fortfarande, per `pr-merge-review-gate.mdc`).
+6. **Sedan** push/PR som vanligt (det obligatoriska bugbot-passet gäller fortfarande, per `pr-merge-review-gate.mdc`).
 
 ## Anti-mönster
 
@@ -27,7 +29,7 @@ Kör **8 parallella read-only** Composer-subagenter riktade mot **exakt det du s
 - Samma vinkel till flera agenter.
 - Blint fixa allt svärmen säger — grindvakten ska läsa koden först.
 - Skrivrätt på svärm-agenter, eller git-åtgärder i svärmen.
-- Köra /granska ISTÄLLET för bugbot-passet på PR:en — det är ett för-filter, inte ersättning.
+- Köra /granska ISTÄLLET för det obligatoriska bugbot-passet — /granska är ett valfritt komplement, inte ersättning.
 
 ## Projekt-skill
 
