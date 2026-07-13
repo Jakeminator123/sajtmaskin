@@ -23,6 +23,13 @@ import { hasTraversalSegment } from "@/lib/utils/path-utils";
 export type QualityGateCheckResult = {
   check: string;
   passed: boolean;
+  /** Non-blocking finding (currently lint warnings). */
+  advisory?: boolean;
+  /** False for host tooling/config failures that an LLM must not repair. */
+  repairable?: boolean;
+  failureKind?: "code" | "tooling" | null;
+  errorCount?: number;
+  warningCount?: number;
   exitCode: number;
   output: string;
   durationMs?: number | null;
@@ -64,17 +71,14 @@ export const QUALITY_GATE_SETUP_HINT =
 /**
  * Quality-gate commands run on preview-host's verify-lane.
  *
- * `lint` uses `--max-warnings=20` (not `=0`) deliberately: errors ALWAYS
- * fail the gate (e.g. `react-hooks/set-state-in-effect`, `no-undef`),
- * while we tolerate a small pool of warnings (unused imports, minor a11y
- * hints) so single `@typescript-eslint/no-unused-vars` drops don't freeze
- * a whole generation. Raise the cap via env override if we ever want to
- * be stricter.
+ * Every command resolves from the exported project's node_modules. The VM
+ * classifies lint warnings as Advisory and lint errors as Blocker; it never
+ * downloads a missing tool during verification.
  */
 export const QUALITY_GATE_COMMANDS: Record<QualityGateCheck, string> = {
-  typecheck: "npx tsc --noEmit",
-  build: "npx next build",
-  lint: "npx eslint . --max-warnings=20",
+  typecheck: "node ./node_modules/typescript/bin/tsc --noEmit",
+  lint: "node ./node_modules/eslint/bin/eslint.js . --format stylish --no-color",
+  build: "node ./node_modules/next/dist/bin/next build",
 };
 
 function isSafeRelativePath(filePath: string): boolean {

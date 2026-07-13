@@ -490,7 +490,6 @@ export async function finalizeAndSaveVersion(
     mechanicalFixes: syntaxResult.mechanicalFixCount,
     llmFixes: syntaxResult.llmFixCount,
     tscRan: syntaxResult.tsc?.ran === true,
-    eslintRan: syntaxResult.eslint?.ran === true,
   });
 
   await persistOrchestrationSnapshot({
@@ -788,7 +787,6 @@ export async function finalizeAndSaveVersion(
     warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...buildWarmPassTelemetry({
       tsc: syntaxResult.tsc,
-      eslint: syntaxResult.eslint,
       scaffoldId: resolvedScaffold?.id ?? null,
       isFidelity3: buildSpec?.previewPolicy === "fidelity3",
     }),

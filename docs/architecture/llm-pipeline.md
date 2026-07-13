@@ -91,13 +91,14 @@ Typisk ordning i runtime:
 1. codegen-output samlas till kandidat-innehåll.
 2. Normalize (kod: url-expand + autofix) expanderar media-URL:er och kör
    deterministiska fixers före LLM.
-3. syntax/esbuild körs; när syntax är ren körs warm-tsc och vid behov warm-eslint.
+3. syntax/esbuild körs; när syntax är ren kan warm-tsc köras. Warm ESLint är
+   endast opt-in lokal diagnostik och ingår inte i finalize/RepairGate.
 4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,
    React/same-module-dedupe + re-check) körs före LLM på warm-tsc-residual.
 5. RepairGate (kod: `runLlmRepairGate` + `RepairLedger`) används endast för
    residual som Normalize och statiska kontroller inte löste. Samma ledger
-   dedupe:ar syntax-, warm-tsc-, warm-eslint-, verifier- och preflight-repair
+   dedupe:ar syntax-, warm-tsc-, verifier- och preflight-repair
    inom en finalize-run.
 6. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
    grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
@@ -112,8 +113,9 @@ Typisk ordning i runtime:
     bevis på att den persistade versionen är redo.
 11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder.
-12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 strikt
-    typecheck + build + lint + env-krav när användaren explicit går till F3.
+12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
+    auktoritativ VM-gate: typecheck → projektlokal lint → build + env-krav.
+    Lint warnings är Advisory; lint errors är Blocker.
 13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard.
 

@@ -285,6 +285,9 @@ export async function triggerServerVerification(params: {
     }
 
     const passed = qualityGateAllPassed(gateResult.results);
+    const lintAdvisories = gateResult.results.filter(
+      (result) => result.check === "lint" && result.advisory === true,
+    );
 
     // F2 render-first (#330): a design-preview (F2) version whose ONLY failing
     // check is `typecheck` is advisory (see `isTypecheckOnlyAdvisory`) — `next
@@ -358,6 +361,12 @@ export async function triggerServerVerification(params: {
     // same payload, so no downstream reader breaks.
     const qualityGateMeta = buildServerVerifyQualityGateMeta({
       passed,
+      advisory: f2TypecheckAdvisory || lintAdvisories.length > 0,
+      advisoryChecks: f2TypecheckAdvisory
+        ? ["typecheck"]
+        : lintAdvisories.length > 0
+          ? ["lint"]
+          : [],
       results: gateResult.results,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
       firstFailureCheck: gateResult.firstFailureCheck,
@@ -394,10 +403,18 @@ export async function triggerServerVerification(params: {
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
-      level: passed ? "info" : advisoryPromoted ? "warning" : "error",
+      level: passed
+        ? lintAdvisories.length > 0
+          ? "warning"
+          : "info"
+        : advisoryPromoted
+          ? "warning"
+          : "error",
       category: advisoryPromoted ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
       message: passed
-        ? "Server verify passed."
+        ? lintAdvisories.length > 0
+          ? "Server verify passed with lint warnings (advisory)."
+          : "Server verify passed."
         : advisoryPromoted
           ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
           : "Server verify failed.",
@@ -441,18 +458,73 @@ export async function triggerServerVerification(params: {
         ).catch(() => null);
         return;
       }
-      await promoteVersion(versionId, "Automatic server verification passed.", runId).catch(() => null);
+      const promoted = await promoteVersion(
+        versionId,
+        lintAdvisories.length > 0
+          ? "Automatic server verification passed with lint warnings (advisory)."
+          : "Automatic server verification passed.",
+        runId,
+      ).catch(() => null);
+      if (promoted && lintAdvisories.length > 0) {
+        try {
+          emitBusEvent({
+            t: "version.degraded",
+            versionId,
+            chatId,
+            kind: "lint_advisory",
+            message: "ReleaseGate godkändes med ESLint-varningar (advisory).",
+            meta: {
+              advisoryChecks: ["lint"],
+              warningCount: lintAdvisories.reduce(
+                (sum, result) => sum + (result.warningCount ?? 0),
+                0,
+              ),
+            },
+          });
+        } catch {
+          // Telemetry only — never invalidate a successful promotion.
+        }
+      }
       return;
     }
 
     const failedOutputs = gateResult.results
-      .filter((r) => !r.passed)
+      .filter((r) => !r.passed && r.repairable !== false)
       .map((r) => ({
         check: r.check,
         exitCode: r.exitCode,
         output: r.output,
         durationMs: r.durationMs ?? null,
       }));
+    const nonRepairableFailures = gateResult.results.filter(
+      (result) => !result.passed && result.repairable === false,
+    );
+    if (nonRepairableFailures.length > 0) {
+      await createEngineVersionErrorLogs(
+        nonRepairableFailures.map((result) => ({
+          chatId,
+          versionId,
+          level: "error" as const,
+          category: `quality-gate:${result.check}-tooling`,
+          message: `${result.check} tooling/configuration failure; not repairable as user code.`,
+          meta: {
+            failureKind: result.failureKind ?? "tooling",
+            output: result.output.slice(0, 12_000),
+            serverOwned: true,
+          },
+        })),
+      ).catch(() => null);
+      if (failedOutputs.length === 0) {
+        await failVersionVerification(
+          versionId,
+          `ReleaseGate tooling/configuration failure (${nonRepairableFailures
+            .map((result) => result.check)
+            .join(", ")}); automatic code repair was not started.`,
+          runId,
+        ).catch(() => null);
+        return;
+      }
+    }
     logQualityGateFailuresBestEffort({ chatId, versionId, failedOutputs });
 
     if (diagnosticOnly) {

@@ -1,12 +1,10 @@
 /**
  * Warm-pass observability (P0: stop silent skip).
  *
- * Builds the structured `warmTsc` / `warmEslint` blocks for `site.done`
- * telemetry from the `validateAndFix` outcome. `enabled` reflects operator
- * intent (env flag truthy or F3-force); `ran`/`skipped` reflect what
- * actually happened, so "flag on but warm cache cold" (`cache_cold`) is
- * distinguishable from "pass ran" and from "intentionally off"
- * (`feature_flag_disabled`). Consumed by backoffice
+ * Builds structured warm-pass blocks for `site.done`. Warm ESLint is retained
+ * only as non-authoritative local diagnostics and is no longer called by
+ * finalize; its legacy-compatible absent outcome remains `not_reached`.
+ * Consumed by backoffice
  * `llm_flode_telemetry.py`; schema:
  * `docs/schemas/strict/site-done-telemetry.schema.json`.
  */
@@ -41,7 +39,7 @@ export interface WarmEslintOutcomeLike {
  */
 export function buildWarmPassTelemetry(params: {
   tsc: WarmTscOutcomeLike | undefined;
-  eslint: WarmEslintOutcomeLike | undefined;
+  eslint?: WarmEslintOutcomeLike;
   scaffoldId: string | null;
   isFidelity3: boolean;
 }): { warmTsc: WarmPassTelemetry; warmEslint: WarmEslintPassTelemetry } {
@@ -55,7 +53,7 @@ export function buildWarmPassTelemetry(params: {
   };
   const eslintRan = eslint?.ran === true;
   const warmEslint: WarmEslintPassTelemetry = {
-    enabled: isEnvFlagTruthy("SAJTMASKIN_BLOCKING_ESLINT") || isFidelity3,
+    enabled: Boolean(eslint) && isEnvFlagTruthy("SAJTMASKIN_BLOCKING_ESLINT"),
     ran: eslintRan,
     skipped: eslint ? (eslint.ran ? null : (eslint.skipped ?? "exception")) : "not_reached",
     scaffoldId,

@@ -189,6 +189,7 @@ type BusinessWorkflowActionPrompt = {
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
+  advisory?: boolean;
   exitCode: number;
   output: string;
   durationMs?: number | null;
@@ -198,6 +199,9 @@ type QualityGateSummary = {
   passed: boolean;
   /** F2 render-first: promoted with typecheck warnings (advisory) — amber, not green. */
   designAdvisory?: boolean;
+  /** F3 ReleaseGate passed with lint warnings — amber, still promotable. */
+  qualityGateAdvisory?: boolean;
+  advisoryChecks?: string[];
   skipped: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
@@ -1740,6 +1744,12 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
   return {
     passed: Boolean(obj.passed),
     designAdvisory: obj.designAdvisory === true,
+    qualityGateAdvisory: obj.qualityGateAdvisory === true,
+    advisoryChecks: Array.isArray(obj.advisoryChecks)
+      ? obj.advisoryChecks.filter(
+          (check): check is string => typeof check === "string" && check.trim().length > 0,
+        )
+      : [],
     skipped: false,
     checks,
     verifyLaneDurationMs:

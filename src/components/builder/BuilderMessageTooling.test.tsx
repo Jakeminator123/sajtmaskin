@@ -342,6 +342,45 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Visuell QA: 74/100 Under tröskel")).toBeTruthy();
   });
 
+  it("renders F3 lint warnings as an amber advisory instead of solid green", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_quality_gate_lint_advisory"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                passed: true,
+                qualityGateAdvisory: true,
+                advisoryChecks: ["lint"],
+                checks: [
+                  {
+                    check: "lint",
+                    passed: true,
+                    advisory: true,
+                    exitCode: 0,
+                    output: "2 warnings",
+                    durationMs: 400,
+                  },
+                ],
+                verifyLaneDurationMs: 400,
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Godkänd med varningar (lint advisory)")).toBeTruthy();
+    expect(screen.queryByText(/^Godkänd$/)).toBeNull();
+  });
+
   it("shows compact verify-lane summary without structured tool cards", () => {
     render(
       <CompactToolParts

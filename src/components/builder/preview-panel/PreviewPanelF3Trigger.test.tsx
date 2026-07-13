@@ -232,7 +232,7 @@ describe("PreviewPanelF3Trigger", () => {
     expect(qualityGateBody).toEqual({
       versionId: "ver_f3",
       gate: "integrationsBuild",
-      checks: ["typecheck", "build", "lint"],
+      checks: ["typecheck", "lint", "build"],
     });
     expect(onReleaseSettled).toHaveBeenCalledWith({
       versionId: "ver_f3",

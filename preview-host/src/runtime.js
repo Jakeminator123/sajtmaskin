@@ -54,9 +54,9 @@ const INSPECT_APP_ORIGIN = (process.env.SAJTMASKIN_APP_ORIGIN || "").trim().repl
 const INSPECT_BRIDGE_MAX_HTML_BYTES = 5 * 1024 * 1024;
 
 const VERIFY_COMMANDS = {
-  typecheck: "npx tsc --noEmit",
-  build: "npx next build",
-  lint: "npx eslint . --max-warnings=0",
+  typecheck: "node ./node_modules/typescript/bin/tsc --noEmit",
+  lint: "node ./node_modules/eslint/bin/eslint.js . --format stylish --no-color",
+  build: "node ./node_modules/next/dist/bin/next build",
 };
 
 const VERIFY_OUTPUT_CAP_BY_STAGE = {
@@ -445,11 +445,11 @@ function resolveInstallCommand(filesJson) {
     // optionalDependencies; skipping them leaves Tailwind v4 without its
     // musl `.node` on the Alpine VM and the dev server crash-loops on boot.
     return {
-      command: "pnpm install --frozen-lockfile",
+      command: "pnpm install --frozen-lockfile --prod=false",
       successLabel: "pnpm install passed.",
-      logLabel: "pnpm install --frozen-lockfile",
-      fallbackCommand: "pnpm install --no-frozen-lockfile",
-      fallbackLogLabel: "pnpm install --no-frozen-lockfile",
+      logLabel: "pnpm install --frozen-lockfile --prod=false",
+      fallbackCommand: "pnpm install --no-frozen-lockfile --prod=false",
+      fallbackLogLabel: "pnpm install --no-frozen-lockfile --prod=false",
       alwaysAllowFallback: true,
     };
   }
@@ -457,30 +457,30 @@ function resolveInstallCommand(filesJson) {
   if (hasYarnLock) {
     // Keep optional deps for the same native-binary reason as pnpm above.
     return {
-      command: "yarn install --frozen-lockfile",
+      command: "yarn install --frozen-lockfile --production=false",
       successLabel: "yarn install passed.",
-      logLabel: "yarn install --frozen-lockfile",
-      fallbackCommand: "yarn install",
-      fallbackLogLabel: "yarn install",
+      logLabel: "yarn install --frozen-lockfile --production=false",
+      fallbackCommand: "yarn install --production=false",
+      fallbackLogLabel: "yarn install --production=false",
       alwaysAllowFallback: true,
     };
   }
   const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
   if (hasPackageLock) {
     return {
-      command: "npm ci --no-audit",
+      command: "npm ci --no-audit --include=dev",
       successLabel: "npm ci passed.",
-      logLabel: "npm ci --no-audit",
-      fallbackCommand: "npm ci --no-audit --legacy-peer-deps",
-      fallbackLogLabel: "npm ci --no-audit --legacy-peer-deps",
+      logLabel: "npm ci --no-audit --include=dev",
+      fallbackCommand: "npm ci --no-audit --include=dev --legacy-peer-deps",
+      fallbackLogLabel: "npm ci --no-audit --include=dev --legacy-peer-deps",
     };
   }
   return {
-    command: "npm install --no-audit",
+    command: "npm install --no-audit --include=dev",
     successLabel: "npm install passed.",
-    logLabel: "npm install --no-audit",
-    fallbackCommand: "npm install --no-audit --legacy-peer-deps",
-    fallbackLogLabel: "npm install --no-audit --legacy-peer-deps",
+    logLabel: "npm install --no-audit --include=dev",
+    fallbackCommand: "npm install --no-audit --include=dev --legacy-peer-deps",
+    fallbackLogLabel: "npm install --no-audit --include=dev --legacy-peer-deps",
   };
 }
 
@@ -508,7 +508,14 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
 }
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
-  const env = sanitizedEnv();
+  // Generated projects keep TypeScript/ESLint in devDependencies. Force every
+  // package manager to include them even when the host itself runs with
+  // NODE_ENV=production; ReleaseGate must never depend on ambient host mode.
+  const env = sanitizedEnv({
+    NODE_ENV: "development",
+    NPM_CONFIG_PRODUCTION: "false",
+    NPM_CONFIG_OMIT: "",
+  });
   const runAttempt = async (command) => {
     const startedAt = Date.now();
     const result = await runShellCommand(command, {
@@ -1051,7 +1058,7 @@ function trimSnippet(input) {
 // would keep matching its cached fingerprint on reuse (e.g. a follow-up edit on
 // an imported template) and skip the corrective reinstall — leaving Tailwind v4
 // crash-looping. (Codex P2 on PR #454.)
-const DEPENDENCY_INSTALL_POLICY = "2026-07-08-optional-and-build-scripts";
+const DEPENDENCY_INSTALL_POLICY = "2026-07-13-dev-deps-local-toolchain";
 
 function dependencyFingerprint(filesJson) {
   const hash = createHash("sha256");
@@ -1102,17 +1109,9 @@ function tryShareNodeModules(params) {
   fs.rmSync(targetNodeModules, { recursive: true, force: true });
 
   try {
-    fs.symlinkSync(
-      sourceNodeModules,
-      targetNodeModules,
-      process.platform === "win32" ? "junction" : "dir",
-    );
-    return { reused: true, method: "symlink" };
-  } catch {
-    // fallback to copy below
-  }
-
-  try {
+    // Verify workspaces must never point at the live workspace. A subsequent
+    // tool invocation may write caches or metadata under node_modules; a
+    // symlink would mutate the running site's dependency tree.
     fs.cpSync(sourceNodeModules, targetNodeModules, { recursive: true });
     return { reused: true, method: "copy" };
   } catch (error) {
@@ -1123,24 +1122,23 @@ function tryShareNodeModules(params) {
   }
 }
 
-function projectOwnsLintSetup(filesJson) {
+function inspectProjectLintSetup(filesJson) {
   const names = new Set(
     Object.keys(filesJson || {}).map((name) => name.replace(/\\/g, "/").toLowerCase()),
   );
-  if (
+  const hasConfig =
     names.has("eslint.config.mjs") ||
     names.has("eslint.config.js") ||
     names.has("eslint.config.cjs") ||
     names.has(".eslintrc") ||
     names.has(".eslintrc.js") ||
     names.has(".eslintrc.cjs") ||
-    names.has(".eslintrc.json")
-  ) {
-    return true;
-  }
+    names.has(".eslintrc.json");
 
   const packageJson = typeof filesJson?.["package.json"] === "string" ? filesJson["package.json"] : null;
-  if (!packageJson) return false;
+  if (!packageJson) {
+    return { ok: false, reason: "missing package.json", hasConfig, hasDependency: false };
+  }
 
   try {
     const parsed = JSON.parse(packageJson);
@@ -1149,18 +1147,68 @@ function projectOwnsLintSetup(filesJson) {
       ...(parsed.devDependencies || {}),
     };
     const depNames = Object.keys(deps);
-    if (
-      depNames.some(
-        (name) =>
-          name === "eslint" || name.startsWith("eslint-") || name.startsWith("@eslint/"),
-      )
-    ) {
-      return true;
+    const hasDependency = depNames.includes("eslint");
+    if (!hasConfig) {
+      return { ok: false, reason: "missing project-local ESLint config", hasConfig, hasDependency };
     }
-    return typeof parsed.scripts?.lint === "string" && parsed.scripts.lint.trim().length > 0;
+    if (!hasDependency) {
+      return { ok: false, reason: "missing project-local eslint dependency", hasConfig, hasDependency };
+    }
+    return { ok: true, reason: null, hasConfig, hasDependency };
   } catch {
-    return false;
+    return {
+      ok: false,
+      reason: "package.json is not valid JSON",
+      hasConfig,
+      hasDependency: false,
+    };
   }
+}
+
+function projectOwnsLintSetup(filesJson) {
+  return inspectProjectLintSetup(filesJson).ok;
+}
+
+function parseLintCounts(output) {
+  const match = String(output || "").match(
+    /(\d+)\s+problems?\s+\((\d+)\s+errors?,\s+(\d+)\s+warnings?\)/i,
+  );
+  return match
+    ? {
+        problemCount: Number.parseInt(match[1], 10),
+        errorCount: Number.parseInt(match[2], 10),
+        warningCount: Number.parseInt(match[3], 10),
+      }
+    : { problemCount: 0, errorCount: 0, warningCount: 0 };
+}
+
+function classifyLintResult(result) {
+  const counts = parseLintCounts(result.output);
+  if (result.exitCode === 0) {
+    return {
+      passed: true,
+      advisory: counts.warningCount > 0,
+      repairable: false,
+      failureKind: null,
+      ...counts,
+    };
+  }
+  if (result.exitCode === 1 && counts.errorCount > 0) {
+    return {
+      passed: false,
+      advisory: false,
+      repairable: true,
+      failureKind: "code",
+      ...counts,
+    };
+  }
+  return {
+    passed: false,
+    advisory: false,
+    repairable: false,
+    failureKind: "tooling",
+    ...counts,
+  };
 }
 
 async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
@@ -1222,6 +1270,9 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
   );
 }
 
+let verifyInstallRunner = runInstallCommandWithFallback;
+let verifyCommandRunner = runShellCommand;
+
 async function runVerifyJob(params) {
   const { verifyId, chatId, versionId, filesJson, checks } = params;
   const workspaceDir = workspaceDirForVerifyJob(chatId, verifyId);
@@ -1272,7 +1323,16 @@ async function runVerifyJob(params) {
           }),
         );
       }
-      const installResult = await runInstallCommandWithFallback(workspaceDir, install);
+      const installResult = shareNodeModulesResult.reused
+        ? {
+            passed: true,
+            exitCode: 0,
+            durationMs: 0,
+            output: "Dependency fingerprint matched; copied project-local node_modules and skipped install.",
+            usedFallback: false,
+            peerConflictDetected: false,
+          }
+        : await verifyInstallRunner(workspaceDir, install);
       results.push(
         pushResult({
           check: "install",
@@ -1281,7 +1341,7 @@ async function runVerifyJob(params) {
           durationMs: installResult.durationMs,
           output:
             installResult.passed
-              ? install.successLabel
+              ? installResult.output || install.successLabel
               : installResult.output ||
                 `(No install output captured; exit ${installResult.exitCode ?? "unknown"}).`,
         }),
@@ -1317,38 +1377,55 @@ async function runVerifyJob(params) {
         );
       }
 
-      const ownsLintSetup = projectOwnsLintSetup(filesJson);
       for (const check of checks) {
-        if (check === "lint" && !ownsLintSetup) {
-          results.push(
-            pushResult({
-              check,
-              passed: true,
-              exitCode: 0,
-              durationMs: 0,
-              output:
-                "Skipped lint: exported project does not include its own ESLint config or dependency set.",
-            }),
-          );
-          continue;
+        if (check === "lint") {
+          const lintSetup = inspectProjectLintSetup(filesJson);
+          const localEslint = path.join(workspaceDir, "node_modules", "eslint", "bin", "eslint.js");
+          if (!lintSetup.ok || !fs.existsSync(localEslint)) {
+            const reason = !lintSetup.ok
+              ? lintSetup.reason
+              : "installed project is missing node_modules/eslint/bin/eslint.js";
+            results.push(
+              pushResult({
+                check,
+                passed: false,
+                advisory: false,
+                repairable: false,
+                failureKind: "tooling",
+                exitCode: 2,
+                durationMs: 0,
+                errorCount: 0,
+                warningCount: 0,
+                output: `Lint tooling/configuration error: ${reason}. No package download was attempted.`,
+              }),
+            );
+            continue;
+          }
         }
         const command = VERIFY_COMMANDS[check];
         if (!command) continue;
         const checkStartedAt = Date.now();
-        const result = await runShellCommand(command, {
+        const result = await verifyCommandRunner(command, {
           cwd: workspaceDir,
           stdio: ["ignore", "pipe", "pipe"],
           env: sanitizedEnv(),
         });
         const durationMs = Date.now() - checkStartedAt;
         const output = clipVerifyOutput(check, result.output);
-        const passed = result.exitCode === 0;
+        const lintClassification =
+          check === "lint" ? classifyLintResult(result) : null;
+        const passed = lintClassification?.passed ?? result.exitCode === 0;
         results.push(
           pushResult({
             check,
             passed,
+            advisory: lintClassification?.advisory ?? false,
+            repairable: lintClassification?.repairable ?? !passed,
+            failureKind: lintClassification?.failureKind ?? (passed ? null : "code"),
             exitCode: result.exitCode,
             durationMs,
+            errorCount: lintClassification?.errorCount ?? undefined,
+            warningCount: lintClassification?.warningCount ?? undefined,
             output:
               passed || output
                 ? output
@@ -1376,7 +1453,9 @@ async function runVerifyJob(params) {
 }
 
 function buildVerifyJobKey(params) {
-  const checks = Array.isArray(params.checks) ? [...params.checks].sort().join(",") : "";
+  // Order is part of the gate contract (F3: typecheck → lint → build), so two
+  // jobs with the same set in different orders must never dedupe together.
+  const checks = Array.isArray(params.checks) ? params.checks.join(",") : "";
   return [
     params.chatId,
     params.versionId,
@@ -2622,6 +2701,14 @@ module.exports = {
     bootRuntimeForSession,
     dependencyFingerprint,
     DEPENDENCY_INSTALL_POLICY,
+    VERIFY_COMMANDS,
+    classifyLintResult,
+    inspectProjectLintSetup,
+    projectOwnsLintSetup,
+    resolveInstallCommand,
+    tryShareNodeModules,
+    workspaceDirForChat,
+    dependencyStatePathForWorkspace,
     patchNextConfigViaAst,
     patchNextConfigViaRegex,
     patchNextConfigForPreviewBasePath,
@@ -2662,6 +2749,16 @@ module.exports = {
     },
     setBootRunnerForTesting(runner) {
       bootRunnerForChat = runner ?? bootRuntimeForSession;
+    },
+    setVerifyRunnersForTesting(params = {}) {
+      verifyInstallRunner =
+        typeof params.installRunner === "function"
+          ? params.installRunner
+          : runInstallCommandWithFallback;
+      verifyCommandRunner =
+        typeof params.commandRunner === "function"
+          ? params.commandRunner
+          : runShellCommand;
     },
   },
 };

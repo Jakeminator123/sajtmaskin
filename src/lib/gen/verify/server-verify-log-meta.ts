@@ -161,6 +161,8 @@ export function compactVisualQAForQualityGateLog(
 type BuildServerVerifyQualityGateMetaParams = {
   results?: QualityGateCheckResult[] | null;
   passed?: boolean;
+  advisory?: boolean;
+  advisoryChecks?: string[];
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
   jobStartedAt: string | null;
@@ -179,6 +181,8 @@ export function buildServerVerifyQualityGateMeta(
   const {
     results,
     passed,
+    advisory,
+    advisoryChecks,
     verifyLaneDurationMs,
     firstFailureCheck,
     jobStartedAt,
@@ -193,10 +197,17 @@ export function buildServerVerifyQualityGateMeta(
 
   return {
     ...(typeof passed === "boolean" ? { passed } : {}),
+    ...(typeof advisory === "boolean" ? { advisory } : {}),
+    ...(advisoryChecks && advisoryChecks.length > 0 ? { advisoryChecks } : {}),
     checks:
       results?.map((result) => ({
         check: result.check,
         passed: result.passed,
+        advisory: result.advisory === true,
+        repairable: result.repairable !== false,
+        failureKind: result.failureKind ?? null,
+        errorCount: result.errorCount ?? null,
+        warningCount: result.warningCount ?? null,
         exitCode: result.exitCode,
         durationMs: result.durationMs ?? null,
       })) ?? null,

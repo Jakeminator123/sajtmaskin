@@ -1,15 +1,11 @@
 /**
- * Pre-VM eslint pass against the warm per-scaffold workspace cache.
- * Mirrors {@link runPreVmTypecheck} in `warm-typecheck.ts`: fail-open,
- * feature-flag gated, bounded to a single spawn.
+ * Optional local ESLint diagnostic against the warm per-scaffold cache.
+ * This module is not called by finalize, promotion, or RepairGate; the
+ * project-local VM lint result is the only authoritative ReleaseGate signal.
  *
  * Design constraints (2026-04, P34 Fas A+B):
- *  - **Fail-open:** returns `{ ok: true, skipped: "cache_cold" | ... }` when
- *    the cache or eslint is unavailable. The finalize pipeline never blocks
- *    on infrastructure that hasn't been provisioned.
- *  - **Feature flag:** disabled unless `SAJTMASKIN_BLOCKING_ESLINT` is truthy.
- *    Tier-3 callers can pass `force: true`. This keeps Fas A+B a no-op in
- *    production until we've measured latency.
+ *  - **Diagnostic only:** results never mutate files or start LLM repair.
+ *  - **Explicit opt-in:** disabled unless `SAJTMASKIN_BLOCKING_ESLINT` is truthy.
  *  - **Scoped eslint:** runs `npx --no-install eslint . --max-warnings=<N>`
  *    inside the scaffold cache. Cache must have `eslint.config.mjs` +
  *    `eslint-config-next` installed (same invariant as the exported project
@@ -126,8 +122,6 @@ function buildStylishOutput(result: {
 export interface RunPreVmEslintParams {
   scaffoldId: string | null | undefined;
   files: CodeFile[];
-  /** Run regardless of `SAJTMASKIN_BLOCKING_ESLINT`. F3 callers can set this. */
-  force?: boolean;
   /** Override the per-scaffold cache directory (testing). */
   cacheDirOverride?: string;
   /** Override max warnings threshold; defaults to env or 20. */
@@ -138,7 +132,7 @@ export async function runPreVmEslint(
   params: RunPreVmEslintParams,
 ): Promise<PreVmEslintResult> {
   const startedAt = Date.now();
-  if (!params.force && !isFeatureFlagEnabled()) {
+  if (!isFeatureFlagEnabled()) {
     return {
       ok: true,
       skipped: "feature_flag_disabled",
@@ -261,8 +255,8 @@ export async function runPreVmEslint(
   }
 }
 
-/** Format issues for the repair loop's `errors` channel (same shape as tsc). */
-export function formatEslintIssuesForRepair(issues: ParsedLintIssue[]): string[] {
+/** Format optional local diagnostic output; never feeds RepairGate. */
+export function formatEslintIssuesForDiagnostics(issues: ParsedLintIssue[]): string[] {
   return issues.slice(0, 40).map((issue) => {
     const location =
       issue.line && issue.column ? `${issue.file}:${issue.line}:${issue.column}` : issue.file;

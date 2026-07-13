@@ -16,8 +16,8 @@ import {
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
 import {
-  isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
+  resolveLatestGateAdvisoryChecks,
   resolveGateFailureSummaryFromLogs,
 } from "@/lib/gen/verify/gate-failure-summary";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
@@ -295,16 +295,22 @@ async function buildEngineReadiness(
       // after the reconcile-promote takes, else the builder would read a false
       // green `done`. Only a real promoted Version emits (never `"guard_denied"`
       // / `null`). A clean pass emits nothing. Best-effort telemetry.
-      if (promoted && promoted !== "guard_denied" && isLatestGateVerdictAdvisory(errorLogs)) {
+      const advisoryChecks =
+        promoted && promoted !== "guard_denied"
+          ? resolveLatestGateAdvisoryChecks(errorLogs)
+          : [];
+      if (advisoryChecks.length > 0) {
+        const lintAdvisory = advisoryChecks.includes("lint");
         try {
           emitBusEvent({
             t: "version.degraded",
             versionId: versionIdForReconcile,
             chatId: chat.id,
-            kind: "typecheck_advisory",
-            message:
-              "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
-            meta: { advisoryChecks: ["typecheck"] },
+            kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
+            message: lintAdvisory
+              ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
+              : "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+            meta: { advisoryChecks },
           });
         } catch {
           // Telemetry only — never block readiness on a bus failure.

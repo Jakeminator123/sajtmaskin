@@ -78,7 +78,7 @@ den tidigare volymtröskeln:
 | `safeFixCount > 0` och `riskyFixCount === 0` | Verifiern får hoppas över med reason `safe_fixes_only`. |
 | `riskyFixCount > 0` | Verifiern körs med trigger/reason `risky_fixes`. |
 | 3D-signal (`BuildSpec.capabilityFlags.signals` innehåller `needs3D`/`needsPhysics`, eller orchestration-capability `visual-3d`/`physics-3d`) | Verifiern körs; safe-only-skip används inte. |
-| LLM-fix i validate-fasen (`validateAndFix` rapporterar `fixerUsed`/`llmFixCount > 0` — esbuild-syntaxfix eller warm-tsc/warm-eslint via RepairGate) | Verifiern körs med trigger `llm_fixes_in_validate`; safe-only-skip används inte. LLM-omskrivningar är risky per definition. Ren deterministisk import-repair med warm-tsc-kvitto blockerar däremot inte skippet. |
+| LLM-fix i validate-fasen (`validateAndFix` rapporterar `fixerUsed`/`llmFixCount > 0` — esbuild-syntaxfix eller warm-tsc via RepairGate) | Verifiern körs med trigger `llm_fixes_in_validate`; safe-only-skip används inte. LLM-omskrivningar är risky per definition. Ren deterministisk import-repair med warm-tsc-kvitto blockerar däremot inte skippet. |
 | Grundpolicyn säger `run: false` | Oförändrat: Fas 2 tvingar inte på verifiern på nya vägar. |
 
 `FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
@@ -119,9 +119,9 @@ RenderGate/ReleaseGate använder dessa kod-check-id:n:
 
 | Check | Kommando |
 |------|----------|
-| `typecheck` | `npx tsc --noEmit` |
-| `lint` | `npx eslint . --max-warnings=20` |
-| `build` | `npx next build` |
+| `typecheck` | `node ./node_modules/typescript/bin/tsc --noEmit` |
+| `lint` | `node ./node_modules/eslint/bin/eslint.js . --format stylish --no-color` |
+| `build` | `node ./node_modules/next/dist/bin/next build` |
 
 Definitioner finns i `src/lib/gen/verify/quality-gate-checks.ts`.
 
@@ -129,7 +129,7 @@ Verify-lane kan också returnera informativa install-signaler i `results[]`:
 
 | Check | Meaning |
 |------|----------|
-| `install-cache-share` | Verify workspace återanvände (eller försökte återanvända) `node_modules` från live workspace via fingerprint-match |
+| `install-cache-share` | Verify workspace kopierade `node_modules` från live workspace vid exakt dependency fingerprint + install-policy-match; installationen hoppas då över |
 | `install-peer-fallback` | Peer-konflikt upptäcktes och fallback med `--legacy-peer-deps` användes |
 
 ## Standardprofiler
@@ -141,7 +141,7 @@ defaultvärden:
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
 | `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | RenderGate för F2 (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
-| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
+| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "lint", "build"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). |
 
 ### Deterministisk F3-fork
 
@@ -151,23 +151,25 @@ ny `engine_versions`-rad med `lifecycle_stage = integrations`,
 ReleaseGate körs sedan på den nya F3-raden; den får aldrig promotera F2-raden.
 Ett direkt `gate: "integrationsBuild"` accepterar bara en tenant-/chat-säkrad
 F3-version och återkör den delade env-/Product Postcheck-grinden innan
-typecheck, build och lint. `passed` räcker inte som klientframgång:
+typecheck, lint och build. `passed` räcker inte som klientframgång:
 `promoted = true`, ej `superseded`, ej `promoteError` och
 `vmGatePassed !== false` krävs.
 
-**2026-04-23 förändring av F2-lanen.** `build` och `lint` togs bort från
-F2 på VMn eftersom motsvarande pass nu körs pre-VM i Sajtmaskin-backendens
-Node-process (`src/lib/gen/preview/warm-typecheck.ts` +
-`src/lib/gen/preview/warm-eslint.ts`) via en varm scaffold-cache. De
-passen matar RepairGate med samma diagnostik och kan laga felen
-innan filerna ens skickas till preview-host. F2 på VMn behåller bara
-`typecheck` som billigt skyddsnät (fail-open om warm-cachen är kall).
-Gav ~5–20 s snabbare finalize + cirka -5–10 USD/mån i Fly-CPU. F3
-(`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS`) är oförändrad eftersom
-integrations-bygget måste producera en valid Next build.
+F2 behåller en typecheck-only RenderGate med render-first Advisory-semantik.
+Warm ESLint är endast explicit opt-in lokal diagnostik och kan inte starta
+RepairGate eller påverka promotion. F3 har en enda auktoritativ VM-ReleaseGate
+som kör den exporterade sajtens projektlokala verktyg i ordningen
+`typecheck → lint → build`.
+
+Lint severity är explicit: ESLint errors är Blocker och kan gå till befintlig
+RepairGate; warnings returneras som `advisory: true`, syns i logg/status och
+blockerar varken promotion eller startar repair. Saknad lokal ESLint eller
+konfiguration är ett `failureKind: "tooling"` med `repairable: false`, aldrig
+en grön skip och aldrig ett LLM-repairfel. Verify-lanen använder inga `npx`
+-kommandon och kan därför inte ladda ned verktyg implicit.
 
 Revert: sätt `qualityGateTiers.designPreview` till
-`["typecheck", "build", "lint"]` i `config/ai_models/manifest.json` om
+`["typecheck", "lint", "build"]` i `config/ai_models/manifest.json` om
 du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
 ### F2 render-first: typecheck-only är Advisory (#330, 2026-07-02)
@@ -201,7 +203,7 @@ predikat så de aldrig är oense:
 
 **Falsk-grön-skydd** (varför detta inte blir tyst grön):
 
-- Bara F2. F3 (`integrations`) kör alltid full `typecheck + build + lint` hårt.
+- Bara F2. F3 (`integrations`) kör alltid full `typecheck + lint + build`.
 - Bara när **varje** failande check är `typecheck`. Ett `build`- eller
   `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) är Blocker som förr.
 - **Bara Advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
@@ -225,14 +227,9 @@ predikat så de aldrig är oense:
   advisory)" i amber. Durabelt: promotade radens `verification_summary` bär
   Advisory-texten + `warning`-raden i `engine_version_error_logs`.
 
-**Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
-konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
-togs bort från background-verify tillfälligt (tysta lint-fail blockerade
-verifiering utan att lägga värde), och åter-infördes 2026-04-21 med
-`--max-warnings=20` så errors blockerar men warnings tolereras.
-Bakgrundsgate:n är dock fortfarande fire-and-forget — se SAJ-28 +
-`docs/plans/archived/P34-blocking-lint-in-validate-and-fix.md` för plan att
-lyfta lint till blockerande `validateAndFix`-passet.
+`tier2`, `serverVerify`, `promotion` och `interactive` är konsoliderade till
+`designPreview` + `integrationsBuild`. Lint ägs blockerande endast av VM-gaten;
+det finns ingen andra blockerande warm-eslint-ägare.
 
 ## När RenderGate / ReleaseGate körs
 
@@ -257,7 +254,9 @@ köra diagnostic-only: findings syns, men promotion/reparation sker inte automat
 
 `POST /api/engine/chats/[chatId]/quality-gate`
 
-Tar en `checks`-lista. Minst en check krävs.
+Accepterar en legacy-kompatibel `checks`-lista, men serverns
+`lifecycle_stage` väljer alltid den kanoniska lanen: F2 typecheck-only och F3
+typecheck → lint → build. Klient-body kan varken upp- eller nedgradera checks.
 
 ### 3. Efter repair
 
@@ -389,7 +388,7 @@ repair-kontext, medan själva LLM-reparationen fortfarande går genom RepairGate
 (`src/lib/gen/autofix/llm-repair-gate.ts`). `runLlmFixer` har exakt EN
 produktions-callsite (inuti gaten) — vaktad av
 `src/lib/gen/autofix/llm-fixer-callsite-guard.test.ts`. Det gäller både
-finalize-lanes (syntax/warm-tsc/warm-eslint, verifier, preflight, home-route
+finalize-lanes (syntax/warm-tsc, verifier, preflight, home-route
 recovery, partial-file, merged-syntax) och post-finalize `runRepairLoop()`
 (server-verify, build-error-repair, manuell `/repair`).
 

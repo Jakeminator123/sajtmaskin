@@ -84,9 +84,9 @@ vi.mock("@/lib/gen/export/build-exportable-project", () => ({
 
 vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   QUALITY_GATE_COMMANDS: {
-    typecheck: "npx tsc --noEmit",
-    build: "npx next build",
-    lint: "npx eslint . --max-warnings=0",
+    typecheck: "node ./node_modules/typescript/bin/tsc --noEmit",
+    lint: "node ./node_modules/eslint/bin/eslint.js . --format stylish --no-color",
+    build: "node ./node_modules/next/dist/bin/next build",
   },
   QUALITY_GATE_SETUP_HINT: "hint",
   QualityGateNotConfiguredError: class QualityGateNotConfiguredError extends Error {},
@@ -995,7 +995,7 @@ describe("POST quality-gate", () => {
 
     expect(res.status).toBe(200);
     // Server-authoritative override: the F3 row is verified on the full
-    // integrations build lane (typecheck + build + lint), NOT typecheck-only —
+    // integrations build lane (typecheck + lint + build), NOT typecheck-only —
     // the client can no longer downgrade an F3 version to a false-green gate.
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     const f3Checks = runQualityGateChecks.mock.calls[0][0].checks;
@@ -1047,6 +1047,8 @@ describe("POST quality-gate", () => {
           versionId: "ver-1",
           gate: "integrationsBuild",
           checks: ["typecheck"],
+          // Unknown client lineage metadata must never affect gate selection.
+          lineageHash: "client-controlled-lineage",
         }),
       }),
       { params: Promise.resolve({ chatId: "chat-1" }) },
@@ -1054,7 +1056,9 @@ describe("POST quality-gate", () => {
 
     expect(res.status).toBe(200);
     expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([
-      ...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+      "typecheck",
+      "lint",
+      "build",
     ]);
     expect(promoteVersion).toHaveBeenCalledTimes(1);
     expect(runQualityGateChecks.mock.invocationCallOrder[0]).toBeLessThan(
@@ -1076,10 +1080,9 @@ describe("POST quality-gate", () => {
     expect(await res.json()).toMatchObject({ passed: true, promoted: true });
   });
 
-  it("keeps the F2 design lane (client checks) for a design-stage version — no regression (M#p4qg)", async () => {
+  it("forces F2 to typecheck-only even when the client requests lint/build", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
-      // F2 / design row must keep the client-posted design lane unchanged.
       version: { id: "ver-1", lifecycle_stage: "design" },
     });
     getVersionFiles.mockResolvedValue([
@@ -1107,13 +1110,12 @@ describe("POST quality-gate", () => {
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "ver-1", checks: [...DESIGN_PREVIEW_QUALITY_GATE_CHECKS] }),
+        body: JSON.stringify({ versionId: "ver-1", checks: ["lint", "build"] }),
       }),
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
 
     expect(res.status).toBe(200);
-    // F2/design is untouched by the F3 override: the design lane runs as posted.
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     const f2Checks = runQualityGateChecks.mock.calls[0][0].checks;
     expect(f2Checks).toEqual([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]);
@@ -1232,6 +1234,70 @@ describe("POST quality-gate", () => {
     expect(body.designAdvisory).toBeUndefined();
   });
 
+  it("F3 promotes warning-only lint as advisory without failing the gate", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-1",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 5 },
+        {
+          check: "lint",
+          passed: true,
+          advisory: true,
+          repairable: false,
+          warningCount: 2,
+          errorCount: 0,
+          exitCode: 0,
+          output: "2 warnings",
+          durationMs: 5,
+        },
+        { check: "build", passed: true, exitCode: 0, output: "", durationMs: 20 },
+      ],
+      verifyLaneDurationMs: 30,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-07-13T10:00:00.000Z",
+      jobFinishedAt: "2026-07-13T10:00:00.030Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(promoteVersion).toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      passed: true,
+      promoted: true,
+      qualityGateAdvisory: true,
+      advisoryChecks: ["lint"],
+    });
+  });
+
   it.each(["build", "lint"] as const)(
     "deterministic F3 integrationsBuild keeps %s failure hard and never promotes",
     async (failedCheck) => {
@@ -1292,7 +1358,7 @@ describe("POST quality-gate", () => {
     },
   );
 
-  it("F2: a build failure stays HARD (not advisory) — no false-green", async () => {
+  it("F2 defensively treats an unexpected host build failure as hard", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
       version: { id: "ver-1", lifecycle_stage: "design" },
@@ -1307,7 +1373,8 @@ describe("POST quality-gate", () => {
     exportableToQualityGateFiles.mockReturnValue([
       { name: "app/page.tsx", content: "export default function Page(){}" },
     ]);
-    // A build failure is never advisory, even in F2.
+    // The server requests typecheck-only, but an unexpected extra host result
+    // must still never be advisory-promoted.
     runQualityGateChecks.mockResolvedValue({
       results: [
         { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 },
@@ -1333,6 +1400,7 @@ describe("POST quality-gate", () => {
 
     const body = await res.json();
     expect(res.status).toBe(200);
+    expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual(["typecheck"]);
     expect(failVersionVerification).toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
     expect(body.passed).toBe(false);

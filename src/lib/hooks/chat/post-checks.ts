@@ -521,6 +521,7 @@ async function runTier2VerifyLane(params: {
       // typecheck-only failure was treated as non-blocking on a design preview
       // (the version was promoted). No auto-repair should run for this.
       designAdvisory?: boolean;
+      qualityGateAdvisory?: boolean;
       advisoryChecks?: string[];
     } | null;
 
@@ -538,12 +539,12 @@ async function runTier2VerifyLane(params: {
     const steps: string[] = [];
     const failedChecks: string[] = [];
     for (const check of data.checks ?? []) {
-      const icon = check.passed ? "Godkänd" : "Underkänd";
+      const icon = check.advisory ? "Varning" : check.passed ? "Godkänd" : "Underkänd";
       const durationLabel = formatDurationMs(check.durationMs);
       steps.push(
         `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
       );
-      if (!check.passed) failedChecks.push(check.check);
+      if (!check.passed && check.repairable !== false) failedChecks.push(check.check);
     }
     const totalDurationLabel = formatDurationMs(data.verifyLaneDurationMs);
     if (totalDurationLabel) {
@@ -576,6 +577,14 @@ async function runTier2VerifyLane(params: {
           : "typecheck";
       steps.push(
         `F2 render-first: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar. Åtgärda i lugn och ro; ingen automatisk reparation kördes.`,
+      );
+    } else if (data.qualityGateAdvisory) {
+      const advisoryLabel =
+        Array.isArray(data.advisoryChecks) && data.advisoryChecks.length > 0
+          ? data.advisoryChecks.join(", ")
+          : "lint";
+      steps.push(
+        `ReleaseGate: ${advisoryLabel}-varningar är advisory — versionen kan publiceras och ingen automatisk reparation kördes.`,
       );
     }
 
@@ -619,8 +628,11 @@ async function runTier2VerifyLane(params: {
             ? data.promotionBlockedReason
             : undefined,
         designAdvisory: data.designAdvisory === true ? true : undefined,
+        qualityGateAdvisory:
+          data.qualityGateAdvisory === true ? true : undefined,
         advisoryChecks:
-          data.designAdvisory && Array.isArray(data.advisoryChecks)
+          (data.designAdvisory || data.qualityGateAdvisory) &&
+          Array.isArray(data.advisoryChecks)
             ? data.advisoryChecks
             : undefined,
       },

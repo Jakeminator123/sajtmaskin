@@ -3,6 +3,7 @@ import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
   isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
+  resolveLatestGateAdvisoryChecks,
   resolveGateFailureSummaryFromLogs,
 } from "./gate-failure-summary";
 
@@ -293,6 +294,24 @@ describe("isLatestGateVerdictAdvisory (bugbot medium #518 — degraded-emit on r
         }),
       ]),
     ).toBe(false);
+  });
+
+  it("keeps a passed lint-warning verdict advisory for durable reconciliation", () => {
+    const logs = [
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "warning",
+        meta: {
+          passed: true,
+          advisory: true,
+          advisoryChecks: ["lint"],
+          firstFailureCheck: null,
+        },
+      }),
+    ];
+    expect(isLatestGateVerdictGreen(logs)).toBe(true);
+    expect(isLatestGateVerdictAdvisory(logs)).toBe(true);
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual(["lint"]);
   });
 
   it("is FALSE for a hard-failed verdict (error level)", () => {

@@ -27,6 +27,17 @@ function readLogMetaBoolean(meta: unknown, key: string): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function readLogMetaStringArray(meta: unknown, key: string): string[] {
+  if (!meta || typeof meta !== "object") return [];
+  const value = (meta as Record<string, unknown>)[key];
+  return Array.isArray(value)
+    ? value.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.trim().length > 0,
+      )
+    : [];
+}
+
 /**
  * BB#299 / M#vlane2 watchdog reconciliation: whether the version's LATEST
  * `preflight:quality-gate` verdict already concluded the version is launchable
@@ -83,18 +94,35 @@ export function isLatestGateVerdictGreen(errorLogs: VersionErrorLog[]): boolean 
  * (`meta.repass === true`) and a clean pass (`level:info` / `meta.passed`) both
  * return false.
  */
-export function isLatestGateVerdictAdvisory(errorLogs: VersionErrorLog[]): boolean {
+export function resolveLatestGateAdvisoryChecks(
+  errorLogs: VersionErrorLog[],
+): string[] {
   const latestVerdict = errorLogs.find(
     (log) => log.category === "preflight:quality-gate",
   );
-  if (!latestVerdict) return false;
-  // A clean pass is never advisory.
-  if (readLogMetaBoolean(latestVerdict.meta, "passed") === true) return false;
-  if (latestVerdict.level === "info") return false;
-  return (
-    latestVerdict.level === "warning" &&
-    readLogMetaBoolean(latestVerdict.meta, "repass") !== true
+  if (!latestVerdict) return [];
+  const explicitChecks = readLogMetaStringArray(
+    latestVerdict.meta,
+    "advisoryChecks",
   );
+  if (readLogMetaBoolean(latestVerdict.meta, "advisory") === true) {
+    return explicitChecks;
+  }
+  // Backward compatibility for historic F2 typecheck Advisory rows.
+  if (readLogMetaBoolean(latestVerdict.meta, "passed") === true) return [];
+  if (latestVerdict.level === "info") return [];
+  const legacyF2Advisory =
+    latestVerdict.level === "warning" &&
+    readLogMetaBoolean(latestVerdict.meta, "repass") !== true;
+  return legacyF2Advisory
+    ? explicitChecks.length > 0
+      ? explicitChecks
+      : ["typecheck"]
+    : [];
+}
+
+export function isLatestGateVerdictAdvisory(errorLogs: VersionErrorLog[]): boolean {
+  return resolveLatestGateAdvisoryChecks(errorLogs).length > 0;
 }
 
 /** Concrete per-check category (`quality-gate:typecheck|build|lint`) → check name. */

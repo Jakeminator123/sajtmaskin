@@ -60,28 +60,30 @@ The quality-gate / server-verify lane is isolated from the live preview:
 
 - runs in a separate preview-host workspace
 - does not reuse the live preview workspace/process
-- may run `npm install`, `npx tsc --noEmit`, `npx next build`, and optional lint
+- installs the exported project's own dependencies with devDependencies included
+- runs only project-local TypeScript, ESLint and Next binaries (no implicit `npx` download)
 - does not expose a live preview URL
 
 Verify responses can contain extra install-context rows in `results[]`:
 
-- `install-cache-share` (node_modules reuse attempt via dependency fingerprint)
+- `install-cache-share` (copy-only `node_modules` reuse via exact dependency
+  fingerprint + install-policy match; successful reuse skips reinstall)
 - `install-peer-fallback` (peer-conflict fallback with `--legacy-peer-deps` was used)
 
-Generated/exportable Next projects ship a minimal `eslint.config.mjs` and `npm run lint`
-in the scaffold baseline, so lint is available when a caller explicitly requests it.
-That does **not** change the default tier-2 contract: live preview still optimizes for
-`npm run dev`, and the default verify-gate remains install + typecheck unless a route
-or operator explicitly asks for `build` and/or `lint`.
+Generated/exportable Next projects pin Next, TypeScript, ESLint and
+`eslint-config-next` and ship `eslint.config.mjs`. F2 remains typecheck-only.
+F3 runs `typecheck → lint → build`; lint warnings are Advisory, lint errors are
+Blocker, and missing local lint tooling/configuration is a non-repairable tooling
+failure rather than a green skip.
 
-Background `server-verify` is allowed to be a little stricter than live tier-2 preview:
-it may include `lint` in its own verify profile so lint failures become part of the
-existing repair context. The important boundary is unchanged: this is still the same
-quality-gate / repair architecture, not a separate lint-fix subsystem.
+Verify reuse is isolated: live `node_modules` is copied, never symlinked, so a
+verify command cannot mutate the running site's dependency tree.
 
 ### App-side quality gate (Sajtmaskin API, not `POST /preview/verify`)
 
-Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en `checks`-lista; **minst en** check krävs (tom lista avvisas vid validering).
+Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en
+legacy-kompatibel `checks`-lista; **minst en** check krävs om fältet skickas.
+Serverns `lifecycle_stage` väljer ändå den kanoniska F2- eller F3-lanen.
 
 När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan Sajtmaskin köra **statisk** Visual QA (`analyzeVisualQuality` i `src/lib/gen/verify/visual-qa.ts`) på exportabla filer. Det är **inte** en del av preview-hostens JSON-svar från verify-lanen, men kan:
 

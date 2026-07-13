@@ -273,6 +273,11 @@ export type PreviewHostHibernateErr = {
 export type PreviewHostVerifyCheckResult = {
   check: string;
   passed: boolean;
+  advisory?: boolean;
+  repairable?: boolean;
+  failureKind?: "code" | "tooling" | null;
+  errorCount?: number;
+  warningCount?: number;
   exitCode: number;
   output: string;
   durationMs: number | null;
@@ -817,12 +822,37 @@ export async function runPreviewHostQualityGate(params: {
               const rawOutput = typeof row.output === "string" ? row.output : "";
               const output = rawOutput || (row.passed !== true ? `(No ${check || "check"} output captured from verify lane; exit ${exitCode}).` : "");
               const passed = row.passed === true;
+              const advisory = row.advisory === true;
+              const repairable = row.repairable !== false;
+              const failureKind =
+                row.failureKind === "code" || row.failureKind === "tooling"
+                  ? row.failureKind
+                  : null;
+              const errorCount =
+                typeof row.errorCount === "number" && Number.isFinite(row.errorCount)
+                  ? row.errorCount
+                  : undefined;
+              const warningCount =
+                typeof row.warningCount === "number" && Number.isFinite(row.warningCount)
+                  ? row.warningCount
+                  : undefined;
               const durationMs =
                 typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
                   ? row.durationMs
                   : null;
               if (!check) return null;
-              return { check, passed, exitCode, output, durationMs };
+              return {
+                check,
+                passed,
+                advisory,
+                repairable,
+                failureKind,
+                errorCount,
+                warningCount,
+                exitCode,
+                output,
+                durationMs,
+              };
             })
             .filter((entry): entry is PreviewHostVerifyCheckResult => Boolean(entry))
         : [];

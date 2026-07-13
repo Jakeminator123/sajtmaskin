@@ -281,7 +281,7 @@ export function createHttpEngineClient(
           headers: headers(),
           body: JSON.stringify({
             versionId: ref.versionId,
-            checks: ["typecheck", "build", "lint"],
+            checks: ["typecheck", "lint", "build"],
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });
@@ -298,6 +298,7 @@ export function createHttpEngineClient(
               checks?: Array<{
                 check?: string;
                 passed?: boolean;
+                repairable?: boolean;
                 exitCode?: number;
                 output?: string;
                 durationMs?: number | null;
@@ -306,10 +307,16 @@ export function createHttpEngineClient(
           | null;
         // Carry failed checks so repair has actionable context. Only the three
         // gate checks the repair endpoint accepts are kept.
-        const allowed = new Set(["typecheck", "build", "lint"]);
+        const allowed = new Set(["typecheck", "lint", "build"]);
         const qualityGate: EngineRepairGateFailure[] = Array.isArray(data?.checks)
           ? data!.checks
-              .filter((c) => c && c.passed === false && allowed.has(String(c.check)))
+              .filter(
+                (c) =>
+                  c &&
+                  c.passed === false &&
+                  c.repairable !== false &&
+                  allowed.has(String(c.check)),
+              )
               .map((c) => ({
                 check: c.check as EngineRepairGateFailure["check"],
                 exitCode: typeof c.exitCode === "number" ? c.exitCode : 1,
