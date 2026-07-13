@@ -309,28 +309,49 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
     expect(where).toContain("now()");
+    // P1a (Codex round 2): the write is ALSO gated on the row still being
+    // `verifying`, so a concurrent client-retry that already failed/passed it
+    // makes this a no-op (can't flip a freshly-failed row back to passed).
+    expect(where).toContain("verification_state");
   });
 
-  it("degrades to an unconditional promote (no lease table reference) pre-migration", async () => {
+  it("degrades to an unconditional promote (no lease table reference) pre-migration — but still guards verifying-state", async () => {
     mockLeaseTableExists(false);
     await promoteVersionIfUnleased("ver-1", "reconciled");
     const where = renderSql(txUpdateWhere.value);
     expect(where).not.toContain("engine_version_jobs");
     expect(where).not.toContain("to_regclass");
+    // P1a: the verifying-state guard is independent of the lease table.
+    expect(where).toContain("verification_state");
     // Still serializes via the row lock even pre-migration.
     const lockStmts = txExecSqls.value.map((s) => renderSql(s));
     expect(lockStmts.some((s) => s.includes("for update"))).toBe(true);
   });
 
-  it("refuses (null) and never builds the promote when the false-green guard denies", async () => {
+  it("returns 'guard_denied' (not null) on an EXPLICIT guard denial, never builds the promote (P1b)", async () => {
     mockLeaseTableExists(true);
     vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
       allowed: false,
       reason: "verifier_failed",
     } as never);
     const res = await promoteVersionIfUnleased("ver-1", "reconciled");
-    expect(res).toBeNull();
+    // Explicit denial is a fresher truth than the stale gate log → the caller
+    // must settle terminally, so we signal it distinctly from a retryable null.
+    expect(res).toBe("guard_denied");
     // Guard short-circuits BEFORE the transaction — no promote UPDATE is built.
+    expect(transaction).not.toHaveBeenCalled();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns null (retryable) when the guard is INDETERMINATE (read error), never builds the promote (P1b)", async () => {
+    mockLeaseTableExists(true);
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      reason: "promote guard signal unavailable: db timeout",
+    } as never);
+    const res = await promoteVersionIfUnleased("ver-1", "reconciled");
+    expect(res).toBeNull();
     expect(transaction).not.toHaveBeenCalled();
     expect(txUpdateSet.value).toBeUndefined();
   });

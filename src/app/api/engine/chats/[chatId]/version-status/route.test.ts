@@ -370,6 +370,36 @@ describe("GET version-status (engine)", () => {
     expect(emit).not.toHaveBeenCalled();
   });
 
+  it("propagates 'guard_denied' without emitting version.degraded (Codex P1b round 2)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    readAll.mockReturnValue(spinningBus);
+    // Advisory verdict, but the guarded promote explicitly denies.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue("guard_denied");
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      (version: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version, failed: false };
+      },
+    );
+
+    await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBe("guard_denied");
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "pending", lifecycle_stage: "design" },

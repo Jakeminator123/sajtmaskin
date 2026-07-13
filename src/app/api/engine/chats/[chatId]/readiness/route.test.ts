@@ -323,4 +323,36 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
     expect(emit).not.toHaveBeenCalled();
   });
+
+  it("propagates 'guard_denied' without emitting version.degraded (Codex P1b round 2)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Advisory verdict, but the guarded promote explicitly denies.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue("guard_denied");
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBe("guard_denied");
+    expect(emit).not.toHaveBeenCalled();
+  });
 });

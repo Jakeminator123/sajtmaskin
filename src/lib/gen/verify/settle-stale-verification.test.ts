@@ -204,6 +204,23 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  it("terminal-fails a green row when the guarded promote is EXPLICITLY denied (Codex P1b round 2)", async () => {
+    // "guard_denied" means the promote-guard's telemetry is a fresher truth than
+    // the stale gate log — the row is actually blocked, so settle it terminally
+    // instead of protecting it forever.
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const promoteReconciledVersion = vi.fn().mockResolvedValue("guard_denied");
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
   it("no-ops (never fails) a green row when the guarded promote throws", async () => {
     const v = makeVersion();
     const promoteReconciledVersion = vi.fn().mockRejectedValue(new Error("db timeout"));

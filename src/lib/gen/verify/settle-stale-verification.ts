@@ -65,17 +65,21 @@ export async function settleStaleVerificationIfNeeded(
      * promote-UPDATE exhausted its retries (transient timeout), the row is stuck
      * at `verifying` with a green gate log — `/version-status` never reconciles
      * to `done`, F3-readiness/deploy stays blocked, and resume only picks
-     * `pending` rows. The caller threads a GUARDED promotion here (canonical
-     * `promoteVersion`, which itself consults the promote-guard and refuses on
-     * telemetry-mismatch / read error → never a false-green). Contract:
-     *   - returns a `Version` → promotion took; the watchdog returns that
+     * `pending` rows. The caller threads a GUARDED promotion here (the guarded,
+     * lease-safe `promoteVersionIfUnleased`, which consults the promote-guard and
+     * only writes a row still in `verifying` → never a false-green). Contract:
+     *   - returns a `Version`        → promotion took; the watchdog returns that
      *     terminal (`passed`/`promoted`) row.
-     *   - returns `null` (guard-denied / transient / lease miss) or throws →
-     *     the watchdog no-ops so the next sweep can retry. NEVER terminal-fail a
-     *     green gate.
+     *   - returns `"guard_denied"`   → the promote-guard EXPLICITLY refused
+     *     (telemetry says the version is blocked — a fresher truth than the stale
+     *     gate log). The watchdog then SETTLES the row via the normal terminal-
+     *     fail path instead of protecting it, so it can't spin forever (P1b).
+     *   - returns `null` (indeterminate read error / lease held / lock timeout /
+     *     row no longer `verifying`) or throws → the watchdog no-ops so the next
+     *     sweep can retry. NEVER terminal-fail a green gate on a retryable null.
      * Omitted → the green branch stays a pure no-op (previous behaviour).
      */
-    promoteReconciledVersion?: () => Promise<Version | null>;
+    promoteReconciledVersion?: () => Promise<Version | "guard_denied" | null>;
     /**
      * Bugbot medium (#518, 4th iteration): the green reconciliation applies ONLY
      * to the chat-head version. A stale `verifying` row that is no longer head is
@@ -156,22 +160,29 @@ export async function settleStaleVerificationIfNeeded(
         // guarded, lease-safe promotion so the row can reach a terminal
         // `promoted`/`passed` state. The caller's `promoteReconciledVersion` uses
         // the guarded, lease-gated `promoteVersionIfUnleased` (promote-guard +
-        // no-active-lease), so this can never false-green a blocked/leased row.
-        // A promoted row is returned as-is; a `null`/throw (guard-denied / lease
-        // held / transient) falls back to the historic no-op (next sweep retries)
-        // — never a fail.
+        // no-active-lease + still-`verifying`), so this can never false-green a
+        // blocked/leased/already-settled row.
+        let reconciled: Version | "guard_denied" | null = null;
         if (opts?.promoteReconciledVersion) {
-          let reconciled: Version | null = null;
           try {
             reconciled = await opts.promoteReconciledVersion();
           } catch {
             reconciled = null;
           }
-          if (reconciled) {
-            return { version: reconciled, failed: false };
-          }
         }
-        return { version, failed: false };
+        // A real promoted Version → terminal done direction.
+        if (reconciled && reconciled !== "guard_denied") {
+          return { version: reconciled, failed: false };
+        }
+        // Codex P1b (round 2): an EXPLICIT guard denial means the promote-guard's
+        // telemetry is a FRESHER truth than the stale gate log — the row is
+        // actually blocked, so DON'T protect it. Fall through to the terminal-fail
+        // path so it settles instead of spinning forever. Any other result
+        // (`null`: no callback / indeterminate / lease held / lock timeout / no
+        // longer `verifying`) stays a retryable no-op (next sweep retries).
+        if (reconciled !== "guard_denied") {
+          return { version, failed: false };
+        }
       }
     }
   }

@@ -1710,14 +1710,25 @@ export async function failVersionVerificationIfUnleased(
  * multi-actor-on-one-row class that M#vlane1 closes. Also runs the SAME
  * false-green promote-guard as `promoteVersion` (`assertPromoteAllowed`,
  * `onReadError: "indeterminate"`), so a verifier-blocked or read-error row is
- * never advanced. Returns null (no-op) when the guard refuses, a job holds the
- * lease, the lock wait times out, or the row is gone — the caller keeps the row
- * spinning and a later sweep retries. NEVER terminal-fails.
+ * never advanced.
+ *
+ * Return contract (Codex round 2, #518):
+ *   - `Version`       → promoted to terminal `passed`/`promoted`.
+ *   - `"guard_denied"`→ the promote-guard EXPLICITLY refused (telemetry says
+ *     `verifier_failed`/`preflight_failed`, NOT an indeterminate read error). The
+ *     guard's telemetry is a fresher truth than the (stale) gate log the caller
+ *     reconciled on, so the caller should SETTLE the row terminally instead of
+ *     protecting it forever (P1b).
+ *   - `null`          → retryable no-op: indeterminate guard read error, a job
+ *     holds the lease, the lock wait timed out, the row is gone, OR the row is no
+ *     longer in the `verifying` state this reconcile decided on (P1a TOCTOU: a
+ *     concurrent client-retry already failed/passed/repairing it). The caller
+ *     keeps the row spinning and a later sweep retries. NEVER terminal-fails.
  */
 export async function promoteVersionIfUnleased(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
-): Promise<Version | null> {
+): Promise<Version | "guard_denied" | null> {
   // Same false-green invariant guard as `promoteVersion`: refuse while the
   // finalize quality-gate telemetry says the version is blocked, and fail
   // closed-but-retryable (null) on a read error. Never promotes a blocked row.
@@ -1725,12 +1736,16 @@ export async function promoteVersionIfUnleased(
     onReadError: "indeterminate",
   });
   if (!guard.allowed) {
+    const indeterminate = "indeterminate" in guard && guard.indeterminate === true;
     console.warn(
-      "indeterminate" in guard && guard.indeterminate
+      indeterminate
         ? `[promote-guard] Reconcile promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
         : `[promote-guard] Refusing to reconcile-promote version ${versionId}: ${guard.reason}`,
     );
-    return null;
+    // P1b: an indeterminate read error is retryable (null); an EXPLICIT denial is
+    // a fresher truth than the caller's stale gate log → signal `"guard_denied"`
+    // so the watchdog settles the row terminally instead of spinning forever.
+    return indeterminate ? null : "guard_denied";
   }
   // Codex P2 (missing-table fail-safe): decide whether to reference the lease
   // table BEFORE building the statement (Postgres resolves relations at plan
@@ -1764,6 +1779,12 @@ export async function promoteVersionIfUnleased(
         .where(
           and(
             eq(engineVersions.id, versionId),
+            // P1a (Codex round 2 TOCTOU): only promote a row STILL in the stale
+            // `verifying` state this reconcile decided on. If a concurrent
+            // client-retry already failed/passed/repairing it (a fresher truth),
+            // rowCount 0 → null, so a stale green decision can't flip a freshly
+            // `failed` row back to `passed`/`promoted`.
+            eq(engineVersions.verificationState, "verifying"),
             // Only enforce the no-active-lease guard once the table exists; before
             // migration this degrades to the legacy unconditional write.
             jobsExist

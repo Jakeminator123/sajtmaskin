@@ -132,9 +132,14 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
           // Bugbot medium (#518): mirror the quality-gate route — an advisory
           // (typecheck-only) promotion is NOT solid-green, so emit
           // `version.degraded` after the reconcile-promote takes, else this poll
-          // would reconcile the bus to a false green `done`. Clean pass emits
+          // would reconcile the bus to a false green `done`. Only a real promoted
+          // Version emits (never `"guard_denied"` / `null`). Clean pass emits
           // nothing. Best-effort telemetry (reuses the memoised log read).
-          if (promoted && isLatestGateVerdictAdvisory(await loadLogs())) {
+          if (
+            promoted &&
+            promoted !== "guard_denied" &&
+            isLatestGateVerdictAdvisory(await loadLogs())
+          ) {
             try {
               emitBusEvent({
                 t: "version.degraded",

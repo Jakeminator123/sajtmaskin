@@ -293,8 +293,9 @@ async function buildEngineReadiness(
       // Bugbot medium (#518): mirror the quality-gate route — an advisory
       // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
       // after the reconcile-promote takes, else the builder would read a false
-      // green `done`. A clean pass emits nothing. Best-effort telemetry.
-      if (promoted && isLatestGateVerdictAdvisory(errorLogs)) {
+      // green `done`. Only a real promoted Version emits (never `"guard_denied"`
+      // / `null`). A clean pass emits nothing. Best-effort telemetry.
+      if (promoted && promoted !== "guard_denied" && isLatestGateVerdictAdvisory(errorLogs)) {
         try {
           emitBusEvent({
             t: "version.degraded",
