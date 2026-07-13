@@ -128,14 +128,27 @@ export type ServerVerifyDecision = {
  *
  * Simplified 2026-04: the post-finalize verify lane is now driven primarily
  * by `previewPolicy === "fidelity3"`. F2 generations skip the async verify
- * unless quality-gate already produced non-blocking warnings or this is a
- * repair pass. The earlier multi-OR signal heuristic (buildIntent/app,
- * contextPolicy/heavy, changeScope/integration etc.) was redundant once
- * F3 became an explicit lifecycle stage instead of an auto-promoted policy.
+ * unless this is a repair pass or a verifier blocker exists. The earlier
+ * multi-OR signal heuristic (buildIntent/app, contextPolicy/heavy,
+ * changeScope/integration etc.) was redundant once F3 became an explicit
+ * lifecycle stage instead of an auto-promoted policy.
  *
  * 2026-04-19: `verificationBlocked` no longer hard-blocks the run — it
  * downgrades it to `diagnosticOnly`. Promotion still requires zero
  * blockers downstream; this only opens up SSR/build-error logging.
+ *
+ * 2026-07-13 (M#vlane1 — single verify-lane per F2 version): the skip now
+ * covers EVERY F2 design round (init AND follow-up) whose preflight surfaced
+ * only non-blocking signals, not just init. The client quality-gate route
+ * always runs for F2 and owns F2 verify/promotion, so scheduling a second
+ * server-owned verify lane on the same version row is redundant. A prod
+ * incident (2026-07-13) proved the harm: an F2 follow-up with advisory
+ * warnings got a background server-verify lease 12 s apart from the client
+ * quality-gate lease on the same version row → row-lock contention →
+ * promote-UPDATE died on `statement_timeout` → false-red. Before this,
+ * follow-up + advisory reached `run=true` via the (removed) non-blocking
+ * warnings OR-branch. `verificationBlocked` (diagnostic-only), F3, and repair
+ * passes keep their run contracts unchanged.
  */
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
@@ -160,25 +173,41 @@ export function resolvePostFinalizeServerVerifyDecision(params: {
     typeof finalized.preflight.errorCount === "number" && Number.isFinite(finalized.preflight.errorCount)
       ? finalized.preflight.errorCount
       : null;
-  const isFidelity2Init =
-    buildSpec.previewPolicy === "fidelity2" && buildSpec.generationMode === "init";
-  if (isFidelity2Init && preflightErrorCount === 0 && !verificationBlocked) {
+
+  // A verifier-blocking finding still runs server-verify, but ONLY to surface
+  // diagnostics — it never auto-promotes (enforced in `server-verify.ts`'s
+  // `diagnosticOnly` branches). This diagnostics lane is independent of the
+  // F2/F3 owner split below.
+  if (verificationBlocked) {
+    return {
+      run: true,
+      reason: "diagnostic_only_verification_blocked",
+      diagnosticOnly: true,
+    };
+  }
+
+  // F3 (integrations/ReleaseGate) and any repair pass always run the server
+  // verify lane — their contracts are unchanged by the F2 single-lane fix.
+  if (buildSpec.previewPolicy === "fidelity3" || repairPassIndex > 0) {
+    return { run: true, reason: "policy_match" };
+  }
+
+  // M#vlane1: EVERY F2 design round (init AND follow-up) whose preflight
+  // surfaced only non-blocking signals skips the background server-verify —
+  // the client quality-gate route is the single verify/promotion owner for F2.
+  // Counted hard preflight errors (rare in F2, since real blockers usually set
+  // previewBlocked/verificationBlocked handled above) still fall through so the
+  // server lane can surface them.
+  const isFidelity2Design = buildSpec.previewPolicy === "fidelity2";
+  const hasBlockingPreflightErrors =
+    preflightErrorCount !== null && preflightErrorCount > 0;
+  if (isFidelity2Design && !hasBlockingPreflightErrors) {
     return { run: false, reason: "design_preview_skip_verify" };
   }
 
-  if (
-    buildSpec.previewPolicy === "fidelity3" ||
-    repairPassIndex > 0 ||
-    hasNonBlockingWarnings ||
-    verificationBlocked
-  ) {
-    if (verificationBlocked) {
-      return {
-        run: true,
-        reason: "diagnostic_only_verification_blocked",
-        diagnosticOnly: true,
-      };
-    }
+  // Fallthrough (F2 with counted hard errors, or an unknown preview policy):
+  // keep the historic warning-driven run so nothing loses verify coverage.
+  if (hasNonBlockingWarnings) {
     return { run: true, reason: "policy_match" };
   }
 

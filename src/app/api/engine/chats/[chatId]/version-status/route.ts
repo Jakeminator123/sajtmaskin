@@ -30,12 +30,21 @@ import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { readAll } from "@/lib/logging/event-bus";
+import { emit as emitBusEvent, readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
-import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import {
+  isLatestGateVerdictAdvisory,
+  isLatestGateVerdictGreen,
+  resolveGateFailureSummaryFromLogs,
+} from "@/lib/gen/verify/gate-failure-summary";
+import type { VersionErrorLog } from "@/lib/db/services/shared";
 import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
-import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
+import {
+  RECONCILED_PROMOTE_SUMMARY,
+  settleStaleVerificationIfNeeded,
+} from "@/lib/gen/verify/settle-stale-verification";
+import { getLatestVersion, promoteVersionIfUnleased } from "@/lib/db/chat-repository-pg";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -78,12 +87,91 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     let dbVersion = scopedVersion.version;
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
     if (busStuck) {
+      // Fetch the error logs at most once, shared by both watchdog resolvers
+      // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
+      // single DB read even when the row is actually stale.
+      let cachedLogs: VersionErrorLog[] | null = null;
+      const loadLogs = async (): Promise<VersionErrorLog[]> => {
+        if (cachedLogs === null) {
+          cachedLogs = await getEngineVersionErrorLogs(dbVersion.id);
+        }
+        return cachedLogs;
+      };
+      const versionIdForReconcile = dbVersion.id;
+      // Read the chat head at most once per settle and reuse for the head gate
+      // (bugbot medium #518) — mirrors the quality-gate route's
+      // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
+      // missing/failed read is treated as head.
+      let headResolved = false;
+      let isHeadVersion = true;
+      const resolveIsHeadVersion = async (): Promise<boolean> => {
+        if (!headResolved) {
+          const latest = await getLatestVersion(chatId).catch(() => null);
+          isHeadVersion = !latest || latest.id === versionIdForReconcile;
+          headResolved = true;
+        }
+        return isHeadVersion;
+      };
       const settled = await settleStaleVerificationIfNeeded(dbVersion, {
         resolveFailureSummary: async () =>
-          resolveGateFailureSummaryFromLogs(await getEngineVersionErrorLogs(dbVersion.id)),
+          resolveGateFailureSummaryFromLogs(await loadLogs()),
+        // BB#299: don't false-red a stale row whose latest gate verdict is green.
+        resolveLatestGateGreen: async () => isLatestGateVerdictGreen(await loadLogs()),
+        // Bugbot medium (#518): the green reconciliation only applies to the chat
+        // head; a non-head (superseded) stale row falls through to terminal-fail.
+        resolveIsHeadVersion,
+        // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
+        // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+        // instead of leaving it spinning — so this 4s poll can reconcile the bus
+        // to `done` without ever racing a verify/repair job that holds the lease.
+        promoteReconciledVersion: async () => {
+          const promoted = await promoteVersionIfUnleased(
+            versionIdForReconcile,
+            RECONCILED_PROMOTE_SUMMARY,
+          );
+          // Bugbot medium (#518): mirror the quality-gate route — an advisory
+          // (typecheck-only) promotion is NOT solid-green, so emit
+          // `version.degraded` after the reconcile-promote takes, else this poll
+          // would reconcile the bus to a false green `done`. Only a real promoted
+          // Version emits (never `"guard_denied"` / `null`). Clean pass emits
+          // nothing. Best-effort telemetry (reuses the memoised log read).
+          if (
+            promoted &&
+            promoted !== "guard_denied" &&
+            isLatestGateVerdictAdvisory(await loadLogs())
+          ) {
+            try {
+              emitBusEvent({
+                t: "version.degraded",
+                versionId: versionIdForReconcile,
+                chatId,
+                kind: "typecheck_advisory",
+                message:
+                  "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+                meta: { advisoryChecks: ["typecheck"] },
+              });
+            } catch {
+              // Telemetry only — never block the poll on a bus failure.
+            }
+          }
+          return promoted;
+        },
       });
       dbVersion = settled.version;
     }
+
+    // Bugbot medium (#518, 6th iteration): the settle above may have JUST
+    // emitted `version.degraded` (advisory reconcile-promote) — after the bus
+    // snapshot at the top of this handler was taken. Re-read the (in-memory)
+    // bus when the settle actually changed the row, so THIS poll already
+    // reflects the degradation instead of returning one solid-green response
+    // until the next ~4s poll — the exact transient false-green the emit was
+    // meant to prevent. Cheap: `readAll` is an in-memory read, and the branch
+    // only runs on the rare settle-mutated path.
+    const effectiveBusStatus =
+      dbVersion !== scopedVersion.version
+        ? selectVersionStatus(readAll(dbVersion.id))
+        : busStatus;
 
     // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
     // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
@@ -91,7 +179,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // never fabricates a terminal state. release_state is threaded so a
     // promoted+passed row can upgrade a stale terminal bus `failed` (M#flap1).
     const status = reconcileTerminalDbState(
-      busStatus,
+      effectiveBusStatus,
       dbVersion.verification_state,
       dbVersion.release_state,
     );

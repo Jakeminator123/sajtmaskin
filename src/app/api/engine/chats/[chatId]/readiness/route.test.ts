@@ -13,6 +13,7 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const maybeAutoAcceptTimedOutRepair = vi.hoisted(() => vi.fn());
+const promoteVersionIfUnleased = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
@@ -21,8 +22,11 @@ const resolveEnvRequirementsFromVersionFiles = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
+const emit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: false }));
+
+vi.mock("@/lib/logging/event-bus", () => ({ emit }));
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -37,6 +41,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
+  promoteVersionIfUnleased,
 }));
 
 vi.mock("@/lib/db/services/version-errors", () => ({
@@ -59,6 +64,7 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
 
 vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   settleStaleVerificationIfNeeded,
+  RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
 }));
 
 const { GET } = await import("./route");
@@ -101,6 +107,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       wasAutoAccepted: false,
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
     getVersionFiles.mockResolvedValue([]);
     resolveProjectEnv.mockResolvedValue({
       source: "none",
@@ -177,5 +184,175 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     const { req, ctx } = readinessRequest();
     const res = await GET(req, ctx);
     expect(res.status).toBe(404);
+  });
+
+  it("threads head + guarded-promote callbacks into the stale watchdog (Codex P1 / bugbot #518 wiring)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    let capturedOpts:
+      | {
+          resolveIsHeadVersion?: () => Promise<boolean> | boolean;
+          promoteReconciledVersion?: () => Promise<unknown>;
+        }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+    // The reconcile target IS the chat head.
+    getLatestVersion.mockResolvedValue({ id: "ver_1" });
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(typeof capturedOpts?.resolveIsHeadVersion).toBe("function");
+    expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
+    // Head gate resolves true for the head version — and calling it twice reads
+    // getLatestVersion only ONCE (memoised in the wiring, no double DB read).
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(getLatestVersion).toHaveBeenCalledTimes(1);
+    // The promote callback is now head-agnostic (the gate sits before it).
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+  });
+
+  it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    let capturedOpts:
+      | { resolveIsHeadVersion?: () => Promise<boolean> | boolean }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+    // A newer version is now the chat head.
+    getLatestVersion.mockResolvedValue({ id: "ver_2" });
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(false);
+  });
+
+  it("emits version.degraded after a reconcile-promote on an ADVISORY verdict (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Latest gate verdict is an F2 typecheck-advisory (warning, no repass).
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        versionId: "ver_1",
+        chatId: "chat_1",
+        kind: "typecheck_advisory",
+      }),
+    );
+  });
+
+  it("does NOT emit version.degraded after a reconcile-promote on a clean PASS (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Latest gate verdict is a clean pass.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "info", meta: { passed: true } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    await capturedOpts?.promoteReconciledVersion?.();
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("propagates 'guard_denied' without emitting version.degraded (Codex P1b round 2)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Advisory verdict, but the guarded promote explicitly denies.
+    getEngineVersionErrorLogs.mockResolvedValue([
+      { category: "preflight:quality-gate", level: "warning", meta: { firstFailureCheck: "typecheck" } },
+    ]);
+    promoteVersionIfUnleased.mockResolvedValue("guard_denied");
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBe("guard_denied");
+    expect(emit).not.toHaveBeenCalled();
   });
 });

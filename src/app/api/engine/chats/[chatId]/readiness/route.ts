@@ -4,6 +4,7 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
+  promoteVersionIfUnleased,
 } from "@/lib/db/chat-repository-pg";
 import {
   resolveDeployReleaseGate,
@@ -14,7 +15,12 @@ import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
-import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import {
+  isLatestGateVerdictAdvisory,
+  isLatestGateVerdictGreen,
+  resolveGateFailureSummaryFromLogs,
+} from "@/lib/gen/verify/gate-failure-summary";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
@@ -39,7 +45,10 @@ import {
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { REPAIR_ACCEPT_TIMEOUT_MINUTES } from "@/lib/gen/defaults";
-import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
+import {
+  RECONCILED_PROMOTE_SUMMARY,
+  settleStaleVerificationIfNeeded,
+} from "@/lib/gen/verify/settle-stale-verification";
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
@@ -250,8 +259,59 @@ async function buildEngineReadiness(
   // a version stuck past the route budget ONLY when no job holds an active
   // lease, and prefers the concrete already-logged gate failure over the
   // generic "took too long" copy. Fail-safe: a DB error leaves state unchanged.
+  const versionIdForReconcile = version.id;
+  // Read the chat head at most once per settle and reuse for the head gate
+  // (bugbot medium #518) — mirrors the quality-gate route's
+  // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
+  // missing/failed read is treated as head.
+  let headResolved = false;
+  let isHeadVersion = true;
+  const resolveIsHeadVersion = async (): Promise<boolean> => {
+    if (!headResolved) {
+      const latest = await getLatestVersion(chat.id).catch(() => null);
+      isHeadVersion = !latest || latest.id === versionIdForReconcile;
+      headResolved = true;
+    }
+    return isHeadVersion;
+  };
   const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
     resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
+    // BB#299: don't false-red a stale row whose latest gate verdict is green.
+    resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
+    // Bugbot medium (#518): the green reconciliation only applies to the chat
+    // head; a non-head (superseded) stale row falls through to terminal-fail.
+    resolveIsHeadVersion,
+    // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
+    // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+    // instead of leaving it in limbo — never promotes while a verify/repair job
+    // holds the lease and re-runs checks.
+    promoteReconciledVersion: async () => {
+      const promoted = await promoteVersionIfUnleased(
+        versionIdForReconcile,
+        RECONCILED_PROMOTE_SUMMARY,
+      );
+      // Bugbot medium (#518): mirror the quality-gate route — an advisory
+      // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
+      // after the reconcile-promote takes, else the builder would read a false
+      // green `done`. Only a real promoted Version emits (never `"guard_denied"`
+      // / `null`). A clean pass emits nothing. Best-effort telemetry.
+      if (promoted && promoted !== "guard_denied" && isLatestGateVerdictAdvisory(errorLogs)) {
+        try {
+          emitBusEvent({
+            t: "version.degraded",
+            versionId: versionIdForReconcile,
+            chatId: chat.id,
+            kind: "typecheck_advisory",
+            message:
+              "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+            meta: { advisoryChecks: ["typecheck"] },
+          });
+        } catch {
+          // Telemetry only — never block readiness on a bus failure.
+        }
+      }
+      return promoted;
+    },
   });
   version = settledVersion;
 

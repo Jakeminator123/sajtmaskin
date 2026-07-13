@@ -421,6 +421,117 @@ describe("POST quality-gate", () => {
     expect(body.promotionBlocked).toBeUndefined();
   });
 
+  it("M#vlane2/BB#299: retries a transient promote statement-timeout, then promotes without failing the version", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-07-13T06:00:00.000Z",
+      jobFinishedAt: "2026-07-13T06:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+    // First promote UPDATE dies on the prod-incident statement_timeout, then the
+    // bounded retry succeeds. This must NOT leave the row false-red.
+    const timeoutErr = Object.assign(
+      new Error("canceling statement due to statement timeout"),
+      { code: "57014" },
+    );
+    promoteVersion
+      .mockRejectedValueOnce(timeoutErr)
+      .mockResolvedValueOnce({ id: "ver-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // The transient timeout was retried (2 attempts) and succeeded.
+    expect(promoteVersion).toHaveBeenCalledTimes(2);
+    expect(promoteVersion).toHaveBeenLastCalledWith("ver-1", expect.any(String), "run-1");
+    // A retried-then-successful promote must read green, never false-red.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(true);
+    expect(body.promoted).toBe(true);
+    expect(body.promoteError).toBeUndefined();
+  });
+
+  it("M#vlane2/BB#299: gives up after bounded promote retries on a persistent transient timeout (promoteError, not false-red)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-07-13T06:00:00.000Z",
+      jobFinishedAt: "2026-07-13T06:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({ allowed: true });
+    // Every attempt times out → exhaust the bounded retries and surface a
+    // retryable promoteError. The row is NEVER marked failed (no false-red).
+    promoteVersion.mockRejectedValue(
+      Object.assign(new Error("canceling statement due to statement timeout"), {
+        code: "57014",
+      }),
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // 1 initial attempt + 2 retries = 3 total.
+    expect(promoteVersion).toHaveBeenCalledTimes(3);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.passed).toBe(false);
+    expect(body.promoteError).toBe(true);
+    expect(body.promoted).toBe(false);
+    expect(body.promotionBlocked).toBeUndefined();
+  });
+
   it("promotes a clean passed gate when the guard allows it", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
