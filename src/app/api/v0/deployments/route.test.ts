@@ -1319,7 +1319,11 @@ describe("POST /api/v0/deployments", () => {
   // verified, so a domain removed/misconfigured on the provider AFTER
   // verification stayed "verified" forever.
   describe("branded-domain recheck when already verified (#486 Fix C)", () => {
-    it("recheck runs once the throttle window has passed for a verified domain", async () => {
+    // VADE #519: an already-verified branded domain that stays `configured`
+    // on a throttled recheck must NOT re-stamp the live URL every time —
+    // only `markProjectBrandedDomainVerified` (which itself always advances
+    // `branded_domain_checked_at`) runs, so the throttle clock still moves.
+    it("recheck runs once the throttle window has passed for a verified domain, but does NOT re-stamp liveUrl", async () => {
       vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
       vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
       getEngineChatByIdForRequest.mockResolvedValue({
@@ -1334,6 +1338,10 @@ describe("POST /api/v0/deployments", () => {
         branded_domain_checked_at: new Date("2026-07-10T00:00:00Z"),
       });
       checkVercelProjectDomain.mockResolvedValue(true);
+      markProjectBrandedDomainVerified.mockResolvedValue({
+        id: "proj_1",
+        branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+      });
 
       const res = await GET(
         new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
@@ -1344,6 +1352,55 @@ describe("POST /api/v0/deployments", () => {
         "vp_1",
         "demo.sites.sajtmaskin.se",
       );
+      // Throttle clock still moves (markProjectBrandedDomainVerified always
+      // advances branded_domain_checked_at)...
+      expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
+        "proj_1",
+        "demo.sites.sajtmaskin.se",
+      );
+      // ...but the live URL is NOT re-stamped on a mere "still verified"
+      // recheck (no transition happened).
+      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+    });
+
+    // VADE #519: a genuine unverified→verified transition must still not
+    // promote the branded subdomain over an ALREADY-verified custom domain
+    // — custom domain always wins as liveUrl.
+    it("does NOT stamp liveUrl on a genuine verification transition when a verified custom domain already wins", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_1",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: null,
+        branded_domain_checked_at: null,
+        custom_domain: "kund.example",
+        custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      checkVercelProjectDomain.mockResolvedValue(true);
+      markProjectBrandedDomainVerified.mockResolvedValue({
+        id: "proj_1",
+        branded_domain_verified_at: new Date("2026-07-13T00:00:00Z"),
+      });
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      // The branded domain is still marked verified in the backing table...
+      expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
+        "proj_1",
+        "demo.sites.sajtmaskin.se",
+      );
+      // ...but the live URL must stay on the verified custom domain, never
+      // clobbered to the branded subdomain.
+      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
     });
 
     it("a definitive false revokes a previously verified domain", async () => {

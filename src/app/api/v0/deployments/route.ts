@@ -1246,6 +1246,18 @@ export async function GET(req: Request) {
           appProject.branded_domain,
         );
         if (configured === true) {
+          // VADE #519: only a genuine unverified→verified TRANSITION may
+          // promote the branded domain onto the live URL. `markProjectBrandedDomainVerified`
+          // itself already advances `branded_domain_checked_at` on every call
+          // (including a no-op re-verify of an already-verified domain), so
+          // it alone covers the throttle clock — repeated throttled rechecks
+          // of an already-verified domain must NOT re-stamp the live URL
+          // every 5 minutes, or a verified custom domain's live URL would get
+          // clobbered back to the branded subdomain on every reload.
+          const wasVerifiedBefore = Boolean(brandedDomainVerifiedAt);
+          const hasVerifiedCustomDomain = Boolean(
+            appProject.custom_domain && customDomainVerifiedAt,
+          );
           const marked = await markProjectBrandedDomainVerified(
             appProjectId,
             appProject.branded_domain,
@@ -1253,7 +1265,13 @@ export async function GET(req: Request) {
           if (marked) {
             brandedDomainVerifiedAt =
               marked.branded_domain_verified_at ?? new Date();
-            if (internalChatId) {
+            // Custom domain always wins as liveUrl — never stamp the branded
+            // subdomain over it, even on a genuine transition.
+            if (
+              !wasVerifiedBefore &&
+              !hasVerifiedCustomDomain &&
+              internalChatId
+            ) {
               await setLatestDeploymentLiveUrlForChat(
                 internalChatId,
                 appProject.branded_domain,
