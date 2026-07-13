@@ -463,27 +463,42 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [vm.chatId]);
 
   // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)
-  // reconcile the live 412 payload so the requirements surface never keeps
-  // listing a key the project already has (Bugbot on this diff). The key
-  // SCOPE stays server-owned — this only subtracts, never adds. Deletes fire
-  // the same event but are ignored here (Codex P2 on #525): a delete cannot
-  // clear a requirement, and a deleted previously-saved key resurfaces via
-  // the server's next 412 on retry.
+  // reconcile the DISPLAYED 412 payload. The server's original key scope in
+  // `f3Requirements` is never mutated — saves accumulate in `f3SavedEnvKeys`
+  // and the visible surface is derived by subtraction. A delete removes the
+  // key from the saved set again, so the requirement honestly reappears
+  // (Codex P2 + Bugbot follow-up on #525) instead of leaving a false
+  // all-clear. The scope itself stays server-owned: only keys the 412 listed
+  // can ever be shown.
+  const [f3SavedEnvKeys, setF3SavedEnvKeys] = useState<Set<string>>(new Set());
   useEffect(() => {
-    const handleEnvSaved = (event: Event) => {
+    const handleEnvUpdated = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);
       if (!detail || !detail.envKeys || detail.envKeys.length === 0) return;
-      if (detail.action === "deleted") return;
       if (detail.chatId && detail.chatId !== vm.chatId) return;
-      const savedKeys = detail.envKeys;
-      setF3Requirements((current) =>
-        subtractSavedKeysFromF3Requirements(current, savedKeys),
-      );
+      const keys = detail.envKeys.map((key) => key.trim().toUpperCase());
+      setF3SavedEnvKeys((current) => {
+        const next = new Set(current);
+        for (const key of keys) {
+          if (detail.action === "deleted") next.delete(key);
+          else next.add(key);
+        }
+        return next;
+      });
     };
-    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvSaved);
+    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
     return () =>
-      window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvSaved);
+      window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
   }, [vm.chatId]);
+  // A fresh 412 (or chat switch) restarts the reconciliation from the
+  // server's verdict — earlier client-side saves are already reflected in it.
+  useEffect(() => {
+    setF3SavedEnvKeys(new Set());
+  }, [f3Requirements, vm.chatId]);
+  const visibleF3Requirements = useMemo(
+    () => subtractSavedKeysFromF3Requirements(f3Requirements, Array.from(f3SavedEnvKeys)),
+    [f3Requirements, f3SavedEnvKeys],
+  );
 
   useEffect(() => {
     if (!vm.tipsEnabled) {
@@ -830,14 +845,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isLoading={vm.isDeployReadinessLoading}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
           />
-          {f3Requirements ? (
+          {visibleF3Requirements ? (
             <F3RequirementsSurface
-              projectId={f3Requirements.projectId ?? vm.appProjectId}
+              projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
               chatId={vm.chatId}
-              versionId={f3Requirements.parentVersionId}
-              missingByIntegration={f3Requirements.missingByIntegration}
+              versionId={visibleF3Requirements.parentVersionId}
+              missingByIntegration={visibleF3Requirements.missingByIntegration}
               onRetry={() =>
-                requestF3Rebuild(f3Requirements.parentVersionId)
+                requestF3Rebuild(visibleF3Requirements.parentVersionId)
               }
             />
           ) : null}
