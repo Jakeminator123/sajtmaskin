@@ -26,6 +26,7 @@ const setProjectVercelLink = vi.hoisted(() => vi.fn());
 const markProjectBrandedDomainVerified = vi.hoisted(() => vi.fn());
 const clearProjectBrandedDomainVerification = vi.hoisted(() => vi.fn());
 const clearProjectCustomDomainVerification = vi.hoisted(() => vi.fn());
+const touchProjectBrandedDomainCheckedAt = vi.hoisted(() => vi.fn());
 const syncEnvVarsToVercelProject = vi.hoisted(() =>
   vi.fn(async () => ({ synced: 0, errors: [] as string[] })),
 );
@@ -84,6 +85,7 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectData,
   markProjectBrandedDomainVerified,
   setProjectVercelLink,
+  touchProjectBrandedDomainCheckedAt,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -146,6 +148,7 @@ describe("POST /api/v0/deployments", () => {
     ensureVercelProject.mockResolvedValue({ id: "vp_1", name: "demo" });
     checkVercelProjectDomain.mockResolvedValue(true);
     markProjectBrandedDomainVerified.mockResolvedValue({ id: "proj_1" });
+    touchProjectBrandedDomainCheckedAt.mockResolvedValue(undefined);
     ensureVercelProjectDomain.mockResolvedValue({ name: "demo.sites.example", verified: true });
     // Tenant-scoped resolver: version + owned engine chat resolve together.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
@@ -673,7 +676,13 @@ describe("POST /api/v0/deployments", () => {
       return { commit, refund };
     };
 
-    it("returns 409 DEPLOY_DOMAIN_LOCKED_PROJECT_NAME when a domain is linked and projectName differs (no charge, no Vercel call)", async () => {
+    // #486 Fix A: a body `projectName` is only ever a DISPLAY-name edit once
+    // the project already has a persisted `vercel_project_name` — the deploy
+    // target below (~830+) always reuses that persisted name and ignores the
+    // incoming one, so this can never actually retarget hosting. The lock
+    // must not false-positive on a pure display-name change (previously 409'd
+    // here even though nothing about the hosting target would change).
+    it("allows a pure display-name change when a domain is linked but a Vercel project is already persisted (#486 Fix A)", async () => {
       const { commit } = mockHappyDeployInfra();
       getLinkedDomainForChat.mockResolvedValue("mysite.example");
       getAppProjectByIdForRequest.mockResolvedValue({
@@ -692,25 +701,50 @@ describe("POST /api/v0/deployments", () => {
       });
 
       const res = await POST(req);
-      expect(res.status).toBe(409);
-      const json = (await res.json()) as {
-        code?: string;
-        error?: string;
-        projectNameLock?: {
-          locked: boolean;
-          domain: string | null;
-          currentProjectName: string;
-          requestedProjectName: string | null;
-        };
-      };
-      expect(json.code).toBe("DEPLOY_DOMAIN_LOCKED_PROJECT_NAME");
-      expect(json.error).toMatch(/mysite\.example/);
-      expect(json.projectNameLock?.locked).toBe(true);
-      expect(json.projectNameLock?.currentProjectName).toBe("old-project");
-      expect(json.projectNameLock?.requestedProjectName).toBe("new-project");
-      // Kärnan i låset: varken credit-commit eller Vercel-deploy sker.
-      expect(commit).not.toHaveBeenCalled();
-      expect(createVercelDeployment).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(commit).toHaveBeenCalled();
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    // (BB#deploy4) The lock's "current project" and the real deploy target
+    // must both follow the latest DEPLOYMENT's project id — the same source
+    // the domain resolver (`resolve-vercel-project.ts`) uses — not just the
+    // best-effort `vercel_project_name` cache, which can be empty/stale when
+    // a previous link-write failed. Otherwise a differing display name could
+    // either false-lock, or (worse) the deploy could create/reuse a
+    // DIFFERENT Vercel project than the one the domain actually resolves to.
+    it("(BB#deploy4) derives the lock + deploy target from the latest deployment's project id when vercel_project_name is empty/stale", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        name: "Demo",
+        vercel_project_name: null,
+        vercel_project_id: null,
+      });
+      getLatestVercelProjectIdForChat.mockResolvedValue("vp_real");
+      ensureVercelProject.mockResolvedValue({
+        id: "vp_real",
+        name: "real-provider-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "some-new-display-name",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(commit).toHaveBeenCalled();
+      expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_real");
+      expect(createVercelDeployment).toHaveBeenCalledWith(
+        expect.objectContaining({ projectName: "real-provider-project" }),
+      );
     });
 
     it("allows the deploy when a domain is linked but no projectName is sent (same project reused)", async () => {
@@ -778,12 +812,12 @@ describe("POST /api/v0/deployments", () => {
       expect(createVercelDeployment).toHaveBeenCalledTimes(1);
     });
 
-    it("precheckOnly reports the lock as projectNameLock instead of throwing", async () => {
+    // Legacy row (no persisted vercel_project_name/id at all): the fallback
+    // generated name is genuinely determined by the incoming projectName, so
+    // this IS real retargeting — precheckOnly must still report it as locked.
+    it("precheckOnly reports the lock as projectNameLock instead of throwing (legacy row, genuine retargeting)", async () => {
       getLinkedDomainForChat.mockResolvedValue("mysite.example");
-      getAppProjectByIdForRequest.mockResolvedValue({
-        id: "proj_1",
-        vercel_project_name: "old-project",
-      });
+      getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
 
       const req = new Request("http://localhost/api/v0/deployments", {
         method: "POST",
@@ -1078,7 +1112,11 @@ describe("POST /api/v0/deployments", () => {
     );
   });
 
-  it("locks provider-project retargeting once a branded domain is assigned", async () => {
+  // #486 Fix A: a display-name-only edit must not look like retargeting once
+  // the branded domain's Vercel project is already persisted (previously
+  // locked here even though the deploy target would stay on "stable-provider"
+  // regardless of the requested name).
+  it("allows a display-name change once a branded domain is assigned to an already-persisted Vercel project (#486 Fix A)", async () => {
     getAppProjectByIdForRequest.mockResolvedValue({
       id: "proj_1",
       name: "Demo",
@@ -1103,7 +1141,7 @@ describe("POST /api/v0/deployments", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.projectNameLock).toMatchObject({
-      locked: true,
+      locked: false,
       domain: "demo.sites.sajtmaskin.se",
       currentProjectName: "stable-provider",
     });
@@ -1273,6 +1311,101 @@ describe("POST /api/v0/deployments", () => {
       "proj_1",
       "demo.sites.sajtmaskin.se",
     );
+  });
+
+  // #486 Fix C: a VERIFIED branded domain must still be periodically
+  // rechecked (mirrors the unconditional custom-domain recheck above) — the
+  // old guard (`!brandedDomainVerifiedAt`) skipped this block entirely once
+  // verified, so a domain removed/misconfigured on the provider AFTER
+  // verification stayed "verified" forever.
+  describe("branded-domain recheck when already verified (#486 Fix C)", () => {
+    it("recheck runs once the throttle window has passed for a verified domain", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_1",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+        branded_domain_checked_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      checkVercelProjectDomain.mockResolvedValue(true);
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(checkVercelProjectDomain).toHaveBeenCalledWith(
+        "vp_1",
+        "demo.sites.sajtmaskin.se",
+      );
+    });
+
+    it("a definitive false revokes a previously verified domain", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_1",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+        branded_domain_checked_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      checkVercelProjectDomain.mockResolvedValue(false);
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
+        "proj_1",
+        "demo.sites.sajtmaskin.se",
+      );
+      expect(touchProjectBrandedDomainCheckedAt).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.project.brandedDomainVerifiedAt).toBeFalsy();
+    });
+
+    it("a transient null keeps the verification and only advances the check clock", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      const verifiedAt = new Date("2026-07-10T00:00:00Z");
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_1",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: verifiedAt,
+        branded_domain_checked_at: verifiedAt,
+      });
+      checkVercelProjectDomain.mockResolvedValue(null);
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(touchProjectBrandedDomainCheckedAt).toHaveBeenCalledWith(
+        "proj_1",
+        "demo.sites.sajtmaskin.se",
+      );
+      expect(clearProjectBrandedDomainVerification).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.project.brandedDomainVerifiedAt).toBeTruthy();
+    });
   });
 
   it("only falls back to legacy Vercel hosts in deployment history", async () => {

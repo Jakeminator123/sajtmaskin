@@ -184,6 +184,12 @@ export function useBuilderDeployActions({
           toast.error("Blob storage saknas – deploy körs med externa bild-URL:er.");
         }
 
+        // NOTE (#486 Fix B, do NOT "fix" this to send `siteUrl: null`): this
+        // body feeds the deploy route's `resolveDeploySeoOptions`, where an
+        // explicit `null` means "opt out of SEO for this single deploy" —
+        // a different contract than the PATCH-preferences clear-fallback fix
+        // below. Omitting the key here correctly falls through to the
+        // persisted/canonical URL for this one deploy.
         const seoPayload =
           seo && seo.optIn
             ? {
@@ -396,12 +402,15 @@ export function useBuilderDeployActions({
     // shouldn't block the deploy — the body override still wins on the
     // server side via `resolveDeploySeoOptions`.
     if (appProjectId && payload?.seo) {
+      // #486 Fix B: an omitted `siteUrl` is a true PATCH no-op on the server
+      // (`mergeSeoPatch` in `preferences/route.ts` keeps the persisted value)
+      // — a blank field could never clear a previously saved override. Send
+      // an explicit `null` instead, which the schema/route already support,
+      // so the user can actually clear the SEO-fallback URL.
       const seoPatch = payload.seo.optIn
         ? {
             optIn: true as const,
-            ...(payload.seo.siteUrl.trim()
-              ? { siteUrl: payload.seo.siteUrl.trim() }
-              : {}),
+            siteUrl: payload.seo.siteUrl.trim() || null,
           }
         : { optIn: false as const };
       try {
