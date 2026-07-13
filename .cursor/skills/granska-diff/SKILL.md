@@ -1,6 +1,6 @@
 ---
 name: granska-diff
-description: Runs 8 parallel read-only Composer 2.5 subagents that bug-hunt the CURRENT AGENT'S OWN diff (working tree or branch vs master) before push/PR. Each reports bug-% + impact score (1-5) + one-line motivation + file:line. The initiating agent stays critical, verifies findings against code, triages (fix/log/dismiss), then pushes/PRs. Use when the user runs /granska, says "granska diffen", "svärma min diff", or before pushing risky changes (protected paths, pipeline, DB, env).
+description: OPTIONAL deep-dive (deprecated as the default pre-push filter 2026-07-13 — the mandatory pre-push/PR bug-check is now a single Cursor Bugbot pass, see git.mdc/workflow.mdc). Runs 8 parallel read-only Composer 2.5 subagents that bug-hunt the CURRENT AGENT'S OWN diff (working tree or branch vs master). Each reports bug-% + impact score (1-5) + one-line motivation + file:line. Use ONLY when the user explicitly runs /granska or says "granska diffen"/"svärma min diff", or when you deliberately want extra breadth (docs-sync, referens-svep) on an unusually risky diff — NOT as the routine gate.
 ---
 
 # Granska-diff — buggsvärm på egen diff (VALFRITT djupdyk sedan 2026-07-13)
