@@ -102,6 +102,9 @@ describe("PreviewPanelF3Trigger", () => {
       expect(onMissingEnv).toHaveBeenCalledWith({
         parentVersionId: "ver_design",
         projectId: "project_1",
+        // Chat correlation: captured at request time so a slow 412 from a
+        // previous chat cannot repopulate the surface after a chat switch.
+        chatId: "chat_1",
         missingByIntegration: [
           { key: "stripe", name: "Stripe", missing: ["STRIPE_SECRET_KEY"] },
         ],
