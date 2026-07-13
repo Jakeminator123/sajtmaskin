@@ -1,4 +1,6 @@
-# /granska — buggsvärm på din egen diff (före push/PR)
+# /granska — buggsvärm på din egen diff (VALFRITT djupdyk)
+
+> **Status (ägarbeslut 2026-07-13): valfri, ej krav.** Obligatoriskt för-filter före push/PR är numera **ett Cursor Bugbot-pass** på egen diff (bugbot-subagent) — se `git.mdc`/`workflow.mdc`. Skälet: 8-svärmen returnerar 8 rapporter som ligger kvar i orkestratorns (dyra) kontext hela sessionen, och sessionens allvarliga fynd kom ändå från Bugbot/Codex. Kör `/granska` bara på uttrycklig begäran eller vid ovanligt riskabel diff där du vill ha extra bredd (docs-sync, referens-svep).
 
 Kör **8 parallella read-only** Composer-subagenter riktade mot **exakt det du själv just ändrat** (working tree-diff eller branch-diff mot master). Varje agent granskar diffen från sin egen vinkel och rapporterar kort: **bugg-% + impact (1–5) + en menings motivering + fil:rad**. Du (den PR-ande/pushande/mergande agenten) är den **kritiska grindvakten**: subagenterna är snabba men dumma — verifiera varje fynd mot koden innan du agerar.
 

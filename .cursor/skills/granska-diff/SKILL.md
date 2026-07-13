@@ -3,7 +3,9 @@ name: granska-diff
 description: Runs 8 parallel read-only Composer 2.5 subagents that bug-hunt the CURRENT AGENT'S OWN diff (working tree or branch vs master) before push/PR. Each reports bug-% + impact score (1-5) + one-line motivation + file:line. The initiating agent stays critical, verifies findings against code, triages (fix/log/dismiss), then pushes/PRs. Use when the user runs /granska, says "granska diffen", "svärma min diff", or before pushing risky changes (protected paths, pipeline, DB, env).
 ---
 
-# Granska-diff — buggsvärm på egen diff
+# Granska-diff — buggsvärm på egen diff (VALFRITT djupdyk sedan 2026-07-13)
+
+> **Ej längre det obligatoriska för-filtret.** Standard före push/PR är ett **Cursor Bugbot-pass** på egen diff (bugbot-subagent) — billigare i orkestratorns kontext (1 rapport vs 8) och dedikerad buggjägare. Använd denna svärm bara på uttrycklig begäran eller vid ovanligt bred/riskabel diff. Se `git.mdc`/`workflow.mdc`/`pr-merge-review-gate.mdc`.
 
 **Roll:** du är den PR-ande/pushande agenten OCH orchestrator. Svärmen är ditt för-filter; du är den kritiska grindvakten. Subagenterna är billiga och snabba men **dumma** — de ser diff + utpekade filer, inte hela systemet. Behandla deras fynd som leads, inte domar.
 
