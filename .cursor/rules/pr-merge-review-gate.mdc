@@ -48,7 +48,7 @@ Väggklockan (7 min + bot-settle) går **inte** att korta bort — `review-windo
 
 | Diff-typ | Mönster |
 |---|---|
-| **Default (docs/lågrisk/de flesta PR:er)** | Posta PR → kör bugbot-passet → starta **EN** bakgrundsshell som sover till fönstrets slut och sedan dumpar `gh pr checks <n>` + nya review-kommentarer (`gh api …/pulls/<n>/comments`) till fil → **avsluta turen**. Slutförande-notisen tar agenten tillbaka i en kort ny tur för triage + merge. Ingen blockerande poll. |
+| **Default (docs/lågrisk/de flesta PR:er)** | Kör bugbot-passet **före** PR-skapandet (det obligatoriska för-filtret, per `git.mdc`/`workflow.mdc`) → posta PR → starta **EN** bakgrundsshell som sover till fönstrets slut och sedan dumpar `gh pr checks <n>` + nya review-kommentarer (`gh api …/pulls/<n>/comments`) till fil → **avsluta turen**. Slutförande-notisen tar agenten tillbaka i en kort ny tur för triage + merge (kör om bugbot om en ny commit landat efter för-filtret). Ingen blockerande poll. |
 | **Protected paths / risk ≥ 3** | Uppgradera bevakaren till en **bakgrunds-subagent** (`run_in_background: true`) som *läser och triagerar* inkommande Codex/Vercel/Bugbot-fynd live och rapporterar bara de åtgärdbara tillbaka. Dyrare men fångar en sen P1 direkt. |
 
 Oavsett mönster: läs om reviews **precis före merge** (Codex kan landa sent), verifiera head-SHA stabil sedan sign-off, och merga först när hela grinden nedan är grön. `--admin`: verifiera PR-åldern manuellt eftersom checken är överstyrd.
