@@ -12,9 +12,15 @@ const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
-const getLinkedDomainForChat = vi.hoisted(() => vi.fn());
-const getLinkedDomainProjectIdForChat = vi.hoisted(() => vi.fn());
-const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
+// #519 bugbot (review round 3): the route no longer calls the granular
+// `getLinkedDomainForChat`/`getLinkedDomainProjectIdForChat`/
+// `getLatestVercelProjectIdForChat` directly — it calls the ONE canonical
+// resolver (POST) / the ONE shared generic-order helper (GET) so domain and
+// project-id can never diverge again. Mocked at THAT boundary; the
+// resolver's own internal priority logic is covered separately in
+// `src/lib/deployment.test.ts`.
+const resolveCanonicalVercelProjectForDomain = vi.hoisted(() => vi.fn());
+const resolveLatestOrCachedVercelProjectId = vi.hoisted(() => vi.fn());
 const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
 const ensureVercelProjectDomain = vi.hoisted(() => vi.fn());
@@ -60,9 +66,8 @@ vi.mock("@/lib/credits/server", () => ({
 vi.mock("@/lib/deployment", () => ({
   createDeploymentRecord,
   updateDeploymentStatus,
-  getLinkedDomainForChat,
-  getLinkedDomainProjectIdForChat,
-  getLatestVercelProjectIdForChat,
+  resolveCanonicalVercelProjectForDomain,
+  resolveLatestOrCachedVercelProjectId,
   setLatestDeploymentLiveUrlForChat,
 }));
 
@@ -132,11 +137,25 @@ describe("POST /api/v0/deployments", () => {
     // BB#deploy2: updateDeploymentStatus returnerar transition-info; default =
     // ingen error-övergång (tester som testar transitionen overridar själva).
     updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
-    // Default: ingen custom-domän kopplad (dagens beteende) → projektnamn-låset
+    // Default: ingen domän kopplad (dagens beteende) → projektnamn-låset
     // (A2) släpper alltid igenom om inte ett test explicit kopplar en domän.
-    getLinkedDomainForChat.mockResolvedValue(null);
-    getLinkedDomainProjectIdForChat.mockResolvedValue(null);
-    getLatestVercelProjectIdForChat.mockResolvedValue(null);
+    // Mirrors the resolver's OWN default fallthrough (no fresher deployment
+    // override known) so tests that only set `vercel_project_id` on the
+    // owned/app project — without overriding the resolver mock — keep
+    // resolving to that cached id, exactly like before this refactor.
+    resolveCanonicalVercelProjectForDomain.mockImplementation(
+      async (
+        _chatId: string,
+        owned?: { vercel_project_id?: string | null },
+      ) => ({
+        domain: null,
+        source: "none" as const,
+        projectId: owned?.vercel_project_id?.trim() || null,
+      }),
+    );
+    resolveLatestOrCachedVercelProjectId.mockImplementation(
+      async (_chatId: string, cache?: string | null) => cache?.trim() || null,
+    );
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1", name: "Demo" });
     getProjectData.mockResolvedValue(null);
     getProjectById.mockResolvedValue(null);
@@ -687,7 +706,14 @@ describe("POST /api/v0/deployments", () => {
     // here even though nothing about the hosting target would change).
     it("allows a pure display-name change when a domain is linked but a Vercel project is already persisted (#486 Fix A)", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      // #519 bugbot round 3: the route now gets domain + project id from ONE
+      // canonical resolver call — mock that boundary directly (its own
+      // priority logic is covered in `deployment.test.ts`).
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         vercel_project_name: "old-project",
@@ -710,22 +736,24 @@ describe("POST /api/v0/deployments", () => {
     });
 
     // (BB#deploy4) The lock's "current project" and the real deploy target
-    // must both follow the latest DEPLOYMENT's project id — the same source
-    // the domain resolver (`resolve-vercel-project.ts`) uses — not just the
+    // must both follow the canonical resolver's project id — not just the
     // best-effort `vercel_project_name` cache, which can be empty/stale when
     // a previous link-write failed. Otherwise a differing display name could
     // either false-lock, or (worse) the deploy could create/reuse a
     // DIFFERENT Vercel project than the one the domain actually resolves to.
-    it("(BB#deploy4) derives the lock + deploy target from the latest deployment's project id when vercel_project_name is empty/stale", async () => {
+    it("(BB#deploy4) derives the lock + deploy target from the canonical resolver's project id when vercel_project_name is empty/stale", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: "vp_real",
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         name: "Demo",
         vercel_project_name: null,
         vercel_project_id: null,
       });
-      getLatestVercelProjectIdForChat.mockResolvedValue("vp_real");
       ensureVercelProject.mockResolvedValue({
         id: "vp_real",
         name: "real-provider-project",
@@ -752,17 +780,19 @@ describe("POST /api/v0/deployments", () => {
 
     // #519 P1 (Codex review round 2): the domain-carrying row can be OLDER
     // than the latest deployment row overall, and the two can carry
-    // DIFFERENT project ids (e.g. a legacy row, or any deploy after the
-    // domain was saved that didn't re-save it). The domain-row's own id must
-    // win — a republish must target the project the domain sits on, never
-    // drift to a newer/unrelated project and orphan the domain.
-    it("(#519 P1) prefers the domain-bearing row's project id over the latest-deployment-overall id (divergence)", async () => {
+    // DIFFERENT project ids. The domain-row's own id must win — a republish
+    // must target the project the domain sits on, never drift to a
+    // newer/unrelated project and orphan the domain. The resolver's OWN
+    // divergence-resolution logic (legacy-row id beats latest-overall) is
+    // unit-tested in `deployment.test.ts`; this test verifies the ROUTE
+    // correctly applies whatever project id the resolver hands back.
+    it("(#519 P1) route applies the canonical resolver's project id for the deploy target (legacy-row divergence resolved upstream)", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
-      getLinkedDomainProjectIdForChat.mockResolvedValue("vp_domain_row");
-      // A NEWER, unrelated deployment row (no domain of its own) carries a
-      // DIFFERENT project id — must NOT win over the domain row's id.
-      getLatestVercelProjectIdForChat.mockResolvedValue("vp_newer_unrelated");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: "vp_domain_row",
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         name: "Demo",
@@ -781,7 +811,7 @@ describe("POST /api/v0/deployments", () => {
           chatId: "chat_1",
           versionId: "ver_1",
           // A pure display-name edit — must not be treated as retargeting,
-          // and must never silently deploy to the newer/unrelated project.
+          // and must never silently deploy to a different project.
           projectName: "some-new-display-name",
         }),
       });
@@ -798,13 +828,69 @@ describe("POST /api/v0/deployments", () => {
       );
     });
 
+    // #519 bugbot round 3 (finding 1): app_projects-owned domains (custom /
+    // branded) must NEVER be resolved against the legacy `deployments.domain`
+    // row's id — that row can be stale/unrelated. The lock + deploy target
+    // must follow the SAME generic order the domain itself is governed by
+    // (latest-deployment-overall, else app_projects cache), exactly what
+    // `resolveCanonicalVercelProjectForDomain`'s `source: "custom"` branch
+    // returns.
+    it("(bugbot #519 finding 1) app_projects custom domain wins over a stale legacy deployments.domain row", async () => {
+      const { commit } = mockHappyDeployInfra();
+      // The app_projects-owned custom domain is what's actually locking —
+      // its project id must be the generic one (`vp_current`), never the
+      // stale legacy row's `vp_stale_legacy_row` (a real chat could have
+      // both: an old `/api/domains/save` row AND a later-added, unrelated
+      // custom domain on `app_projects`).
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "kund.example",
+        source: "custom",
+        projectId: "vp_current",
+      });
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        name: "Demo",
+        vercel_project_name: null,
+        vercel_project_id: null,
+        custom_domain: "kund.example",
+        custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      ensureVercelProject.mockResolvedValue({
+        id: "vp_current",
+        name: "current-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "some-new-display-name",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(commit).toHaveBeenCalled();
+      expect(ensureVercelProject).toHaveBeenCalledWith(
+        expect.any(String),
+        "vp_current",
+      );
+      expect(createVercelDeployment).toHaveBeenCalledWith(
+        expect.objectContaining({ projectName: "current-project" }),
+      );
+    });
+
     // #519 P1: the normal case (domain row and latest-deployment-overall
     // agree on the same project) must stay unchanged.
     it("(#519 P1) normal case: domain row and latest-deployment-overall agree — unchanged behavior", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
-      getLinkedDomainProjectIdForChat.mockResolvedValue("vp_same");
-      getLatestVercelProjectIdForChat.mockResolvedValue("vp_same");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: "vp_same",
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         name: "Demo",
@@ -834,7 +920,11 @@ describe("POST /api/v0/deployments", () => {
 
     it("allows the deploy when a domain is linked but no projectName is sent (same project reused)", async () => {
       mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         vercel_project_name: "old-project",
@@ -853,7 +943,11 @@ describe("POST /api/v0/deployments", () => {
 
     it("allows the deploy when a domain is linked and projectName matches the persisted name", async () => {
       mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         vercel_project_name: "old-project",
@@ -876,7 +970,11 @@ describe("POST /api/v0/deployments", () => {
 
     it("allows a new projectName when NO domain is linked (today's behavior)", async () => {
       mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue(null);
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: null,
+        source: "none",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         vercel_project_name: "old-project",
@@ -901,7 +999,11 @@ describe("POST /api/v0/deployments", () => {
     // generated name is genuinely determined by the incoming projectName, so
     // this IS real retargeting — precheckOnly must still report it as locked.
     it("precheckOnly reports the lock as projectNameLock instead of throwing (legacy row, genuine retargeting)", async () => {
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
 
       const req = new Request("http://localhost/api/v0/deployments", {
@@ -937,7 +1039,11 @@ describe("POST /api/v0/deployments", () => {
     // blockera ett avvikande projektnamn (domänen sitter på fallback-projektet).
     it("locks a legacy row without vercel_project_name against a differing projectName", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1" });
 
       const req = new Request("http://localhost/api/v0/deployments", {
@@ -969,7 +1075,11 @@ describe("POST /api/v0/deployments", () => {
     // Ska bete sig exakt som legacy-raden ovan: äkta retargeting → 409.
     it("treats a whitespace-only vercel_project_name as no known project (lock still applies)", async () => {
       const { commit } = mockHappyDeployInfra();
-      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+        domain: "mysite.example",
+        source: "legacy-row",
+        projectId: null,
+      });
       getAppProjectByIdForRequest.mockResolvedValue({
         id: "proj_1",
         vercel_project_name: "   ",
@@ -1039,7 +1149,13 @@ describe("POST /api/v0/deployments", () => {
       vercel_project_id: null,
       vercel_project_name: null,
     });
-    getLatestVercelProjectIdForChat.mockResolvedValue("vp_legacy");
+    // No domain linked — the resolver's "none" branch still resolves the
+    // generic latest-deployment/app_projects-cache order for the project id.
+    resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+      domain: null,
+      source: "none",
+      projectId: "vp_legacy",
+    });
     ensureVercelProject.mockResolvedValue({
       id: "vp_legacy",
       name: "legacy-provider-project",
@@ -1085,7 +1201,13 @@ describe("POST /api/v0/deployments", () => {
       custom_domain: "republished.example",
       custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
     });
-    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+    // A verified custom domain is active (source: "custom") — its project id
+    // is the generic order's fresh result, never the stale cached one.
+    resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+      domain: "republished.example",
+      source: "custom",
+      projectId: "vp_fresh",
+    });
     ensureVercelProject.mockResolvedValue({
       id: "vp_fresh",
       name: "fresh-provider-project",
@@ -1142,7 +1264,14 @@ describe("POST /api/v0/deployments", () => {
       vercel_project_id: "vp_cached",
       vercel_project_name: "cached-provider-project",
     });
-    getLatestVercelProjectIdForChat.mockRejectedValue(new Error("transient db read"));
+    // The resolver's own resilience to a transient DB read failure (falling
+    // back to the app_projects cache) is unit-tested in `deployment.test.ts`;
+    // here we assert the route correctly applies whatever it returns.
+    resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+      domain: null,
+      source: "none",
+      projectId: "vp_cached",
+    });
     ensureVercelProject.mockResolvedValue({
       id: "vp_cached",
       name: "cached-provider-project",
@@ -1238,6 +1367,11 @@ describe("POST /api/v0/deployments", () => {
       vercel_project_name: "stable-provider",
       branded_domain: "demo.sites.sajtmaskin.se",
       branded_domain_verified_at: new Date(),
+    });
+    resolveCanonicalVercelProjectForDomain.mockResolvedValue({
+      domain: "demo.sites.sajtmaskin.se",
+      source: "branded",
+      projectId: null,
     });
 
     const res = await POST(
@@ -1362,7 +1496,7 @@ describe("POST /api/v0/deployments", () => {
       custom_domain: "republished.example",
       custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
     });
-    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+    resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_fresh");
 
     const res = await GET(
       new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
@@ -1577,6 +1711,93 @@ describe("POST /api/v0/deployments", () => {
       expect(clearProjectBrandedDomainVerification).not.toHaveBeenCalled();
       const body = await res.json();
       expect(body.project.brandedDomainVerifiedAt).toBeTruthy();
+    });
+  });
+
+  // #519 bugbot round 3, finding 2: the GET branded-domain recheck must
+  // resolve its project id through the SAME shared helper
+  // (`resolveLatestOrCachedVercelProjectId`) the POST-side lock/deploy-target
+  // uses for its custom/branded branches — never the legacy
+  // `deployments.domain` row's id (GET never even reads that row). This is
+  // now a STRUCTURAL guarantee (one shared function), not just a coincidence
+  // of matching values; these tests lock the wiring down.
+  describe("GET recheck project-id source matches POST's (bugbot #519 finding 2)", () => {
+    it("resolves effectiveVercelProjectId via the shared helper with the app_project's own chat + cache", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_cache",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+        branded_domain_checked_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_resolved");
+      checkVercelProjectDomain.mockResolvedValue(true);
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      // The SAME function POST's custom/branded branches call, with the
+      // SAME two arguments (chat id + the app_project's cache) — a stale
+      // legacy `deployments.domain` row (which POST's legacy-row branch
+      // alone may prefer) can never leak into this call.
+      expect(resolveLatestOrCachedVercelProjectId).toHaveBeenCalledWith(
+        "chat_1",
+        "vp_cache",
+      );
+      // The recheck ran against whatever the shared helper resolved to, not
+      // the raw cache value.
+      expect(checkVercelProjectDomain).toHaveBeenCalledWith(
+        "vp_resolved",
+        "demo.sites.sajtmaskin.se",
+      );
+    });
+
+    // A definitive `false` must revoke when it is checked against the
+    // CORRECT (shared-helper-resolved) project — the exact case bugbot
+    // flagged as dangerous when GET and POST could resolve different ids.
+    it("a definitive false against the shared-helper-resolved project still revokes correctly", async () => {
+      vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+      vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+      });
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        vercel_project_id: "vp_stale_cache",
+        branded_domain: "demo.sites.sajtmaskin.se",
+        branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+        branded_domain_checked_at: new Date("2026-07-10T00:00:00Z"),
+      });
+      // The shared helper resolves a DIFFERENT (fresher) id than the raw
+      // cache — the recheck must use THAT one, and a definitive false
+      // against it is a real revoke, not a false positive against a stale id.
+      resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_fresh");
+      checkVercelProjectDomain.mockResolvedValue(false);
+
+      const res = await GET(
+        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(checkVercelProjectDomain).toHaveBeenCalledWith(
+        "vp_fresh",
+        "demo.sites.sajtmaskin.se",
+      );
+      expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
+        "proj_1",
+        "demo.sites.sajtmaskin.se",
+      );
+      const body = await res.json();
+      expect(body.project.brandedDomainVerifiedAt).toBeFalsy();
     });
   });
 

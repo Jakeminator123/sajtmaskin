@@ -190,6 +190,121 @@ export async function getLinkedDomainProjectIdForChat(
   return rows[0].vercelProjectId?.trim() || null;
 }
 
+/**
+ * The generic "latest deployment overall, else `app_projects` cache" project
+ * id order — the SAME priority `resolveVercelProjectForChat`
+ * (`src/lib/domains/resolve-vercel-project.ts`) uses. This is the single,
+ * shared building block for "whichever Vercel project currently hosts this
+ * chat" WITHOUT regard to any specific domain row.
+ *
+ * #519 bugbot (review round 3): this must be the ONE place both the deploy
+ * route's GET branded/custom-domain recheck AND the custom/branded branches
+ * of `resolveCanonicalVercelProjectForDomain` below call — those domains are
+ * RE-ATTACHED to whatever project the deploy path currently targets on every
+ * successful publish (`ensureVercelProjectDomain`), so they must never
+ * resolve against a stale/unrelated row's id (that was bugbot's finding: the
+ * legacy `deployments.domain` row's id could otherwise win here too and
+ * diverge from what a republish would actually target).
+ */
+export async function resolveLatestOrCachedVercelProjectId(
+  chatId: string,
+  vercelProjectIdCache?: string | null,
+): Promise<string | null> {
+  return (
+    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() ||
+    vercelProjectIdCache?.trim() ||
+    null
+  );
+}
+
+export type LinkedDomainSource = "custom" | "branded" | "legacy-row" | "none";
+
+export type CanonicalDomainProject = {
+  /** `null` when no domain is linked at all. */
+  domain: string | null;
+  source: LinkedDomainSource;
+  /** The Vercel project id the linked domain is (or should be) attached to. */
+  projectId: string | null;
+};
+
+/**
+ * #519 bugbot (review round 3): ONE canonical priority for "which domain is
+ * linked" + "which project id does that domain's hosting resolve to" — used
+ * by BOTH the deploy route's project-name lock/deploy-target (POST) and (via
+ * `resolveLatestOrCachedVercelProjectId` above) the GET branded-domain
+ * recheck, so the two can never diverge again.
+ *
+ * Domain priority (mirrors `linkedDomain` in the deploy route): a verified
+ * `app_projects` custom domain, then a verified branded domain, then the
+ * legacy `deployments.domain` row (`/api/domains/save`).
+ *
+ * Project-id priority MIRRORS the domain source:
+ *  - custom/branded (`app_projects`-owned): the generic order — these
+ *    domains are re-provisioned onto whatever project a deploy currently
+ *    targets, so there is no separate "domain's own" id to prefer.
+ *  - legacy-row: that row's OWN `vercel_project_id` — the ONE domain source
+ *    NOT re-attached automatically on every deploy — falling back to the
+ *    generic order for rows that predate the project-id column.
+ *  - none: the generic order (no domain is locking anything).
+ */
+export async function resolveCanonicalVercelProjectForDomain(
+  chatId: string,
+  ownedProject: {
+    vercel_project_id?: string | null;
+    custom_domain?: string | null;
+    custom_domain_verified_at?: unknown;
+    branded_domain?: string | null;
+    branded_domain_verified_at?: unknown;
+  },
+): Promise<CanonicalDomainProject> {
+  const customDomain = ownedProject.custom_domain_verified_at
+    ? ownedProject.custom_domain?.trim() || null
+    : null;
+  if (customDomain) {
+    return {
+      domain: customDomain,
+      source: "custom",
+      projectId: await resolveLatestOrCachedVercelProjectId(
+        chatId,
+        ownedProject.vercel_project_id,
+      ),
+    };
+  }
+
+  const brandedDomain = ownedProject.branded_domain_verified_at
+    ? ownedProject.branded_domain?.trim() || null
+    : null;
+  if (brandedDomain) {
+    return {
+      domain: brandedDomain,
+      source: "branded",
+      projectId: await resolveLatestOrCachedVercelProjectId(
+        chatId,
+        ownedProject.vercel_project_id,
+      ),
+    };
+  }
+
+  const legacyDomain = await getLinkedDomainForChat(chatId).catch(() => null);
+  if (legacyDomain) {
+    const legacyProjectId =
+      (await getLinkedDomainProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+    return {
+      domain: legacyDomain,
+      source: "legacy-row",
+      projectId:
+        legacyProjectId ||
+        (await resolveLatestOrCachedVercelProjectId(chatId, ownedProject.vercel_project_id)),
+    };
+  }
+
+  return {
+    domain: null,
+    source: "none",
+    projectId: await resolveLatestOrCachedVercelProjectId(chatId, ownedProject.vercel_project_id),
+  };
+}
+
 export async function setDeploymentDomain(
   deploymentId: string,
   domain: string,

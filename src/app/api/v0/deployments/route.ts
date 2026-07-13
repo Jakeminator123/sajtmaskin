@@ -6,9 +6,8 @@ import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
   createDeploymentRecord,
-  getLinkedDomainForChat,
-  getLinkedDomainProjectIdForChat,
-  getLatestVercelProjectIdForChat,
+  resolveCanonicalVercelProjectForDomain,
+  resolveLatestOrCachedVercelProjectId,
   setLatestDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 } from "@/lib/deployment";
@@ -531,46 +530,30 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
-      // Canonical Vercel project id for this chat (BB#deploy4 + #519 P1):
-      // the SAME source the domain resolver uses (`resolve-vercel-project.ts`)
-      // — the latest deployment's project id wins over the `app_projects`
-      // cache, which can go stale when a previous `setProjectVercelLink`
-      // write failed (best-effort). Computed once, up front, so the lock
-      // below and the deploy target further down derive "is there already a
-      // known project" from the exact same read instead of two independent
-      // (and potentially diverging) lookups.
-      //
-      // #519 P1: when a domain is linked via the legacy `deployments.domain`
-      // column (`/api/domains/save`), that row's OWN project id — not the
-      // generic "latest deployment overall" — is canonical. A domain can sit
-      // on an older row while a newer, unrelated row carries a different
-      // project id; preferring the domain row keeps hosting and the domain
-      // together instead of letting a republish silently drift to the newer
-      // project while the domain stays orphaned on the old one.
-      const linkedDomainProjectId =
-        (await getLinkedDomainProjectIdForChat(chatId).catch(() => null))?.trim() || null;
-      const existingVercelProjectId =
-        linkedDomainProjectId ||
-        (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() ||
-        ownedProject.vercel_project_id?.trim() ||
-        null;
+      // Canonical Vercel project id + linked domain for this chat (BB#deploy4
+      // + #519 P1/bugbot round 3): ONE call, so the domain the lock reports
+      // (`linkedDomain`) and the project id it (and the deploy target below)
+      // resolve to (`existingVercelProjectId`) can never diverge again — the
+      // project-id priority MIRRORS whichever domain source actually won
+      // (verified app_projects custom/branded domain → the generic
+      // latest-deployment/app_projects-cache order; the legacy
+      // `deployments.domain` row → that row's OWN id). See
+      // `resolveCanonicalVercelProjectForDomain` in `deployment.ts` for the
+      // full priority contract shared with the GET recheck below.
+      const canonicalDomainProject = await resolveCanonicalVercelProjectForDomain(
+        chatId,
+        ownedProject,
+      );
+      const existingVercelProjectId = canonicalDomainProject.projectId;
       // Publicera-lås (Ö2 / A2): en kopplad custom-domän sitter på Vercel-
       // PROJEKTET (namn-baserat), inte på en enskild deployment. Om användaren
       // publicerar om med ett NYTT projectName skulle vi rikta mot ett annat
       // Vercel-projekt och lämna domänen kvar (orphan) på det gamla → domänen
       // pekar på gammal sajt. Därför: så länge en domän är kopplad för chatten
-      // är projektnamnet LÅST. Vi läser DB (senaste `deployments.domain`) i
-      // stället för att slå mot Vercel-API:t i deploy-hot-path:en. `precheckOnly`
-      // rapporterar låset i `projectNameLock` i stället för att kasta (samma
-      // mönster som A1:s `releaseGate`).
-      const linkedDomain =
-        (ownedProject.custom_domain_verified_at
-          ? ownedProject.custom_domain?.trim()
-          : null) ||
-        (ownedProject.branded_domain_verified_at
-          ? ownedProject.branded_domain?.trim()
-          : null) ||
-        (await getLinkedDomainForChat(chatId).catch(() => null));
+      // är projektnamnet LÅST. `precheckOnly` rapporterar låset i
+      // `projectNameLock` i stället för att kasta (samma mönster som A1:s
+      // `releaseGate`).
+      const linkedDomain = canonicalDomainProject.domain;
       // Mirror the actual deployment target exactly. Once a provider project
       // is already known — either the persisted name cache OR the canonical
       // id above — a body `projectName` can NEVER retarget hosting:
@@ -1205,17 +1188,20 @@ export async function GET(req: Request) {
       const appProject = appProjectId
         ? await getProjectById(appProjectId).catch(() => null)
         : null;
-      const latestDeploymentVercelProjectId = internalChatId
-        ? (
-            await getLatestVercelProjectIdForChat(internalChatId).catch(
-              () => null,
-            )
-          )?.trim() || null
+      // #519 bugbot (round 3): the SAME shared generic-order helper the
+      // POST-side lock/deploy-target uses for its custom/branded branches
+      // (`resolveCanonicalVercelProjectForDomain` → `resolveLatestOrCachedVercelProjectId`
+      // in `deployment.ts`) — never the legacy `deployments.domain` row's id.
+      // Both the custom AND branded domains rechecked below are RE-ATTACHED
+      // to whatever project a deploy currently targets, so a stale legacy
+      // row must never win here either, or a definitive-`false` recheck
+      // could revoke a still-valid verification against the WRONG project.
+      const effectiveVercelProjectId = internalChatId
+        ? await resolveLatestOrCachedVercelProjectId(
+            internalChatId,
+            appProject?.vercel_project_id,
+          )
         : null;
-      const effectiveVercelProjectId =
-        latestDeploymentVercelProjectId ||
-        appProject?.vercel_project_id?.trim() ||
-        null;
       let brandedDomainVerifiedAt =
         appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt =
