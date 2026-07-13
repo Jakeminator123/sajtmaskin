@@ -6,8 +6,8 @@ import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
   createDeploymentRecord,
-  getLinkedDomainForChat,
-  getLatestVercelProjectIdForChat,
+  resolveCanonicalVercelProjectForDomain,
+  resolveLatestOrCachedVercelProjectId,
   setLatestDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 } from "@/lib/deployment";
@@ -60,6 +60,7 @@ import {
   getProjectData,
   markProjectBrandedDomainVerified,
   setProjectVercelLink,
+  touchProjectBrandedDomainCheckedAt,
 } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
@@ -529,26 +530,38 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
+      // Canonical Vercel project id + linked domain for this chat (BB#deploy4
+      // + #519 P1/bugbot round 3): ONE call, so the domain the lock reports
+      // (`linkedDomain`) and the project id it (and the deploy target below)
+      // resolve to (`existingVercelProjectId`) can never diverge again — the
+      // project-id priority MIRRORS whichever domain source actually won
+      // (verified app_projects custom/branded domain → the generic
+      // latest-deployment/app_projects-cache order; the legacy
+      // `deployments.domain` row → that row's OWN id). See
+      // `resolveCanonicalVercelProjectForDomain` in `deployment.ts` for the
+      // full priority contract shared with the GET recheck below.
+      const canonicalDomainProject = await resolveCanonicalVercelProjectForDomain(
+        chatId,
+        ownedProject,
+      );
+      const existingVercelProjectId = canonicalDomainProject.projectId;
       // Publicera-lås (Ö2 / A2): en kopplad custom-domän sitter på Vercel-
       // PROJEKTET (namn-baserat), inte på en enskild deployment. Om användaren
       // publicerar om med ett NYTT projectName skulle vi rikta mot ett annat
       // Vercel-projekt och lämna domänen kvar (orphan) på det gamla → domänen
       // pekar på gammal sajt. Därför: så länge en domän är kopplad för chatten
-      // är projektnamnet LÅST. Vi läser DB (senaste `deployments.domain`) i
-      // stället för att slå mot Vercel-API:t i deploy-hot-path:en. `precheckOnly`
-      // rapporterar låset i `projectNameLock` i stället för att kasta (samma
-      // mönster som A1:s `releaseGate`).
-      const linkedDomain =
-        (ownedProject.custom_domain_verified_at
-          ? ownedProject.custom_domain?.trim()
-          : null) ||
-        (ownedProject.branded_domain_verified_at
-          ? ownedProject.branded_domain?.trim()
-          : null) ||
-        (await getLinkedDomainForChat(chatId).catch(() => null));
+      // är projektnamnet LÅST. `precheckOnly` rapporterar låset i
+      // `projectNameLock` i stället för att kasta (samma mönster som A1:s
+      // `releaseGate`).
+      const linkedDomain = canonicalDomainProject.domain;
       // Mirror the actual deployment target exactly. Once a provider project
-      // name is persisted, display-name edits cannot retarget hosting. Legacy
-      // rows derive the same collision-safe name as the deploy path.
+      // is already known — either the persisted name cache OR the canonical
+      // id above — a body `projectName` can NEVER retarget hosting:
+      // `ensureVercelProject` below always resolves by id when one is known,
+      // ignoring the requested name entirely. Legacy rows with no known
+      // project at all derive the same collision-safe fallback name as the
+      // deploy path, where the requested name genuinely determines the
+      // brand-new project that gets created.
       const currentVercelProjectName = sanitizeVercelProjectName(
         (typeof ownedProject.vercel_project_name === "string"
           ? ownedProject.vercel_project_name.trim()
@@ -558,14 +571,22 @@ export async function POST(req: Request) {
             engineProjectId,
           ),
       );
+      // Bugbot (#519): trim the name cache — a whitespace-only
+      // `vercel_project_name` must NOT count as a known project, or the lock
+      // would compare two identical generated fallbacks (never locking) while
+      // the deploy below targets a generated-name project the linked domain
+      // may not be attached to. Matches the trim `currentVercelProjectName`
+      // already applies.
+      const hasKnownVercelProject = Boolean(
+        (typeof ownedProject.vercel_project_name === "string" &&
+          ownedProject.vercel_project_name.trim()) ||
+          existingVercelProjectId,
+      );
       const requestedVercelProjectName =
         typeof projectName === "string" && projectName.trim().length > 0
-          ? ownedProject.vercel_project_name
-            ? sanitizeVercelProjectName(projectName)
-            : buildGeneratedVercelProjectName(
-                projectName,
-                engineProjectId,
-              )
+          ? hasKnownVercelProject
+            ? currentVercelProjectName
+            : buildGeneratedVercelProjectName(projectName, engineProjectId)
           : null;
       const projectNameLocked = Boolean(
         linkedDomain &&
@@ -800,29 +821,22 @@ export async function POST(req: Request) {
           }
         }
 
-        // Reuse the SAME Vercel project across re-publishes: prefer an explicit
-        // body name, then the name persisted from a previous publish, then the
-        // per-chat fallback. Targeting stays name-based (no new API params).
+        // Reuse the SAME Vercel project across re-publishes: `existingVercelProjectId`
+        // (BB#deploy4, resolved once above from the same source the domain
+        // resolver uses) wins whenever a project is already known —
+        // `ensureVercelProject` below resolves by that id and ignores the name
+        // in that case. The generated fallback name only matters for a
+        // genuinely first-ever deploy (no known project at all), where the
+        // body name determines the brand-new project that gets created.
         const brandedRolloutEnabled = Boolean(getBrandedLiveSiteDomain());
-        const preferredProjectName =
-          projectName || ownedProject.name || `sajtmaskin-${chatId}`;
-        const vercelProjectName = sanitizeVercelProjectName(
-          ownedProject.vercel_project_name ||
-            buildGeneratedVercelProjectName(
-              preferredProjectName,
-              engineProjectId,
-            ),
-        );
-        // The latest actual deployment is canonical. `app_projects` is only a
-        // best-effort cache and can be stale when a previous link write failed.
-        const latestDeploymentVercelProjectId =
-          (
-            await getLatestVercelProjectIdForChat(chatId).catch(() => null)
-          )?.trim() || null;
-        const existingVercelProjectId =
-          latestDeploymentVercelProjectId ||
-          ownedProject.vercel_project_id?.trim() ||
-          null;
+        const vercelProjectName = hasKnownVercelProject
+          ? currentVercelProjectName
+          : sanitizeVercelProjectName(
+              buildGeneratedVercelProjectName(
+                projectName || ownedProject.name || `sajtmaskin-${chatId}`,
+                engineProjectId,
+              ),
+            );
         const currentCustomDomain = ownedProject.custom_domain?.trim() || null;
         let currentCustomDomainVerifiedAt =
           ownedProject.custom_domain_verified_at ?? null;
@@ -1174,17 +1188,20 @@ export async function GET(req: Request) {
       const appProject = appProjectId
         ? await getProjectById(appProjectId).catch(() => null)
         : null;
-      const latestDeploymentVercelProjectId = internalChatId
-        ? (
-            await getLatestVercelProjectIdForChat(internalChatId).catch(
-              () => null,
-            )
-          )?.trim() || null
+      // #519 bugbot (round 3): the SAME shared generic-order helper the
+      // POST-side lock/deploy-target uses for its custom/branded branches
+      // (`resolveCanonicalVercelProjectForDomain` → `resolveLatestOrCachedVercelProjectId`
+      // in `deployment.ts`) — never the legacy `deployments.domain` row's id.
+      // Both the custom AND branded domains rechecked below are RE-ATTACHED
+      // to whatever project a deploy currently targets, so a stale legacy
+      // row must never win here either, or a definitive-`false` recheck
+      // could revoke a still-valid verification against the WRONG project.
+      const effectiveVercelProjectId = internalChatId
+        ? await resolveLatestOrCachedVercelProjectId(
+            internalChatId,
+            appProject?.vercel_project_id,
+          )
         : null;
-      const effectiveVercelProjectId =
-        latestDeploymentVercelProjectId ||
-        appProject?.vercel_project_id?.trim() ||
-        null;
       let brandedDomainVerifiedAt =
         appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt =
@@ -1215,11 +1232,18 @@ export async function GET(req: Request) {
           customDomainVerifiedAt = null;
         }
       }
+      // #486 Fix C: recheck a branded domain REGARDLESS of its current
+      // verified state (mirrors the custom-domain block above) — an already
+      // -verified alias must still be periodically rechecked, or a domain
+      // removed/misconfigured on the provider side after verification would
+      // stay "verified" in Sajtmaskin forever. Only a DEFINITIVE `false` from
+      // the provider revokes verification; a transient error/`null` just
+      // advances the check clock so the throttle isn't defeated by repeated
+      // reloads.
       if (
         getBrandedLiveSiteDomain() &&
         appProjectId &&
         appProject?.branded_domain &&
-        !brandedDomainVerifiedAt &&
         shouldRecheckBrandedDomain &&
         effectiveVercelProjectId
       ) {
@@ -1228,6 +1252,18 @@ export async function GET(req: Request) {
           appProject.branded_domain,
         );
         if (configured === true) {
+          // VADE #519: only a genuine unverified→verified TRANSITION may
+          // promote the branded domain onto the live URL. `markProjectBrandedDomainVerified`
+          // itself already advances `branded_domain_checked_at` on every call
+          // (including a no-op re-verify of an already-verified domain), so
+          // it alone covers the throttle clock — repeated throttled rechecks
+          // of an already-verified domain must NOT re-stamp the live URL
+          // every 5 minutes, or a verified custom domain's live URL would get
+          // clobbered back to the branded subdomain on every reload.
+          const wasVerifiedBefore = Boolean(brandedDomainVerifiedAt);
+          const hasVerifiedCustomDomain = Boolean(
+            appProject.custom_domain && customDomainVerifiedAt,
+          );
           const marked = await markProjectBrandedDomainVerified(
             appProjectId,
             appProject.branded_domain,
@@ -1235,17 +1271,39 @@ export async function GET(req: Request) {
           if (marked) {
             brandedDomainVerifiedAt =
               marked.branded_domain_verified_at ?? new Date();
-            if (internalChatId) {
+            // Custom domain always wins as liveUrl — never stamp the branded
+            // subdomain over it, even on a genuine transition.
+            if (
+              !wasVerifiedBefore &&
+              !hasVerifiedCustomDomain &&
+              internalChatId
+            ) {
               await setLatestDeploymentLiveUrlForChat(
                 internalChatId,
                 appProject.branded_domain,
               );
             }
           }
+        } else if (configured === false) {
+          // Definitive: the provider no longer reports the domain as
+          // verified/configured. Revoke.
+          await clearProjectBrandedDomainVerification(
+            appProjectId,
+            appProject.branded_domain,
+          );
+          brandedDomainVerifiedAt = null;
+        } else if (brandedDomainVerifiedAt) {
+          // Transient provider error on an ALREADY-verified domain: never
+          // revoke on a blip — only advance the check clock.
+          await touchProjectBrandedDomainCheckedAt(
+            appProjectId,
+            appProject.branded_domain,
+          );
         } else {
-          // Pending DNS and transient provider failures must also advance the
-          // check clock; otherwise every builder history reload repeats the
-          // same external request and defeats the five-minute throttle.
+          // Pending DNS and transient provider failures on a not-yet-verified
+          // domain must also advance the check clock; otherwise every builder
+          // history reload repeats the same external request and defeats the
+          // five-minute throttle.
           await clearProjectBrandedDomainVerification(
             appProjectId,
             appProject.branded_domain,

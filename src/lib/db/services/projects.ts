@@ -454,6 +454,27 @@ export async function clearProjectBrandedDomainVerification(
     .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)));
 }
 
+/**
+ * #486 Fix C: advance the recheck throttle clock WITHOUT touching
+ * verification state. Used when a periodic recheck of an ALREADY-verified
+ * branded domain hits a transient provider error/`null` (network blip,
+ * non-2xx) — a live verification must never be revoked on a blip, but the
+ * check must still count as "done" so every page reload doesn't repeat the
+ * same external request and defeat the throttle.
+ */
+export async function touchProjectBrandedDomainCheckedAt(
+  id: string,
+  domain: string,
+): Promise<void> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) return;
+  await db
+    .update(appProjects)
+    .set({ branded_domain_checked_at: new Date() })
+    .where(and(eq(appProjects.id, id), eq(appProjects.branded_domain, normalized)));
+}
+
 /** Only call after the provider's domain verification endpoint returned true. */
 export async function setProjectVerifiedCustomDomain(
   id: string,

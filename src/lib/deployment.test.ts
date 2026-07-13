@@ -10,12 +10,24 @@ vi.mock("@/lib/db/client", () => ({
   db: {
     select: () => ({
       from: () => ({
-        // `where().limit()` (setDeploymentDomainForRequest) och
-        // `where().orderBy().limit()` (getLinkedDomainForChat) delar samma
-        // `selectLimit`-mock — varje test sätter sitt eget returvärde.
+        // `where().limit()` (setDeploymentDomainForRequest),
+        // `where().orderBy().limit()` (getLinkedDomainForChat /
+        // getLinkedDomainProjectIdForChat) OCH `where().orderBy()` utan
+        // `.limit()` (getLatestVercelProjectIdForChat) delar samma
+        // `selectLimit`-mock — varje test köar sina egna returvärden med
+        // `mockResolvedValueOnce` i anropsordning. `.orderBy()`s returvärde
+        // är ett lat "thenable": `.then()` triggar `selectLimit()` bara om
+        // den awaitas DIREKT (inget efterföljande `.limit()`), så en kedja
+        // som ANROPAR `.limit(n)` konsumerar inte av misstag en extra kö-post.
         where: () => ({
           limit: selectLimit,
-          orderBy: () => ({ limit: selectLimit }),
+          orderBy: () => ({
+            limit: selectLimit,
+            then: (
+              resolve: (value: unknown) => void,
+              reject: (reason: unknown) => void,
+            ) => selectLimit().then(resolve, reject),
+          }),
         }),
       }),
     }),
@@ -37,8 +49,12 @@ vi.mock("@/lib/tenant", () => ({
   getChatByIdForRequest,
 }));
 
-const { setDeploymentDomainForRequest, getLinkedDomainForChat, updateDeploymentStatus } =
-  await import("./deployment");
+const {
+  setDeploymentDomainForRequest,
+  getLinkedDomainForChat,
+  updateDeploymentStatus,
+  resolveCanonicalVercelProjectForDomain,
+} = await import("./deployment");
 
 function req() {
   return new Request("http://localhost/api/domains/save", { method: "POST" });
@@ -196,5 +212,109 @@ describe("updateDeploymentStatus (BB#deploy2: atomic error-transition claim)", (
     // Non-error path does not use the conditional RETURNING claim.
     expect(updateReturning).not.toHaveBeenCalled();
     expect(updateWhere).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #519 bugbot round 3: ONE canonical priority for "which domain is linked" +
+// "which project id does that domain's hosting resolve to" — the deploy
+// route's POST lock/deploy-target and GET recheck both key off this so they
+// can never diverge again (bugbot finding 1: a stale legacy `deployments.domain`
+// row could otherwise win project-id resolution even for an app_projects-owned
+// custom/branded domain).
+describe("resolveCanonicalVercelProjectForDomain (#519 bugbot round 3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("a verified custom domain wins and resolves the GENERIC project id — never touches the legacy row", async () => {
+    // Only ONE db read expected (the generic `getLatestVercelProjectIdForChat`
+    // lookup) — the legacy-row queries must never run for an app_projects
+    // -owned domain, even if a legacy row exists with different data.
+    selectLimit.mockResolvedValueOnce([{ vercelProjectId: "vp_generic", status: "ready" }]);
+
+    const result = await resolveCanonicalVercelProjectForDomain("chat_1", {
+      vercel_project_id: "vp_cache",
+      custom_domain: "kund.example",
+      custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+    });
+
+    expect(result).toEqual({
+      domain: "kund.example",
+      source: "custom",
+      projectId: "vp_generic",
+    });
+    expect(selectLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it("a verified branded domain wins and resolves the GENERIC project id — never touches the legacy row", async () => {
+    selectLimit.mockResolvedValueOnce([]);
+
+    const result = await resolveCanonicalVercelProjectForDomain("chat_1", {
+      vercel_project_id: "vp_cache",
+      branded_domain: "demo.sites.sajtmaskin.se",
+      branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
+    });
+
+    expect(result).toEqual({
+      domain: "demo.sites.sajtmaskin.se",
+      source: "branded",
+      // No `ready`-carrying deployment row → falls back to the app_projects
+      // cache passed in.
+      projectId: "vp_cache",
+    });
+    expect(selectLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it("the legacy row's OWN project id wins over a diverging latest-deployment-overall id", async () => {
+    selectLimit
+      .mockResolvedValueOnce([{ domain: "mysite.example" }]) // getLinkedDomainForChat
+      .mockResolvedValueOnce([{ vercelProjectId: "vp_domain_row" }]); // getLinkedDomainProjectIdForChat
+
+    const result = await resolveCanonicalVercelProjectForDomain("chat_1", {
+      vercel_project_id: "vp_cache",
+    });
+
+    expect(result).toEqual({
+      domain: "mysite.example",
+      source: "legacy-row",
+      projectId: "vp_domain_row",
+    });
+    // The generic fallback (getLatestVercelProjectIdForChat) must NOT have
+    // been consulted — the legacy row's own id was sufficient.
+    expect(selectLimit).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to the generic order when the legacy row predates the project-id column", async () => {
+    selectLimit
+      .mockResolvedValueOnce([{ domain: "mysite.example" }]) // getLinkedDomainForChat
+      .mockResolvedValueOnce([]) // getLinkedDomainProjectIdForChat: no id on the row
+      .mockResolvedValueOnce([{ vercelProjectId: "vp_generic", status: "ready" }]); // generic fallback
+
+    const result = await resolveCanonicalVercelProjectForDomain("chat_1", {
+      vercel_project_id: "vp_cache",
+    });
+
+    expect(result).toEqual({
+      domain: "mysite.example",
+      source: "legacy-row",
+      projectId: "vp_generic",
+    });
+    expect(selectLimit).toHaveBeenCalledTimes(3);
+  });
+
+  it("resolves 'none' + the generic order when no domain is linked at all", async () => {
+    selectLimit
+      .mockResolvedValueOnce([]) // getLinkedDomainForChat: no row
+      .mockResolvedValueOnce([]); // generic fallback: no deployment row → cache wins
+
+    const result = await resolveCanonicalVercelProjectForDomain("chat_1", {
+      vercel_project_id: "vp_cache",
+    });
+
+    expect(result).toEqual({
+      domain: null,
+      source: "none",
+      projectId: "vp_cache",
+    });
   });
 });
