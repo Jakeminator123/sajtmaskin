@@ -13,6 +13,7 @@ const prepareCredits = vi.hoisted(() => vi.fn());
 const createDeploymentRecord = vi.hoisted(() => vi.fn());
 const updateDeploymentStatus = vi.hoisted(() => vi.fn());
 const getLinkedDomainForChat = vi.hoisted(() => vi.fn());
+const getLinkedDomainProjectIdForChat = vi.hoisted(() => vi.fn());
 const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
 const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
@@ -60,6 +61,7 @@ vi.mock("@/lib/deployment", () => ({
   createDeploymentRecord,
   updateDeploymentStatus,
   getLinkedDomainForChat,
+  getLinkedDomainProjectIdForChat,
   getLatestVercelProjectIdForChat,
   setLatestDeploymentLiveUrlForChat,
 }));
@@ -133,6 +135,7 @@ describe("POST /api/v0/deployments", () => {
     // Default: ingen custom-domän kopplad (dagens beteende) → projektnamn-låset
     // (A2) släpper alltid igenom om inte ett test explicit kopplar en domän.
     getLinkedDomainForChat.mockResolvedValue(null);
+    getLinkedDomainProjectIdForChat.mockResolvedValue(null);
     getLatestVercelProjectIdForChat.mockResolvedValue(null);
     getAppProjectByIdForRequest.mockResolvedValue({ id: "proj_1", name: "Demo" });
     getProjectData.mockResolvedValue(null);
@@ -745,6 +748,88 @@ describe("POST /api/v0/deployments", () => {
       expect(createVercelDeployment).toHaveBeenCalledWith(
         expect.objectContaining({ projectName: "real-provider-project" }),
       );
+    });
+
+    // #519 P1 (Codex review round 2): the domain-carrying row can be OLDER
+    // than the latest deployment row overall, and the two can carry
+    // DIFFERENT project ids (e.g. a legacy row, or any deploy after the
+    // domain was saved that didn't re-save it). The domain-row's own id must
+    // win — a republish must target the project the domain sits on, never
+    // drift to a newer/unrelated project and orphan the domain.
+    it("(#519 P1) prefers the domain-bearing row's project id over the latest-deployment-overall id (divergence)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getLinkedDomainProjectIdForChat.mockResolvedValue("vp_domain_row");
+      // A NEWER, unrelated deployment row (no domain of its own) carries a
+      // DIFFERENT project id — must NOT win over the domain row's id.
+      getLatestVercelProjectIdForChat.mockResolvedValue("vp_newer_unrelated");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        name: "Demo",
+        vercel_project_name: null,
+        vercel_project_id: null,
+      });
+      ensureVercelProject.mockResolvedValue({
+        id: "vp_domain_row",
+        name: "domain-row-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          // A pure display-name edit — must not be treated as retargeting,
+          // and must never silently deploy to the newer/unrelated project.
+          projectName: "some-new-display-name",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(commit).toHaveBeenCalled();
+      expect(ensureVercelProject).toHaveBeenCalledWith(
+        expect.any(String),
+        "vp_domain_row",
+      );
+      expect(createVercelDeployment).toHaveBeenCalledWith(
+        expect.objectContaining({ projectName: "domain-row-project" }),
+      );
+    });
+
+    // #519 P1: the normal case (domain row and latest-deployment-overall
+    // agree on the same project) must stay unchanged.
+    it("(#519 P1) normal case: domain row and latest-deployment-overall agree — unchanged behavior", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getLinkedDomainForChat.mockResolvedValue("mysite.example");
+      getLinkedDomainProjectIdForChat.mockResolvedValue("vp_same");
+      getLatestVercelProjectIdForChat.mockResolvedValue("vp_same");
+      getAppProjectByIdForRequest.mockResolvedValue({
+        id: "proj_1",
+        name: "Demo",
+        vercel_project_name: null,
+        vercel_project_id: null,
+      });
+      ensureVercelProject.mockResolvedValue({
+        id: "vp_same",
+        name: "same-project",
+      });
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          projectName: "renamed-display",
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(commit).toHaveBeenCalled();
+      expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_same");
     });
 
     it("allows the deploy when a domain is linked but no projectName is sent (same project reused)", async () => {

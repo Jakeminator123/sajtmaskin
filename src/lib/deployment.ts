@@ -165,6 +165,31 @@ export async function getLinkedDomainForChat(
   return domain ? domain : null;
 }
 
+/**
+ * #519 P1 (Codex review round 2): the SAME row `getLinkedDomainForChat`
+ * reads (latest deployment row that carries a domain, saved once via
+ * `/api/domains/save`) but exposing its `vercel_project_id` instead of the
+ * domain string. A domain can be saved onto an OLDER deployment row while a
+ * newer, unrelated row (with no domain of its own) carries a DIFFERENT
+ * project id — `getLatestVercelProjectIdForChat` alone would then resolve to
+ * that newer/unrelated project, silently retargeting hosting away from the
+ * project the domain is actually attached to. The deploy route's
+ * project-name lock and deploy target must prefer THIS id whenever a domain
+ * is linked, so a republish always goes to the project the domain sits on.
+ */
+export async function getLinkedDomainProjectIdForChat(
+  chatId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ vercelProjectId: deployments.vercelProjectId })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), isNotNull(deployments.domain)))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1);
+  if (rows.length === 0) return null;
+  return rows[0].vercelProjectId?.trim() || null;
+}
+
 export async function setDeploymentDomain(
   deploymentId: string,
   domain: string,

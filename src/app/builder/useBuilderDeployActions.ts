@@ -398,30 +398,50 @@ export function useBuilderDeployActions({
       }
     }
 
-    // Persist SEO preferences best-effort before deploying. Failure here
-    // shouldn't block the deploy — the body override still wins on the
-    // server side via `resolveDeploySeoOptions`.
+    // Persist SEO preferences before deploying. Best-effort in general — the
+    // body override still wins on the server side via `resolveDeploySeoOptions`
+    // — EXCEPT for the clear-fallback case (#519 P2, Codex review round 2):
+    // the deploy body OMITS `siteUrl` when it's blank (see
+    // `deployActiveVersionToVercel` above), so a failed clear-PATCH would
+    // leave the OLD persisted URL in place and the deploy would silently
+    // publish it as stale robots/sitemap/canonical metadata. Setting a real
+    // URL has no such gap (the deploy body always carries the new value), so
+    // that case stays best-effort.
     if (appProjectId && payload?.seo) {
       // #486 Fix B: an omitted `siteUrl` is a true PATCH no-op on the server
       // (`mergeSeoPatch` in `preferences/route.ts` keeps the persisted value)
       // — a blank field could never clear a previously saved override. Send
       // an explicit `null` instead, which the schema/route already support,
       // so the user can actually clear the SEO-fallback URL.
+      const trimmedSiteUrl = payload.seo.siteUrl.trim();
       const seoPatch = payload.seo.optIn
         ? {
             optIn: true as const,
-            siteUrl: payload.seo.siteUrl.trim() || null,
+            siteUrl: trimmedSiteUrl || null,
           }
         : { optIn: false as const };
+      const isClearingSiteUrl = payload.seo.optIn && !trimmedSiteUrl;
       try {
-        await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {
+        const res = await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify({ seo: seoPatch }),
         });
+        if (!res.ok && isClearingSiteUrl) {
+          toast.error(
+            "Kunde inte rensa den sparade SEO-adressen. Publicering avbruten — försök igen.",
+          );
+          return;
+        }
       } catch (error) {
         debugLog("builder", "Failed to persist SEO preferences", error);
+        if (isClearingSiteUrl) {
+          toast.error(
+            "Kunde inte rensa den sparade SEO-adressen. Publicering avbruten — försök igen.",
+          );
+          return;
+        }
       }
     }
 

@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import {
   createDeploymentRecord,
   getLinkedDomainForChat,
+  getLinkedDomainProjectIdForChat,
   getLatestVercelProjectIdForChat,
   setLatestDeploymentLiveUrlForChat,
   updateDeploymentStatus,
@@ -530,15 +531,26 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
-      // Canonical Vercel project id for this chat (BB#deploy4): the SAME
-      // source the domain resolver uses (`resolve-vercel-project.ts`) — the
-      // latest deployment's project id wins over the `app_projects` cache,
-      // which can go stale when a previous `setProjectVercelLink` write
-      // failed (best-effort). Computed once, up front, so the lock below and
-      // the deploy target further down derive "is there already a known
-      // project" from the exact same read instead of two independent (and
-      // potentially diverging) lookups.
+      // Canonical Vercel project id for this chat (BB#deploy4 + #519 P1):
+      // the SAME source the domain resolver uses (`resolve-vercel-project.ts`)
+      // — the latest deployment's project id wins over the `app_projects`
+      // cache, which can go stale when a previous `setProjectVercelLink`
+      // write failed (best-effort). Computed once, up front, so the lock
+      // below and the deploy target further down derive "is there already a
+      // known project" from the exact same read instead of two independent
+      // (and potentially diverging) lookups.
+      //
+      // #519 P1: when a domain is linked via the legacy `deployments.domain`
+      // column (`/api/domains/save`), that row's OWN project id — not the
+      // generic "latest deployment overall" — is canonical. A domain can sit
+      // on an older row while a newer, unrelated row carries a different
+      // project id; preferring the domain row keeps hosting and the domain
+      // together instead of letting a republish silently drift to the newer
+      // project while the domain stays orphaned on the old one.
+      const linkedDomainProjectId =
+        (await getLinkedDomainProjectIdForChat(chatId).catch(() => null))?.trim() || null;
       const existingVercelProjectId =
+        linkedDomainProjectId ||
         (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() ||
         ownedProject.vercel_project_id?.trim() ||
         null;
