@@ -61,9 +61,6 @@ jobs:
       - name: Validate dossier manifests
         run: npm run dossiers:validate-all
 
-      - name: Verify generated contract docs
-        run: npm run docs:check
-
       # NOTE: the dossier capability-map (data/dossiers/_index/capability-map.json)
       # is a GENERATED tooling view, never read at runtime (the registry walks
       # data/dossiers/{hard,soft}/ directly). Its former drift-check
@@ -73,6 +70,9 @@ jobs:
 
       - name: Validate control-plane registries
         run: npm run control-plane:check
+
+      - name: Verify generated contract docs
+        run: npm run docs:check
 
       # Plan B #9: route `maxDuration` literals are generated from
       # config/ai_models/manifest.json routeTimeouts (canonical owner:
