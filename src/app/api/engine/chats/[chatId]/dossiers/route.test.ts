@@ -372,6 +372,41 @@ describe("GET dossiers overview", () => {
     expect(body.counts.builtLive).toBe(1);
   });
 
+  // Codex P2 on #525: with the F3 placeholder opt-in (`allowPlaceholdersInF3`)
+  // the readiness gate clears `missingKeys` for placeholder-covered BUILD
+  // keys — the build may proceed — but the dossier is NOT live: live always
+  // requires real stored values.
+  it("keeps a placeholder-satisfied build key at built-demo, never built-live", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+    });
+    readAllowPlaceholdersInF3.mockResolvedValue(true);
+    loadPlaceholderKeySet.mockReturnValue(new Set<string>(["STRIPE_SECRET_KEY"]));
+    // No real stored value for the build key.
+    getStoredProjectEnvVarMap.mockResolvedValue({});
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    // Placeholder opt-in: the gate reports nothing missing.
+    validateTier3Readiness.mockReturnValue({
+      ready: true,
+      missingByIntegration: [],
+      placeholderUsedByIntegration: [
+        { key: "stripe", name: "Stripe", placeholdered: ["STRIPE_SECRET_KEY"] },
+      ],
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    // Not blocked (the build may run) — but demo, not live.
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
   // Secrets are write-only: the overview may only expose boolean flags
   // (hasRealValue etc.), never the stored values themselves.
   it("never leaks stored env values to the client", async () => {

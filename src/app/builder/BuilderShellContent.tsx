@@ -465,11 +465,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)
   // reconcile the live 412 payload so the requirements surface never keeps
   // listing a key the project already has (Bugbot on this diff). The key
-  // SCOPE stays server-owned — this only subtracts, never adds.
+  // SCOPE stays server-owned — this only subtracts, never adds. Deletes fire
+  // the same event but are ignored here (Codex P2 on #525): a delete cannot
+  // clear a requirement, and a deleted previously-saved key resurfaces via
+  // the server's next 412 on retry.
   useEffect(() => {
     const handleEnvSaved = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);
       if (!detail || !detail.envKeys || detail.envKeys.length === 0) return;
+      if (detail.action === "deleted") return;
       if (detail.chatId && detail.chatId !== vm.chatId) return;
       const savedKeys = detail.envKeys;
       setF3Requirements((current) =>

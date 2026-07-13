@@ -4,6 +4,7 @@ import {
   F3_REBUILD_REQUEST_EVENT,
   openDossiersPanel,
   readDossiersPanelOpenDetail,
+  readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
   subtractSavedKeysFromF3Requirements,
   type F3RequirementsDetail,
@@ -101,5 +102,27 @@ describe("subtractSavedKeysFromF3Requirements", () => {
     expect(subtractSavedKeysFromF3Requirements(detail, ["UNRELATED_KEY"])).toBe(detail);
     expect(subtractSavedKeysFromF3Requirements(detail, [])).toBe(detail);
     expect(subtractSavedKeysFromF3Requirements(null, ["X"])).toBeNull();
+  });
+});
+
+// Codex P2 on #525: deletes fire the same updated-event as saves; the
+// action discriminator lets the 412-reconciliation ignore them.
+describe("readProjectEnvVarsUpdatedDetail action", () => {
+  function eventWith(detail: Record<string, unknown>): Event {
+    return new CustomEvent("sajtmaskin:project-env-vars-updated", { detail });
+  }
+
+  it("defaults a legacy dispatch (no action) to saved", () => {
+    const parsed = readProjectEnvVarsUpdatedDetail(
+      eventWith({ projectId: "proj_1", envKeys: ["K"] }),
+    );
+    expect(parsed?.action).toBe("saved");
+  });
+
+  it("preserves the deleted action", () => {
+    const parsed = readProjectEnvVarsUpdatedDetail(
+      eventWith({ projectId: "proj_1", envKeys: ["K"], action: "deleted" }),
+    );
+    expect(parsed?.action).toBe("deleted");
   });
 });

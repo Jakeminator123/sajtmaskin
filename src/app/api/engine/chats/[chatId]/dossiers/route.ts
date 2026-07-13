@@ -322,6 +322,15 @@ async function buildDossierOverview(
         (env) => (env.enforcement ?? "build") === "feature-runtime" && !hasRealEnvValue(env.key),
       )
       .map((env) => env.key);
+    // Build keys satisfied only via the F3 placeholder opt-in
+    // (`allowPlaceholdersInF3`) clear `missingKeys` — the BUILD may proceed —
+    // but the function is not live (Codex P2 on #525): live requires real
+    // stored values, never placeholders.
+    const buildKeysWithoutRealValue = (entry.envVars ?? [])
+      .filter(
+        (env) => (env.enforcement ?? "build") === "build" && !hasRealEnvValue(env.key),
+      )
+      .map((env) => env.key);
 
     let status: DossierStatus;
     let missingKeys: string[] = [];
@@ -345,7 +354,10 @@ async function buildDossierOverview(
         if (missingKeys.length > 0) {
           status = "blocked-build";
         } else {
-          status = missingLiveKeys.length > 0 ? "built-demo" : "built-live";
+          status =
+            missingLiveKeys.length > 0 || buildKeysWithoutRealValue.length > 0
+              ? "built-demo"
+              : "built-live";
         }
       }
     }

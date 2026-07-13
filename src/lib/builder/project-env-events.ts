@@ -176,6 +176,13 @@ export type ProjectEnvVarsUpdatedDetail = {
   chatId?: string | null;
   versionId?: string | null;
   envKeys?: string[];
+  /**
+   * What happened to `envKeys`. Deletes fire the same event (consumers
+   * refetch either way) but must not be mistaken for saves — e.g. the 412
+   * requirements reconciliation only subtracts on "saved" (Codex P2 on
+   * #525). Absent (legacy dispatchers) → treated as "saved".
+   */
+  action?: "saved" | "deleted";
 };
 
 export function dispatchProjectEnvVarsUpdated(detail: ProjectEnvVarsUpdatedDetail): void {
@@ -208,5 +215,6 @@ export function readProjectEnvVarsUpdatedDetail(
     envKeys: Array.isArray(detail.envKeys)
       ? detail.envKeys.filter((key): key is string => typeof key === "string" && key.trim().length > 0)
       : [],
+    action: detail.action === "deleted" ? "deleted" : "saved",
   };
 }
