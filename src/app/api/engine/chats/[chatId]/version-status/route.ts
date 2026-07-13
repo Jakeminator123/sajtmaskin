@@ -43,7 +43,7 @@ import {
   RECONCILED_PROMOTE_SUMMARY,
   settleStaleVerificationIfNeeded,
 } from "@/lib/gen/verify/settle-stale-verification";
-import { promoteVersionIfUnleased } from "@/lib/db/chat-repository-pg";
+import { getLatestVersion, promoteVersionIfUnleased } from "@/lib/db/chat-repository-pg";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -106,8 +106,13 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
         // instead of leaving it spinning — so this 4s poll can reconcile the bus
         // to `done` without ever racing a verify/repair job that holds the lease.
-        promoteReconciledVersion: () =>
-          promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+        // Head guard (bugbot medium #518, mirrors the quality-gate route's
+        // `isLatestVersionForChat`): never reconcile-promote a non-head version.
+        promoteReconciledVersion: async () => {
+          const latest = await getLatestVersion(chatId).catch(() => null);
+          if (latest && latest.id !== versionIdForReconcile) return null;
+          return promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY);
+        },
       });
       dbVersion = settled.version;
     }

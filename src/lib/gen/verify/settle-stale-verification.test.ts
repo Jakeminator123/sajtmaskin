@@ -217,6 +217,27 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  it("does NOT reconcile a stale 'repairing' row even with a green (pre-repair) gate log — terminal-fails as before (bugbot high #518)", async () => {
+    // A `repairing` row's latest preflight:quality-gate log can predate
+    // markVersionRepairing; the green reconciliation must be scoped to `verifying`
+    // so a pre-repair verdict can't promote a mid/abandoned-repair row.
+    leaseTableExists.mockResolvedValue(true);
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const resolveLatestGateGreen = vi.fn().mockReturnValue(true);
+    const promoteReconciledVersion = vi.fn();
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "repairing" }),
+      { resolveLatestGateGreen, promoteReconciledVersion },
+    );
+    expect(res.failed).toBe(true);
+    // The green branch is skipped entirely for a non-`verifying` row.
+    expect(resolveLatestGateGreen).not.toHaveBeenCalled();
+    expect(promoteReconciledVersion).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
   it("does NOT attempt promotion when the gate is not green (no callback invocation, fails as today)", async () => {
     failVersionVerificationIfUnleased.mockResolvedValue(
       makeVersion({ verification_state: "failed" }),

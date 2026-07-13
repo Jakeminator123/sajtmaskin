@@ -265,9 +265,14 @@ async function buildEngineReadiness(
     // Codex P1 (#518): recover a proven-green stale row to a terminal promoted
     // state via the guarded, LEASE-SAFE promote (bugbot high #518) instead of
     // leaving it in limbo — never promotes while a verify/repair job holds the
-    // lease and re-runs checks.
-    promoteReconciledVersion: () =>
-      promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+    // lease and re-runs checks. Head guard (bugbot medium #518, mirrors the
+    // quality-gate route's `isLatestVersionForChat`): never reconcile-promote a
+    // non-head version — a newer version may already exist. Not head → no-op.
+    promoteReconciledVersion: async () => {
+      const latest = await getLatestVersion(chat.id).catch(() => null);
+      if (latest && latest.id !== versionIdForReconcile) return null;
+      return promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY);
+    },
   });
   version = settledVersion;
 

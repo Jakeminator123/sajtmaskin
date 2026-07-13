@@ -207,8 +207,38 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback runs the guarded, LEASE-SAFE promote.
+    // Invoking the threaded callback (target IS head) runs the guarded promote.
+    getLatestVersion.mockResolvedValue({ id: "ver_1" });
     await capturedOpts?.promoteReconciledVersion?.();
     expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+  });
+
+  it("reconcile callback is a NO-OP (no promote) when the version is not the chat head (bugbot medium #518)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+    // A newer version is now the chat head.
+    getLatestVersion.mockResolvedValue({ id: "ver_2" });
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBeNull();
+    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
   });
 });

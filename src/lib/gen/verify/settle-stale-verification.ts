@@ -49,6 +49,9 @@ export async function settleStaleVerificationIfNeeded(
      * 2026-07-13) left the row spinning at `verifying` — including the
      * `promoteGuardUnavailable` branch that also leaves it `verifying` — the
      * watchdog must NOT turn that passed gate into a false-red `failed`.
+     * Only consulted for a stale `verifying` row (bugbot high, 3rd iteration):
+     * `repairing`/pending rows keep the terminal-fail path so a pre-repair green
+     * verdict can't reconcile a mid/abandoned-repair row.
      * When paired with `promoteReconciledVersion` the watchdog first TRIES to
      * settle the green row to a terminal `promoted` state (see below); it only
      * no-ops when that recovery is unavailable or declined.
@@ -98,41 +101,51 @@ export async function settleStaleVerificationIfNeeded(
     return { version, failed: false };
   }
 
-  // BB#299 / M#vlane2 reconciliation: a stale row whose LATEST quality-gate
-  // verdict already passed (green/advisory) must NOT be terminal-failed. The
-  // gate proved the version launchable; a transient promote-UPDATE timeout
-  // (prod incident 2026-07-13) — or the `promoteGuardUnavailable` retryable
-  // branch — merely left it spinning at `verifying`. Best-effort: a resolver
-  // throw falls through to the normal fail path so the perpetual-spinner guard
-  // still applies.
-  let latestGateGreen = false;
-  try {
-    latestGateGreen = (await opts?.resolveLatestGateGreen?.()) === true;
-  } catch {
-    latestGateGreen = false;
-  }
-  if (latestGateGreen) {
-    // Codex P1 (#518): don't just no-op a proven-green row — that traded a
-    // false-red for permanent limbo (`/version-status` never reaches `done`,
-    // F3-readiness/deploy stays blocked, resume ignores it). TRY a guarded
-    // promotion so the row can reach a terminal `promoted`/`passed` state. The
-    // caller's `promoteReconciledVersion` uses the canonical `promoteVersion`,
-    // whose built-in promote-guard refuses on telemetry-mismatch / read error,
-    // so this can never false-green a genuinely-blocked row. A promoted row is
-    // returned as-is; a `null`/throw (guard-denied / transient / lease miss)
-    // falls back to the historic no-op (next sweep retries) — never a fail.
-    if (opts?.promoteReconciledVersion) {
-      let reconciled: Version | null = null;
-      try {
-        reconciled = await opts.promoteReconciledVersion();
-      } catch {
-        reconciled = null;
-      }
-      if (reconciled) {
-        return { version: reconciled, failed: false };
-      }
+  // BB#299 / M#vlane2 / Codex P1 (#518) reconciliation — SCOPED to `verifying`
+  // (bugbot high, 3rd iteration): a stale row whose LATEST quality-gate verdict
+  // already passed (green/advisory) must NOT be terminal-failed — the gate
+  // proved the version launchable and a transient promote-UPDATE timeout (or the
+  // `promoteGuardUnavailable` retryable branch) merely left it spinning.
+  //
+  // This ONLY applies to `verifying`, the sole state that promote-timeout profile
+  // ever leaves behind. A stale `repairing` row is deliberately EXCLUDED: its
+  // latest `preflight:quality-gate` log can predate `markVersionRepairing`, so a
+  // pre-repair "green" verdict must never promote (or no-op) a row that is mid /
+  // abandoned repair — that would clobber the repair fields on a stale signal.
+  // `repairing` (and stale pending-integrations) therefore keep the terminal-fail
+  // path below, exactly as before this PR series. Best-effort: a resolver throw
+  // falls through to the normal fail path so the perpetual-spinner guard applies.
+  if (version.verification_state === "verifying") {
+    let latestGateGreen = false;
+    try {
+      latestGateGreen = (await opts?.resolveLatestGateGreen?.()) === true;
+    } catch {
+      latestGateGreen = false;
     }
-    return { version, failed: false };
+    if (latestGateGreen) {
+      // Codex P1 (#518): don't just no-op a proven-green row — that traded a
+      // false-red for permanent limbo (`/version-status` never reaches `done`,
+      // F3-readiness/deploy stays blocked, resume ignores it). TRY a guarded,
+      // lease-safe promotion so the row can reach a terminal `promoted`/`passed`
+      // state. The caller's `promoteReconciledVersion` uses the guarded,
+      // lease-gated `promoteVersionIfUnleased` (promote-guard + no-active-lease +
+      // head check), so this can never false-green a blocked/leased/non-head row.
+      // A promoted row is returned as-is; a `null`/throw (guard-denied / lease
+      // held / not head / transient) falls back to the historic no-op (next sweep
+      // retries) — never a fail.
+      if (opts?.promoteReconciledVersion) {
+        let reconciled: Version | null = null;
+        try {
+          reconciled = await opts.promoteReconciledVersion();
+        } catch {
+          reconciled = null;
+        }
+        if (reconciled) {
+          return { version: reconciled, failed: false };
+        }
+      }
+      return { version, failed: false };
+    }
   }
 
   // Prefer the concrete already-logged gate failure (e.g. a deterministic

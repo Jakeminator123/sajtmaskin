@@ -5,6 +5,7 @@ const readAll = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const promoteVersionIfUnleased = vi.hoisted(() => vi.fn());
+const getLatestVersion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -32,11 +33,13 @@ vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
 }));
 
-// The route now imports `promoteVersion` directly; mocking chat-repository-pg
-// keeps the real module (and its `@/lib/db/client` import that throws without a
-// connection string) out of the test graph.
+// The route now imports `promoteVersionIfUnleased` + `getLatestVersion`
+// directly; mocking chat-repository-pg keeps the real module (and its
+// `@/lib/db/client` import that throws without a connection string) out of the
+// test graph.
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   promoteVersionIfUnleased,
+  getLatestVersion,
 }));
 
 import { GET } from "./route";
@@ -51,6 +54,8 @@ describe("GET version-status (engine)", () => {
     }));
     getEngineVersionErrorLogs.mockResolvedValue([]);
     promoteVersionIfUnleased.mockResolvedValue({ id: "v1", verification_state: "passed" });
+    // Default: the reconcile target IS the chat head (head guard passes).
+    getLatestVersion.mockResolvedValue({ id: "v1" });
   });
 
   it("returns 400 when versionId is missing", async () => {
@@ -196,9 +201,37 @@ describe("GET version-status (engine)", () => {
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback runs the guarded, LEASE-SAFE promote.
+    // Invoking the threaded callback (target IS head) runs the guarded promote.
+    getLatestVersion.mockResolvedValue({ id: "v1" });
     await capturedOpts?.promoteReconciledVersion?.();
     expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+  });
+
+  it("reconcile callback is a NO-OP (no promote) when the version is not the chat head (bugbot medium #518)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
+    });
+    readAll.mockReturnValue(spinningBus);
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      (version: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+        capturedOpts = opts;
+        return { version, failed: false };
+      },
+    );
+    // A newer version is now the chat head.
+    getLatestVersion.mockResolvedValue({ id: "v2" });
+
+    await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBeNull();
+    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
   });
 
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {
