@@ -53,7 +53,7 @@ function originForUrl(url: string | null): string | null {
  * — koordinat→DOM sker i previewn själv (same-origin mot sig själv).
  *
  * Inert om `enabled`/`active` är false (map/ai-vägarna orörda). Se
- * `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`.
+ * `docs/plans/avklarat/2026-06-19-inspector-rendering-arkitektur.md`.
  */
 export function usePreviewInspectBridge(options: {
   /** bridge-flaggan på + inspector aktiverad */

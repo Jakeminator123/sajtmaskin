@@ -1,12 +1,20 @@
 ---
-status: active
+status: avklarad
 owner: unassigned
 created: 2026-07-01
-updated: 2026-07-08
-topic: OpenClaw edit-agent (reversibel) — spår B/C levererade, spår A väntar i PR #346 [HOLD]
+updated: 2026-07-13
+archived: 2026-07-13
+archived_note: "Spår C (mallar→Blob) mergad PR #336; spår B (follow-up imported-repo-fix) i koden (finalize-preflight/preflight-phase + test). Spår A (OpenClaw edit-agent) parkerad: PR #346 STÄNGD utan merge 2026-07-09 (ägarkommentar 'KANSKE SENARE'), remote-branch feat/openclaw-edit-agent raderad, ingen edit-agent-kod på master. Flyttad active→avklarat 2026-07-13."
+topic: OpenClaw edit-agent — spår B/C levererade; spår A parkerad (PR #346 stängd, 'kanske senare')
 ---
 
 # OpenClaw edit-agent + follow-up-fix + mall→Blob — plan & sekvens
+
+> **STATUS 2026-07-13 — AVKLARAD (flyttad till `avklarat/`).** Spår B + C är
+> levererade (se nedan). Spår A är **parkerat, inte pågående**: PR #346 stängdes
+> utan merge 2026-07-09 (ägarens kommentar "KANSKE SENARE"), branchen
+> `feat/openclaw-edit-agent` är raderad och ingen edit-agent-kod finns på master.
+> Designen nedan bevaras som underlag om spåret återupptas.
 
 ## TL;DR (2026-07-08: 2 av 3 spår klara — bara spår A kvar)
 
@@ -16,9 +24,9 @@ Tre spår, medvetet åtskilda så `master` inte störs och allt är reversibelt:
 |---|---|---|---|
 | **C — mallar→Blob** | Backoffice-upload + Blob-manifest + katalog som styr `Mallar`/Templates | PR #336 (`feat/mallar-blob-catalog`) | ✅ **MERGAD** 2026-07-01 |
 | **B — follow-up-fix** | Fixa att follow-up i vanliga LLM-flödet blockeras på mall-chattar | egen PR | ✅ **LEVERERAD** — `imported-repo`-läget finns i koden (`finalize-preflight.ts`, `finalize-version/preflight-phase.ts`, `engine/chats/init/route.ts` + test) |
-| **A — OpenClaw edit-agent** | OpenClaw redigerar användarprojekt från en prompt i OpenClaw-chatten → ändringar till VM | branch `feat/openclaw-edit-agent` | 🟡 **PR #346, draft, [HOLD - MERGA INTE]** — se detaljer nedan |
+| **A — OpenClaw edit-agent** | OpenClaw redigerar användarprojekt från en prompt i OpenClaw-chatten → ändringar till VM | branch `feat/openclaw-edit-agent` (raderad) | ⛔ **PARKERAD — PR #346 STÄNGD 2026-07-09** (ej mergad, "kanske senare"), branch borttagen, ingen kod på master |
 
-Enda kvarvarande beslutet är om/när PR #346 ska tas av HOLD. Resten av dokumentet nedan (spår B:s rotorsak/fix-detaljer, spår A:s design) är historik/kontext — spår B:s sektion beskriver vad som byggdes, inte längre öppet arbete.
+Spår A är parkerat (inte längre "väntar"). Om det återupptas: skapa ny branch av master enligt designen nedan. Resten av dokumentet (spår B:s rotorsak/fix-detaljer, spår A:s design) är historik/kontext — spår B:s sektion beskriver vad som byggdes, inte längre öppet arbete.
 
 ---
 

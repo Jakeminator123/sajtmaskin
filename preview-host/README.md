@@ -121,7 +121,7 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 
 Alla tre är bakåtkompatibla (default = dagens beteende) och kräver `fly deploy -a vm-fly-jakem` för att aktiveras.
 
-**Inspector-bridge-injektion (opt-in, 2026-06-19):** nar `SAJTMASKIN_APP_ORIGIN` ar satt OCH ett dokument-anrop har `?inspect=1` buffrar `proxy.on("proxyRes")` (i `src/runtime.js`) HTML-svaret och injicerar `<script src="${SAJTMASKIN_APP_ORIGIN}/api/inspect-bridge?parent=...">` fore `</body>`. Allt annat (saknad env, ingen `?inspect=1`, icke-HTML eller komprimerade svar) ar ren passthrough -> oforandrat beteende. App-origin tas fran egen env, aldrig fran query, sa ingen kan be hosten injicera en godtycklig origin. Default av. Se `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`.
+**Inspector-bridge-injektion (opt-in, 2026-06-19):** nar `SAJTMASKIN_APP_ORIGIN` ar satt OCH ett dokument-anrop har `?inspect=1` buffrar `proxy.on("proxyRes")` (i `src/runtime.js`) HTML-svaret och injicerar `<script src="${SAJTMASKIN_APP_ORIGIN}/api/inspect-bridge?parent=...">` fore `</body>`. Allt annat (saknad env, ingen `?inspect=1`, icke-HTML eller komprimerade svar) ar ren passthrough -> oforandrat beteende. App-origin tas fran egen env, aldrig fran query, sa ingen kan be hosten injicera en godtycklig origin. Default av. Se `docs/plans/avklarat/2026-06-19-inspector-rendering-arkitektur.md`.
 
 Patchen kor i tva lager:
 

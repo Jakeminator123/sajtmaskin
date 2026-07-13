@@ -1,12 +1,24 @@
 ---
-status: active
+status: avklarad
 owner: unassigned
 created: 2026-07-08
+archived: 2026-07-13
+archived_note: "Alla 12 utkast promoterade — de sista 4 (sanity-cms/paddle-billing/supabase-auth/rag-chat) via PR #475. Öppet beslut #1 (F2 DB-mock) löst av deklarativt mock-läge (#468) + CI-invariant per hard-capability (#499/#502). Kvar (svans, ej blockerande): riktigt preview/generate-test → bumpa lastVerified på dossiers som står kvar på legacy-datum. Flyttad active→avklarat 2026-07-13."
 topic: Dossier legacy→v2 — promotion av normaliserade utkast + capability-wiring + F2-synlighet
 source: Chatt-session 2026-07-08 (normalizer byggd + mergad i PR #419); coach-analys av legacy-arkivet
 ---
 
 # Dossier legacy-import — handoff
+
+> **STATUS 2026-07-13 — AVKLARAD (flyttad till `avklarat/`).** Alla 12 utkast är
+> promoterade: de sista 4 (`sanity-cms`, `paddle-billing`, `supabase-auth`,
+> `rag-chat`) via **PR #475**. Öppet beslut #1 (F2 DB-mock) löstes av det
+> **deklarativa mock-läget** (#468) + **CI-invarianten** som kräver mock-fallback
+> per hard-capability (#499/#502) — starkare än ett engångs-preview-test. Live-poolen
+> är nu 18 hard + 18 soft (36). **Enda kvarvarande svansen** (ej blockerande): kör ett
+> riktigt preview/generate-test som väljer dossiern och bumpa `lastVerified` på de
+> dossiers som fortfarande står på legacy-datum (2026-04-*). Historiken nedan bevaras
+> oförändrad som underlag.
 
 ## TL;DR
 

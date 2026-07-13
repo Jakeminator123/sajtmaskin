@@ -1,13 +1,25 @@
 ---
 id: 2026-06-19-inspector-rendering-arkitektur
-status: in-progress
+status: avklarad
 created: 2026-06-19
+archived: 2026-07-13
+archived_note: "BESLUT: Option B (instrumenterad preview / inspect-bridge) vald och levererad flagg-gated (PR #164, default av). Option A (Playwright inspector-worker på Render.com-konto) AVVISAD — workern (services/inspector-worker/) redan raderad, återuppbyggs inte. Kvarvarande svans (litet eget pass, ej blockerande): live-verifiera bryggan i prod, ev. CSP frame-src *.fly.dev, pensionera gamla /api/inspector-{capture,element-map}. Flyttad active→avklarat 2026-07-13."
 linear: null
 parent: null
 supersedes: null
 ---
 
 # Inspector ("Inspektera preview") — rendering-arkitektur
+
+> **BESLUT 2026-07-13 — AVKLARAD (flyttad till `avklarat/`).** Ägaren valde
+> **Option B** (instrumenterad preview / inspect-bridge), som är levererad och
+> mergad flagg-gated (**PR #164**, default av). **Option A — den externa
+> render-inspector-workern (Playwright på ett Render.com-konto) — är därmed
+> avvisad** och byggs inte upp igen (workern `services/inspector-worker/` är redan
+> raderad). Kvar (litet eget pass, ej blockerande): live-verifiera bryggan i prod,
+> ev. CSP `frame-src *.fly.dev`, och pensionera de gamla
+> `/api/inspector-{capture,element-map}`-routsen. Allt nedan bevaras som
+> underlag/historik.
 
 > **UPPDATERING 2026-07-07 — Option A borttagen.** Den externa Playwright-workern
 > (`services/inspector-worker/`) och dess infra (`infra/inspector-worker/`) är

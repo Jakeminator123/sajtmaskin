@@ -8,6 +8,13 @@ source: Kodläsning (app_main.py, shared.py, alla 34 pages/*.py) + read-only gra
 
 # Backoffice-stringensplan
 
+> **OBS 2026-07-13 — nulägesbilden är delvis stale.** Panelen växte **34→37 sidor**
+> och dossier-ytan byggdes om (PR #500: kategorivy + radera + skapa; #502: mock-hint)
+> efter att planen skrevs. **Verifiera underlaget om innan implementation** enligt
+> refresh-briefet: [`2026-07-13-backoffice-stringens-refresh-handoff.md`](2026-07-13-backoffice-stringens-refresh-handoff.md).
+> De strukturella fynden (2 `PAGE_GROUPS`, halva sidorna utan `render_where_panel`,
+> dubbla manifest-editorer) höll fortfarande vid stickprov 2026-07-13.
+
 ## TL;DR
 
 Backoffice (`backoffice/` + `sajtmaskin_backoffice.py`, `npm run backoffice`) fungerar

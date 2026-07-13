@@ -16,7 +16,9 @@ alwaysApply: true
 
 ## Branch-modell — master är trunk
 
-- **Alla PR:er går mot `master`** (base = master). `master` är den enda långlivade branchen och ska alltid vara grön och deploybar.
+- **`master` är slutmålet.** Allt arbete ska till slut nå `master` — men bara när grinden är grön (allt är som det ska). `master` är den slutgiltiga, enda långlivade branchen och ska alltid vara grön och deploybar.
+- **Vi testar ofta Sajtmaskin via Vercels production, som är länkad till `master`:** varje merge till master triggar en prod-deploy. Därför måste master alltid vara deploybar — en trasig master = trasig prod-test.
+- **Alla PR:er går mot `master`** (base = master).
 - Arbeta på en feature-branch (`fix/...`, `feat/...`, `chore/...`), pusha den, öppna PR mot master, merga in. Se `agent-worktree.mdc` (flera agenter → egen worktree).
 - Ingen direktcommit/-push till master. Feature-branchen är bara mellanlager tills grinden passerar — den "ligger inte efter" master, den väntar på merge.
 - Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel: commit/push/PR sker bara på explicit begäran.

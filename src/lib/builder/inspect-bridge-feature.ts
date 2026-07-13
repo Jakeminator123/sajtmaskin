@@ -6,7 +6,7 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
  * Default AV — opt-in via `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE`. Reversibel:
  * flagga av = exakt dagens beteende (map/ai/playwright orörda, ingen injektion,
  * ingen `?inspect`-param). Designunderlag:
- * `docs/plans/active/2026-06-19-inspector-rendering-arkitektur.md`.
+ * `docs/plans/avklarat/2026-06-19-inspector-rendering-arkitektur.md`.
  */
 
 /** Query-param som buildern lägger på preview-URL:en för att be om injektion. */
