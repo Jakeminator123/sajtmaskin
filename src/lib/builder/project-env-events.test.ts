@@ -5,6 +5,8 @@ import {
   openDossiersPanel,
   readDossiersPanelOpenDetail,
   requestF3Rebuild,
+  subtractSavedKeysFromF3Requirements,
+  type F3RequirementsDetail,
 } from "./project-env-events";
 
 afterEach(() => {
@@ -57,5 +59,47 @@ describe("requestF3Rebuild", () => {
       window.removeEventListener(F3_REBUILD_REQUEST_EVENT, handler);
     }
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Bugbot on the Byggblock-status diff: a 412 payload must be reconciled when
+// keys are saved elsewhere (Byggblock inline inputs), so the requirements
+// surface never keeps listing a key the project already has.
+describe("subtractSavedKeysFromF3Requirements", () => {
+  const detail: F3RequirementsDetail = {
+    parentVersionId: "ver_1",
+    projectId: "proj_1",
+    missingByIntegration: [
+      { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"] },
+      { key: "resend", name: "Resend", missing: ["RESEND_API_KEY"] },
+    ],
+  };
+
+  it("removes saved keys and drops emptied integrations", () => {
+    const next = subtractSavedKeysFromF3Requirements(detail, ["resend_api_key"]);
+    expect(next?.missingByIntegration).toEqual([
+      {
+        key: "clerk",
+        name: "Clerk",
+        missing: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+      },
+    ]);
+  });
+
+  it("returns an all-clear payload (not null) when every key is saved", () => {
+    const next = subtractSavedKeysFromF3Requirements(detail, [
+      "CLERK_SECRET_KEY",
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+      "RESEND_API_KEY",
+    ]);
+    expect(next).not.toBeNull();
+    expect(next?.missingByIntegration).toEqual([]);
+    expect(next?.parentVersionId).toBe("ver_1");
+  });
+
+  it("returns the same reference when nothing matches (no pointless re-render)", () => {
+    expect(subtractSavedKeysFromF3Requirements(detail, ["UNRELATED_KEY"])).toBe(detail);
+    expect(subtractSavedKeysFromF3Requirements(detail, [])).toBe(detail);
+    expect(subtractSavedKeysFromF3Requirements(null, ["X"])).toBeNull();
   });
 });

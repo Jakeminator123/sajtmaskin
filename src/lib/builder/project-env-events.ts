@@ -33,7 +33,11 @@ export function openIntegrationsPanel(): void {
   window.dispatchEvent(new CustomEvent("integrations-panel-open"));
 }
 
-/** Ask the preview-toolbar "Byggblock" popover to open for catalog/status. */
+/**
+ * Ask the preview-toolbar "Byggblock" popover to open. Optional `envKeys`
+ * focus the dossier owning those keys (expanded row with masked inputs) —
+ * e.g. after a finalize-design 412 or from an integrations chat card.
+ */
 export const DOSSIERS_PANEL_OPEN_EVENT = "sajtmaskin:dossiers-panel-open";
 
 export function openDossiersPanel(envKeys?: string[]): void {
@@ -71,6 +75,12 @@ export function requestF3Rebuild(versionId?: string | null): void {
 export type F3RequirementsDetail = {
   parentVersionId: string;
   projectId?: string | null;
+  /**
+   * Chat the 412 belongs to. Lets the builder ignore a late event from a
+   * previous chat's stream (it would otherwise surface another project's
+   * missing keys). Absent on legacy dispatches → treated as current-chat.
+   */
+  chatId?: string | null;
   missingByIntegration: Array<{
     key: string;
     name: string;
@@ -86,6 +96,31 @@ export function dispatchF3Requirements(detail: F3RequirementsDetail): void {
   window.dispatchEvent(
     new CustomEvent<F3RequirementsDetail>(F3_REQUIREMENTS_EVENT, { detail }),
   );
+}
+
+/**
+ * Reconcile a live 412 payload against keys just saved elsewhere (e.g. the
+ * Byggblock inline inputs): saved keys leave the missing lists, emptied
+ * integrations drop out. Returns the same reference when nothing changed.
+ * An all-clear result (empty `missingByIntegration`) is returned rather than
+ * null so the requirements surface can flip to its "allt sparat — fortsätt"
+ * state instead of silently disappearing.
+ */
+export function subtractSavedKeysFromF3Requirements(
+  current: F3RequirementsDetail | null,
+  savedKeys: string[],
+): F3RequirementsDetail | null {
+  if (!current || savedKeys.length === 0) return current;
+  const saved = new Set(savedKeys.map((key) => key.trim().toUpperCase()));
+  let changed = false;
+  const missingByIntegration = current.missingByIntegration
+    .map((entry) => {
+      const missing = entry.missing.filter((key) => !saved.has(key.trim().toUpperCase()));
+      if (missing.length !== entry.missing.length) changed = true;
+      return { ...entry, missing };
+    })
+    .filter((entry) => entry.missing.length > 0);
+  return changed ? { ...current, missingByIntegration } : current;
 }
 
 export function readF3RequirementsDetail(
@@ -104,6 +139,10 @@ export function readF3RequirementsDetail(
     projectId:
       typeof detail.projectId === "string" && detail.projectId.trim()
         ? detail.projectId.trim()
+        : null,
+    chatId:
+      typeof detail.chatId === "string" && detail.chatId.trim()
+        ? detail.chatId.trim()
         : null,
     missingByIntegration: detail.missingByIntegration.filter(
       (entry) =>

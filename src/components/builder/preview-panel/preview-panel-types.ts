@@ -143,6 +143,7 @@ export interface PreviewPanelProps {
   onF3MissingEnv?: (payload: {
     parentVersionId: string;
     projectId?: string | null;
+    chatId?: string | null;
     missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
   }) => void;
   /** Persistent, non-modal status for normal F3 trigger states. */

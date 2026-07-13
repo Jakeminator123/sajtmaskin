@@ -9,11 +9,29 @@
 
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 
+/**
+ * Hard-dossier status model (PR 1 av Byggblock-ägarbeslutet 2026-07-13).
+ *
+ * - `self-contained` — soft dossier, no external keys.
+ * - `planned` — requested but its real integration code is not in the
+ *   version yet (F2 renders the mock/demo surface). Missing manifest keys
+ *   surface as per-key badges, never as blocked-build — the finalize gate
+ *   only validates detected integrations (+ pending approved providers).
+ * - `blocked-build` — the readiness gate reports a `build`-enforced key
+ *   without a real value for a DETECTED integration. "Bygg integrationer"
+ *   would 412 before credits (#517).
+ * - `built-demo` — real integration code is in the version but at least one
+ *   `feature-runtime` key lacks a real value → the shipped demo fallback
+ *   (canned/seed/success) is what actually runs.
+ * - `built-live` — code is in the version and every build/feature-runtime
+ *   key has a stored real value.
+ */
 export type DossierStatus =
   | "self-contained"
-  | "not-built"
-  | "built-needs-keys"
-  | "built-ready";
+  | "planned"
+  | "blocked-build"
+  | "built-demo"
+  | "built-live";
 
 export interface DossierOverviewEnvVar {
   key: string;
@@ -46,8 +64,16 @@ export interface DossierOverviewEntry {
   dependencies: string[];
   envVars: DossierOverviewEnvVar[];
   status: DossierStatus;
-  /** Missing real env keys when status is "built-needs-keys". */
+  /**
+   * Missing BUILD-enforced real env keys (the F3-blocking set — same scope
+   * as the 412 gate's `missingByIntegration`). Non-empty ⇒ `blocked-build`.
+   */
   missingKeys: string[];
+  /**
+   * Missing `feature-runtime` real env keys ("lägg till för livefunktion").
+   * They never block F3; non-empty on a built dossier ⇒ `built-demo`.
+   */
+  missingLiveKeys: string[];
   lastVerified: string;
 }
 
@@ -67,9 +93,10 @@ export interface DossierOverviewResponse {
     total: number;
     hard: number;
     soft: number;
-    builtReady: number;
-    builtNeedsKeys: number;
-    notBuilt: number;
+    builtLive: number;
+    builtDemo: number;
+    blockedBuild: number;
+    planned: number;
   };
   dossiers: DossierOverviewEntry[];
 }
@@ -135,27 +162,33 @@ export function describeDossierStatus(
         tone: "neutral",
         hint: "Självförsörjande byggblock — inga externa nycklar behövs.",
       };
-    case "built-ready":
+    case "built-live":
       return {
-        label: "Byggd",
+        label: "Byggd — live",
         tone: "success",
-        hint: "Integrationen är inkopplad i den aktiva versionen och har de nycklar den kräver.",
+        hint: "Integrationskoden är inkopplad och alla nycklar har riktiga värden — funktionen kör på riktigt.",
       };
-    case "built-needs-keys":
+    case "built-demo":
       return {
-        label: "Byggd — saknar nycklar",
+        label: "Byggd — demo aktiv",
         tone: "warning",
-        hint: "Integrationen är inkopplad men saknar riktiga env-värden.",
+        hint: "Riktig integrationskod är inkopplad, men en runtime-nyckel saknas — funktionen kör i demo-läge tills du sparar nyckeln här.",
       };
-    case "not-built":
+    case "blocked-build":
+      return {
+        label: "Blockerad — nyckel krävs",
+        tone: "warning",
+        hint: "En byggnödvändig nyckel saknar riktigt värde. \u201dBygg integrationer\u201d stoppas (utan kostnad) tills den fyllts i.",
+      };
+    case "planned":
     default:
       return {
-        label: lifecycleStage === "integrations" ? "Ej byggd" : "Planerad (F2-mockup)",
+        label: lifecycleStage === "integrations" ? "Planerad — ej byggd" : "Planerad (F2-mockup)",
         tone: "muted",
         hint:
           lifecycleStage === "integrations"
-            ? "Tung integration som ännu inte wire:ats in i versionen."
-            : "Planerad integration — kräver F3 (\"Bygg integrationer\") och riktiga env-nycklar. Visas som mockup/infoskylt i F2-previewn tills den byggs.",
+            ? "Integrationens riktiga kod är ännu inte wire:ad in i versionen."
+            : "Planerad integration — visas som mockup/demo i F2-previewn. Riktig kod byggs vid \u201dBygg integrationer\u201d.",
       };
   }
 }
@@ -163,8 +196,11 @@ export function describeDossierStatus(
 /**
  * Per-key value-state label + tone, shared so every surface that shows an env
  * key uses the same vocabulary. Precedence: a stored real value wins; then a
- * build-enforced key with no value is a hard requirement; then placeholder
- * coverage (auto-stubbed in F2); otherwise it is optional.
+ * build-enforced key with no value is a hard requirement; then a
+ * feature-runtime key with no value is "add for live" (the demo fallback is
+ * what actually runs — placeholder coverage only keeps the preview booting,
+ * it never makes the function live); then placeholder coverage; otherwise
+ * the key is optional (warn-only self-disables).
  */
 export function describeEnvKeyValueState(
   env: Pick<DossierOverviewEnvVar, "enforcement" | "hasRealValue" | "placeholderCovered">,
@@ -183,6 +219,13 @@ export function describeEnvKeyValueState(
       hint: "Nödvändig nyckel — integrationsbygget (F3) blockeras tills ett riktigt värde finns.",
     };
   }
+  if (env.enforcement === "feature-runtime") {
+    return {
+      label: "Lägg till för livefunktion",
+      tone: "warning",
+      hint: "Blockerar inte bygget — funktionen kör i demo-läge tills du sparar ett riktigt värde.",
+    };
+  }
   if (env.placeholderCovered) {
     return {
       label: "Auto-placeholder i F2",
@@ -193,6 +236,6 @@ export function describeEnvKeyValueState(
   return {
     label: "Valfri",
     tone: "muted",
-    hint: "Funktionen aktiveras när ett värde fylls i, men krävs inte.",
+    hint: "Valfri nyckel — funktionen inaktiverar sig själv tyst utan värde.",
   };
 }

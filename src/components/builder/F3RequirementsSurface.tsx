@@ -139,12 +139,17 @@ export function F3RequirementsSurface({
       className="border-border mx-3 mt-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs"
     >
       <div className="flex items-start gap-2">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        {missingByIntegration.length === 0 ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+        ) : (
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        )}
         <div>
           <h2 className="font-medium text-amber-100">Krav för integrationsbygge</h2>
           <p className="mt-1 text-amber-100/80">
-            Designpreviewn är kvar i F2. Spara riktiga värden nedan och fortsätt sedan
-            integrationsbygget.
+            {missingByIntegration.length === 0
+              ? "Alla nycklar är sparade — fortsätt integrationsbygget."
+              : "Designpreviewn är kvar i F2. Spara riktiga värden nedan (eller under Byggblock i previewen) och fortsätt sedan integrationsbygget."}
           </p>
         </div>
       </div>
@@ -190,17 +195,19 @@ export function F3RequirementsSurface({
       {error ? <p className="mt-3 text-[11px] text-rose-300">{error}</p> : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={handleSave}
-          disabled={!projectId || isSaving || filledKeys.length === 0}
-        >
-          {isSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-          {filledKeys.length > 0
-            ? `Spara ${filledKeys.length} ${filledKeys.length === 1 ? "nyckel" : "nycklar"}`
-            : "Spara nycklar"}
-        </Button>
+        {uniqueKeys.length > 0 ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleSave}
+            disabled={!projectId || isSaving || filledKeys.length === 0}
+          >
+            {isSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+            {filledKeys.length > 0
+              ? `Spara ${filledKeys.length} ${filledKeys.length === 1 ? "nyckel" : "nycklar"}`
+              : "Spara nycklar"}
+          </Button>
+        ) : null}
         <Button size="sm" onClick={onRetry} disabled={isSaving}>
           <Wand2 className="mr-1 h-3.5 w-3.5" />
           Fortsätt integrationsbygget

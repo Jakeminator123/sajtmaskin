@@ -28,6 +28,9 @@ export interface PreviewPanelF3TriggerProps {
   onMissingEnv?: (payload: {
     parentVersionId: string;
     projectId?: string | null;
+    /** Chat the 412 belongs to (captured at request time), so a slow
+     *  response cannot repopulate the surface after a chat switch. */
+    chatId?: string | null;
     missingByIntegration: Array<{
       key: string;
       name: string;
@@ -167,6 +170,7 @@ export function PreviewPanelF3Trigger({
         onMissingEnv?.({
           parentVersionId: result.parentVersionId,
           projectId: result.projectId,
+          chatId,
           missingByIntegration: result.missingByIntegration,
         });
         return;
@@ -312,7 +316,7 @@ export function PreviewPanelF3Trigger({
             ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
               ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar integrationsbygget."
-            : "Bygg integrationer — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+            : "Bygg integrationer — bygger riktig integrationskod. Byggnödvändiga nycklar (t.ex. inloggning) efterfrågas före bygget; övriga (t.ex. Stripe, OpenAI) kör i demo-läge tills du sparar dem under Byggblock."
       }
       className={className}
     >

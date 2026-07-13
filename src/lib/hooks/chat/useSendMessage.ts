@@ -344,6 +344,7 @@ export function useSendMessage(
           ) {
             dispatchF3Requirements({
               parentVersionId: errorData.parentVersionId,
+              chatId,
               projectId:
                 typeof errorData.projectId === "string"
                   ? errorData.projectId
@@ -415,6 +416,7 @@ export function useSendMessage(
             } else if (release.kind === "missing_env") {
               dispatchF3Requirements({
                 parentVersionId: release.parentVersionId,
+                chatId,
                 projectId: release.projectId,
                 missingByIntegration: release.missingByIntegration,
               });

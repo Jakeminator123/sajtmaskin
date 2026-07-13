@@ -103,6 +103,7 @@ interface PreviewPanelChromeProps {
   onF3MissingEnv?: (payload: {
     parentVersionId: string;
     projectId?: string | null;
+    chatId?: string | null;
     missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
   }) => void;
   onF3Status?: (status: {

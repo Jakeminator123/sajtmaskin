@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Boxes, ChevronRight, Loader2 } from "lucide-react";
+import { Boxes, ChevronRight, KeyRound, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -23,7 +24,9 @@ import {
   DOSSIERS_PANEL_OPEN_EVENT,
   PROJECT_ENV_VARS_UPDATED_EVENT,
   VERSION_STATUS_REFRESHED_EVENT,
+  dispatchProjectEnvVarsUpdated,
   openProjectEnvVarsPanel,
+  readDossiersPanelOpenDetail,
   readProjectEnvVarsUpdatedDetail,
 } from "@/lib/builder/project-env-events";
 import {
@@ -74,15 +77,20 @@ const ENFORCEMENT_LABEL: Record<
 };
 
 /**
- * Toolbar "Byggblock" popover: shows which reusable building blocks are wired
- * into the current build and — for the heavier (hard) integrations — whether
- * they have been built into the active version. Data is lazily fetched from
+ * Toolbar "Byggblock" popover: the primary user surface for selecting,
+ * inspecting AND configuring dossiers. Data is lazily fetched from
  * `GET /api/engine/chats/[chatId]/dossiers` when the popover opens (and
  * re-fetched when the active version changes or after a save).
  *
- * It is a catalog/status surface only. A finalize-design 412 is handled by the
- * persistent F3 requirements surface in the builder, which receives the
- * server's exact missingByIntegration payload and is the only F2 env-entry UI.
+ * Owner decision 2026-07-13 (supersedes the earlier catalog/status-only
+ * contract): expanded hard-dossier rows carry masked env-key inputs in BOTH
+ * F2 and F3, saving to the canonical project env-vars API. Saving a
+ * feature-runtime key flips the dossier from "Byggd — demo aktiv" to
+ * "Byggd — live" without a new LLM round. The chat stays silent about env
+ * (F2-mute is about chat traffic, not voluntary configuration), and secrets
+ * are write-only: the panel only ever reads boolean `hasRealValue` flags.
+ * A finalize-design 412 focuses the affected dossier here (pure UI action —
+ * the server's missingByIntegration stays the source of truth).
  */
 export function PreviewPanelDossiers({
   chatId,
@@ -182,14 +190,27 @@ export function PreviewPanelDossiers({
     return () => window.removeEventListener(VERSION_STATUS_REFRESHED_EVENT, handler);
   }, [load]);
 
-  // Other explicit UI actions may still open Byggblock to inspect catalog or
-  // wired status. The event's key detail is intentionally ignored: F3 key
-  // collection belongs exclusively to F3RequirementsSurface after a 412.
+  // Open-events may carry env keys (e.g. a finalize-design 412 or an
+  // integrations chat card). The keys focus the affected dossier: switch to
+  // "Inkopplade" and expand the first row owning one of them, so the user
+  // lands directly on the inputs that unblock/activate the integration.
+  const [pendingFocusKeys, setPendingFocusKeys] = useState<string[] | null>(null);
   useEffect(() => {
-    const handler = () => setOpen(true);
+    const handler = (event: Event) => {
+      const { envKeys } = readDossiersPanelOpenDetail(event);
+      setOpen(true);
+      if (envKeys.length > 0) {
+        setActiveTab("wired");
+        setPendingFocusKeys(envKeys);
+        // Refetch explicitly (Bugbot on this diff): when the popover is
+        // ALREADY open, `setOpen(true)` is a no-op and the `[open, load]`
+        // effect never fires — a 412 focus would then run against stale data.
+        void load();
+      }
+    };
     window.addEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
     return () => window.removeEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
-  }, []);
+  }, [load]);
 
   // One-shot pick lock: the ref blocks a double-click in the same tick (state
   // updates are async), the state drives the disabled UI + notice. Reset when
@@ -202,11 +223,17 @@ export function PreviewPanelDossiers({
     if (!next) {
       pickInFlightRef.current = false;
       setPickedEntry(null);
+      // A focus request that never matched must not linger into a later,
+      // unrelated open (it would surprise-expand a row).
+      setPendingFocusKeys(null);
     }
   }, []);
 
   useEffect(() => {
     setExpandedId(null);
+    // A focus request targeting the previous chat/version must not
+    // auto-expand a row in the new context (Bugbot on this diff).
+    setPendingFocusKeys(null);
   }, [chatId, versionId]);
 
   // Full dossier CATALOG ("Bläddra katalog"-tab) — static registry data, so
@@ -262,6 +289,110 @@ export function PreviewPanelDossiers({
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
 
+  // Resolve a pending focus request once fresh data is available: expand the
+  // first dossier that owns one of the requested keys. The pending list is
+  // only consumed on a MATCH (Bugbot on this diff): the open-event itself
+  // triggers a refetch, and the target dossier may only appear in that
+  // fresher response — clearing on a stale miss would drop the 412 focus.
+  // An unmatched request survives refetches and is discarded on close.
+  useEffect(() => {
+    if (!pendingFocusKeys || !freshData) return;
+    const wanted = new Set(pendingFocusKeys.map((key) => key.toUpperCase()));
+    const target = freshData.dossiers.find((dossier) =>
+      dossier.envVars.some((env) => wanted.has(env.key.toUpperCase())),
+    );
+    if (!target) return;
+    // Re-assert the tab on match: the empty-state auto-switch (below) may
+    // have flipped to "catalog" while the refetch was in flight.
+    setActiveTab("wired");
+    setExpandedId(target.id);
+    setPendingFocusKeys(null);
+  }, [pendingFocusKeys, freshData]);
+
+  // Inline env-key saves (write-only): values live only in local state until
+  // POSTed to the canonical project env-vars API, then the fields are
+  // cleared. The panel never reads secrets back — status flips come from the
+  // refetch triggered by `dispatchProjectEnvVarsUpdated`.
+  const [keyValues, setKeyValues] = useState<Record<string, string>>({});
+  const [savingDossierId, setSavingDossierId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<{ dossierId: string; message: string } | null>(
+    null,
+  );
+  const projectId = freshData?.projectId ?? null;
+
+  // Secret-draft hygiene (Bugbot on this diff): typed-but-unsaved key values
+  // must never survive a chat switch — the panel stays mounted, and a stale
+  // draft could otherwise be saved into the NEXT chat's project. Version
+  // switches within the same chat keep drafts (env vars are project-scoped).
+  useEffect(() => {
+    setKeyValues({});
+    setSaveError(null);
+    setPendingFocusKeys(null);
+  }, [chatId]);
+
+  const handleSaveKeys = useCallback(
+    async (dossier: DossierOverviewEntry) => {
+      if (!projectId || savingDossierId) return;
+      const missingEnvKeys = dossier.envVars
+        .filter((env) => !env.hasRealValue)
+        .map((env) => env.key);
+      const filled = missingEnvKeys.filter((key) => (keyValues[key] ?? "").trim().length > 0);
+      if (filled.length === 0) return;
+      setSavingDossierId(dossier.id);
+      setSaveError(null);
+      try {
+        const vars = filled.map((key) => ({
+          key,
+          value: keyValues[key].trim(),
+          sensitive: true,
+        }));
+        const response = await fetch(
+          `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vars, upsert: true }),
+          },
+        );
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.success) {
+          setSaveError({
+            dossierId: dossier.id,
+            message: data?.error || "Kunde inte spara nycklarna.",
+          });
+          return;
+        }
+        setKeyValues((current) => {
+          const next = { ...current };
+          for (const key of filled) delete next[key];
+          return next;
+        });
+        // Notifies every builder surface (incl. this panel's own listener →
+        // refetch → fresh hasRealValue/status) and the preview VM env sync.
+        dispatchProjectEnvVarsUpdated({
+          projectId,
+          chatId,
+          versionId,
+          envKeys: filled,
+        });
+      } catch (error) {
+        setSaveError({
+          dossierId: dossier.id,
+          message:
+            error instanceof Error
+              ? `Kunde inte spara nycklarna: ${error.message}`
+              : "Kunde inte spara nycklarna.",
+        });
+      } finally {
+        setSavingDossierId(null);
+      }
+    },
+    [chatId, keyValues, projectId, savingDossierId, versionId],
+  );
+
   // Nothing wired yet: default the popover straight to "Bläddra katalog"
   // instead of an empty "Inkopplade"-tab, once per chat/version context.
   // Never fights a manual tab switch afterwards.
@@ -294,11 +425,13 @@ export function PreviewPanelDossiers({
     [onRequestDossier, catalogPickDisabled, stage, handleOpenChange],
   );
 
-  // Attention badge (dossiers-hub-primary): any hard (F3) dossier that still
-  // misses real env keys. Drives the amber dot on the toolbar button so the
-  // user is nudged to the popover without a chat popup.
+  // Attention badge (dossiers-hub-primary): a build-blocked dossier OR a
+  // built one still running its demo fallback (missing feature-runtime key).
+  // Drives the amber dot on the toolbar button so the user is nudged to the
+  // popover without a chat popup. Planned dossiers stay quiet — nothing is
+  // actionable until the code is built (or the build is key-blocked).
   const needsAttention = (freshData?.dossiers ?? []).some(
-    (dossier) => dossier.requiresF3 && dossier.missingKeys.length > 0,
+    (dossier) => dossier.status === "blocked-build" || dossier.status === "built-demo",
   );
 
   // Capability groups (dossiers-capability-groups): bucket rows by their
@@ -374,36 +507,101 @@ export function PreviewPanelDossiers({
                 Komplexitet: {entry.complexity}
               </span>
             </div>
-            {entry.missingKeys.length > 0 ? (
+            {entry.status === "blocked-build" && entry.missingKeys.length > 0 ? (
               <p className="text-amber-300">
-                Saknar riktiga värden: {entry.missingKeys.join(", ")}
+                Blockerar &quot;Bygg integrationer&quot;: {entry.missingKeys.join(", ")}
+              </p>
+            ) : null}
+            {entry.status === "built-demo" && entry.missingLiveKeys.length > 0 ? (
+              <p className="text-amber-300">
+                Demo-läge — lägg till för livefunktion: {entry.missingLiveKeys.join(", ")}
               </p>
             ) : null}
             {entry.envVars.length > 0 ? (
               <div>
                 <p className="mb-1 font-medium text-gray-400">Env-nycklar</p>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {entry.envVars.map((env) => {
                     const valueState = describeEnvKeyValueState(env);
                     return (
-                      <li key={env.key} className="flex flex-wrap items-center gap-1.5">
-                        <code className="rounded bg-gray-800/60 px-1 py-0.5 text-[10px] text-gray-200">
-                          {env.key}
-                        </code>
-                        <span className="text-[10px] text-gray-500">
-                          {ENFORCEMENT_LABEL[env.enforcement]}
+                      <li key={env.key} className="space-y-1">
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <code className="rounded bg-gray-800/60 px-1 py-0.5 text-[10px] text-gray-200">
+                            {env.key}
+                          </code>
+                          <span className="text-[10px] text-gray-500">
+                            {ENFORCEMENT_LABEL[env.enforcement]}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[9px]", TONE_BADGE_CLASS[valueState.tone])}
+                            title={valueState.hint}
+                          >
+                            {valueState.label}
+                          </Badge>
                         </span>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[9px]", TONE_BADGE_CLASS[valueState.tone])}
-                          title={valueState.hint}
-                        >
-                          {valueState.label}
-                        </Badge>
+                        {/* Write-only masked input for keys without a stored
+                            real value — available in both F2 and F3 (owner
+                            decision 2026-07-13). Saved values are never read
+                            back; only `hasRealValue` flips. */}
+                        {!env.hasRealValue ? (
+                          <span className="flex items-center gap-1.5">
+                            <KeyRound className="h-3 w-3 shrink-0 text-gray-500" />
+                            <Input
+                              type="password"
+                              autoComplete="off"
+                              spellCheck={false}
+                              aria-label={`Värde för ${env.key}`}
+                              value={keyValues[env.key] ?? ""}
+                              disabled={!projectId || savingDossierId !== null}
+                              onChange={(event) =>
+                                setKeyValues((current) => ({
+                                  ...current,
+                                  [env.key]: event.target.value,
+                                }))
+                              }
+                              placeholder={
+                                projectId ? "Klistra in riktigt värde" : "Projekt saknas"
+                              }
+                              className="h-7 border-gray-700 bg-black/30 text-[11px]"
+                            />
+                          </span>
+                        ) : null}
                       </li>
                     );
                   })}
                 </ul>
+                {entry.envVars.some((env) => !env.hasRealValue) ? (
+                  <div className="mt-2 space-y-1">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-6 px-2 text-[10px]"
+                      disabled={
+                        !projectId ||
+                        savingDossierId !== null ||
+                        !entry.envVars.some(
+                          (env) =>
+                            !env.hasRealValue && (keyValues[env.key] ?? "").trim().length > 0,
+                        )
+                      }
+                      onClick={() => void handleSaveKeys(entry)}
+                    >
+                      {savingDossierId === entry.id ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : null}
+                      Spara och aktivera
+                    </Button>
+                    {!projectId ? (
+                      <p className="text-[10px] text-gray-500">
+                        Nycklar kan sparas när chatten är kopplad till ett projekt.
+                      </p>
+                    ) : null}
+                    {saveError && saveError.dossierId === entry.id ? (
+                      <p className="text-[10px] text-rose-300">{saveError.message}</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {entry.dependencies.length > 0 ? (
@@ -425,8 +623,8 @@ export function PreviewPanelDossiers({
           size="sm"
           title={
             needsAttention
-              ? "Byggblock: en integration saknar nycklar — klicka för att se status"
-              : "Visa inkopplade byggblock och integrationsstatus"
+              ? "Byggblock: en integration är blockerad eller kör i demo-läge — klicka för att fylla i nycklar"
+              : "Visa och konfigurera inkopplade byggblock"
           }
           className={cn("relative text-gray-400 hover:text-white", className)}
         >
@@ -443,7 +641,7 @@ export function PreviewPanelDossiers({
           {needsAttention ? (
             <span
               className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-gray-950"
-              aria-label="Åtgärd krävs: en integration saknar nycklar"
+              aria-label="Åtgärd krävs: en integration är blockerad eller kör i demo-läge"
             />
           ) : null}
         </Button>

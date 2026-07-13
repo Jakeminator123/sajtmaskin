@@ -39,8 +39,12 @@ import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import {
   dispatchVersionStatusRefreshed,
   F3_REQUIREMENTS_EVENT,
+  openDossiersPanel,
+  PROJECT_ENV_VARS_UPDATED_EVENT,
   readF3RequirementsDetail,
+  readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
+  subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
@@ -443,13 +447,39 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     const handleRequirements = (event: Event) => {
       const detail = readF3RequirementsDetail(event);
       if (!detail) return;
+      // Chat correlation (Bugbot on this diff): a late 412 from a PREVIOUS
+      // chat's stream must not surface another project's missing keys here.
+      if (detail.chatId && detail.chatId !== vm.chatId) return;
       setF3Requirements(detail);
       setF3Status(null);
+      // Owner decision 2026-07-13: a 412 also focuses the affected dossier in
+      // the Byggblock popover (pure UI action — the server's
+      // missingByIntegration stays the source of truth for the key scope).
+      openDossiersPanel(detail.missingByIntegration.flatMap((entry) => entry.missing));
     };
     window.addEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
     return () =>
       window.removeEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
-  }, []);
+  }, [vm.chatId]);
+
+  // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)
+  // reconcile the live 412 payload so the requirements surface never keeps
+  // listing a key the project already has (Bugbot on this diff). The key
+  // SCOPE stays server-owned — this only subtracts, never adds.
+  useEffect(() => {
+    const handleEnvSaved = (event: Event) => {
+      const detail = readProjectEnvVarsUpdatedDetail(event);
+      if (!detail || !detail.envKeys || detail.envKeys.length === 0) return;
+      if (detail.chatId && detail.chatId !== vm.chatId) return;
+      const savedKeys = detail.envKeys;
+      setF3Requirements((current) =>
+        subtractSavedKeysFromF3Requirements(current, savedKeys),
+      );
+    };
+    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvSaved);
+    return () =>
+      window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvSaved);
+  }, [vm.chatId]);
 
   useEffect(() => {
     if (!vm.tipsEnabled) {
@@ -818,16 +848,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           ) : (
             <div className="border-border bg-muted/40 text-muted-foreground mx-3 mt-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
               <span className="text-foreground font-medium">
-                Env-variabler:
+                API-nycklar:
               </span>{" "}
-              auto-hanterade i{" "}
-              <code className="bg-background rounded px-1 py-0.5 text-[11px]">
-                env.example
-              </code>{" "}
-              för det här projektet. Klicka{" "}
-              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span> i
-              previewen för att fylla i riktiga värden för externa
-              integrationer.
+              fylls i under{" "}
+              <span className="text-foreground font-medium">Byggblock</span> i previewen —
+              redan i designläget om du vill. Utan nycklar körs integrationer i
+              demo-läge;{" "}
+              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span>{" "}
+              bygger den riktiga integrationskoden.
             </div>
           )}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
@@ -990,11 +1018,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRequestDossier={handleRequestDossier}
               catalogPickDisabled={catalogPickDisabled}
               onF3MissingEnv={(payload) => {
-                // The 412's group/key scope is owned by finalize-design. Keep
-                // it in the persistent non-modal builder surface; do not
-                // re-detect keys or open the Byggblock popover.
+                // The 412's group/key scope is owned by finalize-design — the
+                // client never re-detects keys. Besides the persistent
+                // requirements surface, focus the affected dossier in the
+                // Byggblock popover (owner decision 2026-07-13). Chat
+                // correlation: a slow finalize-response from a previous chat
+                // must not repopulate the surface after a chat switch.
+                if (payload.chatId && payload.chatId !== vm.chatId) return;
                 setF3Requirements(payload);
                 setF3Status(null);
+                openDossiersPanel(
+                  payload.missingByIntegration.flatMap((entry) => entry.missing),
+                );
               }}
               onF3Status={(status) => {
                 setF3Status(status);
