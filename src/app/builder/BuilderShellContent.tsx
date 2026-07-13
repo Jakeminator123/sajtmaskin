@@ -39,8 +39,12 @@ import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import {
   dispatchVersionStatusRefreshed,
   F3_REQUIREMENTS_EVENT,
+  openDossiersPanel,
+  PROJECT_ENV_VARS_UPDATED_EVENT,
   readF3RequirementsDetail,
+  readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
+  subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
@@ -285,6 +289,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [f3Requirements, setF3Requirements] = useState<{
     parentVersionId: string;
     projectId?: string | null;
+    requestStartedAt?: number;
     missingByIntegration: F3MissingIntegration[];
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
@@ -443,13 +448,93 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     const handleRequirements = (event: Event) => {
       const detail = readF3RequirementsDetail(event);
       if (!detail) return;
+      // Chat correlation (Bugbot on this diff): a late 412 from a PREVIOUS
+      // chat's stream must not surface another project's missing keys here.
+      if (detail.chatId && detail.chatId !== vm.chatId) return;
       setF3Requirements(detail);
       setF3Status(null);
+      // Owner decision 2026-07-13: a 412 also focuses the affected dossier in
+      // the Byggblock popover (pure UI action — the server's
+      // missingByIntegration stays the source of truth for the key scope).
+      openDossiersPanel(detail.missingByIntegration.flatMap((entry) => entry.missing));
     };
     window.addEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
     return () =>
       window.removeEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
-  }, []);
+  }, [vm.chatId]);
+
+  // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)
+  // reconcile the DISPLAYED 412 payload. The server's original key scope in
+  // `f3Requirements` is never mutated — saves accumulate (timestamped) in
+  // `f3SavedEnvKeys` and the visible surface is derived by subtraction. A
+  // delete removes the key again, so the requirement honestly reappears
+  // (Codex P2 + Bugbot follow-ups on #525). Server-verdict precedence: when
+  // a NEW 412 lands, saves made BEFORE that request started are pruned —
+  // the server already saw them and still says the key is missing — while
+  // saves made DURING the in-flight request are kept.
+  const [f3SavedEnvKeys, setF3SavedEnvKeys] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    const handleEnvUpdated = (event: Event) => {
+      const detail = readProjectEnvVarsUpdatedDetail(event);
+      if (!detail || !detail.envKeys || detail.envKeys.length === 0) return;
+      if (detail.chatId && detail.chatId !== vm.chatId) return;
+      const keys = detail.envKeys.map((key) => key.trim().toUpperCase());
+      const now = Date.now();
+      setF3SavedEnvKeys((current) => {
+        const next = new Map(current);
+        for (const key of keys) {
+          if (detail.action === "deleted") next.delete(key);
+          else next.set(key, now);
+        }
+        return next;
+      });
+      // Deleting a key OUTSIDE the 412's missing-scope (Codex P1 on #525):
+      // that key may have been the reason its integration was satisfied at
+      // verdict time, and the client cannot re-add keys to a server-owned
+      // scope — the whole verdict is stale. Drop the surface; the next
+      // "Bygg integrationer" attempt fetches a fresh 412 with the correct
+      // scope (the server gate itself was never bypassable, #517).
+      if (detail.action === "deleted") {
+        setF3Requirements((current) => {
+          if (!current) return current;
+          const scope = new Set(
+            current.missingByIntegration.flatMap((entry) =>
+              entry.missing.map((key) => key.trim().toUpperCase()),
+            ),
+          );
+          const deletedOutsideScope = keys.some((key) => !scope.has(key));
+          return deletedOutsideScope ? null : current;
+        });
+      }
+    };
+    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
+    return () =>
+      window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handleEnvUpdated);
+  }, [vm.chatId]);
+  useEffect(() => {
+    setF3SavedEnvKeys(new Map());
+  }, [vm.chatId]);
+  // Prune on each new 412: entries older than the request start are stale —
+  // the server verdict supersedes them (a retry that still 412s must re-show
+  // those keys). No `requestStartedAt` → the verdict supersedes everything.
+  useEffect(() => {
+    if (!f3Requirements) return;
+    const cutoff = f3Requirements.requestStartedAt ?? Number.POSITIVE_INFINITY;
+    setF3SavedEnvKeys((current) => {
+      let changed = false;
+      const next = new Map<string, number>();
+      for (const [key, savedAt] of current) {
+        if (savedAt >= cutoff) next.set(key, savedAt);
+        else changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [f3Requirements]);
+  const visibleF3Requirements = useMemo(
+    () =>
+      subtractSavedKeysFromF3Requirements(f3Requirements, Array.from(f3SavedEnvKeys.keys())),
+    [f3Requirements, f3SavedEnvKeys],
+  );
 
   useEffect(() => {
     if (!vm.tipsEnabled) {
@@ -796,14 +881,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isLoading={vm.isDeployReadinessLoading}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
           />
-          {f3Requirements ? (
+          {visibleF3Requirements ? (
             <F3RequirementsSurface
-              projectId={f3Requirements.projectId ?? vm.appProjectId}
+              projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
               chatId={vm.chatId}
-              versionId={f3Requirements.parentVersionId}
-              missingByIntegration={f3Requirements.missingByIntegration}
+              versionId={visibleF3Requirements.parentVersionId}
+              missingByIntegration={visibleF3Requirements.missingByIntegration}
               onRetry={() =>
-                requestF3Rebuild(f3Requirements.parentVersionId)
+                requestF3Rebuild(visibleF3Requirements.parentVersionId)
               }
             />
           ) : null}
@@ -818,16 +903,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           ) : (
             <div className="border-border bg-muted/40 text-muted-foreground mx-3 mt-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
               <span className="text-foreground font-medium">
-                Env-variabler:
+                API-nycklar:
               </span>{" "}
-              auto-hanterade i{" "}
-              <code className="bg-background rounded px-1 py-0.5 text-[11px]">
-                env.example
-              </code>{" "}
-              för det här projektet. Klicka{" "}
-              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span> i
-              previewen för att fylla i riktiga värden för externa
-              integrationer.
+              fylls i under{" "}
+              <span className="text-foreground font-medium">Byggblock</span> i previewen —
+              redan i designläget om du vill. Utan nycklar körs integrationer i
+              demo-läge;{" "}
+              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span>{" "}
+              bygger den riktiga integrationskoden.
             </div>
           )}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
@@ -990,11 +1073,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRequestDossier={handleRequestDossier}
               catalogPickDisabled={catalogPickDisabled}
               onF3MissingEnv={(payload) => {
-                // The 412's group/key scope is owned by finalize-design. Keep
-                // it in the persistent non-modal builder surface; do not
-                // re-detect keys or open the Byggblock popover.
+                // The 412's group/key scope is owned by finalize-design — the
+                // client never re-detects keys. Besides the persistent
+                // requirements surface, focus the affected dossier in the
+                // Byggblock popover (owner decision 2026-07-13). Chat
+                // correlation: a slow finalize-response from a previous chat
+                // must not repopulate the surface after a chat switch.
+                if (payload.chatId && payload.chatId !== vm.chatId) return;
                 setF3Requirements(payload);
                 setF3Status(null);
+                openDossiersPanel(
+                  payload.missingByIntegration.flatMap((entry) => entry.missing),
+                );
               }}
               onF3Status={(status) => {
                 setF3Status(status);

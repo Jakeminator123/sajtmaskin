@@ -578,6 +578,9 @@ export function ProjectEnvVarsPanel({
             chatId,
             versionId: activeVersionId,
             envKeys: [item.key],
+            // Consumers refetch either way, but the 412 requirements
+            // reconciliation must not treat a delete as a save.
+            action: "deleted",
           });
         }
       } catch (deleteError) {

@@ -12,7 +12,7 @@ function wiredResponse(overrides: Partial<DossierOverviewResponse> = {}): Dossie
     versionId: "ver_1",
     lifecycleStage: "design",
     versionFilesAvailable: true,
-    counts: { total: 0, hard: 0, soft: 0, builtReady: 0, builtNeedsKeys: 0, notBuilt: 0 },
+    counts: { total: 0, hard: 0, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
     dossiers: [],
     ...overrides,
   };
@@ -81,7 +81,7 @@ describe("PreviewPanelDossiers", () => {
   });
 
   it("always shows the trigger button; the count badge only renders when total > 0", async () => {
-    stubFetch({ wired: wiredResponse({ counts: { total: 0, hard: 0, soft: 0, builtReady: 0, builtNeedsKeys: 0, notBuilt: 0 } }) });
+    stubFetch({ wired: wiredResponse({ counts: { total: 0, hard: 0, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 } }) });
 
     render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
 
@@ -180,7 +180,7 @@ describe("PreviewPanelDossiers", () => {
   it("keeps 'Inkopplade' as the default tab when the version already has wired dossiers", async () => {
     stubFetch({
       wired: wiredResponse({
-        counts: { total: 1, hard: 0, soft: 1, builtReady: 0, builtNeedsKeys: 0, notBuilt: 0 },
+        counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
         dossiers: [
           {
             id: "faq-accordion",
@@ -195,6 +195,7 @@ describe("PreviewPanelDossiers", () => {
             envVars: [],
             status: "self-contained",
             missingKeys: [],
+            missingLiveKeys: [],
             lastVerified: "2026-01-01",
           },
         ],
@@ -215,10 +216,13 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
   });
 
-  it("stays catalog/status-only when another surface opens it with env-key detail", async () => {
+  // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):
+  // opening with env-key detail FOCUSES the dossier owning those keys and the
+  // expanded row carries a masked write-only input for each missing key.
+  it("focuses the dossier owning requested env keys and shows masked inputs (412 → Byggblock)", async () => {
     stubFetch({
       wired: wiredResponse({
-        counts: { total: 1, hard: 1, soft: 0, builtReady: 0, builtNeedsKeys: 1, notBuilt: 0 },
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 1, planned: 0 },
         dossiers: [
           {
             id: "stripe-checkout",
@@ -230,9 +234,19 @@ describe("PreviewPanelDossiers", () => {
             requiresF3: true,
             configured: false,
             dependencies: [],
-            envVars: [],
-            status: "built-needs-keys",
+            envVars: [
+              {
+                key: "STRIPE_SECRET_KEY",
+                required: true,
+                enforcement: "build",
+                purpose: "Server-side Stripe auth.",
+                hasRealValue: false,
+                placeholderCovered: false,
+              },
+            ],
+            status: "blocked-build",
             missingKeys: ["STRIPE_SECRET_KEY"],
+            missingLiveKeys: [],
             lastVerified: "2026-01-01",
           },
         ],
@@ -242,19 +256,323 @@ describe("PreviewPanelDossiers", () => {
     render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
 
     await act(async () => {
-      openDossiersPanel(["IGNORED_ENV_KEY"]);
+      openDossiersPanel(["STRIPE_SECRET_KEY"]);
     });
 
     await screen.findByText("Stripe Checkout");
-    expect(screen.queryByText("Fyll i nödvändiga nycklar")).toBeNull();
-    expect(document.querySelector('input[type="password"]')).toBeNull();
-    expect(screen.queryByText("IGNORED_ENV_KEY")).toBeNull();
+    // The matching row is auto-expanded and offers a masked input for the key.
+    await waitFor(() => {
+      expect(document.querySelector('input[type="password"]')).not.toBeNull();
+    });
+    expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Spara och aktivera/i })).toBeTruthy();
+  });
+
+  // Regression (owner spec PR 1): saving a key goes straight to the canonical
+  // env-vars API — no chat message, no new LLM generation — and the panel
+  // refetches so the status can flip demo → live. The typed secret must never
+  // be rendered back into the DOM.
+  it("saves a filled key to the project env-vars API without sending any chat message", async () => {
+    const demoResponse = wiredResponse({
+      counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+      dossiers: [
+        {
+          id: "openai-chat",
+          label: "OpenAI Chat",
+          class: "hard",
+          capability: "ai-chat",
+          summary: "Chatbot via OpenAI.",
+          complexity: "medium",
+          requiresF3: true,
+          configured: false,
+          dependencies: [],
+          envVars: [
+            {
+              key: "OPENAI_API_KEY",
+              required: true,
+              enforcement: "feature-runtime",
+              purpose: "OpenAI auth.",
+              hasRealValue: false,
+              placeholderCovered: true,
+            },
+          ],
+          status: "built-demo",
+          missingKeys: [],
+          missingLiveKeys: ["OPENAI_API_KEY"],
+          lastVerified: "2026-01-01",
+        },
+      ],
+    });
+    const savedCalls: Array<{ url: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        savedCalls.push({ url, body: JSON.parse(String(init?.body ?? "null")) });
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(demoResponse);
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
+    const dossierFetchCallsBeforeSave = fetchMock.mock.calls.filter(
+      (call) => String(call[0]).includes("/chats/") && String(call[0]).includes("/dossiers"),
+    ).length;
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(savedCalls.length).toBe(1);
+    });
+    expect(savedCalls[0].url).toContain("/api/v0/projects/proj_1/env-vars");
+    expect(savedCalls[0].body).toEqual({
+      vars: [{ key: "OPENAI_API_KEY", value: "sk-my-secret-key", sensitive: true }],
+      upsert: true,
+    });
+    // No chat transport involved (catalog picks are the only chat bridge).
+    expect(onRequestDossier).not.toHaveBeenCalled();
+    // The save event triggers a status refetch (demo → live comes from data).
+    await waitFor(() => {
+      const after = fetchMock.mock.calls.filter(
+        (call) => String(call[0]).includes("/chats/") && String(call[0]).includes("/dossiers"),
+      ).length;
+      expect(after).toBeGreaterThan(dossierFetchCallsBeforeSave);
+    });
+    // The cleared input never echoes the secret back into the DOM.
+    expect(document.body.innerHTML).not.toContain("sk-my-secret-key");
+  });
+
+  // Regression (Bugbot on this diff): a typed-but-unsaved secret draft must
+  // not survive a chat switch — the panel stays mounted across chats, and a
+  // stale draft could otherwise be saved into the NEXT chat's project.
+  it("clears unsaved key drafts when the chat changes", async () => {
+    const demoDossier = {
+      id: "openai-chat",
+      label: "OpenAI Chat",
+      class: "hard" as const,
+      capability: "ai-chat",
+      summary: "Chatbot via OpenAI.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime" as const,
+          purpose: "OpenAI auth.",
+          hasRealValue: false,
+          placeholderCovered: true,
+        },
+      ],
+      status: "built-demo" as const,
+      missingKeys: [],
+      missingLiveKeys: ["OPENAI_API_KEY"],
+      lastVerified: "2026-01-01",
+    };
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [demoDossier],
+      }),
+    });
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-draft-secret" } });
+    expect((input as HTMLInputElement).value).toBe("sk-draft-secret");
+
+    rerender(<PreviewPanelDossiers chatId="chat_2" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+    const inputAfterSwitch = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    expect((inputAfterSwitch as HTMLInputElement).value).toBe("");
+  });
+
+  // Regression (Bugbot on this diff): the 412 focus request must survive the
+  // refetch the open-event itself triggers — the target dossier may only
+  // exist in the fresher response.
+  it("applies the focus request against the refetched data when the cached overview misses the dossier", async () => {
+    const stripeDossier = {
+      id: "stripe-checkout",
+      label: "Stripe Checkout",
+      class: "hard" as const,
+      capability: "payments",
+      summary: "Stripe-baserad checkout.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "STRIPE_SECRET_KEY",
+          required: true,
+          enforcement: "build" as const,
+          purpose: "Stripe auth.",
+          hasRealValue: false,
+          placeholderCovered: false,
+        },
+      ],
+      status: "blocked-build" as const,
+      missingKeys: ["STRIPE_SECRET_KEY"],
+      missingLiveKeys: [],
+      lastVerified: "2026-01-01",
+    };
+    let dossierCalls = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        dossierCalls += 1;
+        // First (mount) response is stale/empty; later responses carry the row.
+        return Response.json(
+          dossierCalls === 1
+            ? wiredResponse()
+            : wiredResponse({
+                counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 1, planned: 0 },
+                dossiers: [stripeDossier],
+              }),
+        );
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await waitFor(() => {
+      expect(dossierCalls).toBeGreaterThanOrEqual(1);
+    });
+
+    await act(async () => {
+      openDossiersPanel(["STRIPE_SECRET_KEY"]);
+    });
+
+    // The open-triggered refetch delivers the dossier; the pending focus must
+    // still apply — expanded row with the masked input.
+    await waitFor(() => {
+      expect(document.querySelector('input[type="password"]')).not.toBeNull();
+    });
+    expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
+  });
+
+  // Regression (coach finding #2): a BUILT dossier missing only a
+  // feature-runtime key (Stripe/OpenAI-fallet) must light the attention dot.
+  it("lights the attention dot for a built-demo dossier (missing feature-runtime key)", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "stripe-checkout",
+            label: "Stripe Checkout",
+            class: "hard",
+            capability: "payments",
+            summary: "Stripe-baserad checkout.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "STRIPE_SECRET_KEY",
+                required: true,
+                enforcement: "feature-runtime",
+                purpose: "Stripe auth.",
+                hasRealValue: false,
+                placeholderCovered: false,
+              },
+            ],
+            status: "built-demo",
+            missingKeys: [],
+            missingLiveKeys: ["STRIPE_SECRET_KEY"],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(/Åtgärd krävs: en integration är blockerad eller kör i demo-läge/i),
+      ).toBeTruthy();
+    });
+  });
+
+  it("keeps the attention dot off for planned dossiers (nothing actionable yet)", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 1 },
+        dossiers: [
+          {
+            id: "openai-chat",
+            label: "OpenAI Chat",
+            class: "hard",
+            capability: "ai-chat",
+            summary: "Chatbot via OpenAI.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "OPENAI_API_KEY",
+                required: true,
+                enforcement: "feature-runtime",
+                purpose: "OpenAI auth.",
+                hasRealValue: false,
+                placeholderCovered: true,
+              },
+            ],
+            status: "planned",
+            missingKeys: [],
+            missingLiveKeys: ["OPENAI_API_KEY"],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Byggblock/i })).toBeTruthy();
+    });
+    expect(screen.queryByLabelText(/Åtgärd krävs/i)).toBeNull();
   });
 
   it("refetches the wired list when a new version lands while the popover is open (versionStatusNonce signal)", async () => {
     const fetchMock = stubFetch({
       wired: wiredResponse({
-        counts: { total: 1, hard: 1, soft: 0, builtReady: 0, builtNeedsKeys: 1, notBuilt: 0 },
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 1, planned: 0 },
         dossiers: [
           {
             id: "stripe-checkout",
@@ -267,8 +585,9 @@ describe("PreviewPanelDossiers", () => {
             configured: false,
             dependencies: [],
             envVars: [],
-            status: "built-needs-keys",
+            status: "blocked-build",
             missingKeys: ["STRIPE_SECRET_KEY"],
+            missingLiveKeys: [],
             lastVerified: "2026-01-01",
           },
         ],

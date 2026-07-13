@@ -102,6 +102,11 @@ describe("PreviewPanelF3Trigger", () => {
       expect(onMissingEnv).toHaveBeenCalledWith({
         parentVersionId: "ver_design",
         projectId: "project_1",
+        // Chat correlation + verdict timestamp: captured at request time so
+        // a slow 412 from a previous chat cannot repopulate the surface, and
+        // saves made during the request survive the verdict pruning.
+        chatId: "chat_1",
+        requestStartedAt: expect.any(Number),
         missingByIntegration: [
           { key: "stripe", name: "Stripe", missing: ["STRIPE_SECRET_KEY"] },
         ],

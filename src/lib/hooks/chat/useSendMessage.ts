@@ -322,6 +322,7 @@ export function useSendMessage(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
+        const streamRequestStartedAt = Date.now();
         const response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -344,6 +345,8 @@ export function useSendMessage(
           ) {
             dispatchF3Requirements({
               parentVersionId: errorData.parentVersionId,
+              chatId,
+              requestStartedAt: streamRequestStartedAt,
               projectId:
                 typeof errorData.projectId === "string"
                   ? errorData.projectId
@@ -384,6 +387,10 @@ export function useSendMessage(
             errorData?.error === "f3_deterministic_release_required" &&
             typeof errorData.parentVersionId === "string"
           ) {
+            // The nested finalize is its own gate round — its verdict
+            // supersedes saves made during the ORIGINAL stream request, so
+            // its 412 must carry its own start time (Bugbot on #525).
+            const finalizeRequestStartedAt = Date.now();
             const release = await runF3FinalizeAction({
               chatId,
               parentVersionId: errorData.parentVersionId,
@@ -415,6 +422,8 @@ export function useSendMessage(
             } else if (release.kind === "missing_env") {
               dispatchF3Requirements({
                 parentVersionId: release.parentVersionId,
+                chatId,
+                requestStartedAt: finalizeRequestStartedAt,
                 projectId: release.projectId,
                 missingByIntegration: release.missingByIntegration,
               });

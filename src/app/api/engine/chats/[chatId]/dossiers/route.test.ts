@@ -233,7 +233,7 @@ describe("GET dossiers overview", () => {
     expect(resolveSelectedDossiersFromSnapshot).not.toHaveBeenCalled();
   });
 
-  it("marks a hard dossier built-needs-keys when detected but missing real env values", async () => {
+  it("marks a hard dossier blocked-build when detected but missing real BUILD env values", async () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([softDossier(), stripeDossier()]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
     validateTier3Readiness.mockReturnValue({
@@ -249,11 +249,11 @@ describe("GET dossiers overview", () => {
 
     expect(body.versionFilesAvailable).toBe(true);
     expect(body.projectId).toBe("proj_1");
-    expect(body.counts).toMatchObject({ total: 2, hard: 1, soft: 1, builtNeedsKeys: 1 });
+    expect(body.counts).toMatchObject({ total: 2, hard: 1, soft: 1, blockedBuild: 1 });
 
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.requiresF3).toBe(true);
-    expect(stripe?.status).toBe("built-needs-keys");
+    expect(stripe?.status).toBe("blocked-build");
     expect(stripe?.missingKeys).toEqual(["STRIPE_SECRET_KEY"]);
     // No stored value and no placeholder coverage → the UI must ask for it.
     expect(stripe?.envVars[0]).toMatchObject({
@@ -267,7 +267,7 @@ describe("GET dossiers overview", () => {
     expect(faq?.status).toBe("self-contained");
   });
 
-  it("flags stored real values and placeholder coverage per env key", async () => {
+  it("flags stored real values and placeholder coverage per env key (built-live)", async () => {
     getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
     loadPlaceholderKeySet.mockReturnValue(new Set<string>(["STRIPE_SECRET_KEY"]));
     resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
@@ -279,7 +279,7 @@ describe("GET dossiers overview", () => {
     const body = (await res.json()) as DossierOverviewResponse;
 
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
-    expect(stripe?.status).toBe("built-ready");
+    expect(stripe?.status).toBe("built-live");
     expect(stripe?.envVars[0]).toMatchObject({
       key: "STRIPE_SECRET_KEY",
       hasRealValue: true,
@@ -287,7 +287,12 @@ describe("GET dossiers overview", () => {
     });
   });
 
-  it("marks a hard dossier not-built when no matching integration is detected", async () => {
+  // Gate-consistency (Bugbot on this diff): an UNDETECTED hard dossier is
+  // "planned" even when a manifest build key lacks a value — the finalize
+  // gate only validates detected integrations (+ pending approved
+  // providers), so the panel must not claim the build is blocked. The
+  // missing key still prompts via per-key badges + inline inputs.
+  it("keeps an undetected hard dossier with a missing build key as planned (matches the finalize gate)", async () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
 
@@ -296,11 +301,134 @@ describe("GET dossiers overview", () => {
     const body = (await res.json()) as DossierOverviewResponse;
 
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
-    expect(stripe?.status).toBe("not-built");
+    expect(stripe?.status).toBe("planned");
     expect(stripe?.missingKeys).toEqual([]);
+    // The unfilled build key is still visible as a per-key requirement.
+    expect(stripe?.envVars[0]).toMatchObject({
+      key: "STRIPE_SECRET_KEY",
+      hasRealValue: false,
+    });
     // readiness must not run when nothing was detected.
     expect(validateTier3Readiness).not.toHaveBeenCalled();
-    expect(body.counts.notBuilt).toBe(1);
+    expect(body.counts.planned).toBe(1);
+  });
+
+  // An undetected hard dossier whose only missing keys are feature-runtime
+  // stays "planned" — nothing blocks the build and nothing is live-actionable
+  // until the code exists.
+  it("marks an undetected hard dossier with only feature-runtime keys as planned", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("planned");
+    expect(aiTool?.missingKeys).toEqual([]);
+    expect(aiTool?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
+    expect(body.counts.planned).toBe(1);
+  });
+
+  // Regression (coach finding #5): OpenAI's key is feature-runtime, so the
+  // readiness gate reports nothing missing — the OLD model called that
+  // "built-ready" ("Byggd") while only the canned demo ran. The status must
+  // be built-demo until the key is stored, and built-live after.
+  it("splits a built feature-runtime dossier into built-demo (no key) and built-live (stored key)", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    // Without a stored real value → demo fallback runs.
+    let res = await GET(request(), ctx);
+    let body = (await res.json()) as DossierOverviewResponse;
+    let aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(aiTool?.missingKeys).toEqual([]);
+    expect(aiTool?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
+    expect(body.counts.builtDemo).toBe(1);
+    expect(body.counts.builtLive).toBe(0);
+
+    // Storing the key flips it to live — no new generation involved.
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    res = await GET(request(), ctx);
+    body = (await res.json()) as DossierOverviewResponse;
+    aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-live");
+    expect(aiTool?.missingLiveKeys).toEqual([]);
+    expect(body.counts.builtLive).toBe(1);
+  });
+
+  // Codex P2 on #525: with the F3 placeholder opt-in (`allowPlaceholdersInF3`)
+  // the readiness gate clears `missingKeys` for placeholder-covered BUILD
+  // keys — the build may proceed — but the dossier is NOT live: live always
+  // requires real stored values.
+  it("keeps a placeholder-satisfied build key at built-demo, never built-live", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+    });
+    readAllowPlaceholdersInF3.mockResolvedValue(true);
+    loadPlaceholderKeySet.mockReturnValue(new Set<string>(["STRIPE_SECRET_KEY"]));
+    // No real stored value for the build key.
+    getStoredProjectEnvVarMap.mockResolvedValue({});
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    // Placeholder opt-in: the gate reports nothing missing.
+    validateTier3Readiness.mockReturnValue({
+      ready: true,
+      missingByIntegration: [],
+      placeholderUsedByIntegration: [
+        { key: "stripe", name: "Stripe", placeholdered: ["STRIPE_SECRET_KEY"] },
+      ],
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    // Not blocked (the build may run) — but demo, not live.
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Secrets are write-only: the overview may only expose boolean flags
+  // (hasRealValue etc.), never the stored values themselves.
+  it("never leaks stored env values to the client", async () => {
+    const secret = "sk-super-secret-value-12345";
+    getStoredProjectEnvVarMap.mockResolvedValue({
+      OPENAI_API_KEY: secret,
+      STRIPE_SECRET_KEY: secret,
+    });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([
+      stripeDossier(),
+      aiToolCallingDossier(),
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const raw = await res.text();
+    expect(raw).not.toContain(secret);
+    const body = JSON.parse(raw) as DossierOverviewResponse;
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.envVars[0]).toMatchObject({ hasRealValue: true });
   });
 
   it("flags versionFilesAvailable=false when the build spec cannot be derived", async () => {
@@ -312,8 +440,10 @@ describe("GET dossiers overview", () => {
     const body = (await res.json()) as DossierOverviewResponse;
 
     expect(body.versionFilesAvailable).toBe(false);
+    // Build status unknown → planned (never a claimed block the gate might
+    // not enforce).
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
-    expect(stripe?.status).toBe("not-built");
+    expect(stripe?.status).toBe("planned");
   });
 
   it("does not re-resolve (single build-spec derivation) when nothing needs reconciling — empty case", async () => {
@@ -372,7 +502,7 @@ describe("GET dossiers overview", () => {
 
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe).toBeDefined();
-    expect(stripe?.status).toBe("built-needs-keys");
+    expect(stripe?.status).toBe("blocked-build");
     expect(body.counts.total).toBe(1);
   });
 
@@ -380,8 +510,8 @@ describe("GET dossiers overview", () => {
   // for is still F2-muted (never built), so `resolveSelectedDossiersFromSnapshot`
   // (which reads the mute-filtered floor) returns nothing for it — but the
   // raw brief intent (`briefSummary.requestedCapabilities`) still has it. The
-  // panel must surface it as a planned/not-built integration, not omit it.
-  it("surfaces a brief-planned, F2-muted capability as a planned (not-built) dossier", async () => {
+  // panel must surface it as planned, not omit it.
+  it("surfaces a brief-planned, F2-muted capability instead of omitting it", async () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
     extractBriefSummaryFromSnapshot.mockReturnValue({ requestedCapabilities: ["payments"] });
@@ -403,8 +533,8 @@ describe("GET dossiers overview", () => {
     });
     const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe).toBeDefined();
-    expect(stripe?.status).toBe("not-built");
-    expect(body.counts.notBuilt).toBe(1);
+    expect(stripe?.status).toBe("planned");
+    expect(body.counts.planned).toBe(1);
     expect(body.counts.total).toBe(1);
     // A brief-only "planned" capability isn't in the files at all, so the
     // build spec must not be re-derived (would just reproduce the same

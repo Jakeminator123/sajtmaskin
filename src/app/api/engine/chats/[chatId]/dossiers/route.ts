@@ -15,7 +15,9 @@
  *    dossier that maps to a detected requirement is "built"; one that does
  *    not is still an F2 mockup ("not built").
  *  - `validateTier3Readiness(...)` — which built integrations still miss
- *    real env values (so the UI can say "built, needs keys").
+ *    real BUILD env values (the F3-blocking scope → `blocked-build`).
+ *    Feature-runtime keys are separately diffed against stored values to
+ *    split built into `built-demo` (demo fallback runs) vs `built-live`.
  *
  * ## Reconciliation against F2-mute capability loss
  *
@@ -288,8 +290,8 @@ async function buildDossierOverview(
   if (spec && spec.requirements.length > 0 && version) {
     // Mirror the readiness route's env gate: placeholder values only count as
     // "satisfied" once the version is in F3 (`integrations`). Accepting them in
-    // F2 would let this panel show `built-ready` while the canonical readiness /
-    // env gate still treats the same keys as missing (a false green).
+    // F2 would clear `blocked-build` while the canonical readiness / env gate
+    // still treats the same keys as missing (a false green).
     const allowPlaceholdersInF3 =
       lifecycleStage === "integrations"
         ? await readAllowPlaceholdersInF3(chat.project_id)
@@ -310,6 +312,26 @@ async function buildDossierOverview(
     const requiresF3 = dossierRequiresF3(entry);
     const envKeys = (entry.envVars ?? []).map((env) => env.key);
 
+    // Feature-runtime keys never block F3 (they are absent from the
+    // readiness gate's missing set) but they DO decide demo vs live: without
+    // a stored real value the dossier's shipped fallback (canned/seed/
+    // success) is what actually runs. Derived from the manifest so it also
+    // covers planned (not yet detected) dossiers.
+    const missingLiveKeys = (entry.envVars ?? [])
+      .filter(
+        (env) => (env.enforcement ?? "build") === "feature-runtime" && !hasRealEnvValue(env.key),
+      )
+      .map((env) => env.key);
+    // Build keys satisfied only via the F3 placeholder opt-in
+    // (`allowPlaceholdersInF3`) clear `missingKeys` — the BUILD may proceed —
+    // but the function is not live (Codex P2 on #525): live requires real
+    // stored values, never placeholders.
+    const buildKeysWithoutRealValue = (entry.envVars ?? [])
+      .filter(
+        (env) => (env.enforcement ?? "build") === "build" && !hasRealEnvValue(env.key),
+      )
+      .map((env) => env.key);
+
     let status: DossierStatus;
     let missingKeys: string[] = [];
     if (!requiresF3) {
@@ -317,10 +339,26 @@ async function buildDossierOverview(
     } else {
       const matched = matchRequirementForDossier(envKeys, requirements);
       if (!matched) {
-        status = "not-built";
+        // Planned: no code in the version yet. Deliberately NOT blocked-build
+        // even when a manifest build key lacks a value (Bugbot on this diff):
+        // the finalize gate only validates DETECTED integrations (+ pending
+        // approved providers), so labelling an undetected dossier as blocking
+        // would contradict the gate. The per-key badges ("Kräver riktigt
+        // värde") + inline inputs still prompt for the key, and an actual 412
+        // focuses this row via the open-event with the server's key scope.
+        status = "planned";
       } else {
+        // Built: the F3-blocking scope is the readiness gate's verdict for
+        // the matched requirement — the exact set the 412 gate would demand.
         missingKeys = missingByKey.get(matched.key) ?? [];
-        status = missingKeys.length > 0 ? "built-needs-keys" : "built-ready";
+        if (missingKeys.length > 0) {
+          status = "blocked-build";
+        } else {
+          status =
+            missingLiveKeys.length > 0 || buildKeysWithoutRealValue.length > 0
+              ? "built-demo"
+              : "built-live";
+        }
       }
     }
 
@@ -344,6 +382,7 @@ async function buildDossierOverview(
       })),
       status,
       missingKeys,
+      missingLiveKeys,
       lastVerified: entry.lastVerified,
     };
   });
@@ -352,9 +391,10 @@ async function buildDossierOverview(
     total: dossiers.length,
     hard: dossiers.filter((d) => d.class === "hard").length,
     soft: dossiers.filter((d) => d.class === "soft").length,
-    builtReady: dossiers.filter((d) => d.status === "built-ready").length,
-    builtNeedsKeys: dossiers.filter((d) => d.status === "built-needs-keys").length,
-    notBuilt: dossiers.filter((d) => d.status === "not-built").length,
+    builtLive: dossiers.filter((d) => d.status === "built-live").length,
+    builtDemo: dossiers.filter((d) => d.status === "built-demo").length,
+    blockedBuild: dossiers.filter((d) => d.status === "blocked-build").length,
+    planned: dossiers.filter((d) => d.status === "planned").length,
   };
 
   return {

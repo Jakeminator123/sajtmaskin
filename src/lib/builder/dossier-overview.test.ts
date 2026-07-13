@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeDossierStatus,
   describeEnvKeyValueState,
   selectedDossiersFromOverview,
   type DossierOverviewEntry,
@@ -40,9 +41,23 @@ describe("describeEnvKeyValueState", () => {
     expect(state.tone).toBe("warning");
   });
 
-  it("marks a non-build placeholder-covered key as auto-handled in F2", () => {
+  // Owner decision 2026-07-13 (PR 1): a feature-runtime key without a real
+  // value is "add for live", NOT a muted auto-placeholder note — the demo
+  // fallback is what actually runs, and placeholder coverage only keeps the
+  // preview booting. The attention surface depends on this being a warning.
+  it("flags a feature-runtime key without a value as 'add for live' even when placeholder-covered", () => {
     const state = describeEnvKeyValueState({
       enforcement: "feature-runtime",
+      hasRealValue: false,
+      placeholderCovered: true,
+    });
+    expect(state.label).toBe("Lägg till för livefunktion");
+    expect(state.tone).toBe("warning");
+  });
+
+  it("marks a placeholder-covered warn-only key as auto-handled in F2", () => {
+    const state = describeEnvKeyValueState({
+      enforcement: "warn-only",
       hasRealValue: false,
       placeholderCovered: true,
     });
@@ -58,6 +73,32 @@ describe("describeEnvKeyValueState", () => {
     });
     expect(state.label).toBe("Valfri");
     expect(state.tone).toBe("muted");
+  });
+});
+
+describe("describeDossierStatus", () => {
+  it("never claims live for built-demo (the demo fallback is running)", () => {
+    const demo = describeDossierStatus("built-demo", "design");
+    expect(demo.label).toBe("Byggd — demo aktiv");
+    expect(demo.tone).toBe("warning");
+
+    const live = describeDossierStatus("built-live", "integrations");
+    expect(live.label).toBe("Byggd — live");
+    expect(live.tone).toBe("success");
+  });
+
+  it("labels a build-key-blocked dossier as blocked in both stages", () => {
+    expect(describeDossierStatus("blocked-build", "design").label).toBe(
+      "Blockerad — nyckel krävs",
+    );
+    expect(describeDossierStatus("blocked-build", "integrations").label).toBe(
+      "Blockerad — nyckel krävs",
+    );
+  });
+
+  it("labels planned per stage", () => {
+    expect(describeDossierStatus("planned", "design").label).toBe("Planerad (F2-mockup)");
+    expect(describeDossierStatus("planned", "integrations").label).toBe("Planerad — ej byggd");
   });
 });
 
@@ -88,8 +129,9 @@ describe("selectedDossiersFromOverview", () => {
           placeholderCovered: false,
         },
       ],
-      status: "not-built",
+      status: "planned",
       missingKeys: [],
+      missingLiveKeys: ["RESEND_API_KEY"],
       lastVerified: "2026-04-20",
       ...overrides,
     };
