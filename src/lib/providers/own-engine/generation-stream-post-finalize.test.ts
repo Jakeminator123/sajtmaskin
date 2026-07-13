@@ -675,6 +675,57 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     );
   });
 
+  // U#77: a preview-host base URL with a path prefix (e.g. a reverse-proxy
+  // mount at /preview/) must keep that prefix — the chatId is appended to the
+  // existing path, not to the bare origin. A trailing slash is normalized and
+  // query/hash are stripped so the hint is a clean per-chat URL.
+  it("preserves the preview-host base path (prefix) in previewUrlHint (U#77)", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(false);
+    getPreviewHostBaseUrl.mockReturnValue("https://host.example/prefix/?token=abc#frag");
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "done",
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        previewUrl: null,
+        shimPreviewUrl: null,
+        previewPending: true,
+        previewUrlHint: "https://host.example/prefix/chat_1",
+      }),
+    );
+  });
+
   // plan-02 / STATUS-02: cross-file-import-checker stubs (run-2 in
   // STATUS-01 — coffee-cup-3d.tsx → ./coffee-cup-scene auto-stubbed).
   // Pre-fix the user saw a green "Promoted" badge with no signal that
