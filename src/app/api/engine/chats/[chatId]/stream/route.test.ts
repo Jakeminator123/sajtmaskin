@@ -1689,6 +1689,96 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
   });
 
+  // B13: the F1 delta-brief write-back must survive a *contract-gate retry*.
+  // On turn 2 the current message is a short answer to the gate ("Ja, kör på
+  // det.") which on its own classifies as a neutral follow-up. Intent + the
+  // delta-brief must be derived from the ORIGINAL gated clear-redesign request
+  // (consumedReplyContext.sourceUserMessage), not the short reply — otherwise
+  // clear-redesign silently degrades to a neutral follow-up (snapshot brief)
+  // on turn 2 and the delta-brief is never generated.
+  it("routes the gated clear-redesign delta-brief into orchestration on a contract-gate retry (B13)", async () => {
+    const originalRedesignRequest =
+      "Gör om från grunden med mörk editorial stil och ny layout.";
+    const shortGateReply = "Ja, kör på det.";
+    const snapshot = {
+      briefSummary: {
+        projectTitle: "SNAPSHOT_BASE_BRIEF",
+        requestedCapabilities: ["contact-form"],
+      },
+    };
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      orchestration_snapshot: snapshot,
+      // History: the clear-redesign request, then the contract-gate question.
+      // The current send (shortGateReply) answers that pending question, so
+      // `collectConfirmedContractAnswers` marks the reply consumed and exposes
+      // the original request as `consumedReplyContext.sourceUserMessage`.
+      messages: [
+        { role: "user", content: originalRedesignRequest },
+        {
+          role: "assistant",
+          content: "Vill du behålla nuvarande sidstruktur eller börja om helt?",
+          ui_parts: [
+            {
+              type: "tool:awaiting-input",
+              output: {
+                contractClarification: true,
+                kind: "scope",
+                question: "Vill du behålla nuvarande sidstruktur eller börja om helt?",
+                options: ["Behåll", "Börja om"],
+                blocking: true,
+                reason: "scope",
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const deltaBrief = {
+      projectTitle: "DELTA_REDESIGN_SENTINEL",
+      visualDirection: { styleKeywords: ["dark", "editorial"] },
+    };
+    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(
+      { brief: deltaBrief, modelUsed: "test-delta-model" } as unknown as Awaited<
+        ReturnType<typeof tryGenerateServerAutoBrief>
+      >,
+    );
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Redesigned</main>" } },
+        { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: shortGateReply }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    // The delta-brief is generated from the ORIGINAL gated request…
+    expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    expect(tryGenerateServerAutoBrief).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: originalRedesignRequest }),
+    );
+    // …never from the short contract-gate answer (that would classify neutral).
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: shortGateReply }),
+    );
+    // …and the fresh delta reaches orchestration, not the snapshot fallback.
+    const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
+      brief: unknown;
+    };
+    expect(orchestrationInput.brief).toEqual(deltaBrief);
+    expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
+  });
+
   it("keeps using the snapshot brief for a neutral follow-up (no F1 regression)", async () => {
     const snapshot = {
       briefSummary: {

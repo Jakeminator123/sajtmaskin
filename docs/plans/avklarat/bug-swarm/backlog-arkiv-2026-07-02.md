@@ -2,6 +2,15 @@
 
 > Flyttade `[x]`-rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter 818-svärmens verifiering + batch-fix-PR (branch `fix/bug-swarm-batch-0702`) 2026-07-02. Äldre historik: [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Backlog-hygien 2026-07-13 — B13 + U#77 kodverifierade + regressionstestade
+
+Coach-granskad hygien-runda (24-agents read-only-triage + riktad kodläsning). Båda raderna var redan kodfixade men saknade ett exakt regressionstest för just det scenario raden beskrev. Testerna lades till och kördes gröna (typecheck + riktad vitest, 74 tester) innan raderna flyttades hit ur `## Behöver repro`.
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P3 | clear-redesign delta-brief tappas vid contract-gate-retry (tur 2): en kort tur-2-svarsrad på en contract-gate-fråga skulle klassificeras mot den ursprungliga clear-redesign-begäran, inte mot det korta svaret — annars degraderar intent till neutral och delta-briefen genereras aldrig. | B13 | Kod redan fixad: `chat-message-stream-post.ts:1053-1057` klassificerar mot `contractAnswerContext.consumedReplyContext.sourceUserMessage` och delta-briefen genereras från den (`:1147-1211`). **Regressionstest tillagt 2026-07-13:** `src/app/api/engine/chats/[chatId]/stream/route.test.ts` → "routes the gated clear-redesign delta-brief into orchestration on a contract-gate retry (B13)" (grönt). |
+| [x] | Fixad | P3 | `previewUrlHint` tappade preview-hostens base path: en host-URL med path-prefix (t.ex. reverse-proxy-mount på `/preview/`) måste behålla prefixet när chatId läggs på. | U#77 | Kod redan fixad: `resolvePreviewUrlHint` (`src/lib/providers/own-engine/generation-stream-post-finalize.ts:66-81`) bevarar `pathname`, normaliserar avslutande slash och strippar query/hash. **Regressionstest tillagt 2026-07-13:** `src/lib/providers/own-engine/generation-stream-post-finalize.test.ts` → "preserves the preview-host base path (prefix) in previewUrlHint (U#77)" (grönt). |
+
 ## Verifieringssvärm 2026-07-12 — kodverifierade fixar flyttade ur Aktiv kö
 
 En läsande verifieringssvärm (6 subagenter) kodverifierade hela `## Aktiv kö` mot master `61cfd7f97`. Merparten kvarstår (inkl. båda öppna P1:orna F3 ReleaseGate TOCTOU + status-bus vid `invalidateVerification`); följande fyra rader var bevisat åtgärdade och flyttades hit.
