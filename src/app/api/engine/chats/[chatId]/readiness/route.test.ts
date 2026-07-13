@@ -183,7 +183,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(res.status).toBe(404);
   });
 
-  it("threads a guarded promote callback into the stale watchdog (Codex P1 #518 wiring)", async () => {
+  it("threads head + guarded-promote callbacks into the stale watchdog (Codex P1 / bugbot #518 wiring)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",
       chat_id: "chat_1",
@@ -193,27 +193,37 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       verification_summary: null,
     });
     let capturedOpts:
-      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | {
+          resolveIsHeadVersion?: () => Promise<boolean> | boolean;
+          promoteReconciledVersion?: () => Promise<unknown>;
+        }
       | undefined;
     settleStaleVerificationIfNeeded.mockImplementation(
-      async (v: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+      async (v: unknown, opts: typeof capturedOpts) => {
         capturedOpts = opts;
         return { version: v };
       },
     );
+    // The reconcile target IS the chat head.
+    getLatestVersion.mockResolvedValue({ id: "ver_1" });
 
     const { req, ctx } = readinessRequest();
     await GET(req, ctx);
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(typeof capturedOpts?.resolveIsHeadVersion).toBe("function");
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback (target IS head) runs the guarded promote.
-    getLatestVersion.mockResolvedValue({ id: "ver_1" });
+    // Head gate resolves true for the head version — and calling it twice reads
+    // getLatestVersion only ONCE (memoised in the wiring, no double DB read).
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(getLatestVersion).toHaveBeenCalledTimes(1);
+    // The promote callback is now head-agnostic (the gate sits before it).
     await capturedOpts?.promoteReconciledVersion?.();
     expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
   });
 
-  it("reconcile callback is a NO-OP (no promote) when the version is not the chat head (bugbot medium #518)", async () => {
+  it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",
       chat_id: "chat_1",
@@ -223,10 +233,10 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       verification_summary: null,
     });
     let capturedOpts:
-      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | { resolveIsHeadVersion?: () => Promise<boolean> | boolean }
       | undefined;
     settleStaleVerificationIfNeeded.mockImplementation(
-      async (v: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+      async (v: unknown, opts: typeof capturedOpts) => {
         capturedOpts = opts;
         return { version: v };
       },
@@ -237,8 +247,6 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     const { req, ctx } = readinessRequest();
     await GET(req, ctx);
 
-    const result = await capturedOpts?.promoteReconciledVersion?.();
-    expect(result).toBeNull();
-    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(false);
   });
 });

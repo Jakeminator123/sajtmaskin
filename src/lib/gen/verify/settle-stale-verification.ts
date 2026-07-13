@@ -76,6 +76,20 @@ export async function settleStaleVerificationIfNeeded(
      * Omitted → the green branch stays a pure no-op (previous behaviour).
      */
     promoteReconciledVersion?: () => Promise<Version | null>;
+    /**
+     * Bugbot medium (#518, 4th iteration): the green reconciliation applies ONLY
+     * to the chat-head version. A stale `verifying` row that is no longer head is
+     * abandoned (superseded by a newer version); if the green branch keeps it
+     * alive (no-op) while the promote can't take it, it spins forever with no
+     * client-retry path. Gating the WHOLE green branch on head sends a non-head
+     * row down the terminal-fail path instead (a pre-existing, acceptable
+     * false-red on an abandoned/superseded row — terminal + pollable, not an
+     * eternal spinner). The caller threads the chat-head check (mirrors the
+     * quality-gate route's `isLatestVersionForChat`). Omitted → treated as head
+     * (backwards-compatible). Best-effort: a throw is treated as head so a
+     * transient read error never blocks the green recovery.
+     */
+    resolveIsHeadVersion?: () => Promise<boolean> | boolean;
   },
 ): Promise<{ version: Version; failed: boolean }> {
   // Design previews (F2) intentionally rest at `pending` — server-verify is
@@ -107,44 +121,58 @@ export async function settleStaleVerificationIfNeeded(
   // proved the version launchable and a transient promote-UPDATE timeout (or the
   // `promoteGuardUnavailable` retryable branch) merely left it spinning.
   //
-  // This ONLY applies to `verifying`, the sole state that promote-timeout profile
-  // ever leaves behind. A stale `repairing` row is deliberately EXCLUDED: its
-  // latest `preflight:quality-gate` log can predate `markVersionRepairing`, so a
-  // pre-repair "green" verdict must never promote (or no-op) a row that is mid /
-  // abandoned repair — that would clobber the repair fields on a stale signal.
-  // `repairing` (and stale pending-integrations) therefore keep the terminal-fail
-  // path below, exactly as before this PR series. Best-effort: a resolver throw
-  // falls through to the normal fail path so the perpetual-spinner guard applies.
+  // This ONLY applies to a `verifying` row that is STILL the chat head:
+  //   - `verifying` is the sole state the promote-timeout profile ever leaves
+  //     behind. A stale `repairing` row is EXCLUDED — its latest
+  //     `preflight:quality-gate` log can predate `markVersionRepairing`, so a
+  //     pre-repair "green" verdict must never promote/no-op a mid/abandoned
+  //     repair (it would clobber the repair fields on a stale signal).
+  //   - head-only (bugbot medium, 4th iteration): a stale `verifying` row that is
+  //     no longer head is abandoned/superseded — keeping it alive here (no-op)
+  //     while the promote can't take it would spin forever with no client-retry
+  //     path. A non-head row therefore falls through to the terminal-fail path
+  //     below (pre-existing, acceptable false-red on a superseded row).
+  // `repairing` / pending-integrations / non-head all keep the terminal-fail path
+  // below, exactly as before this PR series. Best-effort: a resolver throw is
+  // treated as head so a transient read error never blocks the green recovery.
   if (version.verification_state === "verifying") {
-    let latestGateGreen = false;
+    let isHead = true;
     try {
-      latestGateGreen = (await opts?.resolveLatestGateGreen?.()) === true;
+      isHead = (await opts?.resolveIsHeadVersion?.()) !== false;
     } catch {
-      latestGateGreen = false;
+      isHead = true;
     }
-    if (latestGateGreen) {
-      // Codex P1 (#518): don't just no-op a proven-green row — that traded a
-      // false-red for permanent limbo (`/version-status` never reaches `done`,
-      // F3-readiness/deploy stays blocked, resume ignores it). TRY a guarded,
-      // lease-safe promotion so the row can reach a terminal `promoted`/`passed`
-      // state. The caller's `promoteReconciledVersion` uses the guarded,
-      // lease-gated `promoteVersionIfUnleased` (promote-guard + no-active-lease +
-      // head check), so this can never false-green a blocked/leased/non-head row.
-      // A promoted row is returned as-is; a `null`/throw (guard-denied / lease
-      // held / not head / transient) falls back to the historic no-op (next sweep
-      // retries) — never a fail.
-      if (opts?.promoteReconciledVersion) {
-        let reconciled: Version | null = null;
-        try {
-          reconciled = await opts.promoteReconciledVersion();
-        } catch {
-          reconciled = null;
-        }
-        if (reconciled) {
-          return { version: reconciled, failed: false };
-        }
+    if (isHead) {
+      let latestGateGreen = false;
+      try {
+        latestGateGreen = (await opts?.resolveLatestGateGreen?.()) === true;
+      } catch {
+        latestGateGreen = false;
       }
-      return { version, failed: false };
+      if (latestGateGreen) {
+        // Codex P1 (#518): don't just no-op a proven-green head row — that traded
+        // a false-red for permanent limbo (`/version-status` never reaches
+        // `done`, F3-readiness/deploy stays blocked, resume ignores it). TRY a
+        // guarded, lease-safe promotion so the row can reach a terminal
+        // `promoted`/`passed` state. The caller's `promoteReconciledVersion` uses
+        // the guarded, lease-gated `promoteVersionIfUnleased` (promote-guard +
+        // no-active-lease), so this can never false-green a blocked/leased row.
+        // A promoted row is returned as-is; a `null`/throw (guard-denied / lease
+        // held / transient) falls back to the historic no-op (next sweep retries)
+        // — never a fail.
+        if (opts?.promoteReconciledVersion) {
+          let reconciled: Version | null = null;
+          try {
+            reconciled = await opts.promoteReconciledVersion();
+          } catch {
+            reconciled = null;
+          }
+          if (reconciled) {
+            return { version: reconciled, failed: false };
+          }
+        }
+        return { version, failed: false };
+      }
     }
   }
 

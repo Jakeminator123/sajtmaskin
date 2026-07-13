@@ -97,22 +97,34 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         return cachedLogs;
       };
       const versionIdForReconcile = dbVersion.id;
+      // Read the chat head at most once per settle and reuse for the head gate
+      // (bugbot medium #518) — mirrors the quality-gate route's
+      // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
+      // missing/failed read is treated as head.
+      let headResolved = false;
+      let isHeadVersion = true;
+      const resolveIsHeadVersion = async (): Promise<boolean> => {
+        if (!headResolved) {
+          const latest = await getLatestVersion(chatId).catch(() => null);
+          isHeadVersion = !latest || latest.id === versionIdForReconcile;
+          headResolved = true;
+        }
+        return isHeadVersion;
+      };
       const settled = await settleStaleVerificationIfNeeded(dbVersion, {
         resolveFailureSummary: async () =>
           resolveGateFailureSummaryFromLogs(await loadLogs()),
         // BB#299: don't false-red a stale row whose latest gate verdict is green.
         resolveLatestGateGreen: async () => isLatestGateVerdictGreen(await loadLogs()),
-        // Codex P1 (#518): recover a proven-green stale row to a terminal
+        // Bugbot medium (#518): the green reconciliation only applies to the chat
+        // head; a non-head (superseded) stale row falls through to terminal-fail.
+        resolveIsHeadVersion,
+        // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
         // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
         // instead of leaving it spinning — so this 4s poll can reconcile the bus
         // to `done` without ever racing a verify/repair job that holds the lease.
-        // Head guard (bugbot medium #518, mirrors the quality-gate route's
-        // `isLatestVersionForChat`): never reconcile-promote a non-head version.
-        promoteReconciledVersion: async () => {
-          const latest = await getLatestVersion(chatId).catch(() => null);
-          if (latest && latest.id !== versionIdForReconcile) return null;
-          return promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY);
-        },
+        promoteReconciledVersion: () =>
+          promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
       });
       dbVersion = settled.version;
     }

@@ -217,6 +217,57 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  it("does NOT reconcile a stale 'verifying' row that is NOT head — terminal-fails, promote never attempted (bugbot medium #518)", async () => {
+    // A green but non-head (superseded) stale row must not sit in limbo: the
+    // whole green branch is gated on head, so it falls through to terminal-fail.
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const resolveLatestGateGreen = vi.fn().mockReturnValue(true);
+    const promoteReconciledVersion = vi.fn();
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveIsHeadVersion: () => false,
+      resolveLatestGateGreen,
+      promoteReconciledVersion,
+    });
+    expect(res.failed).toBe(true);
+    // Head gate short-circuits before the green checks.
+    expect(resolveLatestGateGreen).not.toHaveBeenCalled();
+    expect(promoteReconciledVersion).not.toHaveBeenCalled();
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
+  it("reconciles a stale 'verifying' green row when it IS head (resolver returns true)", async () => {
+    const promotedRow = makeVersion({
+      verification_state: "passed",
+      release_state: "promoted",
+    });
+    const promoteReconciledVersion = vi.fn().mockResolvedValue(promotedRow);
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveIsHeadVersion: () => true,
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(promotedRow);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("treats a missing resolveIsHeadVersion as head (backwards-compatible)", async () => {
+    const promotedRow = makeVersion({
+      verification_state: "passed",
+      release_state: "promoted",
+    });
+    const promoteReconciledVersion = vi.fn().mockResolvedValue(promotedRow);
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => true,
+      promoteReconciledVersion,
+    });
+    expect(promoteReconciledVersion).toHaveBeenCalledOnce();
+    expect(res.version).toBe(promotedRow);
+  });
+
   it("does NOT reconcile a stale 'repairing' row even with a green (pre-repair) gate log — terminal-fails as before (bugbot high #518)", async () => {
     // A `repairing` row's latest preflight:quality-gate log can predate
     // markVersionRepairing; the green reconciliation must be scoped to `verifying`

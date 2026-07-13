@@ -179,20 +179,25 @@ describe("GET version-status (engine)", () => {
     expect(body.status?.phase).toBe("failed");
   });
 
-  it("threads a guarded promote callback into the watchdog for a stuck row (Codex P1 #518 wiring)", async () => {
+  it("threads head + guarded-promote callbacks into the watchdog for a stuck row (Codex P1 / bugbot #518 wiring)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
     });
     readAll.mockReturnValue(spinningBus);
     let capturedOpts:
-      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | {
+          resolveIsHeadVersion?: () => Promise<boolean> | boolean;
+          promoteReconciledVersion?: () => Promise<unknown>;
+        }
       | undefined;
     settleStaleVerificationIfNeeded.mockImplementation(
-      (version: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+      (version: unknown, opts: typeof capturedOpts) => {
         capturedOpts = opts;
         return { version, failed: false };
       },
     );
+    // The reconcile target IS the chat head.
+    getLatestVersion.mockResolvedValue({ id: "v1" });
 
     await GET(
       new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
@@ -200,23 +205,28 @@ describe("GET version-status (engine)", () => {
     );
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
+    expect(typeof capturedOpts?.resolveIsHeadVersion).toBe("function");
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback (target IS head) runs the guarded promote.
-    getLatestVersion.mockResolvedValue({ id: "v1" });
+    // Head gate resolves true — calling it twice reads getLatestVersion ONCE
+    // (memoised in the wiring, no double DB read per poll).
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(true);
+    expect(getLatestVersion).toHaveBeenCalledTimes(1);
+    // The promote callback is head-agnostic (the gate sits before it).
     await capturedOpts?.promoteReconciledVersion?.();
     expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
   });
 
-  it("reconcile callback is a NO-OP (no promote) when the version is not the chat head (bugbot medium #518)", async () => {
+  it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "verifying", lifecycle_stage: "integrations" },
     });
     readAll.mockReturnValue(spinningBus);
     let capturedOpts:
-      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | { resolveIsHeadVersion?: () => Promise<boolean> | boolean }
       | undefined;
     settleStaleVerificationIfNeeded.mockImplementation(
-      (version: unknown, opts: { promoteReconciledVersion?: () => Promise<unknown> }) => {
+      (version: unknown, opts: typeof capturedOpts) => {
         capturedOpts = opts;
         return { version, failed: false };
       },
@@ -229,8 +239,7 @@ describe("GET version-status (engine)", () => {
       { params: Promise.resolve({ chatId: "chat_1" }) },
     );
 
-    const result = await capturedOpts?.promoteReconciledVersion?.();
-    expect(result).toBeNull();
+    expect(await capturedOpts?.resolveIsHeadVersion?.()).toBe(false);
     expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
   });
 

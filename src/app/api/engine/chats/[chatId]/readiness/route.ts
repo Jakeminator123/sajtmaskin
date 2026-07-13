@@ -258,21 +258,33 @@ async function buildEngineReadiness(
   // lease, and prefers the concrete already-logged gate failure over the
   // generic "took too long" copy. Fail-safe: a DB error leaves state unchanged.
   const versionIdForReconcile = version.id;
+  // Read the chat head at most once per settle and reuse for the head gate
+  // (bugbot medium #518) — mirrors the quality-gate route's
+  // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
+  // missing/failed read is treated as head.
+  let headResolved = false;
+  let isHeadVersion = true;
+  const resolveIsHeadVersion = async (): Promise<boolean> => {
+    if (!headResolved) {
+      const latest = await getLatestVersion(chat.id).catch(() => null);
+      isHeadVersion = !latest || latest.id === versionIdForReconcile;
+      headResolved = true;
+    }
+    return isHeadVersion;
+  };
   const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
     resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
     // BB#299: don't false-red a stale row whose latest gate verdict is green.
     resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
-    // Codex P1 (#518): recover a proven-green stale row to a terminal promoted
-    // state via the guarded, LEASE-SAFE promote (bugbot high #518) instead of
-    // leaving it in limbo — never promotes while a verify/repair job holds the
-    // lease and re-runs checks. Head guard (bugbot medium #518, mirrors the
-    // quality-gate route's `isLatestVersionForChat`): never reconcile-promote a
-    // non-head version — a newer version may already exist. Not head → no-op.
-    promoteReconciledVersion: async () => {
-      const latest = await getLatestVersion(chat.id).catch(() => null);
-      if (latest && latest.id !== versionIdForReconcile) return null;
-      return promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY);
-    },
+    // Bugbot medium (#518): the green reconciliation only applies to the chat
+    // head; a non-head (superseded) stale row falls through to terminal-fail.
+    resolveIsHeadVersion,
+    // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
+    // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+    // instead of leaving it in limbo — never promotes while a verify/repair job
+    // holds the lease and re-runs checks.
+    promoteReconciledVersion: () =>
+      promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
   });
   version = settledVersion;
 
