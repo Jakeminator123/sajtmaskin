@@ -150,6 +150,81 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
   return !latest || latest.id === versionId;
 }
 
+/** M#vlane2 promote-retry tuning: 1 initial attempt + up to 2 retries, short backoff. */
+const PROMOTE_MAX_ATTEMPTS = 3;
+const PROMOTE_RETRY_BACKOFF_MS = 120;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Whether a thrown promote-UPDATE error is a transient DB condition worth
+ * retrying: a `statement_timeout` under row-lock contention (the prod incident
+ * 2026-07-13 profile — two verify leases 12 s apart on the same version row),
+ * a serialization/deadlock, or a dropped connection. A non-transient error
+ * (constraint violation, etc.) is NOT retried.
+ */
+function isTransientPromoteError(err: unknown): boolean {
+  const code =
+    err && typeof err === "object" && typeof (err as { code?: unknown }).code === "string"
+      ? (err as { code: string }).code
+      : null;
+  // Postgres SQLSTATEs: 57014 statement_timeout/query_canceled,
+  // 40001 serialization_failure, 40P01 deadlock_detected, 08* connection exceptions.
+  if (
+    code &&
+    (code === "57014" || code === "40001" || code === "40P01" || code.startsWith("08"))
+  ) {
+    return true;
+  }
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("statement timeout") ||
+    msg.includes("statement_timeout") ||
+    msg.includes("canceling statement") ||
+    msg.includes("deadlock") ||
+    msg.includes("could not serialize") ||
+    msg.includes("connection terminated") ||
+    msg.includes("connection reset") ||
+    msg.includes("timeout")
+  );
+}
+
+/**
+ * M#vlane2 + BB#299: the promote-UPDATE occasionally died on a transient
+ * `statement_timeout` (prod incident 2026-07-13), which left a passed gate
+ * stuck at `verifying` and — ~13 min later — false-red by the readiness
+ * watchdog. Retry the write a bounded number of times with a short backoff on
+ * transient DB errors so a momentary lock/timeout no longer strands a clean
+ * promotion. A lease-conditioned no-op (`null`) is NOT retried (another run
+ * took over / guard refusal). A throw on the last attempt (or a non-transient
+ * error) resolves to `null`, which the caller maps to the existing retryable
+ * `promoteError` branch (never a false-red).
+ */
+async function promoteVersionWithRetry(
+  versionId: string,
+  summary: string,
+  runId: string | undefined,
+): Promise<Awaited<ReturnType<typeof promoteVersion>> | null> {
+  for (let attempt = 1; attempt <= PROMOTE_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await promoteVersion(versionId, summary, runId);
+    } catch (err) {
+      const transient = isTransientPromoteError(err);
+      if (!transient || attempt === PROMOTE_MAX_ATTEMPTS) {
+        console.warn(
+          `[quality-gate] Promote failed (attempt ${attempt}/${PROMOTE_MAX_ATTEMPTS}, transient=${transient}):`,
+          err,
+        );
+        return null;
+      }
+      await sleep(PROMOTE_RETRY_BACKOFF_MS * attempt);
+    }
+  }
+  return null;
+}
+
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:quality-gate", () => handlePOST(req, ctx));
 }
@@ -526,11 +601,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             };
           });
           if (guard.allowed) {
-            const promoted = await promoteVersion(internalVersionId, promoteSummary, qgRunId).catch(
-              (err) => {
-                console.warn("[quality-gate] Failed to promote version:", err);
-                return null;
-              },
+            // M#vlane2 + BB#299: bounded retry on a transient promote timeout so
+            // a momentary row-lock/statement_timeout no longer strands a passed
+            // gate at "verifying" (which the watchdog later false-reds).
+            const promoted = await promoteVersionWithRetry(
+              internalVersionId,
+              promoteSummary,
+              qgRunId,
             );
             // The guard already allowed promotion, so a null here is a transient
             // failure (DB error, or a race that re-flagged the signal between the

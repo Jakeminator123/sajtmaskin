@@ -21,6 +21,52 @@ function readLogMetaString(meta: unknown, key: string): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function readLogMetaBoolean(meta: unknown, key: string): boolean | null {
+  if (!meta || typeof meta !== "object") return null;
+  const value = (meta as Record<string, unknown>)[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+/**
+ * BB#299 / M#vlane2 watchdog reconciliation: whether the version's LATEST
+ * `preflight:quality-gate` verdict already concluded the version is launchable
+ * (green pass, or an F2 render-first typecheck-advisory). Used by the
+ * stale-verification watchdog to avoid terminal-failing a row whose gate
+ * actually passed but whose promote-UPDATE died on a transient timeout (the
+ * prod false-red profile 2026-07-13), which left the row spinning at
+ * `verifying`.
+ *
+ * `errorLogs` is expected newest-first (created_at desc, as returned by
+ * `getEngineVersionErrorLogs`). Returns false when there is no gate verdict at
+ * all (nothing proves the version launchable → the watchdog fails it as before).
+ *
+ * Green/advisory detection (all on the newest `preflight:quality-gate` row):
+ *   - `meta.passed === true`          → clean pass.
+ *   - `level === "info"`              → any pass verdict (info level is only ever
+ *                                       written on a pass/promote).
+ *   - `level === "warning"` and NOT a post-repair verdict (`meta.repass !== true`)
+ *                                     → F2 render-first typecheck-advisory
+ *                                       (launchable). A post-repair "did not pass"
+ *                                       warning carries `meta.repass === true` and
+ *                                       is NOT treated as green.
+ *   - `level === "error"`             → a hard failure → not green.
+ */
+export function isLatestGateVerdictGreen(errorLogs: VersionErrorLog[]): boolean {
+  const latestVerdict = errorLogs.find(
+    (log) => log.category === "preflight:quality-gate",
+  );
+  if (!latestVerdict) return false;
+  if (readLogMetaBoolean(latestVerdict.meta, "passed") === true) return true;
+  if (latestVerdict.level === "info") return true;
+  if (
+    latestVerdict.level === "warning" &&
+    readLogMetaBoolean(latestVerdict.meta, "repass") !== true
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Concrete per-check category (`quality-gate:typecheck|build|lint`) → check name. */
 function concreteGateCheck(category: string | null): string | null {
   if (typeof category !== "string" || !category.startsWith("quality-gate:")) {

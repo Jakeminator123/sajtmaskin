@@ -31,7 +31,21 @@ const GENERIC_TIMEOUT_SUMMARY =
  */
 export async function settleStaleVerificationIfNeeded(
   version: Version,
-  opts?: { resolveFailureSummary?: () => Promise<string | null> | string | null },
+  opts?: {
+    resolveFailureSummary?: () => Promise<string | null> | string | null;
+    /**
+     * BB#299 / M#vlane2: before terminal-failing a stale row, ask whether the
+     * version's latest quality-gate verdict is already green/advisory. When the
+     * gate passed but a transient promote-UPDATE timeout (prod incident
+     * 2026-07-13) left the row spinning at `verifying` — including the
+     * `promoteGuardUnavailable` branch that also leaves it `verifying` — the
+     * watchdog must NOT turn that passed gate into a false-red `failed`.
+     * Instead it reconciles by no-op'ing (the version is launchable; a later
+     * promote/retry or the next quality-gate call settles it terminally).
+     * Best-effort: a throw is swallowed and the normal fail path continues.
+     */
+    resolveLatestGateGreen?: () => Promise<boolean> | boolean;
+  },
 ): Promise<{ version: Version; failed: boolean }> {
   // Design previews (F2) intentionally rest at `pending` — server-verify is
   // skipped and only the event bus records the skipped verifier. Never fail such
@@ -53,6 +67,23 @@ export async function settleStaleVerificationIfNeeded(
     staleCandidate = await leaseTableExists().catch(() => false);
   }
   if (!staleCandidate) {
+    return { version, failed: false };
+  }
+
+  // BB#299 / M#vlane2 reconciliation: a stale row whose LATEST quality-gate
+  // verdict already passed (green/advisory) must NOT be terminal-failed. The
+  // gate proved the version launchable; a transient promote-UPDATE timeout
+  // (prod incident 2026-07-13) — or the `promoteGuardUnavailable` retryable
+  // branch — merely left it spinning at `verifying`. No-op instead of writing a
+  // false-red `failed`. Best-effort: a resolver throw falls through to the
+  // normal fail path so the perpetual-spinner guard still applies.
+  let latestGateGreen = false;
+  try {
+    latestGateGreen = (await opts?.resolveLatestGateGreen?.()) === true;
+  } catch {
+    latestGateGreen = false;
+  }
+  if (latestGateGreen) {
     return { version, failed: false };
   }
 

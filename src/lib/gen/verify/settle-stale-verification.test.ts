@@ -151,4 +151,48 @@ describe("settleStaleVerificationIfNeeded", () => {
     const [, summary] = failVersionVerificationIfUnleased.mock.calls[0];
     expect(String(summary)).toContain("tog för lång tid");
   });
+
+  // BB#299 / M#vlane2: a stale row whose latest gate verdict already passed must
+  // NOT be terminal-failed — a transient promote-UPDATE timeout (prod incident
+  // 2026-07-13) merely left it spinning at `verifying`. Reconcile by no-op.
+  it("reconciles (no-op) a stale verifying row whose latest gate verdict is green (BB#299)", async () => {
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => true,
+    });
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("reconciles (no-op) a stale row stuck via promoteGuardUnavailable when the gate is green (async resolver)", async () => {
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "verifying" }),
+      { resolveLatestGateGreen: async () => true },
+    );
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("still fails a stale verifying row when the latest gate verdict is NOT green (no passing gate log)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: () => false,
+    });
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
+  it("still fails when the green reconciliation resolver throws (best-effort, falls through)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    const res = await settleStaleVerificationIfNeeded(makeVersion(), {
+      resolveLatestGateGreen: async () => {
+        throw new Error("transient log-read failure");
+      },
+    });
+    expect(res.failed).toBe(true);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
 });

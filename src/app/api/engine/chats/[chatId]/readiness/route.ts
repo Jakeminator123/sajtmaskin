@@ -14,7 +14,10 @@ import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
-import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import {
+  isLatestGateVerdictGreen,
+  resolveGateFailureSummaryFromLogs,
+} from "@/lib/gen/verify/gate-failure-summary";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
@@ -252,6 +255,8 @@ async function buildEngineReadiness(
   // generic "took too long" copy. Fail-safe: a DB error leaves state unchanged.
   const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
     resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
+    // BB#299: don't false-red a stale row whose latest gate verdict is green.
+    resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
   });
   version = settledVersion;
 

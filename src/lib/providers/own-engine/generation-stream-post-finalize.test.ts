@@ -1254,6 +1254,160 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
       diagnosticOnly: true,
     });
   });
+
+  // M#vlane1 — single verify-lane per F2 version. Before this fix an F2
+  // follow-up scheduled a second server-owned verify lane whenever preview
+  // reported non-blocking warnings, racing the client quality-gate lane on the
+  // same version row (prod double-lease/promote-timeout incident 2026-07-13).
+  it("skips background verify for a clean fidelity2 FOLLOW-UP (client lane owns F2)", () => {
+    const finalizedCleanFollowUp = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        errorCount: 0,
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalizedCleanFollowUp as never,
+      }),
+    ).toEqual({
+      run: false,
+      reason: "design_preview_skip_verify",
+    });
+  });
+
+  it("skips background verify for a fidelity2 FOLLOW-UP with only advisory warnings (prod incident 2026-07-13 core regression)", () => {
+    const finalizedAdvisoryFollowUp = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        errorCount: 0,
+        previewStart: {
+          ...finalized.preflight.previewStart,
+          issueCounts: {
+            ...finalized.preflight.previewStart.issueCounts,
+            non_blocking_quality_warning: 2,
+          },
+        },
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalizedAdvisoryFollowUp as never,
+      }),
+    ).toEqual({
+      run: false,
+      reason: "design_preview_skip_verify",
+    });
+  });
+
+  it("runs diagnostic-only server-verify for a fidelity2 FOLLOW-UP when verification is blocked (unchanged)", () => {
+    const finalizedBlockedFollowUp = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        verificationBlocked: true,
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalizedBlockedFollowUp as never,
+      }),
+    ).toEqual({
+      run: true,
+      reason: "diagnostic_only_verification_blocked",
+      diagnosticOnly: true,
+    });
+  });
+
+  it("still runs background verify for a fidelity2 FOLLOW-UP repair pass (repair lane unchanged)", () => {
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalized as never,
+        repairPassIndex: 1,
+      }),
+    ).toEqual({
+      run: true,
+      reason: "policy_match",
+    });
+  });
 });
 
 describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {

@@ -33,7 +33,11 @@ import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
-import { resolveGateFailureSummaryFromLogs } from "@/lib/gen/verify/gate-failure-summary";
+import {
+  isLatestGateVerdictGreen,
+  resolveGateFailureSummaryFromLogs,
+} from "@/lib/gen/verify/gate-failure-summary";
+import type { VersionErrorLog } from "@/lib/db/services/shared";
 import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
 import { settleStaleVerificationIfNeeded } from "@/lib/gen/verify/settle-stale-verification";
 
@@ -78,9 +82,21 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     let dbVersion = scopedVersion.version;
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
     if (busStuck) {
+      // Fetch the error logs at most once, shared by both watchdog resolvers
+      // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
+      // single DB read even when the row is actually stale.
+      let cachedLogs: VersionErrorLog[] | null = null;
+      const loadLogs = async (): Promise<VersionErrorLog[]> => {
+        if (cachedLogs === null) {
+          cachedLogs = await getEngineVersionErrorLogs(dbVersion.id);
+        }
+        return cachedLogs;
+      };
       const settled = await settleStaleVerificationIfNeeded(dbVersion, {
         resolveFailureSummary: async () =>
-          resolveGateFailureSummaryFromLogs(await getEngineVersionErrorLogs(dbVersion.id)),
+          resolveGateFailureSummaryFromLogs(await loadLogs()),
+        // BB#299: don't false-red a stale row whose latest gate verdict is green.
+        resolveLatestGateGreen: async () => isLatestGateVerdictGreen(await loadLogs()),
       });
       dbVersion = settled.version;
     }
