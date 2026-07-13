@@ -4,7 +4,7 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const readAll = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
-const promoteVersion = vi.hoisted(() => vi.fn());
+const promoteVersionIfUnleased = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -36,7 +36,7 @@ vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
 // keeps the real module (and its `@/lib/db/client` import that throws without a
 // connection string) out of the test graph.
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  promoteVersion,
+  promoteVersionIfUnleased,
 }));
 
 import { GET } from "./route";
@@ -50,7 +50,7 @@ describe("GET version-status (engine)", () => {
       failed: false,
     }));
     getEngineVersionErrorLogs.mockResolvedValue([]);
-    promoteVersion.mockResolvedValue({ id: "v1", verification_state: "passed" });
+    promoteVersionIfUnleased.mockResolvedValue({ id: "v1", verification_state: "passed" });
   });
 
   it("returns 400 when versionId is missing", async () => {
@@ -196,9 +196,9 @@ describe("GET version-status (engine)", () => {
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback runs the canonical (guarded) promote.
+    // Invoking the threaded callback runs the guarded, LEASE-SAFE promote.
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersion).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
   });
 
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {

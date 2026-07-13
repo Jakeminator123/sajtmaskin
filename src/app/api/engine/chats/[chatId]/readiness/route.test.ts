@@ -13,7 +13,7 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const maybeAutoAcceptTimedOutRepair = vi.hoisted(() => vi.fn());
-const promoteVersion = vi.hoisted(() => vi.fn());
+const promoteVersionIfUnleased = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
@@ -38,7 +38,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
-  promoteVersion,
+  promoteVersionIfUnleased,
 }));
 
 vi.mock("@/lib/db/services/version-errors", () => ({
@@ -104,7 +104,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       wasAutoAccepted: false,
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
-    promoteVersion.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
     getVersionFiles.mockResolvedValue([]);
     resolveProjectEnv.mockResolvedValue({
       source: "none",
@@ -207,8 +207,8 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(settleStaleVerificationIfNeeded).toHaveBeenCalledOnce();
     expect(typeof capturedOpts?.promoteReconciledVersion).toBe("function");
-    // Invoking the threaded callback runs the canonical (guarded) promote.
+    // Invoking the threaded callback runs the guarded, LEASE-SAFE promote.
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersion).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
   });
 });

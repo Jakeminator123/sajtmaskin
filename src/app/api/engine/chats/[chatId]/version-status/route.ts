@@ -43,7 +43,7 @@ import {
   RECONCILED_PROMOTE_SUMMARY,
   settleStaleVerificationIfNeeded,
 } from "@/lib/gen/verify/settle-stale-verification";
-import { promoteVersion } from "@/lib/db/chat-repository-pg";
+import { promoteVersionIfUnleased } from "@/lib/db/chat-repository-pg";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -103,10 +103,11 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         // BB#299: don't false-red a stale row whose latest gate verdict is green.
         resolveLatestGateGreen: async () => isLatestGateVerdictGreen(await loadLogs()),
         // Codex P1 (#518): recover a proven-green stale row to a terminal
-        // promoted state (guarded promote) instead of leaving it spinning — so
-        // this 4s poll can reconcile the bus to `done` on the next read.
+        // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+        // instead of leaving it spinning — so this 4s poll can reconcile the bus
+        // to `done` without ever racing a verify/repair job that holds the lease.
         promoteReconciledVersion: () =>
-          promoteVersion(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+          promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
       });
       dbVersion = settled.version;
     }

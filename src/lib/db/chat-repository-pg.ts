@@ -1699,6 +1699,95 @@ export async function failVersionVerificationIfUnleased(
   return getStoredVersion(versionId);
 }
 
+/**
+ * Watchdog-only promote (Bugbot high on #518): reconcile a proven-green stale
+ * version to `passed`/`promoted` ONLY if no active lease owns it. Mirrors
+ * `failVersionVerificationIfUnleased`'s lease-safety EXACTLY (bounded
+ * `lock_timeout`, `FOR UPDATE` row lock that serializes with
+ * `acquireVersionLease`, then a separate conditional UPDATE re-snapshotting the
+ * committed lease) so the reconciliation promote can never mutate a row while a
+ * quality-gate/repair job still holds the lease and re-runs checks — the
+ * multi-actor-on-one-row class that M#vlane1 closes. Also runs the SAME
+ * false-green promote-guard as `promoteVersion` (`assertPromoteAllowed`,
+ * `onReadError: "indeterminate"`), so a verifier-blocked or read-error row is
+ * never advanced. Returns null (no-op) when the guard refuses, a job holds the
+ * lease, the lock wait times out, or the row is gone — the caller keeps the row
+ * spinning and a later sweep retries. NEVER terminal-fails.
+ */
+export async function promoteVersionIfUnleased(
+  versionId: string,
+  verificationSummary: string | null = "Automatic verification passed.",
+): Promise<Version | null> {
+  // Same false-green invariant guard as `promoteVersion`: refuse while the
+  // finalize quality-gate telemetry says the version is blocked, and fail
+  // closed-but-retryable (null) on a read error. Never promotes a blocked row.
+  const guard = await assertPromoteAllowed(versionId, undefined, {
+    onReadError: "indeterminate",
+  });
+  if (!guard.allowed) {
+    console.warn(
+      "indeterminate" in guard && guard.indeterminate
+        ? `[promote-guard] Reconcile promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
+        : `[promote-guard] Refusing to reconcile-promote version ${versionId}: ${guard.reason}`,
+    );
+    return null;
+  }
+  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
+  // table BEFORE building the statement (Postgres resolves relations at plan
+  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
+  const jobsExist = await leaseTableExists();
+  const promotedAt = new Date();
+  let updated: boolean;
+  try {
+    updated = await db.transaction(async (tx) => {
+      // Bounded lock wait: a reconcile poll that can't get the row lock quickly
+      // no-ops (returns null) and retries on the next poll instead of blocking
+      // to statement_timeout (57014).
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+      );
+      // Serialize with acquireVersionLease: lock the version row FIRST so a
+      // verify/repair that starts in the gap can't slip its lease in after our
+      // no-active-lease snapshot — the conditional UPDATE below is a separate
+      // statement and re-snapshots after the lock, seeing the committed lease.
+      await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+      const result = await tx
+        .update(engineVersions)
+        .set({
+          releaseState: "promoted",
+          verificationState: "passed",
+          verificationSummary,
+          repairedFilesJson: null,
+          repairAvailableAt: null,
+          promotedAt,
+        })
+        .where(
+          and(
+            eq(engineVersions.id, versionId),
+            // Only enforce the no-active-lease guard once the table exists; before
+            // migration this degrades to the legacy unconditional write.
+            jobsExist
+              ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+              : undefined,
+          ),
+        );
+      return (result.rowCount ?? 0) > 0;
+    });
+  } catch (err) {
+    if (isLockTimeoutError(err)) {
+      console.warn(
+        `[lease] promoteVersionIfUnleased lock contention on ${versionId} — no-op, next poll retries.`,
+      );
+      return null;
+    }
+    throw err;
+  }
+  if (!updated) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
 export async function markVersionSupersededByRepair(
   versionId: string,
   repairedVersionId: string | null = null,

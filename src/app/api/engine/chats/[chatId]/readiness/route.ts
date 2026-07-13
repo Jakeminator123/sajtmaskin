@@ -4,7 +4,7 @@ import {
   getLatestVersion,
   maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
-  promoteVersion,
+  promoteVersionIfUnleased,
 } from "@/lib/db/chat-repository-pg";
 import {
   resolveDeployReleaseGate,
@@ -263,9 +263,11 @@ async function buildEngineReadiness(
     // BB#299: don't false-red a stale row whose latest gate verdict is green.
     resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
     // Codex P1 (#518): recover a proven-green stale row to a terminal promoted
-    // state via the canonical (guarded) promote instead of leaving it in limbo.
+    // state via the guarded, LEASE-SAFE promote (bugbot high #518) instead of
+    // leaving it in limbo — never promotes while a verify/repair job holds the
+    // lease and re-runs checks.
     promoteReconciledVersion: () =>
-      promoteVersion(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
+      promoteVersionIfUnleased(versionIdForReconcile, RECONCILED_PROMOTE_SUMMARY),
   });
   version = settledVersion;
 
