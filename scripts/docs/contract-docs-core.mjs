@@ -1,15 +1,21 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { format } from "prettier";
 
-import dossierRegistry from "../../src/lib/gen/dossiers/registry.ts";
-import dossierTypes from "../../src/lib/gen/dossiers/types.ts";
-import scaffoldRegistry from "../../src/lib/gen/scaffolds/registry.ts";
-import variantRegistry from "../../src/lib/gen/scaffold-variants/registry.ts";
-import aiModelsRuntime from "../../src/lib/ai-models/load-manifest.ts";
+import * as dossierRegistryModule from "../../src/lib/gen/dossiers/registry.ts";
+import * as dossierTypesModule from "../../src/lib/gen/dossiers/types.ts";
+import * as scaffoldRegistryModule from "../../src/lib/gen/scaffolds/registry.ts";
+import * as variantRegistryModule from "../../src/lib/gen/scaffold-variants/registry.ts";
+import * as aiModelsRuntimeModule from "../../src/lib/ai-models/load-manifest.ts";
 
+const dossierRegistry = dossierRegistryModule.default ?? dossierRegistryModule;
+const dossierTypes = dossierTypesModule.default ?? dossierTypesModule;
+const scaffoldRegistry = scaffoldRegistryModule.default ?? scaffoldRegistryModule;
+const variantRegistry = variantRegistryModule.default ?? variantRegistryModule;
+const aiModelsRuntime = aiModelsRuntimeModule.default ?? aiModelsRuntimeModule;
 const { getAllDossiers } = dossierRegistry;
 const { dossierRequiresF3 } = dossierTypes;
 const { getAllScaffolds, getScaffoldIds } = scaffoldRegistry;
@@ -20,8 +26,44 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const GENERATED_DIR = "docs/generated";
 const GENERATOR_PATH = "scripts/docs/generate-contract-docs.mjs";
 
+export const CONTRACT_DOC_COVERAGE = Object.freeze({
+  qualityGateTiers: {
+    source: "config/ai_models/manifest.json#qualityGateTiers",
+    output: "docs/generated/policies.generated.md",
+  },
+  envPolicy: {
+    source: "config/env-policy.json",
+    output: "docs/generated/policies.generated.md",
+  },
+  strictSchemas: {
+    source: "docs/schemas/strict/*.schema.json",
+    output: "docs/generated/schemas.generated.md",
+  },
+});
+
 function compareText(left, right) {
   return left.localeCompare(right, "en");
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([key, nested]) => [key, stableValue(nested)]),
+  );
+}
+
+function fingerprint(value) {
+  return createHash("sha256")
+    .update(JSON.stringify(stableValue(value)))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function fingerprintComment(source, projection) {
+  return `<!-- source-fingerprint: ${source} sha256:${fingerprint(projection)} -->`;
 }
 
 function code(value) {
@@ -44,6 +86,70 @@ function generatedHeader(sources) {
     `> Generator: ${code(GENERATOR_PATH)}`,
     "",
   ].join("\n");
+}
+
+const QUALITY_GATE_PHASE_BY_LANE = Object.freeze({
+  designPreview: "F2",
+  integrationsBuild: "F3",
+});
+
+function collectEnums(value, path = "$", output = []) {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => collectEnums(entry, `${path}[${index}]`, output));
+    return output;
+  }
+  if (!value || typeof value !== "object") return output;
+
+  if (Array.isArray(value.enum)) {
+    output.push({
+      path: `${path}.enum`,
+      values: value.enum.map((entry) => String(entry)),
+    });
+  }
+  for (const [key, nested] of Object.entries(value)) {
+    if (key === "enum") continue;
+    collectEnums(nested, `${path}.${key}`, output);
+  }
+  return output;
+}
+
+function topLevelRequiredFields(schema) {
+  if (Array.isArray(schema.required)) {
+    return schema.required.map(String);
+  }
+  if (!schema.properties || typeof schema.properties !== "object") return [];
+  return Object.entries(schema.properties)
+    .filter(([, property]) => property?.required === true)
+    .map(([key]) => key)
+    .sort(compareText);
+}
+
+function schemaRuntimeOwners(schema) {
+  const source = schema.sourceOfTruth;
+  if (!source || typeof source !== "object") return [];
+  return [
+    ...(Array.isArray(source.types) ? source.types : []),
+    ...(Array.isArray(source.runtime) ? source.runtime : []),
+  ].map(String);
+}
+
+function envPolicyProjection(envPolicy) {
+  const knownEmptyOk = new Set(envPolicy.knownEmptyOk ?? []);
+  const runtimeOnly = new Set(envPolicy.runtimeOnlyKeys ?? []);
+  return {
+    knownEmptyOk: [...knownEmptyOk].sort(compareText),
+    runtimeOnlyKeys: [...runtimeOnly].sort(compareText),
+    rules: (envPolicy.rules ?? [])
+      .map((rule) => ({
+        key: rule.key,
+        classification: rule.classification,
+        recommendedVercelTargets: rule.recommendedVercelTargets ?? [],
+        knownEmptyOk: knownEmptyOk.has(rule.key),
+        runtimeOnly: runtimeOnly.has(rule.key),
+        notes: rule.notes ?? null,
+      }))
+      .sort((left, right) => compareText(left.key, right.key)),
+  };
 }
 
 function renderCapabilities(dossiers) {
@@ -227,6 +333,15 @@ function renderModels(manifest) {
       "config/ai_models/manifest.json",
       "src/lib/ai-models/load-manifest.ts#getAiModelsManifest",
     ]),
+    fingerprintComment("config/ai_models/manifest.json#model-summary", {
+      buildProfiles: manifest.buildProfiles,
+      qualityToOwnEngineModel: manifest.qualityToOwnEngineModel,
+      promptAssist: {
+        defaults: manifest.promptAssist.defaults,
+        envKeys: manifest.promptAssist.envKeys,
+      },
+    }),
+    "",
     "# Models",
     "",
     "The runtime Zod loader validates this data before it reaches this document. Environment overrides still win at runtime.",
@@ -271,8 +386,49 @@ async function loadControlPlaneEntries() {
   return entries;
 }
 
-function renderPolicies(entries) {
-  const rows = entries
+async function loadEnvPolicy() {
+  return JSON.parse(await readFile(resolve(REPO_ROOT, "config/env-policy.json"), "utf8"));
+}
+
+async function loadStrictSchemas() {
+  const schemaDir = resolve(REPO_ROOT, "docs/schemas/strict");
+  const files = (await readdir(schemaDir))
+    .filter((file) => file.endsWith(".schema.json"))
+    .sort(compareText);
+  return Promise.all(
+    files.map(async (file) => ({
+      path: `docs/schemas/strict/${file}`,
+      schema: JSON.parse(await readFile(resolve(schemaDir, file), "utf8")),
+    })),
+  );
+}
+
+function qualityGateProjection(manifest) {
+  return Object.fromEntries(
+    Object.entries(manifest.qualityGateTiers).map(([lane, checks]) => [lane, [...checks]]),
+  );
+}
+
+function dossierEnvPolicyProjection(dossiers) {
+  return dossiers
+    .flatMap((dossier) =>
+      (dossier.envVars ?? []).map((envVar) => ({
+        dossierId: dossier.id,
+        capability: dossier.capability,
+        key: envVar.key,
+        required: envVar.required,
+        enforcement: envVar.enforcement ?? "build",
+        mock: dossier.mock ?? "none",
+      })),
+    )
+    .sort(
+      (left, right) =>
+        compareText(left.dossierId, right.dossierId) || compareText(left.key, right.key),
+    );
+}
+
+function renderPolicies(entries, envPolicy, dossiers, manifest, strictSchemas) {
+  const registryRows = entries
     .toSorted(
       (left, right) => compareText(left.registry, right.registry) || compareText(left.id, right.id),
     )
@@ -284,32 +440,163 @@ function renderPolicies(entries) {
           entry.runtimeEnforced,
         )} |`,
     );
+  const gateProjection = qualityGateProjection(manifest);
+  const gateRows = Object.entries(gateProjection).map(
+    ([lane, checks]) =>
+      `| ${code(lane)} | ${code(QUALITY_GATE_PHASE_BY_LANE[lane] ?? "unmapped")} | ${checks
+        .map(code)
+        .join(" → ")} |`,
+  );
+  const envProjection = envPolicyProjection(envPolicy);
+  const envRows = envProjection.rules.map(
+    (rule) =>
+      `| ${code(rule.key)} | ${code(rule.classification)} | ${list(
+        rule.recommendedVercelTargets,
+      )} | ${yesNo(rule.knownEmptyOk)} | ${yesNo(rule.runtimeOnly)} |`,
+  );
+  const dossierProjection = dossierEnvPolicyProjection(dossiers);
+  const dossierRows = dossierProjection.map(
+    (entry) =>
+      `| ${code(entry.dossierId)} | ${code(entry.capability)} | ${code(entry.key)} | ${yesNo(
+        entry.required,
+      )} | ${code(entry.enforcement)} | ${code(entry.mock)} |`,
+  );
+  const previewSchema = strictSchemas.find(
+    (entry) => entry.path === "docs/schemas/strict/preview-session-contract.schema.json",
+  )?.schema;
+  const previewResultEnums = previewSchema
+    ? collectEnums(previewSchema)
+        .filter((entry) => /failureKind|advisory|warning|error/i.test(entry.path))
+        .map((entry) => `${code(entry.path)}: ${list(entry.values)}`)
+    : [];
 
   return [
     generatedHeader([
       "config/control-plane/schema-registry.json",
       "config/control-plane/policy-registry.json",
+      "config/ai_models/manifest.json#qualityGateTiers",
+      "config/env-policy.json",
+      "data/dossiers/{hard,soft}/*/manifest.json#envVars",
     ]),
-    "# Schemas and policies",
+    fingerprintComment(CONTRACT_DOC_COVERAGE.qualityGateTiers.source, gateProjection),
+    fingerprintComment(CONTRACT_DOC_COVERAGE.envPolicy.source, envProjection),
+    fingerprintComment("data/dossiers/{hard,soft}/*/manifest.json#env-policy", dossierProjection),
+    fingerprintComment("config/control-plane/*-registry.json", entries),
+    "",
+    "# Policies",
+    "",
+    "## Quality-gate tiers",
+    "",
+    "| Lane | Phase | Ordered checks |",
+    "|---|---|---|",
+    ...gateRows,
+    "",
+    previewResultEnums.length > 0
+      ? `Structured result enums from the preview contract: ${previewResultEnums.join("; ")}.`
+      : "The current preview schema exposes pass/fail results without additional result enums.",
+    "",
+    "## Environment policy",
+    "",
+    "Only key names and policy metadata are emitted. Values and secret-like note text are excluded; notes participate only in the source fingerprint.",
+    "",
+    "| Key | Classification | Recommended targets | Empty allowed | Runtime-only |",
+    "|---|---|---|---|---|",
+    ...envRows,
+    "",
+    "## Dossier environment enforcement",
+    "",
+    "| Dossier | Capability | Key | Required | Enforcement | F2 mock |",
+    "|---|---|---|---|---|---|",
+    ...dossierRows,
+    "",
+    "## Control-plane registry",
     "",
     `This index contains ${entries.length} control-plane entries. It is a map to canonical owners, not a runtime policy layer.`,
     "",
     "| ID | Type | Canonical source | Validator | CI status | Runtime status | Runtime enforced |",
+    "|---|---|---|---|---|---|---|",
+    ...registryRows,
+    "",
+  ].join("\n");
+}
+
+function schemaEnumSummary(schema) {
+  const enums = collectEnums(schema);
+  if (enums.length === 0) return "—";
+  return enums.map((entry) => `${code(entry.path)}: ${list(entry.values)}`).join("<br>");
+}
+
+function schemaValidatorSummary(path, controlPlaneEntries) {
+  const validators = controlPlaneEntries
+    .filter(
+      (entry) =>
+        entry.sourceOfTruth === path || entry.sourceOfTruth === "docs/schemas/strict/*.schema.json",
+    )
+    .map((entry) => entry.validator)
+    .filter(Boolean);
+  return list([...new Set(validators)].sort(compareText));
+}
+
+function schemaOwnerSummary(schema) {
+  const owners = schemaRuntimeOwners(schema);
+  if (owners.length === 0) return "—";
+  const visible = owners.slice(0, 4);
+  const suffix = owners.length > visible.length ? `, +${owners.length - visible.length} more` : "";
+  return `${list(visible)}${suffix}`;
+}
+
+function renderSchemas(strictSchemas, controlPlaneEntries) {
+  const fingerprints = strictSchemas.map(({ path, schema }) => fingerprintComment(path, schema));
+  const rows = strictSchemas.map(({ path, schema }) => {
+    const id = schema.$id ?? schema.id ?? path.split("/").at(-1);
+    return `| ${code(id)} | ${schema.title ? String(schema.title).replaceAll("|", "\\|") : "—"} | ${code(
+      path,
+    )} | ${list(topLevelRequiredFields(schema))} | ${schemaEnumSummary(
+      schema,
+    )} | ${schemaValidatorSummary(path, controlPlaneEntries)} | ${schemaOwnerSummary(schema)} |`;
+  });
+
+  return [
+    generatedHeader(["docs/schemas/strict/*.schema.json"]),
+    ...fingerprints,
+    "",
+    "# Strict schema overview",
+    "",
+    `This index summarizes ${strictSchemas.length} strict schemas without dumping their full JSON definitions.`,
+    "",
+    "| Schema | Title | Canonical source | Top-level required | Public enums | Validator | Runtime/schema owners |",
     "|---|---|---|---|---|---|---|",
     ...rows,
     "",
   ].join("\n");
 }
 
-export async function buildGeneratedDocs() {
-  const dossiers = getAllDossiers();
+export async function loadContractDocInputs() {
+  return {
+    dossiers: getAllDossiers(),
+    scaffolds: getAllScaffolds(),
+    scaffoldIds: getScaffoldIds(),
+    modelManifest: getAiModelsManifest(),
+    controlPlaneEntries: await loadControlPlaneEntries(),
+    envPolicy: await loadEnvPolicy(),
+    strictSchemas: await loadStrictSchemas(),
+  };
+}
+
+export async function buildGeneratedDocs(overrides = {}) {
+  const inputs = { ...(await loadContractDocInputs()), ...overrides };
+  const {
+    dossiers,
+    scaffolds,
+    scaffoldIds,
+    modelManifest,
+    controlPlaneEntries,
+    envPolicy,
+    strictSchemas,
+  } = inputs;
   if (dossiers.length === 0) {
     throw new Error("The runtime dossier registry returned no validated dossiers.");
   }
-  const scaffolds = getAllScaffolds();
-  const scaffoldIds = getScaffoldIds();
-  const modelManifest = getAiModelsManifest();
-  const controlPlaneEntries = await loadControlPlaneEntries();
 
   const rawDocs = new Map([
     [`${GENERATED_DIR}/capabilities.generated.md`, renderCapabilities(dossiers)],
@@ -317,7 +604,11 @@ export async function buildGeneratedDocs() {
     [`${GENERATED_DIR}/scaffolds.generated.md`, renderScaffolds(scaffolds)],
     [`${GENERATED_DIR}/variants.generated.md`, renderVariants(scaffoldIds)],
     [`${GENERATED_DIR}/models.generated.md`, renderModels(modelManifest)],
-    [`${GENERATED_DIR}/policies.generated.md`, renderPolicies(controlPlaneEntries)],
+    [
+      `${GENERATED_DIR}/policies.generated.md`,
+      renderPolicies(controlPlaneEntries, envPolicy, dossiers, modelManifest, strictSchemas),
+    ],
+    [`${GENERATED_DIR}/schemas.generated.md`, renderSchemas(strictSchemas, controlPlaneEntries)],
   ]);
   const docs = new Map();
   for (const [path, contents] of rawDocs) {
@@ -334,4 +625,26 @@ export async function writeGeneratedDocs() {
     await writeFile(absolutePath, contents, "utf8");
     console.log(`[docs:generate] wrote ${path}`);
   }
+}
+
+export async function findContractDocDrift(options = {}) {
+  const expectedDocs = options.expectedDocs ?? (await buildGeneratedDocs());
+  const readCommitted =
+    options.readCommitted ?? ((path) => readFile(resolve(REPO_ROOT, path), "utf8"));
+  const drift = [];
+
+  for (const [path, expected] of expectedDocs) {
+    let actual;
+    try {
+      actual = await readCommitted(path);
+    } catch (error) {
+      if (error && typeof error === "object" && error.code === "ENOENT") {
+        drift.push({ path, reason: "missing" });
+        continue;
+      }
+      throw error;
+    }
+    if (actual !== expected) drift.push({ path, reason: "out of date" });
+  }
+  return drift;
 }

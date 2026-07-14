@@ -15,6 +15,7 @@
     "check:terms": "node scripts/dev/check-term-coverage.mjs",
     "docs:generate": "npx tsx scripts/docs/generate-contract-docs.mjs",
     "docs:check": "npx tsx scripts/docs/check-contract-docs.mjs",
+    "docs:test": "vitest run scripts/docs/contract-docs-core.test.ts",
     "db:schema-drift": "vitest run src/lib/db/schema-drift.test.ts",
     "db:schema-drift:soft": "npm run db:schema-drift || echo [db:schema-drift] WARN: schema-drift mellan src/lib/db/schema.ts och scripts/db/db-init.mjs / add-performance-indexes.mjs - se output ovan. Dev startar anda.",
     "predev": "node scripts/dev/predev.mjs",
