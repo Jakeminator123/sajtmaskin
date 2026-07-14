@@ -1,4 +1,3 @@
-// @ts-nocheck -- JavaScript generator module is executed through tsx at runtime.
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -7,8 +6,11 @@ import {
   loadContractDocInputs,
 } from "./contract-docs-core.mjs";
 
-let inputs;
-let baselineDocs;
+type ContractDocInputs = Awaited<ReturnType<typeof loadContractDocInputs>>;
+type GeneratedDocs = Awaited<ReturnType<typeof buildGeneratedDocs>>;
+
+let inputs: ContractDocInputs;
+let baselineDocs: GeneratedDocs;
 
 beforeAll(async () => {
   inputs = await loadContractDocInputs();
@@ -45,7 +47,7 @@ describe("contract docs source coverage", () => {
     const previewSchema = strictSchemas.find(
       (entry) => entry.path === "docs/schemas/strict/preview-session-contract.schema.json",
     );
-    expect(previewSchema).toBeDefined();
+    if (!previewSchema) throw new Error("preview-session schema missing");
     previewSchema.schema.title = `${previewSchema.schema.title} changed`;
 
     const changed = await buildGeneratedDocs({ strictSchemas });
