@@ -8,6 +8,7 @@
 
 This catalog contains 9 runtime-registered scaffolds after registry defaults and research overrides are applied.
 Scaffold file contents and prompt hints are intentionally excluded.
+Canonical owner: scaffold manifests registered by the runtime scaffold registry. The registry is the runtime consumer and validator boundary.
 
 | ID             | Label        | Site kind   | Complexity | Build intents                | Features                                             | Runtime files |
 | -------------- | ------------ | ----------- | ---------- | ---------------------------- | ---------------------------------------------------- | ------------- |

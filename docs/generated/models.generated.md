@@ -9,6 +9,7 @@
 # Models
 
 The runtime Zod loader validates this data before it reaches this document. Environment overrides still win at runtime.
+Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAiModelsManifest()` and model-selection code.
 
 ## Build profiles
 

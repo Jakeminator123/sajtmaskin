@@ -5,26 +5,53 @@ import { fileURLToPath } from "node:url";
 
 import { format } from "prettier";
 
-import * as dossierRegistryModule from "../../src/lib/gen/dossiers/registry.ts";
-import * as dossierTypesModule from "../../src/lib/gen/dossiers/types.ts";
-import * as scaffoldRegistryModule from "../../src/lib/gen/scaffolds/registry.ts";
-import * as variantRegistryModule from "../../src/lib/gen/scaffold-variants/registry.ts";
-import * as aiModelsRuntimeModule from "../../src/lib/ai-models/load-manifest.ts";
-
-const dossierRegistry = dossierRegistryModule.default ?? dossierRegistryModule;
-const dossierTypes = dossierTypesModule.default ?? dossierTypesModule;
-const scaffoldRegistry = scaffoldRegistryModule.default ?? scaffoldRegistryModule;
-const variantRegistry = variantRegistryModule.default ?? variantRegistryModule;
-const aiModelsRuntime = aiModelsRuntimeModule.default ?? aiModelsRuntimeModule;
-const { getAllDossiers } = dossierRegistry;
-const { dossierRequiresF3 } = dossierTypes;
-const { getAllScaffolds, getScaffoldIds } = scaffoldRegistry;
-const { getVariantsForScaffold } = variantRegistry;
-const { getAiModelsManifest } = aiModelsRuntime;
-
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const GENERATED_DIR = "docs/generated";
 const GENERATOR_PATH = "scripts/docs/generate-contract-docs.mjs";
+
+let runtimeBindingsPromise;
+
+async function loadRuntimeBindings() {
+  if (!runtimeBindingsPromise) {
+    const previousCwd = process.cwd();
+    process.chdir(REPO_ROOT);
+    runtimeBindingsPromise = Promise.all([
+      import("../../src/lib/gen/dossiers/registry.ts"),
+      import("../../src/lib/gen/dossiers/types.ts"),
+      import("../../src/lib/gen/scaffolds/registry.ts"),
+      import("../../src/lib/gen/scaffold-variants/registry.ts"),
+      import("../../src/lib/ai-models/load-manifest.ts"),
+    ]).then(
+      ([
+        dossierRegistryModule,
+        dossierTypesModule,
+        scaffoldRegistryModule,
+        variantRegistryModule,
+        aiModelsRuntimeModule,
+      ]) => {
+        const dossierRegistry = dossierRegistryModule.default ?? dossierRegistryModule;
+        const dossierTypes = dossierTypesModule.default ?? dossierTypesModule;
+        const scaffoldRegistry = scaffoldRegistryModule.default ?? scaffoldRegistryModule;
+        const variantRegistry = variantRegistryModule.default ?? variantRegistryModule;
+        const aiModelsRuntime = aiModelsRuntimeModule.default ?? aiModelsRuntimeModule;
+        return {
+          getAllDossiers: dossierRegistry.getAllDossiers,
+          dossierRequiresF3: dossierTypes.dossierRequiresF3,
+          getAllScaffolds: scaffoldRegistry.getAllScaffolds,
+          getScaffoldIds: scaffoldRegistry.getScaffoldIds,
+          getVariantsForScaffold: variantRegistry.getVariantsForScaffold,
+          getAiModelsManifest: aiModelsRuntime.getAiModelsManifest,
+        };
+      },
+    );
+    try {
+      return await runtimeBindingsPromise;
+    } finally {
+      process.chdir(previousCwd);
+    }
+  }
+  return runtimeBindingsPromise;
+}
 
 export const CONTRACT_DOC_COVERAGE = Object.freeze({
   qualityGateTiers: {
@@ -40,6 +67,57 @@ export const CONTRACT_DOC_COVERAGE = Object.freeze({
     output: "docs/generated/schemas.generated.md",
   },
 });
+
+export const GENERATED_DOC_FAMILIES = Object.freeze({
+  capabilities: {
+    sources: [
+      "data/dossiers/{hard,soft}/*/manifest.json#capability",
+      "src/lib/gen/dossiers/types.ts#dossierRequiresF3",
+    ],
+    output: "docs/generated/capabilities.generated.md",
+  },
+  dossiers: {
+    sources: ["data/dossiers/{hard,soft}/*/manifest.json", "src/lib/gen/dossiers/registry.ts"],
+    output: "docs/generated/dossiers.generated.md",
+  },
+  scaffolds: {
+    sources: ["src/lib/gen/scaffolds/registry.ts", "src/lib/gen/scaffolds/*/manifest.ts"],
+    output: "docs/generated/scaffolds.generated.md",
+  },
+  variants: {
+    sources: [
+      "src/lib/gen/scaffold-variants/registry.ts",
+      "config/scaffold-variants/<scaffold>/<variant>.json",
+    ],
+    output: "docs/generated/variants.generated.md",
+  },
+  models: {
+    sources: [
+      "config/ai_models/manifest.json",
+      "src/lib/ai-models/load-manifest.ts#getAiModelsManifest",
+    ],
+    output: "docs/generated/models.generated.md",
+  },
+  policies: {
+    sources: [
+      "config/control-plane/*-registry.json",
+      "config/ai_models/manifest.json#qualityGateTiers",
+      "config/env-policy.json",
+      "data/dossiers/{hard,soft}/*/manifest.json#envVars",
+    ],
+    output: "docs/generated/policies.generated.md",
+  },
+  schemas: {
+    sources: ["docs/schemas/strict/*.schema.json"],
+    output: "docs/generated/schemas.generated.md",
+  },
+});
+
+export const EXPECTED_GENERATED_DOC_PATHS = Object.freeze(
+  Object.values(GENERATED_DOC_FAMILIES)
+    .map((entry) => entry.output)
+    .sort(compareText),
+);
 
 function compareText(left, right) {
   return left.localeCompare(right, "en");
@@ -152,7 +230,7 @@ function envPolicyProjection(envPolicy) {
   };
 }
 
-function renderCapabilities(dossiers) {
+function renderCapabilities(dossiers, dossierRequiresF3) {
   const byCapability = new Map();
   for (const dossier of dossiers) {
     const entries = byCapability.get(dossier.capability) ?? [];
@@ -183,6 +261,7 @@ function renderCapabilities(dossiers) {
     "",
     `This index contains ${byCapability.size} capabilities derived from ${dossiers.length} validated dossier manifests.`,
     "Capability is the selection key. Dossier groups are presentation only.",
+    "Canonical owner: dossier manifest `capability`; runtime consumer/validator: dossier registry and `dossierRequiresF3`.",
     "",
     "| Capability | Dossiers | Default dossier | Classes | F2 mock modes | F3-required dossiers |",
     "|---|---|---|---|---|---|",
@@ -214,7 +293,7 @@ function renderFileRoles(dossier) {
   );
 }
 
-function renderDossiers(dossiers) {
+function renderDossiers(dossiers, dossierRequiresF3) {
   const rows = dossiers
     .toSorted(
       (left, right) => compareText(left.class, right.class) || compareText(left.id, right.id),
@@ -240,6 +319,7 @@ function renderDossiers(dossiers) {
     "",
     `This catalog contains ${dossiers.length} manifests accepted by the runtime dossier registry.`,
     "Env values and instruction text are intentionally excluded.",
+    "Canonical owner: dossier manifests. Validator/schema mirror: runtime manifest validation and the strict dossier schema. Runtime consumer: dossier registry/selection.",
     "",
     "| ID | Label | Class | Capability | Default | F2 mock | Requires F3 | Env contract | Dependencies | File roles | Last verified |",
     "|---|---|---|---|---|---|---|---|---|---|---|",
@@ -266,6 +346,7 @@ function renderScaffolds(scaffolds) {
     "",
     `This catalog contains ${scaffolds.length} runtime-registered scaffolds after registry defaults and research overrides are applied.`,
     "Scaffold file contents and prompt hints are intentionally excluded.",
+    "Canonical owner: scaffold manifests registered by the runtime scaffold registry. The registry is the runtime consumer and validator boundary.",
     "",
     "| ID | Label | Site kind | Complexity | Build intents | Features | Runtime files |",
     "|---|---|---|---|---|---|---|",
@@ -274,14 +355,12 @@ function renderScaffolds(scaffolds) {
   ].join("\n");
 }
 
-function renderVariants(scaffoldIds) {
-  const variants = scaffoldIds
-    .flatMap((scaffoldId) => getVariantsForScaffold(scaffoldId))
-    .toSorted(
-      (left, right) =>
-        compareText(left.scaffoldId, right.scaffoldId) || compareText(left.id, right.id),
-    );
-  const rows = variants.map(
+function renderVariants(variants, scaffoldCount) {
+  const sortedVariants = variants.toSorted(
+    (left, right) =>
+      compareText(left.scaffoldId, right.scaffoldId) || compareText(left.id, right.id),
+  );
+  const rows = sortedVariants.map(
     (variant) =>
       `| ${code(variant.scaffoldId)} | ${code(variant.id)} | ${variant.label.replaceAll(
         "|",
@@ -298,7 +377,8 @@ function renderVariants(scaffoldIds) {
     ]),
     "# Scaffold variants",
     "",
-    `This catalog contains ${variants.length} variants accepted by the runtime registry for ${scaffoldIds.length} registered scaffolds.`,
+    `This catalog contains ${sortedVariants.length} variants accepted by the runtime registry for ${scaffoldCount} registered scaffolds.`,
+    "Canonical owner: variant JSON files. Runtime consumer/validator: scaffold-variant registry.",
     "",
     "| Scaffold | Variant | Label | Color mode | Default | Font pairings | Signature motif |",
     "|---|---|---|---|---|---|---|",
@@ -345,6 +425,7 @@ function renderModels(manifest) {
     "# Models",
     "",
     "The runtime Zod loader validates this data before it reaches this document. Environment overrides still win at runtime.",
+    "Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAiModelsManifest()` and model-selection code.",
     "",
     "## Build profiles",
     "",
@@ -493,7 +574,7 @@ function renderPolicies(entries, envPolicy, dossiers, manifest, strictSchemas) {
     "",
     previewResultEnums.length > 0
       ? `Structured result enums from the preview contract: ${previewResultEnums.join("; ")}.`
-      : "The current preview schema exposes pass/fail results without additional result enums.",
+      : "Preview result enums are projected in `schemas.generated.md`; this policy index emits only owner-backed gate and policy metadata.",
     "",
     "## Environment policy",
     "",
@@ -564,7 +645,9 @@ function renderSchemas(strictSchemas, controlPlaneEntries) {
     "",
     `This index summarizes ${strictSchemas.length} strict schemas without dumping their full JSON definitions.`,
     "",
-    "| Schema | Title | Canonical source | Top-level required | Public enums | Validator | Runtime/schema owners |",
+    "These JSON schemas are strict machine-readable mirrors. The table separates mirror path, validator and any declared runtime/type owner.",
+    "",
+    "| Schema | Title | Strict schema path | Top-level required | Public enums | Validator | Declared runtime/type owners |",
     "|---|---|---|---|---|---|---|",
     ...rows,
     "",
@@ -572,11 +655,22 @@ function renderSchemas(strictSchemas, controlPlaneEntries) {
 }
 
 export async function loadContractDocInputs() {
+  const {
+    getAllDossiers,
+    dossierRequiresF3,
+    getAllScaffolds,
+    getScaffoldIds,
+    getVariantsForScaffold,
+    getAiModelsManifest,
+  } = await loadRuntimeBindings();
+  const scaffoldIds = getScaffoldIds();
   return {
     dossiers: getAllDossiers(),
     scaffolds: getAllScaffolds(),
-    scaffoldIds: getScaffoldIds(),
+    scaffoldIds,
+    variants: scaffoldIds.flatMap((scaffoldId) => getVariantsForScaffold(scaffoldId)),
     modelManifest: getAiModelsManifest(),
+    dossierRequiresF3,
     controlPlaneEntries: await loadControlPlaneEntries(),
     envPolicy: await loadEnvPolicy(),
     strictSchemas: await loadStrictSchemas(),
@@ -589,7 +683,9 @@ export async function buildGeneratedDocs(overrides = {}) {
     dossiers,
     scaffolds,
     scaffoldIds,
+    variants,
     modelManifest,
+    dossierRequiresF3,
     controlPlaneEntries,
     envPolicy,
     strictSchemas,
@@ -599,16 +695,16 @@ export async function buildGeneratedDocs(overrides = {}) {
   }
 
   const rawDocs = new Map([
-    [`${GENERATED_DIR}/capabilities.generated.md`, renderCapabilities(dossiers)],
-    [`${GENERATED_DIR}/dossiers.generated.md`, renderDossiers(dossiers)],
-    [`${GENERATED_DIR}/scaffolds.generated.md`, renderScaffolds(scaffolds)],
-    [`${GENERATED_DIR}/variants.generated.md`, renderVariants(scaffoldIds)],
-    [`${GENERATED_DIR}/models.generated.md`, renderModels(modelManifest)],
+    [GENERATED_DOC_FAMILIES.capabilities.output, renderCapabilities(dossiers, dossierRequiresF3)],
+    [GENERATED_DOC_FAMILIES.dossiers.output, renderDossiers(dossiers, dossierRequiresF3)],
+    [GENERATED_DOC_FAMILIES.scaffolds.output, renderScaffolds(scaffolds)],
+    [GENERATED_DOC_FAMILIES.variants.output, renderVariants(variants, scaffoldIds.length)],
+    [GENERATED_DOC_FAMILIES.models.output, renderModels(modelManifest)],
     [
-      `${GENERATED_DIR}/policies.generated.md`,
+      GENERATED_DOC_FAMILIES.policies.output,
       renderPolicies(controlPlaneEntries, envPolicy, dossiers, modelManifest, strictSchemas),
     ],
-    [`${GENERATED_DIR}/schemas.generated.md`, renderSchemas(strictSchemas, controlPlaneEntries)],
+    [GENERATED_DOC_FAMILIES.schemas.output, renderSchemas(strictSchemas, controlPlaneEntries)],
   ]);
   const docs = new Map();
   for (const [path, contents] of rawDocs) {
@@ -627,10 +723,23 @@ export async function writeGeneratedDocs() {
   }
 }
 
+async function listCommittedGeneratedDocs() {
+  try {
+    return (await readdir(resolve(REPO_ROOT, GENERATED_DIR)))
+      .filter((name) => name.endsWith(".generated.md"))
+      .map((name) => `${GENERATED_DIR}/${name}`)
+      .sort(compareText);
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
 export async function findContractDocDrift(options = {}) {
   const expectedDocs = options.expectedDocs ?? (await buildGeneratedDocs());
   const readCommitted =
     options.readCommitted ?? ((path) => readFile(resolve(REPO_ROOT, path), "utf8"));
+  const listCommitted = options.listCommitted ?? listCommittedGeneratedDocs;
   const drift = [];
 
   for (const [path, expected] of expectedDocs) {
@@ -645,6 +754,13 @@ export async function findContractDocDrift(options = {}) {
       throw error;
     }
     if (actual !== expected) drift.push({ path, reason: "out of date" });
+  }
+  const expectedPaths = new Set(expectedDocs.keys());
+  for (const rawPath of await listCommitted()) {
+    const path = rawPath.includes("/") ? rawPath : `${GENERATED_DIR}/${rawPath}`;
+    if (path.endsWith(".generated.md") && !expectedPaths.has(path)) {
+      drift.push({ path, reason: "unexpected" });
+    }
   }
   return drift;
 }

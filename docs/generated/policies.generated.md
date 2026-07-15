@@ -21,7 +21,7 @@
 | `designPreview`     | `F2`  | `typecheck`                    |
 | `integrationsBuild` | `F3`  | `typecheck` → `build` → `lint` |
 
-The current preview schema exposes pass/fail results without additional result enums.
+Preview result enums are projected in `schemas.generated.md`; this policy index emits only owner-backed gate and policy metadata.
 
 ## Environment policy
 

@@ -7,6 +7,7 @@
 # Scaffold variants
 
 This catalog contains 28 variants accepted by the runtime registry for 9 registered scaffolds.
+Canonical owner: variant JSON files. Runtime consumer/validator: scaffold-variant registry.
 
 | Scaffold       | Variant             | Label               | Color mode | Default | Font pairings                                                                      | Signature motif                                                                                                        |
 | -------------- | ------------------- | ------------------- | ---------- | ------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |

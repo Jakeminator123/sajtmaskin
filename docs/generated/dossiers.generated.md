@@ -9,6 +9,7 @@
 
 This catalog contains 36 manifests accepted by the runtime dossier registry.
 Env values and instruction text are intentionally excluded.
+Canonical owner: dossier manifests. Validator/schema mirror: runtime manifest validation and the strict dossier schema. Runtime consumer: dossier registry/selection.
 
 | ID                      | Label                          | Class  | Capability             | Default | F2 mock   | Requires F3 | Env contract                                                                                                                                                                                                                                                                                                                                 | Dependencies                                                                             | File roles                      | Last verified |
 | ----------------------- | ------------------------------ | ------ | ---------------------- | ------- | --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------- | ------------- |

@@ -8,6 +8,7 @@
 
 This index contains 33 capabilities derived from 36 validated dossier manifests.
 Capability is the selection key. Dossier groups are presentation only.
+Canonical owner: dossier manifest `capability`; runtime consumer/validator: dossier registry and `dossierRequiresF3`.
 
 | Capability             | Dossiers                                             | Default dossier         | Classes | F2 mock modes | F3-required dossiers                                 |
 | ---------------------- | ---------------------------------------------------- | ----------------------- | ------- | ------------- | ---------------------------------------------------- |
