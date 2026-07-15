@@ -59,6 +59,12 @@ const VERIFY_COMMANDS = {
   build: "node ./node_modules/next/dist/bin/next build",
 };
 
+const VERIFY_LOCAL_TOOL_PATHS = {
+  typecheck: ["typescript", "bin", "tsc"],
+  lint: ["eslint", "bin", "eslint.js"],
+  build: ["next", "dist", "bin", "next"],
+};
+
 const VERIFY_OUTPUT_CAP_BY_STAGE = {
   install: 16_000,
   typecheck: 12_000,
@@ -1382,29 +1388,35 @@ async function runVerifyJob(params) {
       }
 
       for (const check of checks) {
+        let toolingError = null;
         if (check === "lint") {
           const lintSetup = inspectProjectLintSetup(filesJson);
-          const localEslint = path.join(workspaceDir, "node_modules", "eslint", "bin", "eslint.js");
-          if (!lintSetup.ok || !fs.existsSync(localEslint)) {
-            const reason = !lintSetup.ok
-              ? lintSetup.reason
-              : "installed project is missing node_modules/eslint/bin/eslint.js";
-            results.push(
-              pushResult({
-                check,
-                passed: false,
-                advisory: false,
-                repairable: false,
-                failureKind: "tooling",
-                exitCode: 2,
-                durationMs: 0,
-                errorCount: 0,
-                warningCount: 0,
-                output: `Lint tooling/configuration error: ${reason}. No package download was attempted.`,
-              }),
-            );
-            continue;
-          }
+          if (!lintSetup.ok) toolingError = lintSetup.reason;
+        }
+        const localToolPath = VERIFY_LOCAL_TOOL_PATHS[check];
+        if (
+          !toolingError &&
+          localToolPath &&
+          !fs.existsSync(path.join(workspaceDir, "node_modules", ...localToolPath))
+        ) {
+          toolingError = `installed project is missing node_modules/${localToolPath.join("/")}`;
+        }
+        if (toolingError) {
+          results.push(
+            pushResult({
+              check,
+              passed: false,
+              advisory: false,
+              repairable: false,
+              failureKind: "tooling",
+              exitCode: 2,
+              durationMs: 0,
+              errorCount: 0,
+              warningCount: 0,
+              output: `${check} tooling/configuration error: ${toolingError}. No package download was attempted.`,
+            }),
+          );
+          continue;
         }
         const command = VERIFY_COMMANDS[check];
         if (!command) continue;

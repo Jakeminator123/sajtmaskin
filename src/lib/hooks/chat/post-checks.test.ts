@@ -754,6 +754,21 @@ describe("runPostGenerationChecks", () => {
       onAutoFix,
     });
 
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
+    expect(steps).toContain("lint: Underkänd (exit 2)");
+    expect(output.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          check: "lint",
+          passed: false,
+          repairable: false,
+          failureKind: "tooling",
+          output: "missing project-local ESLint config",
+        }),
+      ]),
+    );
     expect(onAutoFix).not.toHaveBeenCalled();
     expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
   });

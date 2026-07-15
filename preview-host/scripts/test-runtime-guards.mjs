@@ -245,13 +245,26 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     inspectProjectLintSetup({ "package.json": "{}", "eslint.config.mjs": "export default [];" }).ok === false,
   );
 
+  const npmLockInstall = resolveInstallCommand({ "package-lock.json": "{}" });
   check(
-    "npm lock install explicitly includes devDependencies",
-    /--include=dev/.test(resolveInstallCommand({ "package-lock.json": "{}" }).command),
+    "npm lock primary and fallback include devDependencies",
+    [npmLockInstall.command, npmLockInstall.fallbackCommand].every((command) =>
+      /--include=dev/.test(command),
+    ),
   );
+  const npmInstall = resolveInstallCommand({ "package.json": "{}" });
   check(
-    "pnpm install explicitly includes devDependencies",
-    /--prod=false/.test(resolveInstallCommand({ "pnpm-lock.yaml": "lockfileVersion: 9" }).command),
+    "npm unlocked primary and fallback include devDependencies",
+    [npmInstall.command, npmInstall.fallbackCommand].every((command) =>
+      /--include=dev/.test(command),
+    ),
+  );
+  const pnpmInstall = resolveInstallCommand({ "pnpm-lock.yaml": "lockfileVersion: 9" });
+  check(
+    "pnpm primary and fallback include devDependencies",
+    [pnpmInstall.command, pnpmInstall.fallbackCommand].every((command) =>
+      /--prod=false/.test(command),
+    ),
   );
   check(
     "yarn install avoids the Berry-incompatible production flag",
@@ -260,6 +273,12 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
         resolveInstallCommand({ "yarn.lock": "" }).command,
         resolveInstallCommand({ "yarn.lock": "" }).fallbackCommand,
       ].join(" "),
+    ),
+  );
+  check(
+    "verify commands only use installed project-local tooling",
+    Object.values(runtime.__testing.VERIFY_COMMANDS).every(
+      (command) => command.startsWith("node ./node_modules/") && !/\bnpx\b/.test(command),
     ),
   );
 }
@@ -282,8 +301,15 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     "eslint.config.mjs": "export default [];",
   };
   const fingerprint = dependencyFingerprint(filesJson);
-  mkdirSync(join(source, "node_modules", "eslint", "bin"), { recursive: true });
-  writeFileSync(join(source, "node_modules", "eslint", "bin", "eslint.js"), "source", "utf8");
+  for (const [relativePath, contents] of [
+    [["eslint", "bin", "eslint.js"], "source"],
+    [["typescript", "bin", "tsc"], "source"],
+    [["next", "dist", "bin", "next"], "source"],
+  ]) {
+    const localToolPath = join(source, "node_modules", ...relativePath);
+    mkdirSync(join(localToolPath, ".."), { recursive: true });
+    writeFileSync(localToolPath, contents, "utf8");
+  }
   writeFileSync(
     dependencyStatePathForWorkspace(source),
     JSON.stringify({ fingerprint }),
@@ -388,6 +414,24 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     check("missing local ESLint never false-greens", missingLint?.passed === false);
     check("missing local ESLint is non-repairable tooling failure", missingLint?.repairable === false && missingLint?.failureKind === "tooling");
     check("missing local ESLint never invokes a package runner", commands.length === 1);
+
+    commands.length = 0;
+    const missingCoreTools = await runtime.runVerifyJob({
+      verifyId: "missing-core-tools",
+      chatId: "guard-missing-core-tools",
+      versionId: "v-missing-core-tools",
+      filesJson: { "package.json": "{}" },
+      checks: ["typecheck", "build"],
+    });
+    for (const checkName of ["typecheck", "build"]) {
+      const result = missingCoreTools.results.find((entry) => entry.check === checkName);
+      check(`${checkName} missing local binary never false-greens`, result?.passed === false);
+      check(
+        `${checkName} missing local binary is non-repairable tooling failure`,
+        result?.repairable === false && result?.failureKind === "tooling",
+      );
+    }
+    check("missing typecheck/build tooling never invokes a package runner", commands.length === 0);
   } finally {
     setVerifyRunnersForTesting();
   }

@@ -135,6 +135,15 @@ export type ServerVerifyFailedOutput = {
   durationMs?: number | null;
 };
 
+/** Shared owner for lint-Advisory detection in initial and post-repair gates. */
+export function collectLintAdvisories(
+  results: QualityGateCheckResult[] | null | undefined,
+): QualityGateCheckResult[] {
+  return (results ?? []).filter(
+    (result) => result.check === "lint" && result.passed && result.advisory === true,
+  );
+}
+
 /** Compact visual QA for persisted logs (no long detail strings). */
 export type QualityGateVisualQaLogMeta = {
   overallScore: number;
