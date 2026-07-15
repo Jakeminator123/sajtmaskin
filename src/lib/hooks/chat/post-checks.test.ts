@@ -758,6 +758,87 @@ describe("runPostGenerationChecks", () => {
     expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
   });
 
+  it("keeps repairable code failures but excludes tooling failures from mixed repair context", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                repairable: true,
+                failureKind: "code",
+                exitCode: 2,
+                output: "TS2307: Cannot find module '@/components/Hero'",
+                durationMs: 500,
+              },
+              {
+                check: "lint",
+                passed: false,
+                repairable: false,
+                failureKind: "tooling",
+                exitCode: 2,
+                output: "missing project-local ESLint config",
+                durationMs: 0,
+              },
+            ],
+            firstFailureCheck: "typecheck",
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onAutoFix).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasons: ["typecheck failed"],
+        repair: expect.objectContaining({
+          qualityGate: [
+            {
+              check: "typecheck",
+              exitCode: 2,
+              output: "TS2307: Cannot find module '@/components/Hero'",
+              durationMs: 500,
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
   it("includes verify-lane timing metadata in quality gate steps", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();

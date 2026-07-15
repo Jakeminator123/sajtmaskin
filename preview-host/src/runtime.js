@@ -456,12 +456,16 @@ function resolveInstallCommand(filesJson) {
   const hasYarnLock = typeof filesJson?.["yarn.lock"] === "string";
   if (hasYarnLock) {
     // Keep optional deps for the same native-binary reason as pnpm above.
+    // Do not pass Yarn Classic's `--production=false`: Yarn Berry/4 rejects
+    // that flag. The install runner forces NODE_ENV=development instead,
+    // which keeps devDependencies for Classic while Berry installs them by
+    // default.
     return {
-      command: "yarn install --frozen-lockfile --production=false",
+      command: "yarn install --frozen-lockfile",
       successLabel: "yarn install passed.",
-      logLabel: "yarn install --frozen-lockfile --production=false",
-      fallbackCommand: "yarn install --production=false",
-      fallbackLogLabel: "yarn install --production=false",
+      logLabel: "yarn install --frozen-lockfile",
+      fallbackCommand: "yarn install",
+      fallbackLogLabel: "yarn install",
       alwaysAllowFallback: true,
     };
   }

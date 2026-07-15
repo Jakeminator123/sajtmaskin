@@ -735,7 +735,12 @@ async function handleRepairOrAutofix(params: {
   const CANONICAL_QUALITY_GATE_CHECKS = new Set(["typecheck", "build", "lint"]);
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
-      .filter((c) => !c.passed && CANONICAL_QUALITY_GATE_CHECKS.has(c.check))
+      .filter(
+        (c) =>
+          !c.passed &&
+          c.repairable !== false &&
+          CANONICAL_QUALITY_GATE_CHECKS.has(c.check),
+      )
       .map((c) => ({
         check: c.check as "typecheck" | "build" | "lint",
         exitCode: c.exitCode,

@@ -254,8 +254,13 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     /--prod=false/.test(resolveInstallCommand({ "pnpm-lock.yaml": "lockfileVersion: 9" }).command),
   );
   check(
-    "yarn install explicitly includes devDependencies",
-    /--production=false/.test(resolveInstallCommand({ "yarn.lock": "" }).command),
+    "yarn install avoids the Berry-incompatible production flag",
+    !/--production(?:=|\s|$)/.test(
+      [
+        resolveInstallCommand({ "yarn.lock": "" }).command,
+        resolveInstallCommand({ "yarn.lock": "" }).fallbackCommand,
+      ].join(" "),
+    ),
   );
 }
 
