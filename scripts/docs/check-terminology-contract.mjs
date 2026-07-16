@@ -36,7 +36,7 @@ export function normalizeTerm(value) {
 
 function aliasRegex(alias, caseSensitive) {
   const escaped = alias
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");")
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     .replace(/\s+/g, "\\s+");
   return new RegExp(`${WB_L}${escaped}${WB_R}`, caseSensitive ? "gu" : "giu");
 }
