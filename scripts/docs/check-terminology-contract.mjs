@@ -35,7 +35,9 @@ export function normalizeTerm(value) {
 }
 
 function aliasRegex(alias, caseSensitive) {
-  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const escaped = alias
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");")
+    .replace(/\s+/g, "\\s+");
   return new RegExp(`${WB_L}${escaped}${WB_R}`, caseSensitive ? "gu" : "giu");
 }
 
@@ -81,7 +83,9 @@ export async function checkTerminologyContract({
     )
     .sort(compareText);
   if (glossaryPaths.length !== 1 || glossaryPaths[0] !== CANONICAL_GLOSSARY) {
-    errors.push(`active glossary paths must equal ${CANONICAL_GLOSSARY}; got ${glossaryPaths.join(", ")}`);
+    errors.push(
+      `active glossary paths must equal ${CANONICAL_GLOSSARY}; got ${glossaryPaths.join(", ")}`,
+    );
   }
 
   const canonicalTerms = Array.isArray(dict.canonicalTerms) ? dict.canonicalTerms : [];
