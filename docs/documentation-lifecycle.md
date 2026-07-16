@@ -65,6 +65,14 @@ som generatorn slutat äga får inte ligga kvar och se canonical ut.
 ytor. Daterade audits, arkiv och avklarade planer ligger utanför den
 blockerande mängden; de ska städas eller märkas i separata historik-PR:er.
 
+## Terminologi
+
+`docs/architecture/glossary.md` är den enda kanoniska glossary-ytan.
+`config/naming-dictionary.json` är en valideringsseed och får inte bli ett
+parallellt runtime-registry eller en andra ordlista. `check:terms:contract`
+blockerar strukturell drift; `check:terms` rapporterar bredare legacyträffar
+rådgivande eftersom kodidentifierare kan behöva behålla äldre namn.
+
 ## Planer och historik
 
 | Status             | Plats                  | Regel                              |
