@@ -1,14 +1,15 @@
 # `docs/archive/` — historik
 
-Avslutade, icke-aktiva dokument som behålls som referens men **inte** styr pågående arbete. Source of truth för djupare historik är git (`git log`, `git show <commit>:<path>`).
-
-| Undermapp | Innehåll |
-|---|---|
-| `status/` | Daterade statusögonblicksbilder (`STATUS-YYYY-MM-DD.md`). |
+Avslutade, icke-aktiva dokument som behålls som referens men **inte** styr
+pågående arbete. Source of truth för djupare historik är git (`git log`,
+`git show <commit>:<path>`).
 
 ## Får läggas här
 
-- Daterade status-/historikdokument som är klara men värda att hitta utan git-arkeologi.
+- Historik med fortsatt incident- eller beslutsvärde som är svår att hitta via
+  commit- och PR-historik.
+- Daterade statusögonblicksbilder får använda `status/` när de har fortsatt
+  operativt värde; annars räcker git-historiken.
 
 ## Hör inte hit
 

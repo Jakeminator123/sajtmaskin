@@ -139,10 +139,9 @@ Gäller varje fas och varje builder-agent-prompt.
 
 ## 5. Faser (= nivå 2-dokument)
 
-Sju faser. Varje fas blir ett nivå 2-dokument (`NN-fas-*.md`) med en agent-prompt
-(`aktiviteter/`) när fasen startas. Varje fas-PR ska innehålla: kodändring + städning +
-docs-synk + tester + verifiering (`npm run typecheck`, riktad `npx vitest run`, `npm run lint`)
-+ bugbot-postcheck dokumenterad i PR:en.
+Sju faser genomfördes. Agentprompterna var tillfälliga arbetsartefakter och
+finns nu endast i git-historiken. Varje fas-PR innehöll kodändring, städning,
+docs-synk, tester, verifiering och dokumenterad bugbot-postcheck.
 
 ### Fas 0 — Telemetri-hygien & baslinje
 
@@ -308,7 +307,8 @@ Baslinje = 14-dagarsfönstret t.o.m. 2026-07-02 (`underlag/`, f.d. `kontrollflö
 ## 10. Nästa steg
 
 1. ~~Jake granskar denna master-plan~~ — godkänd 2026-07-02.
-2. ~~Agent-prompts för Våg A+B (Fas 0/4/1/2)~~ — skrivna → [`aktiviteter/`](aktiviteter/).
+2. ~~Agent-prompts för Våg A+B (Fas 0/4/1/2)~~ — skrivna och använda; borttagna
+   från det aktiva trädet efter leverans (se git-historik).
 3. ~~Våg A+B implementerad och mergad~~ — PR #361/#362/#363/#360, alla CI-gröna med
    dokumenterad bug-postcheck (2026-07-02, se beslutsloggen).
 4. ~~Fas 3 (Våg C)~~ — implementerad och mergad som PR #364 (2026-07-02). L1-planen

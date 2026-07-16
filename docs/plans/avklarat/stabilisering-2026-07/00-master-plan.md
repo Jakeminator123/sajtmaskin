@@ -35,10 +35,10 @@ plan är uppföljaren: den tar prod-evidensen från 2026-07-03 (chat `cc10e7de`)
 och stänger de luckor som mätningen + live-sessionen exponerade. Ingen
 dubbelleverans — kontrollflödets stoppregler (avsnitt 4 där) gäller även här.
 
-**Arbetsmodell:** samma som kontrollflödet. Orkestratorn skriver agent-prompt
-per arbetspaket (nivå 3, `aktiviteter/`), builder-agenter implementerar i egna
-branches/worktrees och PR:ar, orkestratorn granskar + kör bugbot-postcheck,
-Jake godkänner fasstart och merge.
+**Arbetsmodell:** samma som kontrollflödet. Orkestratorn skrev agentprompter per
+arbetspaket, builder-agenter implementerade i egna branches/worktrees och
+PR:ar, och orkestratorn granskade med bugbot-postcheck. De tillfälliga
+prompterna finns nu i git-historiken.
 
 ---
 
@@ -142,9 +142,8 @@ Våg 3 (parallellt):  W3-A = C3 (+C4)  (DB-pool + ev. restore, 7/10)
 Våg 4:               W4   = E1–E4     (städ/docs/backoffice, 4/10) — E3 delvis löpande i A/B-PR:erna
 ```
 
-- En PR per paket. Builder-agenter i egna branches/worktrees — aldrig
-  `git checkout` i huvudcheckouten. Agent-prompts skrivs just-in-time i
-  [`aktiviteter/`](aktiviteter/) (Våg 1-prompts finns redan).
+- En PR per paket. Builder-agenter arbetade i egna branches/worktrees.
+  Agentprompterna skrevs just-in-time och finns nu i git-historiken.
 - Efter varje våg: riktad verifiering + **en prod-smoke** (init → preview →
   follow-up → restore → F3) via `/logg-internet`, innan nästa våg startar.
 - Reserverade filer per våg listas i respektive prompt (W1-A äger
@@ -207,14 +206,8 @@ mätavstämning ~2026-07-10 — en mätning, två konsumenter).
 
 | 2026-07-04 | **Våg 4 mergad** som #383 (`cb12eec04`) — F3-loopen från prod-chat `fa6515bc` stängd: approval-rundor TVINGAR kodgenerering (förslags-tools ur tool-setet + byggdirektiv med graceful fallback), godkänd provider → hard-dossier-injektion (strikt mappning, ingen kategori-läcka), stub-placeholders är inte längre integrationsbevis (ny `stub-env-filter`), loop-breaker (tyst + tool-only delar räknare, terminal cap), "Avvisa" avslutar F3 utan generation (bekräftad marker-konsumtion). 10 fynd över 3 rundor (bugbot 2×HIGH, Codex 1×P1+5×P2, GitGuardian-falskpositiv, VADE) — 8 fixade, 1 loggad P3, 1 bypassad dokumenterat (GitGuardian på historisk fixtur-commit; tip rent). OBS: W4-agenten avbröts av Cursor-fakturaspärr — orkestratorn slutförde fixarna själv | orkestrator |
 
-## 9. Nästa steg
+## 9. Kvarvarande
 
-1. Jake godkänner master-planen (och PR-rekommendationerna i avsnitt 5 som separata beslut).
-2. Våg 1 startas: tre parallella builder-agenter med prompts i
-   [`aktiviteter/`](aktiviteter/) (`vag1-a-init-gron-prompt.md`,
-   `vag1-b-integration-fallback-prompt.md`, `vag1-c-suggestion-stad-prompt.md`).
-3. Orkestratorn granskar PR:erna (bugbot-postcheck per `pr-merge-review-gate.mdc`),
-   Jake godkänner merge, prod-smoke via `/logg-internet`.
-4. Våg 2-prompts skrivs efter Våg 1-merge (W2-A behöver W1-A:s slutläge).
-5. Mätavstämning ~2026-07-10 delas med kontrollflödet; utfall skrivs in här och
-   i KPI-tabellen.
+Våg 1–4 är levererade. De tillfälliga Våg 1-prompterna finns endast i
+git-historiken. Kvarvarande punkt är den gemensamma mätavstämningen med
+kontrollflödet; utfallet skrivs in här och i KPI-tabellen.
