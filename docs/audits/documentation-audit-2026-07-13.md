@@ -170,7 +170,7 @@ Följande är inte automatiskt dubbletter. Hierarkin måste synas i generatorn:
 | --- | --- | --- |
 | Aktiv Markdown-link/path-drift | LÅST | #533 gör `npm run docs:links` blockerande i CI. |
 | `.github/README.md` och root `README.md` | FIXED | #528 gör dem till tunna routers utan felaktigt buildpåstående eller snapshotdatum. |
-| `scripts/README.md` och aktiv planrouter | FIXED | #535 tunnar båda routers; #541 rättar preview-hostens verifieringssekvens utan dubbelkörning. |
+| `scripts/README.md` och aktiv planrouter | FIXED | #535 tunnar båda routers och pekar på kanoniska kommandon respektive faktiskt aktiva planer. |
 | `config/naming-dictionary.json` | LÅST | #534 migrerar kanoniska termer och blockerar strukturell glossary-/aliasdrift. |
 | `docs/schemas/builder-entry-contract.md` | FIXED OCH LÅST | #537 rättar den borttagna chat-referensen; #540 härdar guarden mot route groups, configs, public JS och breda docsundantag. |
 | Historiska grandmaster-/planfiler | PARTIAL | Aktiv docs-CI ignorerar historik medvetet; återstående värdefulla filer ska få arkivheader och övriga raderas när git räcker. |
