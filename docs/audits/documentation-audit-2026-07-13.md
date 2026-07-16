@@ -166,17 +166,14 @@ Följande är inte automatiskt dubbletter. Hierarkin måste synas i generatorn:
 
 ## Drift, motsägelser och brutna paths
 
-| Aktiv källa                              | Problem                                                                             | Rekommenderad fix                                                            |
-| ---------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `.github/README.md`                      | Säger att CI kör `build`; workflow gör inte det                                     | Beskriv faktiska jobb och peka på `ci.yml`                                   |
-| `docs/schemas/builder-entry-contract.md` | Refererar borttagen `v0/chats/init-registry`                                        | Peka på `/api/engine/chats` och aktuell init-route                           |
-| `scripts/README.md`                      | Refererar rot-`archive/` som inte finns                                             | Peka på `docs/archive/` eller git-historik                                   |
-| Historiska grandmaster-/planfiler        | Refererar `llm-callsite-matrix.md`, `repository-and-platform.md` och `repo-tree.md` | Arkivheader eller git-only deletion; inte mass-rewrite historik              |
-| Arkiverade planer                        | Refererar `2026-04-28-llm-flode-startlinje.md`                                      | Markera ersatt av `llm-pipeline.md`                                          |
-| Äldre dossier-planer                     | Refererar `external-template-pipeline-contract.md`                                  | Markera pipeline borttagen; peka på dossier-kontrakt                         |
-| `docs/plans/active/README.md`            | Återberättar mycket levererad historik                                              | Slimma till faktiska aktiva spår                                             |
-| Root `README.md`                         | Daterad “gäller per 2026-07-07”                                                     | Ta bort ögonblicksdatum från stabil router                                   |
-| `config/naming-dictionary.json`          | Innehåller äldre kanoniska ord som “mekanisk autofix”, “LLM-fix”, “Quality Gate”    | Ersätt med Normalize, RepairGate, RenderGate/ReleaseGate innan hård kontroll |
+| Yta | Status 2026-07-16 | Bevis eller nästa steg |
+| --- | --- | --- |
+| Aktiv Markdown-link/path-drift | LÅST | #533 gör `npm run docs:links` blockerande i CI. |
+| `.github/README.md` och root `README.md` | FIXED | #528 gör dem till tunna routers utan felaktigt buildpåstående eller snapshotdatum. |
+| `scripts/README.md` och aktiv planrouter | FIXED I DENNA CLOSURE | Tunna routers pekar på kanoniska kommandon respektive faktiskt aktiva planer. |
+| `config/naming-dictionary.json` | LÅST | #534 migrerar kanoniska termer och blockerar strukturell glossary-/aliasdrift. |
+| `docs/schemas/builder-entry-contract.md` | OPEN | Referensen till borttagen `v0/chats/init-registry` rättas tillsammans med engine/v0-guardrail i fas 6. |
+| Historiska grandmaster-/planfiler | PARTIAL | Aktiv docs-CI ignorerar historik medvetet; återstående värdefulla filer ska få arkivheader och övriga raderas när git räcker. |
 
 Historiska dokument ska inte få sina sakuppgifter omskrivna som om de vore
 aktuella. De ska antingen få en arkivheader med ersättare eller tas bort när git
@@ -238,14 +235,17 @@ Föreslagen CI-regel i separat låg-risk-PR:
 | DB + Blob parity      | Credentialed gate på trusted non-PR-event    | `.github/workflows/db-blob-sync-check.yml`                   |
 | Preview-host          | Eget blockerande jobb                        | Hostens `check`, `test:guards`, `test:patch`                 |
 | Stability             | Advisory                                     | `npm run test:stability`                                     |
-| Terminologi           | Advisory och alltid exit 0                   | `npm run check:terms`                                        |
+| Terminologitäckning   | Advisory och alltid exit 0                   | `npm run check:terms`                                        |
+| Terminologi-ownership | Blockerande `quality`                       | `npm run check:terms:contract`                               |
+| Aktiva docs-länkar    | Blockerande `quality`                       | `npm run docs:links`                                         |
+| Kontraktsdocs         | Blockerande `quality`                       | `npm run docs:check`                                         |
+| Docs guardtester      | Blockerande via `test:ci`                   | `npm run docs:test`                                          |
 | Format                | Inte i GitHub CI                             | `npm run format:check`                                       |
 | Next build            | Inte i GitHub CI; körs av Vercel             | `npm run build`                                              |
-| Kontraktsdocs         | Saknas                                       | Föreslaget `npm run docs:check`                              |
 
-`docs:check` bör bli blockerande när generatorn bara jämför deterministiska
-artefakter. Allmän länkkontroll och terminologimigrering kan börja som Advisory
-för att undvika att historikfiler skapar falska Blockers.
+De blockerande docs-kontrollerna arbetar bara på deterministiska projektioner,
+strukturellt ägarskap och aktiva paths. Den breda termtäckningen är fortsatt
+Advisory, och historikytor ger därför inte falska Blockers.
 
 `review-window` bevisar bara att PR:n och dess head-SHA har fått ett avgränsat
 granskningsfönster och att kända botar hunnit köra. Jobbet läser eller triagerar
@@ -293,7 +293,7 @@ Matrisen är en daterad arbetsstatus, inte runtime source of truth.
 | Fas 0: audit och ownerinventering        | DONE        | #527 är mergad; rapporten är avgränsad till primära ytor och har faktaspecifika owners.                                         |
 | Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
 | Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer och driftlås i CI; #532 låser även dolda env-, modellpolicy- och variantfält via fingerprints.      |
-| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är första deletion-passet. Closure A blockerar brutna aktiva länkar; active-router och arkivheaders återstår i Closure C. |
+| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. Arkivheader-/deletion-long-tail återstår. |
 | Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |

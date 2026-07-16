@@ -8,12 +8,13 @@
 |--------|------|
 | [`src/lib/env.ts`](../src/lib/env.ts) | Alla namn som appen faktiskt läser (Zod `serverSchema`). |
 | [`config/env-policy.json`](../config/env-policy.json) | Klassificering per nyckel (`shared_runtime`, `optional_runtime`, `vercel_managed`, …), rekommenderade Vercel-miljöer, `knownEmptyOk`, m.m. |
+| [`docs/generated/policies.generated.md`](generated/policies.generated.md) | Genererad, hemlighetsfri referens för env- och generationspolicy. Äger inga beslut. |
 | [`scripts/env/manage_env.py`](../scripts/env/manage_env.py) | Kanonisk env-CLI för audit / status / sync mot lokala filer och Vercel. |
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
 - Preview / VM / credentials: [`architecture/llm-pipeline.md`](./architecture/llm-pipeline.md)
-- Modeller / assist / builder-generering: [`architecture/llm-pipeline.md`](./architecture/llm-pipeline.md), `src/lib/models/catalog.ts`
+- Modeller / assist / builder-generering: [`schemas/model-build-profiles.md`](schemas/model-build-profiles.md), [`generated/models.generated.md`](generated/models.generated.md)
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
 ---
