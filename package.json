@@ -12,6 +12,7 @@
     "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-traversal-guards.mjs && node scripts/dev/check-autofix-risk.mjs && node scripts/dev/check-bug-backlog.mjs && npm run route-timeouts:check",
     "route-timeouts:sync": "node scripts/ai-models/sync-route-timeouts.mjs --write",
     "route-timeouts:check": "node scripts/ai-models/sync-route-timeouts.mjs --check",
+    "compat:v0-chat-boundary:check": "node scripts/dev/check-v0-chat-boundary.mjs",
     "check:terms": "node scripts/dev/check-term-coverage.mjs",
     "check:terms:contract": "node scripts/docs/check-terminology-contract.mjs",
     "docs:generate": "npx tsx scripts/docs/generate-contract-docs.mjs",
