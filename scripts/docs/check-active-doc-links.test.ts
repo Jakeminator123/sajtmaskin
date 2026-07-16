@@ -47,7 +47,8 @@ describe("active documentation link checks", () => {
   it("reports missing active links but ignores missing links inside archives", async () => {
     const files = new Map([
       ["README.md", "[Docs](docs/README.md)"],
-      ["docs/README.md", "[Missing](contracts/missing.md) [App route](/builder/demo)"],
+      ["docs/README.md", "[Directory](contracts/) [Missing](contracts/missing.md) [App route](/builder/demo)"],
+      ["docs/contracts/guide.md", "# Guide"],
       ["docs/archive/old.md", "[Historical missing](gone.md)"],
     ]);
 
