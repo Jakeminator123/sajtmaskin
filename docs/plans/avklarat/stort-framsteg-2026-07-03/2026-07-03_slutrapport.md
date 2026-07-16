@@ -2,7 +2,6 @@
 
 **Persona:** Observatör (light-variant) | **Prod:** https://sajtmaskin.vercel.app/
 **chatId:** `cc10e7de-31a7-451b-8950-358028b64ab2` | **projectId:** `5zEGSS7LsepxZG3B_smMG`
-**Rådata/notiser:** [`2026-07-03_1058.md`](2026-07-03_1058.md) (samma mapp)
 
 > Körd som backend-korsref: användaren körde själv sessionen i Chrome (ej Cursor-browser).
 > Allt nedan är verifierat mot prod-DB (`dump-logs`/`latest-site`) + Vercel runtime-loggar
