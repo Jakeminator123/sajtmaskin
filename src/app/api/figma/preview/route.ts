@@ -2,13 +2,9 @@ import { FEATURES, SECRETS } from "@/lib/config";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
+import { parseFigmaUrl } from "./figma-url";
 
 export const runtime = "nodejs";
-
-type FigmaParsedUrl = {
-  fileKey: string;
-  nodeId?: string;
-};
 
 type FigmaNode = {
   id?: string;
@@ -47,27 +43,6 @@ type FileMetaCacheEntry = {
 
 const previewCache = new Map<string, PreviewCacheEntry>();
 const fileMetaCache = new Map<string, FileMetaCacheEntry>();
-
-export function parseFigmaUrl(rawUrl: string): FigmaParsedUrl | null {
-  try {
-    const url = new URL(rawUrl);
-    const hostname = url.hostname.toLowerCase();
-    if (hostname !== "figma.com" && !hostname.endsWith(".figma.com")) return null;
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    const fileIndex = parts.findIndex((p) => ["file", "design", "proto"].includes(p));
-    if (fileIndex === -1 || !parts[fileIndex + 1]) return null;
-
-    const fileKey = parts[fileIndex + 1];
-    const nodeId = url.searchParams.get("node-id") || url.searchParams.get("node_id") || undefined;
-    return {
-      fileKey,
-      nodeId: nodeId ? decodeURIComponent(nodeId) : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
 
 function findFirstCanvasId(node?: FigmaNode): string | null {
   if (!node) return null;
