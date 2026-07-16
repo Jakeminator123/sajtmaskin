@@ -294,8 +294,8 @@ Matrisen är en daterad arbetsstatus, inte runtime source of truth.
 | Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
 | Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer och driftlås i CI; #532 låser även dolda env-, modellpolicy- och variantfält via fingerprints.      |
 | Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är första deletion-passet. Closure A blockerar brutna aktiva länkar; active-router och arkivheaders återstår i Closure C. |
-| Agentregler för owner → generate → check | PARTIAL     | Agent-entry och repo-router följer owner-modellen; bred pipeline-/workflowregel och mekanisk docs-sync återstår i closure PR B. |
-| Terminologi/glossary-konsolidering       | DEFERRED    | `docs/architecture/glossary.md` förblir canonical. Strukturerad källa införs bara med full term-/länkparitet.                   |
+| Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
+| Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |
 | Fas 5: featurefamiljer                   | NOT STARTED | Audit, kostnadsfri, figma, wizard, marketplace/MCP och templates granskas separat.                                              |
 | Fas 6: compatibility/owner-konsolidering | NOT STARTED | Engine/v0 och övriga signalägare kräver separata semantik- och regressionstester.                                               |

@@ -111,3 +111,20 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Spec-first-kedjan | Deep Brief + orchestration |
 | Directive Cascade | Core Rules + Dynamic Context + signalägare |
 | `serverVerify` som quality-gate-lane | `RenderGate` (`designPreview`) eller `ReleaseGate` (`integrationsBuild`) |
+
+## Förvaltning av ordlistan
+
+Den här filen är den enda kanoniska glossary-ytan. Den är en handskriven mental
+modell, inte en alternativ runtime-implementation. Exakta enumvärden, owners och
+policyfält ska fortsatt hämtas från kod, schemas, registries och genererade
+referenser.
+
+`config/naming-dictionary.json` är en liten maskinläsbar valideringsseed.
+`npm run check:terms:contract` blockerar parallella glossary-paths, dubbla
+termer och att kända legacyalias åter klassas som kanoniska. `npm run
+check:terms` är rådgivande eftersom kodidentifierare och telemetrifält får
+behålla dokumenterade legacy-namn.
+
+Ändra en term i ordningen: faktisk owner och semantik → denna glossary →
+dictionary-seed vid behov → agentregler och aktiva docs. Skapa inte ett andra
+terminologiregistry för runtime.

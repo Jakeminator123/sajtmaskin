@@ -50,6 +50,14 @@ const EXCLUDE_REL = new Set(
   ].map((p) => p.replace(/\//g, path.sep)),
 );
 
+const HISTORICAL_PREFIXES = [
+  "docs/archive/",
+  "docs/audits/",
+  "docs/old/",
+  "docs/plans/archived/",
+  "docs/plans/avklarat/",
+];
+
 const MAX_PER_ALIAS = 12;
 const MAX_UNKNOWN_TERMS = 25;
 
@@ -92,6 +100,8 @@ function collectFiles() {
     for (const file of walk(abs)) {
       const rel = path.relative(repoRoot, file);
       if (EXCLUDE_REL.has(rel)) continue;
+      const relPosix = rel.split(path.sep).join("/");
+      if (HISTORICAL_PREFIXES.some((prefix) => relPosix.startsWith(prefix))) continue;
       let text;
       try {
         text = fs.readFileSync(file, "utf8");
@@ -100,7 +110,7 @@ function collectFiles() {
       }
       files.push({
         rel,
-        relPosix: rel.split(path.sep).join("/"),
+        relPosix,
         top,
         ext: path.extname(file),
         text,
