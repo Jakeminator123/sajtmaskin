@@ -292,8 +292,8 @@ Matrisen är en daterad arbetsstatus, inte runtime source of truth.
 | ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Fas 0: audit och ownerinventering        | DONE        | #527 är mergad; rapporten är avgränsad till primära ytor och har faktaspecifika owners.                                         |
 | Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
-| Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer, navigation, determinism, source-coverage och missing/stale/orphan-lås i CI.                        |
-| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är mergad som första smala deletion-pass. Aktiv router, arkivheaders och repoövergripande länk-/path-CI återstår.          |
+| Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer och driftlås i CI; #532 låser även dolda env-, modellpolicy- och variantfält via fingerprints.      |
+| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är första deletion-passet. Closure A blockerar brutna aktiva länkar; active-router och arkivheaders återstår i Closure C. |
 | Agentregler för owner → generate → check | PARTIAL     | Agent-entry och repo-router följer owner-modellen; bred pipeline-/workflowregel och mekanisk docs-sync återstår i closure PR B. |
 | Terminologi/glossary-konsolidering       | DEFERRED    | `docs/architecture/glossary.md` förblir canonical. Strukturerad källa införs bara med full term-/länkparitet.                   |
 | Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |

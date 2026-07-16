@@ -61,6 +61,10 @@ När genererade referenser finns ska `docs/README.md` länka deras router.
 `docs:check` ska upptäcka missing, stale och unexpected/orphan output; en fil
 som generatorn slutat äga får inte ligga kvar och se canonical ut.
 
+`docs:links` ska verifiera relativa fil- och kataloglänkar i aktiva Markdown-
+ytor. Daterade audits, arkiv och avklarade planer ligger utanför den
+blockerande mängden; de ska städas eller märkas i separata historik-PR:er.
+
 ## Planer och historik
 
 | Status             | Plats                  | Regel                              |
