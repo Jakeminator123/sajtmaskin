@@ -7,8 +7,8 @@
 > Source: `data/dossiers/{hard,soft}/*/manifest.json#envVars`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:ff60f830e3d3c0ce -->
-<!-- source-fingerprint: config/env-policy.json sha256:37df2480f827a2c3 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
+<!-- source-fingerprint: config/env-policy.json sha256:3787becad29e4be3 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5a8d6ca75930e172 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
@@ -19,9 +19,9 @@
 | Lane                | Phase | Ordered checks                 |
 | ------------------- | ----- | ------------------------------ |
 | `designPreview`     | `F2`  | `typecheck`                    |
-| `integrationsBuild` | `F3`  | `typecheck` → `build` → `lint` |
+| `integrationsBuild` | `F3`  | `typecheck` → `lint` → `build` |
 
-Preview result enums are projected in `schemas.generated.md`; this policy index emits only owner-backed gate and policy metadata.
+Structured result enums from the preview contract: `$.contracts.PreviewHostVerifyResponse.properties.results.items.properties.failureKind.enum`: `code`, `tooling`, `null`.
 
 ## Environment policy
 
