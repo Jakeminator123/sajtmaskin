@@ -122,16 +122,6 @@ node scripts/v0-templates/audit-template-repos.mjs                            # 
 - Import: finns en lokal ZIP i `templates_v0/downloads/` startar mallflödet direkt från den; annars hämtas ZIP:en från Blob-manifestet.
 - Nya ZIP-/metadata-filer syns inte i appen förrän `--write-catalog` uppdaterat `src/lib/templates/*`.
 
-## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
-
-**Inte produktion.** Tidigare `scripts/labs/testning_scarf/` — flyttat till [`archive/scripts-labs-testning_scarf/`](../archive/scripts-labs-testning_scarf/) (se [`archive/README.md`](../archive/README.md)). Inga `npm run`-alias längre; kör skripten manuellt från repo-root, t.ex.:
-
-| Tidigare npm | Ersätt med (exempel) |
-|--------------|----------------------|
-| `prompt:trace` | `npx tsx archive/scripts-labs-testning_scarf/trace-generation-context.ts --prompt-file …` |
-| `scaffold:suite` | `python archive/scripts-labs-testning_scarf/run_scaffold_suite.py` |
-| `first-llm:lab` / live | `python archive/scripts-labs-testning_scarf/first_llm_promptlab.py` / `npx tsx archive/scripts-labs-testning_scarf/run_first_llm_live.ts …` |
-| `testning:codegen-print` | `python archive/scripts-labs-testning_scarf/print_codegen_context.py` |
 
 ## Env-verktyg (`scripts/env/`)
 
