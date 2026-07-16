@@ -29,6 +29,7 @@ import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
@@ -50,6 +51,7 @@ import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
+  collectLintAdvisories,
   compactVisualQAForQualityGateLog,
   resolveServerRepairOutcome,
   type ServerRepairEarlyStop,
@@ -395,19 +397,51 @@ async function handlePOST(
           staleBaseNoOp = true;
         }
       }
+      const postRepairLintAdvisories = collectLintAdvisories(decision.results);
+      const lintAdvisoryPromoted = promoted && postRepairLintAdvisories.length > 0;
+      if (lintAdvisoryPromoted) {
+        try {
+          emitBusEvent({
+            t: "version.degraded",
+            versionId: currentVersionId,
+            chatId,
+            kind: "lint_advisory",
+            message:
+              "Manuell post-repair ReleaseGate godkändes med ESLint-varningar (advisory).",
+            meta: {
+              advisoryChecks: ["lint"],
+              warningCount: postRepairLintAdvisories.reduce(
+                (sum, result) => sum + (result.warningCount ?? 0),
+                0,
+              ),
+            },
+          });
+        } catch {
+          // Telemetry only — never invalidate a verified repair candidate.
+        }
+      }
       if (dbConfigured) {
         await createEngineVersionErrorLogs([
           {
             chatId,
             versionId: currentVersionId,
-            level: promoted ? ("info" as const) : ("warning" as const),
+            level: promoted
+              ? lintAdvisoryPromoted
+                ? ("warning" as const)
+                : ("info" as const)
+              : ("warning" as const),
             category: "preflight:quality-gate",
             message: promoted
-              ? `Post-repair quality gate passed (${method}); repair is ready for acceptance.`
+              ? lintAdvisoryPromoted
+                ? `Post-repair quality gate passed with lint warnings (advisory, ${method}); repair is ready for acceptance.`
+                : `Post-repair quality gate passed (${method}); repair is ready for acceptance.`
               : decision.promote
                 ? `Post-repair quality gate passed but repair could not be saved (${method}).`
                 : "Post-repair quality gate did not pass; not promoting.",
             meta: buildServerVerifyQualityGateMeta({
+              passed: promoted,
+              advisory: lintAdvisoryPromoted,
+              advisoryChecks: lintAdvisoryPromoted ? ["lint"] : [],
               results: decision.results,
               verifyLaneDurationMs: decision.verifyLaneDurationMs,
               firstFailureCheck: decision.firstFailureCheck,

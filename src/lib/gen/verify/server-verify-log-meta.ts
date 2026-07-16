@@ -135,6 +135,15 @@ export type ServerVerifyFailedOutput = {
   durationMs?: number | null;
 };
 
+/** Shared owner for lint-Advisory detection in initial and post-repair gates. */
+export function collectLintAdvisories(
+  results: QualityGateCheckResult[] | null | undefined,
+): QualityGateCheckResult[] {
+  return (results ?? []).filter(
+    (result) => result.check === "lint" && result.passed && result.advisory === true,
+  );
+}
+
 /** Compact visual QA for persisted logs (no long detail strings). */
 export type QualityGateVisualQaLogMeta = {
   overallScore: number;
@@ -161,6 +170,8 @@ export function compactVisualQAForQualityGateLog(
 type BuildServerVerifyQualityGateMetaParams = {
   results?: QualityGateCheckResult[] | null;
   passed?: boolean;
+  advisory?: boolean;
+  advisoryChecks?: string[];
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
   jobStartedAt: string | null;
@@ -179,6 +190,8 @@ export function buildServerVerifyQualityGateMeta(
   const {
     results,
     passed,
+    advisory,
+    advisoryChecks,
     verifyLaneDurationMs,
     firstFailureCheck,
     jobStartedAt,
@@ -193,10 +206,25 @@ export function buildServerVerifyQualityGateMeta(
 
   return {
     ...(typeof passed === "boolean" ? { passed } : {}),
+    ...(typeof advisory === "boolean" ? { advisory } : {}),
+    ...(advisoryChecks && advisoryChecks.length > 0 ? { advisoryChecks } : {}),
     checks:
       results?.map((result) => ({
         check: result.check,
         passed: result.passed,
+        ...(typeof result.advisory === "boolean"
+          ? { advisory: result.advisory }
+          : {}),
+        ...(typeof result.repairable === "boolean"
+          ? { repairable: result.repairable }
+          : {}),
+        ...(result.failureKind ? { failureKind: result.failureKind } : {}),
+        ...(typeof result.errorCount === "number"
+          ? { errorCount: result.errorCount }
+          : {}),
+        ...(typeof result.warningCount === "number"
+          ? { warningCount: result.warningCount }
+          : {}),
         exitCode: result.exitCode,
         durationMs: result.durationMs ?? null,
       })) ?? null,

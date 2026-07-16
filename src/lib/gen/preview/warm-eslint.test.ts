@@ -1,10 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   runPreVmEslint,
-  formatEslintIssuesForRepair,
+  formatEslintIssuesForDiagnostics,
 } from "./warm-eslint";
 
 // Use PID + random suffix to avoid collisions across test-workers and parallel
@@ -43,23 +43,37 @@ describe("runPreVmEslint", () => {
     expect(result.issues).toEqual([]);
   });
 
+  it("is not imported by finalize/validate-and-fix", () => {
+    const validateSource = readFileSync(
+      join(process.cwd(), "src/lib/gen/autofix/validate-and-fix.ts"),
+      "utf8",
+    );
+    const fastPathSource = readFileSync(
+      join(process.cwd(), "src/lib/gen/stream/finalize-version/fast-path.ts"),
+      "utf8",
+    );
+    expect(validateSource).not.toContain("warm-eslint");
+    expect(validateSource).not.toContain("runPreVmEslint");
+    expect(fastPathSource).not.toContain("forceEslint");
+  });
+
   it("skips with no_files when file list is empty", async () => {
+    process.env.SAJTMASKIN_BLOCKING_ESLINT = "true";
     const result = await runPreVmEslint({
       scaffoldId: "landing-page",
       files: [],
-      force: true,
     });
     expect(result.ok).toBe(true);
     expect(result.skipped).toBe("no_files");
   });
 
   it("reports cache_cold when cache dir has no node_modules / eslint config", async () => {
+    process.env.SAJTMASKIN_BLOCKING_ESLINT = "true";
     const cacheDir = makeCacheDir("cold-cache");
     try {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
         files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
-        force: true,
         cacheDirOverride: cacheDir,
       });
       expect(result.ok).toBe(true);
@@ -70,13 +84,13 @@ describe("runPreVmEslint", () => {
   });
 
   it("reports cache_cold when node_modules exists but no eslint.config.* file", async () => {
+    process.env.SAJTMASKIN_BLOCKING_ESLINT = "true";
     const cacheDir = makeCacheDir("partial-cache");
     mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
     try {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
         files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
-        force: true,
         cacheDirOverride: cacheDir,
       });
       expect(result.ok).toBe(true);
@@ -87,6 +101,7 @@ describe("runPreVmEslint", () => {
   });
 
   it("runs when cache is warm with eslint.config.mjs (spawn may fail fail-open)", async () => {
+    process.env.SAJTMASKIN_BLOCKING_ESLINT = "true";
     const cacheDir = makeCacheDir("warm-cache");
     mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
     writeFileSync(join(cacheDir, "eslint.config.mjs"), "export default [];", "utf8");
@@ -94,12 +109,11 @@ describe("runPreVmEslint", () => {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
         files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
-        force: true,
         cacheDirOverride: cacheDir,
       });
       // Without a real eslint install the spawn will typically fail the gate
       // with `eslint_unavailable` (exit != 0 + no parseable output). The
-      // contract: fail-open, never throw, never block the finalize pipeline.
+      // contract: fail-open, never throw, and remain local diagnostics only.
       expect(result.ok).toBe(true);
     } finally {
       rmSync(cacheDir, { recursive: true, force: true });
@@ -107,9 +121,9 @@ describe("runPreVmEslint", () => {
   });
 });
 
-describe("formatEslintIssuesForRepair", () => {
+describe("formatEslintIssuesForDiagnostics", () => {
   it("formats issues with file:line:col + rule suffix", () => {
-    const lines = formatEslintIssuesForRepair([
+    const lines = formatEslintIssuesForDiagnostics([
       {
         file: "components/Overlay.tsx",
         line: 42,
@@ -144,6 +158,6 @@ describe("formatEslintIssuesForRepair", () => {
       ruleId: null,
       message: "err",
     }));
-    expect(formatEslintIssuesForRepair(many)).toHaveLength(40);
+    expect(formatEslintIssuesForDiagnostics(many)).toHaveLength(40);
   });
 });

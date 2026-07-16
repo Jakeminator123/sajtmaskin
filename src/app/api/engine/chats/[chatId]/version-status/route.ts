@@ -34,8 +34,8 @@ import { emit as emitBusEvent, readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import {
-  isLatestGateVerdictAdvisory,
   isLatestGateVerdictGreen,
+  resolveLatestGateAdvisoryChecks,
   resolveGateFailureSummaryFromLogs,
 } from "@/lib/gen/verify/gate-failure-summary";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
@@ -135,20 +135,22 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
           // would reconcile the bus to a false green `done`. Only a real promoted
           // Version emits (never `"guard_denied"` / `null`). Clean pass emits
           // nothing. Best-effort telemetry (reuses the memoised log read).
-          if (
-            promoted &&
-            promoted !== "guard_denied" &&
-            isLatestGateVerdictAdvisory(await loadLogs())
-          ) {
+          const advisoryChecks =
+            promoted && promoted !== "guard_denied"
+              ? resolveLatestGateAdvisoryChecks(await loadLogs())
+              : [];
+          if (advisoryChecks.length > 0) {
+            const lintAdvisory = advisoryChecks.includes("lint");
             try {
               emitBusEvent({
                 t: "version.degraded",
                 versionId: versionIdForReconcile,
                 chatId,
-                kind: "typecheck_advisory",
-                message:
-                  "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
-                meta: { advisoryChecks: ["typecheck"] },
+                kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
+                message: lintAdvisory
+                  ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
+                  : "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+                meta: { advisoryChecks },
               });
             } catch {
               // Telemetry only — never block the poll on a bus failure.

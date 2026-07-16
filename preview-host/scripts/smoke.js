@@ -108,8 +108,10 @@ async function main() {
     assert.ok(installResult, "verify result should contain install check");
     assert.ok(lintResult, "verify result should contain lint check");
     assert.equal(installResult?.passed, true);
-    assert.equal(lintResult?.passed, true);
-    assert.match(String(lintResult?.output || ""), /Skipped lint/i);
+    assert.equal(lintResult?.passed, false);
+    assert.equal(lintResult?.failureKind, "tooling");
+    assert.equal(lintResult?.repairable, false);
+    assert.match(String(lintResult?.output || ""), /No package download was attempted/i);
 
     const previewHtml = await waitForPreviewHtml(`${baseUrl}/chat_demo_1`, /demo-project/);
     assert.match(previewHtml, /demo-project/);

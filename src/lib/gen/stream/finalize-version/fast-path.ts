@@ -3,7 +3,7 @@
  * `finalizeAndSaveVersion` after URL expansion + mechanical autofix.
  *
  * Phases:
- *   1. validate syntax (+ optional forceTsc/forceEslint)
+ *   1. validate syntax (+ optional warm typecheck)
  *   2. materialize images (deep path only)
  *   3. verifier pass (+ optional LLM-fixer rerun)
  *   4. parse + merge + preflight (+ scaffold-default block check,
@@ -234,9 +234,6 @@ export async function runFinalizeFastPath(params: {
     skipWarmTsc,
     repairLedger,
     repairScopeId,
-    // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
-    // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
-    forceEslint: buildSpec?.previewPolicy === "fidelity3",
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -254,7 +251,6 @@ export async function runFinalizeFastPath(params: {
     errorsAfter: syntaxResult.errorsAfter,
     result: syntaxResult.status,
     tsc: syntaxResult.tsc ?? null,
-    eslint: syntaxResult.eslint ?? null,
   });
   stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
     fixerUsed: syntaxResult.fixerUsed,
@@ -264,7 +260,6 @@ export async function runFinalizeFastPath(params: {
     earlyStopReason: syntaxResult.earlyStopReason,
     result: syntaxResult.status,
     tsc: syntaxResult.tsc ?? null,
-    eslint: syntaxResult.eslint ?? null,
   });
 
   if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
@@ -364,7 +359,7 @@ export async function runFinalizeFastPath(params: {
   const hasRiskyFixes = autoFixRisk.riskyFixCount > 0;
   // Efterputs (coach-lucka 1): `autoFixRisk` only covers the PRE-phase
   // autofix. `validateAndFix` runs AFTER that summary and can rewrite content
-  // via LLM fixers (esbuild syntax fix, warm-tsc/warm-eslint RepairGate). An
+  // via LLM fixers (esbuild syntax fix or warm-tsc RepairGate). An
   // LLM rewrite is risky by definition (see fixer-registry `llm-*` entries),
   // so it must block the safe-only verifier skip. Deliberately NOT blocked:
   // `tsc.repaired` from the deterministic import repair alone — those fixes

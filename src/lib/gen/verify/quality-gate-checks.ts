@@ -12,7 +12,7 @@
  *
  *  2. **Integrations build lane** (`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS`):
  *     Used for F3 ("bygg integrationer") and deploy-promotion paths.
- *     `typecheck + build` (always — F3 always pays for the build).
+ *     Runs the authoritative VM sequence `typecheck + lint + build`.
  *
  * Older 4-lane shape (`tier2`/`serverVerify`/`promotion`/`interactive`)
  * was collapsed 2026-04: serverVerify and interactive were duplicates of
@@ -21,7 +21,7 @@
 import { getQualityGateTiersFromManifest } from "@/lib/ai-models/load-manifest";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 
-export const QUALITY_GATE_CHECK_VALUES = ["typecheck", "build", "lint"] as const;
+export const QUALITY_GATE_CHECK_VALUES = ["typecheck", "lint", "build"] as const;
 
 export type QualityGateCheck = (typeof QUALITY_GATE_CHECK_VALUES)[number];
 
@@ -41,22 +41,16 @@ const qualityGateTiers = getQualityGateTiersFromManifest();
 // Defaults match the manifest baseline.
 //
 // 2026-04-23 change — F2 `designPreview` reduced to `typecheck` only.
-// Rationale: `build` and `lint` in F2 cost ~5–20 s of Fly-CPU per finalize
-// and are almost fully redundant with the pre-VM passes that now run in
-// the Sajtmaskin backend process (`src/lib/gen/preview/warm-typecheck.ts`
-// and `src/lib/gen/preview/warm-eslint.ts`) BEFORE files are shipped to
-// preview-host. Those warm passes feed the LLM-fixer loop with the same
-// tsc/eslint diagnostics and can repair them inline. The on-VM typecheck
-// remains as a cheap safety net in case warm-cache is cold (fail-open).
-// F3 (`integrationsBuild`) keeps the full `typecheck + build + lint` set
-// because integrations builds must actually produce a valid Next build.
+// F2 remains typecheck-only and keeps its render-first Advisory semantics.
+// F3 (`integrationsBuild`) is the single authoritative VM ReleaseGate:
+// typecheck first, project-local lint second, and the full Next build last.
 //
 // Override in `config/ai_models/manifest.json` `qualityGateTiers.designPreview`
 // if you want `build`/`lint` back on the VM (e.g. while debugging a
 // particular Next-runtime failure). The schema in
 // `config/ai_models/manifest.schema.json` requires both lane keys.
 const DEFAULT_DESIGN_PREVIEW = ["typecheck"] as const;
-const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "build", "lint"] as const;
+const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "lint", "build"] as const;
 
 export const DESIGN_PREVIEW_QUALITY_GATE_CHECKS = sanitizeTierChecks(
   qualityGateTiers.designPreview,
@@ -80,7 +74,7 @@ export const INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS = sanitizeTierChecks(
  *
  * F3 / integrations (#291 Codex P1 — keep F3 repairs on the integrations gate):
  * an `"fidelity3"` version must ALWAYS re-gate on the full integrations lane
- * (`typecheck + build + lint`), regardless of which check first failed. A
+ * (`typecheck + lint + build`), regardless of which check first failed. A
  * deterministic/LLM repair that preserves or re-adds tier-3 backend SDK imports
  * (stripe / Clerk-server / supabase) could otherwise be promoted to
  * `repair_available` after `tsc` only, skipping the build/lint validation the

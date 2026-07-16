@@ -15,11 +15,15 @@ import {
   resolvePostRepairFinalize,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
-import { logQualityGateFailuresBestEffort } from "./server-verify";
+import {
+  logQualityGateFailuresBestEffort,
+  partitionServerVerifyFailures,
+} from "./server-verify";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
+  collectLintAdvisories,
   compactVisualQAForQualityGateLog,
   resolveServerRepairOutcome,
 } from "./server-verify-log-meta";
@@ -34,6 +38,99 @@ import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
 } from "./repair-loop";
+
+describe("server-verify repairability partition", () => {
+  const failed = (check: string, repairable: boolean) => ({
+    check,
+    passed: false,
+    repairable,
+    failureKind: repairable ? ("code" as const) : ("tooling" as const),
+    exitCode: 2,
+    output: `${check} failed`,
+    durationMs: 10,
+  });
+
+  it("does not start code repair for an only-tooling gate result", () => {
+    const partition = partitionServerVerifyFailures([failed("lint", false)]);
+    expect(partition.failedOutputs).toEqual([]);
+    expect(partition.nonRepairableFailures).toEqual([
+      expect.objectContaining({ check: "lint", repairable: false }),
+    ]);
+  });
+
+  it("keeps only repairable code failures in a mixed gate result", () => {
+    const partition = partitionServerVerifyFailures([
+      failed("typecheck", true),
+      failed("lint", false),
+    ]);
+    expect(partition.failedOutputs).toEqual([
+      {
+        check: "typecheck",
+        exitCode: 2,
+        output: "typecheck failed",
+        durationMs: 10,
+      },
+    ]);
+    expect(partition.nonRepairableFailures).toEqual([
+      expect.objectContaining({ check: "lint", repairable: false }),
+    ]);
+  });
+
+  it("keeps an only-repairable gate result in code repair", () => {
+    const partition = partitionServerVerifyFailures([failed("build", true)]);
+    expect(partition.failedOutputs).toEqual([
+      {
+        check: "build",
+        exitCode: 2,
+        output: "build failed",
+        durationMs: 10,
+      },
+    ]);
+    expect(partition.nonRepairableFailures).toEqual([]);
+  });
+});
+
+describe("post-repair lint Advisory metadata", () => {
+  it("preserves warning-only lint as Advisory in durable gate metadata", () => {
+    const results = [
+      {
+        check: "lint",
+        passed: true,
+        advisory: true,
+        repairable: false,
+        failureKind: null,
+        warningCount: 2,
+        exitCode: 0,
+        output: "2 warnings",
+        durationMs: 10,
+      },
+    ];
+    const advisories = collectLintAdvisories(results);
+    expect(advisories).toHaveLength(1);
+    expect(
+      buildServerVerifyQualityGateMeta({
+        passed: true,
+        advisory: advisories.length > 0,
+        advisoryChecks: ["lint"],
+        results,
+        verifyLaneDurationMs: 10,
+        firstFailureCheck: null,
+        jobStartedAt: null,
+        jobFinishedAt: null,
+        repass: true,
+        promoted: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        passed: true,
+        advisory: true,
+        advisoryChecks: ["lint"],
+        repass: true,
+        promoted: true,
+      }),
+    );
+  });
+});
 
 describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-verify rule)", () => {
   // Semantic prop-type mismatch — renders under `next dev` (advisory-safe).

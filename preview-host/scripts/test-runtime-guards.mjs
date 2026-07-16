@@ -16,7 +16,14 @@
  */
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -193,7 +200,244 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   );
 }
 
-// 7. Referer-fallback inputs for root-absolute Next-internal requests (TODO #4
+// 7. ReleaseGate uses only project-local tools, keeps lint warnings advisory,
+//    and classifies missing/broken lint tooling separately from user-code errors.
+{
+  const {
+    VERIFY_COMMANDS,
+    classifyLintResult,
+    inspectProjectLintSetup,
+    resolveInstallCommand,
+  } = runtime.__testing;
+  check("verify commands never invoke npx", Object.values(VERIFY_COMMANDS).every((cmd) => !/\bnpx\b/.test(cmd)));
+  check("lint command resolves project-local eslint", /node_modules\/eslint\/bin\/eslint\.js/.test(VERIFY_COMMANDS.lint));
+
+  const warning = classifyLintResult({
+    exitCode: 0,
+    output: "✖ 2 problems (0 errors, 2 warnings)",
+  });
+  check("lint warnings pass", warning.passed === true);
+  check("lint warnings are advisory", warning.advisory === true && warning.warningCount === 2);
+  check("lint warnings are never repairable", warning.repairable === false);
+
+  const error = classifyLintResult({
+    exitCode: 1,
+    output: "✖ 1 problem (1 error, 0 warnings)",
+  });
+  check("lint errors block", error.passed === false);
+  check("lint errors remain repairable user-code failures", error.repairable === true && error.failureKind === "code");
+
+  const tooling = classifyLintResult({ exitCode: 2, output: "ESLint configuration failed" });
+  check("lint config/tool failures block", tooling.passed === false);
+  check("lint config/tool failures never enter code repair", tooling.repairable === false && tooling.failureKind === "tooling");
+
+  const validLintFiles = {
+    "package.json": JSON.stringify({ devDependencies: { eslint: "9.39.2" } }),
+    "eslint.config.mjs": "export default [];",
+  };
+  check("canonical export owns complete lint setup", inspectProjectLintSetup(validLintFiles).ok === true);
+  check(
+    "missing lint config is a tooling error",
+    inspectProjectLintSetup({ "package.json": validLintFiles["package.json"] }).ok === false,
+  );
+  check(
+    "missing local eslint dependency is a tooling error",
+    inspectProjectLintSetup({ "package.json": "{}", "eslint.config.mjs": "export default [];" }).ok === false,
+  );
+
+  const npmLockInstall = resolveInstallCommand({ "package-lock.json": "{}" });
+  check(
+    "npm lock primary and fallback include devDependencies",
+    [npmLockInstall.command, npmLockInstall.fallbackCommand].every((command) =>
+      /--include=dev/.test(command),
+    ),
+  );
+  const npmInstall = resolveInstallCommand({ "package.json": "{}" });
+  check(
+    "npm unlocked primary and fallback include devDependencies",
+    [npmInstall.command, npmInstall.fallbackCommand].every((command) =>
+      /--include=dev/.test(command),
+    ),
+  );
+  const pnpmInstall = resolveInstallCommand({ "pnpm-lock.yaml": "lockfileVersion: 9" });
+  check(
+    "pnpm primary and fallback include devDependencies",
+    [pnpmInstall.command, pnpmInstall.fallbackCommand].every((command) =>
+      /--prod=false/.test(command),
+    ),
+  );
+  check(
+    "yarn install avoids the Berry-incompatible production flag",
+    !/--production(?:=|\s|$)/.test(
+      [
+        resolveInstallCommand({ "yarn.lock": "" }).command,
+        resolveInstallCommand({ "yarn.lock": "" }).fallbackCommand,
+      ].join(" "),
+    ),
+  );
+  check(
+    "verify commands only use installed project-local tooling",
+    Object.values(runtime.__testing.VERIFY_COMMANDS).every(
+      (command) => command.startsWith("node ./node_modules/") && !/\bnpx\b/.test(command),
+    ),
+  );
+}
+
+// 8. Matching dependency fingerprints are copied into an isolated verify
+//    workspace and skip install. A mismatch performs the project's own install.
+{
+  const {
+    dependencyFingerprint,
+    dependencyStatePathForWorkspace,
+    setVerifyRunnersForTesting,
+    tryShareNodeModules,
+    workspaceDirForChat,
+  } = runtime.__testing;
+  const chatId = "guard-dependency-reuse";
+  const source = workspaceDirForChat(chatId);
+  const target = join(dataDir, "copy-target");
+  const filesJson = {
+    "package.json": JSON.stringify({ devDependencies: { eslint: "9.39.2" } }),
+    "eslint.config.mjs": "export default [];",
+  };
+  const fingerprint = dependencyFingerprint(filesJson);
+  for (const [relativePath, contents] of [
+    [["eslint", "bin", "eslint.js"], "source"],
+    [["typescript", "bin", "tsc"], "source"],
+    [["next", "dist", "bin", "next"], "source"],
+  ]) {
+    const localToolPath = join(source, "node_modules", ...relativePath);
+    mkdirSync(join(localToolPath, ".."), { recursive: true });
+    writeFileSync(localToolPath, contents, "utf8");
+  }
+  writeFileSync(
+    dependencyStatePathForWorkspace(source),
+    JSON.stringify({ fingerprint }),
+    "utf8",
+  );
+  mkdirSync(target, { recursive: true });
+
+  const copied = tryShareNodeModules({
+    sourceWorkspaceDir: source,
+    targetWorkspaceDir: target,
+    expectedFingerprint: fingerprint,
+  });
+  check("matching fingerprint reuses dependencies", copied.reused === true && copied.method === "copy");
+  check("verify dependency reuse is never a symlink", !lstatSync(join(target, "node_modules")).isSymbolicLink());
+  writeFileSync(join(target, "node_modules", "eslint", "bin", "eslint.js"), "verify-copy", "utf8");
+  check(
+    "verify copy cannot mutate live node_modules",
+    readFileSync(join(source, "node_modules", "eslint", "bin", "eslint.js"), "utf8") === "source",
+  );
+  check(
+    "fingerprint mismatch refuses dependency reuse",
+    tryShareNodeModules({
+      sourceWorkspaceDir: source,
+      targetWorkspaceDir: target,
+      expectedFingerprint: dependencyFingerprint({
+        ...filesJson,
+        "package.json": JSON.stringify({ devDependencies: { eslint: "9.39.3" } }),
+      }),
+    }).reused === false,
+  );
+
+  let installRuns = 0;
+  const commands = [];
+  setVerifyRunnersForTesting({
+    installRunner: async (workspaceDir) => {
+      installRuns += 1;
+      mkdirSync(join(workspaceDir, "node_modules", "eslint", "bin"), { recursive: true });
+      writeFileSync(join(workspaceDir, "node_modules", "eslint", "bin", "eslint.js"), "", "utf8");
+      return {
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "installed",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+    commandRunner: async (command) => {
+      commands.push(command);
+      return command.includes("eslint")
+        ? { exitCode: 0, output: "✖ 1 problem (0 errors, 1 warning)", timedOut: false }
+        : { exitCode: 0, output: "", timedOut: false };
+    },
+  });
+  try {
+    const reused = await runtime.runVerifyJob({
+      verifyId: "reuse",
+      chatId,
+      versionId: "v-reuse",
+      filesJson,
+      checks: ["typecheck", "lint", "build"],
+    });
+    check("matching fingerprint skips verify install", installRuns === 0);
+    check(
+      "F3 checks execute typecheck then lint then build",
+      commands.join("|") ===
+        [
+          runtime.__testing.VERIFY_COMMANDS.typecheck,
+          runtime.__testing.VERIFY_COMMANDS.lint,
+          runtime.__testing.VERIFY_COMMANDS.build,
+        ].join("|"),
+    );
+    const lint = reused.results.find((result) => result.check === "lint");
+    check("warning-only VM lint is promotable", lint?.passed === true && lint?.advisory === true);
+
+    commands.length = 0;
+    const mismatchFiles = {
+      ...filesJson,
+      "package.json": JSON.stringify({
+        dependencies: { next: "16.2.9" },
+        devDependencies: { eslint: "9.39.2", typescript: "5.9.3" },
+      }),
+    };
+    const mismatch = await runtime.runVerifyJob({
+      verifyId: "mismatch",
+      chatId: "guard-dependency-mismatch",
+      versionId: "v-mismatch",
+      filesJson: mismatchFiles,
+      checks: ["lint"],
+    });
+    check("fingerprint mismatch installs project dependencies", installRuns === 1);
+    check("mismatch lint used the installed local binary", mismatch.results.some((result) => result.check === "lint"));
+
+    const missingSetup = await runtime.runVerifyJob({
+      verifyId: "missing-eslint",
+      chatId: "guard-missing-eslint",
+      versionId: "v-missing-eslint",
+      filesJson: { "package.json": "{}" },
+      checks: ["lint"],
+    });
+    const missingLint = missingSetup.results.find((result) => result.check === "lint");
+    check("missing local ESLint never false-greens", missingLint?.passed === false);
+    check("missing local ESLint is non-repairable tooling failure", missingLint?.repairable === false && missingLint?.failureKind === "tooling");
+    check("missing local ESLint never invokes a package runner", commands.length === 1);
+
+    commands.length = 0;
+    const missingCoreTools = await runtime.runVerifyJob({
+      verifyId: "missing-core-tools",
+      chatId: "guard-missing-core-tools",
+      versionId: "v-missing-core-tools",
+      filesJson: { "package.json": "{}" },
+      checks: ["typecheck", "build"],
+    });
+    for (const checkName of ["typecheck", "build"]) {
+      const result = missingCoreTools.results.find((entry) => entry.check === checkName);
+      check(`${checkName} missing local binary never false-greens`, result?.passed === false);
+      check(
+        `${checkName} missing local binary is non-repairable tooling failure`,
+        result?.repairable === false && result?.failureKind === "tooling",
+      );
+    }
+    check("missing typecheck/build tooling never invokes a package runner", commands.length === 0);
+  } finally {
+    setVerifyRunnersForTesting();
+  }
+}
+
+// 9. Referer-fallback inputs for root-absolute Next-internal requests (TODO #4
 //    mitigation): the dev-overlay requests `/__nextjs_font/*` WITHOUT the
 //    chatId prefix. `chatIdFromReferer` must recover the chatId from the
 //    iframe page URL, and the path matcher must only trigger on Next-internal

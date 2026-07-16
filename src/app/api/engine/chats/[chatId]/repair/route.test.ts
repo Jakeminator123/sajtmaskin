@@ -22,6 +22,7 @@ const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
+const emitBusEvent = vi.hoisted(() => vi.fn());
 const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
 const QualityGateUnavailableError = vi.hoisted(
   () =>
@@ -103,6 +104,7 @@ vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
   readRecurringPatternsForChat: () => [],
 }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
 // Capture after() callbacks (stale-base re-verify is scheduled via after()) so
 // we can assert + run them instead of executing post-response in the test.
 vi.mock("next/server", async (importOriginal) => {
@@ -256,6 +258,115 @@ describe("POST repair — stale-base no-op must not fail the user's newer edit (
     expect(triggerServerVerification).toHaveBeenCalledWith(
       expect.objectContaining({ chatId: "chat-1", versionId: "ver-1" }),
     );
+  });
+});
+
+describe("POST repair — warning-only lint remains Advisory after repair", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    shouldPromoteAfterRepair.mockResolvedValue({
+      promote: true,
+      results: [
+        {
+          check: "lint",
+          passed: true,
+          advisory: true,
+          repairable: false,
+          failureKind: null,
+          warningCount: 2,
+          exitCode: 0,
+          output: "2 warnings",
+          durationMs: 10,
+        },
+      ],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+    saveRepairedFiles.mockResolvedValue({
+      status: "saved",
+      version: { id: "ver-1" },
+    });
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const attempt = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: attempt.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: attempt.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("logs warning metadata and emits lint_advisory instead of solid green", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: {
+          qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }],
+        },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("repair_available");
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.degraded",
+        kind: "lint_advisory",
+        versionId: "ver-1",
+        meta: expect.objectContaining({
+          advisoryChecks: ["lint"],
+          warningCount: 2,
+        }),
+      }),
+    );
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        level: "warning",
+        category: "preflight:quality-gate",
+        message: expect.stringContaining("lint warnings"),
+        meta: expect.objectContaining({
+          passed: true,
+          advisory: true,
+          advisoryChecks: ["lint"],
+          repass: true,
+          promoted: true,
+        }),
+      }),
+    ]);
   });
 });
 

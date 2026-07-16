@@ -538,7 +538,7 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
-  it("queues autofix when sandbox quality gate fails after a clean post-check", async () => {
+  it("queues existing autofix when VM lint returns a hard code error", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
     const files = buildHealthyFiles();
@@ -571,15 +571,17 @@ describe("runPostGenerationChecks", () => {
             passed: false,
             checks: [
               {
-                check: "build",
+                check: "lint",
                 passed: false,
+                repairable: true,
+                failureKind: "code",
                 exitCode: 1,
-                output: "Build failed: missing export",
+                output: "ESLint error: react-hooks/rules-of-hooks",
                 durationMs: 1800,
               },
             ],
             verifyLaneDurationMs: 3200,
-            firstFailureCheck: "build",
+            firstFailureCheck: "lint",
             jobStartedAt: "2026-04-03T12:00:00.000Z",
             jobFinishedAt: "2026-04-03T12:00:03.200Z",
           });
@@ -604,23 +606,253 @@ describe("runPostGenerationChecks", () => {
     expect(((qualityGate?.output as Record<string, unknown>).passed as boolean) ?? true).toBe(false);
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
-        reasons: ["build failed"],
+        reasons: ["lint failed"],
         repair: {
           qualityGate: [
             {
-              check: "build",
+              check: "lint",
               exitCode: 1,
-              output: "Build failed: missing export",
+              output: "ESLint error: react-hooks/rules-of-hooks",
               durationMs: 1800,
             },
           ],
           qualityGateMeta: {
             verifyLaneDurationMs: 3200,
-            firstFailureCheck: "build",
+            firstFailureCheck: "lint",
             jobStartedAt: "2026-04-03T12:00:00.000Z",
             jobFinishedAt: "2026-04-03T12:00:03.200Z",
           },
         },
+      }),
+    );
+  });
+
+  it("shows lint warnings as advisory and never queues repair", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            qualityGateAdvisory: true,
+            advisoryChecks: ["lint"],
+            checks: [
+              {
+                check: "lint",
+                passed: true,
+                advisory: true,
+                repairable: false,
+                warningCount: 2,
+                errorCount: 0,
+                exitCode: 0,
+                output: "2 warnings",
+                durationMs: 400,
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
+    expect(steps).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("lint: Varning"),
+        expect.stringContaining("ingen automatisk reparation"),
+      ]),
+    );
+    expect(output.qualityGateAdvisory).toBe(true);
+    expect(output.advisoryChecks).toEqual(["lint"]);
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
+  });
+
+  it("does not send lint tooling/config failures to code repair", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "lint",
+                passed: false,
+                repairable: false,
+                failureKind: "tooling",
+                exitCode: 2,
+                output: "missing project-local ESLint config",
+                durationMs: 0,
+              },
+            ],
+            firstFailureCheck: "lint",
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
+    expect(steps).toEqual(
+      expect.arrayContaining([expect.stringContaining("lint: Underkänd (exit 2")]),
+    );
+    expect(output.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          check: "lint",
+          passed: false,
+          repairable: false,
+          failureKind: "tooling",
+          output: "missing project-local ESLint config",
+        }),
+      ]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
+  });
+
+  it("keeps repairable code failures but excludes tooling failures from mixed repair context", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                repairable: true,
+                failureKind: "code",
+                exitCode: 2,
+                output: "TS2307: Cannot find module '@/components/Hero'",
+                durationMs: 500,
+              },
+              {
+                check: "lint",
+                passed: false,
+                repairable: false,
+                failureKind: "tooling",
+                exitCode: 2,
+                output: "missing project-local ESLint config",
+                durationMs: 0,
+              },
+            ],
+            firstFailureCheck: "typecheck",
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onAutoFix).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasons: ["typecheck failed"],
+        repair: expect.objectContaining({
+          qualityGate: [
+            {
+              check: "typecheck",
+              exitCode: 2,
+              output: "TS2307: Cannot find module '@/components/Hero'",
+              durationMs: 500,
+            },
+          ],
+        }),
       }),
     );
   });

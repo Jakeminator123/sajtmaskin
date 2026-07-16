@@ -192,7 +192,10 @@ export type VersionDegradationKind =
    *  must show "klar med varningar", never solid green. Emitted by both
    *  the quality-gate route and background server-verify on advisory
    *  promotion. */
-  | "typecheck_advisory";
+  | "typecheck_advisory"
+  /** ReleaseGate passed with project-local ESLint warnings. Errors still
+   * block; warnings remain visible without starting RepairGate. */
+  | "lint_advisory";
 
 export interface VersionDegradedEvent extends EngineEventBase {
   t: "version.degraded";

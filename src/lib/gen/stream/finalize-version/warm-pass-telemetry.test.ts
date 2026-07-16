@@ -79,16 +79,15 @@ describe("buildWarmPassTelemetry", () => {
     expect(warmEslint.warningCount).toBeNull();
   });
 
-  it("F3 räknas som enabled även utan env-flaggor", () => {
+  it("F3 forces warm-tsc but never makes warm-eslint authoritative", () => {
     const { warmTsc, warmEslint } = buildWarmPassTelemetry({
       tsc: { ran: true, durationMs: 100, diagnosticCount: 1 },
-      eslint: { ran: false, skipped: "cache_cold", durationMs: 2 },
       scaffoldId: "dashboard",
       isFidelity3: true,
     });
     expect(warmTsc.enabled).toBe(true);
-    expect(warmEslint.enabled).toBe(true);
-    expect(warmEslint.skipped).toBe("cache_cold");
+    expect(warmEslint.enabled).toBe(false);
+    expect(warmEslint.skipped).toBe("not_reached");
   });
 
   it("frånvarande utfall (esbuild nådde aldrig passed) blir not_reached", () => {

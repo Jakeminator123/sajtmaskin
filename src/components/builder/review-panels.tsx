@@ -278,6 +278,7 @@ export function ActionStrip({
 export type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
+  advisory?: boolean;
   exitCode: number;
   output: string;
   durationMs?: number | null;
@@ -292,6 +293,9 @@ export type QualityGatePanelProps = {
    * headline as an amber warning, never solid green.
    */
   designAdvisory?: boolean;
+  /** F3 ReleaseGate passed with lint warnings. */
+  qualityGateAdvisory?: boolean;
+  advisoryChecks?: string[];
   skipped: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
@@ -327,6 +331,10 @@ function QualityGateFull(props: QualityGatePanelProps) {
   }
 
   const totalDuration = formatDurationMsShort(props.verifyLaneDurationMs);
+  const hasAdvisory = props.designAdvisory || props.qualityGateAdvisory;
+  const advisoryLabel = props.designAdvisory
+    ? "typecheck advisory"
+    : `${props.advisoryChecks?.join(", ") || "lint"} advisory`;
   const startedAt = formatUtcClock(props.jobStartedAt);
   const finishedAt = formatUtcClock(props.jobFinishedAt);
   const timeLabels = [
@@ -341,15 +349,15 @@ function QualityGateFull(props: QualityGatePanelProps) {
         <div
           className={
             props.passed
-              ? props.designAdvisory
+              ? hasAdvisory
                 ? "text-amber-300"
                 : "text-emerald-400"
               : "text-rose-400"
           }
         >
           {props.passed
-            ? props.designAdvisory
-              ? "Godkänd med varningar (typecheck advisory)"
+            ? hasAdvisory
+              ? `Godkänd med varningar (${advisoryLabel})`
               : "Godkänd"
             : "Underkänd"}
         </div>
@@ -357,8 +365,16 @@ function QualityGateFull(props: QualityGatePanelProps) {
           const checkDuration = formatDurationMsShort(check.durationMs);
           return (
             <div key={check.check} className="text-muted-foreground flex items-center gap-1.5">
-              <span className={check.passed ? "text-emerald-400" : "text-rose-400"}>
-                {check.passed ? "\u2713" : "\u2717"}
+              <span
+                className={
+                  check.advisory
+                    ? "text-amber-300"
+                    : check.passed
+                      ? "text-emerald-400"
+                      : "text-rose-400"
+                }
+              >
+                {check.advisory ? "!" : check.passed ? "\u2713" : "\u2717"}
               </span>
               <span>{check.check}</span>
               {checkDuration && (
@@ -421,6 +437,10 @@ function QualityGateCompact(props: QualityGatePanelProps) {
     ?.output.split("\n")[0]
     ?.slice(0, 120);
   const totalDuration = formatDurationMsShort(props.verifyLaneDurationMs);
+  const hasAdvisory = props.designAdvisory || props.qualityGateAdvisory;
+  const advisoryLabel = props.designAdvisory
+    ? "typecheck advisory"
+    : `${props.advisoryChecks?.join(", ") || "lint"} advisory`;
   const startedAt = formatUtcClock(props.jobStartedAt);
   const finishedAt = formatUtcClock(props.jobFinishedAt);
 
@@ -429,7 +449,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
       <p
         className={
           props.passed
-            ? props.designAdvisory
+            ? hasAdvisory
               ? "text-amber-300"
               : "text-emerald-300"
             : "text-rose-300"
@@ -437,8 +457,8 @@ function QualityGateCompact(props: QualityGatePanelProps) {
       >
         Verifiering:{" "}
         {props.passed
-          ? props.designAdvisory
-            ? "Godkänd med varningar (typecheck advisory)"
+          ? hasAdvisory
+            ? `Godkänd med varningar (${advisoryLabel})`
             : "Godkänd"
           : "Underkänd"}
       </p>

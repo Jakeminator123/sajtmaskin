@@ -1,8 +1,11 @@
-# Warm-cache setup för pre-VM typecheck + eslint
+# Warm-cache setup för pre-VM typecheck och lokal lintdiagnostik
 
-**Syfte:** göra `runPreVmTypecheck` och `runPreVmEslint` faktiskt **blocking** i dev, så TS1361, `react-hooks/*`, missing imports m.m. fångas **innan** version sparas och bakgrunds-repair-pass behöver kickas in.
+**Syfte:** aktivera warm typecheck i dev och, separat, valfri lokal
+ESLint-diagnostik. VM-ReleaseGate är alltid auktoritativ för F3-lint.
 
-Bakgrund: [`src/lib/gen/preview/warm-typecheck.ts`](../../src/lib/gen/preview/warm-typecheck.ts) + [`src/lib/gen/preview/warm-eslint.ts`](../../src/lib/gen/preview/warm-eslint.ts) är båda designade fail-open. Om scaffold-cachen inte existerar returnerar de `cache_cold` och finalize-pipelinen fortsätter utan blocking typecheck/lint. Empirisk kostnad 2026-04-23: en `/showcase`-sida shippades med `import type` + JSX-användning (TS1361), fångades inte förrän VM-build försökte bygga, 118s bakgrunds-repair-pass. Åtgärden: provisionera cachen en gång.
+`runPreVmTypecheck` kan mata befintlig RepairGate före persist. `runPreVmEslint`
+är däremot explicit icke-auktoritativ: finalize anropar den inte, den muterar
+inga filer och startar aldrig repair eller promotion.
 
 ## En gångs-setup
 
@@ -18,7 +21,7 @@ Scriptet skapar `<TEMP>/sajtmaskin/typecheck-cache/<scaffoldId>/` med:
 
 På Windows kan symlink-skapande kräva **Developer Mode** (Inställningar → Sekretess & säkerhet → För utvecklare). Om det fallerar printar scriptet en tydlig instruktion och avslutar med exit 2.
 
-## Aktivera blocking passes
+## Aktivera warm typecheck och valfri diagnostik
 
 I `.env.local`:
 
@@ -27,7 +30,9 @@ SAJTMASKIN_PRE_VM_TYPECHECK="true"
 SAJTMASKIN_BLOCKING_ESLINT="true"
 ```
 
-Båda är default AV. När `true` **och** cachen är provisionerad kör de inne i `validateAndFix`-loopen efter esbuild-syntax, och eventuella fel matas in till LLM-fixern innan version landar i DB.
+Warm typecheck kör i `validateAndFix` efter esbuild-syntax. Warm ESLint-flaggan
+är endast för direkt/lokal diagnostik mot cachen; dess resultat påverkar inte
+produktens kontrollflöde.
 
 ## Vilka scaffolds är provisionerade?
 
@@ -56,7 +61,7 @@ npm run provision:warm-cache:force
 ## Verifiera att det fungerar
 
 1. Provisionera cachen och kör `npm run warm-cache:smoke` → allt grönt.
-2. Sätt flaggorna i `.env.local`.
+2. Sätt typecheck-flaggan och, om önskat, den lokala lintflaggan i `.env.local`.
 3. Starta `npm run dev`.
 4. Generera en sida med en medveten type-only-import-bug (t.ex. `import type { Star } from "lucide-react"; <Star />`). Förväntat:
    - Finalize-pipelinen fångar TS1361 i blocking-passet
@@ -66,7 +71,7 @@ npm run provision:warm-cache:force
 
 ## Observability: körde passen verkligen?
 
-Varje finalize skriver `warmTsc`/`warmEslint`-block till `site.done` i
+Varje finalize skriver `warmTsc` och ett legacy-kompatibelt `warmEslint`-block till `site.done` i
 `logs/generationslogg/<run>/timeline.ndjson`:
 
 ```json
@@ -75,7 +80,8 @@ Varje finalize skriver `warmTsc`/`warmEslint`-block till `site.done` i
 
 - `ran: true` → passet körde på riktigt.
 - `enabled: true` + `skipped: "cache_cold"` → **falsk trygghet**: flaggan är på men cachen saknas (server-loggen får också en `console.warn`). Kör om provisioneringen.
-- `skipped: "feature_flag_disabled"` → medvetet av.
+- `warmEslint.enabled: false` + `skipped: "not_reached"` → finalize anropar inte
+  warm ESLint; lint ägs av VM-ReleaseGate.
 
 Backoffice-sidan **LLM-flöde telemetri** (`backoffice/pages/llm_flode_telemetry.py`) aggregerar samma status per kategori och varnar när flagga-på-men-kall-cache förekommer. Schema: `docs/schemas/strict/site-done-telemetry.schema.json`.
 

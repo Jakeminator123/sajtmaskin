@@ -78,9 +78,9 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel: RenderGate och ReleaseGate")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate, `["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate) kör endast `["typecheck"]` med render-first Advisory-semantik. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
-- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. ReleaseGate (kod: `integrationsBuild` quality gate, `["typecheck", "build", "lint"]`).
+- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. ReleaseGate är en auktoritativ VM-gate (kod: `integrationsBuild`, `["typecheck", "lint", "build"]`). Projektlokal ESLint används; errors blockerar och warnings är Advisory.
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 ReleaseGate-krav mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
   Om alla `requiredRealEnvKeys` är tomma skapas i stället en ny `integrations`-version med exakt samma filer som
@@ -91,9 +91,7 @@ def render(ctx: BackofficeContext) -> None:
   `passed`, `tsc --noEmit` mot en varm scaffold-`node_modules`-cache. Båda valideringarna delar `fixBudgetMs` och
   samma `runLlmFixer`-loop med `phaseRouting.fixer`-modell + 60 s abort. Sedan 2026-04-20 är `pre_vm_typecheck`
   borta som eget steg och uppgår i `validate_syntax`. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid
-  warm-tsc. Efter tsc kör en **blockerande eslint-pass** om `SAJTMASKIN_BLOCKING_ESLINT=true` (default av) —
-  stänger SAJ-28 så eslint-errors fångas innan version sparas. `--max-warnings` styrs av
-  `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS` (default 20).
+  warm-tsc. `SAJTMASKIN_BLOCKING_ESLINT` aktiverar bara lokal, icke-auktoritativ diagnostik; den startar aldrig repair och påverkar aldrig promotion.
   med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
   | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
 - **Verifier-pass är hybrid (2026-04-22)**: före LLM-auditen kör `runVerifierPass` nu deterministiska

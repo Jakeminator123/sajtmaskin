@@ -106,6 +106,7 @@ function buildQualityGateSummaryLog(params: {
     advisory = false,
   } = params;
   const passed = qualityGateAllPassed(checkResults);
+  const hasAdvisory = advisory || checkResults.some((result) => result.advisory === true);
   const visualQAMeta =
     visualQA &&
     typeof visualQA.overallScore === "number" &&
@@ -114,12 +115,16 @@ function buildQualityGateSummaryLog(params: {
       : undefined;
 
   const level: "info" | "warning" | "error" = passed
-    ? "info"
+    ? hasAdvisory
+      ? "warning"
+      : "info"
     : advisory
       ? "warning"
       : "error";
   const message = passed
-    ? "Automatic quality gate passed."
+    ? hasAdvisory
+      ? "Automatic quality gate passed with advisory findings."
+      : "Automatic quality gate passed."
     : advisory
       ? "F2 render-first: typecheck-varning (advisory) — previewen renderar, versionen promotas."
       : "Automatic quality gate failed.";
@@ -130,6 +135,16 @@ function buildQualityGateSummaryLog(params: {
     message,
     meta: buildServerVerifyQualityGateMeta({
       passed,
+      advisory: hasAdvisory,
+      advisoryChecks: advisory
+        ? ["typecheck"]
+        : Array.from(
+            new Set(
+              checkResults
+                .filter((result) => result.advisory === true)
+                .map((result) => result.check),
+            ),
+          ),
       results: checkResults,
       verifyLaneDurationMs,
       firstFailureCheck,
@@ -242,7 +257,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       );
     }
 
-    const { versionId, checks, gate } = validation.data;
+    const { versionId, gate } = validation.data;
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
@@ -297,14 +312,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // `integrations` version get promoted on typecheck alone (build + lint
     // skipped) = false-green. `lifecycle_stage` is the server-owned source of
     // truth, so an F3 row always pays for the full `INTEGRATIONS_BUILD` lane and
-    // the client can never downgrade it. F2/design keeps the request checks.
+    // F2/design always stays on the typecheck-only RenderGate. The request body
+    // can select neither a weaker F3 lane nor extra lint/build work for F2.
     const integrationsBuildGate =
       scopedVersion.version.lifecycle_stage === "integrations" ||
       gate === "integrationsBuild";
     const effectiveChecks =
       integrationsBuildGate
         ? [...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]
-        : checks;
+        : [...DESIGN_PREVIEW_QUALITY_GATE_CHECKS];
 
     // TOCTOU fix (P1): acquire the per-version lease BEFORE reading files or
     // running the F3 readiness check, so readiness → verify → promotion all
@@ -458,6 +474,17 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           jobFinishedAt,
           visualQA,
         };
+        const gateAdvisoryResults = results.filter((result) => result.advisory === true);
+        const gateAdvisoryChecks = Array.from(
+          new Set(gateAdvisoryResults.map((result) => result.check)),
+        );
+        const gateAdvisoryResponseFields =
+          gateAdvisoryChecks.length > 0
+            ? {
+                qualityGateAdvisory: true as const,
+                advisoryChecks: gateAdvisoryChecks,
+              }
+            : {};
 
         const verificationSummary = buildVerificationSummary(results);
 
@@ -535,21 +562,22 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             }),
           },
           ...results
-            .filter((r) => !r.passed)
+            .filter((r) => !r.passed || r.advisory === true)
             .map((r) => {
               // In the F2 advisory case the typecheck failure is non-blocking:
               // log it as a warning under a distinct category so it stays visible
               // in diagnostics without reading as a hard "failed" verdict.
-              const advisoryEntry = f2TypecheckAdvisory && r.check === "typecheck";
+              const advisoryEntry =
+                (f2TypecheckAdvisory && r.check === "typecheck") || r.advisory === true;
               return {
                 chatId,
                 versionId: internalVersionId,
                 level: advisoryEntry ? ("warning" as const) : ("error" as const),
                 category: advisoryEntry
-                  ? "quality-gate:typecheck-advisory"
+                  ? `quality-gate:${r.check}-advisory`
                   : `quality-gate:${r.check}`,
                 message: advisoryEntry
-                  ? `${r.check} advisory (exit ${r.exitCode}) — previewen renderar; ej blockerande i F2`
+                  ? `${r.check} advisory (exit ${r.exitCode}) — ej blockerande`
                   : `${r.check} failed (exit ${r.exitCode})`,
                 meta: {
                   stage: r.check,
@@ -578,6 +606,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // below, so a verifier-blocked version is never advisory-promoted.
         const promoteSummary = f2TypecheckAdvisory
           ? "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande)."
+          : gateAdvisoryChecks.length > 0
+            ? `ReleaseGate passed with advisory findings: ${gateAdvisoryChecks.join(", ")}.`
           : verificationSummary;
         if (gateResult.passed || f2TypecheckAdvisory) {
           // Check the false-green guard *explicitly* before promoting so we can
@@ -716,7 +746,28 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             promoteError: true,
             promoted: false,
             ...advisoryResponseFields,
+            ...gateAdvisoryResponseFields,
           });
+        }
+        if (promotionSucceeded && gateAdvisoryChecks.includes("lint")) {
+          try {
+            emitBusEvent({
+              t: "version.degraded",
+              versionId: internalVersionId,
+              chatId,
+              kind: "lint_advisory",
+              message: "ReleaseGate godkändes med ESLint-varningar (advisory).",
+              meta: {
+                advisoryChecks: gateAdvisoryChecks,
+                warningCount: gateAdvisoryResults.reduce(
+                  (sum, result) => sum + (result.warningCount ?? 0),
+                  0,
+                ),
+              },
+            });
+          } catch {
+            // Telemetry only — never block promotion on a bus failure.
+          }
         }
         // F2 render-first advisory promotion: report `passed:true` so the client
         // does not auto-repair, but keep the honest signal — `vmGatePassed:false`
@@ -750,11 +801,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             designAdvisory: true,
             advisoryChecks: advisoryCheckNames,
             promoted: promotionSucceeded,
+            ...gateAdvisoryResponseFields,
           });
         }
         return NextResponse.json({
           ...gateResult,
           promoted: promotionSucceeded,
+          ...gateAdvisoryResponseFields,
         });
       }
 

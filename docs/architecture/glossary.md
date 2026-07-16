@@ -39,7 +39,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |
 | RepairGate | Den enda LLM-repair-porten i finalize när Normalize och statiska kontroller lämnar residual. |
 | RenderGate | F2-gate som bevisar att preview bootar/renderar; typecheck är Advisory utom render-risk-koder. |
-| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: typecheck, build, lint och env-/Product Postcheck-krav är strikta. Kör alltid på en `integrations`-version, aldrig genom att promotera F2-raden. |
+| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: lease-skyddad VM-kontroll i ordningen typecheck → projektlokal lint → build. Lint errors och env-/Product Postcheck-krav blockerar; lint warnings är Advisory. Kör alltid på en `integrations`-version. |
 | Advisory | Synlig varning/degradation som inte blockerar promote/preview. |
 | Blocker | Fel som stoppar promote, preview eller F3-release tills det är åtgärdat. |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke, t.ex. F2-kontroll av navigation, CTA, formulär och runtime-krasch. |
@@ -75,7 +75,7 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Normalize | Mekanisk kodstädning före LLM. | autofix, mekanisk autofix, url-expand, deterministisk import-repair |
 | RepairGate | Enda LLM-repair-porten. | runLlmRepairGate/RepairLedger, LLM-fix, syntax-fixer, verifier-fixer, server-repair-LLM |
 | RenderGate | F2: preview bootar/renderar; typecheck Advisory utom render-risk-koder. | quality gate (designPreview), preview-check |
-| ReleaseGate | F3: typecheck + build + lint + env, strikt, explicit. | quality gate (integrationsBuild), build gate, readiness |
+| ReleaseGate | F3: typecheck → lint → build + env, explicit; lint warnings Advisory. | quality gate (integrationsBuild), build gate, readiness |
 | Advisory | Synligt men ej blockerande. | warning, soft fail, degraded/typecheck_advisory |
 | Blocker | Stoppar promote/preview. | hard fail, blocking, preview-blocking |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke. | product postcheck |

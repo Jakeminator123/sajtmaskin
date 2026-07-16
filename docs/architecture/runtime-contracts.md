@@ -85,8 +85,9 @@ degraderade för "works but not solid green".
 Invariants:
 
 - RenderGate (kod: `designPreview`) är F2-gaten: preview ska boota/rendera.
-- ReleaseGate (kod: `integrationsBuild`) är F3-gaten: typecheck, build, lint
-  och env-krav är strikta.
+- ReleaseGate (kod: `integrationsBuild`) är F3-gaten: en lease-skyddad
+  filesnapshot verifieras i VM med typecheck → projektlokal lint → build.
+  Lint errors och env-krav är Blocker; lint warnings är Advisory.
 - F3 ska alltid gatea integration/build hårdare än F2.
 - En vald hard- eller soft-Byggblock behåller sin F2 visuella fallback.
   `buildBlockingKeys` är bara en säkerhetsgate per nyckel, inte ett register över
@@ -99,6 +100,8 @@ Invariants:
 - Advisory-safe F2 typecheck får inte bli false-green; status ska visa
   Advisory/degradation.
 - Render-risk-koder, build/lint-fel och promote-guard-fel är Blocker.
+- Saknad projektlokal ESLint/config är ett icke-repairbart verktygsfel, aldrig
+  en grön lint-skip. Verify använder inga implicit nedladdande `npx`-kommandon.
 - F2 har två Blocker-källor: RenderGates render-risk-TS-koder och
   finalize-verifierns build-breaking-fynd (`isBuildBreakingFinding` —
   import-/namnupplösningsklassen). Övriga verifier-fynd är Advisory i F2.

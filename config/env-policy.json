@@ -508,7 +508,7 @@
         "preview",
         "production"
       ],
-      "notes": "Feature flag for the blocking eslint pass in `validateAndFix` (src/lib/gen/preview/warm-eslint.ts). Off by default. NOTE: F2's VM quality-gate + background server-verify use the typecheck-only designPreview lane, so lint in F2 runs ONLY via this warm-eslint pass — and only when (1) this flag is truthy or F3-force applies, AND (2) the warm cache is provisioned for the selected scaffold; otherwise lint skips fail-open (`cache_cold`). F3 (integrationsBuild lane) always runs lint on the VM. When on, eslint runs after warm-tsc passes and feeds errors into the LLM fixer, closing SAJ-28."
+      "notes": "Explicit opt-in for local warm-cache ESLint diagnostics (`src/lib/gen/preview/warm-eslint.ts`). Non-authoritative: finalize does not call it, it never starts RepairGate, and it never affects promotion. F3 lint is owned exclusively by the project-local VM ReleaseGate."
     },
     {
       "key": "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
@@ -518,7 +518,7 @@
         "preview",
         "production"
       ],
-      "notes": "Override `--max-warnings` for the blocking eslint pass. Default 20. Errors always fail the gate; warnings only fail when count exceeds this cap. Set higher (e.g. 50) to be more lenient, or 0 to treat all warnings as gate failures."
+      "notes": "Warning threshold for optional local warm-eslint diagnostics only. It does not change VM ReleaseGate severity: VM lint errors block, warnings are always Advisory."
     },
     {
       "key": "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
