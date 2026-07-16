@@ -197,7 +197,8 @@ function getImageAttachmentFromUrl(url: string): V0UserFileAttachment | null {
 
 function isFigmaUrl(url: string): boolean {
   try {
-    return new URL(url).hostname.includes("figma.com");
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "figma.com" || hostname.endsWith(".figma.com");
   } catch {
     return false;
   }
