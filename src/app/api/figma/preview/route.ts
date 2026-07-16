@@ -48,10 +48,11 @@ type FileMetaCacheEntry = {
 const previewCache = new Map<string, PreviewCacheEntry>();
 const fileMetaCache = new Map<string, FileMetaCacheEntry>();
 
-function parseFigmaUrl(rawUrl: string): FigmaParsedUrl | null {
+export function parseFigmaUrl(rawUrl: string): FigmaParsedUrl | null {
   try {
     const url = new URL(rawUrl);
-    if (!url.hostname.includes("figma.com")) return null;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname !== "figma.com" && !hostname.endsWith(".figma.com")) return null;
 
     const parts = url.pathname.split("/").filter(Boolean);
     const fileIndex = parts.findIndex((p) => ["file", "design", "proto"].includes(p));
