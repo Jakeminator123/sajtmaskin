@@ -2,7 +2,7 @@
 
 ## Agent: var börja?
 
-Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/code-map.md` → `docs/plans/README.md` → `rules/terminology.mdc`.
+Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb ordning: `docs/README.md` → `docs/concepts/mental-model.md` → `docs/architecture/code-map.md` → `rules/terminology.mdc`.
 
 ## Workspace (en rot, samma verktygsinställningar)
 
@@ -10,7 +10,7 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 - **Standard nu:** öppna huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Om du **medvetet** skapar ett separat worktree för isolering, öppna bara den checkouten i sitt eget fönster och ta bort worktreet när det inte längre bär unikt arbete.
 - **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`**. **`sajtmaskin.code-workspace`** innehåller samma `settings`-block så att beteendet matchar oavsett om du öppnar mappen eller workspace-filen.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
-- Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer *utanför* repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
+- Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer _utanför_ repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
 ## Prioriteringsordning
 
@@ -24,34 +24,34 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 
 ### Generella (alwaysApply: true)
 
-| Regel | Syfte |
-|-------|-------|
-| [agent-worktree.mdc](rules/agent-worktree.mdc) | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
-| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | En Cursor-side automation kan auto-merga gröna PR:er — håll risk-/runtime-PR:er som draft tills granskade |
-| [repo-router.mdc](rules/repo-router.mdc) | Snabb repo-router + env/indexering |
-| [response-format.mdc](rules/response-format.mdc) | Hur agenten svarar — kort, matris/flöde, svenska vid behov |
-| [terminology.mdc](rules/terminology.mdc) | Snabb förväxlingstabell + signal-ownership; pekar till glossaryn |
-| [workflow.mdc](rules/workflow.mdc) | Git, filstruktur, städning, verifiering — hur ändringar utförs |
+| Regel                                                        | Syfte                                                                                                                        |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [agent-worktree.mdc](rules/agent-worktree.mdc)               | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
+| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | En Cursor-side automation kan auto-merga gröna PR:er — håll risk-/runtime-PR:er som draft tills granskade                    |
+| [repo-router.mdc](rules/repo-router.mdc)                     | Snabb repo-router + env/indexering                                                                                           |
+| [response-format.mdc](rules/response-format.mdc)             | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
+| [terminology.mdc](rules/terminology.mdc)                     | Snabb förväxlingstabell + signal-ownership; pekar till glossaryn                                                             |
+| [workflow.mdc](rules/workflow.mdc)                           | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)
 
-| Regel | Trigger | Syfte |
-|-------|---------|-------|
-| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | engine/chats, own-engine, gen/preview, ProjectEnvVarsPanel | F2 får aldrig generera env-frågor — all env-trafik gates till F3 |
-| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc) | `.cursor/openclaw-bridge/**` | OpenClaw inbox/outbox (opt-in) |
-| [pipeline-rules.mdc](rules/pipeline-rules.mdc) | backoffice, config/codegen, prompt-core, ai_models, scaffold-variants | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
-| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc) | `docs/plans/**`, `.cursor/bugs/**` | När planer ska skapas, parkas, avklaras och raderas |
-| [scaffold-rules.mdc](rules/scaffold-rules.mdc) | gen/scaffolds, gen/orchestrate, gen/system-prompt, gen/build-spec, scripts/scaffolds | Agentregler vid scaffold-ändringar |
+| Regel                                              | Trigger                                                                              | Syfte                                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | engine/chats, own-engine, gen/preview, ProjectEnvVarsPanel                           | F2 får aldrig generera env-frågor — all env-trafik gates till F3         |
+| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc)   | `.cursor/openclaw-bridge/**`                                                         | OpenClaw inbox/outbox (opt-in)                                           |
+| [pipeline-rules.mdc](rules/pipeline-rules.mdc)     | backoffice, config/codegen, prompt-core, ai_models, scaffold-variants                | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
+| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc)     | `docs/plans/**`, `.cursor/bugs/**`                                                   | När planer ska skapas, parkas, avklaras och raderas                      |
+| [scaffold-rules.mdc](rules/scaffold-rules.mdc)     | gen/scaffolds, gen/orchestrate, gen/system-prompt, gen/build-spec, scripts/scaffolds | Agentregler vid scaffold-ändringar                                       |
 
 ### Manuellt bifogade (alwaysApply: false, ingen glob)
 
-| Regel | Syfte |
-|-------|-------|
-| [agent-observatory.mdc](rules/agent-observatory.mdc) | Var agenter hittar per-körning- och per-chat-loggar |
-| [git.mdc](rules/git.mdc) | Inga PRs; commit/push/merge bara på explicit begäran |
-| [platform-quirks.mdc](rules/platform-quirks.mdc) | Windows/PowerShell och repo-specifika fallgropar |
-| [unicode-regex.mdc](rules/unicode-regex.mdc) | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b` |
-| [useful-commands.mdc](rules/useful-commands.mdc) | Snabb kommandoöversikt; `package.json` är kanonisk källa |
+| Regel                                                | Syfte                                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------------- |
+| [agent-observatory.mdc](rules/agent-observatory.mdc) | Var agenter hittar per-körning- och per-chat-loggar                  |
+| [git.mdc](rules/git.mdc)                             | Inga PRs; commit/push/merge bara på explicit begäran                 |
+| [platform-quirks.mdc](rules/platform-quirks.mdc)     | Windows/PowerShell och repo-specifika fallgropar                     |
+| [unicode-regex.mdc](rules/unicode-regex.mdc)         | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b` |
+| [useful-commands.mdc](rules/useful-commands.mdc)     | Snabb kommandoöversikt; `package.json` är kanonisk källa             |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
 
@@ -69,7 +69,10 @@ I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
 
 **Strict (machine-readable):** [`docs/schemas/strict/`](../docs/schemas/strict/) — JSON schemas för tooling och validering.
 
-Kod är source of truth; strict schemas speglar kod, ersätter den inte.
+Canonical owner avgörs per faktatyp enligt
+[`docs/documentation-lifecycle.md`](../docs/documentation-lifecycle.md).
+Strict schemas speglar runtime-typer där sådana äger formen; de blir inte en
+parallell owner.
 
 ## Slash-kommandon (`.cursor/commands/*.md`)
 

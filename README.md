@@ -1,121 +1,69 @@
-# Sajtmaskin — repo-router
+# Sajtmaskin
 
-Detta är repo-rotens **snabba ingång** för människor och LLM:er som arbetar i `master`.
+Sajtmaskin är en AI-driven builder som gör en prompt till en versionerad
+React/Next.js-sajt, visar den i live-preview och kan gå vidare till explicita
+integrationer och publicering.
 
-Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orientering** över det committade trädet. Kod är alltid source of truth.
+```text
+prompt/brief → orchestration → BuildSpec → prompt/context → code generation
+→ Normalize/finalize + kandidatkontroller → persisterad draft/version
+→ preview-handoff + post-check → RenderGate eller ReleaseGate
+→ promote, Advisory, Blocker eller RepairGate → follow-up eller deploy
+```
 
-> Gäller den **committade** versionen av repot på `master` per **2026-07-07** (rotkartan synkad mot faktisk struktur; LLM-fasen konsoliderad till [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md)). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
+## Starta lokalt
 
-## Borja har
+Krav: Node.js-versionen i `package.json` och npm.
 
-1. Denna fil — snabb repo-router.
-2. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kanonisk rotkarta.
-3. [`docs/README.md`](docs/README.md) — dokumentationsnav.
-4. [`.cursor/README.md`](.cursor/README.md) — Cursor-regler, slash-kommandon och arbetsflode.
-5. Valj sedan en domanspecifik ingang nedan.
+```text
+npm ci
+npm run dev
+```
 
-## Snabb karta
+Miljövariabler och databasstart beskrivs i [`docs/ENV.md`](docs/ENV.md).
+Dev-servern kan startas utan predev med
+`node scripts/dev/next-runner.mjs dev`.
 
-| Plats | Roll |
-|------|------|
-| `src/` | Next.js-app, API-routes, UI och domanlogik. |
-| `src/lib/gen/` | Delad genereringskarna: orchestration, prompts, autofix, finalize, verifier, previewforberedelser. |
-| `src/lib/own-engine/` | Own-engine-boundary och session-/streamrelaterad motorlogik. |
-| `src/lib/providers/own-engine/` | Providerkopplingar och den produktbanan for egen motor. |
-| `preview-host/` | Tier-2 preview-host / runtime / verify / workspace-livscykel. |
-| `docs/` | Kanoniska manskliga docs och arkitekturtexter. |
-| `config/` | Kanonisk konfiguration: modeller, env-policy, promptfragment, dashboard-kartor. |
-| `scripts/` | Hjapskript for dev, db, eval, env, scaffolds, dossiers, v0-templates m.m. |
-| `backoffice/` | Konsoliderad backoffice (Streamlit), startas via `npm run backoffice` (`python sajtmaskin_backoffice.py`). |
-| `.cursor/` | Cursor-regler, lokala kommandon och agentorientering. |
+## Hitta rätt kod
 
-## Router per uppgift
+| Område                           | Börja här                                                               |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| Builder och chat                 | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/`    |
+| Own-engine och generation        | `src/lib/own-engine/`, `src/lib/providers/own-engine/`, `src/lib/gen/`  |
+| Scaffolds, variants och dossiers | `src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/` |
+| Preview                          | `src/lib/gen/preview/`, `preview-host/`                                 |
+| Persistens                       | `src/lib/db/`, `scripts/db/`                                            |
+| Publicering                      | `src/app/api/v0/deployments/`, `src/lib/deploy/`                        |
+| Konfiguration                    | `config/`, `src/lib/env.ts`                                             |
 
-### Om du felsoker eller andrar LLM-flodet
+Den tunna kodkartan finns i
+[`docs/architecture/code-map.md`](docs/architecture/code-map.md).
 
-Borja i denna ordning:
+## Dokumentation
 
-1. [`docs/architecture/code-map.md`](docs/architecture/code-map.md)
+1. [`docs/README.md`](docs/README.md) — dokumentationsrouter.
 2. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
-3. `src/lib/gen/`
-4. `src/lib/providers/own-engine/`
-5. `src/lib/own-engine/`
+   — stabil huvudloop.
+3. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) —
+   begreppen i ett sammanhang.
+4. [`docs/architecture/runtime-contracts.md`](docs/architecture/runtime-contracts.md)
+   — invariants och signalägare.
+5. [`.cursor/README.md`](.cursor/README.md) — agentregler och arbetsflöden.
 
-**Tumregel:**
-- Delad pipeline och efterbehandling = `src/lib/gen/`
-- Provider-/motorinkoppling = `src/lib/providers/own-engine/`
-- Boundary, sessioner, engine-specifik logik = `src/lib/own-engine/`
+Canonical owner avgörs per faktatyp. Runtimekod, manifest, registries och
+policies kan äga olika beslut; genererad eller handskriven dokumentation är
+projektion respektive mental modell. Owner-modellen finns i
+[`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md).
 
-### Om du jobbar med preview / VM / runtime
+## Verifiera repot
 
-Borja i denna ordning:
+```text
+npm run typecheck
+npm run lint
+npm run test:ci
+npm run build
+npm run scaffolds:validate
+npm run dossiers:validate-all
+```
 
-1. [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md) § FAS 3
-2. `preview-host/`
-3. `src/lib/gen/preview/`
-4. `src/components/builder/preview-panel/`
-5. `src/lib/builder/preview-session/`
-
-### Om du jobbar med builder-UI eller chat
-
-Borja i denna ordning:
-
-1. `src/app/builder/`
-2. `src/components/builder/`
-3. `src/lib/hooks/chat/`
-4. `src/components/ai-elements/`
-
-### Om du jobbar med deploy
-
-Borja i denna ordning:
-
-1. [`docs/architecture/llm-pipeline.md`](docs/architecture/llm-pipeline.md) § FAS 3
-2. `src/app/api/v0/deployments/route.ts`
-3. `src/lib/deploy/`
-4. `src/lib/vercelDeploy*`
-5. `src/lib/project-env-resolver*`
-
-### Om du jobbar med env eller konfiguration
-
-Borja i denna ordning:
-
-1. [`docs/ENV.md`](docs/ENV.md)
-2. `src/lib/env.ts`
-3. `config/env-policy.json`
-4. `config/README.md`
-
-### Om du jobbar med templates, scaffolding eller katalogdata
-
-Borja i denna ordning:
-
-1. `src/lib/gen/scaffolds/`
-2. `src/lib/gen/scaffold-variants/`
-3. `src/lib/gen/dossiers/`
-4. `scripts/scaffolds/`
-5. `scripts/v0-templates/`
-
-## Viktiga lasregler for agenter
-
-- Kod gar fore docs om de skiljer sig.
-- Denna fil ar en **router**, inte en fullstandig arkitekturbeskrivning.
-- Om en lokal README finns i det omrade du ror, las den innan du andrar strukturen.
-- Anvand `docs/architecture/code-map.md` som kanonisk rotkarta.
-- Behandla kvarvarande `v0`-namn (t.ex. `scripts/v0-templates/`, `src/app/api/v0/`) som **legacy eller naming debt** tills kod visar annat.
-
-## Rekommenderad Cursor-ingang
-
-For Cursor/agentarbete:
-
-1. Denna `README.md`
-2. [`AGENTS.md`](AGENTS.md)
-3. [`.cursor/README.md`](.cursor/README.md)
-4. [`.cursor/rules/repo-router.mdc`](.cursor/rules/repo-router.mdc)
-5. Den domanspecifika regel eller dokumentfil som matchar uppgiften
-
-## Fordjupning
-
-- Dokumentationsnav: [`docs/README.md`](docs/README.md)
-- Repo-trad: [`docs/architecture/code-map.md`](docs/architecture/code-map.md)
-- Arkitekturindex: [`docs/architecture/README.md`](docs/architecture/README.md)
-- Cursor-nav: [`.cursor/README.md`](.cursor/README.md)
-- Agentpekare: [`AGENTS.md`](AGENTS.md)
+`package.json` är kanonisk källa för tillgängliga kommandon.

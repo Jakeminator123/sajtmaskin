@@ -1,122 +1,50 @@
-# Documentation
+# Dokumentation
 
-`docs/` is the main home for human-readable documentation.
+`docs/` beskriver stabila kontrakt, ansvar, policies och mentala modeller.
+Canonical owner avgörs per faktatyp; runtimekod, manifest, registries och
+policies kan äga olika beslut.
 
-## Navigera `docs/` (tre block)
+## Börja här
 
-| Block | Innehåll | Börja här |
-|-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/code-map.md`](architecture/code-map.md) · [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md) |
-| **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
-| **Arkiv** | Avklarade planer + icke-plan-historik (`archive/`); scratch-policy: [`documentation-lifecycle.md`](documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) |
+| Fråga                            | Dokument                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| Vad är huvudflödet?              | [`architecture/system-overview.md`](architecture/system-overview.md)     |
+| Hur hänger begreppen ihop?       | [`concepts/mental-model.md`](concepts/mental-model.md)                   |
+| Var bor koden?                   | [`architecture/code-map.md`](architecture/code-map.md)                   |
+| Hur fungerar init och follow-up? | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)       |
+| Hur skiljer sig F2 och F3?       | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                         |
+| Vilka invariants gäller?         | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
+| Hur körs generationen?           | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)           |
+| Vilket schema gäller?            | [`schemas/README.md`](schemas/README.md)                                 |
+| Hur felsöker jag preview?        | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)   |
+| Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
 
-## Terminology (two layers — do not duplicate)
+[`audits/documentation-audit-2026-07-13.md`](audits/documentation-audit-2026-07-13.md)
+är en punktrevision och ett beslutsunderlag för dokumentationskonsolideringen.
+Den är historisk analys, inte runtime source of truth.
 
-| Audience / topic | Canonical location | What it covers |
-|------------------|-------------------|----------------|
-| **Snabb förväxlingstabell (product/code names)** | `.cursor/rules/terminology.mdc` | Vanliga förväxlingar; pekar till glossaryn. |
-| **Kanonisk ordlista (alla begrepp, LLM-pipeline, scaffold, preview, legacy)** | [`docs/architecture/glossary.md`](architecture/glossary.md) | Enda fullständiga terminologikällan: ~100 termer, livscykelstatus, namnskuggor, fasindelning, uppdateringspolicy. |
-| **Repo layout & research pipeline** | `docs/architecture/code-map.md` | Mappar, skript, integrationer; mermaid där det behövs. |
-| **Dokumentationspolicy (var saker ska ligga)** | `docs/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
+Full terminologi finns tills vidare i
+[`architecture/glossary.md`](architecture/glossary.md). Regler för
+dokumentationslivscykeln finns i
+[`documentation-lifecycle.md`](documentation-lifecycle.md).
 
-**Rule:** Nya begrepp → registrera i `docs/architecture/glossary.md`. Vanliga förväxlingar → `terminology.mdc` (kort). Mapp-/pipeline-detaljer → `code-map.md`. Länka; duplicera inte.
+## Canonical owners
 
-## Quick path (when `docs/` feels heavy)
+För varje faktatyp gäller:
 
-1. This file → **Key navigation** table below.
-2. [`docs/architecture/code-map.md`](architecture/code-map.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 (operativt kördokument). **Vit preview / tom iframe:** [`docs/runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md).
-4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
-5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
-6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
+1. canonical executable eller deklarativ owner,
+2. runtime-konsument/validator,
+3. genererad projektion,
+4. handskriven mental modell,
+5. historik.
 
-**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md).
+Exempel: modellmanifestet kan äga modellval och gate-lanes;
+`config/env-policy.json` äger env-klassificering medan `src/lib/env.ts` äger
+runtime-läsning. Strict schemas kan spegla runtime-typer. Docs ska peka på dessa
+owners, inte kopiera deras enumlistor eller implementation.
 
-Everything else is deep reference, history, or architecture.
-
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) · [`architecture/code-map.md`](architecture/code-map.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md). Doc-policy: [`documentation-lifecycle.md`](documentation-lifecycle.md).
-
-**För agenter (orientering):** [`architecture/code-map.md`](architecture/code-map.md) → [`plans/README.md`](plans/README.md) → [`architecture/glossary.md`](architecture/glossary.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
-
-## Source of truth policy
-
-Human docs in this folder explain the system, but runtime truth still lives in
-code.
-
-Important code sources of truth include:
-
-- `src/lib/templates/template-data.ts`
-- `src/lib/db/schema.ts`
-- `src/lib/validations/chatSchemas.ts`
-- `src/lib/models/catalog.ts` — build profiles and model IDs (own engine)
-- `config/ai_models/manifest.json` — committed defaults for own-engine models per profile, assist/polish defaults, token budgets, timeouts, workload metadata (`src/lib/ai-models/load-manifest.ts`; env overrides). Human guide: `config/ai_models/_READ_ME_FIRST.md`.
-- `src/lib/models/selection.ts` — model resolution for requests
-- `src/lib/own-engine/*`, `src/lib/providers/own-engine/*`, `src/lib/gen/*` — kanoniska kallytor for den egna generationmotorn och dess delade karna.
-- `src/lib/gen/scaffolds/types.ts`
-- `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
-- `src/lib/gen/dossiers/types.ts`
-- `package.json`
-
-### Environment variable management
-
-| File                     | Committed       | Purpose                                                                                                                            |
-| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
-| `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
-| `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
-| `ENV.md`                 | Yes             | Kort översikt (must-have, lokalt vs Vercel); full lista = `src/lib/env.ts` + `config/env-policy.json`.                             |
-| `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
-| `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
-| `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
-| `scripts/env/model_trace_overlay.py` | Yes | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay. |
-| ~~`check_env.py`~~ | Removed | Was a thin wrapper — use `python scripts/env/manage_env.py audit` directly.                                                     |
-
-When adding a new env var: add it to `src/lib/env.ts` (schema), then to
-`config/env-policy.json` (classification + target rules). Uppdatera `ENV.md` bara om nyckeln är **central för onboarding** (annars räcker kod + policy).
-
-## Production boundary
-
-The deployed app on Vercel should read committed artifacts and runtime code, not
-local research helpers.
-
-Good production inputs:
-
-- files committed under `docs/`
-- generated scaffold research metadata in
-  `src/lib/gen/scaffolds/scaffold-research.generated.json`
-- runtime manifests and code under `src/`
-
-Not runtime dependencies:
-
-- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
-- historical helper references under `tools/` / `doc-browser` when reading older docs or git history; there is no active `tools/` directory in the current tree
-- raw local `_sidor` datasets
-- local generation helpers and embeddings artifacts when they are only used for curation/validation
-
-## Key navigation
-
-| What you need | Where to look |
-|---|---|
-| **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/code-map.md`](architecture/code-map.md) |
-| **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
-| System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
-| Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
-| **LLM-flöde målbild** (vart vi siktar) | [`docs/architecture/README.md`](architecture/README.md) |
-| LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
-| Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 2 |
-| Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/llm-pipeline.md`](architecture/llm-pipeline.md) § FAS 3 |
-| Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/code-map.md`](architecture/code-map.md) |
-| Plans (all buckets) | `docs/plans/README.md` |
-| **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |
-| **Delivery-bias** (förmåga före dokumentation) | [`docs/delivery-bias.md`](delivery-bias.md) |
-| Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
-| Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
-| Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |
-| Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
-| Kodkarta (mappar + kodytor) | [`code-map.md`](architecture/code-map.md) |
-| Vercel Templates discovery + Playwright + scaffolds (legacy, borttaget) | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) — arkiv i syskonmappen `gamla-skript-till-scaffolds/` utanför repot |
-| Builder entry contract | `docs/schemas/builder-entry-contract.md` |
-| Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
-| Env setup | `docs/ENV.md` |
-| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `npm run backoffice` (`sajtmaskin_backoffice.py`), `config/dashboard/domain-map.json` |
-| Orchestrator protocol (historical; tooling removed) | git-historik (`git log -- docs/architecture/`) — inget aktivt protokoll i trädet |
+Full policy finns i
+[`documentation-lifecycle.md`](documentation-lifecycle.md). När generatorn och
+`docs:check` finns på master ska denna router även länka
+`generated/README.md`; en tom eller framtida generated-path länkas inte i
+förväg.

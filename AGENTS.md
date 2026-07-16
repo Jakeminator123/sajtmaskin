@@ -5,11 +5,12 @@ Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 ## Läs i denna ordning innan du börjar
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsnav
-2. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
-3. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista (~100 begrepp)
-4. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
-5. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell
-6. [`config/env-policy.json`](config/env-policy.json) + [`docs/ENV.md`](docs/ENV.md) — env-sanning
+2. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) — stabil mental modell
+3. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
+4. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista
+5. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
+6. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell
+7. [`config/env-policy.json`](config/env-policy.json) + [`docs/ENV.md`](docs/ENV.md) — env-sanning
 
 ## Kritiska regler att plocka upp tidigt
 
@@ -45,7 +46,7 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 
 ## Review guidelines (PR author owns the bug post-check)
 
-**Codex review may be on or off depending on credits** (off 2026-07-02, back 2026-07-08). Never *block indefinitely* on `chatgpt-codex-connector` or treat its absence as a gap (a **bounded** 7-min window applies before merge — see below — after which the author's bugbot pass covers external eyes) — but **if a Codex review is present, read and triage it** (it can land a few minutes after CI goes green, so re-read reviews right before merge). Regardless of Codex, the **PR-authoring agent** owns the bug post-check. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
+**Codex review may be on or off depending on credits** (off 2026-07-02, back 2026-07-08). Never _block indefinitely_ on `chatgpt-codex-connector` or treat its absence as a gap (a **bounded** 7-min window applies before merge — see below — after which the author's bugbot pass covers external eyes) — but **if a Codex review is present, read and triage it** (it can land a few minutes after CI goes green, so re-read reviews right before merge). Regardless of Codex, the **PR-authoring agent** owns the bug post-check. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
 
 **A review prioritizes P0/P1:** runtime regressions; false-green (a gate that turns green without real verification — verify / quality-gate / server-verify / promote / lifecycle / status); preview/VM failures; DB/schema drift; env/secret leaks; security/cross-tenant risk; broken LLM-pipeline contracts.
 
@@ -70,13 +71,17 @@ Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
 
 - The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed, PR ≥ 7 min old with the external-review window satisfied → merge-ready.
 - The author then applies the **`merge:ready`** label + a sign-off line; the **merge-agent** (a Cursor agent) verifies the label + gate and runs `gh pr merge`. There is **no** dashboard auto-merger in the flow (decision 2026-07-09: agent-merger) — see [`auto-merge-automation.mdc`](.cursor/rules/auto-merge-automation.mdc) → "Vem mergar".
-- Codex may be present or absent depending on credits — never block *waiting* for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
+- Codex may be present or absent depending on credits — never block _waiting_ for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 - Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
 - Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
 
-## Source-of-truth-regel
+## Canonical owner-regel
 
-Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera dem i glossaryn.
+Canonical owner avgörs per faktatyp enligt
+[`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md). Kod äger
+exekverbart beteende; manifest, registries och policies kan äga deklarativa
+beslut. Genererad Markdown är projektion. Introducera inte nya begrepp utan att
+registrera dem i glossaryn.
 
 ## Cursor Cloud specific instructions
 
@@ -88,8 +93,8 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 
 ### Running services
 
-| Service | Command | Notes |
-|---------|---------|-------|
+| Service     | Command                                | Notes                                                                                                                                                          |
+| ----------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Next.js dev | `node scripts/dev/next-runner.mjs dev` | Starts on port 3000. Bypasses `predev` if DB init already done. Full `npm run dev` runs `predev` first (preflight checks, schema-drift, shadcn sync, db:init). |
 
 ### Gotchas
@@ -102,7 +107,7 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 - **`predev` `db:init:soft` aborts in `dash`:** The `npm run db:init:soft` script's `|| echo [db:init] WARN: skipped (DB unreachable) - dev continues` fails at shell-parse time in `dash`/`sh` because of the unquoted `(DB unreachable)` parens (`sh: Syntax error: "(" unexpected`). This is independent of whether `db-init` succeeds, and it makes `predev`'s `&&` chain exit non-zero, so `npm run dev` never reaches `next dev`. Run `node scripts/dev/next-runner.mjs dev` directly (preferred) or `SKIP_PREDEV=1 npm run dev`.
 - **Migration ordering:** Fixed -- `db-init.mjs` runs dependency migrations first automatically. No manual steps needed on fresh DB.
 - **Testing the generate flow (own-engine → preview):** Generation starts only after an explicit send in the builder chat input — the landing-page prompt just creates the project and pre-fills the input. Anonymous sessions get **one** free generation (`guestLimit: 1` for `prompt.create`/`prompt.template` in `src/lib/credits/server.ts`), after which the builder shows the "Du har använt din gratis generation"-gate. To run or repeat full generations, use an account with credits: set `ADMIN_EMAILS=<email>` for the dev process and register that email (auto-verified, auto-logged-in, large credit grant), then log in and generate. Full generation streams files locally and then renders a live preview on the remote preview host (`SAJTMASKIN_PREVIEW_HOST_BASE_URL`, a Fly.dev VM) — confirm that host is reachable before relying on preview-based E2E tests; the full prompt → generate → preview loop takes ~2 min end-to-end.
-- **`.env.local` does NOT override Cloud-injected env vars (admin-email gotcha):** Next.js dotenv only fills vars that are *not already set* in the real process env. The Cloud Agent platform injects `ADMIN_EMAILS`/`NEXT_PUBLIC_ADMIN_EMAILS` (a redacted real admin email) into the environment, so appending your own test email to `.env.local` is silently ignored — `isAdminEmail()`/`isTestUser()` read the injected value, the account is treated as a normal guest (email-verification required, `0 credits`, credit gate blocks generation), and `bootstrapAdminUser` never grants diamonds. To use a self-chosen admin test email, **export it in the dev process** so it wins, e.g. start the server with `ADMIN_EMAILS="$ADMIN_EMAILS,you@test.dev" NEXT_PUBLIC_ADMIN_EMAILS="$NEXT_PUBLIC_ADMIN_EMAILS,you@test.dev" node scripts/dev/next-runner.mjs dev`. Then registering + logging in that email auto-verifies it and grants 10 000 diamonds on login (`src/lib/auth/auth.ts` `bootstrapAdminUser`). (Alternatively, just grant diamonds directly via SQL: `UPDATE users SET diamonds=10000 WHERE email='<you>'`.)
+- **`.env.local` does NOT override Cloud-injected env vars (admin-email gotcha):** Next.js dotenv only fills vars that are _not already set_ in the real process env. The Cloud Agent platform injects `ADMIN_EMAILS`/`NEXT_PUBLIC_ADMIN_EMAILS` (a redacted real admin email) into the environment, so appending your own test email to `.env.local` is silently ignored — `isAdminEmail()`/`isTestUser()` read the injected value, the account is treated as a normal guest (email-verification required, `0 credits`, credit gate blocks generation), and `bootstrapAdminUser` never grants diamonds. To use a self-chosen admin test email, **export it in the dev process** so it wins, e.g. start the server with `ADMIN_EMAILS="$ADMIN_EMAILS,you@test.dev" NEXT_PUBLIC_ADMIN_EMAILS="$NEXT_PUBLIC_ADMIN_EMAILS,you@test.dev" node scripts/dev/next-runner.mjs dev`. Then registering + logging in that email auto-verifies it and grants 10 000 diamonds on login (`src/lib/auth/auth.ts` `bootstrapAdminUser`). (Alternatively, just grant diamonds directly via SQL: `UPDATE users SET diamonds=10000 WHERE email='<you>'`.)
 - **First request to a freshly-restarted dev server can 404 (Turbopack cold compile):** right after restarting the dev server, the very first hit to an on-demand-compiled API route (e.g. `/api/engine/chats/stream`) may briefly return `HTTP 404` / "Failed to create chat (HTTP 404)" before the route finishes compiling. Retry after a couple seconds; it resolves once the route is built.
 - **LLM provider keys in Cloud Agent env — OpenAI is out of quota:** The injected `OPENAI_API_KEY` authenticates (HTTP 200) but has **no billing quota** (every call returns `429 You exceeded your current quota`). So any build profile that routes codegen through OpenAI — **Snabb / Lagom (default) / Tanker / Kod Max** — fails the generation stream instantly with `Stream error` → `Model produced no text events (silent output). No code was emitted`. The injected `ANTHROPIC_API_KEY` **works** (its account exposes `claude-opus-4-8` etc.). To exercise end-to-end site generation in the builder, select the **"Anthropic"** build profile (header model selector "Modell: …"), which routes the `generator`/brief phases to `claude-opus-4.8` (normalized to `claude-opus-4-8`). The dependent OpenAI-only steps (server auto-brief, scaffold embeddings, post-gen verifier/autofix) soft-fail/degrade and do not block code generation. Anthropic-tier generation streams real files and starts a preview session on the configured preview host.
 - **Guest Deep Brief returns 401 by design:** `/api/ai/brief` (client-triggered Deep Brief) intentionally returns 401 for guest/anonymous users — that is by design and is soft (server auto-brief covers create-chat), not a misconfiguration. (The guest generation quota itself is covered above: one free generation per session cookie.)
