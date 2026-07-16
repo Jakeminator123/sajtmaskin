@@ -60,24 +60,7 @@ const MCP_PRIORITY_BLUEPRINT: McpPriorityItem[] = [
   },
 ];
 
-function buildReadiness(requiredEnv: string[]) {
-  const missing = requiredEnv.filter((key) => !process.env[key]?.trim());
-  return {
-    missing,
-    ready: missing.length === 0,
-  };
-}
-
 export async function GET() {
-  const priorities = MCP_PRIORITY_BLUEPRINT.map((item) => {
-    const readiness = buildReadiness(item.requiredEnv);
-    return {
-      ...item,
-      readiness: readiness.ready ? "ready" : "needs_env_setup",
-      missingEnv: readiness.missing,
-    };
-  });
-
   return NextResponse.json({
     success: true,
     assumptions: {
@@ -89,6 +72,6 @@ export async function GET() {
       { phase: 2, title: "Innehall & arbetsflöde", focus: "Notion + Linear" },
       { phase: 3, title: "Avancerade tillagg", focus: "Sanity + Zapier" },
     ],
-    priorities,
+    priorities: MCP_PRIORITY_BLUEPRINT,
   });
 }
