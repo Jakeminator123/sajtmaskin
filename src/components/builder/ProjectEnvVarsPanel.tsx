@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
 import { F3PlaceholderToggle } from "@/components/builder/F3PlaceholderToggle";
 import { dispatchProjectEnvVarsUpdated } from "@/lib/builder/project-env-events";
+import { resolveStoredEnvProjectId } from "@/components/builder/stored-env-project-id";
 import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/packs/business-packs";
 import {
   detectIntegrationsFromVersionFiles,
@@ -193,6 +194,7 @@ export function ProjectEnvVarsPanel({
   const [newValue, setNewValue] = useState("");
   const [newSensitive, setNewSensitive] = useState(true);
   const [syntheticProject, setSyntheticProject] = useState(false);
+  const [loadedEnvProjectId, setLoadedEnvProjectId] = useState<string | null>(null);
 
   // --- integration state ---
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatusResponse | null>(
@@ -220,9 +222,10 @@ export function ProjectEnvVarsPanel({
   const hasSyntheticExternalProject = Boolean(
     externalProjectId && isSyntheticProjectId(externalProjectId),
   );
-  const effectiveEnvProjectId = hasRealExternalProject
-    ? externalProjectId
-    : appProjectId ?? externalProjectId ?? null;
+  const effectiveEnvProjectId = resolveStoredEnvProjectId({
+    appProjectId,
+    externalProjectId,
+  });
   const marketplaceProjectId = hasRealExternalProject ? externalProjectId : null;
   const hasProjectContext = Boolean(effectiveEnvProjectId);
 
@@ -250,8 +253,17 @@ export function ProjectEnvVarsPanel({
   // --- data loaders ---
 
   const loadEnvVars = useCallback(async () => {
+    if (hasSyntheticExternalProject && !appProjectId) {
+      setEnvVars([]);
+      setLoadedEnvProjectId(null);
+      setError(null);
+      setSyntheticProject(true);
+      setIsLoading(false);
+      return;
+    }
     if (!effectiveEnvProjectId) {
       setEnvVars([]);
+      setLoadedEnvProjectId(null);
       setError(null);
       setSyntheticProject(false);
       // Clear any spinner left true by a prior load whose response was
@@ -260,15 +272,9 @@ export function ProjectEnvVarsPanel({
       setIsLoading(false);
       return;
     }
-    if (hasSyntheticExternalProject && !appProjectId) {
-      setEnvVars([]);
-      setError(null);
-      setSyntheticProject(true);
-      setIsLoading(false);
-      return;
-    }
     const gen = loaderGenerationRef.current;
     setSyntheticProject(false);
+    setLoadedEnvProjectId(null);
     setIsLoading(true);
     setError(null);
     try {
@@ -280,13 +286,16 @@ export function ProjectEnvVarsPanel({
       if (loaderGenerationRef.current !== gen) return;
       if (!response.ok || !data?.success) {
         setEnvVars([]);
+        setLoadedEnvProjectId(null);
         setError(data?.error || "Kunde inte hämta miljövariabler");
         return;
       }
       setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
+      setLoadedEnvProjectId(effectiveEnvProjectId);
     } catch (loadError) {
       if (loaderGenerationRef.current !== gen) return;
       setEnvVars([]);
+      setLoadedEnvProjectId(null);
       setError(
         loadError instanceof Error ? loadError.message : "Kunde inte hämta miljövariabler",
       );
@@ -1392,10 +1401,17 @@ export function ProjectEnvVarsPanel({
                       <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
                       <div className="mt-1 space-y-1">
                         {mcpPriorities.slice(0, 5).map((item) => {
-                          const missingEnv = item.requiredEnv.filter(
-                            (key) => !configuredEnvKeys.has(key.trim().toUpperCase()),
-                          );
-                          const isReady = missingEnv.length === 0;
+                          const canEvaluateEnv =
+                            Boolean(appProjectId) &&
+                            loadedEnvProjectId === appProjectId &&
+                            !isLoading &&
+                            !error;
+                          const missingEnv = canEvaluateEnv
+                            ? item.requiredEnv.filter(
+                                (key) => !configuredEnvKeys.has(key.trim().toUpperCase()),
+                              )
+                            : [];
+                          const isReady = canEvaluateEnv && missingEnv.length === 0;
                           return (
                             <div
                               key={item.id}
@@ -1408,13 +1424,21 @@ export function ProjectEnvVarsPanel({
                                 <span
                                   className={cn(
                                     "text-[10px]",
-                                    isReady ? "text-emerald-300" : "text-amber-300",
+                                    !canEvaluateEnv
+                                      ? "text-muted-foreground"
+                                      : isReady
+                                        ? "text-emerald-300"
+                                        : "text-amber-300",
                                   )}
                                 >
-                                  {isReady ? "redo" : "saknar miljövariabler"}
+                                  {!canEvaluateEnv
+                                    ? "miljöstatus okänd"
+                                    : isReady
+                                      ? "redo"
+                                      : "saknar miljövariabler"}
                                 </span>
                               </div>
-                              {missingEnv.length > 0 && (
+                              {canEvaluateEnv && missingEnv.length > 0 && (
                                 <div className="text-muted-foreground text-[10px]">
                                   Saknas: {missingEnv.join(", ")}
                                 </div>
