@@ -1,13 +1,16 @@
 ---
-description: "Snabb repo-router: var koden, docs och artefakter bor. Kod är source of truth."
+description: "Snabb repo-router: var canonical owners, docs och artefakter bor."
 alwaysApply: true
 ---
 
 # Repo router
 
-Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommittade filer.
+Canonical owner avgörs per faktatyp: runtimekod, manifest, registry eller policy
+kan äga olika beslut. Genererad Markdown är projektion; handskrivna docs är
+mental modell. Anta inte att du ser ocommittade filer.
 
-**Startordning:** `README.md` → `AGENTS.md` → `docs/architecture/code-map.md` → relevant kod/doc.
+**Startordning:** `README.md` → `AGENTS.md` → `docs/concepts/mental-model.md`
+→ `docs/architecture/code-map.md` → relevant owner/konsument/doc.
 
 ## Huvudytor
 

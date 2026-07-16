@@ -1,57 +1,95 @@
 # Dokumentationslivscykel
 
-**Varför den här filen ligger i `docs/` (inte i `.cursor/rules/`):** Den beskriver **vad som får ligga var i `docs/`** och hur planfiler åldras. Det är **innehållspolicy** för dokumentationen. Projektregler i `.cursor/rules/` ska **länka hit** — inte duplicera samma policy ordagrant (en sanning, ett ställe).
+Den här filen är innehållspolicy för `docs/`. Projektregler i `.cursor/rules/`
+ska länka hit, inte återberätta policyn.
 
-**Översikt över hur hela projektet hänger ihop (hög nivå):** [`architecture/README.md`](./architecture/README.md) och [`architecture/system-overview.md`](./architecture/system-overview.md). Uppdatera dem vid **strukturella eller stora beteendeändringar** — inte för varje liten bugfix. Små ändringar hör hemma i commit/PR och kod; skapa inte nya översiktsfiler för kosmetik.
+## Canonical owner per faktatyp
 
-**Nav:** [`docs/README.md`](./README.md) · planer: [`docs/plans/README.md`](./plans/README.md) · kodkarta: [`architecture/code-map.md`](./architecture/code-map.md).
+Det finns ingen blind global ordning där all TypeScript-kod alltid står över
+manifest, registries, schemas och policies. Identifiera i stället ägaren för
+det konkreta beslutet:
 
-## Status för planfiler
+1. canonical executable eller deklarativ owner,
+2. runtime-konsument och validator,
+3. genererad projektion,
+4. handskriven mental modell,
+5. historik, planer och arkiv.
 
-| Status | Betydelse | Var |
-|--------|-----------|-----|
-| `active` | Styr arbete nu | `docs/plans/active/` |
-| `avklarat` | Avklarat / historik (ofta bara i git) | `docs/plans/avklarat/` |
+Exempel: modellval och `qualityGateTiers` kan ägas av modellmanifestet;
+env-klassificering av `config/env-policy.json`; runtime-Zod kan validera ett
+manifest; strict schemas kan spegla runtime-typer; ett registry kan äga
+tillgängliga identiteter.
 
-Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts.
+Genererad Markdown är alltid projektion, aldrig en ny owner. Handskrivna docs
+beskriver ansvar och stabil semantik. De ska inte kopiera implementation eller
+bli en parallell runtime-owner.
 
-## Regler (kort)
+## Ytor
 
-| Område | Här hör | Hit hör inte |
-|--------|---------|--------------|
-| `docs/architecture/` | Tunna kanoniska översikter: README, system-overview, llm-pipeline, runtime-contracts, code-map, glossary | Tillfälliga scratch; inventarier; fil:rad-matriser; historik (allt sådant → kod/schema/script/git) |
-| `docs/contracts/` | Kod-/schemanära kontrakts- och policydokument (env-flow, data-layer, scaffold-/dossier-system, fixer-registry, `policy/`) | Nya parallella arkitekturberättelser |
-| `docs/runbooks/` | Operativa felsökningsrunbooks (t.ex. preview-white-screen) | Arkitektur-index |
-| `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (kod är sanning) | Osäkra utkast |
-| `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
-| `docs/plans/archived/` | Reverterade eller inaktuella planer som behålls som referens | Aktiva planer |
-| `docs/archive/` | Avslutad **icke-plan**-historik (t.ex. `status/` ögonblicksbilder) — se [`archive/README.md`](./archive/README.md) | Aktivt arbete; genererade CI-artefakter (`docs/canvases/`) |
-| `docs/operating/` | Operativa driftdokument: cheatsheets + `incidents/` (postmortems) | Planarbete |
-| `docs/old/` | [`old/README.md`](./old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
+| Område                              | Här hör                                                       | Hit hör inte                                       |
+| ----------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
+| `docs/architecture/`                | Tunna systemöversikter, gränser, körflöde och kodkarta        | Inventarier, fil:rad-matriser och ändringshistorik |
+| `docs/concepts/`                    | Pedagogiska mentala modeller och stabil terminologi           | Runtimefält, fulla enumlistor och callsites        |
+| `docs/contracts/`                   | Kod- och schemanära policies och invariants                   | En andra arkitekturberättelse                      |
+| `docs/generated/`                   | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
+| `docs/schemas/`                     | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
+| `docs/runbooks/`, `docs/operating/` | Felsökning, drift och incidenter                              | Arkitekturindex och planarbete                     |
+| `docs/plans/active/`                | Planer som styr arbete nu                                     | Färdiga planer                                     |
+| `docs/plans/avklarat/`              | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
+| `docs/plans/archived/`              | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |
+| `docs/archive/`                     | Avslutad icke-plan-historik                                   | Aktivt arbete och genererad referens               |
+| `docs/old/`                         | Pekare till borttagen historik i git                          | Nytt arbetsmaterial                                |
 
-**Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
+`docs/README.md` är dokumentationsroutern. Root `README.md`, `AGENTS.md` och
+`.cursor/README.md` ska peka vidare, inte kopiera fulla inventarier.
 
-**Plan-flöde:** nya planer i `active/` → när klart eller ersatt, flytta till `avklarat/` eller lita på git-historik. Uppdatera [`docs/plans/README.md`](./plans/README.md) vid större ändring.
+## Genererade filer
 
-**Rensa:** när du uppdaterar en kanonisk fil, ta bort **föråldrat** innehåll i samma fil i stället för att lägga parallella «nya sanningar».
+Genererade referenser ska ha denna header och får inte redigeras manuellt:
 
-## Schema
+```text
+GENERATED FILE — DO NOT EDIT MANUALLY
+Source: <canonical path>
+Generator: <script path>
+```
 
-Utforskande schema-anteckningar: håll i `active/` tills de kan flyttas till
-`schemas/` eller `avklarat/`.
+Generatorn får återge identiteter, enumvärden, relationer och policyfält. Den
+ska inte kopiera implementationstext ur TypeScript. Generator och check ska
+använda samma renderingsfunktion så att driftkontrollen är deterministisk.
 
-Konservativ lagerregel:
+När genererade referenser finns ska `docs/README.md` länka deras router.
+`docs:check` ska upptäcka missing, stale och unexpected/orphan output; en fil
+som generatorn slutat äga får inte ligga kvar och se canonical ut.
 
-- `docs/schemas/*.md` = mänskligt läsbara, stabila kontraktsdokument
-- `docs/schemas/strict/*` = maskinorienterade kontrakt för dashboard/parity/tests
-- flytta inte brett till en separat `human/`-mapp utan tydligt behov; håll path-churn låg
+## Planer och historik
 
-## Större strukturändringar
+| Status             | Plats                  | Regel                              |
+| ------------------ | ---------------------- | ---------------------------------- |
+| Aktiv              | `docs/plans/active/`   | Styr pågående arbete               |
+| Avklarad           | `docs/plans/avklarat/` | Behåll bara fortsatt referensvärde |
+| Arkiverad          | `docs/plans/archived/` | Inte aktuell arkitektur            |
+| Icke-plan-historik | `docs/archive/`        | Märk ersättare eller använd git    |
 
-1. Uppdatera **kanonisk** fil under `docs/architecture/`, inte parallella kopior.  
-2. Uppdatera relevant README i samma veva.  
-3. Markera planstatus tydligt.
+Arkiverade dokument som ligger kvar ska ange:
 
-## Historik
+```text
+Status: Archived
+Not current architecture
+Do not use as runtime guidance
+Replaced by: <canonical doc>
+```
 
-Äldre arkitekturmaterial finns **inte** kvar i trädet (tidigare `docs/architecture/_archived/` samt `docs/architecture/archive/`, inkl. `pre-2026-03-consolidation/`, är borttagna). Återställ vid behov med `git log` / `git show`.
+Rena agentprompter, genomförda checklistor och ögonblicksstatus kan tas bort när
+git-historiken ger tillräckligt bevis. Externa caller-risker och produktbeslut
+ska dokumenteras i stället för att döljas som docs-cleanup.
+
+## Ändringsregel
+
+1. Ändra runtime-owner först när beteendet ändras.
+2. Regenerera referensdocs när en strukturerad källa ändras.
+3. Uppdatera en mental modell bara när den stabila modellen ändras.
+4. Ersätt stale text i stället för att lägga till en parallell sanning.
+5. Uppdatera router, länkar och planstatus i samma ändring.
+
+Äldre borttaget arkitekturmaterial återfinns med `git log` och `git show`; skapa
+inte en ny aktiv kopia för att bevara historik.

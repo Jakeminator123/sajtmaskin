@@ -4,15 +4,19 @@ Den här mappen är en tunn, kodförankrad översikt över Sajtmaskins runtime. 
 
 ## Grundregel
 
-Kod, schema och tester vinner över markdown. Architecture-docs ska inte duplicera enumlistor, filinventarier eller historik som redan finns i kod.
+Canonical owner avgörs per faktatyp. Runtimekod, manifest, registries och
+policies kan äga olika beslut; schemas och tester validerar eller speglar där
+kontraktet kräver det. Architecture-docs ska inte duplicera enumlistor,
+filinventarier eller historik från dessa owners.
 
 ## Läsordning
 
 1. [`system-overview.md`](./system-overview.md) — vad Sajtmaskin är och huvudflödet.
-2. [`llm-pipeline.md`](./llm-pipeline.md) — init, follow-up, F2/F3 och generationens körväg.
-3. [`runtime-contracts.md`](./runtime-contracts.md) — invariants för BuildSpec, dossiers, quality gate, preview, status och env.
-4. [`code-map.md`](./code-map.md) — var du hittar koden.
-5. [`glossary.md`](./glossary.md) — korta termer och namnskuggor.
+2. [`../concepts/mental-model.md`](../concepts/mental-model.md) — begreppen i ett sammanhang.
+3. [`llm-pipeline.md`](./llm-pipeline.md) — init, follow-up, F2/F3 och generationens körväg.
+4. [`runtime-contracts.md`](./runtime-contracts.md) — invariants för BuildSpec, dossiers, quality gate, preview, status och env.
+5. [`code-map.md`](./code-map.md) — var du hittar koden.
+6. [`glossary.md`](./glossary.md) — korta termer och namnskuggor.
 
 Runbooks ska ligga utanför denna kärna, t.ex. `docs/runbooks/preview-white-screen.md`.
 

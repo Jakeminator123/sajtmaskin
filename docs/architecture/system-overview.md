@@ -1,57 +1,36 @@
 # Systemöversikt
 
-Sajtmaskin är en AI-driven builder för webbplatser och webbappar. Användaren beskriver en idé i buildern, systemet genererar React/Next.js-kod via own-engine, visar live-preview och kan sedan gå vidare mot integrationer och deploy.
+Sajtmaskin är en AI-driven builder för webbplatser och webbappar. Systemet gör
+användarens avsikt till en versionerad kodbas, verifierar den och visar den i
+preview innan nästa delta eller explicit publiceringsarbete.
 
 ## Huvudloop
 
-```txt
+```text
 prompt
-  -> brief / intent
-  -> orchestration
-  -> codegen
-  -> finalize / repair / verify
-  -> version
-  -> preview
-  -> follow-up eller F3/deploy
+  → intent / Deep Brief eller Snapshot-Brief
+  → orchestration
+  → BuildSpec
+  → Core Rules + Dynamic Context
+  → code generation
+  → Normalize / finalize + kandidatkontroller
+  → persisterad draft/version
+  → preview-handoff + post-check
+  → RenderGate eller ReleaseGate
+  → promote, Advisory, Blocker eller RepairGate
+  → follow-up eller deploy
 ```
 
-## Huvudlager
+Stegen är ansvar, inte separata tjänster. Den faktiska körvägen och ordningen
+finns i [`llm-pipeline.md`](llm-pipeline.md).
 
-| Lager | Ansvar | Kodankare |
-|---|---|---|
-| Builder UI | Chat, versioner, previewpanel, quick-edit-yta | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
-| Own-engine boundary | Stream, meta, modellval, route-handlers | `src/lib/own-engine/`, `src/lib/providers/own-engine/` |
-| Generation core | Orkestrering, scaffolds, dossiers, prompts, repair | `src/lib/gen/` |
-| Persistens | Engine chats, messages, versions, jobs, logs | `src/lib/db/`, `scripts/db/` |
-| Preview | VM/preview_host-session, patch/restart, env-local | `src/lib/gen/preview/`, `preview-host/` |
-| Deploy | Vercel-projekt, deployments, domains | `src/lib/deploy/`, `src/lib/vercel/`, `src/app/api/v0/deployments/` |
-| Backoffice/observability | Operativ analys och felsökning | `backoffice/`, `sajtmaskin_backoffice.py`, `scripts/observability/` |
+Finalize har kontroller före persist, men VM-gaten arbetar mot den persisterade
+versionens filsnapshot. Samma RepairGate-port kan användas för residual i
+finalize och efter den post-persist gaten. Efter persist kan den spara en
+revision-bunden repair-kandidat på samma target-version; accepterad repair
+uppdaterar den versionen. “Versionerad” betyder därför inte att varje target
+alltid är immutabel.
 
-## Kärnobjekt
-
-| Objekt | Kort betydelse |
-|---|---|
-| `engine_chats` | En own-engine chat/lane. Bär bland annat senaste `orchestration_snapshot`. |
-| `engine_messages` | Chatmeddelanden och UI-parts/thinking. |
-| `engine_versions` | Immutable versioner med `files_json`, preview/status, F2/F3 stage och quick-edit-provenance. |
-| `BuildSpec` | Runtime-policy för generationens scope, kvalitet, preview och verifiering. |
-| `Dynamic Context` | Request-specifik promptdel som byggs från scaffold, variant, brief, route plan, contracts, dossiers och guidance. |
-| `EngineEvent` | Append-only runtime-händelse som projiceras till `VersionStatus`. |
-
-## Viktiga gränser
-
-### Init vs follow-up
-
-Init får välja scaffold, variant, route plan och capabilities från början. Follow-up ska utgå från befintlig version och bevara det som inte uttryckligen ändras.
-
-### F2 vs F3
-
-F2 är design/preview: renderbar, itererbar, snabb. F3 är integration/build: riktiga env-värden, server-wiring och deploybar build. F3 ska vara explicit, inte en bieffekt av promptheuristik.
-
-### Scaffold vs dossier
-
-Scaffold är basprojektets runtime-startpunkt. Dossier är en capability-modul som kan injicera mönster, komponenter eller integrationsglue. De ska inte användas som två namn för samma sak.
-
-### Preview vs deploy
-
-Preview är VM/runtime för iteration. Deploy är Vercel-spåret. En grön preview betyder inte automatiskt deployklar F3.
+Ägarskap finns i [`code-map.md`](code-map.md). Pedagogiska gränser finns i
+[`../concepts/mental-model.md`](../concepts/mental-model.md). Bindande invariants
+finns i [`runtime-contracts.md`](runtime-contracts.md).
