@@ -42,7 +42,6 @@ Kör från `preview-host/`:
 npm run check
 npm run test:guards
 npm run test:patch
-npm run test:proxy-contract
 npm run smoke
 ```
 

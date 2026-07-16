@@ -50,7 +50,7 @@ Dokumentation verifieras bottom-up i samma `quality`-jobb som kodkontrakten:
 | Kontroll | Roll | Kommando |
 | --- | --- | --- |
 | Genererade kontraktsdocs | Blockerar om committed projektioner avviker från runtimeägare, schemas, registries eller policies | `npm run docs:check` |
-| Aktiva dokumentationslänkar | Blockerar brutna relativa paths och förbjudna arkivlänkar i aktiva Markdown-ytor | `npm run docs:links` |
+| Aktiva dokumentationslänkar | Blockerar brutna relativa paths i aktiva Markdown-ytor; historiska källfiler ligger utanför den blockerande mängden | `npm run docs:links` |
 | Terminologi-ownership | Blockerar parallella glossary-paths, dubletter och uttryckligen förbjudna legacyalias | `npm run check:terms:contract` |
 | Generator-/guardtester | Blockerar regressioner i docs-generatorer och kontroller | `npm run docs:test` |
 | Bred termtäckning | Rådgivande signal; historikytor ingår inte | `npm run check:terms` |
