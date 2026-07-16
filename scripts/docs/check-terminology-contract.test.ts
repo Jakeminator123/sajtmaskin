@@ -66,7 +66,9 @@ describe("terminology contract", () => {
   });
 
   it("blocks deprecated prose in active docs but ignores code and historical docs", async () => {
-    const activeErrors = await run(fixture(), { "docs/contracts/example.md": "Use LLM-fix here." });
+    const activeErrors = await run(fixture(), {
+      "docs/contracts/example.md": "Use LLM-fix here.",
+    });
     expect(activeErrors).toContain("docs/contracts/example.md:1: LLM-fix -> RepairGate");
 
     const ignoredErrors = await run(fixture(), {
