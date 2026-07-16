@@ -43,6 +43,21 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 | Push | jobbet `schema-drift` på push till `master` | **Ja** — hård gate (bara schema-drift) |
 | Push | jobbet `stability` på push till `master` | **Nej** — warn-only (vitest-delen) |
 
+## Dokumentations- och kontraktsgates
+
+Dokumentation verifieras bottom-up i samma `quality`-jobb som kodkontrakten:
+
+| Kontroll | Roll | Kommando |
+| --- | --- | --- |
+| Genererade kontraktsdocs | Blockerar om committed projektioner avviker från runtimeägare, schemas, registries eller policies | `npm run docs:check` |
+| Aktiva dokumentationslänkar | Blockerar brutna relativa paths och förbjudna arkivlänkar i aktiva Markdown-ytor | `npm run docs:links` |
+| Terminologi-ownership | Blockerar parallella glossary-paths, dubletter och uttryckligen förbjudna legacyalias | `npm run check:terms:contract` |
+| Generator-/guardtester | Blockerar regressioner i docs-generatorer och kontroller | `npm run docs:test` |
+| Bred termtäckning | Rådgivande signal; historikytor ingår inte | `npm run check:terms` |
+
+Ändra först den kanoniska ägaren. Kör därefter eventuell generator och sist
+kontrollerna. Redigera inte en generated-fil manuellt för att få CI grön.
+
 ## Skriva en stabilitetstest
 
 - Namnge filen `<namn>.stability.test.ts` (eller `.tsx`) så plockas den upp av lanen.
