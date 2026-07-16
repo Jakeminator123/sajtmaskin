@@ -77,6 +77,9 @@ jobs:
       - name: Verify active documentation links
         run: npm run docs:links
 
+      - name: Verify terminology ownership
+        run: npm run check:terms:contract
+
       # Plan B #9: route `maxDuration` literals are generated from
       # config/ai_models/manifest.json routeTimeouts (canonical owner:
       # scripts/ai-models/sync-route-timeouts.mjs). Blocking gate so a drifted
