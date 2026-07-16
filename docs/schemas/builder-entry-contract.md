@@ -17,7 +17,8 @@ Primary code sources:
 - `src/lib/hooks/chat/useCreateChat.ts`
 - `src/app/api/template/route.ts`
 - `src/app/api/template-image/[templateId]/route.ts`
-- `src/app/api/v0/chats/init-registry/route.ts`
+- `src/lib/api/engine-chats-path.ts`
+- `src/app/api/engine/chats/route.ts`
 - `src/lib/tenant.ts`
 
 ## Canonical Enums

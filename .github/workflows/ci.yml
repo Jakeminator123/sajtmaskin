@@ -80,6 +80,9 @@ jobs:
       - name: Verify terminology ownership
         run: npm run check:terms:contract
 
+      - name: Verify removed v0 chat boundary
+        run: npm run compat:v0-chat-boundary:check
+
       # Plan B #9: route `maxDuration` literals are generated from
       # config/ai_models/manifest.json routeTimeouts (canonical owner:
       # scripts/ai-models/sync-route-timeouts.mjs). Blocking gate so a drifted
