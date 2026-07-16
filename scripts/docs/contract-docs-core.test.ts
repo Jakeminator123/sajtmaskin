@@ -81,12 +81,36 @@ describe("contract docs source coverage", () => {
     );
   });
 
+  it("changes variant output when a hidden runtime-consumed field changes", async () => {
+    const variants = structuredClone(inputs.variants);
+    const variant = variants[0];
+    if (!variant) throw new Error("expected at least one variant");
+    variant.promptHints = [...variant.promptHints, "hidden field changed"];
+
+    const changed = await buildGeneratedDocs({ variants });
+
+    expect(changed.get(GENERATED_DOC_FAMILIES.variants.output)).not.toBe(
+      baselineDocs.get(GENERATED_DOC_FAMILIES.variants.output),
+    );
+  });
+
   it("changes model output when a model manifest field changes", async () => {
     const modelManifest = structuredClone(inputs.modelManifest);
     const [profile] = Object.keys(modelManifest.buildProfiles.defaults);
     if (!profile) throw new Error("expected at least one model profile");
     modelManifest.buildProfiles.defaults[profile] =
       `${modelManifest.buildProfiles.defaults[profile]}-changed`;
+
+    const changed = await buildGeneratedDocs({ modelManifest });
+
+    expect(changed.get(GENERATED_DOC_FAMILIES.models.output)).not.toBe(
+      baselineDocs.get(GENERATED_DOC_FAMILIES.models.output),
+    );
+  });
+
+  it("changes model output when a hidden manifest policy changes", async () => {
+    const modelManifest = structuredClone(inputs.modelManifest);
+    modelManifest.repairPolicies.serverRepairPasses += 1;
 
     const changed = await buildGeneratedDocs({ modelManifest });
 
@@ -116,6 +140,17 @@ describe("contract docs source coverage", () => {
 
     expect(changed.get("docs/generated/policies.generated.md")).not.toBe(
       baselineDocs.get("docs/generated/policies.generated.md"),
+    );
+  });
+
+  it("changes policy output when extraKnownKeys changes", async () => {
+    const envPolicy = structuredClone(inputs.envPolicy);
+    envPolicy.extraKnownKeys = [...envPolicy.extraKnownKeys, "DOCS_DRIFT_TEST_KEY"];
+
+    const changed = await buildGeneratedDocs({ envPolicy });
+
+    expect(changed.get(GENERATED_DOC_FAMILIES.policies.output)).not.toBe(
+      baselineDocs.get(GENERATED_DOC_FAMILIES.policies.output),
     );
   });
 
