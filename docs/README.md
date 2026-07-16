@@ -16,6 +16,7 @@ policies kan äga olika beslut.
 | Vilka invariants gäller?         | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
 | Hur körs generationen?           | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)           |
 | Vilket schema gäller?            | [`schemas/README.md`](schemas/README.md)                                 |
+| Vilka kontraktsindex genereras?  | [`generated/README.md`](generated/README.md)                             |
 | Hur felsöker jag preview?        | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)   |
 | Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
 
@@ -44,7 +45,6 @@ runtime-läsning. Strict schemas kan spegla runtime-typer. Docs ska peka på des
 owners, inte kopiera deras enumlistor eller implementation.
 
 Full policy finns i
-[`documentation-lifecycle.md`](documentation-lifecycle.md). När generatorn och
-`docs:check` finns på master ska denna router även länka
-`generated/README.md`; en tom eller framtida generated-path länkas inte i
-förväg.
+[`documentation-lifecycle.md`](documentation-lifecycle.md). Genererade
+kontraktsindex och deras ownerrelationer finns i
+[`generated/README.md`](generated/README.md).

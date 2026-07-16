@@ -230,12 +230,12 @@ Föreslagen CI-regel i separat låg-risk-PR:
 | Route timeouts        | Blockerande                                  | `npm run route-timeouts:check`                               |
 | Preflight-paritet     | Blockerande                                  | `npm run preflight:common`                                   |
 | DB schema drift       | Eget blockerande jobb                        | `npm run db:schema-drift`                                    |
-| Prod migrations apply | Trusted non-PR: tillämpar migrationer/index | `.github/workflows/ci.yml` → `prod-migrations-apply`         |
-| Prod migration ledger | Trusted non-PR: verifierar prod-ledger      | `.github/workflows/ci.yml` → `prod-migrations-applied`       |
+| Prod migrations apply | Trusted non-PR: tillämpar migrationer/index  | `.github/workflows/ci.yml` → `prod-migrations-apply`         |
+| Prod migration ledger | Trusted non-PR: verifierar prod-ledger       | `.github/workflows/ci.yml` → `prod-migrations-applied`       |
 | Backoffice            | Eget blockerande jobb                        | `npm run backoffice:test`                                    |
 | Review window         | Required PR-job; vänt-/freshness-kontrakt    | `.github/workflows/review-window.yml`                        |
-| DB + Blob PR smoke    | PR utan secrets; validerar script/skip-path | `.github/workflows/db-blob-sync-check.yml`                   |
-| DB + Blob parity      | Credentialed gate på trusted non-PR-event   | `.github/workflows/db-blob-sync-check.yml`                   |
+| DB + Blob PR smoke    | PR utan secrets; validerar script/skip-path  | `.github/workflows/db-blob-sync-check.yml`                   |
+| DB + Blob parity      | Credentialed gate på trusted non-PR-event    | `.github/workflows/db-blob-sync-check.yml`                   |
 | Preview-host          | Eget blockerande jobb                        | Hostens `check`, `test:guards`, `test:patch`                 |
 | Stability             | Advisory                                     | `npm run test:stability`                                     |
 | Terminologi           | Advisory och alltid exit 0                   | `npm run check:terms`                                        |
@@ -284,21 +284,21 @@ extern route-risk även telemetri/deprecation.
 | 5   | Route-/featuretest och telemetri visar att extern eller intern konsument inte bryts |
 | 6   | Adaptrar delegerar; nya tester hindrar en andra owner eller ny v0-chatlogik         |
 
-## Completion-matris 2026-07-15
+## Completion-matris 2026-07-16
 
 Matrisen är en daterad arbetsstatus, inte runtime source of truth.
 
-| Område                                   | Status      | Bevis och återstående kontrakt                                                                                                   |
-| ---------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Fas 0: audit och ownerinventering        | PARTIAL     | Rapporten är avgränsad till primära ytor och har faktaspecifika owners; fyra Codex-fynd är rättade på #527 men landing återstår. |
-| Fas 1: tunn dokumentationsgrund          | PARTIAL     | #528 är draft. Versionslivscykel, phantom repair-path och owner/validator-språk måste rättas före merge.                         |
-| Fas 2: genererade kontraktsdocs          | PARTIAL     | #529 är draft med sju generatorfamiljer och `docs:check`; navigation, orphan-detection och slutlig #531-regeneration återstår.   |
-| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är ett första smalt deletion-pass. Aktiv router, arkivheaders och repoövergripande länk-/pathkontroll återstår.             |
-| Agentregler för owner → generate → check | DEFERRED    | Reglerna kräver fortfarande bred mekanisk docs-sync; uppdateras i en separat closure-PR efter nuvarande kedja.                   |
-| Terminologi/glossary-konsolidering       | DEFERRED    | `docs/architecture/glossary.md` förblir canonical. Strukturerad källa införs bara med full term-/länkparitet.                    |
-| Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                       |
-| Fas 5: featurefamiljer                   | NOT STARTED | Audit, kostnadsfri, figma, wizard, marketplace/MCP och templates granskas separat.                                               |
-| Fas 6: compatibility/owner-konsolidering | NOT STARTED | Engine/v0 och övriga signalägare kräver separata semantik- och regressionstester.                                                |
+| Område                                   | Status      | Bevis och återstående kontrakt                                                                                                  |
+| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Fas 0: audit och ownerinventering        | DONE        | #527 är mergad; rapporten är avgränsad till primära ytor och har faktaspecifika owners.                                         |
+| Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
+| Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer, navigation, determinism, source-coverage och missing/stale/orphan-lås i CI.                        |
+| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 är mergad som första smala deletion-pass. Aktiv router, arkivheaders och repoövergripande länk-/path-CI återstår.          |
+| Agentregler för owner → generate → check | PARTIAL     | Agent-entry och repo-router följer owner-modellen; bred pipeline-/workflowregel och mekanisk docs-sync återstår i closure PR B. |
+| Terminologi/glossary-konsolidering       | DEFERRED    | `docs/architecture/glossary.md` förblir canonical. Strukturerad källa införs bara med full term-/länkparitet.                   |
+| Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |
+| Fas 5: featurefamiljer                   | NOT STARTED | Audit, kostnadsfri, figma, wizard, marketplace/MCP och templates granskas separat.                                              |
+| Fas 6: compatibility/owner-konsolidering | NOT STARTED | Engine/v0 och övriga signalägare kräver separata semantik- och regressionstester.                                               |
 
 ## Stoppunkter
 
