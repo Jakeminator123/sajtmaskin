@@ -8,15 +8,12 @@
  * under `src/app/api/engine/chats/**`. The `/api/v0/chats/**` tree was fully
  * removed; the `v0-chats-compat.ts` helper (`logLegacyV0ChatsHit`) is gone.
  *
- * **Other `/api/v0/**` segments are NOT chat-compat — they are the canonical
- * permanent URL for those features.** Specifically (P29 Fas 2 decision
- * 2026-04-20): `init-registry`, `projects/instructions`,
- * `projects/[projectId]/env-vars`, and
- * `deployments/**` live on `/api/v0/` because they have no engine equivalent
- * and renaming them to `/api/legacy/v0/*` would be cosmetic-only with real
- * client-deploy coordination cost. Treat the `/api/v0/` prefix as canonical
- * for those routes; do not migrate them. See
- * `docs/plans/avklarat/P29-v0-engine-consolidation.md` for full motivation.
+ * **Other `/api/v0/**` segments are separate versioned boundaries, not chat
+ * compatibility.** `deployments/**` and `projects/[projectId]/env-vars`
+ * remain active. `projects/instructions` is a 410 tombstone and
+ * `init-registry` no longer exists. Do not infer ownership from the `v0`
+ * prefix: inspect the concrete route and its callers before changing it. See
+ * `docs/plans/avklarat/P29-v0-engine-consolidation.md` for historical context.
  */
 export const ENGINE_CHATS_API_PREFIX = "/api/engine/chats";
 
