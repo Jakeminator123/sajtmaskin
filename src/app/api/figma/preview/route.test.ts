@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseFigmaUrl } from "./route";
+import { parseFigmaUrl } from "./figma-url";
 
 describe("Figma preview URL parsing", () => {
   it("accepts figma.com and its subdomains", () => {
