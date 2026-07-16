@@ -9,7 +9,14 @@ Full ordlista: `docs/architecture/glossary.md`. Arkitekturprinciper/målbild: `d
 
 ## Grundregel
 
-Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändras semantik: uppdatera glossary/signal-doc eller förklara i commit/PR.
+`docs/architecture/glossary.md` är den enda kanoniska glossary-ytan.
+`config/naming-dictionary.json` är en liten valideringsseed, inte ett andra
+glossary eller ett runtime-registry.
+
+Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändrar
+semantik: uppdatera glossaryn och den faktiska signalägaren. Kör
+`npm run check:terms:contract` för blockerande owner-/aliasstruktur och
+`npm run check:terms` för rådgivande bred träffscanning.
 
 ## Skriv hellre höger än vänster
 
