@@ -46,9 +46,18 @@ Importera från mapparna, inte gamla toppfiler:
 | Finalize | `src/lib/gen/stream/finalize-version/` |
 | Prompt assist | `src/lib/builder/prompt-assist/` |
 
-## Docs-sync
+## Owner → validate → generate → check
 
-Ändras runtime-sanning, env-yta, schema, signal eller adminflöde: uppdatera relevanta docs/schemas/backoffice i samma leverans.
+När runtime-sanning, env-yta, schema, signal eller adminflöde ändras:
+
+1. identifiera och ändra den kanoniska ägaren,
+2. uppdatera schema/validator bara om kontraktet kräver det,
+3. kör `npm run docs:generate` för strukturerade projektioner,
+4. kör `npm run docs:check`, `npm run docs:links` och relevanta domänvalidatorer,
+5. uppdatera handskriven mental modell endast om stabil semantik ändras.
+
+Kopiera inte enumlistor, registryinnehåll eller defaults till en ny handskriven yta.
+Se `docs/documentation-lifecycle.md`.
 
 ## Repair-gate
 
