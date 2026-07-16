@@ -53,7 +53,7 @@ describe("active documentation link checks", () => {
 
     const failures = await checkActiveDocLinks({
       trackedPaths: [...files.keys()],
-      readTrackedFile: async (path) => files.get(path) ?? "",
+      readTrackedFile: async (path: string) => files.get(path) ?? "",
     });
 
     expect(failures).toEqual([
