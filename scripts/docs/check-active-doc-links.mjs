@@ -101,7 +101,10 @@ export async function checkActiveDocLinks({
       }
 
       const path = resolved.path;
-      const exists = trackedSet.has(path) || tracked.some((candidate) => candidate.startsWith(`${path}/`));
+      const lookupPath = path.replace(/\/+$/, "");
+      const exists =
+        trackedSet.has(lookupPath) ||
+        tracked.some((candidate) => candidate.startsWith(`${lookupPath}/`));
       if (!exists) failures.push({ sourcePath, target: rawTarget, resolvedPath: path, reason: "missing" });
     }
   }
