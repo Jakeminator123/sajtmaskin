@@ -112,7 +112,6 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Directive Cascade | Core Rules + Dynamic Context + signalägare |
 | `serverVerify` som quality-gate-lane | `RenderGate` (`designPreview`) eller `ReleaseGate` (`integrationsBuild`) |
 
-
 ## Förvaltning av ordlistan
 
 Den här filen är den enda kanoniska glossary-ytan. Den är en handskriven mental
