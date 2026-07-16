@@ -4,6 +4,8 @@
 > Source: `config/scaffold-variants/<scaffold>/<variant>.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
+<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:8185f3cfb273c8d2 -->
+
 # Scaffold variants
 
 This catalog contains 28 variants accepted by the runtime registry for 9 registered scaffolds.

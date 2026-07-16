@@ -215,6 +215,7 @@ function envPolicyProjection(envPolicy) {
   const knownEmptyOk = new Set(envPolicy.knownEmptyOk ?? []);
   const runtimeOnly = new Set(envPolicy.runtimeOnlyKeys ?? []);
   return {
+    extraKnownKeys: [...new Set(envPolicy.extraKnownKeys ?? [])].sort(compareText),
     knownEmptyOk: [...knownEmptyOk].sort(compareText),
     runtimeOnlyKeys: [...runtimeOnly].sort(compareText),
     rules: (envPolicy.rules ?? [])
@@ -375,6 +376,11 @@ function renderVariants(variants, scaffoldCount) {
       "src/lib/gen/scaffold-variants/registry.ts",
       "config/scaffold-variants/<scaffold>/<variant>.json",
     ]),
+    fingerprintComment(
+      "config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection",
+      sortedVariants,
+    ),
+    "",
     "# Scaffold variants",
     "",
     `This catalog contains ${sortedVariants.length} variants accepted by the runtime registry for ${scaffoldCount} registered scaffolds.`,
@@ -413,6 +419,7 @@ function renderModels(manifest) {
       "config/ai_models/manifest.json",
       "src/lib/ai-models/load-manifest.ts#getAiModelsManifest",
     ]),
+    fingerprintComment("config/ai_models/manifest.json#full-manifest", manifest),
     fingerprintComment("config/ai_models/manifest.json#model-summary", {
       buildProfiles: manifest.buildProfiles,
       qualityToOwnEngineModel: manifest.qualityToOwnEngineModel,
