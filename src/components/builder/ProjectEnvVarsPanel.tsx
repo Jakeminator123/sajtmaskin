@@ -104,8 +104,7 @@ type McpPriorityItem = {
   label: string;
   phase: number;
   priority: "high" | "medium" | "low";
-  readiness: "ready" | "needs_env_setup";
-  missingEnv?: string[];
+  requiredEnv: string[];
 };
 
 type McpPrioritiesResponse = {
@@ -1392,31 +1391,37 @@ export function ProjectEnvVarsPanel({
                     <div className="border-border mt-2 rounded-md border border-dashed p-2">
                       <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
                       <div className="mt-1 space-y-1">
-                        {mcpPriorities.slice(0, 5).map((item) => (
-                          <div
-                            key={item.id}
-                            className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-foreground text-[11px]">
-                                Fas {item.phase}: {item.label}
-                              </span>
-                              <span
-                                className={cn(
-                                  "text-[10px]",
-                                  item.readiness === "ready" ? "text-emerald-300" : "text-amber-300",
-                                )}
-                              >
-                                {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
-                              </span>
-                            </div>
-                            {item.missingEnv && item.missingEnv.length > 0 && (
-                              <div className="text-muted-foreground text-[10px]">
-                                Saknas: {item.missingEnv.join(", ")}
+                        {mcpPriorities.slice(0, 5).map((item) => {
+                          const missingEnv = item.requiredEnv.filter(
+                            (key) => !configuredEnvKeys.has(key.trim().toUpperCase()),
+                          );
+                          const isReady = missingEnv.length === 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-foreground text-[11px]">
+                                  Fas {item.phase}: {item.label}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "text-[10px]",
+                                    isReady ? "text-emerald-300" : "text-amber-300",
+                                  )}
+                                >
+                                  {isReady ? "redo" : "saknar miljövariabler"}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              {missingEnv.length > 0 && (
+                                <div className="text-muted-foreground text-[10px]">
+                                  Saknas: {missingEnv.join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
