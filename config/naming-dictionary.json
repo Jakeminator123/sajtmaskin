@@ -1,10 +1,10 @@
 {
-  "_comment": "Light, warn-FIRST naming dictionary for grandmaster activity C2 (ordlista-check). Seeded from .cursor/rules/terminology.mdc (forvaxlingstabellen) + docs/architecture/glossary.md (Legacy). Deliberately SMALL and NOT exhaustive — canonical source of truth stays the glossary. Consumed by scripts/dev/check-term-coverage.mjs, which only WARNS and always exits 0. Blocking enforcement is a separate, later decision.",
+  "_comment": "Small validation dictionary for documentation terminology. The canonical human source is docs/architecture/glossary.md. The structural contract is blocking; the broad occurrence scan remains advisory because runtime identifiers may legitimately keep legacy names.",
   "_source": [
     ".cursor/rules/terminology.mdc#forvaxlingstabell",
     "docs/architecture/glossary.md#legacy-inte-aterintroducera"
   ],
-  "_notes": "tier 2 / tier 3 are intentionally NOT seeded: 'tier-2 preview' and 'Tier-3 Integration' are canonical glossary usage, so a broad match would be false-positive-prone. Add later if a precise rule emerges. Per-entry knobs: caseSensitive (default false), scope (subset of scan dirs; default all), ignorePathContains (skip paths where the alias is legitimate, e.g. /api/v0/).",
+  "_notes": "This is a validation seed, not a second glossary or a runtime registry. check:terms:contract blocks owner/duplicate/deprecated-canonical drift. check:terms reports broader occurrences without failing. Per-entry knobs: caseSensitive, scope, ignorePathContains and blockInActiveDocs.",
   "forbiddenAliases": [
     {
       "alias": "demoUrl",
@@ -16,13 +16,15 @@
       "alias": "StructuredBrief",
       "canonical": "siteBriefSchema / Brief (Deep Brief)",
       "caseSensitive": true,
-      "note": "Legacy brief-typ. Anvand siteBriefSchema / Deep Brief."
+      "note": "Legacy brief-typ. Anvand siteBriefSchema / Deep Brief.",
+      "blockInActiveDocs": true
     },
     {
       "alias": "simplifiedBriefSchema",
       "canonical": "siteBriefSchema",
       "caseSensitive": true,
-      "note": "Legacy brief-schema. Anvand siteBriefSchema."
+      "note": "Legacy brief-schema. Anvand siteBriefSchema.",
+      "blockInActiveDocs": true
     },
     {
       "alias": "prompt-static",
@@ -43,20 +45,52 @@
       "alias": "sandbox",
       "canonical": "preview / VM / preview_host",
       "note": "Legacy preview-term. sandboxId/sandboxUrl lever kvar enbart som kompatibilitetsalias.",
-      "ignorePathContains": ["vercel-sandbox", "sandbox-skill"]
+      "ignorePathContains": [
+        "vercel-sandbox",
+        "sandbox-skill"
+      ]
     },
     {
       "alias": "dashboard",
       "canonical": "backoffice/",
-      "scope": ["docs"],
+      "scope": [
+        "docs"
+      ],
       "note": "Bara nar du menar admin-backoffice. Generella app-dashboards i genererad sajtkod ar OK — darfor docs-only seed."
     },
     {
       "alias": "v0",
       "canonical": "own-engine / Mallar-tab / /api/v0/",
-      "scope": ["docs"],
-      "ignorePathContains": ["api/v0", "v0-templates", "templates_v0", "webhooks/v0"],
+      "scope": [
+        "docs"
+      ],
+      "ignorePathContains": [
+        "api/v0",
+        "v0-templates",
+        "templates_v0",
+        "webhooks/v0"
+      ],
       "note": "v0 betyder 3 saker (API-versionering, Mallar-tab, naming debt). Advisory — verifiera mot koden vilken betydelse som avses."
+    },
+    {
+      "alias": "mekanisk autofix",
+      "canonical": "Normalize",
+      "note": "Kanoniskt docsnamn för mekanisk kodstädning; kodidentifierare kan behålla legacy."
+    },
+    {
+      "alias": "LLM-fix",
+      "canonical": "RepairGate",
+      "note": "Använd RepairGate i löptext; mappa kvarvarande kod- och telemetrinamn."
+    },
+    {
+      "alias": "Quality Gate",
+      "canonical": "RenderGate / ReleaseGate",
+      "note": "Välj RenderGate i F2 och ReleaseGate i F3."
+    },
+    {
+      "alias": "template-library",
+      "canonical": "Scaffold / Dossier / Template (v0-mall)",
+      "note": "Välj term efter faktisk owner; dessa är tre olika system."
     }
   ],
   "canonicalTerms": [
@@ -64,21 +98,25 @@
     "preview",
     "preview_host",
     "previewUrl",
-    "template-library",
+    "Template (v0-mall)",
     "scaffold",
     "scaffold variant",
     "Deep Brief",
     "Snapshot-Brief",
     "siteBriefSchema",
-    "mekanisk autofix",
-    "LLM-fix",
+    "Normalize",
+    "RepairGate",
+    "RenderGate",
+    "ReleaseGate",
+    "Advisory",
+    "Blocker",
+    "CapabilitySmoke",
     "backoffice",
     "Core Rules",
     "fidelity2",
     "fidelity3",
     "BuildSpec",
     "Dynamic Context",
-    "Quality Gate",
     "Dossier"
   ],
   "knownTechTerms": [
@@ -94,5 +132,6 @@
     "JsonSchema",
     "Tailwind",
     "Playwright"
-  ]
+  ],
+  "_canonicalSource": "docs/architecture/glossary.md"
 }
