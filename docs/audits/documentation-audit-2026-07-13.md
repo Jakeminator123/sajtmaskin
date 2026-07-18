@@ -173,7 +173,7 @@ Följande är inte automatiskt dubbletter. Hierarkin måste synas i generatorn:
 | `scripts/README.md` och aktiv planrouter | FIXED | #535 tunnar båda routers och pekar på kanoniska kommandon respektive faktiskt aktiva planer. |
 | `config/naming-dictionary.json` | LÅST | #534 migrerar kanoniska termer och blockerar strukturell glossary-/aliasdrift. |
 | `docs/schemas/builder-entry-contract.md` | FIXED OCH LÅST | #537 rättar den borttagna chat-referensen; #540 härdar guarden mot route groups, configs, public JS och breda docsundantag. |
-| Historiska grandmaster-/planfiler | PARTIAL; STATUS DRIFT LOCKED I DENNA PR | 25 vilseledande `active`/`ready`/`scope`/`in-progress`-statusar rättas efter faktisk katalogroll och `plans:history:check` blockerar återfall. Återstående värdefulla filer ska få full arkivheader och övriga raderas när git räcker. |
+| Historiska grandmaster-/planfiler | PARTIAL; STATUS DRIFT LOCKED I #546 | 25 vilseledande `active`/`ready`/`scope`/`in-progress`-statusar rättas efter faktisk katalogroll och `plans:history:check` blockerar återfall. Återstående värdefulla filer ska få full arkivheader och övriga raderas när git räcker. |
 
 Historiska dokument ska inte få sina sakuppgifter omskrivna som om de vore
 aktuella. De ska antingen få en arkivheader med ersättare eller tas bort när git
@@ -195,6 +195,7 @@ redan är tillräckligt arkiv.
 | Dubbla `path-utils`                     | KEEP             | Traversal-säkerhet respektive route-normalisering                    | Olika semantik, inte dubblett                     |
 | `/api/v0/projects/instructions`         | COMPAT/TOMBSTONE | 410 och inga interna callers                                         | Telemetri/deprecation före route-deletion         |
 | Fyra fristående orphan-moduler          | DELETE → DONE I #545 | Knip + Madge signalerade filerna; exakta path-, symbol-, import-, config-, script- och CI-sökningar gav inga callers. `setup-contract.ts` blev uttryckligen oanvänd i `567f8cf7`; removal-verifiering täcker typecheck, lint och build. | Raderar bara modulerna, inte `template_cache`-tabellen eller aktiv preview-/env-logik |
+| Beta-banner och env-toggle               | DELETE → DONE I DENNA PR | Exakta symbol-, import-, path-, config-, script- och CI-sökningar gav bara komponentens egen läsning samt den arkiverade inventeringens uttryckliga `drop`-beslut. Env-parity, generated docs, typecheck, lint och full build passerar. | Raderar UI-komponenten, schemafältet och policydeklarationen tillsammans |
 
 ## `engine` och `v0`
 
@@ -290,19 +291,19 @@ extern route-risk även telemetri/deprecation.
 ## Completion-matris 2026-07-18
 
 Matrisen är en daterad arbetsstatus, inte runtime source of truth. Senast
-avstämd mot `master` på `b7585e90ba6ded0dbfbf9ab73613eb5940d4d0b2`, som
-inkluderar closure-statusen i #542, featuretesterna i #544 och fas 4-starten i #545.
+avstämd mot `master` på `101b377ef9da36bc6ac60abcd14f8654818e0f2e`, som
+inkluderar featuretesterna i #544, fas 4-starten i #545 och historikstatuslåset i #546.
 
 | Område                                   | Status      | Bevis och återstående kontrakt                                                                                                  |
 | ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Fas 0: audit och ownerinventering        | DONE        | #527 är mergad; rapporten är avgränsad till primära ytor och har faktaspecifika owners.                                         |
 | Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
 | Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer och driftlås i CI; #532 låser även dolda env-, modellpolicy- och variantfält via fingerprints.      |
-| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. Denna PR rättar och CI-låser 25 motsägande historikstatusar; full arkivheader-/deletion-long-tail återstår. |
+| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. #546 rättar och CI-låser 25 motsägande historikstatusar; full arkivheader-/deletion-long-tail återstår. |
 | Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Sena reviewfynd och integrationsrättelser | DONE        | #539, #541 och #540 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
-| Fas 4: lågrisk kodcleanup                | PARTIAL     | #545 raderar fyra nollrefererade orphan-moduler efter Knip/Madge, exakta callersökningar och removal-verifiering. Fler kandidater kräver egna beviskedjor. |
+| Fas 4: lågrisk kodcleanup                | PARTIAL     | #545 raderar fyra nollrefererade orphan-moduler. Denna PR raderar den nollimporterade beta-bannern och dess enda env-toggle efter exakt caller-, config- och buildverifiering. Fler kandidater kräver egna beviskedjor. |
 | Fas 5: featurefamiljer                   | PARTIAL     | #536/#539/#544 täcker Figma-handlern och alla tre marketplace-routes samt MCP priorities. Telemetri och återstående familjetester krävs före deletion; övriga familjer är aktiva/KEEP. |
 | Fas 6: compatibility/owner-konsolidering | PARTIAL     | #537/#540 levererar engine/v0-guardrail för den borttagna chat-ytan. Fas 6B+ med övrig ownerkonsolidering kräver separata semantik- och regressionstester. |
 
