@@ -1,6 +1,6 @@
 ---
 id: 2026-06-17-env-cleanup-inventory
-status: scope
+status: archived
 created: 2026-06-17
 linear: null
 parent: null
