@@ -1,6 +1,6 @@
 ---
 id: 2026-06-17-repo-tvatt
-status: active
+status: archived
 created: 2026-06-17
 linear: null
 parent: null

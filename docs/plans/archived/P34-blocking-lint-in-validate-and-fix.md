@@ -1,6 +1,6 @@
 ---
 id: P34
-status: active
+status: archived
 created: 2026-04-21
 linear: SAJ-28
 ---

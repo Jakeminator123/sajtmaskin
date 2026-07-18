@@ -84,6 +84,7 @@
     "shadcn:health": "npx tsx scripts/shadcn/registry-health.ts",
     "plans:archive": "node scripts/plans/auto-archive.mjs",
     "plans:archive:apply": "node scripts/plans/auto-archive.mjs --apply",
+    "plans:history:check": "node scripts/plans/check-history-status.mjs",
     "typography:validate-pairings": "npx tsx scripts/typography/validate-font-pairings.ts",
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",

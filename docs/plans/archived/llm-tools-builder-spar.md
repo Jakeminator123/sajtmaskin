@@ -1,6 +1,6 @@
 ---
 id: llm-tools-builder-spar
-status: scope
+status: archived
 created: 2026-04-28
 linear: null
 parent: 2026-04-28-llm-flode-startlinje

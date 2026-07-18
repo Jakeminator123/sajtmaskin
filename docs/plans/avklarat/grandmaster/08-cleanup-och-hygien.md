@@ -1,6 +1,6 @@
 ---
 id: gm-omrade-08-cleanup-och-hygien
-status: scope
+status: done
 created: 2026-06-18
 linear: null
 parent: gm-00-master-plan

@@ -1,6 +1,6 @@
 ---
 id: gm-akt-5-2-stale-baseversion-409
-status: ready
+status: done
 created: 2026-06-19
 parent: gm-omrade-05-followup-och-preview-kontrakt
 blocked_by: 5-1 (mjukt — kan göras fristående om kontraktet dröjer)

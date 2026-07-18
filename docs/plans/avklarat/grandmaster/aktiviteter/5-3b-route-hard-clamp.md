@@ -1,6 +1,6 @@
 ---
 id: gm-akt-5-3b-route-hard-clamp
-status: ready
+status: done
 created: 2026-06-20
 parent: gm-omrade-05-followup-och-preview-kontrakt
 blocked_by: 5-1 (FollowUpContract på master) + 5-3 (#168 wire:ar orchestrate→input.followUpContract; route lämnades som drift-signal)

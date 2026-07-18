@@ -1,6 +1,6 @@
 ---
 id: 2026-05-01-f2-f3-ux-copy-konsolidering
-status: active
+status: archived
 created: 2026-05-01
 linear: null
 parent: 2026-04-28-llm-flode-startlinje

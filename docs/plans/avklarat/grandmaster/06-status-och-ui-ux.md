@@ -1,6 +1,6 @@
 ---
 id: gm-omrade-06-status-och-ui-ux
-status: scope
+status: done
 created: 2026-06-18
 linear: null
 parent: gm-00-master-plan

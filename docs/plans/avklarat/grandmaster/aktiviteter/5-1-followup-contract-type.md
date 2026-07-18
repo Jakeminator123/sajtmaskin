@@ -1,6 +1,6 @@
 ---
 id: gm-akt-5-1-followup-contract-type
-status: ready
+status: done
 created: 2026-06-19
 parent: gm-omrade-05-followup-och-preview-kontrakt
 blocked_by: null

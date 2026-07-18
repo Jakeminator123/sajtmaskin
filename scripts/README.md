@@ -11,6 +11,7 @@ scriptinventariet eller historiken för borttagna pipelines.
 | Repo-verifiering | `npm run typecheck`, `npm run lint`, `npm run test:ci` |
 | Genererade kontraktsdocs | `npm run docs:generate`, `npm run docs:check`, `npm run docs:test` |
 | Aktiva dokumentationslänkar | `npm run docs:links` |
+| Historiska planstatusar | `npm run plans:history:check`, [`plans/`](plans/) |
 | Scaffolds | `npm run scaffolds:validate`, [`scaffolds/`](scaffolds/) |
 | Dossiers | `npm run dossiers:validate-all`, [`dossiers/`](dossiers/) |
 | Control plane | `npm run control-plane:check`, [`control-plane/`](control-plane/) |

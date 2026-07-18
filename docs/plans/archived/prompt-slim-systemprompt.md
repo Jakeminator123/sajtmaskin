@@ -1,6 +1,6 @@
 ---
 id: prompt-slim-systemprompt
-status: active
+status: archived
 created: 2026-04-30
 linear: null
 parent: 2026-04-28-llm-flode-startlinje

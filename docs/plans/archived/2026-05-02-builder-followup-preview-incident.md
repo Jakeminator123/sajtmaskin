@@ -1,6 +1,6 @@
 ---
 id: 2026-05-02-builder-followup-preview-incident
-status: active
+status: archived
 created: 2026-05-02
 linear: null
 parent: 2026-04-28-llm-flode-startlinje
