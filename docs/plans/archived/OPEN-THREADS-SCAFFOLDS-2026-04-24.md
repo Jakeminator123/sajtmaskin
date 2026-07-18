@@ -1,6 +1,6 @@
 ---
 id: OPEN-THREADS-SCAFFOLDS-2026-04-24
-status: active
+status: archived
 created: 2026-04-24
 linear: null
 ---
