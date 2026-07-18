@@ -7,9 +7,14 @@ parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [LLM pipeline](../../architecture/llm-pipeline.md)
+
 # LLM-tools för builder — scope
 
-Spår som utforskar deterministiska builder-tools som ett alternativ till att låta codegen-LLM gissa hela route/dependency/scaffold-ytan. Målet är **mindre LLM-flöde, mer deterministisk styrning** — i linje med [`docs/architecture/llm-flow-target-worldclass.md`](../../architecture/llm-flow-target-worldclass.md).
+Spår som utforskar deterministiska builder-tools som ett alternativ till att låta codegen-LLM gissa hela route/dependency/scaffold-ytan. Målet är **mindre LLM-flöde, mer deterministisk styrning** — i linje med [LLM-pipelinen](../../architecture/llm-pipeline.md).
 
 Denna fil är **bara scope/plan**. Inga kodändringar levereras innan vi enats om vilka 2–3 tools som ska implementeras först.
 

@@ -8,6 +8,11 @@ topic: PR #175 (collab/chgenberg) decision + split plan
 source_pr: https://github.com/Jakeminator123/sajtmaskin/pull/175
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Active plans](../active/README.md)
+
 # PR #175 — beslutsplan: dela upp, ersätt eller stäng
 
 ## Status 2026-07-08 (verifierat)

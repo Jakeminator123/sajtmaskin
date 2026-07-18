@@ -7,6 +7,11 @@ paused: 2026-04-23
 paused_by: OMTAG-2026-04-23
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [LLM pipeline](../../../architecture/llm-pipeline.md)
+
 # P32 — Request-Type Taxonomy & Right-Sized Pipelines
 
 > **Fas B–F paused 2026-04-23:** Parkerade per OMTAG-waven. Kräver stabil follow-up-semantik (fas 2·A ✅) + eval-baseline på bredare surface (fas 0·02 etablerad — minimal, kan behöva utvidgas).

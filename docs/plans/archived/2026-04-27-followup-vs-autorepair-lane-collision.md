@@ -6,6 +6,11 @@ linear: null
 trigger: Användare skickade kreativ follow-up ("3D-animerad data flyger över fälten") medan föregående version fortfarande hade auto-repair pågående. Repair-LLM:n fick prompten med instruktionen `Make the smallest change that fixes the listed issues. Do NOT change layout, naming, styling, or architecture unless required by the fix.` — vilket SVEK användarens visuella intent och bara körde teknisk reparation. Sajten fixades men 3D-effekten kom aldrig.
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Init and follow-up](../../concepts/init-and-follow-up.md)
+
 # Follow-up vs auto-repair — lane/intent-kollision
 
 ## Symptom

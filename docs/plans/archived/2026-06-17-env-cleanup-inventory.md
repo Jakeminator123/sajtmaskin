@@ -7,6 +7,11 @@ parent: null
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Environment contract](../../contracts/env-flow.md)
+
 # Env-var cleanup inventory — `sajtmaskin` (+ `sajtbyggaren-viewser`)
 
 Read-only audit. **No env var was added/removed/changed; `.env.local` untouched; no commit; no branch switch.** All values masked — only derived facts (presence, value length, equality-vs-local via SHA-256 hash compare, secret-heuristic, code-reference).

@@ -24,6 +24,11 @@ read_only_files:
   - src/lib/gen/autofix/fixer-prompt.ts
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Fixer registry contract](../../../contracts/fixer-registry.md)
+
 > **Superseded 2026-07-02:** Målet levererat av kontrollflöde-konsolideringens Fas 3 (PR #364): all LLM-repair går nu genom `runLlmRepairGate` + `RepairLedger` (en port, dedupe över lanes, samma-signal-verifiering, `llm-fixer-callsite-guard.test.ts` vaktar att `runLlmFixer` bara har en produktions-callsite). Skillnad mot ursprungsidén: anropen konsoliderades bakom EN gate i stället för att slås ihop till ETT anrop — prompt-/pass-sammanslagning blev onödig när dedupe + rätt diagnostikmål löste kostnadsproblemet. Se [`kontrollflode/00-master-plan.md`](../../avklarat/kontrollflode/00-master-plan.md).
 >
 > **Paused 2026-04-23:** Parkerad per OMTAG-waven eftersom den kräver telemetri-data + stabilt repo. Note att `src/lib/gen/stream/finalize-version.ts` nu är splittad till paket `finalize-version/` (OMTAG fas 1·03) — owner_files uppdaterad.

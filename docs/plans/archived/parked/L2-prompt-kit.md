@@ -21,6 +21,11 @@ read_only_files:
   - docs/architecture/llm-signal-flow.md
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [LLM pipeline](../../../architecture/llm-pipeline.md)
+
 > **Paused 2026-04-23:** Parkerad per OMTAG-waven. `system-prompt.ts` är nu splittad (OMTAG fas 1·03) — låt det settla innan PromptKit ovanpå.
 
 # L2 — PromptKit

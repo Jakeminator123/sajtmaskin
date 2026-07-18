@@ -1,3 +1,8 @@
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Active plans](../active/README.md)
+
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
 > **Historik (superseded 2026-07-07):** Detta är en frusen wave-logg. LLM-flödets sanning ligger nu i [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md); buggsanning i [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Brödtexten innehåller historiska länkar till borttagna status-, rapport- och omtag-paths; använd git-historiken i stället.

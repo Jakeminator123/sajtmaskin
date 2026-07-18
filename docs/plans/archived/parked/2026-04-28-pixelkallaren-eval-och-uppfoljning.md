@@ -8,14 +8,19 @@ parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Eval documentation](../../../evals/README.md)
+
 # Pixelkällaren-eval och uppföljning av LLM-flöde-bugfix-koreografin
 
-> **Parkerad 2026-05-01:** Den aktiva LLM-körplanen bor i [`../2026-04-28-llm-flode-startlinje.md`](../2026-04-28-llm-flode-startlinje.md). Den här filen bevarar Pixelkällaren som eval-fixture/scope. Gate för återaktivering: en konkret eval-runner/baseline eller en PR som explicit implementerar gaming/appig variant, F2 3D-policy eller form-a11y-regel.
+> **Parkerad 2026-05-01:** Den aktuella orienteringen bor i [LLM-pipelinen](../../../architecture/llm-pipeline.md). Den här filen bevarar Pixelkällaren som eval-fixture/scope. Gate för återaktivering: en konkret eval-runner/baseline eller en PR som explicit implementerar gaming/appig variant, F2 3D-policy eller form-a11y-regel.
 
 Konsoliderad uppföljning efter master `fbeb9321a` (rewire-before-stub, direct iframe nav, qualityTarget-rank, inspector unavailable-200 och reviewfixar levererade). Innehåller:
 
 1. Pixelkällaren-prompten som **eval-fixture / regressionstest** för 2026-04-28-fixarna.
-2. Återstående spår från [`llm-flode_varldsklass_bugfix-koreografi`](../2026-04-28-llm-flode-startlinje.md): versionstatus, lane separation/capability cleanup, variant-/3D-policy och systemprompt-komprimering.
+2. Historiska spår i relation till [LLM-pipelinen](../../../architecture/llm-pipeline.md): versionstatus, lane separation/capability cleanup, variant-/3D-policy och systemprompt-komprimering.
 3. Två nya spår som inkom från extern review-summary: **"appig"-variant** och **form-a11y-policy**.
 
 ## Kontext

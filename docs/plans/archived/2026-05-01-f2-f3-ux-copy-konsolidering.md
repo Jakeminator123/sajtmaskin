@@ -7,6 +7,11 @@ parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [F2 and F3](../../concepts/f2-and-f3.md)
+
 # F2/F3 UX-copy konsolidering
 
 Kort plan för copy-spåret (spår B) från `Kvarvarande-uppgifter.md` #11. Den här planen äger bara ordval/label-städning och får inte ta över signal-/statuslogik (spår A).
@@ -41,5 +46,5 @@ Kort plan för copy-spåret (spår B) från `Kvarvarande-uppgifter.md` #11. Den 
 ## Källor
 
 - `docs/plans/active/Kvarvarande-uppgifter.md` #11 (spår B)
-- `docs/architecture/llm-flow-target-worldclass.md` (single status truth)
+- [`docs/architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) (single status truth)
 - `docs/architecture/version-status-state-machine.md`

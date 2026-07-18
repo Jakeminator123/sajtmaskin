@@ -5,6 +5,11 @@ created: 2026-04-21
 linear: SAJ-28
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Quality gate contract](../../schemas/quality-gate.md)
+
 # P34 — Blocking lint in the pre-save validation loop
 
 **Status:** A+B klara, C delvis (development aktiverad). **Kvar:**
