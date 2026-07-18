@@ -29,6 +29,12 @@ Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säker
 
 ## Repo-synlighet (obs)
 
-Repot är **privat** sedan 2026-07-13 (`gh repo view` → PRIVATE; ägaren har betald GitHub-plan så "Protect master"-ruleset + required checks fungerar på privat repo). Behåll ändå publik-hygienen: committa inga secrets, och var sparsam med admin-/credit-mekanik och infra-id:n i docs (t.ex. exakt "bli admin → 10 000 diamonds"-recept) — synligheten kan ändras igen. "Läsbar env" ovan gäller Vercel-dashboarden — inte en licens att skriva känsligt i git.
+Repot är **publikt** sedan 2026-07-18 (GitHub API utan credentials →
+`private: false`, `visibility: public`; anonym `git ls-remote` fungerar). Publik
+hygien är därför obligatorisk: committa inga secrets, och var sparsam med
+admin-/credit-mekanik och infra-id:n i docs (t.ex. exakt "bli admin → 10 000
+diamonds"-recept). "Läsbar env" ovan gäller Vercel-dashboarden — inte en
+licens att skriva känsligt i git. Verifiera synligheten på nytt innan ett
+framtida styrbeslut bygger på den; ägaren kan ändra den igen.
 
 Skriv säkerhetsfynd som tydlig backlog om de inte är P0/P1.
