@@ -186,10 +186,10 @@ redan är tillräckligt arkiv.
 | `src/components/audit/`                 | KEEP             | Aktiv via audit-modal, `/api/audit`, `/api/audits` och tester        | Lägg route-test innan eventuell produktavveckling |
 | `src/components/kostnadsfri/`           | KEEP             | Aktiv sida, DB-service, verify-route och extern provisioneringsroute | Extern caller-risk; radera inte                   |
 | `src/components/modals/`                | KEEP             | Landing, category, wizard, audit och onboarding importerar ytan      | Ingen nollimporterad äldre modal hittad           |
-| `src/app/api/figma/`                    | TESTED; NEEDS TELEMETRY | Aktiv klientcaller och feature-gate; #536/#539 lägger parser-/routetest och giltig App Router-exportgräns | Mät trafik före eventuell deletion |
+| `src/app/api/figma/`                    | PARSER TESTED; ROUTE/TELEMETRY OPEN | Aktiv klientcaller och feature-gate; #536/#539 testar URL-parsern och säkrar App Router-exportgränsen men anropar inte `POST`-handlern | Lägg handler-test och mät trafik före deletion |
 | `src/app/api/wizard/`                   | KEEP             | Primär entry, fyra routes, credits och modellmanifest                | Lägg route-tester; ingen cleanup nu               |
-| `src/app/api/integrations/marketplace/` | TESTED; NEEDS TELEMETRY | F3-envpanel och admin använder routes; #536 lägger route-/strategitest | Trafikdata före eventuell deletion |
-| `src/app/api/integrations/mcp/`         | TESTED; NEEDS TELEMETRY | F3-yta läser blueprint; #536/#539 testar prioritering och låser app-projektet som env-owner | Trafikdata före eventuell deletion |
+| `src/app/api/integrations/marketplace/` | PARTIAL TEST COVERAGE; NEEDS TELEMETRY | #536 testar `strategy`; live-routes för `records` och `start` saknar fortfarande handlertest | Lägg route-tester och trafikdata före deletion |
+| `src/app/api/integrations/mcp/`         | PRIORITIES TESTED; NEEDS TELEMETRY | #536/#539 testar priorities-flödet och låser app-projektet som env-owner | Verifiera övriga routes och trafik före deletion |
 | Template-routes                         | KEEP             | Aktiv Template (v0-mall)-produkt, Blob i prod och lokal dev-fallback | Namnet v0 är inte i sig deletion-bevis            |
 | Adminytor                               | KEEP             | Aktiv app-admin och separat backoffice med olika ansvar              | Konsolidera inte utan produktbeslut               |
 | Dubbla `path-utils`                     | KEEP             | Traversal-säkerhet respektive route-normalisering                    | Olika semantik, inte dubblett                     |
@@ -289,7 +289,8 @@ extern route-risk även telemetri/deprecation.
 ## Completion-matris 2026-07-16
 
 Matrisen är en daterad arbetsstatus, inte runtime source of truth. Senast
-avstämd mot `master` efter #540 (`886045b5b86b34b05c57c7aca11efaecd366c5bf`).
+avstämd mot `master` på `886045b5b86b34b05c57c7aca11efaecd366c5bf`, som
+inkluderar squash-mergarna #539, #541 och #540 i den ordningen.
 
 | Område                                   | Status      | Bevis och återstående kontrakt                                                                                                  |
 | ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -299,9 +300,9 @@ avstämd mot `master` efter #540 (`886045b5b86b34b05c57c7aca11efaecd366c5bf`).
 | Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. Arkivheader-/deletion-long-tail återstår. |
 | Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
-| Sena reviewfynd och integrationsrättelser | DONE        | #539, #540 och #541 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
+| Sena reviewfynd och integrationsrättelser | DONE        | #539, #541 och #540 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
 | Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |
-| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539 testar och rättar Figma, marketplace och MCP. Audit, kostnadsfri, wizard och templates är fortsatt aktiva/KEEP; telemetri krävs före route-deletion. |
+| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539 ger riktade tester/rättelser för Figma-parsern, marketplace-strategin och MCP priorities. Full handler-/familjetäckning och telemetri återstår; övriga familjer är aktiva/KEEP. |
 | Fas 6: compatibility/owner-konsolidering | PARTIAL     | #537/#540 levererar engine/v0-guardrail för den borttagna chat-ytan. Fas 6B+ med övrig ownerkonsolidering kräver separata semantik- och regressionstester. |
 
 ## Stoppunkter
