@@ -1,0 +1,31 @@
+name: temp-source-export
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/temp-source-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    if: github.repository == 'Jakeminator123/sajtmaskin'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Package tracked working tree
+        shell: bash
+        run: tar --exclude=.git --exclude=source.tar.gz -czf source.tar.gz .
+
+      - name: Upload private short-lived source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sajtmaskin-source-${{ github.event.pull_request.head.sha }}
+          path: source.tar.gz
+          retention-days: 1
+          if-no-files-found: error
