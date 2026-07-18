@@ -186,9 +186,9 @@ redan är tillräckligt arkiv.
 | `src/components/audit/`                 | KEEP             | Aktiv via audit-modal, `/api/audit`, `/api/audits` och tester        | Lägg route-test innan eventuell produktavveckling |
 | `src/components/kostnadsfri/`           | KEEP             | Aktiv sida, DB-service, verify-route och extern provisioneringsroute | Extern caller-risk; radera inte                   |
 | `src/components/modals/`                | KEEP             | Landing, category, wizard, audit och onboarding importerar ytan      | Ingen nollimporterad äldre modal hittad           |
-| `src/app/api/figma/`                    | PARSER TESTED; ROUTE/TELEMETRY OPEN | Aktiv klientcaller och feature-gate; #536/#539 testar URL-parsern och säkrar App Router-exportgränsen men anropar inte `POST`-handlern | Lägg handler-test och mät trafik före deletion |
+| `src/app/api/figma/`                    | HANDLER TESTED; NEEDS TELEMETRY | Aktiv klientcaller och feature-gate; #536/#539 testar URL-parsern och denna PR testar `POST`-handlerns gate, validering, canvas-discovery, renderingsflöde och accessfel | Mät trafik före deletion |
 | `src/app/api/wizard/`                   | KEEP             | Primär entry, fyra routes, credits och modellmanifest                | Lägg route-tester; ingen cleanup nu               |
-| `src/app/api/integrations/marketplace/` | PARTIAL TEST COVERAGE; NEEDS TELEMETRY | #536 testar `strategy`; live-routes för `records` och `start` saknar fortfarande handlertest | Lägg route-tester och trafikdata före deletion |
+| `src/app/api/integrations/marketplace/` | HANDLERS TESTED; NEEDS TELEMETRY | #536 testar `strategy`; denna PR låser auth, tenantscope, validering och insert/update-kontrakt för `records` och `start` | Mät trafik före deletion |
 | `src/app/api/integrations/mcp/`         | PRIORITIES TESTED; NEEDS TELEMETRY | #536/#539 testar priorities-flödet och låser app-projektet som env-owner | Verifiera övriga routes och trafik före deletion |
 | Template-routes                         | KEEP             | Aktiv Template (v0-mall)-produkt, Blob i prod och lokal dev-fallback | Namnet v0 är inte i sig deletion-bevis            |
 | Adminytor                               | KEEP             | Aktiv app-admin och separat backoffice med olika ansvar              | Konsolidera inte utan produktbeslut               |
@@ -302,7 +302,7 @@ inkluderar squash-mergarna #539, #541 och #540 i den ordningen.
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Sena reviewfynd och integrationsrättelser | DONE        | #539, #541 och #540 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
 | Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |
-| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539 ger riktade tester/rättelser för Figma-parsern, marketplace-strategin och MCP priorities. Full handler-/familjetäckning och telemetri återstår; övriga familjer är aktiva/KEEP. |
+| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539 plus denna PR täcker Figma-handlern och alla tre marketplace-routes samt MCP priorities. Telemetri och återstående familjetester krävs före deletion; övriga familjer är aktiva/KEEP. |
 | Fas 6: compatibility/owner-konsolidering | PARTIAL     | #537/#540 levererar engine/v0-guardrail för den borttagna chat-ytan. Fas 6B+ med övrig ownerkonsolidering kräver separata semantik- och regressionstester. |
 
 ## Stoppunkter
