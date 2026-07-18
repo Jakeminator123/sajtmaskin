@@ -20,12 +20,12 @@ jobs:
 
       - name: Package tracked working tree
         shell: bash
-        run: tar --exclude=.git --exclude=source.tar.gz -czf source.tar.gz .
+        run: tar --exclude=.git -czf "$RUNNER_TEMP/source.tar.gz" .
 
       - name: Upload private short-lived source artifact
         uses: actions/upload-artifact@v4
         with:
           name: sajtmaskin-source-${{ github.event.pull_request.head.sha }}
-          path: source.tar.gz
+          path: ${{ runner.temp }}/source.tar.gz
           retention-days: 1
           if-no-files-found: error
