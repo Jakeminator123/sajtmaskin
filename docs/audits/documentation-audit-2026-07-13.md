@@ -186,14 +186,15 @@ redan är tillräckligt arkiv.
 | `src/components/audit/`                 | KEEP             | Aktiv via audit-modal, `/api/audit`, `/api/audits` och tester        | Lägg route-test innan eventuell produktavveckling |
 | `src/components/kostnadsfri/`           | KEEP             | Aktiv sida, DB-service, verify-route och extern provisioneringsroute | Extern caller-risk; radera inte                   |
 | `src/components/modals/`                | KEEP             | Landing, category, wizard, audit och onboarding importerar ytan      | Ingen nollimporterad äldre modal hittad           |
-| `src/app/api/figma/`                    | HANDLER TESTED; NEEDS TELEMETRY | Aktiv klientcaller och feature-gate; #536/#539 testar URL-parsern och denna PR testar `POST`-handlerns gate, validering, canvas-discovery, renderingsflöde och accessfel | Mät trafik före deletion |
+| `src/app/api/figma/`                    | HANDLER TESTED; NEEDS TELEMETRY | Aktiv klientcaller och feature-gate; #536/#539 testar URL-parsern och #544 testar `POST`-handlerns gate, validering, canvas-discovery, renderingsflöde och accessfel | Mät trafik före deletion |
 | `src/app/api/wizard/`                   | KEEP             | Primär entry, fyra routes, credits och modellmanifest                | Lägg route-tester; ingen cleanup nu               |
-| `src/app/api/integrations/marketplace/` | HANDLERS TESTED; NEEDS TELEMETRY | #536 testar `strategy`; denna PR låser auth, tenantscope, validering och insert/update-kontrakt för `records` och `start` | Mät trafik före deletion |
+| `src/app/api/integrations/marketplace/` | HANDLERS TESTED; NEEDS TELEMETRY | #536 testar `strategy`; #544 låser auth, tenantscope, validering och insert/update-kontrakt för `records` och `start` | Mät trafik före deletion |
 | `src/app/api/integrations/mcp/`         | PRIORITIES TESTED; NEEDS TELEMETRY | #536/#539 testar priorities-flödet och låser app-projektet som env-owner | Verifiera övriga routes och trafik före deletion |
 | Template-routes                         | KEEP             | Aktiv Template (v0-mall)-produkt, Blob i prod och lokal dev-fallback | Namnet v0 är inte i sig deletion-bevis            |
 | Adminytor                               | KEEP             | Aktiv app-admin och separat backoffice med olika ansvar              | Konsolidera inte utan produktbeslut               |
 | Dubbla `path-utils`                     | KEEP             | Traversal-säkerhet respektive route-normalisering                    | Olika semantik, inte dubblett                     |
 | `/api/v0/projects/instructions`         | COMPAT/TOMBSTONE | 410 och inga interna callers                                         | Telemetri/deprecation före route-deletion         |
+| Fyra fristående orphan-moduler          | DELETE → DONE I DENNA PR | Knip + Madge signalerade filerna; exakta path-, symbol-, import-, config-, script- och CI-sökningar gav inga callers. `setup-contract.ts` blev uttryckligen oanvänd i `567f8cf7`; removal-verifiering täcker typecheck, lint och build. | Raderar bara modulerna, inte `template_cache`-tabellen eller aktiv preview-/env-logik |
 
 ## `engine` och `v0`
 
@@ -286,11 +287,11 @@ extern route-risk även telemetri/deprecation.
 | 5   | Route-/featuretest och telemetri visar att extern eller intern konsument inte bryts |
 | 6   | Adaptrar delegerar; nya tester hindrar en andra owner eller ny v0-chatlogik         |
 
-## Completion-matris 2026-07-16
+## Completion-matris 2026-07-18
 
 Matrisen är en daterad arbetsstatus, inte runtime source of truth. Senast
-avstämd mot `master` på `886045b5b86b34b05c57c7aca11efaecd366c5bf`, som
-inkluderar squash-mergarna #539, #541 och #540 i den ordningen.
+avstämd mot `master` på `fbef267cf0f5bf23bfd94ec56726c55329b2d805`, som
+inkluderar closure-statusen i #542 och featuretesterna i #544.
 
 | Område                                   | Status      | Bevis och återstående kontrakt                                                                                                  |
 | ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -301,8 +302,8 @@ inkluderar squash-mergarna #539, #541 och #540 i den ordningen.
 | Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Sena reviewfynd och integrationsrättelser | DONE        | #539, #541 och #540 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
-| Fas 4: lågrisk kodcleanup                | NOT STARTED | Kräver separat removal-bevis, tester och build per familj.                                                                      |
-| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539 plus denna PR täcker Figma-handlern och alla tre marketplace-routes samt MCP priorities. Telemetri och återstående familjetester krävs före deletion; övriga familjer är aktiva/KEEP. |
+| Fas 4: lågrisk kodcleanup                | PARTIAL     | Denna PR raderar fyra nollrefererade orphan-moduler efter Knip/Madge, exakta callersökningar och removal-verifiering. Fler kandidater kräver egna beviskedjor. |
+| Fas 5: featurefamiljer                   | PARTIAL     | #536/#539/#544 täcker Figma-handlern och alla tre marketplace-routes samt MCP priorities. Telemetri och återstående familjetester krävs före deletion; övriga familjer är aktiva/KEEP. |
 | Fas 6: compatibility/owner-konsolidering | PARTIAL     | #537/#540 levererar engine/v0-guardrail för den borttagna chat-ytan. Fas 6B+ med övrig ownerkonsolidering kräver separata semantik- och regressionstester. |
 
 ## Stoppunkter
