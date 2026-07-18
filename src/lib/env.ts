@@ -190,7 +190,6 @@ export const serverSchema = z.object({
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
-  NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
   DB_SSL_REJECT_UNAUTHORIZED: z.string().optional(),
@@ -266,4 +265,3 @@ export function getServerEnv(): ServerEnv {
 export function resetServerEnvCacheForTests(): void {
   _cached = null;
 }
-
