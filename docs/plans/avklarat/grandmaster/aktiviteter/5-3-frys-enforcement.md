@@ -1,6 +1,6 @@
 ---
 id: gm-akt-5-3-frys-enforcement
-status: ready
+status: done
 created: 2026-06-19
 parent: gm-omrade-05-followup-och-preview-kontrakt
 blocked_by: 5-1 (FollowUpContract finns på master, c469a4598)
