@@ -8,6 +8,11 @@ topic: PR #355 bug-swarm batch — parkerad som merge-fordon, split till små PR
 source: PR #355 (fix/bug-swarm-verified) beskrivning + PR-triage 2026-07-08
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Active bug backlog](../../../BUG-SWARM-BACKLOG.md)
+
 # PR #355 — parkerad bug-swarm, split till små PR:ar
 
 ## TL;DR

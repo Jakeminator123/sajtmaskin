@@ -5,6 +5,11 @@ created: 2026-04-24
 linear: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Active bug backlog](../../../BUG-SWARM-BACKLOG.md)
+
 # Kvarvarande "kräver dialog"-punkter — 2026-04-24
 
 > Dialog/backlog-gate, inte vanlig implementationplan. Punkterna ska inte

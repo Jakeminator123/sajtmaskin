@@ -13,6 +13,11 @@ blocked_by: [M2-fyll-dossier-poolen]
 estimated_total_effort: ~1 vecka
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Dossier system contract](../../../contracts/dossier-system.md)
+
 > **Paused 2026-04-23:** Parkerad per OMTAG-waven. Dossier-kontraktet är nu stenhårt via fas 2·D AJV-validator — teknisk grund klar, men konceptbeslut (behövs variants alls?) kräver observationstid efter M2.
 
 # L3 — Dossier-variants

@@ -7,11 +7,16 @@ parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [LLM pipeline](../../architecture/llm-pipeline.md)
+
 # Systemprompt-Kapning Utan Ny Komplexitet
 
 ## Roll efter doc-konsolidering 2026-05-01
 
-Den här filen är **child-planen för promptbudget** under [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md). Startlinjen äger prioritering och agentfördelning; den här planen äger bara konkret kapning av Core Rules, Dynamic Context, follow-up-kontext och dossier-rendering.
+Den här filen är en historisk child-plan för promptbudget. [LLM-pipelinen](../../architecture/llm-pipeline.md) är aktuell orientering; den här planen bevarar bara den äldre kapningen av Core Rules, Dynamic Context, follow-up-kontext och dossier-rendering.
 
 Avgränsning:
 

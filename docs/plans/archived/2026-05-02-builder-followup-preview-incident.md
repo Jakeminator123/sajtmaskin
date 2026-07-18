@@ -7,6 +7,11 @@ parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Builder incident report](../../operating/incidents/RAPPORT-2026-05-02-builder-incident.md)
+
 # Builder follow-up + preview-incident 2026-05-02
 
 Aktiv child-plan efter lokal incident där en lyckad F2-design/follow-up upplevdes gå sönder vid nästa steg. Planen avgränsar hårda runtime-fel från UX/status-brus och ska landa i små fixar med riktade tester.
@@ -134,7 +139,7 @@ Starta inte `npm run dev` som första steg. Börja med logg- och testrepro. Star
 - kontrollera terminaler först så ingen server dupliceras,
 - öppna inte användarens aktiva builder-chat,
 - använd ny chat/testdata eller be användaren stänga sin builder-tab,
-- följ `builder-coexistence.mdc`.
+- följ `agent-observatory.mdc`.
 
 ## Definition of done
 

@@ -5,6 +5,11 @@ created: 2026-04-24
 linear: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Scaffold system contract](../../contracts/scaffold-system.md)
+
 # Öppna trådar — scaffolds + SEO + telemetri (2026-04-24)
 
 **Status 2026-04-26 (sen):** ✅ SEO-spåret är klart. PR #102 (docs/plan)

@@ -7,6 +7,11 @@ parent: null
 supersedes: null
 ---
 
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Documentation lifecycle](../../documentation-lifecycle.md)
+
 # Repo-tvätt: terminologi + kontraktsägarskap (omstart Sajtmaskin)
 
 > Paraply-/router-plan. Detta gäller **`Jakeminator123/sajtmaskin`** (master). `sajtbyggaren` (Desktop) används **endast som referens** för governance-idéer — inga ändringar görs där.
@@ -45,7 +50,7 @@ Scout (read-only)  ─►  term/kontrakt-karta  ─►  VI godkänner PR-prompt
                                               Jake + orchestrator granskar → merge
 ```
 
-**Isolering (obligatorisk):** varje builder kör på egen branch/`git worktree` — aldrig dela HEAD (se [`agent-worktree.mdc`](../../../.cursor/rules/agent-worktree.mdc)). Ingen builder öppnar `/builder` eller engine-endpoints under aktiv gen-session (se [`builder-coexistence.mdc`](../../../.cursor/rules/builder-coexistence.mdc)).
+**Isolering (obligatorisk):** varje builder kör på egen branch/`git worktree` — aldrig dela HEAD (se [`agent-worktree.mdc`](../../../.cursor/rules/agent-worktree.mdc)). Ingen builder öppnar `/builder` eller engine-endpoints under aktiv gen-session (se [`agent-observatory.mdc`](../../../.cursor/rules/agent-observatory.mdc)).
 
 ## Gate-definition (per PR innan merge)
 
@@ -65,7 +70,7 @@ Beteende-neutrala PR (PR0–PR3) kan köras långa/autonoma i cloud. Beteende-ä
 |---|---|---|---|---|
 | **PR0** | `docs/architecture/terms-and-owners.md` (term → ägare → input/output-kontrakt → förbjudna alias) | Docs | Låg | nytt |
 | **PR1** | `naming-dictionary.json` + `scripts/dev/check-term-coverage.mjs` + koppla in i preflight/CI | Verktyg | Låg · **keystone** | nytt |
-| **PR2** | `FollowUpContract`-typ (samlar snapshot-brief, låst scaffold/variant, route-freeze → kompileringsgaranti för init↔follow-up) | Struktur | Låg–medel | relaterar till [O `…startlinje.md`](./2026-04-28-llm-flode-startlinje.md) |
+| **PR2** | `FollowUpContract`-typ (samlar snapshot-brief, låst scaffold/variant, route-freeze → kompileringsgaranti för init↔follow-up) | Struktur | Låg–medel | relaterar till [LLM-pipelinen](../../architecture/llm-pipeline.md) |
 | **PR3** | UI/docs-term-pass ("Variant" ej "Scaffold Variant"; "Design Preview"/"Integration Build" för F2/F3; `backoffice` ej `dashboard`) | UI/docs | Låg | **fortsätt** [Q `…f2-f3-ux-copy…`](./2026-05-01-f2-f3-ux-copy-konsolidering.md) |
 | **PR4** | "lane" begränsas till fixer/repair (verifiera serialiserade `FixLane`-värden först) | Kod | Medel | **fortsätt** [N `…lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) |
 | **PR5** | Bugg-härdning false-green: dossier-stubbar, F2 product-postcheck/warm-verify fail-closed, F3 readiness — gated av deterministisk eval | Beteende | Medel | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 + [R-incident](./2026-05-02-builder-followup-preview-incident.md) |
@@ -86,7 +91,7 @@ Plus en kort `docs/delivery-bias.md` (nytt test bara vid kontrakt/ersättning/ko
 
 Denna plan **äger inte** LLM-flödet — den lägger en *terminologi/kontrakt-lins* ovanpå och dirigerar mot:
 
-- [O `2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — LLM-masterplan (läs först vid LLM-flöde-arbete). PR2/PR5 matar in här.
+- [LLM-pipelinen](../../architecture/llm-pipeline.md) — aktuell orientering för LLM-flödet.
 - [N `2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) — "lane" → PR4.
 - [Q `2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md) — F2/F3-copy → PR3.
 - [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 (event-bus UI-flip) + #9 (orchestrate-split) → PR5 / städ.
