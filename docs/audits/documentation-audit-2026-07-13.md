@@ -173,7 +173,7 @@ Följande är inte automatiskt dubbletter. Hierarkin måste synas i generatorn:
 | `scripts/README.md` och aktiv planrouter | FIXED | #535 tunnar båda routers och pekar på kanoniska kommandon respektive faktiskt aktiva planer. |
 | `config/naming-dictionary.json` | LÅST | #534 migrerar kanoniska termer och blockerar strukturell glossary-/aliasdrift. |
 | `docs/schemas/builder-entry-contract.md` | FIXED OCH LÅST | #537 rättar den borttagna chat-referensen; #540 härdar guarden mot route groups, configs, public JS och breda docsundantag. |
-| Historiska grandmaster-/planfiler | PARTIAL; STATUS DRIFT LOCKED I DENNA PR | 23 kvarvarande vilseledande `active`/`ready`/`scope`/`in-progress`-statusar rättas efter faktisk katalogroll och `plans:history:check` blockerar återfall. Återstående värdefulla filer ska få full arkivheader och övriga raderas när git räcker. |
+| Historiska grandmaster-/planfiler | PARTIAL; STATUS DRIFT LOCKED I DENNA PR | 25 vilseledande `active`/`ready`/`scope`/`in-progress`-statusar rättas efter faktisk katalogroll och `plans:history:check` blockerar återfall. Återstående värdefulla filer ska få full arkivheader och övriga raderas när git räcker. |
 
 Historiska dokument ska inte få sina sakuppgifter omskrivna som om de vore
 aktuella. De ska antingen få en arkivheader med ersättare eller tas bort när git
@@ -298,7 +298,7 @@ inkluderar closure-statusen i #542, featuretesterna i #544 och fas 4-starten i #
 | Fas 0: audit och ownerinventering        | DONE        | #527 är mergad; rapporten är avgränsad till primära ytor och har faktaspecifika owners.                                         |
 | Fas 1: tunn dokumentationsgrund          | DONE        | #528 är mergad med korrekt versionslivscykel, owner/validator-språk och utan phantom repair-path.                               |
 | Fas 2: genererade kontraktsdocs          | DONE        | #529 levererar sju familjer och driftlås i CI; #532 låser även dolda env-, modellpolicy- och variantfält via fingerprints.      |
-| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. Denna PR rättar och CI-låser 23 kvarvarande motsägande historikstatusar; full arkivheader-/deletion-long-tail återstår. |
+| Fas 3: legacy-/historikrensning          | PARTIAL     | #530 raderar bevisat stale docs, #533 låser aktiva länkar och Closure C tunnar aktiva ytor. Denna PR rättar och CI-låser 25 motsägande historikstatusar; full arkivheader-/deletion-long-tail återstår. |
 | Agentregler för owner → generate → check | DONE        | Closure B låser owner → validate → generate → check i pipeline-regeln och pekar på dokumentationslivscykeln.                  |
 | Terminologi/glossary-konsolidering       | DONE        | Glossaryn är ensam canonical; dictionaryn är valideringsseed och strukturell drift blockeras utan ett nytt runtime-system.    |
 | Sena reviewfynd och integrationsrättelser | DONE        | #539, #541 och #540 rättar samtliga sena fynd från #535–#537; trådarna är besvarade och lösta med mergebevis.                  |
