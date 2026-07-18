@@ -1,6 +1,6 @@
 # P20 — shadcn-ekosystem: inkrementellt vs enhetlig pipeline
 
-Status: Active (Nivå 1 + 2 + 3 KLARA 2026-04-20)
+Status: Done (Nivå 1 + 2 + 3 klara 2026-04-20)
 Skapad: 2026-04-15
 Prioritet: Låg (alla tre nivåer levererade som shrink-MVP; full uppströms `registry:font`-ingestion kvar som framtida arbete men inte längre blockerande)
 
