@@ -1,6 +1,6 @@
 ---
 id: 2026-04-27-followup-vs-autorepair-lane-collision
-status: active
+status: archived
 created: 2026-04-27
 linear: null
 trigger: Användare skickade kreativ follow-up ("3D-animerad data flyger över fälten") medan föregående version fortfarande hade auto-repair pågående. Repair-LLM:n fick prompten med instruktionen `Make the smallest change that fixes the listed issues. Do NOT change layout, naming, styling, or architecture unless required by the fix.` — vilket SVEK användarens visuella intent och bara körde teknisk reparation. Sajten fixades men 3D-effekten kom aldrig.
