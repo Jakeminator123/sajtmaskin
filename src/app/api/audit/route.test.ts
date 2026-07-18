@@ -38,10 +38,10 @@ vi.mock("@/lib/gen/defaults", () => ({
 
 const { POST } = await import("./route");
 
-function request(body: unknown): NextRequest {
+function request(body: unknown, userId = "user_1"): NextRequest {
   return new NextRequest("http://localhost/api/audit", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-test-user": userId },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
@@ -53,14 +53,18 @@ describe("POST /api/audit", () => {
     vi.clearAllMocks();
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    validateAndNormalizeUrl.mockReturnValue("https://example.com/");
-    getCanonicalUrlKey.mockReturnValue("example.com");
-    prepareCredits.mockResolvedValue({
+    validateAndNormalizeUrl.mockImplementation((url: string) =>
+      url.includes("www.") ? "https://www.example.com/path" : "https://example.com/",
+    );
+    getCanonicalUrlKey.mockImplementation((url: string) =>
+      url.includes("example.com") ? "example.com" : url,
+    );
+    prepareCredits.mockImplementation(async (incomingRequest: NextRequest) => ({
       ok: true,
-      user: { id: "user_1", diamonds: 10 },
+      user: { id: incomingRequest.headers.get("x-test-user") ?? "user_1", diamonds: 10 },
       isTest: true,
       commit,
-    });
+    }));
   });
 
   it("rejects invalid JSON before URL and credit work", async () => {
@@ -99,7 +103,7 @@ describe("POST /api/audit", () => {
     expect(scrapeWebsite).not.toHaveBeenCalled();
   });
 
-  it("blocks duplicate user/url work and releases the lock after failure", async () => {
+  it("scopes canonical duplicate work by user and releases the lock after failure", async () => {
     let rejectFirst!: (reason: Error) => void;
     scrapeWebsite.mockImplementationOnce(
       () =>
@@ -111,11 +115,28 @@ describe("POST /api/audit", () => {
     const first = POST(request({ url: "https://example.com", auditMode: "basic" }));
     await vi.waitFor(() => expect(scrapeWebsite).toHaveBeenCalledTimes(1));
 
-    const duplicate = await POST(request({ url: "https://example.com/", auditMode: "basic" }));
+    const duplicate = await POST(
+      request({ url: "https://www.example.com/path?utm_source=test", auditMode: "basic" }),
+    );
 
     expect(duplicate.status).toBe(409);
     expect(await duplicate.json()).toMatchObject({ success: false, duplicate: true });
     expect(scrapeWebsite).toHaveBeenCalledTimes(1);
+    expect(validateAndNormalizeUrl).toHaveReturnedWith("https://example.com/");
+    expect(validateAndNormalizeUrl).toHaveReturnedWith("https://www.example.com/path");
+    expect(getCanonicalUrlKey).toHaveBeenCalledWith("https://example.com/");
+    expect(getCanonicalUrlKey).toHaveBeenCalledWith("https://www.example.com/path");
+
+    scrapeWebsite.mockRejectedValueOnce(new Error("Timeout"));
+    const otherUser = await POST(
+      request(
+        { url: "https://www.example.com/path?utm_source=test", auditMode: "basic" },
+        "user_2",
+      ),
+    );
+
+    expect(otherUser.status).toBe(408);
+    expect(scrapeWebsite).toHaveBeenCalledTimes(2);
 
     rejectFirst(new Error("Timeout"));
     expect((await first).status).toBe(408);
@@ -124,7 +145,7 @@ describe("POST /api/audit", () => {
     const retry = await POST(request({ url: "https://example.com", auditMode: "basic" }));
 
     expect(retry.status).toBe(408);
-    expect(scrapeWebsite).toHaveBeenCalledTimes(2);
+    expect(scrapeWebsite).toHaveBeenCalledTimes(3);
     expect(commit).not.toHaveBeenCalled();
   });
 });
