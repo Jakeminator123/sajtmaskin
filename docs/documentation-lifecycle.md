@@ -91,6 +91,11 @@ Do not use as runtime guidance
 Replaced by: <canonical doc>
 ```
 
+`npm run plans:history:check` blockerar statusar som `active`, `ready`, `scope`
+och `in-progress` när filens plats redan säger arkiverad eller avklarad. Det
+ersätter inte arkivheadern; kontrollen hindrar bara den mest vilseledande
+statusdriften medan header-/deletion-long-tail städas separat.
+
 Rena agentprompter, genomförda checklistor och ögonblicksstatus kan tas bort när
 git-historiken ger tillräckligt bevis. Externa caller-risker och produktbeslut
 ska dokumenteras i stället för att döljas som docs-cleanup.
