@@ -1,6 +1,6 @@
 ---
 id: gm-akt-A7-1
-status: in-progress
+status: done
 parent: gm-omrade-07-false-green-hardning
 blocked_by: []
 owner_files:
