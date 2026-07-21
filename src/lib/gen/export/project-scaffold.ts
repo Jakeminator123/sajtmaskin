@@ -52,7 +52,7 @@ const PACKAGE_JSON = `{
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
-    "lucide-react": "0.563.0",
+    "lucide-react": "0.577.0",
     "next-themes": "0.4.6",
     "sonner": "2.0.7",
     "recharts": "2.15.4",
