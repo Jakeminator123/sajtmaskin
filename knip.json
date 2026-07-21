@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/lib/mcp/generate-site.ts",
+    "src/lib/observability/fault-promotion-report-cli.ts"
+  ],
+  "ignore": [
+    "data/dossiers/**",
+    "src/lib/gen/scaffolds/*/files/**",
+    "src/components/ui/**",
+    "src/lib/hooks/use-mobile.ts",
+    ".cursor/hooks/**",
+    "preview-host/**",
+    "scripts/**",
+    "**/*.config.{ts,js,mjs,cjs}"
+  ],
+  "ignoreBinaries": ["tsx", "vitest", "playwright", "drizzle-kit", "eslint", "prettier"],
+  "ignoreDependencies": ["@types/.+"]
+}

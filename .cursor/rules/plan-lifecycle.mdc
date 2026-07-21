@@ -34,6 +34,14 @@ aktiviteter/*.md        nivå 3: smala agentuppgifter, just-in-time
 
 Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `active/`. Uppdatera länkar/README i samma ändring.
 
+## `avklarat/` är ett tunt index — inte ett filzoo
+
+`docs/plans/avklarat/README.md` är den **avsedda ytan**: ett konsoliderat index över levererade initiativ (PR-referenser + git-pekare). Läs det först — gräv inte i eller återskapa stora plan-/aktivitetsfiler.
+
+- **Standard:** väv in en levererad plan som en rad i `avklarat/README.md` och radera detaljfilen — git-historiken (`git log --follow`, `git show <sha>:<path>`) är fullständigt arkiv.
+- **Behåll som egen fil endast** när något med fortsatt referensvärde pekar på den: (a) källkod/contract-doc som citerar filen, eller (b) `*.stability.test.ts` som anger den som `Källa:`. Radera sådana först efter referensmigrering.
+- Skriv aldrig ny prosa i avklarade detaljfiler; uppdatera indexet eller den kod/contract som äger sanningen.
+
 ## Buggar
 
 `BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
