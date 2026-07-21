@@ -35,7 +35,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies.next).toBe("16.2.9");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
-    expect(merged.dependencies["lucide-react"]).toBe("0.563.0");
+    expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
   });
 
   it("lets the model override individual script names", () => {
@@ -79,7 +79,7 @@ describe("mergePackageJsonWithBaseline", () => {
         "@react-three/drei": "^10",
       },
     }) as { dependencies: Record<string, string> };
-    expect(merged.dependencies["lucide-react"]).toBe("0.563.0");
+    expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
     expect(merged.dependencies["@react-three/fiber"]).toBe("9.6.0");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.185.1");
