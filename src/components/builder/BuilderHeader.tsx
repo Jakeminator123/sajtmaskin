@@ -747,17 +747,6 @@ export function BuilderHeader(props: {
           <span className="hidden sm:inline">Spara</span>
         </Button>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => runDeferredAction(onDomainSearch)}
-          disabled={!canManageDomain || isBusy}
-          title="Hitta eller koppla domän"
-        >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">Domän</span>
-        </Button>
-
         {deploymentHistoryHydrationFailed ? (
           <TooltipProvider>
             <Tooltip>
@@ -843,6 +832,40 @@ export function BuilderHeader(props: {
         ) : null}
 
         {(() => {
+          // Domän lives inside the publish control now (split button): a small
+          // chevron next to Publicera/Publicerad opens a menu with domain
+          // actions, so the header keeps one publishing-related control instead
+          // of a separate Domän button. Gated on `canManageDomain`.
+          const domainMenu = (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isBusy}
+                  aria-label="Fler publiceringsval: domän"
+                  title="Domän och publiceringsval"
+                  className="px-2"
+                >
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>Publicering</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={!canManageDomain || isBusy}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    runDeferredAction(onDomainSearch);
+                  }}
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  Hantera domän
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+
           // In-session build always wins (SSE), so the button reflects the
           // live deploy while it is running.
           if (deploymentStatus === "building") {
@@ -892,15 +915,18 @@ export function BuilderHeader(props: {
           // (a) Published and the live version === the active version.
           if (hasLive && liveMatchesActive && liveHref) {
             return (
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-green-500 text-green-600"
-                onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
-              >
-                <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">Publicerad</span>
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-green-500 text-green-600"
+                  onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
+                >
+                  <Globe className="h-4 w-4" />
+                  <span className="hidden sm:inline">Publicerad</span>
+                </Button>
+                {domainMenu}
+              </div>
             );
           }
 
@@ -914,42 +940,45 @@ export function BuilderHeader(props: {
               ? "Du har ändringar som inte är publicerade ännu. Publicera för att uppdatera den live-sajten."
               : null;
           return (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0}>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        runDeferredAction(() => {
-                          void onDeployProduction();
-                        })
-                      }
-                      disabled={!canDeploy || isBusy || isDeploying}
-                      className="relative"
-                    >
-                      {isDeploying ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Rocket className="h-4 w-4" />
-                      )}
-                      <span className="hidden sm:inline">{label}</span>
-                      {hasUnpublishedChanges && (
-                        <span
-                          className="ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2"
-                          aria-hidden
-                        />
-                      )}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {publishTooltip ? (
-                  <TooltipContent side="bottom" className="max-w-sm text-xs">
-                    <p>{publishTooltip}</p>
-                  </TooltipContent>
-                ) : null}
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          runDeferredAction(() => {
+                            void onDeployProduction();
+                          })
+                        }
+                        disabled={!canDeploy || isBusy || isDeploying}
+                        className="relative"
+                      >
+                        {isDeploying ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Rocket className="h-4 w-4" />
+                        )}
+                        <span className="hidden sm:inline">{label}</span>
+                        {hasUnpublishedChanges && (
+                          <span
+                            className="ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2"
+                            aria-hidden
+                          />
+                        )}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {publishTooltip ? (
+                    <TooltipContent side="bottom" className="max-w-sm text-xs">
+                      <p>{publishTooltip}</p>
+                    </TooltipContent>
+                  ) : null}
+                </Tooltip>
+              </TooltipProvider>
+              {domainMenu}
+            </div>
           );
         })()}
       </div>

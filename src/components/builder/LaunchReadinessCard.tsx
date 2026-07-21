@@ -151,12 +151,6 @@ export function LaunchReadinessCard({
               )}
             </div>
           ) : null}
-
-          {readiness.info.lifecycleStatus ? (
-            <div className="text-[11px] text-muted-foreground">
-              Versionsstatus: <span className="text-foreground">{readiness.info.lifecycleStatus}</span>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>
