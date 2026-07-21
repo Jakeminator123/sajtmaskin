@@ -867,13 +867,19 @@ export function BuilderHeader(props: {
           );
 
           // In-session build always wins (SSE), so the button reflects the
-          // live deploy while it is running.
+          // live deploy while it is running. Keep the domain menu reachable
+          // during the async build window (canManageDomain does not depend on
+          // the build finishing) so moving Domän into the split control never
+          // hides it mid-deploy.
           if (deploymentStatus === "building") {
             return (
-              <Button size="sm" variant="outline" disabled>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="hidden sm:inline">Bygger...</span>
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" disabled>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="hidden sm:inline">Bygger...</span>
+                </Button>
+                {domainMenu}
+              </div>
             );
           }
 
