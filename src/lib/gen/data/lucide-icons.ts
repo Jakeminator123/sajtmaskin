@@ -1,7 +1,7 @@
 /**
  * Set of valid Lucide icon names (PascalCase, as exported by lucide-react).
  *
- * Generated from lucide-react 0.563.0 runtime exports — the version pinned for
+ * Generated from lucide-react 0.577.0 runtime exports — the version pinned for
  * GENERATED PROJECTS in `src/lib/gen/export/project-scaffold.ts`, kept equal to
  * this repo's `lucide-react` dependency so the allowlist, the import validator,
  * and the shipped runtime all agree (enforced by the project-scaffold baseline
