@@ -31,6 +31,7 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - `npm run lint` → 0 errors
 - `npx vitest run` → existing tester gröna
 - `node scripts/dev/check-unicode-regex.mjs` om du rört regex
+- `npm run hygiene` → docs-färskhet + dödkod/orphan-filer i **en knapp** (grönt = rent, rött pekar på exakt problem). Full dödkods-lista: `npm run knip` (läs deps-kategorin försiktigt — mest falska positiver, se runbook). Städning + hur man läser knip: [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md). CI blockerar på orphan-**filer** och docs-gates automatiskt.
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
 - **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".

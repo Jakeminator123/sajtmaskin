@@ -219,6 +219,42 @@ jobs:
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
 
+  # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
+  # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
+  # (shadcn `src/components/ui/`, `scripts/`, mcp/cli-entries, scaffold-scoring-spegeln)
+  # är deklarerade som knip `entry` → deras importer räknas och deras exporter flaggas
+  # inte. Två lanes:
+  #   1. Full rådgivande rapport (`|| true`, faller ALDRIG) så deps/exports-svansen syns
+  #      på varje PR utan att blockera. OBS: "unused dependencies" är till stor del FALSKA
+  #      positiver här — generatorn lagrar paket-NAMN som data (dep-completer /
+  #      import-validator) och shadcn importerar meta-paketet `radix-ui`, så individuella
+  #      @radix-ui/* ser oanvända ut. Verifiera innan något tas bort.
+  #   2. Orphan-FIL-grind (blockerande): en genuint oimporterad källfil rödar CI. Fixa
+  #      genom att radera den — eller, om den är runtime-/tooling-laddad, lägg till den i
+  #      knip.json `entry`. Runbook: docs/runbooks/hygiene.md.
+  dead-code:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dead-code report (full, advisory — never blocks)
+        if: ${{ !cancelled() }}
+        run: npm run knip || true
+
+      - name: Orphan-file gate (blocking)
+        run: npm run knip:files
+
   # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid merge till master —
   # så en migration ALDRIG kan bli deployad utan att köras (grundorsaken till att
   # add-branded-site-domains.sql saknades i prod: migrationer körs INTE automatiskt
