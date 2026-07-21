@@ -64,6 +64,7 @@ import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-rout
 import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
   LLM_FIXER_TIMEOUT_MS,
+  REPAIR_LOOP_BUDGET_MS,
   SERVER_REPAIR_MAX_PASSES,
 } from "@/lib/gen/defaults";
 import {
@@ -82,7 +83,10 @@ import {
   type ServerRepairEarlyStop,
   type ServerVerifyFailedOutput,
 } from "./server-verify-log-meta";
-import { resolvePostRepairFinalize } from "./server-repair-policy";
+import {
+  resolveBackgroundRepairDeadlineEpochMs,
+  resolvePostRepairFinalize,
+} from "./server-repair-policy";
 
 const inflight = new Set<string>();
 
@@ -593,6 +597,14 @@ export async function triggerServerVerification(params: {
       // #260 Codex P2 (forced build gate): a build-originated re-verify keeps
       // `build` in the post-repair gate even if this round only re-fails tsc.
       forceBuildGate: forceBuildCheck,
+      // Bind this fire-and-forget loop to a wall-clock ceiling so it cannot keep
+      // burning LLM passes minutes after the user left (the background lane
+      // previously passed no deadline → capped only by pass count + per-pass
+      // timeouts). Reuses the lease-holding-route budget as a generous bound.
+      repairDeadlineEpochMs: resolveBackgroundRepairDeadlineEpochMs({
+        nowMs: Date.now(),
+        budgetMs: REPAIR_LOOP_BUDGET_MS,
+      }),
       repairLedger,
       repairScopeId,
     });
@@ -843,9 +855,17 @@ export async function triggerBuildErrorRepair(params: {
       runId,
       // #260 Codex P2 (forced build gate): this path is always build-originated.
       forceBuildGate: true,
-      // A3: bind loopen till den synkrona endpointens maxDuration (utelämnad för
-      // fire-and-forget-anroparna → obundet, dagens beteende).
-      repairDeadlineEpochMs,
+      // A3: the synchronous deploy-repair endpoint binds the loop to its route
+      // `maxDuration` (explicit `repairDeadlineEpochMs`). The fire-and-forget
+      // callers (post-finalize preview build-error) used to pass none → unbounded
+      // token burn after the user left; fall back to the background wall-clock
+      // ceiling so those runs are bounded too. An explicit caller value wins.
+      repairDeadlineEpochMs:
+        repairDeadlineEpochMs ??
+        resolveBackgroundRepairDeadlineEpochMs({
+          nowMs: Date.now(),
+          budgetMs: REPAIR_LOOP_BUDGET_MS,
+        }),
       repairLedger,
       repairScopeId,
     });

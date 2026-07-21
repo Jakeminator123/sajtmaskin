@@ -171,3 +171,29 @@ export function resolveFinalGateVerifyBudget(params: {
   if (remainingMs <= floorMs) return { skip: true };
   return { skip: false, verifyDeadlineEpochMs: deadlineEpochMs - releaseMarginMs };
 }
+
+/**
+ * Absolute `Date.now()`-based deadline for a FIRE-AND-FORGET background repair
+ * loop (post-finalize `triggerServerVerification` + auto build-error repair).
+ *
+ * Those callers used to pass no `repairDeadlineEpochMs`, so the loop's only stop
+ * conditions were the per-pass LLM timeouts (`LLM_FIXER_TIMEOUT_MS` /
+ * `LLM_FIXER_RETRY_TIMEOUT_MS`) and `SERVER_REPAIR_MAX_PASSES` — worst case
+ * several LLM passes plus preview-host verifies still burning tokens minutes
+ * after the user left. The manual (synchronous) deploy-repair endpoint already
+ * bounds its loop to its route `maxDuration`; the background lanes had no such
+ * wall-clock ceiling.
+ *
+ * Reuse the same lease-holding-route budget (`REPAIR_LOOP_BUDGET_MS`, derived
+ * from the static `maxDuration` minus the lease-release headroom) as a generous
+ * ceiling so an idle background loop cannot run away on cost. Pure so the
+ * callers stay unit-testable — the budget is injected, not read here.
+ */
+export function resolveBackgroundRepairDeadlineEpochMs(params: {
+  /** Current wall-clock time (`Date.now()`). */
+  nowMs: number;
+  /** Wall-clock budget (ms) the background loop may consume — e.g. `REPAIR_LOOP_BUDGET_MS`. */
+  budgetMs: number;
+}): number {
+  return params.nowMs + params.budgetMs;
+}

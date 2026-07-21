@@ -11,6 +11,7 @@ vi.mock("@/lib/db/client", () => ({ dbConfigured: false, db: {}, pool: null }));
 
 import {
   isRepairBudgetExhausted,
+  resolveBackgroundRepairDeadlineEpochMs,
   resolveFinalGateVerifyBudget,
   resolvePostRepairFinalize,
   resolveServerRepairEarlyStopReason,
@@ -460,6 +461,36 @@ describe("resolveFinalGateVerifyBudget (#286 Option A — dynamic verify deadlin
         releaseMarginMs,
       }).skip,
     ).toBe(true);
+  });
+});
+
+describe("resolveBackgroundRepairDeadlineEpochMs (bounds fire-and-forget repair token burn)", () => {
+  it("returns now + budget so the background loop has a finite wall-clock ceiling", () => {
+    expect(
+      resolveBackgroundRepairDeadlineEpochMs({ nowMs: 1_000_000, budgetMs: 770_000 }),
+    ).toBe(1_770_000);
+  });
+
+  it("produces a deadline strictly in the future for a positive budget", () => {
+    const now = 5_000;
+    const deadline = resolveBackgroundRepairDeadlineEpochMs({ nowMs: now, budgetMs: 770_000 });
+    expect(deadline).toBeGreaterThan(now);
+  });
+
+  it("feeds isRepairBudgetExhausted so a pass that would overrun the deadline is not started", () => {
+    // The whole point: the resolved deadline must make the shared budget guard
+    // stop a late LLM pass instead of letting it run unbounded after `done`.
+    const nowMs = 1_000_000;
+    const budgetMs = 300_000;
+    const deadlineEpochMs = resolveBackgroundRepairDeadlineEpochMs({ nowMs, budgetMs });
+    // A pass worth more than the whole budget cannot start right away.
+    expect(
+      isRepairBudgetExhausted({ deadlineEpochMs, nowMs, nextStepMaxMs: budgetMs + 1 }),
+    ).toBe(true);
+    // A short pass early in the window is allowed.
+    expect(
+      isRepairBudgetExhausted({ deadlineEpochMs, nowMs, nextStepMaxMs: 1_000 }),
+    ).toBe(false);
   });
 });
 
