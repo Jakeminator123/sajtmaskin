@@ -20,7 +20,7 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 Kodankare:
 
 - `src/lib/api/engine/chats/create-chat-stream-post.ts`
-- `src/lib/api/engine/chats/chat-message-stream-post.ts`
+- `src/lib/api/engine/chats/chat-message-stream/handler.ts` (fasad: `chat-message-stream-post.ts`)
 - `src/lib/gen/orchestrate.ts`
 - `src/lib/gen/follow-up-intent-types.ts`
 - `src/lib/own-engine/session/own-engine-build-session.ts`

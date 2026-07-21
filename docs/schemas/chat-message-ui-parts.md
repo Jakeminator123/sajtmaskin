@@ -27,7 +27,7 @@ Code sources of truth:
 - `src/lib/db/chat-repository-pg.ts`
 - `src/lib/gen/plan/schema.ts`
 - `src/app/api/engine/chats/stream/route.ts` (kanonisk create-stream route)
-- `src/lib/api/engine/chats/chat-message-stream-post.ts` (kanonisk follow-up stream-handler)
+- `src/lib/api/engine/chats/chat-message-stream/handler.ts` (kanonisk follow-up stream-handler; fasad: `chat-message-stream-post.ts`)
 - `src/app/api/engine/chats/[chatId]/stream/route.ts` (kanonisk follow-up route)
 - `src/app/api/engine/chats/[chatId]/route.ts`
 - `src/lib/hooks/usePersistedChatMessages.ts`
