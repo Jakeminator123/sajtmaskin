@@ -1,59 +1,42 @@
-# Arkiverade planer (`avklarat/`)
+# Avklarat — konsoliderat index
 
-Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas i din klon).
+Levererade och mergade initiativ. **Detta index är den enda avsedda ytan här** —
+detaljplanerna är trimmade och full text finns i **git-historik** (`git log --follow`,
+`git show <sha>:<path>`). Återintroducera inte stora plan-/aktivitetsfiler; väv in en
+rad i tabellen nedan i stället. Livscykel: [`../../../.cursor/rules/plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc).
 
-## Kontrollflöde-konsolidering + Stabilisering 2026-07 (arkiverade 2026-07-07)
+Kvar som egna filer finns bara två sorters historik med **fortsatt referensvärde**:
+kod-/contract-citerade planer (länkade från källkod) och test-citerad invariant-provenance
+(länkad från stabilitetssviten). Allt annat är git.
 
-Båda initiativens kod är levererad och mergad. Flyttade från `active/` på ägarens begäran 2026-07-07; enda kvarvarande punkten är den delade prod-mätavstämningen (~2026-07-10) + beslutsunderlag.
+## Levererade initiativ
 
-| Plan | Levererat | Kvar |
+| Initiativ | Levererat (PR) | Kvarvarande |
 |---|---|---|
-| [`kontrollflode/`](kontrollflode/) | Alla 7 faser (#360–#367): Normalize uppströms, riskScore, en RepairGate, preview-resync, terminologi, eval-svit. Underlag (f.d. `kontrollflödesmapp/`) i [`kontrollflode/underlag/`](kontrollflode/underlag/). | Fas 6 prod-mätning ~2026-07-10 + beslutsunderlag |
-| [`stabilisering-2026-07/`](stabilisering-2026-07/) | Våg 1–4 (#374–#383): init-grön, F3-integrationer hela vägen, preview/DB-P2:or. | Delad mätavstämning ~2026-07-10 |
+| **Grandmaster-stabilisering** (2026-06-18→22) | Scope 100 %. 1 Kontrakt C1 #152/C2 #153 · 2 Stabilitetstester S1 #147/S2 #151/S3 #163/S4 #150 · 3 Docs D1–D2 #148 · 5 Follow-up/preview #165/166/168/169/172/174/176 · 6 Status/event-bus #159–163 · 7 False-green #149/155/156/177/179/180 + B09 #185 · 8 Cleanup. Tag `MILSTOLPE-2026-06-21-grandmaster-stabil`. | Live-backlog router:as från [`../active/README.md`](../active/README.md); detalj i [`grandmaster/_backlog-deferrad.md`](grandmaster/_backlog-deferrad.md). |
+| **Kontrollflöde-konsolidering** (2026-07-07) | Alla 7 faser (#360–#367): Normalize uppströms, `riskScore`, en RepairGate, preview-resync, terminologi, eval-svit. Beslutsunderlag i [`kontrollflode/underlag/`](kontrollflode/underlag/). | — |
+| **Stabilisering 2026-07** | Våg 1–4 (#374–#383): init-grön, F3-integrationer hela vägen, preview/DB-P2:or. | — |
+| **Bug-swarm B01–B15** | 10 fixade (#181/183/184/185/186/187), 3 ägarbeslut (B05/B07/B08). Historik: [`bug-swarm/README.md`](bug-swarm/README.md). | Öppna defekter → [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
+| **Wave 2026-04-20** (P21–P27, P29) | Per-tier repair/timeout/brief-policies, deep-brief-guard, motion-safe verifier, AST-patch av `next.config`, v0-engine-konsolidering (Class C-routes canonical). Detaljer i git. | UX-polish-debt spåras i [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md). |
 
-## Grandmaster-stabiliseringsplan (2026-06-18 → 2026-06-22)
+## Kvar som filer (fortsatt referensvärde)
 
-Sajtmaskins stabiliserings-/kontrakts-/städplan. **Scope 100 % levererat** — flyttad hit från `active/` 2026-06-22 (nivå 1–3 bevarade i [`grandmaster/`](grandmaster/); loggbok + closing-handoff i git-historik). Tag: `MILSTOLPE-2026-06-21-grandmaster-stabil`.
+**Kod-/contract-citerade planer** (länkade från källkod — radera inte utan referensmigrering):
 
-| Område (nivå 2) | Levererat (PR) |
-|---|---|
-| 1 Kontrakt & repo-regler | C1 #152, C2 #153 |
-| 2 Stabilitetstester | S1 #147, S2 #151, S3 #163, S4 #150 |
-| 3 Dokumentation & kartor | D1, D2 #148 |
-| 4 Prompter (init+follow-up) | täckt (inget separat PR) |
-| 5 Follow-up & preview-kontrakt | #165/166/168/169/172/174/176 + 5-Z |
-| 6 Status & UI/UX (event-bus) | #159/160/161/162/163 |
-| 7 False-green-härdning | #149/155/156/177/179/180 + B09 #185 |
-| 8 Cleanup & hygien | arkiv + next-bump + ignore-prune −74 + eval-namnskugga |
+- [`2026-06-19-inspector-rendering-arkitektur.md`](2026-06-19-inspector-rendering-arkitektur.md) — `docs/ENV.md`, `inspect-bridge-*.ts`
+- [`2026-06-27-server-verify-distributed-lock.md`](2026-06-27-server-verify-distributed-lock.md) — `db/schema.ts`, `chat-repository-pg.ts`, migration
+- [`2026-07-08-dossier-legacy-import.md`](2026-07-08-dossier-legacy-import.md) — `docs/contracts/dossier-system.md`
+- [`repair-loop-hardening.md`](repair-loop-hardening.md) — `docs/contracts/fixer-registry.md`
+- [`P30-r3f-tuple-and-repair-feedback.md`](P30-r3f-tuple-and-repair-feedback.md), [`P31-feature-runtime-envs-and-f3-toggle.md`](P31-feature-runtime-envs-and-f3-toggle.md) — `fixer-registry.ts`, `autofix/pipeline.ts`
+- [`SEO-F3-PROMOTION-NEXT-PR.md`](SEO-F3-PROMOTION-NEXT-PR.md) — `projects/preferences-schema.ts`
 
-**Bug-swarm-drive (B01–B15):** [`bug-swarm/README.md`](bug-swarm/README.md) — 10 fixade (#181/183/184/185/186/187), 3 ägarbeslut (B05/B07/B08), B12/B13/B01-klient = edge. **Kvarvarande live-backlog** (ägarbeslut + arkitektur B3/B1/B4/F4-F5) router:as från [`../active/README.md`](../active/README.md); detalj i [`grandmaster/_backlog-deferrad.md`](grandmaster/_backlog-deferrad.md).
+**Test-citerad invariant-provenance** (`Källa:`-referens från stabilitetssviten) i
+[`grandmaster/`](grandmaster/): `02-stabilitetstester.md`, `07-false-green-hardning.md` och
+`aktiviteter/{S2,S3,A7-1,A7-2,5-3,5-5,C2}.md`. Rör dessa bara om motsvarande
+`*.stability.test.ts`-invariant ändras.
 
-## Wave 2026-04-20 (cleanup)
+## Operativ sanning (inte här)
 
-Åtta plan-filer levererades i cleanup-waven och är nu konsoliderade här. Detaljplanerna rensades 2026-04-29; använd git-historik vid behov.
-
-| Plan | Levererade |
-|---|---|
-| `P21` | Per-tier `perTierRepairPolicies`/`perTierTimeouts`/`perTierBriefing` i `config/ai_models/manifest.json`. Gamla globala fält behållna som fallback. |
-| `P21b` | Synkade `phase-routing.test.ts` mot P21:s nya `fast.planner` (`thinking:false / low`). |
-| `P22` | Hård `forceDeepBrief`-guard på follow-up, `lockedVariantForFollowUp`, `inheritQualityTargetFromPriorVersion`, `classifyFollowUpIntentWithLlmFallback`. Caller-wiring konsoliderat i samma wave. |
-| `P23` | `checkMotionReduceTrap` i verifier, `needsPhysics`-flagga, motion-safe-instruction, `deduplicateLocaleAlternateRoutes`. |
-| `P24` | AST-baserad `patchNextConfigViaAst` (acorn), korrekt `startOutcome`-label, `runId` end-to-end, `VersionMismatchOverlayPayload`-typ. |
-| `P25` | Mixpanel-allowlist i CSP, mjuk avatar-offline-state istället för error-toast. Tooltip + overlay-rendering uppskjuten — spåras som UX polish-debt i [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md). |
-| `P26` | `resolveRunDirFromContext`, `extractReasoningTokens`, per-tier 5×5 matris i `ModelTraceOverlay`. |
-| `P27` | Sektion A+B+D körda. Owner-file-konfliktscan grön. Sektion C (manuell browser-spotcheck) och sektion E (commits) lämnade till användaren. |
-
-## Wave 2026-04-20 (sen-pass)
-
-| Plan | Levererade |
-|---|---|
-| `P29` | Audit `03-konsolidering-pipeline.md` §3.4 helt stängd. Fas 1A (18 testlösa v0-chat-routes borta), Fas 1B (10 routes med UNIQUE tester migrerade till engine-side + alla v0-chat-filer borttagna), Fas 2-beslut (7 Class C-routes på `/api/v0/` är canonical permanent). 1172/1172 tester gröna. |
-
-## Äldre
-
-Äldre planfiler kan saknas i trädet men finns kvar i **git-historik**. Operativ sanning ligger nu i:
-
-- [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) § FAS 3 (preview & deploy)
-- [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md) § FAS 2 (orchestration & build)
-
-När en äldre plan inte längre finns som fil: behandla README:n här som pekare och använd git-historik vid behov i stället för att återintroducera duplicerade roadmap-dokument.
+Aktuell arkitektur och körflöde: [`../../architecture/llm-pipeline.md`](../../architecture/llm-pipeline.md)
+(§ FAS 2 orchestration/build, § FAS 3 preview/deploy). När en äldre plan inte finns som fil:
+behandla detta index som pekare och använd git-historik.
