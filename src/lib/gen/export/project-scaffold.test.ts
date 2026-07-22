@@ -312,6 +312,28 @@ describe("buildCompleteProject", () => {
     expect(hook!.content).toContain("removeEventListener");
   });
 
+  it("uses useSyncExternalStore (lint-safe) instead of a setState-in-effect guard", () => {
+    // Regression guard: the earlier `useState(false) + useEffect(setState)` shape
+    // is flagged as an ERROR by eslint-config-next's
+    // `react-hooks/set-state-in-effect`, which hard-blocked the F3 ReleaseGate
+    // lint check for every generated site. `useSyncExternalStore` is the
+    // React-blessed external-store subscription and is lint-clean.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div />; }`,
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const hook = files.find((f) => f.path === "hooks/use-reduced-motion.ts");
+    expect(hook).toBeDefined();
+    expect(hook!.content).toContain("useSyncExternalStore");
+    expect(hook!.content).not.toContain("useEffect");
+    expect(hook!.content).not.toMatch(/useState\s*\(/);
+  });
+
   it("drops generated hooks/use-reduced-motion.tsx so baseline .ts wins (extension collision)", () => {
     // Repro: an earlier autofix/repair pass emitted `.tsx` alongside the
     // baseline `.ts`. Webpack picked the `.tsx` (which contained a leaked
@@ -548,6 +570,30 @@ describe("buildCompleteProject", () => {
     expect(eslintConfig!.content).toContain('eslint-config-next/core-web-vitals');
     expect(eslintConfig!.content).toContain('eslint-config-next/typescript');
     expect(eslintConfig!.content).toContain("globalIgnores");
+  });
+
+  it("keeps the React Compiler-era react-hooks rules advisory (warn) so they never hard-block the ReleaseGate", () => {
+    // The F3 ReleaseGate treats `eslint .` errors as blocking and warnings as
+    // advisory. eslint-config-next ships these rules as errors; a single
+    // hand-rolled setState-in-effect would otherwise fail the whole gate.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const eslintConfig = files.find((f) => f.path === "eslint.config.mjs");
+    expect(eslintConfig).toBeDefined();
+    expect(eslintConfig!.content).toContain('"react-hooks/set-state-in-effect": "warn"');
+    expect(eslintConfig!.content).toContain('"react-hooks/purity": "warn"');
+    // No react-hooks rule should be pinned to error in the generated config.
+    expect(eslintConfig!.content).not.toMatch(/"react-hooks\/[^"]+":\s*"error"/);
+    // Regression guard: the react-hooks warn override MUST be scoped to
+    // eslint-config-next's own react-hooks glob. An unscoped override applies
+    // these rule names to `.cjs` files too, where eslint-config-next does not
+    // register the react-hooks plugin — ESLint then aborts the whole run with
+    // "could not find plugin react-hooks", re-hard-blocking the ReleaseGate.
+    expect(eslintConfig!.content).toContain('files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"]');
   });
 
   it("includes dependencies required by copied ui components when completing the project", () => {

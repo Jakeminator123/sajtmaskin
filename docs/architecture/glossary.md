@@ -52,6 +52,8 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |
 | Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. Init och follow-up injicerar `### Lessons from similar past builds` i system-prompten via cosine similarity på term-frekvenser. **Inte** embeddings/pgvector. I prod är indexet cross-tenant (rå `faultText` redakteras i renderingen). Styrs av `FEATURES.useErrorLogRag` (`NODE_ENV !== 'test'`). |
+| Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. Grunden för Beskriv-flödet. Skriver aldrig till användarsajten. |
+| Beskriv-flöde | Fritext → LLM-genererade registry-sökfrågor → Registry Discovery → LLM-rankning av 5–10 **verkliga** träffar → kandidater (`{name, registry, description, previewLight/Dark, dependencies, registryDependencies, addCommand}`). Fas 1-backend: `POST /api/shadcn/describe` (`src/lib/shadcn/describe.ts`), flagg-gated bakom `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (default av → 404). LLM-stegen har deterministisk heuristik-fallback. Insättning av vald kandidat sker i senare faser via samma funktionella kedja som gör en UI Recipe körbar — Beskriv-flödet i sig är bara discovery. |
 
 ## Publicering och URL-nivåer
 

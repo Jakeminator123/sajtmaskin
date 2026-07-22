@@ -559,8 +559,24 @@ export function VersionHistory({
 
   if (!chatId) {
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm">Skicka ett meddelande för att starta ett projekt</p>
+      <div className="flex h-full flex-col">
+        {canToggleCollapse && (
+          <div className="flex justify-end px-2 py-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onToggleCollapse}
+              title="Fäll in versioner"
+              aria-label="Fäll in versioner"
+              className="h-7 w-7"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
+          <p className="text-center text-sm">Skicka ett meddelande för att starta ett projekt</p>
+        </div>
       </div>
     );
   }
@@ -595,12 +611,28 @@ export function VersionHistory({
   if (versions.length === 0) {
     const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm" suppressHydrationWarning>
-          {showSyncing
-            ? "Synkar versionshistorik..."
-            : "Inga versioner ännu. Generera en sida för att skapa en version."}
-        </p>
+      <div className="flex h-full flex-col">
+        {canToggleCollapse && (
+          <div className="flex justify-end px-2 py-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onToggleCollapse}
+              title="Fäll in versioner"
+              aria-label="Fäll in versioner"
+              className="h-7 w-7"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
+          <p className="text-center text-sm" suppressHydrationWarning>
+            {showSyncing
+              ? "Synkar versionshistorik..."
+              : "Inga versioner ännu. Generera en sida för att skapa en version."}
+          </p>
+        </div>
       </div>
     );
   }
