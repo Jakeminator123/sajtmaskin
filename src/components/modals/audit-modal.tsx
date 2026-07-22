@@ -352,7 +352,7 @@ export function AuditModal({
             e.preventDefault();
             last.focus();
           }
-        } else if (active === last) {
+        } else if (active === last || active === container) {
           e.preventDefault();
           first.focus();
         }
