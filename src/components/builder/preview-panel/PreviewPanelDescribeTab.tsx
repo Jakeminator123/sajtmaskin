@@ -115,6 +115,12 @@ export function PreviewPanelDescribeTab({
       try {
         await onInsertItem(toSelection(candidate));
         setInsertedKey(key);
+        // sendMessage exponerar inget utfall (BB#shadcn-lane1): vissa hanterade
+        // fel (409/412/abort) resolvar utan kast. Tidsbegränsa "Skickat"-låset
+        // så ett tyst misslyckande inte bränner kandidaten för nya försök.
+        window.setTimeout(() => {
+          setInsertedKey((current) => (current === key ? null : current));
+        }, 8000);
       } catch {
         // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
       } finally {
@@ -197,7 +203,7 @@ export function PreviewPanelDescribeTab({
                     candidate={candidate}
                     inserting={insertingKey === key}
                     inserted={insertedKey === key}
-                    insertDisabled={!onInsertItem || Boolean(insertingKey)}
+                    insertDisabled={disabled || !onInsertItem || Boolean(insertingKey)}
                     onInsert={() => void handleInsert(candidate)}
                   />
                 </li>

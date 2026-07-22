@@ -48,7 +48,7 @@ arkitektoniskt tvingande regeln i planen.
 | Registry-proxy-routes | `src/app/api/shadcn/registry/{index,item,refresh}/` | Aktiv |
 | Sync + health | `scripts/shadcn/{sync-shadcn-registry.ts,registry-health.ts}` (`shadcn:sync`, `shadcn:health`) | Aktiv |
 | Import-/dep-repair | `registry-utils.ts` (`rewriteRegistryImports`), `src/lib/gen/autofix/{import-validator,dep-completer}.ts` | Aktiv |
-| Recept-resolver (mening → recipe) | `src/lib/gen/data/shadcn-ui-recipes.ts` (`resolveShadcnUiRecipes`) | Aktiv — men hårdkodade kandidater |
+| Recept-resolver (mening → recipe) | `src/lib/gen/data/shadcn-ui-recipes.ts` (`resolveShadcnUiRecipes`) | Aktiv — sökdriven kandidatgenerering (Fas 4 levererad 2026-07-22; `SAJTMASKIN_SHADCN_RESOLVER_SEARCH`, legacy-fallback kvar) |
 | Community-register | `config/community-registries.json` (@shadcnblocks, @tailark, @magicui) | Separat fil, ej i `components.json` |
 | Galleri-DATA (kategorier, curated, featured) | `registry-service.ts` (`CURATED_UI_COLLECTIONS`, `FEATURED_BLOCKS`, `getBlocksByCategory`) | **Finns men vilande** — konsumeras bara av `runtime-library-audit.ts`, inget builder-UI |
 | Composer-yta (8 block) | `src/lib/builder/page-blocks-catalog.ts`, `preview-panel/PreviewPanelComposer.tsx`, `page-block-patch.ts` | Aktiv MVP, rå patch top/bottom, annars AI-fallback |
@@ -108,9 +108,9 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 - **[P]** Drag-n-drop: återanvänd inspect-brygga + `sectionAnalyzer` för placering; sökning + "senast använda".
 - **[P]** Copy/terminologi: "Composer" → "Lägg till", håll isär från Byggblock (dossiers).
 
-### Fas 4 — Konsolidera resolver  · RÖR SKYDDAD PIPELINE · egen PR
-- **[S]** Byt `buildCandidates` hårdkodade kandidater (`login-03`, `dashboard-01`, …) → `searchRegistries`-driven kandidatgenerering. Behåll capability-signaler som **input** till query.
-- **[S]** Eval-regressionsgrind: init/follow-up-generering får inte försämras.
+### Fas 4 — Konsolidera resolver  · RÖR SKYDDAD PIPELINE · egen PR  · ✅ levererad 2026-07-22
+- **[S]** ✅ Byt `buildCandidates` hårdkodade kandidater (`login-03`, `dashboard-01`, …) → sökdriven kandidatgenerering (HTTP-index + `registry-search.ts`, per Fas 0-spiken — inte program-API:t). Capability-signaler är **input** till query. Flagga `SAJTMASKIN_SHADCN_RESOLVER_SEARCH` (default på), legacy-kandidaterna kvar som fallback vid flagga av/indexfel.
+- **[S]** ✅ Regressionsgrind: snapshot-tester (pinnad index-fixtur, 6 promptklasser, legacy vs sök) i `shadcn-recipe-search.snapshot.test.ts` + P1-tester för flagga-av-paritet och nätfels-fallback.
 
 ### Fas 5 — Builder-chat (fristående spår)  · helt parallelliserbart
 - **[P]** Installera `@shadcn/react`; ersätt `conversation.tsx`-scroll med `MessageScroller` (streaming utan hopp, anchor, bevarad läsposition, scroll-to-bottom).

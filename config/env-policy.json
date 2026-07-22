@@ -45,6 +45,7 @@
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
+    "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SUPERADMIN_EMAIL",
     "SUPERADMIN_PASSWORD",
@@ -212,6 +213,7 @@
     "SAJTMASKIN_PROMPT_DUMP",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
+    "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",
     "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
@@ -467,6 +469,16 @@
         "preview"
       ],
       "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering. Blocking product findings can keep the F3 trigger disabled until the visible preview works."
+    },
+    {
+      "key": "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Opt-out, DEFAULT ON (OFF under NODE_ENV=test). Fas 4 of plan 2026-07-22-shadcn-registry-beskriv-komposition.md: resolveShadcnUiRecipes derives its official-registry UI Recipe candidates from a deterministic search over the registry INDEX (capability signals + prompt keywords -> fuzzy match over name/title/description/categories) plus components.json community registries, instead of the former hardcoded candidate lists. Set to '0'/'false' to restore the legacy hardcoded candidates exactly. Index fetch failure/timeout automatically degrades to the legacy candidates (network errors never empty the candidate set). No LLM calls in the resolver; no new secret. Read via isShadcnResolverSearchEnabled (src/lib/gen/data/shadcn-recipe-search.ts)."
     },
     {
       "key": "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
