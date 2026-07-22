@@ -11,7 +11,7 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 |---|---|
 | `Get-ChildItem`, `Get-Content`, `Select-String` | `ls -la`, `cat`, `grep`, `sed` |
 | `$env:NAME = "x"` | `export NAME=x` |
-| `; if ($LASTEXITCODE -eq 0) { ... }` | `&&` / `||` |
+| `; if ($LASTEXITCODE -eq 0) { ... }` (externt program) · `; if ($?) { ... }` (cmdlet) | `&&` / `||` |
 | `foreach ($x in $items) { ... }` | `for x in ...; do ...` |
 | here-string `@" ... "@` | heredoc `<<EOF` |
 | `Remove-Item -Recurse -Force` | `rm -rf` |
