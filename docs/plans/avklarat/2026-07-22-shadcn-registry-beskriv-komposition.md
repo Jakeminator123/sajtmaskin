@@ -1,7 +1,8 @@
 ---
-status: active
+status: avklarat
 owner: unassigned
 created: 2026-07-22
+completed: 2026-07-22
 topic: shadcn-registry-konsolidering + "Beskriv"-driven UI-komposition (Composer-ytan) — semantisk sökning över riktiga register, funktionell insättning via own-engine/verify, och byggbart eget @sajtmaskin-register
 source: Kodläsning + shadcn-docs-verifiering 2026-07-22 (explore-subagenter, WebFetch mot ui.shadcn.com/docs/{registry/mcp,helpers/ai-sdk,react/message-scroller}, WebSearch mot shadcn/registry-API) + extern coach-granskning av commit 83ce3472 + ägarens observationer om Composer-ytan
 ---
@@ -133,8 +134,9 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 | #583 | Fas 2-härdning: chat-byte-guard, metadata-sanering, hydration-timeout och disabled-kontrakt | **Mergad** |
 | #582 | Fas 4: sökdriven resolver med legacy-fallback och reserverad community-plats | **Mergad** |
 | #584 | Fas 6-proof: internt `@sajtmaskin`-register, tre självbärande poster via `/r/{name}.json` | **Mergad** |
+| #586 | Slutstabilisering: historikankare i MessageScroller + provider-failover i Beskriv + planpensionering | **Denna PR** |
 
-Kvarvarande aktivt scope: avgör om deterministisk lane v2 behövs, leverera eventuell
+Valfri backlog: avgör om deterministisk lane v2 behövs, leverera eventuell
 drag-n-drop-placering och expandera det interna registret bortom proofets tre poster.
 
 ## Tester som krävs (P1 enligt review-gaten — pipeline/preview/DB berörs)
@@ -152,7 +154,7 @@ drag-n-drop-placering och expandera det interna registret bortom proofets tre po
 
 | Yta | Ändring |
 |---|---|
-| `docs/plans/active/README.md` | Router-rad för denna plan (görs i samma commit) |
+| `docs/plans/avklarat/README.md` | Indexrad + denna fil (pensionerad från `active/` 2026-07-22) |
 | `docs/architecture/glossary.md` | Registrera nya begrepp: "Beskriv-flöde", "Registry Discovery", "@sajtmaskin-registry" (UI Recipe finns redan) |
 | `docs/architecture/llm-pipeline.md` | Uppdatera när resolvern (Fas 4) byter till `searchRegistries` |
 | `src/lib/shadcn/README.md` | Program-API-adapter + `components.json` som kanonisk registry-config |

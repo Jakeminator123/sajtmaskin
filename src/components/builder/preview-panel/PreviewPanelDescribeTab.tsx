@@ -11,7 +11,7 @@ import type { ShadcnInsertSelection } from "@/lib/builder/shadcn-insert";
  * kandidatkort (thumbnails där de finns) → användaren väljer → insättning via
  * `onInsertItem` (samma own-engine-lane som Bläddra-galleriets kortval).
  *
- * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
+ * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
  * (Fas 2 v1 + Fas 3 — Beskriv).
  *
  * Routen är flagg-gated (`NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`) och svarar

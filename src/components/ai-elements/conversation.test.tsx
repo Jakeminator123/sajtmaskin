@@ -59,6 +59,84 @@ describe("Conversation — MessageScroller path (flag on / default)", () => {
       screen.getByLabelText("Scrolla ned till senaste meddelande"),
     ).toBeTruthy();
   });
+
+  it("arms only appended user turns, never initial or prepended history", () => {
+    delete process.env[PUBLIC_KEY];
+
+    function Transcript({ ids }: { ids: string[] }) {
+      return (
+        <Conversation className="h-full">
+          <ConversationContent>
+            {ids.map((id) => (
+              <ConversationItem key={id} messageId={id} scrollAnchor={id.startsWith("user-")}>
+                <div>{id}</div>
+              </ConversationItem>
+            ))}
+          </ConversationContent>
+        </Conversation>
+      );
+    }
+
+    const { container, rerender } = render(
+      <Transcript ids={["user-old", "assistant-old"]} />,
+    );
+    const anchorState = (id: string) =>
+      container
+        .querySelector(`[data-message-id="${id}"]`)
+        ?.getAttribute("data-scroll-anchor");
+
+    // Existing transcript rows must not be mistaken for a fresh turn when the
+    // assistant row later changes size/content.
+    expect(anchorState("user-old")).toBe("false");
+
+    // Loading older history before the committed transcript preserves position
+    // and does not arm that historical user row.
+    rerender(
+      <Transcript ids={["user-older", "assistant-older", "user-old", "assistant-old"]} />,
+    );
+    expect(anchorState("user-older")).toBe("false");
+    expect(anchorState("user-old")).toBe("false");
+
+    // A genuinely appended user turn remains the anchor while its assistant
+    // response streams and triggers resize/content updates.
+    rerender(
+      <Transcript
+        ids={[
+          "user-older",
+          "assistant-older",
+          "user-old",
+          "assistant-old",
+          "user-live",
+          "assistant-live",
+        ]}
+      />,
+    );
+    expect(anchorState("user-live")).toBe("true");
+    expect(anchorState("user-old")).toBe("false");
+  });
+
+  it("preserves anchoring for a genuinely live first turn", () => {
+    delete process.env[PUBLIC_KEY];
+    const { container } = render(
+      <Conversation className="h-full">
+        <ConversationContent>
+          <ConversationItem
+            messageId="user-first-live"
+            scrollAnchor
+            liveScrollAnchor
+          >
+            <div>First live prompt</div>
+          </ConversationItem>
+        </ConversationContent>
+      </Conversation>,
+    );
+
+    expect(
+      container
+        .querySelector('[data-message-id="user-first-live"]')
+        ?.getAttribute("data-scroll-anchor"),
+    ).toBe("true");
+  });
 });
 
 describe("Conversation — legacy path (flag off)", () => {

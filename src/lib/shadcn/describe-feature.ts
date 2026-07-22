@@ -2,7 +2,7 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
 
 /**
  * "Beskriv"-discovery-lager (Fas 1 + Fas 2 v1 av plan
- * `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`).
+ * `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`).
  *
  * Default AV — opt-in via `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`. Reversibel:
  * flagga av = `POST /api/shadcn/describe` svarar 404, och "Beskriv"-fliken i

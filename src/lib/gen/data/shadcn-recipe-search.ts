@@ -9,7 +9,7 @@
  * official registry INDEX and the community registries from `components.json`
  * (item catalog seeded by `config/community-registries.json`).
  *
- * Plan: docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md.
+ * Plan: docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md.
  *
  * Guarantees:
  * - Deterministic: same capabilities + prompt + index → same candidates

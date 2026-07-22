@@ -18,6 +18,7 @@ kod-/contract-citerade planer (länkade från källkod) och test-citerad invaria
 | **Stabilisering 2026-07** | Våg 1–4 (#374–#383): init-grön, F3-integrationer hela vägen, preview/DB-P2:or. | — |
 | **Bug-swarm B01–B15** | 10 fixade (#181/183/184/185/186/187), 3 ägarbeslut (B05/B07/B08). Historik: [`bug-swarm/README.md`](bug-swarm/README.md). | Öppna defekter → [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). |
 | **Wave 2026-04-20** (P21–P27, P29) | Per-tier repair/timeout/brief-policies, deep-brief-guard, motion-safe verifier, AST-patch av `next.config`, v0-engine-konsolidering (Class C-routes canonical). Detaljer i git. | UX-polish-debt spåras i [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md). |
+| **shadcn-registry + "Beskriv"-komposition** (2026-07-22) | Fas 0–6 första leverans: pin/spike #570 · MessageScroller #572 · Bläddra/"Lägg till" #574 · describe API #576 · insert-lane + Beskriv #581/#583 · sökdriven recipes #582 · `@sajtmaskin`-registry proof #584 · status-sync #585 · slutstabilisering #586 (historikankare + provider-failover). Detalj: [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md). | Valfritt backlog: Fas 2 v2 deterministic recipe-lane; drag-n-drop för registry-insert; expansion av `@sajtmaskin`-katalog; BB#shadcn-lane1 (riktigt sendMessage-utfall). |
 
 ## Kvar som filer (fortsatt referensvärde)
 
@@ -29,6 +30,7 @@ kod-/contract-citerade planer (länkade från källkod) och test-citerad invaria
 - [`repair-loop-hardening.md`](repair-loop-hardening.md) — `docs/contracts/fixer-registry.md`
 - [`P30-r3f-tuple-and-repair-feedback.md`](P30-r3f-tuple-and-repair-feedback.md), [`P31-feature-runtime-envs-and-f3-toggle.md`](P31-feature-runtime-envs-and-f3-toggle.md) — `fixer-registry.ts`, `autofix/pipeline.ts`
 - [`SEO-F3-PROMOTION-NEXT-PR.md`](SEO-F3-PROMOTION-NEXT-PR.md) — `projects/preferences-schema.ts`
+- [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) — `shadcn-insert.ts`, `describe*.ts`, add-panel/Beskriv UI, `docs/ENV.md`, recipe-search-tester
 
 **Test-citerad invariant-provenance** (`Källa:`-referens från stabilitetssviten) i
 [`grandmaster/`](grandmaster/): `02-stabilitetstester.md`, `07-false-green-hardning.md` och

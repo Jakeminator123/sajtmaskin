@@ -22,10 +22,13 @@
  */
 
 import {
+  Children,
   createContext,
+  isValidElement,
   useContext,
   useRef,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type HTMLAttributes,
@@ -57,6 +60,15 @@ interface ConversationContextValue {
 
 const ConversationContext = createContext<ConversationContextValue | null>(null);
 
+/**
+ * IDs that were appended after the transcript's first committed render.
+ *
+ * @shadcn/react@0.2.1 can treat an existing, previously unhandled anchor as a
+ * fresh turn when content changes without a new row. Initial and prepended
+ * history must therefore never be armed as live turn anchors.
+ */
+const LiveMessageAnchorIdsContext = createContext<ReadonlySet<string> | null>(null);
+
 export function useConversation() {
   const context = useContext(ConversationContext);
   if (!context) {
@@ -87,6 +99,8 @@ export interface ConversationItemProps extends HTMLAttributes<HTMLDivElement> {
   messageId?: string;
   /** Mark this row as the start of a turn (e.g. a user message). */
   scrollAnchor?: boolean;
+  /** Keep a genuinely live first turn armed even when the transcript just mounted. */
+  liveScrollAnchor?: boolean;
 }
 
 // ============================================================================
@@ -135,15 +149,59 @@ function ScrollerConversation({ children, className, ...props }: ConversationPro
   );
 }
 
+function messageIdsFromChildren(children: ReactNode): string[] {
+  return Children.toArray(children).flatMap((child) => {
+    if (!isValidElement<ConversationItemProps>(child)) return [];
+    const messageId = child.props.messageId;
+    return child.props.scrollAnchor && typeof messageId === "string" && messageId
+      ? [messageId]
+      : [];
+  });
+}
+
+function findSequenceStart(current: string[], previous: string[]): number {
+  if (previous.length === 0) return 0;
+  const lastStart = current.length - previous.length;
+  for (let start = 0; start <= lastStart; start += 1) {
+    if (previous.every((id, offset) => current[start + offset] === id)) return start;
+  }
+  return -1;
+}
+
 function ScrollerConversationContent({
   children,
   className,
   ...props
 }: ConversationContentProps) {
+  const previousMessageIdsRef = useRef<string[] | null>(null);
+  const committedLiveAnchorIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const messageIds = useMemo(() => messageIdsFromChildren(children), [children]);
+
+  const liveAnchorIds = useMemo(() => {
+    const next = new Set(committedLiveAnchorIdsRef.current);
+    const previous = previousMessageIdsRef.current;
+    if (previous === null) return next;
+
+    // Locate the already committed transcript inside the new one. Anything
+    // before it is prepended history; only rows after it are newly appended.
+    const previousStart = findSequenceStart(messageIds, previous);
+    if (previousStart < 0) return next;
+    const appendedStart = previousStart + previous.length;
+    for (const id of messageIds.slice(appendedStart)) next.add(id);
+    return next;
+  }, [messageIds]);
+
+  useLayoutEffect(() => {
+    previousMessageIdsRef.current = messageIds;
+    committedLiveAnchorIdsRef.current = liveAnchorIds;
+  }, [liveAnchorIds, messageIds]);
+
   return (
     <MessageScrollerViewport>
       <MessageScrollerContent className={cn("flex-1 space-y-4 p-4", className)} {...props}>
-        {children}
+        <LiveMessageAnchorIdsContext.Provider value={liveAnchorIds}>
+          {children}
+        </LiveMessageAnchorIdsContext.Provider>
       </MessageScrollerContent>
     </MessageScrollerViewport>
   );
@@ -295,15 +353,25 @@ export function ConversationItem({
   className,
   messageId,
   scrollAnchor,
+  liveScrollAnchor = false,
   ...props
 }: ConversationItemProps) {
+  const liveAnchorIds = useContext(LiveMessageAnchorIdsContext);
+  const effectiveScrollAnchor =
+    liveAnchorIds === null
+      ? scrollAnchor
+      : Boolean(
+          scrollAnchor &&
+            (liveScrollAnchor || (messageId && liveAnchorIds.has(messageId))),
+        );
+
   if (!isMessageScrollerEnabled()) {
     return <>{children}</>;
   }
   return (
     <MessageScrollerItem
       messageId={messageId}
-      scrollAnchor={scrollAnchor}
+      scrollAnchor={effectiveScrollAnchor}
       className={className}
       {...props}
     >
