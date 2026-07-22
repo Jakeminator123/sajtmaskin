@@ -89,7 +89,7 @@ första dossiern i id-ordning; flera *flaggade* defaults ägs av
 metadata-invariant — beteendegarantin (monterar utan krasch, känner igen
 placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
 är ett acceptanskriterium som ägs av detta kontrakt och bevisas med tester
-(t.ex. `refuse-dossier-stubs.stability.test.ts`), inte bara med manifest-fält.
+(t.ex. `dossier-config-fallback.test.tsx`), inte bara med manifest-fält.
 (Ursprung: grandmaster-planen för dossier-grupper och fallback-kontrakt,
 etapp 7 — planfilen är trimmad, full text i git-historik.)
 
