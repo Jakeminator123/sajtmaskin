@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -341,6 +341,10 @@ function BrowseDetailView({
   const thumb = thumbnailUrl(item);
   const [inserting, setInserting] = useState(false);
   const [inserted, setInserted] = useState(false);
+  // Ref-guard mot dubbelklick: två snabba klick före nästa render ser båda
+  // `inserting === false` (stale closure) — refen uppdateras synkront och
+  // stoppar det andra klicket från att trigga en duplicerad generation.
+  const insertingRef = useRef(false);
 
   // Insättnings-lane v1 (Fas 2): kortvalets metadata → `shadcn-insert.ts` →
   // BEFINTLIGA sendMessage/own-engine-vägen → generering + verify → ny version.
@@ -349,7 +353,8 @@ function BrowseDetailView({
   // recipe-injektion i own-engine-turn) kan senare ersätta prompt-vägen — samma
   // `ShadcnInsertSelection` som ingång.
   const handleInsert = useCallback(async () => {
-    if (!onInsertItem || inserting) return;
+    if (!onInsertItem || insertingRef.current) return;
+    insertingRef.current = true;
     setInserting(true);
     setInserted(false);
     try {
@@ -364,9 +369,10 @@ function BrowseDetailView({
     } catch {
       // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
     } finally {
+      insertingRef.current = false;
       setInserting(false);
     }
-  }, [onInsertItem, inserting, item]);
+  }, [onInsertItem, item]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -70,6 +70,9 @@ export function PreviewPanelDescribeTab({
   const [insertedKey, setInsertedKey] = useState<string | null>(null);
   // Ignorera svar från en äldre sökning som löser efter en nyare.
   const requestIdRef = useRef(0);
+  // Ref-guard mot dubbelklick: två snabba klick före nästa render ser båda
+  // `insertingKey === null` (stale closure) — refen uppdateras synkront.
+  const insertingRef = useRef(false);
 
   const handleSearch = useCallback(async () => {
     const trimmed = description.trim();
@@ -104,7 +107,8 @@ export function PreviewPanelDescribeTab({
 
   const handleInsert = useCallback(
     async (candidate: DescribeCandidate) => {
-      if (!onInsertItem || insertingKey) return;
+      if (!onInsertItem || insertingRef.current) return;
+      insertingRef.current = true;
       const key = candidateKey(candidate);
       setInsertingKey(key);
       setInsertedKey(null);
@@ -114,10 +118,11 @@ export function PreviewPanelDescribeTab({
       } catch {
         // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
       } finally {
+        insertingRef.current = false;
         setInsertingKey(null);
       }
     },
-    [onInsertItem, insertingKey],
+    [onInsertItem],
   );
 
   return (

@@ -121,12 +121,16 @@ function formatDependencySuffix(dependencies?: string[]): string {
   return ` (${preview}${dependencies.length > 4 ? "..." : ""})`;
 }
 
+/** Maxlängd för inbäddad `docs`-text i metadata-prompten (docs-only-payloads). */
+const METADATA_DOCS_MAX_CHARS = 6_000;
+
 /**
  * Metadata-only-prompt för en registry-post vars källkod inte kunde hämtas
- * (community-register eller misslyckad item-fetch). Modellen implementerar
- * troget utifrån metadata — utan att fabricera imports som inte finns.
+ * (community-register, misslyckad item-fetch eller docs-only-payload utan
+ * files). Modellen implementerar troget utifrån metadata + ev. docs-text —
+ * utan att fabricera imports som inte finns.
  */
-function buildShadcnItemMetadataPrompt(source: ShadcnItemPromptSource): string {
+function buildShadcnItemMetadataPrompt(source: ShadcnItemPromptSource, docs?: string): string {
   const title = source.title || source.name;
   const lines: string[] = [];
   lines.push(
@@ -155,6 +159,16 @@ function buildShadcnItemMetadataPrompt(source: ShadcnItemPromptSource): string {
   }
   if (source.addCommand) {
     lines.push(`Reference add command (context only — NEVER run it): \`${source.addCommand}\`.`);
+  }
+  const trimmedDocs = docs?.trim();
+  if (trimmedDocs) {
+    const truncated = trimmedDocs.length > METADATA_DOCS_MAX_CHARS;
+    lines.push("## Registry documentation for this item:");
+    lines.push(
+      truncated
+        ? `${trimmedDocs.slice(0, METADATA_DOCS_MAX_CHARS)}\n\n(... docs truncated ...)`
+        : trimmedDocs,
+    );
   }
   lines.push("## Styling Guidelines:");
   lines.push("- Use Tailwind CSS for all styling (no inline styles or CSS modules)");
@@ -292,7 +306,16 @@ export function buildPromptSourceMessage(
           detectedSections: source.detectedSections,
         });
       } else {
-        technicalPrompt = buildShadcnItemMetadataPrompt(source);
+        // Metadata-vägen (community-item, misslyckad fetch eller docs-only-
+        // payload): berika med det hydrerade itemets metadata + docs-text så
+        // en lyckad hämtning utan files inte kastas bort.
+        const enriched: ShadcnItemPromptSource = {
+          ...source,
+          description: source.description ?? item?.description,
+          dependencies: source.dependencies ?? item?.dependencies,
+          registryDependencies: source.registryDependencies ?? item?.registryDependencies,
+        };
+        technicalPrompt = buildShadcnItemMetadataPrompt(enriched, item?.docs);
       }
       return {
         title,

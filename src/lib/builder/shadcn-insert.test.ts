@@ -106,4 +106,24 @@ describe("buildShadcnInsertMessage", () => {
 
     expect(built.message).toContain("NOT included");
   });
+
+  it("bäddar in docs-text + hydrerade deps för docs-only-payloads (files saknas)", async () => {
+    const fetchItem = vi.fn().mockResolvedValue({
+      name: "login-03",
+      docs: "Use the LoginForm inside a centered card with muted background.",
+      registryDependencies: ["button", "card"],
+      dependencies: ["zod"],
+      files: [],
+    } satisfies ShadcnRegistryItem);
+    const built = await buildShadcnInsertMessage(
+      officialSelection({ dependencies: undefined, registryDependencies: undefined }),
+      { fetchItem },
+    );
+
+    // Docs-only-hämtningen kastas inte bort: docs + hydrerad metadata ingår.
+    expect(built.message).toContain("Registry documentation for this item");
+    expect(built.message).toContain("centered card with muted background");
+    expect(built.message).toContain("button, card");
+    expect(built.message).toContain("zod");
+  });
 });
