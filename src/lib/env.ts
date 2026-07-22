@@ -201,6 +201,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_SHIM_PREVIEW_DISABLED: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Server fallback for the shadcn MessageScroller builder-chat scroll flag. Default ON. Read via `isMessageScrollerEnabled` in `src/lib/builder/message-scroller-feature.ts`. */
+  SAJTMASKIN_MESSAGE_SCROLLER: z.string().optional(),
 
   // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
@@ -218,6 +220,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Client flag for the shadcn MessageScroller builder-chat scroll (streaming without jump, turn anchoring, preserved read position, scroll-to-bottom). Default ON; set `0`/`false` to fall back to the legacy simple scroll. Read via `isMessageScrollerEnabled` in `src/lib/builder/message-scroller-feature.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER: z.string().optional(),
   /** Fast Edit Lane (client): when affirmative, exact code-view/file-tree/inspector edits create an immutable minor version + hot-patch the preview instead of an in-place save. Read via `isQuickEditEnabled` in `src/lib/builder/engine-files-patch.ts`. Default off. */
   NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT: z.string().optional(),
   /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */

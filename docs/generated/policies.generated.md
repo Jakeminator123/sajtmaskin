@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
-<!-- source-fingerprint: config/env-policy.json sha256:008517dda5a607de -->
+<!-- source-fingerprint: config/env-policy.json sha256:d354e0d6cd97405d -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
