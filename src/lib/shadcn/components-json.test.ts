@@ -67,9 +67,14 @@ describe("components.json shadcn config", () => {
 /**
  * Fas 0 of the shadcn-registry consolidation (plan
  * 2026-07-22-shadcn-registry-beskriv-komposition.md) makes `components.json`
- * the canonical registry config: a `registries` key mapping the official
- * `@shadcn` namespace plus the community namespaces (`@shadcnblocks`,
- * `@tailark`, `@magicui`) that `config/community-registries.json` seeds today.
+ * the canonical registry config: a `registries` key mapping the community
+ * namespaces (`@shadcnblocks`, `@tailark`, `@magicui`) that
+ * `config/community-registries.json` seeds today.
+ *
+ * The built-in `@shadcn` (and `@v0`) registries are pre-configured in the CLI
+ * and MUST NOT be declared here — shadcn CLI 4.x rejects a components.json that
+ * redeclares a built-in namespace, which would break the pinned `shadcn mcp`
+ * wrapper. Only custom/community namespaces belong in `registries`.
  *
  * This is the shadcn-supported `registries` field (see
  * https://ui.shadcn.com/docs/components-json and /docs/registry/namespace): each
@@ -83,7 +88,6 @@ describe("components.json canonical registries", () => {
   ) as { registries?: Record<string, string | { url?: string }> };
 
   const EXPECTED_REGISTRIES: Record<string, string> = {
-    "@shadcn": "https://ui.shadcn.com/r/{name}.json",
     "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
     "@tailark": "https://tailark.com/r/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
@@ -94,7 +98,7 @@ describe("components.json canonical registries", () => {
     expect(typeof componentsJson.registries).toBe("object");
   });
 
-  it("maps exactly the official @shadcn namespace plus the community seed namespaces", () => {
+  it("maps exactly the community seed namespaces (built-in @shadcn/@v0 stay implicit)", () => {
     expect(Object.keys(componentsJson.registries ?? {}).sort()).toEqual(
       Object.keys(EXPECTED_REGISTRIES).sort(),
     );
