@@ -18,6 +18,7 @@
     "NEXT_PUBLIC_REGISTRY_STYLE",
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
+    "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "PEXELS_API_KEY",
     "POSTGRES_URL_NON_POOLING",
@@ -137,6 +138,7 @@
     "NEXT_PUBLIC_REGISTRY_STYLE",
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
+    "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "NEXT_PUBLIC_SANITY_DATASET",
     "NEXT_PUBLIC_SANITY_PROJECT_ID",
@@ -669,6 +671,15 @@
         "production"
       ],
       "notes": "Comma-separated hostname suffixes used by the app to recognize tier-2 preview-host URLs in dev and deployed environments."
+    },
+    {
+      "key": "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in, DEFAULT OFF. Enables the Fas 1 \"Beskriv\" discovery route POST /api/shadcn/describe (plan 2026-07-22-shadcn-registry-beskriv-komposition.md). The route translates a free-text description into registry search queries, searches the official + community registries over HTTP and ranks real matches; it writes NOTHING to the user site. Flag off = the route returns 404 and no new code path runs (zero behavior change). Reuses existing OPENAI_API_KEY / ANTHROPIC_API_KEY via src/lib/models/*; no new secret. NEXT_PUBLIC_ prefix is required so the builder client can gate the UI, and it inlines at build so a new deploy is needed to flip it in prod. Read via isShadcnDescribeEnabled (src/lib/shadcn/describe-feature.ts)."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",
