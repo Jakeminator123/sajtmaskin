@@ -323,6 +323,10 @@ export function AuditModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // The PDF report and build-confirmation dialogs render outside dialogRef;
+      // while one of them is stacked on top, the main dialog's trap must let go
+      // so keyboard users can Tab into (and dismiss) the nested surface.
+      if (showPdfModal || showBuildConfirm) return;
       if (e.key === "Escape") {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
@@ -369,7 +373,7 @@ export function AuditModal({
       window.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = "";
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showPdfModal, showBuildConfirm]);
 
   // Move focus into the dialog on open and return it to the trigger on close.
   useEffect(() => {

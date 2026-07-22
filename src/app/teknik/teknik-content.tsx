@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -22,6 +22,23 @@ export function TeknikContent() {
   const handleRegisterClick = useCallback(() => {
     setAuthMode("register");
     setShowAuthModal(true);
+  }, []);
+
+  // Sections live inside the inner [data-scroll-container], which Next's
+  // built-in hash handling never scrolls (it only scrolls window). Resolve
+  // #funktioner/#teknik links here, both on arrival and on in-page changes.
+  useEffect(() => {
+    const scrollToHash = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (!id) return;
+      // Rendered synchronously, but wait a frame so layout has settled.
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: "start" });
+      });
+    };
+    scrollToHash();
+    window.addEventListener("hashchange", scrollToHash);
+    return () => window.removeEventListener("hashchange", scrollToHash);
   }, []);
 
   return (

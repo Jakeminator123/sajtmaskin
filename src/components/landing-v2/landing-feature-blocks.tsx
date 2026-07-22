@@ -3,6 +3,7 @@
 import { ArrowRight, X } from "lucide-react"
 import {
   useCallback,
+  useEffect,
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import { features } from "@/components/landing-v2/landing-chat-data"
@@ -91,6 +92,32 @@ export function FeatureModal({
   onClose: () => void
 }) {
   const reducedMotion = usePrefersReducedMotion()
+
+  // Escape-to-close + lock the page's scroll container while the dialog is
+  // open (the landing/teknik pages scroll in an inner [data-scroll-container],
+  // so a body-only lock would not stop the background from scrolling).
+  useEffect(() => {
+    if (!feature) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    const scrollContainer =
+      document.querySelector<HTMLElement>("[data-scroll-container]")
+    const previousContainerOverflow = scrollContainer?.style.overflow ?? ""
+    const previousBodyOverflow = document.body.style.overflow
+    if (scrollContainer) scrollContainer.style.overflow = "hidden"
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      if (scrollContainer) scrollContainer.style.overflow = previousContainerOverflow
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }, [feature, onClose])
+
   if (!feature) return null
 
   const Icon = feature.icon
