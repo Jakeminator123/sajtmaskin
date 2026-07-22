@@ -175,7 +175,11 @@ function buildShadcnItemMetadataPrompt(source: ShadcnItemPromptSource, docs?: st
     `Add the shadcn-registry item "${title}" (\`${registryId}/${itemName}\`) to the existing site.`,
   );
   if (source.description) {
-    lines.push(`Description: ${capPayloadText(source.description, METADATA_DESCRIPTION_MAX_CHARS)}`);
+    // Samma hygien som övriga inline-fält: strippa backticks/radbrytningar så
+    // en flerradsbeskrivning inte kan injicera egna instruktionsrader.
+    lines.push(
+      `Description: ${sanitizeInlineMetadata(source.description, METADATA_DESCRIPTION_MAX_CHARS)}`,
+    );
   }
   lines.push("Do not replace existing pages or layout. Keep ALL existing content intact.");
   lines.push(getPlacementInstruction(source.placement ?? "bottom", source.detectedSections));
