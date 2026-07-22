@@ -320,7 +320,11 @@ describe("resolveShadcnUiRecipes", () => {
           }),
         };
       }
-      if (url.includes("shadcnblocks.com") || url.includes("tailark.com")) {
+      if (
+        url.includes("shadcnblocks.com") ||
+        url.includes("tailark.com") ||
+        url.includes("sajtmaskin.vercel.app")
+      ) {
         return { ok: false, status: 503, text: async () => "" };
       }
       const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "card";
