@@ -271,6 +271,38 @@ def _parse_json_reply(raw: str) -> dict[str, Any]:
     return parsed
 
 
+def _is_reasoning_model(model: str) -> bool:
+    """GPT-5 family and the o-series are reasoning models: they reject
+    `max_tokens` (require `max_completion_tokens`) and only accept the default
+    temperature (custom values return HTTP 400)."""
+    m = model.strip().lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def _chat_payload(
+    *,
+    model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    response_format: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a Chat Completions payload valid for both classic (gpt-4o) and
+    reasoning (gpt-5.x) models. Uses `max_completion_tokens` (accepted by all
+    current chat models); omits the custom `temperature` for reasoning models
+    that only allow the default."""
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_completion_tokens": max_tokens,
+    }
+    if not _is_reasoning_model(model):
+        payload["temperature"] = temperature
+    if response_format is not None:
+        payload["response_format"] = response_format
+    return payload
+
+
 def run_persona_analysis(
     *,
     api_key: str,
@@ -329,16 +361,16 @@ def run_persona_analysis(
             }
         )
 
-    payload = {
-        "model": model,
-        "messages": [
+    payload = _chat_payload(
+        model=model,
+        messages=[
             {"role": "system", "content": persona_prompt.strip() + "\n\n" + _OUTPUT_CONTRACT},
             {"role": "user", "content": user_parts},
         ],
-        "max_tokens": 2000,
-        "temperature": 0.6,
-        "response_format": {"type": "json_object"},
-    }
+        max_tokens=2000,
+        temperature=0.6,
+        response_format={"type": "json_object"},
+    )
     return _parse_json_reply(_post_openai_chat(payload, api_key))
 
 
@@ -351,9 +383,9 @@ def ask_guide(
 ) -> str:
     """Small interactive helper: answers operator questions about the current
     wizard step in plain Swedish."""
-    payload = {
-        "model": model,
-        "messages": [
+    payload = _chat_payload(
+        model=model,
+        messages=[
             {
                 "role": "system",
                 "content": (
@@ -365,9 +397,9 @@ def ask_guide(
             },
             {"role": "user", "content": question},
         ],
-        "max_tokens": 500,
-        "temperature": 0.4,
-    }
+        max_tokens=500,
+        temperature=0.4,
+    )
     return _post_openai_chat(payload, api_key).strip()
 
 

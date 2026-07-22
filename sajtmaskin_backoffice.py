@@ -33,7 +33,10 @@ def main() -> None:
 
     from backoffice.app_main import run_backoffice_app
 
-    load_dotenv(".env.local", override=False)
+    # override=True: local `.env.local` is the operator source of truth for the
+    # backoffice, so it wins over any stale/conflicting OS-level OPENAI_API_KEY
+    # (etc.) already set at User/Machine scope on the host.
+    load_dotenv(".env.local", override=True)
     run_backoffice_app(title="Sajtmaskin Backoffice")
 
 

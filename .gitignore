@@ -293,3 +293,6 @@ docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 
 .vercel
+
+# Local agent tooling (Cursor skills symlink) — never deployed, keep out of git
+.agents/

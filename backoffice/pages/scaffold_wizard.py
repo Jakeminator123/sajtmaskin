@@ -32,6 +32,7 @@ from backoffice.shared import (
     get_all_manifests,
     read_json,
     render_where_panel,
+    run_repo_command,
     write_json,
 )
 
@@ -729,6 +730,13 @@ def _apply(ctx: BackofficeContext, draft: dict[str, Any], payload: dict[str, Any
 def _render_step_validate(ctx: BackofficeContext) -> None:
     import pandas as pd
 
+    # Efter lyckat skapande: visa den persistenta "Slutför automatiskt"-panelen
+    # (knappar som kör efter-stegen) i stället för validerings-/skapa-flödet.
+    created = st.session_state.get("swz_created")
+    if created:
+        _render_post_create(ctx, created)
+        return
+
     draft = _draft()
     if not draft.get("variant"):
         st.warning("Inget utkast att validera — gå tillbaka till steg 3.")
@@ -766,24 +774,194 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
             except Exception as error:
                 st.error(f"Skapandet misslyckades (rollback körd där möjligt): {error}")
                 return
-            st.success(message)
-            st.info(
-                "Nästa steg för att den ska kunna **väljas** av matchern:\n\n"
-                "1. `npm run scaffolds:variant-embeddings` — bygg om variant-embeddings\n"
-                "2. `npm run typecheck` + `npm run scaffolds:validate`\n"
-                "3. Granska diffen och committa när du är nöjd\n\n"
-                "Ångra allt? Fliken **Baseline** i Scaffold Lifecycle återställer till "
-                "`scaffold-baseline-v1`."
-            )
-            st.balloons()
-            for key in ("swz_step", "swz_draft", "swz_analysis", "swz_template", "swz_repo_summary"):
+            # Behåll steget på 4 och byt till den persistenta slutför-panelen där
+            # operatören kör efter-stegen med knappar (inga terminalkommandon).
+            st.session_state["swz_created"] = {
+                "variantId": str((payload or {}).get("id", "")),
+                "scaffoldId": str((payload or {}).get("scaffoldId", "")),
+                "message": message,
+            }
+            for key in ("swz_draft", "swz_analysis", "swz_template", "swz_repo_summary"):
                 st.session_state.pop(key, None)
+            st.session_state.pop("swz_cmd_results", None)
+            st.session_state.pop("swz_balloons_shown", None)
+            st.rerun()
 
     _render_guide(
         ctx,
         "Steg 4: checklista-validering (kebab-case-id, schema, kollisioner, default-konvention) "
-        "och själva skapandet. Efteråt behöver operatören köra embeddings-rebuild och typecheck.",
+        "och själva skapandet. Efteråt kör wizarden efter-stegen (designmönster, embeddings, "
+        "validering) automatiskt via knappar.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Steg 4b — efter skapande: kör efter-stegen automatiskt (inga kommandon)
+# ---------------------------------------------------------------------------
+
+
+def _post_create_steps(variant_id: str) -> list[dict[str, Any]]:
+    """De tre efter-stegen som annars körs manuellt i terminalen."""
+    return [
+        {
+            "key": "patterns",
+            "label": "1. Fyll designmönster (AI)",
+            "command": ("npm", "run", "scaffolds:variant-patterns", "--", f"--only={variant_id}"),
+            "needs_api": True,
+            "help": (
+                "Låter en modell skriva layouts/motifs/antiPatterns för just den här "
+                "varianten. `--only` gör att bara din variant rörs — de andra lämnas orörda."
+            ),
+        },
+        {
+            "key": "embeddings",
+            "label": "2. Bygg om matchning",
+            "command": ("npm", "run", "scaffolds:variant-embeddings"),
+            "needs_api": True,
+            "help": (
+                "Bygger om variant-embeddings så matchern kan välja varianten. Anropar "
+                "OpenAI för alla varianter — kan ta en stund."
+            ),
+        },
+        {
+            "key": "validate",
+            "label": "3. Validera",
+            "command": ("npm", "run", "scaffolds:validate"),
+            "needs_api": False,
+            "help": "Kör schema + kollisionskontroller. Snabb, ingen API-nyckel behövs.",
+        },
+    ]
+
+
+def _variant_has_patterns(ctx: BackofficeContext, scaffold_id: str, variant_id: str) -> bool:
+    """True only if the variant file actually has a populated signaturePatterns.
+
+    `scaffolds:variant-patterns` exits 0 even when the LLM call failed or the
+    variant was skipped, so exit code alone would be a false-green signal.
+    """
+    if not scaffold_id or not variant_id:
+        return False
+    path = ctx.variants_dir / scaffold_id / f"{variant_id}.json"
+    if not path.is_file():
+        return False
+    try:
+        sp = (read_json(path) or {}).get("signaturePatterns") or {}
+    except Exception:
+        return False
+    return bool(sp.get("layouts") and sp.get("motifs") and sp.get("antiPatterns"))
+
+
+def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None:
+    variant_id = str(created.get("variantId", ""))
+    scaffold_id = str(created.get("scaffoldId", ""))
+
+    st.subheader("Klart — varianten är skapad")
+    st.success(created.get("message", "Varianten skapades."))
+    if not st.session_state.get("swz_balloons_shown"):
+        st.balloons()
+        st.session_state["swz_balloons_shown"] = True
+
+    if variant_id and scaffold_id:
+        st.caption(
+            f"Fil: `config/scaffold-variants/{scaffold_id}/{variant_id}.json` · "
+            f"scaffold-kod: `src/lib/gen/scaffolds/{scaffold_id}/`"
+        )
+
+    st.markdown(
+        "### Slutför automatiskt\n"
+        "Kör efter-stegen direkt här — **inga terminalkommandon behövs**. "
+        "Grönt = klart, rött = fel med logg. Kör helst i ordning 1 → 2 → 3."
+    )
+
+    has_key = bool(wiz.get_openai_api_key())
+    if not has_key:
+        st.warning(
+            "Ingen `OPENAI_API_KEY` i miljön (`.env.local`) — AI-stegen (designmönster + "
+            "embeddings) är avstängda. Valideringen (steg 3) går ändå."
+        )
+
+    steps = _post_create_steps(variant_id)
+    results: dict[str, Any] = st.session_state.setdefault("swz_cmd_results", {})
+
+    def _run(step: dict[str, Any]) -> None:
+        with st.spinner(f"Kör: {step['label']} …"):
+            res = run_repo_command(ctx.repo_root, step["command"])
+        # Curation exits 0 even on LLM failure/skip — verify the file really got
+        # signaturePatterns so a no-op run can't show a false-green check.
+        if step["key"] == "patterns":
+            has_patterns = _variant_has_patterns(ctx, scaffold_id, variant_id)
+            res["verifiedOk"] = bool(res.get("ok") and has_patterns)
+            if res.get("ok") and not has_patterns:
+                res["warn"] = (
+                    "Kommandot kördes (exit 0) men varianten fick **inga** "
+                    "`signaturePatterns` — troligen LLM-fel eller skippad. Se loggen. "
+                    "Varianten blir inte matchoptimerad förrän detta lyckas."
+                )
+        results[step["key"]] = res
+        st.session_state["swz_cmd_results"] = results
+
+    if st.button("▶ Kör alla steg i följd", type="primary"):
+        for step in steps:
+            if step["needs_api"] and not has_key:
+                results[step["key"]] = {"skipped": True, "command": " ".join(step["command"])}
+                continue
+            _run(step)
+        st.rerun()
+
+    cols = st.columns(len(steps))
+    for step, col in zip(steps, cols):
+        with col:
+            disabled = bool(step["needs_api"] and not has_key)
+            if st.button(
+                step["label"], key=f"swz_run_{step['key']}", disabled=disabled, help=step["help"]
+            ):
+                _run(step)
+                st.rerun()
+
+    for step in steps:
+        res = results.get(step["key"])
+        if not res:
+            continue
+        if res.get("skipped"):
+            st.caption(f"• {step['label']}: hoppad (ingen API-nyckel).")
+            continue
+        # For pattern curation, trust the file-verified outcome over exit code.
+        ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))
+        badge = "✅" if ok else "❌"
+        st.markdown(
+            f"{badge} **{step['label']}** — `{res.get('command', '')}` "
+            f"({res.get('elapsedSec', '?')}s, exit {res.get('exitCode')})"
+        )
+        if res.get("warn"):
+            st.warning(res["warn"])
+        with st.expander("Visa logg", expanded=not ok):
+            out = (res.get("stdoutTail") or "").strip()
+            err = (res.get("stderrTail") or "").strip()
+            if out:
+                st.code(out[-3000:], language="text")
+            if err:
+                st.code(err[-3000:], language="text")
+            if not out and not err:
+                st.caption("(ingen output)")
+
+    st.divider()
+    st.caption(
+        "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? Fliken "
+        "**Baseline** i Scaffold Lifecycle återställer till `scaffold-baseline-v1`."
+    )
+    if st.button("Skapa en till variant / börja om"):
+        for key in (
+            "swz_created",
+            "swz_cmd_results",
+            "swz_balloons_shown",
+            "swz_step",
+            "swz_draft",
+            "swz_analysis",
+            "swz_template",
+            "swz_repo_summary",
+        ):
+            st.session_state.pop(key, None)
+        st.rerun()
 
 
 # ---------------------------------------------------------------------------

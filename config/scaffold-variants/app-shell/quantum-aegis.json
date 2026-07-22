@@ -1,0 +1,69 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "quantum-aegis",
+  "scaffoldId": "app-shell",
+  "label": "Quantum Aegis",
+  "signatureMotif": "Cirkulärt neural-sigill i neon med partikelfält och modulära kontrollkort",
+  "colorMode": "dark",
+  "keywords": [
+    "ai",
+    "deeptech",
+    "quantum",
+    "neural glow",
+    "cyber security",
+    "mörkt gränssnitt",
+    "particle field",
+    "ethical AI",
+    "operativ dashboard",
+    "cyan purple magenta"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Space Grotesk",
+      "body": "Inter"
+    },
+    {
+      "heading": "Orbitron",
+      "body": "Inter"
+    }
+  ],
+  "promptHints": [
+    "Använd svart till djup navy bakgrund med subtilt partikelfält bakom hero och toppytor",
+    "Låt primära CTA och aktiva states bära cyan-till-violett-till-magenta gradientglow",
+    "Bygg dashboardkort som tunna glass panels med låg kontrast, hårfin border och blå lyster",
+    "Inför cirkulära sigill, orbitala linjer och neural-node detaljer som återkommande ornament",
+    "Håll typografin stram och teknisk med stora kondenserade rubriker och korta modulakronymer"
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a command-center hero with a left-aligned condensed headline and a right-side circular neural sigil floating above stacked control cards.",
+      "Build overview pages as a 12-column operations grid with one wide primary status panel and smaller glass telemetry cards wrapping around it.",
+      "Compose feature sections as alternating split bands where copy sits beside orbital diagrams, network maps, or glowing module schematics.",
+      "Use a security dashboard layout with a sticky vertical nav, dense top status bar, and a mosaic of low-contrast monitoring panels.",
+      "Present trust or ethics content in modular card clusters, with each policy block framed like a shield protocol tile instead of plain text columns."
+    ],
+    "motifs": [
+      "Use black-to-deep-navy surfaces with faint particle fields, hairline borders, and cool blue edge glow on every elevated panel.",
+      "Repeat circular sigils, orbital rings, and neural node connectors as framing ornaments behind heroes, charts, and key product stats.",
+      "Apply cyan-to-violet-to-magenta glow only on active states, primary CTAs, and critical data accents, never as a full-page wash.",
+      "Keep cards thin and technical with 0.5rem corners, glassy translucency, compact labels, and short uppercase module acronyms."
+    ],
+    "antiPatterns": [
+      "Avoid warm gradients, cream surfaces, or friendly organic illustrations; they break the high-security deeptech atmosphere immediately.",
+      "Never use bulky skeuomorphic panels or heavy shadows; this variant wants precise glass modules with restrained luminous edges.",
+      "Avoid loose editorial layouts with oversized paragraphs and soft lifestyle imagery; pages should feel like an operational control interface.",
+      "Do not flood entire sections with neon glow or rainbow gradients; the energy should stay focused on signals, actions, and key states."
+    ]
+  },
+  "default": false,
+  "description": "Passar AI-plattformar, säkerhetsprodukter och deeptech-verktyg med modulär appkänsla. Visuellt särskiljs den av svart rymdbakgrund, cyan–violett–magenta neural glow, cirkulära sigillmotiv och kontrollrums-kort med teknisk precision.",
+  "themeTokens": {
+    "background": "oklch(0.12 0.035 265)",
+    "foreground": "oklch(0.96 0.018 250)",
+    "primary": "oklch(0.78 0.16 215)",
+    "radius": "0.5rem"
+  },
+  "sourceTemplateIds": [
+    "h4nibkqysVJ"
+  ]
+}
