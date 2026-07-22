@@ -190,4 +190,47 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
     });
     expect(selected.map((s) => s.entry.id)).toEqual(["ai-tool-calling-chat"]);
   });
+
+  // auth-merge regression (2026-07-22): after `supabase-auth`→`auth` the
+  // persisted snapshot floor only carries the capability `auth`. Snapshot
+  // re-selection has no prompt/provider context, so it falls back to the
+  // capability DEFAULT (clerk-auth). A build that actually shipped Supabase
+  // auth must NOT also report clerk-auth — otherwise the env gates demand
+  // Clerk's `build`-enforced keys and block readiness/deploy. File evidence
+  // wins per capability; the guessed sibling is dropped.
+  const supabaseAuthFiles = [
+    { path: "middleware.ts" },
+    { path: "lib/supabase/middleware.ts" },
+    { path: "lib/supabase/server.ts" },
+    { path: "app/api/auth/callback/route.ts" },
+  ];
+
+  it("drops the snapshot-guessed clerk-auth when supabase-auth has file evidence", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: { requestedCapabilities: ["auth"] },
+      versionFiles: supabaseAuthFiles,
+      configuredEnvKeys: new Set<string>(),
+    });
+    const ids = selected.map((s) => s.entry.id);
+    expect(ids).toContain("supabase-auth");
+    expect(ids).not.toContain("clerk-auth");
+    // Exactly one provider dossier under the shared `auth` capability.
+    expect(
+      selected.filter((s) => s.entry.capability.toLowerCase() === "auth"),
+    ).toHaveLength(1);
+  });
+
+  it("keeps a planned snapshot capability that has no file evidence yet", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: { requestedCapabilities: ["auth", "payments"] },
+      versionFiles: supabaseAuthFiles,
+      configuredEnvKeys: new Set<string>(),
+    });
+    const ids = selected.map((s) => s.entry.id);
+    // auth: file-evidenced provider wins, guessed default dropped.
+    expect(ids).toContain("supabase-auth");
+    expect(ids).not.toContain("clerk-auth");
+    // payments: no file evidence, so the snapshot's planned pick survives.
+    expect(ids).toContain("stripe-checkout");
+  });
 });
