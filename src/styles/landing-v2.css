@@ -228,6 +228,16 @@
   animation: landing-v2-fade-up 0.7s ease-out both;
 }
 
+/*
+ * LCP-safe reveal: transform-only (no opacity), so the element paints at full
+ * opacity on first frame and counts as a Largest Contentful Paint candidate
+ * immediately. Use on above-the-fold text (hero h1/ingress) instead of
+ * .animate-fade-up, whose opacity:0 start delays LCP by delay + duration.
+ */
+.animate-rise {
+  animation: landing-v2-rise 0.7s ease-out both;
+}
+
 [data-scroll-container] {
   scroll-behavior: smooth;
 }
@@ -309,6 +319,15 @@
   }
   to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-v2-rise {
+  from {
+    transform: translateY(24px);
+  }
+  to {
     transform: translateY(0);
   }
 }
@@ -473,6 +492,10 @@
   .landing-v2-page .animate-pulse,
   .landing-v2-page .animate-bounce,
   .landing-v2-page .animate-ping {
+    animation: none !important;
+  }
+
+  .landing-v2-page .animate-rise {
     animation: none !important;
   }
 }
