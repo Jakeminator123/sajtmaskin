@@ -21,13 +21,12 @@ class NoopObserver {
 }
 
 if (typeof globalThis.ResizeObserver === "undefined") {
-  // @ts-expect-error - assigning a minimal polyfill onto the global
-  globalThis.ResizeObserver = NoopObserver;
+  globalThis.ResizeObserver = NoopObserver as unknown as typeof ResizeObserver;
 }
 
 if (typeof globalThis.IntersectionObserver === "undefined") {
-  // @ts-expect-error - assigning a minimal polyfill onto the global
-  globalThis.IntersectionObserver = NoopObserver;
+  globalThis.IntersectionObserver =
+    NoopObserver as unknown as typeof IntersectionObserver;
 }
 
 if (typeof Element !== "undefined") {
