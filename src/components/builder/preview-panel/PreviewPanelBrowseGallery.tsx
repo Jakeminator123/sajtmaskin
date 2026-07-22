@@ -366,6 +366,10 @@ function BrowseDetailView({
         origin: "browse",
       });
       setInserted(true);
+      // sendMessage exponerar inget utfall (BB#shadcn-lane1): vissa hanterade
+      // fel (409/412/abort) resolvar utan kast. Tidsbegränsa "Skickat"-låset
+      // så ett tyst misslyckande inte bränner kortet för nya försök.
+      window.setTimeout(() => setInserted(false), 8000);
     } catch {
       // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
     } finally {
