@@ -220,10 +220,14 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Client flag for the shadcn MessageScroller builder-chat scroll (streaming without jump, turn anchoring, preserved read position, scroll-to-bottom). Default ON; set `0`/`false` to fall back to the legacy simple scroll. Read via `isMessageScrollerEnabled` in `src/lib/builder/message-scroller-feature.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER: z.string().optional(),
   /** Fast Edit Lane (client): when affirmative, exact code-view/file-tree/inspector edits create an immutable minor version + hot-patch the preview instead of an in-place save. Read via `isQuickEditEnabled` in `src/lib/builder/engine-files-patch.ts`. Default off. */
   NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT: z.string().optional(),
   /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */
   NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE: z.string().optional(),
+  /** Tabbad "Lägg till"-panel i preview-ytan (Block/Bläddra/Beskriv). Default AV — opt-in, reversibel. Läses via `isAddPanelEnabled` i `src/lib/builder/add-panel-feature.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */
   NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES: z.string().optional(),
 });

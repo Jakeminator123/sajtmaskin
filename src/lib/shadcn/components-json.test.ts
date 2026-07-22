@@ -41,7 +41,11 @@ const SCHEMA_VALID_STYLES = new Set([
 describe("components.json shadcn config", () => {
   const componentsJson = JSON.parse(
     readFileSync(path.join(process.cwd(), "components.json"), "utf8"),
-  ) as { style?: string; $schema?: string };
+  ) as {
+    style?: string;
+    $schema?: string;
+    registries?: Record<string, string | { url?: string }>;
+  };
 
   it("declares the official ui.shadcn.com schema", () => {
     expect(componentsJson.$schema).toBe("https://ui.shadcn.com/schema.json");
@@ -57,5 +61,66 @@ describe("components.json shadcn config", () => {
     expect(resolveRegistryStyle(componentsJson.style, "https://ui.shadcn.com")).toBe(
       "new-york-v4",
     );
+  });
+});
+
+/**
+ * Fas 0 of the shadcn-registry consolidation (plan
+ * 2026-07-22-shadcn-registry-beskriv-komposition.md) makes `components.json`
+ * the canonical registry config: a `registries` key mapping the community
+ * namespaces (`@shadcnblocks`, `@tailark`, `@magicui`) that
+ * `config/community-registries.json` seeds today.
+ *
+ * The built-in `@shadcn` (and `@v0`) registries are pre-configured in the CLI
+ * and MUST NOT be declared here — shadcn CLI 4.x rejects a components.json that
+ * redeclares a built-in namespace, which would break the pinned `shadcn mcp`
+ * wrapper. Only custom/community namespaces belong in `registries`.
+ *
+ * This is the shadcn-supported `registries` field (see
+ * https://ui.shadcn.com/docs/components-json and /docs/registry/namespace): each
+ * value is a URL template and the `{name}` placeholder is mandatory. The key is
+ * inert at runtime until the resolver (Fas 4) reads it, so this guard just locks
+ * the shape so it can't silently drift or lose a namespace.
+ */
+describe("components.json canonical registries", () => {
+  const componentsJson = JSON.parse(
+    readFileSync(path.join(process.cwd(), "components.json"), "utf8"),
+  ) as { registries?: Record<string, string | { url?: string }> };
+
+  const EXPECTED_REGISTRIES: Record<string, string> = {
+    "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
+    "@tailark": "https://tailark.com/r/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}",
+  };
+
+  it("declares a registries map", () => {
+    expect(componentsJson.registries).toBeDefined();
+    expect(typeof componentsJson.registries).toBe("object");
+  });
+
+  it("maps exactly the community seed namespaces (built-in @shadcn/@v0 stay implicit)", () => {
+    expect(Object.keys(componentsJson.registries ?? {}).sort()).toEqual(
+      Object.keys(EXPECTED_REGISTRIES).sort(),
+    );
+  });
+
+  it("uses the expected URL template for each namespace", () => {
+    for (const [namespace, url] of Object.entries(EXPECTED_REGISTRIES)) {
+      expect(componentsJson.registries?.[namespace]).toBe(url);
+    }
+  });
+
+  it("keeps the mandatory {name} placeholder in every registry URL template", () => {
+    for (const value of Object.values(componentsJson.registries ?? {})) {
+      const url = typeof value === "string" ? value : (value.url ?? "");
+      expect(url).toContain("{name}");
+    }
+  });
+
+  it("only uses https registry URLs (no secrets, public repo)", () => {
+    for (const value of Object.values(componentsJson.registries ?? {})) {
+      const url = typeof value === "string" ? value : (value.url ?? "");
+      expect(url.startsWith("https://")).toBe(true);
+    }
   });
 });
