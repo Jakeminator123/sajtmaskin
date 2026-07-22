@@ -397,7 +397,10 @@ const MessageListComponent = ({
 
   return (
     <>
-      <Conversation className="h-full">
+      {/* key={chatId}: remount the scroller per chat so anchor/scroll offset
+          from the previous chat never leaks into the next one (messages can be
+          swapped in place on chat switch without an empty intermediate state). */}
+      <Conversation key={chatId ?? "no-chat"} className="h-full">
         <ConversationContent>
           {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
