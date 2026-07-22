@@ -224,6 +224,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT: z.string().optional(),
   /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */
   NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE: z.string().optional(),
+  /** "Beskriv"-discovery-lager (Fas 1): server-route `POST /api/shadcn/describe` som översätter en fritext-beskrivning till registry-sökfrågor, söker officiella + community-register och rankar verkliga träffar. Default AV — flagga av = routen svarar 404, noll beteendeändring. Skriver inget till användarsajten. Read via `isShadcnDescribeEnabled` i `src/lib/shadcn/describe-feature.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE: z.string().optional(),
   /** Tabbad "Lägg till"-panel i preview-ytan (Block/Bläddra/Beskriv). Default AV — opt-in, reversibel. Läses via `isAddPanelEnabled` i `src/lib/builder/add-panel-feature.ts`. */
   NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */

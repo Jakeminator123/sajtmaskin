@@ -62,6 +62,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "blob:export": { maxRequests: 8, windowMs: 60 * 1000 },
   "ai:chat": { maxRequests: 30, windowMs: 60 * 1000 },
   "ai:brief": { maxRequests: 30, windowMs: 60 * 1000 },
+  // "Beskriv"-discovery: each call may fire two LLM steps (query-gen + rank)
+  // plus registry fetches, so keep it tighter than the polling buckets.
+  "shadcn:describe": { maxRequests: 15, windowMs: 60 * 1000 },
   "figma:preview": { maxRequests: 20, windowMs: 60 * 1000 },
   "github:export": { maxRequests: 8, windowMs: 60 * 1000 },
   "fetch:html": { maxRequests: 12, windowMs: 60 * 1000 },
