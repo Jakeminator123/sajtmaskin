@@ -5,7 +5,6 @@ created: 2026-07-22
 completed: 2026-07-22
 topic: shadcn-registry-konsolidering + "Beskriv"-driven UI-komposition (Composer-ytan) — semantisk sökning över riktiga register, funktionell insättning via own-engine/verify, och byggbart eget @sajtmaskin-register
 source: Kodläsning + shadcn-docs-verifiering 2026-07-22 (explore-subagenter, WebFetch mot ui.shadcn.com/docs/{registry/mcp,helpers/ai-sdk,react/message-scroller}, WebSearch mot shadcn/registry-API) + extern coach-granskning av commit 83ce3472 + ägarens observationer om Composer-ytan
-note: Fas 0–6 första leverans mergad (#570/#572/#574/#576/#581/#582/#583/#584/#585). Slutstabilisering i #586 hindrar historiska MessageScroller-ankare från att återaktiveras och ger OpenAI → Anthropic-failover i Beskriv. Behållen som fil eftersom kod/ENV/tester citerar den. Uppföljning (v2-lane, drag-n-drop, register-expansion) är backlog — inte aktiv plan.
 ---
 
 # shadcn-registry + "Beskriv"-komposition
