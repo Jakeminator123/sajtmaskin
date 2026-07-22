@@ -1,13 +1,14 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stripe-checkout",
-  "mock": "none",
-  "label": "Stripe Checkout",
+  "mock": "visual",
+  "label": "Betalning — Stripe",
   "capability": "payments",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Hosted Stripe Checkout for one-time and subscription payments. Adds a server route that creates checkout sessions and a client button that redirects to Stripe's hosted page. When STRIPE_SECRET_KEY is missing the route returns 503 'payments-not-configured' and the button degrades to a calm IntegrationConfigNotice + disabled state instead of a raw error. Webhook handling is intentionally out of scope — add separately when subscriptions need lifecycle events.",
+  "summary": "Hosted Stripe Checkout for one-time and subscription payments. Adds a server route that creates checkout sessions and a client button that redirects to Stripe's hosted page. Demo mode (mock: visual): when STRIPE_SECRET_KEY is missing the route returns 503 'payments-not-configured' and the still-clickable pay button opens an honest demo modal (no money moves) with the IntegrationConfigNotice — real Stripe Checkout activates automatically once a real key is stored. Webhook handling is intentionally out of scope — add separately when subscriptions need lifecycle events.",
+  "summarySv": "Ta betalt med kort via Stripe Checkout. Utan riktiga nycklar körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras — en tydlig demoruta förklarar hur Stripe kopplas in. När nyckeln finns blir samma knapp en riktig betalning.",
   "envVars": [
     {
       "key": "STRIPE_SECRET_KEY",

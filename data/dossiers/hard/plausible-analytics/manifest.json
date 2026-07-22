@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "plausible-analytics",
-  "label": "Plausible Analytics",
+  "label": "Besöksstatistik — Plausible",
   "capability": "analytics",
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
   "summary": "Privacy-friendly page-view analytics via Plausible. Drops a single <Script src=\"https://plausible.io/js/script.js\" data-domain={NEXT_PUBLIC_PLAUSIBLE_DOMAIN} /> into the root layout. Self-hosted Plausible installations override the script host via NEXT_PUBLIC_PLAUSIBLE_API_HOST. No cookies, no consent banner required, no PII collected — runs in production only and skips dev/preview when domain is unset. Use as a privacy-focused alternative to vercel-analytics; defaultForCapability=false so vercel-analytics wins on Vercel-hosted projects unless the brief explicitly asks for Plausible.",
+  "summarySv": "Besöksstatistik med fokus på integritet via Plausible — inga kakor och ingen samtyckesruta behövs. Välj det när du hellre vill ha Plausible än hostingens inbyggda statistik; utan nycklar stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_PLAUSIBLE_DOMAIN",

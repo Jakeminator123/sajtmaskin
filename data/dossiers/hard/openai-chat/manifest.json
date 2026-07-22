@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "openai-chat",
   "mock": "canned",
-  "label": "OpenAI Chat",
+  "label": "AI-chatt — OpenAI",
   "capability": "ai-chat",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Streaming chat assistant powered by OpenAI via the Vercel AI SDK. Provides a server route that streams completions and a client chat UI that the codegen LLM is free to restyle. Use when the site needs a customer-facing assistant, a product Q&A widget, or a guided onboarding chatbot.",
+  "summarySv": "En chattassistent på sajten som svarar besökarna direkt, driven av OpenAI. Passar kundfrågor, vägledning och enklare support; utan riktig nyckel körs demoläge där chatten ger trovärdiga låtsassvar tills en OpenAI-nyckel läggs in.",
   "envVars": [
     {
       "key": "OPENAI_API_KEY",

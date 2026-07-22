@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "embla-carousel",
-  "label": "Embla Carousel",
+  "label": "Bildkarusell",
   "capability": "carousel",
   "codeFidelity": "rewritable",
   "complexity": "simple",
   "defaultForCapability": true,
   "summary": "Accessible image / card carousel built on embla-carousel-react. Provides keyboard arrow navigation, optional autoplay (opt-in), prev/next buttons, dot indicators, and prefers-reduced-motion respect (autoplay disables and snap becomes instant). The slide content is generic React children, so the LLM may use it for image galleries, testimonial sliders, product showcases, or feature carousels without rewriting the wrapper.",
+  "summarySv": "Bläddringsbar karusell för bilder eller kort, med pilknappar, punkter och valfri automatisk bläddring. Passar kundomdömen, produktbilder eller utvalda nyheter; fungerar helt utan externa tjänster.",
   "envVars": [],
   "dependencies": [
     "embla-carousel-react",

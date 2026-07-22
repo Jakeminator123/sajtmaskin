@@ -67,32 +67,10 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)[\s\S]{0,120}(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?|hamburgare|burger)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    capability: "parallax-pointer",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:pointer-?parallax|mus-?parallax|mouse-?parallax|cursor-?parallax)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:följer\s+(?:musen|muspekaren|cursor|pointer)|hover-?tilt|tilt-?card)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    capability: "parallax-scroll",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:scroll-?parallax|scroll-?driven|sticky-?parallax|pinned-?(?:section|parallax))(?![\p{L}\p{N}_])/iu,
-      // Generic "parallax" without explicit pointer/scroll cue → defaults
-      // to scroll-parallax. Pointer keyword comes first in vocabulary so
-      // pointer-specific phrases are detected first; this fallback only
-      // fires on the bare word.
-      /(?<![\p{L}\p{N}_])(?:parallax|paralaks|parallax-?effekt|parallax-?header)(?![\p{L}\p{N}_])/iu,
-    ],
-    // If the prompt names a pointer/mouse/cursor variant the user wants
-    // pointer-parallax — emitting both would lead to two dossiers being
-    // injected and a noisier capability-pack. Veto suppresses the generic
-    // scroll fallback in those cases.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:pointer-?parallax|mus-?parallax|mouse-?parallax|cursor-?parallax)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:följer\s+(?:musen|muspekaren|cursor|pointer)|hover-?tilt|tilt-?card)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // Parallax entries removed 2026-07-22: the parallax dossier pair was parked
+  // (`_parkering/dossiers-utfasade-2026-07-22/`). Parallax intent is still
+  // detected by `capability-inference.ts` (`needsParallax`) which now drives
+  // freehand parallax guidance instead of dossier injection.
   {
     // Interactive game / playable mechanic — distinct from decorative visual-3d.
     // When the user asks for a playable thing (Pac-Man, Snake, Tetris, arcade,
@@ -179,36 +157,20 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
-    // Supabase Auth (SSR) — an EXPLICIT-Supabase-intent capability. Listed
-    // BEFORE `auth` (clerk-auth) so a Supabase-specific ask wins the more
-    // specific capability, exactly like ai-tool-calling before ai-chat. The
-    // patterns REQUIRE the word "supabase" adjacent to an auth cue (or a
-    // "<auth cue> med/with/via supabase" phrasing), so a generic
-    // "login/inloggning/auth" with no Supabase mention never reaches here — it
-    // stays `auth` → clerk-auth. Selection must NOT let this compete with the
-    // generic `auth` default; the `auth` entry below vetoes these same phrases.
-    capability: "supabase-auth",
-    patterns: [
-      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
+    // Auth (one capability since 2026-07-22): clerk-auth is the capability
+    // default; supabase-auth is a provider SIBLING under the same `auth`
+    // capability. An explicit Supabase ask still reaches the Supabase dossier
+    // — via the manifest `relevanceKeywords` in select.ts (the raw prompt
+    // contains "supabase"), not via a separate capability. A Supabase phrase
+    // also matches the plain auth cues below ("supabase login" contains
+    // "login"), so no dedicated Supabase patterns are needed here.
     capability: "auth",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:auth|inloggning|registrera\s+konto|logga\s+in|sign[-\s]?in|sign[-\s]?up|register|clerk|next-?auth|auth\.js)(?![\p{L}\p{N}_])/iu,
+      // `log[-\s]?in` covers the bare English "login" / "log in" forms
+      // (test-sync finding 2026-07-22: "add supabase login" detected nothing).
+      /(?<![\p{L}\p{N}_])(?:auth|authentication|inloggning|registrera\s+konto|logga\s+in|log[-\s]?in|sign[-\s]?in|sign[-\s]?up|register|clerk|next-?auth|auth\.js|supabase[-\s]?auth)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:lösenord|password|forgot[-\s]?password|reset[-\s]?password|återställ\s+lösenord)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:oauth|jwt|magic\s+link|session\.(?:store|cookie|token))(?![\p{L}\p{N}_])/iu,
-    ],
-    // Explicit Supabase-auth intent routes to the `supabase-auth` capability
-    // above, NOT clerk-auth. Without this veto "supabase auth" /
-    // "supabase-inloggning" would ALSO fire the generic `auth` capability and
-    // inject clerk-auth alongside supabase-auth. Mirrors the ai-chat veto on
-    // tool-calling. Generic "login/inloggning/auth" (no "supabase") does not
-    // match here, so it still routes to `auth` → clerk-auth.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])supabase[-\s]?(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up|sso|magic[-\s]?link)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:auth(?:entication)?|autentisering|login|log[-\s]?in|logga\s+in|inloggning|sign[-\s]?in|sign[-\s]?up)\s+(?:med|with|via|using)\s+supabase(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -390,98 +352,53 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
-    capability: "command-search",
+    capability: "command-palette",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:command[-\s]?palette|kommandopalett|cmd[-\s]?k|cmdk|spotlight[-\s]?search|sökpalett|quick[-\s]?search|command[-\s]?menu)(?![\p{L}\p{N}_])/iu,
+      // `[-\s+]?` so the literal "cmd+k" / "ctrl+k" spellings match too
+      // (test-sync finding 2026-07-22: the old class lacked `+`).
+      /(?<![\p{L}\p{N}_])(?:command[-\s]?palette|kommandopalett|(?:cmd|ctrl)[-\s+]?k|cmdk|spotlight[-\s]?search|sökpalett|command[-\s]?menu)(?![\p{L}\p{N}_])/iu,
     ],
-  },
-  {
-    capability: "faq-section",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:faq|faq-?sektion|faq-?accordion|vanliga\s+frågor|frågor\s+och\s+svar|q\s*&\s*a)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    capability: "marquee",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:marquee|löpande\s+text|löptext|ticker|logo[-\s]?marquee|brand[-\s]?marquee|scrolling[-\s]?logos|scrolling\s+\p{L}+\s+logos|rullande\s+loggor|scrollande\s+loggor)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    capability: "pricing-section",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:pricing[-\s]?section|pristabell|prisplan|prisplaner|pris-?sektion|prissektion|pricing[-\s]?table|pricing[-\s]?tier|tier[-\s]?table|prisniv(?:å|aer))(?![\p{L}\p{N}_])/iu,
-    ],
-    // "pris" alone is too broad ("priserna i menyn") — pristabell/prisplan
-    // forms above are explicit enough that we don't need a veto.
-  },
-  {
-    capability: "testimonials-section",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:testimonials?|testimonials[-\s]?section|testimonial[-\s]?grid|kundomdömen|kundutlåtanden|recensioner-?sektion|kundröster|reviews[-\s]?section)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  // ── #242 section capabilities ─────────────────────────────────────────────
-  {
-    // Static "trusted by" / customer-logo grid. NOT the scrolling logo
-    // marquee (that is `marquee`: logo-marquee / scrolling-logos). Requires a
-    // plural-logos or explicit logo-cloud cue so a single "vår logga" (header
-    // logo / favicon) does not false-trigger.
-    capability: "logo-cloud",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:logo[-\s]?cloud|logo[-\s]?wall|logo[-\s]?rad|logorad|kund[-\s]?loggor|kundloggor|partner[-\s]?loggor|partnerloggor|brand[-\s]?logos|company[-\s]?logos|customer[-\s]?logos|client[-\s]?logos|partner[-\s]?logos|logos?[-\s]?(?:strip|grid|bar|wall))(?![\p{L}\p{N}_])/iu,
-      // English logo-cloud headers (unambiguous).
-      /(?<![\p{L}\p{N}_])(?:trusted[-\s]?by|as[-\s]?seen[-\s]?in)(?![\p{L}\p{N}_])/iu,
-      // Codex P2: the bare Swedish "används av" / "som syns i" were dropped —
-      // they matched ordinary relative clauses ("en knapp som syns i menyn",
-      // "en regel som används av admins"). This variant requires an explicit
-      // logo / brand / partner / media cue after the phrase.
-      /(?<![\p{L}\p{N}_])(?:som\s+syns\s+i|används\s+av|anlitas\s+av)\s+(?:\p{L}+\s+){0,2}(?:loggor|logotyper|varumärken|partner(?:s|loggor)?|medier|media|press|tidningar|magasin)(?![\p{L}\p{N}_])/iu,
-    ],
-    // Codex P2: a scrolling/marquee logo request belongs to `marquee` (the
-    // logo-cloud dossier is an explicitly static grid). Suppress on scroll cues.
+    // A content-search ask ("sök på sajten", "sök bland produkterna") belongs
+    // to `site-search` below — the palette is an app-navigation surface.
     vetoes: [
-      /(?<![\p{L}\p{N}_])(?:scroll(?:ing|ande)?|scrolla(?:r|nde)?|rullande|löpande|marquee|ticker|auto-?scroll)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:sök(?:a)?\s+(?:på|i|bland)\s+(?:sajten|sidan|webbplatsen|innehållet|produkter(?:na)?|artiklar(?:na)?)|search\s+(?:the\s+)?(?:site|content|products?|articles?))(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
-    // Animated KPI / metrics band ("nyckeltal", "siffror som räknar upp").
-    // Distinct from `analytics` (visitor tracking) — this is a visual number
-    // band, not an analytics integration. Bare "statistik" is intentionally
-    // NOT matched (too close to analytics); the band/section forms are.
-    capability: "stats-counter",
+    // Local site search over the site's own content (MiniSearch — key-free).
+    // Distinct from `command-palette` (app navigation/actions) and `rag-chat`
+    // (chat answers from documents). New capability 2026-07-22.
+    capability: "site-search",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:stats?[-\s]?counter|stat[-\s]?counter|stats?[-\s]?row|count[-\s]?up|räkneverk|nyckeltal|by[-\s]?the[-\s]?numbers|numbers[-\s]?strip|siffer(?:rad|band)|metrics?[-\s]?(?:band|counter|section|row)|statistik[-\s]?(?:band|sektion|sektionen))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:animated[-\s]?(?:numbers|counters?)|siffror\s+som\s+(?:räknar|tickar)|räknande\s+siffror)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:sökfunktion(?:en)?|sökfält(?:et)?|sökruta(?:n)?|site[-\s]?search|sök(?:a)?\s+(?:på|i|bland)\s+(?:sajten|sidan|webbplatsen|innehållet|menyn|produkter(?:na)?|artiklar(?:na)?)|search\s+(?:the\s+)?(?:site|content|menu|products?|articles?)|quick[-\s]?search|minisearch|fuse\.js)(?![\p{L}\p{N}_])/iu,
     ],
-    // Codex P2: "StatCounter" is an analytics provider, not a visual KPI band.
-    // Veto the provider name and any analytics/tracking context so e.g.
-    // "koppla på StatCounter" routes as analytics, not a stats-counter section.
+    // Explicit palette or RAG intent routes to those capabilities instead.
     vetoes: [
-      /(?<![\p{L}\p{N}_])statcounter(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:analytics|webbanalys|webb-?analys|tracking|spårning|spåra\s+besökare|besökarstatistik|plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:command[-\s]?palette|kommandopalett|cmd[-\s]?k|cmdk|command[-\s]?menu)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:rag|retrieval-?augmented|semantisk\s+sökning|semantic\s+search|pgvector|(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search))(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
-    // Feature / service card grid. Requires a grid/cards/section qualifier so
-    // bare "feature" (common in marketing copy) does not false-trigger.
-    capability: "feature-grid",
+    // Map display (MapLibre + OpenFreeMap — key-free). Showing a map with
+    // markers; NOT geocoding/routing/"near me" (future location-services
+    // capability). New capability 2026-07-22.
+    capability: "map-display",
     patterns: [
-      /(?<![\p{L}\p{N}_])(?:features?[-\s]?(?:grid|cards?|section)|services?[-\s]?(?:grid|cards?|section)|funktions?[-\s]?(?:kort|rutor|grid)|funktionskort|tjänste[-\s]?kort|tjänstekort|kort[-\s]?grid|kortgrid)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:karta(?:n)?|kartor(?:na)?|kartvy(?:n)?|hitta\s+(?:hit|till\s+oss)|vägbeskrivning(?:en)?|maplibre|openfreemap|open[-\s]?street[-\s]?map|google\s+maps|mapbox)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:map|maps)(?![\p{L}\p{N}_])(?![-\s]?(?:reduce|filter))/iu,
+      /(?<![\p{L}\p{N}_])(?:visa\s+(?:vår\s+|butikens\s+)?(?:adress|plats|läge)\s+på\s+(?:en\s+)?karta|show\s+(?:the\s+|our\s+)?(?:location|address|store)s?\s+on\s+(?:a\s+)?map|store\s+locator|butiks-?karta)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Sitemaps and heatmaps are not maps of places.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:sitemap(?:s)?|site-?map|heat-?map(?:s)?|road-?map(?:s)?|färdplan)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    // Call-to-action band. Bare "cta" is high-signal, but Codex P2 flagged that
-    // "gör CTA-knappen större" (a single-button tweak) injected the section
-    // dossier because "gör" satisfies the add-verb gate. So bare "cta" now
-    // excludes "cta-knapp"/"cta button"; the explicit section/band/banner forms
-    // still match. The add-verb gate still suppresses "Flytta CTA-knappen ...".
-    capability: "cta-section",
-    patterns: [
-      /(?<![\p{L}\p{N}_])cta(?![\p{L}\p{N}_])(?![-\s]?(?:knapp|button|btn))(?!\s+(?:större|mindre|bredare|smalare|tjockare|rundare|fetare))/iu,
-      /(?<![\p{L}\p{N}_])(?:call[-\s]?to[-\s]?action|uppmaning\s+till\s+handling|avslutande\s+cta|boknings[-\s]?cta|cta[-\s]?(?:section|sektion|sektionen|band|banner|block))(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // Section-capability entries (faq/pricing/testimonials/logo-cloud/marquee/
+  // stats-counter/feature-grid/cta-section/stepper) removed 2026-07-22: their
+  // dossiers were parked (`_parkering/dossiers-utfasade-2026-07-22/`) — plain
+  // content sections the codegen LLM writes better freehand, so a follow-up
+  // like "lägg till en FAQ" is now an ordinary content edit, not a dossier
+  // injection.
   {
     // Click-to-enlarge image gallery / lightbox. Inherits the image-gallery
     // tokens that used to live on `carousel`, so "ett bildgalleri där man kan
@@ -495,16 +412,6 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // `carousel`, not the click-to-enlarge lightbox. Suppress on slider cues.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:carousel|karusell|slider|slideshow|swipe|swipa|bildspel|auto-?play|autoplay)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Multi-step form / wizard / progress stepper.
-    capability: "stepper",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:stepper|wizard|multi[-\s]?step|flerstegs(?:formulär)?|flerstegsformulär|steg-?för-?steg|progress[-\s]?(?:stepper|indicator|steps)|stegindikator)(?![\p{L}\p{N}_])/iu,
-      // Codex P2: bare "flera steg" matched "gör knappen flera steg större".
-      // Only match it when tied to a form / wizard / process flow.
-      /(?<![\p{L}\p{N}_])(?:(?:formulär(?:et)?|form|process(?:en)?|flöde[t]?|checkout|onboarding|registrering(?:en)?|guide(?:n)?|wizard|anmälan|ansökan)\s+(?:i|med|på|över|till)?\s*flera\s+steg|flera\s+steg(?:s)?\s+(?:formulär|form|process|flöde|guide|wizard|onboarding|registrering))(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

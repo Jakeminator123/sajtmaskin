@@ -1,6 +1,6 @@
 {
   "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-07-12T16:49:58.701Z",
+  "generatedAt": "2026-07-22T00:55:19.115Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -13,7 +13,8 @@
       "vercel-analytics"
     ],
     "auth": [
-      "clerk-auth"
+      "clerk-auth",
+      "supabase-auth"
     ],
     "carousel": [
       "embla-carousel"
@@ -21,14 +22,11 @@
     "cms": [
       "sanity-cms"
     ],
-    "command-search": [
+    "command-palette": [
       "cmdk-command-palette"
     ],
     "contact-form": [
       "resend-contact-form"
-    ],
-    "cta-section": [
-      "cta-section"
     ],
     "dashboard-charts": [
       "dashboard-charts"
@@ -41,12 +39,6 @@
     "error-tracking": [
       "sentry-error-tracking"
     ],
-    "faq-section": [
-      "faq-accordion"
-    ],
-    "feature-grid": [
-      "feature-grid"
-    ],
     "gallery-lightbox": [
       "gallery-lightbox"
     ],
@@ -56,20 +48,11 @@
     "interactive-game": [
       "interactive-game-loop"
     ],
-    "logo-cloud": [
-      "logo-cloud"
-    ],
-    "marquee": [
-      "marquee-scroller"
+    "map-display": [
+      "maplibre-map"
     ],
     "newsletter-subscribe": [
       "mailchimp-newsletter"
-    ],
-    "parallax-pointer": [
-      "pointer-parallax"
-    ],
-    "parallax-scroll": [
-      "scroll-parallax"
     ],
     "payments": [
       "stripe-checkout"
@@ -77,54 +60,48 @@
     "physics-3d": [
       "three-fiber-physics"
     ],
-    "pricing-section": [
-      "pricing-tier-table"
-    ],
     "rag-chat": [
       "rag-chat"
     ],
     "realtime": [
       "ably-realtime"
     ],
-    "stats-counter": [
-      "stats-counter"
-    ],
-    "stepper": [
-      "stepper"
+    "site-search": [
+      "local-site-search"
     ],
     "subscriptions": [
       "paddle-billing"
-    ],
-    "supabase-auth": [
-      "supabase-auth"
-    ],
-    "testimonials-section": [
-      "testimonials-grid"
     ],
     "visual-3d": [
       "three-fiber-canvas"
     ]
   },
   "groups": {
-    "data-storage": {
-      "label": "Data & lagring",
+    "data-content": {
+      "label": "Data & innehåll",
       "capabilities": [
         "cms",
         "database"
       ]
     },
-    "payments": {
-      "label": "Betalningar",
+    "auth": {
+      "label": "Inloggning & konton",
+      "capabilities": [
+        "auth"
+      ]
+    },
+    "commerce": {
+      "label": "Betalning & handel",
       "capabilities": [
         "payments",
         "subscriptions"
       ]
     },
-    "auth": {
-      "label": "Inloggning & konton",
+    "contact": {
+      "label": "Kontakt & utskick",
       "capabilities": [
-        "auth",
-        "supabase-auth"
+        "contact-form",
+        "newsletter-subscribe"
       ]
     },
     "ai": {
@@ -136,52 +113,36 @@
         "rag-chat"
       ]
     },
-    "email": {
-      "label": "E-post & utskick",
+    "search-maps": {
+      "label": "Sök & karta",
       "capabilities": [
-        "contact-form",
-        "newsletter-subscribe"
+        "command-palette",
+        "map-display",
+        "site-search"
       ]
     },
-    "analytics": {
-      "label": "Analys & övervakning",
-      "capabilities": [
-        "analytics",
-        "error-tracking"
-      ]
-    },
-    "realtime": {
-      "label": "Realtid",
-      "capabilities": [
-        "realtime"
-      ]
-    },
-    "content": {
-      "label": "Innehåll & sektioner",
-      "capabilities": [
-        "cta-section",
-        "faq-section",
-        "feature-grid",
-        "logo-cloud",
-        "pricing-section",
-        "stats-counter",
-        "stepper",
-        "testimonials-section"
-      ]
-    },
-    "visual-interaction": {
-      "label": "Visuellt & interaktion",
+    "media": {
+      "label": "Media & galleri",
       "capabilities": [
         "carousel",
-        "command-search",
+        "gallery-lightbox"
+      ]
+    },
+    "interactive": {
+      "label": "Interaktivt & 3D",
+      "capabilities": [
         "dashboard-charts",
-        "gallery-lightbox",
         "interactive-game",
-        "marquee",
-        "parallax-pointer",
-        "parallax-scroll",
         "physics-3d",
         "visual-3d"
+      ]
+    },
+    "ops": {
+      "label": "Realtid & drift",
+      "capabilities": [
+        "analytics",
+        "error-tracking",
+        "realtime"
       ]
     },
     "other": {

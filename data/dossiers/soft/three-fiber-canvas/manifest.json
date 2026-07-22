@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "three-fiber-canvas",
-  "label": "Three Fiber 3D Canvas",
+  "label": "3D-scen (Three.js)",
   "capability": "visual-3d",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "SSR-safe React Three Fiber canvas wrapper with built-in error boundary, reduced-motion respect, DPR cap and renderer disposal. Use for decorative 3D mascots, hero animations and interactive showcases. The LLM may swap the scene contents (geometry, materials, animations) but should keep the wrapper's safety contract intact.",
+  "summarySv": "Lägger in en tredimensionell scen på sajten, till exempel en animerad figur eller ett rörligt blickfång högst upp. Välj det när sajten ska ha en extra visuell effekt; fungerar helt utan externa tjänster och tar hänsyn till besökare som valt bort rörelser.",
   "envVars": [],
   "dependencies": [
     "three",

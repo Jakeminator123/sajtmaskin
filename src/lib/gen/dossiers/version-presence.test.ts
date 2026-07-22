@@ -102,9 +102,9 @@ describe("resolveDossierIdsPresentInVersion", () => {
   // Client-only (soft) dossiers: one distinctive file is enough evidence.
   it("matches a soft dossier from a single distinctive client file", () => {
     const ids = resolveDossierIdsPresentInVersion([
-      "components/faq-accordion.tsx",
+      "components/gallery-lightbox.tsx",
     ]);
-    expect(ids).toContain("faq-accordion");
+    expect(ids).toContain("gallery-lightbox");
   });
 
   it("normalizes leading ./ and / in file paths", () => {
@@ -158,28 +158,28 @@ describe("resolveCapabilitiesPresentInVersion", () => {
 describe("resolveSelectedDossiersWithVersionPresence", () => {
   it("unions snapshot selection with file-evidenced dossiers (dedupe by id)", () => {
     const selected = resolveSelectedDossiersWithVersionPresence({
-      snapshot: { requestedCapabilities: ["faq-section"] },
+      snapshot: { requestedCapabilities: ["gallery-lightbox"] },
       versionFiles: [
         { path: "app/api/assistant/route.ts" },
-        { path: "components/faq-accordion.tsx" },
+        { path: "components/gallery-lightbox.tsx" },
       ],
       configuredEnvKeys: new Set<string>(),
     });
     const ids = selected.map((s) => s.entry.id);
     // Snapshot part (capability-selected) + presence part, no duplicate
-    // faq-accordion even though both sources produce it.
-    expect(ids).toContain("faq-accordion");
+    // gallery-lightbox even though both sources produce it.
+    expect(ids).toContain("gallery-lightbox");
     expect(ids).toContain("ai-tool-calling-chat");
-    expect(ids.filter((id) => id === "faq-accordion")).toHaveLength(1);
+    expect(ids.filter((id) => id === "gallery-lightbox")).toHaveLength(1);
   });
 
   it("degrades to snapshot-only when version files are unavailable", () => {
     const selected = resolveSelectedDossiersWithVersionPresence({
-      snapshot: { requestedCapabilities: ["faq-section"] },
+      snapshot: { requestedCapabilities: ["gallery-lightbox"] },
       versionFiles: null,
       configuredEnvKeys: new Set<string>(),
     });
-    expect(selected.map((s) => s.entry.id)).toEqual(["faq-accordion"]);
+    expect(selected.map((s) => s.entry.id)).toEqual(["gallery-lightbox"]);
   });
 
   it("returns presence-only for an empty/missing snapshot (the incident shape)", () => {

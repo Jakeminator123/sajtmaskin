@@ -107,6 +107,7 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     defaultForCapability: data.defaultForCapability === true,
     relevanceKeywords: data.relevanceKeywords,
     summary: data.summary,
+    summarySv: data.summarySv,
     envVars: data.envVars,
     dependencies: data.dependencies,
     files: data.files,

@@ -162,10 +162,10 @@ Skriptet samplar README + package.json + .env.example + ~6 source-filer från `d
   "capabilities": {
     "payments": ["stripe-checkout"],
     "ai-chat": ["openai-chat"],
-    "pricing-section": ["pricing-tier-table"]
+    "auth": ["clerk-auth", "supabase-auth"]
   },
   "groups": {
-    "payments": { "label": "Betalningar", "capabilities": ["payments", "subscriptions"] }
+    "commerce": { "label": "Betalning & handel", "capabilities": ["payments", "subscriptions"] }
   }
 }
 ```
@@ -174,23 +174,27 @@ Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` d
 
 ## Nuvarande pool
 
-Per 2026-06-25: **25 dossiers över 24 capabilities** (8 `hard`, 17 `soft`).
+Per 2026-07-22 (taxonomi-omtaget): **27 dossiers över 23 capabilities**
+(18 `hard`, 9 `soft`). Elva soft-sektionsdossiers parkerades i
+`_parkering/dossiers-utfasade-2026-07-22/` (rena innehållssektioner/CSS-effekter
+som codegen-LLM:en skriver bättre frihand), `command-search` heter numera
+`command-palette`, `supabase-auth` är sammanslagen i `auth` (två
+leverantörsdossiers under en capability), och `map-display` (maplibre-map) +
+`site-search` (local-site-search) tillkom som nyckelfria capabilities.
 
 Den kanoniska, alltid-aktuella listan är den genererade vyn
 [`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json)
 (capability → dossier-id). Hårdkoda inte en kopia här — den driftar. Regenerera
 via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
 
-- `hard` kräver env-secrets — t.ex. `payments` (stripe-checkout), `auth`
-  (clerk-auth), `ai-chat` (openai-chat), `contact-form` (resend-contact-form),
-  `newsletter-subscribe` (mailchimp-newsletter), `analytics`
-  (plausible-analytics + vercel-analytics), `error-tracking`
-  (sentry-error-tracking).
-- `soft` är självförsörjande sektioner/interaktionsmönster — t.ex.
-  `pricing-section`, `faq-section`, `testimonials-section`, `carousel`,
-  `command-search`, `marquee`, `visual-3d`, `physics-3d`, samt
-  sektions-tillskotten 2026-06: `logo-cloud`, `stats-counter`, `feature-grid`,
-  `cta-section`, `gallery-lightbox`, `stepper`.
+- `hard` (Kopplad) kräver env-secrets — t.ex. `payments` (stripe-checkout),
+  `auth` (clerk-auth default + supabase-auth), `ai-chat` (openai-chat),
+  `contact-form` (resend-contact-form), `newsletter-subscribe`
+  (mailchimp-newsletter), `analytics` (plausible-analytics + vercel-analytics),
+  `error-tracking` (sentry-error-tracking).
+- `soft` (Fristående) är självförsörjande mönster — `carousel`,
+  `command-palette`, `gallery-lightbox`, `map-display`, `site-search`,
+  `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`.
 
 ## Felsökning
 

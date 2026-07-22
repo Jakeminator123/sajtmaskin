@@ -1,8 +1,9 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "cmdk-command-palette",
-  "label": "Command Palette (cmd+k)",
-  "capability": "command-search",
+  "label": "Kommandopalett (cmd+k)",
+  "capability": "command-palette",
+  "summarySv": "Sökpalett som öppnas med Cmd/Ctrl+K — snabbnavigering och kommandon på sajten. Helt fristående (ingen extern tjänst); bra för appar och dashboards.",
   "codeFidelity": "rewritable",
   "complexity": "simple",
   "defaultForCapability": true,

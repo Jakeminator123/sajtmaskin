@@ -14,6 +14,7 @@ export type { DossierExposesInfo } from "./registry";
 export {
   selectDossiersForRequest,
   expandDependentCapabilities,
+  normalizeCapabilityId,
   isDossierConfigured,
 } from "./select";
 export type { SelectDossiersOptions } from "./select";

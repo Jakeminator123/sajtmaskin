@@ -42,12 +42,12 @@ describe("GET /api/dossiers/catalog", () => {
         envVars: [],
       }),
       dossier({
-        id: "faq-accordion",
-        label: "FAQ Accordion",
-        capability: "faq-section",
+        id: "local-site-search",
+        label: "Sök på sajten (lokal)",
+        capability: "site-search",
         class: "soft",
         complexity: "simple",
-        summary: "Statisk FAQ-sektion.",
+        summary: "Lokal sökfunktion utan nycklar.",
         envVars: [],
       }),
     ]);
@@ -59,22 +59,22 @@ describe("GET /api/dossiers/catalog", () => {
     expect(body.success).toBe(true);
     expect(body.total).toBe(3);
 
-    const payments = body.groups.find((group) => group.id === "payments");
-    expect(payments).toBeTruthy();
-    expect(payments?.label).toBe("Betalningar");
-    expect(payments?.dossiers.map((d) => d.id).sort()).toEqual([
+    const commerce = body.groups.find((group) => group.id === "commerce");
+    expect(commerce).toBeTruthy();
+    expect(commerce?.label).toBe("Betalning & handel");
+    expect(commerce?.dossiers.map((d) => d.id).sort()).toEqual([
       "klarna-checkout",
       "stripe-checkout",
     ]);
 
-    const stripe = payments?.dossiers.find((d) => d.id === "stripe-checkout");
+    const stripe = commerce?.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.class).toBe("hard");
     expect(stripe?.envVarCount).toBe(1);
-    expect(stripe?.groupLabel).toBe("Betalningar");
+    expect(stripe?.groupLabel).toBe("Betalning & handel");
 
-    const content = body.groups.find((group) => group.id === "content");
-    expect(content?.dossiers).toHaveLength(1);
-    expect(content?.dossiers[0]?.id).toBe("faq-accordion");
+    const searchMaps = body.groups.find((group) => group.id === "search-maps");
+    expect(searchMaps?.dossiers).toHaveLength(1);
+    expect(searchMaps?.dossiers[0]?.id).toBe("local-site-search");
   });
 
   it("omits empty groups and returns an empty catalog when the registry is empty", async () => {

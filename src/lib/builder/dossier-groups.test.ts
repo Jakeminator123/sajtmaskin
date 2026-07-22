@@ -39,8 +39,8 @@ describe("resolveDossierGroup", () => {
   });
 
   it("is case-insensitive and tolerates empty/nullish input", () => {
-    expect(resolveDossierGroup("PAYMENTS").id).toBe("payments");
-    expect(resolveDossierGroup("  database  ").id).toBe("data-storage");
+    expect(resolveDossierGroup("PAYMENTS").id).toBe("commerce");
+    expect(resolveDossierGroup("  database  ").id).toBe("data-content");
     expect(resolveDossierGroup("").id).toBe("other");
     expect(resolveDossierGroup(null).id).toBe("other");
     expect(resolveDossierGroup(undefined).id).toBe("other");
@@ -50,39 +50,29 @@ describe("resolveDossierGroup", () => {
     // Full canonical mapping — one entry per capability in the docs table.
     // A capability landing in the wrong bucket (not just "Övrigt") must fail.
     const expectedGroupByCapability: Record<string, string> = {
-      database: "data-storage",
-      cms: "data-storage",
-      payments: "payments",
-      subscriptions: "payments",
+      database: "data-content",
+      cms: "data-content",
       auth: "auth",
-      "supabase-auth": "auth",
+      payments: "commerce",
+      subscriptions: "commerce",
+      "contact-form": "contact",
+      "newsletter-subscribe": "contact",
       "ai-chat": "ai",
       "ai-tool-calling": "ai",
       "rag-chat": "ai",
       "image-generation": "ai",
-      "contact-form": "email",
-      "newsletter-subscribe": "email",
-      analytics: "analytics",
-      "error-tracking": "analytics",
-      realtime: "realtime",
-      "cta-section": "content",
-      "faq-section": "content",
-      "pricing-section": "content",
-      "testimonials-section": "content",
-      "feature-grid": "content",
-      "stats-counter": "content",
-      stepper: "content",
-      "logo-cloud": "content",
-      carousel: "visual-interaction",
-      marquee: "visual-interaction",
-      "gallery-lightbox": "visual-interaction",
-      "parallax-scroll": "visual-interaction",
-      "parallax-pointer": "visual-interaction",
-      "visual-3d": "visual-interaction",
-      "physics-3d": "visual-interaction",
-      "interactive-game": "visual-interaction",
-      "dashboard-charts": "visual-interaction",
-      "command-search": "visual-interaction",
+      "site-search": "search-maps",
+      "map-display": "search-maps",
+      "command-palette": "search-maps",
+      "gallery-lightbox": "media",
+      carousel: "media",
+      "visual-3d": "interactive",
+      "physics-3d": "interactive",
+      "interactive-game": "interactive",
+      "dashboard-charts": "interactive",
+      realtime: "ops",
+      analytics: "ops",
+      "error-tracking": "ops",
     };
 
     for (const [capability, expectedGroupId] of Object.entries(expectedGroupByCapability)) {
@@ -101,29 +91,29 @@ describe("resolveDossierGroup", () => {
   });
 
   it("uses the documented Swedish labels", () => {
-    expect(resolveDossierGroup("database").label).toBe("Data & lagring");
-    expect(resolveDossierGroup("payments").label).toBe("Betalningar");
+    expect(resolveDossierGroup("database").label).toBe("Data & innehåll");
     expect(resolveDossierGroup("auth").label).toBe("Inloggning & konton");
-    expect(resolveDossierGroup("supabase-auth").label).toBe("Inloggning & konton");
+    expect(resolveDossierGroup("payments").label).toBe("Betalning & handel");
+    expect(resolveDossierGroup("contact-form").label).toBe("Kontakt & utskick");
     expect(resolveDossierGroup("ai-chat").label).toBe("AI");
-    expect(resolveDossierGroup("contact-form").label).toBe("E-post & utskick");
-    expect(resolveDossierGroup("analytics").label).toBe("Analys & övervakning");
-    expect(resolveDossierGroup("realtime").label).toBe("Realtid");
-    expect(resolveDossierGroup("cta-section").label).toBe("Innehåll & sektioner");
-    expect(resolveDossierGroup("carousel").label).toBe("Visuellt & interaktion");
+    expect(resolveDossierGroup("site-search").label).toBe("Sök & karta");
+    expect(resolveDossierGroup("carousel").label).toBe("Media & galleri");
+    expect(resolveDossierGroup("visual-3d").label).toBe("Interaktivt & 3D");
+    expect(resolveDossierGroup("realtime").label).toBe("Realtid & drift");
+    expect(resolveDossierGroup("analytics").label).toBe("Realtid & drift");
   });
 
   it("has 10 groups in the documented order", () => {
     expect(DOSSIER_GROUP_ORDER.map((group) => group.id)).toEqual([
-      "data-storage",
-      "payments",
+      "data-content",
       "auth",
+      "commerce",
+      "contact",
       "ai",
-      "email",
-      "analytics",
-      "realtime",
-      "content",
-      "visual-interaction",
+      "search-maps",
+      "media",
+      "interactive",
+      "ops",
       "other",
     ]);
   });

@@ -395,7 +395,9 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
 
   // Våg 2: the manifest `mock` field is threaded into the compact dossier
   // instructions as a one-line demo-mode hint (hard dossiers only).
-  function hardMockSelection(mock: "canned" | "seed" | "success" | "none" | undefined): DossierSelectionResult {
+  function hardMockSelection(
+    mock: "canned" | "seed" | "success" | "visual" | "none" | undefined,
+  ): DossierSelectionResult {
     return {
       poolSize: 1,
       byCapability: { "ai-chat": ["openai-chat"] },
@@ -443,6 +445,15 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
   it("emits the mock: success hint for a success-mode hard dossier", () => {
     const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join("\n");
     expect(text).toContain("mock: success");
+  });
+
+  it("emits the mock: visual hint (full interactive surface, honest demo action)", () => {
+    // Taxonomy 2026-07-22: stripe-checkout/clerk-auth/supabase-auth/
+    // paddle-billing/ably-realtime render the full surface; the action opens
+    // an honest demo notice instead of performing the real operation.
+    const text = renderDossierBlocks(hardMockSelection("visual"), { generationMode: "init" }).join("\n");
+    expect(text).toContain("mock: visual — render the full interactive surface");
+    expect(text).toContain("Never fabricate sessions, charges or live transport");
   });
 
   it("falls back to mock: none when the manifest omits mock", () => {

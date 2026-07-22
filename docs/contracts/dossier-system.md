@@ -39,16 +39,28 @@ capability via kanonisk mappning i
 
 | # | Grupp-id | Svensk label | Capabilities |
 |---|---|---|---|
-| 1 | `data-storage` | Data & lagring | `database`, `cms` |
-| 2 | `payments` | Betalningar | `payments`, `subscriptions` |
-| 3 | `auth` | Inloggning & konton | `auth`, `supabase-auth` |
-| 4 | `ai` | AI | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation` |
-| 5 | `email` | E-post & utskick | `contact-form`, `newsletter-subscribe` |
-| 6 | `analytics` | Analys & övervakning | `analytics`, `error-tracking` |
-| 7 | `realtime` | Realtid | `realtime` |
-| 8 | `content` | Innehåll & sektioner | `cta-section`, `faq-section`, `pricing-section`, `testimonials-section`, `feature-grid`, `logo-cloud`, `stats-counter`, `stepper` |
-| 9 | `visual-interaction` | Visuellt & interaktion | `carousel`, `marquee`, `gallery-lightbox`, `parallax-scroll`, `parallax-pointer`, `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`, `command-search` |
+| 1 | `data-content` | Data & innehåll | `database`, `cms` |
+| 2 | `auth` | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
+| 3 | `commerce` | Betalning & handel | `payments`, `subscriptions` |
+| 4 | `contact` | Kontakt & utskick | `contact-form`, `newsletter-subscribe` |
+| 5 | `ai` | AI | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation` |
+| 6 | `search-maps` | Sök & karta | `site-search`, `map-display`, `command-palette` |
+| 7 | `media` | Media & galleri | `gallery-lightbox`, `carousel` |
+| 8 | `interactive` | Interaktivt & 3D | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts` |
+| 9 | `ops` | Realtid & drift | `realtime`, `analytics`, `error-tracking` |
 | 10 | `other` | Övrigt | (fångstnät för omappade capabilities) |
+
+> **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
+> (`_parkering/dossiers-utfasade-2026-07-22/` — rena innehållssektioner och
+> CSS-effekter som codegen-LLM:en skriver bättre frihand: cta/faq/pricing/
+> testimonials/feature-grid/logo-cloud/stats-counter/stepper/marquee/parallax
+> ×2). `command-search` döptes om till `command-palette`, `supabase-auth`
+> slogs ihop med `auth` (en capability, två leverantörsdossiers), och två nya
+> nyckelfria capabilities tillkom: `map-display` (maplibre-map — MapLibre +
+> OpenFreeMap) och `site-search` (local-site-search — MiniSearch).
+> Legacy-id:n normaliseras via `CAPABILITY_ALIASES` i `select.ts`
+> (`supabase-auth` → `auth` med dossier-pin, `command-search` →
+> `command-palette`) så gamla snapshots fortsätter selektera rätt.
 
 **Fallback-principen:** demo-*mönstret* (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
@@ -81,24 +93,23 @@ placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
 inte bara manifest-fält.
 
 **Undantagslistan** (`MOCKLESS_CAPABILITY_EXCEPTIONS` i samma fil) — capabilities
-där `mock: none` är legitimt eftersom ytan inte kan mockas meningsfullt utan
-riktig nyckel:
+där `mock: none` är legitimt eftersom det inte finns någon användarsynlig yta
+alls att visa demo på. Skärpt 2026-07-22 (ägarbeslut: varje användarsynlig
+kategori ska ha en demo-fallback): `payments`, `subscriptions`, `auth` och
+`realtime` lämnade listan och deklarerar nu `mock: "visual"` — den
+interaktiva ytan renderas fullt ut och handlingen öppnar en ärlig
+demo-notis/modal i stället för att utföra den riktiga operationen (aldrig
+fejkade sessioner, debiteringar eller transport).
 
 | Capability | Varför undantagen |
 |---|---|
-| `payments` | Betalning kan inte fejkas trovärdigt; visar `IntegrationConfigNotice` tills riktiga nycklar sätts. |
-| `subscriptions` | Som betalning + kräver inloggad användare; ingen meningsfull demo-yta. |
-| `auth` | En fejkad inloggning skulle dela ut fejkade sessioner (säkerhet) → konfigurationsbanner i stället. |
-| `supabase-auth` | Provider-specifik auth — samma skäl som `auth`. |
-| `realtime` | Live pub/sub kräver riktig transport; en mockad socket har inget att eka. |
 | `analytics` | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
 | `error-tracking` | Som analytics — ingen användarsynlig demo; self-disablar utan DSN. |
 
 Att lägga till en capability här är ett kontraktsbeslut, inte en genväg: en
-demo-bar capability (DB, CMS, e-post, AI …) ska i stället få ett riktigt
-`mock`-läge. Nya behov blir nya capabilities i en befintlig grupp (t.ex. en
-framtida `maps`-capability i `content` eller `visual-interaction`), inte en ny
-grupp.
+demo-bar capability (DB, CMS, e-post, AI, betalning, inloggning …) ska i
+stället få ett riktigt `mock`-läge. Nya behov blir nya capabilities i en
+befintlig grupp, inte en ny grupp.
 
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
@@ -123,11 +134,12 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 | `canned` | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts. | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation`, `rag-chat` |
 | `seed` | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps. | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas` |
 | `success` | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern. | `resend-contact-form`, `mailchimp-newsletter` |
-| `none` (default vid utelämnat) | Kan inte mockas meningsfullt (betalning, inloggning) → UI:t visar en diskret demo-/konfigurationsbanner (`IntegrationConfigNotice`-mönstret). | `stripe-checkout`, `clerk-auth`, `ably-realtime` |
+| `visual` (nytt 2026-07-22) | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`, `paddle-billing`, `ably-realtime` |
+| `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics/error-tracking) eller visar en diskret konfigurationsbanner. | `vercel-analytics`, `plausible-analytics`, `sentry-error-tracking` |
 
 Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en *riktig* primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
-**Satt på 15 av 18 hard-dossiers.** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capabilities `analytics`/`error-tracking` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
+**Satt på 15 av 18 hard-dossiers (sedan 2026-07-22 med `visual` för betalning/inloggning/prenumeration/realtid).** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capabilities `analytics`/`error-tracking` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 
@@ -184,7 +196,8 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 | `sourceRepoUrl` | optional | Pointer to the upstream reference (typically under `data/template-references/`). |
 | `notes` | optional | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated. |
 | `promptInstructionMode` | optional | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`. |
-| `mock` | optional | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above. |
+| `mock` | optional | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `visual` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above. |
+| `summarySv` | optional | Swedish catalog description shown to END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt — the English `summary` owns that surface. UI falls back to `summary` when omitted. |
 
 ## `instructions.md` template
 
@@ -214,9 +227,9 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 `selectDossiersForRequest(opts)` lives in `src/lib/gen/dossiers/select.ts`:
 
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`). When the caller COMPUTED the list (the F3 capability-scope in orchestrate passes `disableBriefFallback: true`), an empty list is authoritative — the brief fallback never resurrects speculative capabilities in F3.
-2. Expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — today `subscriptions` ⇒ `supabase-auth` (paddle-billing's customer-portal needs a signed-in Supabase user). The same helper also dedupes overlapping picks: `supabase-auth` drops generic `auth` (colliding root `middleware.ts`), and `ai-tool-calling` drops generic `ai-chat` (overlapping chat surfaces — one "AI assistant" ask must not ship two competing chat routes). The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
+2. Normalize legacy aliases (`CAPABILITY_ALIASES`): `supabase-auth` → `auth` (with a dossier PIN on the `supabase-auth` dossier so the legacy id keeps meaning "Supabase specifically") and `command-search` → `command-palette` — old snapshots/briefs keep resolving. Then expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — today `subscriptions` ⇒ `auth` pinned to the `supabase-auth` dossier (paddle-billing's customer-portal needs a signed-in Supabase user; the pin beats both the clerk-auth default and prompt keywords). The helper also dedupes overlapping picks: `ai-tool-calling` drops generic `ai-chat` (overlapping chat surfaces — one "AI assistant" ask must not ship two competing chat routes). The former supabase-auth/auth dedup is obsolete since the capability merge — one capability selects exactly one dossier, so two colliding root middlewares can no longer be picked. The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
 3. For each capability, find dossiers via `getDossiersByCapability(cap)`.
-4. If multiple match: an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
+4. If multiple match: a dependency/alias PIN wins first (reason `dependency-pin`); otherwise an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "MongoDB" → `mongodb-atlas` even though `postgres-drizzle` is the `database` default, or "logga in med supabase" → `supabase-auth` even though `clerk-auth` is the `auth` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
 5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
 6. Eagerly load `instructions.md` for selected dossiers.
 

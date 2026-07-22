@@ -50,56 +50,20 @@ function hasMultiRouteSignal(prompt: string): boolean {
   return MULTI_ROUTE_WORD_RE.test(prompt) || ROUTE_PATH_RE.test(prompt);
 }
 
-// #242 section dossiers (logo-cloud, stats-counter, feature-grid, cta-section,
-// gallery-lightbox, stepper) are deliberately NOT part of hasHeavyCapability,
-// so a short init prompt that names one would otherwise take the simple fast
-// lane and skip dossier selection — missing the very dossier the user asked
-// for (e.g. "gör en enkel hemsida med kundloggor och nyckeltal"). These
+// Dossier-backed capabilities that are deliberately NOT part of
+// hasHeavyCapability — a short init prompt that names one would otherwise
+// take the simple fast lane and skip dossier selection, missing the very
+// dossier the user asked for. Taxonomy 2026-07-22: the parked section
+// dossiers (logo-cloud, stats-counter, feature-grid, cta-section, stepper)
+// left this list — those are ordinary freehand content now, so their cues
+// no longer close the fast lane. Remaining cues cover `gallery-lightbox`
+// plus the new key-free `map-display` and `site-search` capabilities. These
 // high-precision cues mirror the follow-up vocabulary
-// (src/lib/builder/follow-up-capability-vocabulary.ts) and block the fast lane
-// so the full dossier pipeline runs. Kept narrow so the simple lane is not
-// closed for ordinary marketing copy (bare "feature"/"logo"/"steg" do NOT
-// match — only the qualified section forms do).
+// (src/lib/builder/follow-up-capability-vocabulary.ts) and block the fast
+// lane so the full dossier pipeline runs. Kept narrow so the simple lane is
+// not closed for ordinary marketing copy.
 const SECTION_CAPABILITY_RE = uWordRegex(
   [
-    // logo-cloud
-    "logo[-\\s]?cloud",
-    "logo[-\\s]?wall",
-    "logo[-\\s]?rad",
-    "logorad",
-    "kund[-\\s]?loggor",
-    "kundloggor",
-    "partner[-\\s]?loggor",
-    "partnerloggor",
-    "customer[-\\s]?logos",
-    "client[-\\s]?logos",
-    "brand[-\\s]?logos",
-    "trusted[-\\s]?by",
-    "as[-\\s]?seen[-\\s]?in",
-    // stats-counter
-    "nyckeltal",
-    "stats?[-\\s]?counter",
-    "stats?[-\\s]?row",
-    "statistikband",
-    "statistik[-\\s]?band",
-    "metrics?[-\\s]?band",
-    "by[-\\s]?the[-\\s]?numbers",
-    "animated[-\\s]?numbers",
-    // feature-grid
-    "feature[-\\s]?grid",
-    "features?[-\\s]?section",
-    "feature[-\\s]?cards?",
-    "funktionskort",
-    "funktions?[-\\s]?kort",
-    "tjänstekort",
-    "tjänste[-\\s]?kort",
-    "kortgrid",
-    "services?[-\\s]?grid",
-    // cta-section
-    "cta",
-    "call[-\\s]?to[-\\s]?action",
-    "avslutande\\s+cta",
-    "bokningsknapp",
     // gallery-lightbox
     "lightbox",
     "bild[-\\s]?galleri",
@@ -109,14 +73,23 @@ const SECTION_CAPABILITY_RE = uWordRegex(
     "photo[-\\s]?wall",
     "förstora\\s+bilder",
     "klickbara\\s+bilder",
-    // stepper
-    "stepper",
-    "wizard",
-    "multi[-\\s]?step",
-    "flerstegs(?:formulär)?",
-    "flerstegsformulär",
-    "steg[-\\s]?för[-\\s]?steg",
-    "progress[-\\s]?indicator",
+    // map-display
+    "karta",
+    "kartan",
+    "kartvy",
+    "hitta\\s+hit",
+    "hitta\\s+till\\s+oss",
+    "maplibre",
+    "openfreemap",
+    "google\\s+maps",
+    "store\\s+locator",
+    "butiks-?karta",
+    // site-search
+    "sökfunktion(?:en)?",
+    "sökfält(?:et)?",
+    "sökruta(?:n)?",
+    "site[-\\s]?search",
+    "minisearch",
   ].join("|"),
 );
 

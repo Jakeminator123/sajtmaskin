@@ -16,6 +16,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// clerk-auth's components import `@clerk/nextjs` at module top — a dependency
+// of the GENERATED site, not of this repo. `vitest.config.ts` aliases it to
+// the inert stub in `tests/stubs/clerk-nextjs.tsx`; the demo-mode branch under
+// test never mounts the Clerk components.
+import { AuthButtons } from "../../../../data/dossiers/hard/clerk-auth/components/auth-buttons";
 import { CheckoutButton } from "../../../../data/dossiers/hard/stripe-checkout/components/checkout-button";
 import { ContactForm } from "../../../../data/dossiers/hard/resend-contact-form/components/contact-form";
 import { IntegrationConfigNotice } from "../../../../data/dossiers/hard/stripe-checkout/components/integration-config-notice";
@@ -61,21 +66,33 @@ describe("IntegrationConfigNotice", () => {
   });
 });
 
-describe("CheckoutButton — not-configured fallback (stripe-checkout)", () => {
-  it("renders the config notice + disabled button on 503 payments-not-configured", async () => {
+describe("CheckoutButton — demo-mode fallback (stripe-checkout, mock: visual)", () => {
+  it("keeps the button ENABLED and opens the demo modal on 503 payments-not-configured", async () => {
     mockFetchOnce(503, { error: "payments-not-configured" });
     render(<CheckoutButton priceId="price_123" label="Köp nu" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Köp nu" }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Betalningar är inte aktiverade ännu")).toBeTruthy();
-    });
+    // Demo mode (mock: visual): the click opens an honest demo dialog instead
+    // of disabling the CTA — the full checkout surface stays interactive.
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.getAttribute("aria-labelledby")).toBe("checkout-demo-title");
+    expect(screen.getByText("Demoläge — ingen riktig betalning")).toBeTruthy();
+    // The IntegrationConfigNotice inside the modal names the env key needed
+    // to switch demo mode off (never its value).
     expect(screen.getByText("STRIPE_SECRET_KEY")).toBeTruthy();
+
+    // No disabled state anymore: the CTA must stay clickable after the modal.
     const button = screen.getByRole("button", { name: "Köp nu" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    expect(button.disabled).toBe(false);
     // Never leak a raw status code to the visitor.
     expect(screen.queryByText(/503/)).toBeNull();
+
+    // "Stäng" closes the demo dialog again.
+    fireEvent.click(screen.getByRole("button", { name: "Stäng" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 
   it("takes the retryable error path on a 503 WITHOUT the explicit code (proxy 503)", async () => {
@@ -110,6 +127,36 @@ describe("CheckoutButton — not-configured fallback (stripe-checkout)", () => {
     expect(screen.queryByText("Betalningar är inte aktiverade ännu")).toBeNull();
     // The raw upstream error message must not reach the visitor.
     expect(screen.queryByText(/Some internal Stripe error/)).toBeNull();
+  });
+});
+
+describe("AuthButtons — demo-mode fallback (clerk-auth, mock: visual)", () => {
+  const KEY = "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY";
+  const savedKey = process.env[KEY];
+
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env[KEY];
+    else process.env[KEY] = savedKey;
+  });
+
+  it("renders plain buttons without a valid key and opens the demo dialog on 'Logga in'", async () => {
+    // Placeholder value = not configured (same check as ClerkProviderShell).
+    process.env[KEY] = "pk_test_placeholder";
+    render(<AuthButtons />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Logga in" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.getAttribute("aria-labelledby")).toBe("auth-demo-title");
+    expect(screen.getByText("Inloggning i demoläge")).toBeTruthy();
+    // The dialog names the env keys needed for real accounts (never values).
+    expect(screen.getByText("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY")).toBeTruthy();
+    expect(screen.getByText("CLERK_SECRET_KEY")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stäng" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 });
 

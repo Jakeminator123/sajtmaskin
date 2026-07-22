@@ -25,16 +25,16 @@ describe("detectFollowUpCapabilities — empty / unrelated", () => {
 describe("detectFollowUpCapabilities — init mode", () => {
   it("accepts first-turn noun phrases without an add verb", () => {
     expect(
-      detectFollowUpCapabilities("En enkel sajt med FAQ", {
+      detectFollowUpCapabilities("En enkel sajt med sökfunktion", {
         mode: "init",
       }).capabilityIds,
-    ).toContain("faq-section");
+    ).toContain("site-search");
     expect(
       detectFollowUpCapabilities(
-        "En hemsida för café med vanliga frågor",
+        "En hemsida för café med en karta",
         { mode: "init" },
       ).capabilityIds,
-    ).toContain("faq-section");
+    ).toContain("map-display");
   });
 });
 
@@ -129,29 +129,14 @@ describe("detectFollowUpCapabilities — negated capabilities", () => {
 });
 
 describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
-  it("detects 'kundomdömen' as `testimonials-section`", () => {
-    const result = detectFollowUpCapabilities("lägg till kundomdömen under hero");
-    expect(result.capabilityIds).toContain("testimonials-section");
-  });
-
-  it("detects 'pristabell' as `pricing-section`", () => {
-    const result = detectFollowUpCapabilities("lägg till en pristabell med tre nivåer");
-    expect(result.capabilityIds).toContain("pricing-section");
-  });
-
-  it("detects 'FAQ' as `faq-section`", () => {
-    const result = detectFollowUpCapabilities("lägg till en FAQ längst ner");
-    expect(result.capabilityIds).toContain("faq-section");
-  });
-
   it("detects 'karusell' as `carousel`", () => {
     const result = detectFollowUpCapabilities("ha en karusell med produktbilder");
     expect(result.capabilityIds).toContain("carousel");
   });
 
-  it("detects 'cmd+k' as `command-search`", () => {
+  it("detects 'cmd+k' as `command-palette`", () => {
     const result = detectFollowUpCapabilities("lägg till en cmd+k command-palette");
-    expect(result.capabilityIds).toContain("command-search");
+    expect(result.capabilityIds).toContain("command-palette");
   });
 
   it("detects 'nyhetsbrev' as `newsletter-subscribe`", () => {
@@ -177,11 +162,6 @@ describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
   it("detects 'inloggning' as `auth`", () => {
     const result = detectFollowUpCapabilities("vi behöver inloggning med lösenord");
     expect(result.capabilityIds).toContain("auth");
-  });
-
-  it("detects 'marquee' as `marquee`", () => {
-    const result = detectFollowUpCapabilities("ha en logo-marquee under hero");
-    expect(result.capabilityIds).toContain("marquee");
   });
 });
 
@@ -271,26 +251,28 @@ describe("detectFollowUpCapabilities — interactive-game", () => {
   });
 });
 
-describe("detectFollowUpCapabilities — parallax disambiguation", () => {
-  it("detects pointer-parallax when the prompt names the pointer", () => {
-    const result = detectFollowUpCapabilities("ha en pointer-parallax på hero-bilden");
-    expect(result.capabilityIds).toContain("parallax-pointer");
-    expect(result.capabilityIds).not.toContain("parallax-scroll");
-  });
-
-  it("detects scroll-parallax when only `parallax` is named", () => {
-    const result = detectFollowUpCapabilities("lägg till en parallax-effekt");
-    expect(result.capabilityIds).toContain("parallax-scroll");
+describe("detectFollowUpCapabilities — parallax (parked 2026-07-22)", () => {
+  it("does NOT detect any parallax capability — parallax is freehand guidance now", () => {
+    // The parallax dossier pair was parked; a parallax ask is an ordinary
+    // content/design edit, never a dossier injection.
+    for (const prompt of [
+      "ha en pointer-parallax på hero-bilden",
+      "lägg till en parallax-effekt",
+    ]) {
+      const result = detectFollowUpCapabilities(prompt);
+      expect(result.capabilityIds).not.toContain("parallax-pointer");
+      expect(result.capabilityIds).not.toContain("parallax-scroll");
+    }
   });
 });
 
 describe("detectFollowUpCapabilities — multiple capabilities", () => {
   it("detects two capabilities when the prompt asks for both", () => {
     const result = detectFollowUpCapabilities(
-      "lägg till en kontaktform och en pristabell med tre nivåer",
+      "lägg till en kontaktform och en sökfunktion på sajten",
     );
     expect(result.capabilityIds).toContain("contact-form");
-    expect(result.capabilityIds).toContain("pricing-section");
+    expect(result.capabilityIds).toContain("site-search");
   });
 });
 
@@ -384,50 +366,13 @@ describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify refere
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// #242 section capabilities — wire-up regression matrix
+// Section capabilities after the 2026-07-22 taxonomy: the #242 content-
+// section dossiers (logo-cloud/stats-counter/feature-grid/cta-section/
+// stepper/marquee/faq/pricing/testimonials) were PARKED — those phrases are
+// ordinary content edits now. What remains here is the carousel vs
+// gallery-lightbox disambiguation, which still routes to real dossiers.
 // ─────────────────────────────────────────────────────────────────────────
-//
-// #242 added six soft section dossiers + capability-map entries, but the
-// follow-up detector never learned the phrases, so a follow-up like
-// "lägg till kundloggor" injected no dossier. These assert each new section
-// capability is detected from a realistic short add-prompt, plus the
-// carousel/gallery-lightbox disambiguation (image/product-gallery moved off
-// carousel) and the control case that genuine slider/carousel asks still map
-// to `carousel`.
-describe("detectFollowUpCapabilities — #242 section capabilities", () => {
-  it("detects 'kundloggor' as `logo-cloud`", () => {
-    const result = detectFollowUpCapabilities("lägg till kundloggor under hero");
-    expect(result.capabilityIds).toContain("logo-cloud");
-    expect(result.capabilityIds).not.toContain("marquee");
-  });
-
-  it("detects 'trusted by' logo row as `logo-cloud`", () => {
-    const result = detectFollowUpCapabilities("add a trusted by logo strip");
-    expect(result.capabilityIds).toContain("logo-cloud");
-  });
-
-  it("detects 'nyckeltal/statistik' as `stats-counter`", () => {
-    const result = detectFollowUpCapabilities("lägg till nyckeltal/statistik");
-    expect(result.capabilityIds).toContain("stats-counter");
-    expect(result.capabilityIds).not.toContain("analytics");
-  });
-
-  it("detects 'feature cards' / 'tjänstekort' as `feature-grid`", () => {
-    const result = detectFollowUpCapabilities("lägg till feature cards/tjänstekort");
-    expect(result.capabilityIds).toContain("feature-grid");
-  });
-
-  it("detects a bottom 'CTA' as `cta-section`", () => {
-    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
-    expect(result.capabilityIds).toContain("cta-section");
-  });
-
-  it("does NOT detect cta-section for a layout move of an existing CTA button", () => {
-    // Refine/move verb + short prompt → allowDetection gate suppresses it.
-    const result = detectFollowUpCapabilities("Flytta CTA-knappen under rubriken");
-    expect(result.capabilityIds).not.toContain("cta-section");
-  });
-
+describe("detectFollowUpCapabilities — media section capabilities", () => {
   it("detects an enlargeable image gallery as `gallery-lightbox`", () => {
     const result = detectFollowUpCapabilities(
       "lägg till ett bildgalleri där man kan förstora bilder",
@@ -442,12 +387,6 @@ describe("detectFollowUpCapabilities — #242 section capabilities", () => {
     expect(result.capabilityIds).not.toContain("carousel");
   });
 
-  it("detects a multi-step wizard as `stepper`", () => {
-    const result = detectFollowUpCapabilities("gör formuläret till en multi-step wizard");
-    expect(result.capabilityIds).toContain("stepper");
-    expect(result.capabilityIds).not.toContain("contact-form");
-  });
-
   it("control: an explicit 'bildkarusell' still maps to `carousel`", () => {
     const result = detectFollowUpCapabilities("lägg till en bildkarusell i hero");
     expect(result.capabilityIds).toContain("carousel");
@@ -459,134 +398,110 @@ describe("detectFollowUpCapabilities — #242 section capabilities", () => {
     expect(result.capabilityIds).toContain("carousel");
     expect(result.capabilityIds).not.toContain("gallery-lightbox");
   });
-});
 
-// ─────────────────────────────────────────────────────────────────────────
-// #250 Codex P2 — false-positive guards
-// ─────────────────────────────────────────────────────────────────────────
-//
-// Codex flagged four precision regressions in the #242 wiring. Each pair below
-// pins the exact false-positive example from the review plus a gated positive
-// that proves the capability still detects genuine requests.
-describe("detectFollowUpCapabilities — #250 Codex P2 false-positive guards", () => {
-  // 1. logo-cloud: bare Swedish "som syns i" / "används av" must need a logo cue.
-  it("does NOT detect logo-cloud for 'en knapp som syns i menyn'", () => {
-    const result = detectFollowUpCapabilities("lägg till en knapp som syns i menyn");
-    expect(result.capabilityIds).not.toContain("logo-cloud");
-  });
-
-  it("does NOT detect logo-cloud for 'en regel som används av admins'", () => {
-    const result = detectFollowUpCapabilities("lägg till en regel som används av admins");
-    expect(result.capabilityIds).not.toContain("logo-cloud");
-  });
-
-  it("still detects logo-cloud when a media cue follows ('som syns i medier')", () => {
-    const result = detectFollowUpCapabilities("lägg till en sektion som syns i medier");
-    expect(result.capabilityIds).toContain("logo-cloud");
-  });
-
-  // 2. stepper: bare "flera steg" must be tied to a form/wizard/process flow.
-  it("does NOT detect stepper for 'gör knappen flera steg större'", () => {
-    const result = detectFollowUpCapabilities("gör knappen flera steg större");
-    expect(result.capabilityIds).not.toContain("stepper");
-  });
-
-  it("still detects stepper for a genuine multi-step form ('formuläret till flera steg')", () => {
-    const result = detectFollowUpCapabilities("gör om formuläret till flera steg");
-    expect(result.capabilityIds).toContain("stepper");
-  });
-
-  // 3. cta-section: bare "cta" must not fire on a CTA *button* tweak.
-  it("does NOT detect cta-section for 'gör CTA-knappen större'", () => {
-    const result = detectFollowUpCapabilities("gör CTA-knappen större");
-    expect(result.capabilityIds).not.toContain("cta-section");
-  });
-
-  it("still detects cta-section for a bottom CTA add ('lägg till en CTA längst ner')", () => {
-    const result = detectFollowUpCapabilities("lägg till en CTA längst ner");
-    expect(result.capabilityIds).toContain("cta-section");
-  });
-
-  // 4. stats-counter: the StatCounter analytics provider is not a KPI band.
-  it("does NOT detect stats-counter for 'koppla på StatCounter'", () => {
-    const result = detectFollowUpCapabilities("koppla på StatCounter");
-    expect(result.capabilityIds).not.toContain("stats-counter");
-  });
-
-  it("still detects stats-counter for a genuine KPI band ('lägg till nyckeltal')", () => {
-    const result = detectFollowUpCapabilities("lägg till nyckeltal som räknar upp");
-    expect(result.capabilityIds).toContain("stats-counter");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// #250 Codex P2 — round 2 (re-review of the fix commit)
-// ─────────────────────────────────────────────────────────────────────────
-//
-// The re-review surfaced two more false-positives (slider-gallery, scrolling
-// logos) and four English/plural coverage gaps. Each is pinned here.
-describe("detectFollowUpCapabilities — #250 Codex P2 round 2", () => {
-  // FP: a gallery with a swipe/slider cue must route to carousel, not lightbox.
+  // FP guard (Codex P2 round 2): a gallery with a swipe/slider cue must route
+  // to carousel, not the click-to-enlarge lightbox.
   it("routes 'image gallery with swipe navigation' to carousel, not gallery-lightbox", () => {
     const result = detectFollowUpCapabilities("add an image gallery with swipe navigation");
     expect(result.capabilityIds).toContain("carousel");
     expect(result.capabilityIds).not.toContain("gallery-lightbox");
   });
 
-  it("still detects gallery-lightbox for a plain enlargeable gallery (no slider cue)", () => {
-    const result = detectFollowUpCapabilities("add an image gallery with a lightbox");
-    expect(result.capabilityIds).toContain("gallery-lightbox");
-    expect(result.capabilityIds).not.toContain("carousel");
-  });
-
-  // FP: a scrolling logo strip is marquee, not the static logo-cloud.
-  it("routes 'scrolling brand logos' to marquee, not logo-cloud", () => {
-    const result = detectFollowUpCapabilities("add scrolling brand logos");
-    expect(result.capabilityIds).toContain("marquee");
-    expect(result.capabilityIds).not.toContain("logo-cloud");
-  });
-
-  // Coverage: English customer/client/partner logo phrasings.
-  it("detects English 'customer logos' / 'client logos' / 'partner logos' as logo-cloud", () => {
+  it("does NOT detect any capability for parked section phrases (content edits now)", () => {
+    // Former #242 section-dossier phrases — after parking these are plain
+    // content edits and must not select any dossier capability at all.
     for (const prompt of [
-      "add customer logos under the hero",
-      "add client logos",
-      "add partner logos",
+      "lägg till kundloggor under hero",
+      "lägg till nyckeltal som räknar upp",
+      "lägg till feature cards/tjänstekort",
+      "lägg till en CTA längst ner",
+      "add a multi step form",
+      "add scrolling brand logos",
     ]) {
-      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("logo-cloud");
+      const ids = detectFollowUpCapabilities(prompt).capabilityIds;
+      for (const parked of [
+        "logo-cloud",
+        "stats-counter",
+        "feature-grid",
+        "cta-section",
+        "stepper",
+        "marquee",
+        "faq-section",
+        "pricing-section",
+        "testimonials-section",
+      ]) {
+        expect(ids).not.toContain(parked);
+      }
     }
   });
+});
 
-  // Coverage: canonical "stats row" / "by the numbers" phrasing.
-  it("detects 'stats row' and 'by the numbers strip' as stats-counter", () => {
-    expect(detectFollowUpCapabilities("add a stats row").capabilityIds).toContain(
-      "stats-counter",
-    );
+// ─────────────────────────────────────────────────────────────────────────
+// Sök & karta — new key-free soft dossiers (2026-07-22): local-site-search
+// (`site-search`), maplibre-map (`map-display`) + the command-search →
+// command-palette rename (cmdk-command-palette).
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — site-search / map-display / command-palette", () => {
+  it("detects 'sök på sajten' as site-search", () => {
+    const result = detectFollowUpCapabilities("lägg till sök på sajten");
+    expect(result.capabilityIds).toContain("site-search");
+  });
+
+  it("detects 'sökfunktion' as site-search", () => {
+    const result = detectFollowUpCapabilities("vi vill ha en sökfunktion på sidan");
+    expect(result.capabilityIds).toContain("site-search");
+  });
+
+  it("detects a hitta-hit map ask as map-display", () => {
+    const result = detectFollowUpCapabilities("lägg till en karta som visar hitta hit");
+    expect(result.capabilityIds).toContain("map-display");
+  });
+
+  it("detects 'visa vår adress på en karta' as map-display (init noun phrase)", () => {
+    // No add verb — the phrase is a first-turn noun request, so init mode
+    // (which skips the add-verb gate) is the realistic entry point.
+    const result = detectFollowUpCapabilities("visa vår adress på en karta", {
+      mode: "init",
+    });
+    expect(result.capabilityIds).toContain("map-display");
+  });
+
+  it("detects a 'cmd+k command-palette' ask as command-palette", () => {
+    const result = detectFollowUpCapabilities("lägg till en cmd+k command-palette");
+    expect(result.capabilityIds).toContain("command-palette");
+  });
+
+  it("detects a BARE 'cmd+k' / 'ctrl+k' ask (literal plus sign)", () => {
+    // Test-sync finding 2026-07-22: the old pattern class lacked `+`, so the
+    // most common literal spelling never matched on its own.
     expect(
-      detectFollowUpCapabilities("add a by the numbers strip").capabilityIds,
-    ).toContain("stats-counter");
+      detectFollowUpCapabilities("lägg till cmd+k för snabbnavigering").capabilityIds,
+    ).toContain("command-palette");
+    expect(
+      detectFollowUpCapabilities("lägg till ctrl+k för snabbnavigering").capabilityIds,
+    ).toContain("command-palette");
   });
 
-  // Coverage: plural "features section/grid" + "services grid".
-  it("detects plural 'features section' and 'services grid' as feature-grid", () => {
-    expect(detectFollowUpCapabilities("add a features section").capabilityIds).toContain(
-      "feature-grid",
-    );
-    expect(detectFollowUpCapabilities("add a services grid").capabilityIds).toContain(
-      "feature-grid",
-    );
+  it("detects bare English 'login' as auth (test-sync gap: 'add supabase login')", () => {
+    const result = detectFollowUpCapabilities("add supabase login");
+    expect(result.capabilityIds).toContain("auth");
   });
 
-  // Coverage: spaced "multi step" spelling.
-  it("detects spaced 'multi step form' as stepper", () => {
-    const result = detectFollowUpCapabilities("add a multi step form");
-    expect(result.capabilityIds).toContain("stepper");
+  // Sitemaps/heatmaps are not maps of places (map-display veto).
+  it("does NOT detect map-display for sitemap/heatmap asks", () => {
+    expect(
+      detectFollowUpCapabilities("lägg till en sitemap för sajten").capabilityIds,
+    ).not.toContain("map-display");
+    expect(
+      detectFollowUpCapabilities("add a heatmap of user clicks").capabilityIds,
+    ).not.toContain("map-display");
   });
 
-  // FP residual: bare CTA + size adjective ("gör CTA större") is a refine.
-  it("does NOT detect cta-section for 'gör CTA större'", () => {
-    const result = detectFollowUpCapabilities("gör CTA större");
-    expect(result.capabilityIds).not.toContain("cta-section");
+  // The palette is app navigation, not content search (site-search veto).
+  it("does NOT detect site-search for a 'command palette' ask", () => {
+    const result = detectFollowUpCapabilities("add a command palette");
+    expect(result.capabilityIds).not.toContain("site-search");
+    expect(result.capabilityIds).toContain("command-palette");
   });
 });
 
@@ -1075,21 +990,21 @@ describe("detectFollowUpCapabilities — cms", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dossier wave 3 — capability `supabase-auth` (2026-07-08): explicit-
-// Supabase-intent auth. NON-COMPETITION CONTRACT with clerk-auth (`auth`):
-// generic login/inloggning/auth wording must keep routing to `auth`
-// (clerk-auth owns defaultForCapability), and an explicit Supabase ask must
-// route to `supabase-auth` ONLY — never both (both dossiers ship a root
-// middleware.ts; injecting both would collide).
+// Auth after the 2026-07-22 merge: `supabase-auth` is no longer a separate
+// capability — clerk-auth (default) and supabase-auth are provider SIBLINGS
+// under one `auth` capability. Detection always emits `auth`; the provider
+// choice ("logga in med supabase") is resolved later in select.ts via the
+// supabase-auth manifest relevanceKeywords against the raw prompt. Exactly
+// one auth dossier is ever selected, so no root-middleware collision.
 // ─────────────────────────────────────────────────────────────────────────
-describe("detectFollowUpCapabilities — supabase-auth vs auth (non-competition)", () => {
-  it("routes generic Swedish 'inloggning' to auth (clerk), NOT supabase-auth", () => {
+describe("detectFollowUpCapabilities — auth (merged capability)", () => {
+  it("routes generic Swedish 'inloggning' to auth", () => {
     const result = detectFollowUpCapabilities("vi behöver inloggning med lösenord");
     expect(result.capabilityIds).toContain("auth");
     expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("routes generic 'logga in' to auth, NOT supabase-auth", () => {
+  it("routes generic 'logga in' to auth", () => {
     const result = detectFollowUpCapabilities(
       "lägg till så att användare kan logga in och se sina sidor",
     );
@@ -1097,41 +1012,43 @@ describe("detectFollowUpCapabilities — supabase-auth vs auth (non-competition)
     expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("routes generic English 'login/sign in' to auth, NOT supabase-auth", () => {
+  it("routes generic English 'login/sign in' to auth", () => {
     const result = detectFollowUpCapabilities("add a login page with sign-in and sign-up");
     expect(result.capabilityIds).toContain("auth");
     expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("detects 'supabase login' as supabase-auth, NOT auth", () => {
-    const result = detectFollowUpCapabilities("lägg till supabase login på sajten");
-    expect(result.capabilityIds).toContain("supabase-auth");
-    expect(result.capabilityIds).not.toContain("auth");
+  it("detects a supabase login ask as auth (provider resolved later via keywords)", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till supabase login så att medlemmar kan logga in",
+    );
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("detects 'supabase auth' as supabase-auth, NOT auth", () => {
+  it("detects 'supabase auth' as auth, never a separate supabase-auth capability", () => {
     const result = detectFollowUpCapabilities("add supabase auth with magic links");
-    expect(result.capabilityIds).toContain("supabase-auth");
-    expect(result.capabilityIds).not.toContain("auth");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("detects Swedish 'supabase-inloggning' as supabase-auth, NOT auth", () => {
+  it("detects Swedish 'supabase-inloggning' as auth", () => {
     const result = detectFollowUpCapabilities("vi vill ha supabase-inloggning för medlemmar");
-    expect(result.capabilityIds).toContain("supabase-auth");
-    expect(result.capabilityIds).not.toContain("auth");
+    expect(result.capabilityIds).toContain("auth");
+    expect(result.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("detects '<auth cue> med/with supabase' phrasing as supabase-auth, NOT auth", () => {
+  it("detects '<auth cue> med/with supabase' phrasing as auth", () => {
     const swedish = detectFollowUpCapabilities("lägg till inloggning med supabase");
-    expect(swedish.capabilityIds).toContain("supabase-auth");
-    expect(swedish.capabilityIds).not.toContain("auth");
+    expect(swedish.capabilityIds).toContain("auth");
+    expect(swedish.capabilityIds).not.toContain("supabase-auth");
 
-    const english = detectFollowUpCapabilities("add authentication with supabase");
-    expect(english.capabilityIds).toContain("supabase-auth");
-    expect(english.capabilityIds).not.toContain("auth");
+    const english = detectFollowUpCapabilities("add sign-in with supabase");
+    expect(english.capabilityIds).toContain("auth");
+    expect(english.capabilityIds).not.toContain("supabase-auth");
   });
 
-  it("does NOT detect supabase-auth for a Supabase DATABASE ask (no auth cue)", () => {
+  it("does NOT detect auth for a Supabase DATABASE ask (no auth cue)", () => {
     // "supabase" alone is a BaaS/database choice, not an auth ask — and the
     // database vocabulary vetoes competing BaaS providers, so nothing fires.
     const result = detectFollowUpCapabilities("spara bokningarna i supabase");
@@ -1139,7 +1056,7 @@ describe("detectFollowUpCapabilities — supabase-auth vs auth (non-competition)
     expect(result.capabilityIds).not.toContain("auth");
   });
 
-  it("suppresses supabase-auth when the user explicitly negates auth", () => {
+  it("suppresses auth when the user explicitly negates it", () => {
     const result = detectFollowUpCapabilities(
       "bygg en landningssida, lägg inte till supabase-inloggning eller auth",
     );

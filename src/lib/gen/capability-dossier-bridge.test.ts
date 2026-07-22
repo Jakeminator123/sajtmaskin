@@ -63,7 +63,6 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
         capabilities({
           needs3D: true,
           needsPhysics: true,
-          needsParallax: true,
           needsPayments: true,
           needsAuth: true,
           needsForms: true,
@@ -75,23 +74,23 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
     ).toEqual([
       "visual-3d",
       "physics-3d",
-      "parallax-scroll",
-      "parallax-pointer",
       "payments",
       "auth",
       "contact-form",
       "carousel",
-      "command-search",
+      "command-palette",
       "interactive-game",
     ]);
   });
 
-  it("keeps parallax mapped to both dossier capabilities", () => {
+  it("does NOT bridge needsParallax to any dossier capability (parked 2026-07-22)", () => {
+    // Parallax is freehand guidance now — the flag still exists in
+    // capability-inference but must not select a dossier.
     expect(
       resolveDossierCapabilitiesFromInferredCapabilities(
         capabilities({ needsParallax: true }),
       ),
-    ).toEqual(["parallax-scroll", "parallax-pointer"]);
+    ).toEqual([]);
   });
 
   it("bridges needsGame to the interactive-game dossier capability", () => {
@@ -129,7 +128,6 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
     expect(INFERRED_CAPABILITY_DOSSIER_BRIDGE.map((entry) => entry.flag)).toEqual([
       "needs3D",
       "needsPhysics",
-      "needsParallax",
       "needsPayments",
       "needsSubscriptions",
       "needsAuth",

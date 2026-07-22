@@ -1,13 +1,14 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "clerk-auth",
-  "mock": "none",
-  "label": "Clerk Authentication",
+  "mock": "visual",
+  "label": "Inloggning — Clerk",
   "capability": "auth",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Drop-in user authentication via Clerk. Adds the <ClerkProvider /> wrapper for the root layout, a Next.js middleware that protects routes, and pre-built <SignInButton /> / <UserButton /> UI primitives. Use when the brief asks for login, signup, accounts, gated dashboards, or 'a way for users to log in'. The middleware file MUST stay verbatim — Clerk's matcher syntax and route ordering are load-bearing for session resolution.",
+  "summary": "Drop-in user authentication via Clerk — the default provider under the 'auth' capability (supabase-auth is the sibling for explicit Supabase asks). Adds the <ClerkProvider /> root-layout wrapper, route-protecting middleware, and <SignInButton /> / <UserButton /> primitives. Demo mode (mock: visual): with missing/placeholder keys the same sign-in/sign-up buttons render but open an honest demo dialog — no fake sessions, no crash; real Clerk activates once keys are stored. The middleware MUST stay verbatim (matcher syntax and route ordering are load-bearing).",
+  "summarySv": "Inloggning och konton via Clerk (standardvalet för inloggning). Utan riktiga nycklar visas inloggningsknapparna i demoläge: besökaren ser flödet men ingen riktig inloggning sker — en tydlig demoruta förklarar hur Clerk kopplas in. Med nycklar på plats blir samma knappar riktig inloggning.",
   "envVars": [
     {
       "key": "CLERK_SECRET_KEY",
@@ -44,7 +45,7 @@
     {
       "path": "components/auth-buttons.tsx",
       "role": "client",
-      "injectionMode": "rewritable"
+      "injectionMode": "verbatim"
     },
     {
       "path": "components/middleware.ts",

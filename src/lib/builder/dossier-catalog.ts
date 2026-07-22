@@ -16,6 +16,8 @@ export interface DossierCatalogEntry {
   capability: string;
   class: "hard" | "soft";
   summary: string;
+  /** Swedish catalog description (manifest `summarySv`); fallback: `summary`. */
+  summarySv?: string;
   envVarCount: number;
   groupId: string;
   groupLabel: string;

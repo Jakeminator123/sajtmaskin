@@ -353,14 +353,17 @@ function compactProviderKey(value: string): string {
 function isSuppressedProviderBacking(
   providerCompact: string,
   capability: string,
+  dossierId: string,
 ): boolean {
   if (providerCompact === "supabase" && capability === "subscriptions") return true;
   if (providerCompact === "openai" && capability === "rag-chat") return true;
   // supabase-auth's id ("supabase-*") id-prefix-matches the generic "supabase"
   // DATA provider, so approving Supabase for storage/database would otherwise
   // inject auth middleware/callback/client (Codex P1 dossier-batch). Supabase
-  // Auth enters only via explicit `supabase-auth` capability selection.
-  if (providerCompact === "supabase" && capability === "supabase-auth") return true;
+  // Auth enters only via an explicit Supabase-auth ask (relevanceKeywords
+  // under the shared `auth` capability) or the subscriptions dependency pin —
+  // matched on DOSSIER ID since the capability merge (2026-07-22).
+  if (providerCompact === "supabase" && dossierId === "supabase-auth") return true;
   return false;
 }
 
@@ -378,7 +381,7 @@ export function mapProviderKeysToDossierCapabilities(
     for (const matcher of backingIndex.matchers) {
       if (
         matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability)
+        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId)
       ) {
         capabilities.add(matcher.capability);
       }
@@ -409,7 +412,7 @@ export function mapProviderKeysToBackingDossierIds(
     for (const matcher of backingIndex.matchers) {
       if (
         matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability)
+        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId)
       ) {
         ids.add(matcher.dossierId);
       }
@@ -442,7 +445,7 @@ export function providerKeysWithoutBackingDossier(
     const hasBacking = backingIndex.matchers.some(
       (matcher) =>
         matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability),
+        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId),
     );
     if (!hasBacking) keys.add(def.key.toLowerCase());
   }
@@ -509,7 +512,7 @@ export function approvedProvidersShipConfigNotice(providerKeys: string[]): boole
     // (otherwise the F3 prompt tells the model to render a component that was
     // never emitted → build break).
     const strictBacking = backingIndex.matchers.filter(
-      (m) => m.matchesStrict(def) && !isSuppressedProviderBacking(compact, m.capability),
+      (m) => m.matchesStrict(def) && !isSuppressedProviderBacking(compact, m.capability, m.dossierId),
     );
     if (backingDossierShipsConfigNotice(strictBacking)) return true;
   }
@@ -585,8 +588,8 @@ export function deriveTier3BuildSpec(
     const configNoticeBacking = backingDossiers.filter(
       (m) =>
         m.matchesStrict(def) &&
-        !isSuppressedProviderBacking(defProviderCompact, m.capability) &&
-        !isSuppressedProviderBacking(defKeyCompact, m.capability),
+        !isSuppressedProviderBacking(defProviderCompact, m.capability, m.dossierId) &&
+        !isSuppressedProviderBacking(defKeyCompact, m.capability, m.dossierId),
     );
 
     requirements.push({

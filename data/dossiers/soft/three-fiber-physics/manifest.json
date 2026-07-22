@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "three-fiber-physics",
-  "label": "Three Fiber Physics",
+  "label": "3D-fysik",
   "capability": "physics-3d",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Adds React Three Rapier guidance for real physics-driven 3D scenes with gravity, bouncing, collisions or rigid bodies. Use together with the decorative Three Fiber canvas shell when the prompt explicitly asks for simulated forces.",
+  "summarySv": "Ger tredimensionella inslag verklighetstrogen fysik som tyngdkraft, studsar och kollisioner. Välj det när saker uttryckligen ska röra sig som på riktigt i en 3D-scen; fungerar helt utan externa tjänster.",
   "envVars": [],
   "dependencies": [
     "@react-three/rapier"

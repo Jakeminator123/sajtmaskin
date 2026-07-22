@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
 <!-- source-fingerprint: config/env-policy.json sha256:008517dda5a607de -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5a8d6ca75930e172 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
 # Policies
@@ -166,12 +166,12 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 | Dossier                 | Capability             | Key                                  | Required | Enforcement       | F2 mock   |
 | ----------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
-| `ably-realtime`         | `realtime`             | `ABLY_API_KEY`                       | Yes      | `feature-runtime` | `none`    |
+| `ably-realtime`         | `realtime`             | `ABLY_API_KEY`                       | Yes      | `feature-runtime` | `visual`  |
 | `ai-tool-calling-chat`  | `ai-tool-calling`      | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `clerk-auth`            | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `none`    |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `none`    |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `none`    |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL`      | No       | `warn-only`       | `none`    |
+| `clerk-auth`            | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
+| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
+| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |
+| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL`      | No       | `warn-only`       | `visual`  |
 | `fal-image-generation`  | `image-generation`     | `FAL_API_KEY`                        | Yes      | `feature-runtime` | `canned`  |
 | `mailchimp-newsletter`  | `newsletter-subscribe` | `MAILCHIMP_API_KEY`                  | Yes      | `feature-runtime` | `success` |
 | `mailchimp-newsletter`  | `newsletter-subscribe` | `MAILCHIMP_AUDIENCE_ID`              | Yes      | `feature-runtime` | `success` |
@@ -179,12 +179,12 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `mongodb-atlas`         | `database`             | `MONGODB_URI`                        | Yes      | `feature-runtime` | `seed`    |
 | `neon-postgres`         | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
 | `openai-chat`           | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_PADDLE_ENV`             | No       | `warn-only`       | `none`    |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `none`    |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `none`    |
-| `paddle-billing`        | `subscriptions`        | `PADDLE_API_KEY`                     | Yes      | `feature-runtime` | `none`    |
-| `paddle-billing`        | `subscriptions`        | `PADDLE_NOTIFICATION_WEBHOOK_SECRET` | Yes      | `feature-runtime` | `none`    |
-| `paddle-billing`        | `subscriptions`        | `SUPABASE_SERVICE_ROLE_KEY`          | Yes      | `feature-runtime` | `none`    |
+| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_PADDLE_ENV`             | No       | `warn-only`       | `visual`  |
+| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
+| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
+| `paddle-billing`        | `subscriptions`        | `PADDLE_API_KEY`                     | Yes      | `feature-runtime` | `visual`  |
+| `paddle-billing`        | `subscriptions`        | `PADDLE_NOTIFICATION_WEBHOOK_SECRET` | Yes      | `feature-runtime` | `visual`  |
+| `paddle-billing`        | `subscriptions`        | `SUPABASE_SERVICE_ROLE_KEY`          | Yes      | `feature-runtime` | `visual`  |
 | `plausible-analytics`   | `analytics`            | `NEXT_PUBLIC_PLAUSIBLE_API_HOST`     | No       | `warn-only`       | `none`    |
 | `plausible-analytics`   | `analytics`            | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`       | Yes      | `warn-only`       | `none`    |
 | `postgres-drizzle`      | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
@@ -201,10 +201,10 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `sentry-error-tracking` | `error-tracking`       | `NEXT_PUBLIC_SENTRY_DSN`             | No       | `warn-only`       | `none`    |
 | `sentry-error-tracking` | `error-tracking`       | `SENTRY_ENVIRONMENT`                 | No       | `warn-only`       | `none`    |
 | `sentry-error-tracking` | `error-tracking`       | `SENTRY_TRACES_SAMPLE_RATE`          | No       | `warn-only`       | `none`    |
-| `stripe-checkout`       | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes      | `warn-only`       | `none`    |
-| `stripe-checkout`       | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `none`    |
-| `supabase-auth`         | `supabase-auth`        | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `none`    |
-| `supabase-auth`         | `supabase-auth`        | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `none`    |
+| `stripe-checkout`       | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes      | `warn-only`       | `visual`  |
+| `stripe-checkout`       | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `visual`  |
+| `supabase-auth`         | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
+| `supabase-auth`         | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
 
 ## Control-plane registry
 

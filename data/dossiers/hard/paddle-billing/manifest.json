@@ -1,13 +1,14 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "paddle-billing",
-  "mock": "none",
-  "label": "Paddle Billing Subscriptions",
+  "mock": "visual",
+  "label": "Prenumerationer — Paddle",
   "capability": "subscriptions",
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,
-  "summary": "Use when a Next.js App Router app needs recurring Paddle Billing subscriptions: signed webhooks sync subscription state into a Supabase 'subscriptions' table, plus an authenticated customer-portal endpoint. Separate from one-off 'payments' (Stripe). Requires Supabase Auth (bring the supabase-auth dossier for root middleware / session refresh) + a host-provided subscriptions table with a user_id column; ships server routes + helpers (not checkout UI, not auth middleware) and degrades to a demo-mode config notice + 503 when env or the table is missing.",
+  "summary": "Recurring Paddle Billing subscriptions for Next.js App Router: signed webhooks sync subscription state into a Supabase 'subscriptions' table, plus an authenticated customer-portal endpoint. Separate from one-off 'payments' (Stripe). Requires Supabase Auth — selection auto-pins the supabase-auth dossier under 'auth' — plus a host-provided subscriptions table with a user_id column. Demo mode (mock: visual): plan/pricing UI renders fully and manage-subscription actions show the SubscriptionConfigNotice + 503 instead of touching Paddle — no fake billing.",
+  "summarySv": "Återkommande prenumerationer och medlemskap via Paddle. Väljer du detta kopplas Supabase-inloggning in automatiskt (krävs för kundportalen). Utan riktiga nycklar visas planer och prenumerationsytan i demoläge med en tydlig notis — ingen debitering sker förrän Paddle är kopplat.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SUPABASE_URL",

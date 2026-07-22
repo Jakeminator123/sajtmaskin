@@ -368,6 +368,7 @@ async function buildDossierOverview(
       class: entry.class,
       capability: entry.capability,
       summary: entry.summary,
+      summarySv: entry.summarySv,
       complexity: entry.complexity,
       requiresF3,
       configured: selected.configured,

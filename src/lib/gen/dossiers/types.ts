@@ -73,14 +73,20 @@ export type DossierEnvVarEnforcement = "build" | "feature-runtime" | "warn-only"
  *   deps.
  * - `"success"`: mutation endpoints return a fake success + a demo notice
  *   (contact form, newsletter subscribe).
- * - `"none"`: cannot be mocked meaningfully (payments, auth) → the UI shows a
- *   discreet demo/configuration banner (the `IntegrationConfigNotice` pattern).
+ * - `"visual"`: the interactive surface renders fully (checkout button, login
+ *   controls, live widget) and the ACTION opens an honest demo notice/modal
+ *   instead of performing the real operation — no fake sessions, no fake
+ *   charges, no fake transport. The real backend activates when provider
+ *   values are set (payments, auth, subscriptions, realtime).
+ * - `"none"`: no meaningful demo surface at all → the UI shows a discreet
+ *   demo/configuration banner (the `IntegrationConfigNotice` pattern) or
+ *   self-disables (analytics/error-tracking).
  *
  * Omitted `mock` = `"none"` behavior (backwards compatible). Mock values are
  * F2/preview-only — never persisted to `projectEnvVars` and never shipped to a
  * real deploy.
  */
-export type DossierMockMode = "canned" | "seed" | "success" | "none";
+export type DossierMockMode = "canned" | "seed" | "success" | "visual" | "none";
 
 export interface DossierEnvVar {
   key: string;
@@ -125,8 +131,15 @@ export interface DossierEntry {
    * `defaultForCapability` pick — see `pickForCapability` in `select.ts`.
    */
   relevanceKeywords?: string[];
-  /** 1-3 sentences describing the dossier. */
+  /** 1-3 sentences describing the dossier (English — reaches the prompt). */
   summary: string;
+  /**
+   * Optional Swedish catalog description shown in user-facing UI (builder
+   * Byggblock panel, backoffice). Never reaches the codegen prompt — the
+   * English `summary` stays the prompt surface. Falls back to `summary`
+   * when omitted.
+   */
+  summarySv?: string;
   envVars?: DossierEnvVar[];
   dependencies?: string[];
   files?: DossierFile[];
@@ -150,7 +163,7 @@ export interface DossierEntry {
 export interface SelectedDossier {
   entry: DossierEntry;
   /** Why this dossier was picked. */
-  reason: "capability-match" | "default-fallback" | "relevance-keyword";
+  reason: "capability-match" | "default-fallback" | "relevance-keyword" | "dependency-pin";
   /**
    * True if all required envVars have a real stored value for the current
    * project (via `SelectDossiersOptions.configuredEnvKeys`). Soft dossiers (no

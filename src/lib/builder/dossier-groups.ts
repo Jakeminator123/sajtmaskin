@@ -5,12 +5,16 @@
  * impact, and no persisted data. It is a thin UI map from a dossier's
  * `capability` (the same free-form string that already drives selection and
  * lives in `data/dossiers/_index/capability-map.json`) to a Swedish group
- * label, so the builder "Dossiers" popover can bucket rows under readable
+ * label, so the builder "Byggblock" popover can bucket rows under readable
  * headings. Unknown capabilities fall into "Övrigt".
  *
  * Source-of-truth for the capability list stays the dossier manifests; keep
  * this map in sync when a NEW capability is introduced (the unit test asserts
  * every capability in `capability-map.json` resolves to a non-"Övrigt" group).
+ *
+ * Taxonomy 2026-07-22: groups rebuilt around common business-site needs
+ * (search/maps/media got real homes; the parked content-section and
+ * parallax/marquee capabilities left the map — see `_parkering/`).
  */
 
 export interface DossierGroup {
@@ -21,15 +25,15 @@ export interface DossierGroup {
 }
 
 export const DOSSIER_GROUPS = {
-  "data-storage": { id: "data-storage", label: "Data & lagring" },
-  payments: { id: "payments", label: "Betalningar" },
+  "data-content": { id: "data-content", label: "Data & innehåll" },
   auth: { id: "auth", label: "Inloggning & konton" },
+  commerce: { id: "commerce", label: "Betalning & handel" },
+  contact: { id: "contact", label: "Kontakt & utskick" },
   ai: { id: "ai", label: "AI" },
-  email: { id: "email", label: "E-post & utskick" },
-  analytics: { id: "analytics", label: "Analys & övervakning" },
-  realtime: { id: "realtime", label: "Realtid" },
-  content: { id: "content", label: "Innehåll & sektioner" },
-  "visual-interaction": { id: "visual-interaction", label: "Visuellt & interaktion" },
+  "search-maps": { id: "search-maps", label: "Sök & karta" },
+  media: { id: "media", label: "Media & galleri" },
+  interactive: { id: "interactive", label: "Interaktivt & 3D" },
+  ops: { id: "ops", label: "Realtid & drift" },
   other: { id: "other", label: "Övrigt" },
 } as const satisfies Record<string, DossierGroup>;
 
@@ -37,15 +41,15 @@ export type DossierGroupId = keyof typeof DOSSIER_GROUPS;
 
 /** Stable render order for the groups in the UI. */
 export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
-  DOSSIER_GROUPS["data-storage"],
-  DOSSIER_GROUPS.payments,
+  DOSSIER_GROUPS["data-content"],
   DOSSIER_GROUPS.auth,
+  DOSSIER_GROUPS.commerce,
+  DOSSIER_GROUPS.contact,
   DOSSIER_GROUPS.ai,
-  DOSSIER_GROUPS.email,
-  DOSSIER_GROUPS.analytics,
-  DOSSIER_GROUPS.realtime,
-  DOSSIER_GROUPS.content,
-  DOSSIER_GROUPS["visual-interaction"],
+  DOSSIER_GROUPS["search-maps"],
+  DOSSIER_GROUPS.media,
+  DOSSIER_GROUPS.interactive,
+  DOSSIER_GROUPS.ops,
   DOSSIER_GROUPS.other,
 ];
 
@@ -55,48 +59,38 @@ export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
  * lands in a real group instead of "Övrigt" (enforced by the unit test).
  */
 const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
-  database: "data-storage",
+  database: "data-content",
   // Headless CMS (sanity-cms): storage/content-management, same bucket as
-  // the database dossiers rather than the visual "content sections" group.
-  cms: "data-storage",
-  payments: "payments",
-  // Recurring billing (paddle-billing) is money-flow — same user-facing bucket
-  // as one-off payments.
-  subscriptions: "payments",
+  // the database dossiers.
+  cms: "data-content",
+  // One capability since 2026-07-22 — clerk-auth (default) and supabase-auth
+  // are provider siblings under `auth`.
   auth: "auth",
-  // Supabase-specific auth (explicit-ask capability) shares the auth bucket.
-  "supabase-auth": "auth",
+  payments: "commerce",
+  subscriptions: "commerce",
+  "contact-form": "contact",
+  "newsletter-subscribe": "contact",
   "ai-chat": "ai",
   "ai-tool-calling": "ai",
   "rag-chat": "ai",
   "image-generation": "ai",
-  "contact-form": "email",
-  "newsletter-subscribe": "email",
-  analytics: "analytics",
-  "error-tracking": "analytics",
-  realtime: "realtime",
-  // Content sections: informational page sections — copy/structure first
-  // (stepper included per owner decision, despite its interactive surface).
-  "cta-section": "content",
-  "faq-section": "content",
-  "pricing-section": "content",
-  "testimonials-section": "content",
-  "feature-grid": "content",
-  "stats-counter": "content",
-  stepper: "content",
-  "logo-cloud": "content",
-  // Visual & interaction: motion, 3D, games and data-viz — presentation is
-  // the point, not the copy.
-  carousel: "visual-interaction",
-  marquee: "visual-interaction",
-  "gallery-lightbox": "visual-interaction",
-  "parallax-scroll": "visual-interaction",
-  "parallax-pointer": "visual-interaction",
-  "visual-3d": "visual-interaction",
-  "physics-3d": "visual-interaction",
-  "interactive-game": "visual-interaction",
-  "dashboard-charts": "visual-interaction",
-  "command-search": "visual-interaction",
+  // Search & maps: local site search + map display are key-free demo-first
+  // capabilities; command-palette (f.d. command-search) is the cmd+k surface.
+  "site-search": "search-maps",
+  "map-display": "search-maps",
+  "command-palette": "search-maps",
+  // Media & gallery: showing images — click-to-enlarge vs swipe slider.
+  "gallery-lightbox": "media",
+  carousel: "media",
+  // Interactive & 3D: motion/3D/games/data-viz where presentation is the point.
+  "visual-3d": "interactive",
+  "physics-3d": "interactive",
+  "interactive-game": "interactive",
+  "dashboard-charts": "interactive",
+  // Realtime & operations: live transport + fire-and-forget observability.
+  realtime: "ops",
+  analytics: "ops",
+  "error-tracking": "ops",
 };
 
 /**

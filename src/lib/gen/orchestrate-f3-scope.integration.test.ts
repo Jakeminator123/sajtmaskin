@@ -80,13 +80,13 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
     const base = await resolveOrchestrationBase(
       baseInput({
         lifecycleStage: "design",
-        followUpContract: followUpContract(["faq-section"]),
+        followUpContract: followUpContract(["gallery-lightbox"]),
         previousFilePaths: ["app/page.tsx"],
       }),
     );
-    // `faq-section` (soft, F2-usable) is restored by can-only-grow even though
-    // this follow-up message is a pure visual tweak.
-    expect(base.dossierRequestedCapabilities).toContain("faq-section");
+    // `gallery-lightbox` (soft, F2-usable) is restored by can-only-grow even
+    // though this follow-up message is a pure visual tweak.
+    expect(base.dossierRequestedCapabilities).toContain("gallery-lightbox");
   });
 
   it("integrations round DOES scope: floor-only capabilities without ask/approval/evidence are dropped, file-evidenced ones survive", async () => {
@@ -99,7 +99,7 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
           "payments",
           "analytics",
           "ai-tool-calling",
-          "faq-section",
+          "gallery-lightbox",
         ]),
         previousFilePaths: [
           "app/page.tsx",

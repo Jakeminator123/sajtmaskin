@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "postgres-drizzle",
   "mock": "seed",
-  "label": "Postgres + Drizzle",
+  "label": "Databas — Postgres (standard)",
   "capability": "database",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Use when a Next.js app needs a server-side PostgreSQL database layer with Drizzle ORM, migrations, a typed schema module, shared DB client, and a simple health-check route. When DATABASE_URL is missing the app must not crash: pages fall back to static seedData with a discreet config notice, and API routes answer 503. Keep it to persistence infrastructure; application tables and queries should be adapted to the generated app domain.",
+  "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. Neon och MongoDB är alternativ om du själv nämner dem; utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
   "envVars": [
     {
       "key": "DATABASE_URL",

@@ -93,7 +93,7 @@ Om brief-LLM:n deklarerar en capability som ingen dossier täcker:
 
 → Lägg till en dossier för den capability eller justera brief-prompten.
 
-Om en hard-dossier saknar en riktig nyckel (kollas mot **projektets** sparade env-nycklar, inte plattformens `process.env`) renderas `[UNCONFIGURED — render placeholder UI]` i system-promptens `## Available Dossiers`-block, och codegen-LLM:n får dossierns `mock`-läge (`canned`/`seed`/`success`/`none`) så demo-ytan fungerar i F2. Se [`dossier-system.md`](../contracts/dossier-system.md) § Mock/demo-läge.
+Om en hard-dossier saknar en riktig nyckel (kollas mot **projektets** sparade env-nycklar, inte plattformens `process.env`) renderas `[UNCONFIGURED — render placeholder UI]` i system-promptens `## Available Dossiers`-block, och codegen-LLM:n får dossierns `mock`-läge (`canned`/`seed`/`success`/`visual`/`none`) så demo-ytan fungerar i F2. Se [`dossier-system.md`](../contracts/dossier-system.md) § Mock/demo-läge.
 
 ## Mappstruktur
 
