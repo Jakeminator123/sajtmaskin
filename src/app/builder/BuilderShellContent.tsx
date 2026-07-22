@@ -659,6 +659,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // ett val medan en fråga väntar skulle tyst avfärda frågan. Disable:a
   // katalograderna i båda lägena (panelen visar en kort hint).
   const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
+  // Färsk spegling av upptaget-läget så en async-sändare kan omkontrollera det
+  // EFTER ett await (closure-fångat `catalogPickDisabled` hinner bli inaktuellt).
+  const catalogPickDisabledRef = useRef(catalogPickDisabled);
+  useEffect(() => {
+    catalogPickDisabledRef.current = catalogPickDisabled;
+  }, [catalogPickDisabled]);
 
   // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
   // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
@@ -694,10 +700,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       shadcnInsertInFlightRef.current = true;
       try {
         const built = await buildShadcnInsertMessage(selection);
-        await sendMessage(built.message, { promptSourceMeta: built.meta });
-      } catch (err) {
-        toast.error("Kunde inte skicka blocket till own-engine.");
-        throw err;
+        // Omkontroll efter registry-fetchen: `catalogPickDisabled` lästes vid
+        // entry, men under await:et kan användaren ha startat en annan
+        // generering. sendMessage skulle då aborta den streamen — kasta i
+        // stället (kortet markeras aldrig skickat). Dossier-katalogen bygger
+        // meddelandet synkront och har därför inte det här fönstret.
+        if (catalogPickDisabledRef.current) {
+          toast.error("Vänta tills den pågående genereringen är klar.");
+          throw new Error("builder became busy during insert build");
+        }
+        try {
+          await sendMessage(built.message, { promptSourceMeta: built.meta });
+        } catch (err) {
+          toast.error("Kunde inte skicka blocket till own-engine.");
+          throw err;
+        }
       } finally {
         shadcnInsertInFlightRef.current = false;
       }
