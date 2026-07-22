@@ -215,9 +215,18 @@ export default defineConfig([
   // They are quality signals ("prefer this pattern"), not runtime breakage, so
   // they must stay ADVISORY (warn) — a hand-rolled setState-in-effect renders
   // fine, and a single such warning should never hard-fail \`eslint .\` (the F3
-  // ReleaseGate treats lint errors as blocking, warnings as advisory). This
-  // mirrors the Sajtmaskin app's own eslint.config.mjs stance for these rules.
+  // ReleaseGate treats lint errors as blocking, warnings as advisory).
+  //
+  // The files scope below MUST match eslint-config-next's own react-hooks glob
+  // (js, jsx, mjs, ts, tsx, mts, cts): eslint-config-next registers the
+  // react-hooks plugin ONLY for those extensions. An unscoped override would
+  // reference these rule names for e.g. a .cjs config file too, where the
+  // plugin is NOT registered — ESLint then aborts the whole run with "could
+  // not find plugin react-hooks", re-hard-blocking the ReleaseGate this fix
+  // removes. (The Sajtmaskin app avoids this by injecting the same warns into
+  // the already-scoped eslint-config-next objects.)
   {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",

@@ -588,6 +588,12 @@ describe("buildCompleteProject", () => {
     expect(eslintConfig!.content).toContain('"react-hooks/purity": "warn"');
     // No react-hooks rule should be pinned to error in the generated config.
     expect(eslintConfig!.content).not.toMatch(/"react-hooks\/[^"]+":\s*"error"/);
+    // Regression guard: the react-hooks warn override MUST be scoped to
+    // eslint-config-next's own react-hooks glob. An unscoped override applies
+    // these rule names to `.cjs` files too, where eslint-config-next does not
+    // register the react-hooks plugin — ESLint then aborts the whole run with
+    // "could not find plugin react-hooks", re-hard-blocking the ReleaseGate.
+    expect(eslintConfig!.content).toContain('files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"]');
   });
 
   it("includes dependencies required by copied ui components when completing the project", () => {
