@@ -68,9 +68,13 @@ def render(ctx: BackofficeContext) -> None:
     c2.metric("Fil-snapshots totalt", sum(int(e["snapshots"]) for e in entries))
     c3.metric("Katalog-snapshots (zip)", sum(int(e["snapshots"]) for e in tree_entries))
 
+    _render_file_section(ctx, entries)
+    _render_tree_section(ctx, tree_entries)
+
+
+def _render_file_section(ctx: BackofficeContext, entries: list[dict]) -> None:
     if not entries:
-        st.info("Inga fil-snapshots ännu — hoppa till katalogsektionen nedan.")
-        _render_tree_section(ctx, tree_entries)
+        st.info("Inga fil-snapshots ännu — se katalogsektionen nedan.")
         return
 
     st.subheader("Filer med säkerhetskopior")
@@ -145,8 +149,6 @@ def render(ctx: BackofficeContext) -> None:
                 st.rerun()
             else:
                 st.error(message)
-
-    _render_tree_section(ctx, tree_entries)
 
 
 def _render_tree_section(ctx: BackofficeContext, tree_entries: list[dict]) -> None:

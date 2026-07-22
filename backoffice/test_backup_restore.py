@@ -176,6 +176,25 @@ class BackupTreeTests(unittest.TestCase):
         ok, _message = restore_tree("data/dossiers/hard/other", snap, self.root)
         self.assertFalse(ok)
 
+    def test_restore_tree_corrupt_zip_leaves_target_untouched(self) -> None:
+        """Fail-closed: en korrupt zip får ALDRIG radera den levande katalogen —
+        zipen packas upp till en temp-syskonkatalog innan något tas bort."""
+        snap = backup_tree(self.dossier, self.root)
+        assert snap is not None
+        snap.write_bytes(b"not a zip archive")
+
+        rel = "data/dossiers/hard/example"
+        ok, _message = restore_tree(rel, snap, self.root)
+        self.assertFalse(ok)
+        self.assertTrue((self.dossier / "manifest.json").is_file())
+        self.assertEqual(
+            (self.dossier / "manifest.json").read_text(encoding="utf-8"),
+            '{"id": "example"}\n',
+        )
+        # Ingen temp-katalog får lämnas kvar.
+        leftovers = [p for p in self.dossier.parent.iterdir() if p.name.startswith(".restore-tmp-")]
+        self.assertEqual(leftovers, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -416,7 +416,12 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
         return False, f"Sökvägen ligger utanför dossier-poolen: `{rel_path}` — inget raderades."
     if not target_dir.exists():
         return False, f"Katalogen finns inte längre: `{rel_path}`."
-    backup_tree(target_dir, REPO_ROOT)
+    # Fail-closed: radera inte om zip-snapshoten (Återställning) inte kunde tas.
+    if backup_tree(target_dir, REPO_ROOT) is None:
+        return False, (
+            f"Kunde inte ta zip-snapshot av `{rel_path}` — "
+            "avbröt raderingen, inget raderades."
+        )
     shutil.rmtree(target_dir)
     return True, (
         f"Raderade `{rel_path}`.\n\n"

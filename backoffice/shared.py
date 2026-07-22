@@ -260,8 +260,10 @@ def restore_tree(
 ) -> tuple[bool, str]:
     """Restore a zipped directory snapshot onto its original repo path.
 
-    If the directory currently exists it is zipped first (so the restore is
-    undoable) and then replaced by the snapshot content.
+    Fails closed on both sides: the zip is unpacked to a temp sibling FIRST
+    (so a corrupt archive never destroys the live directory), and if the
+    directory currently exists it must be successfully zipped (undo-snapshot)
+    before it is replaced.
     """
     root = (repo_root or find_repo_root()).resolve()
     target = (root / rel_path).resolve()
@@ -275,14 +277,29 @@ def restore_tree(
     expected_dir = (backup_root(root) / "trees" / rel_path).resolve()
     if snapshot.resolve().parent != expected_dir:
         return False, "Snapshoten hör inte till den valda katalogen — inget återställdes."
+
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+    tmp_extract = target.parent / f".restore-tmp-{stamp}"
     try:
+        # 1) Validera zipen genom att packa upp till en temp-syskonkatalog
+        #    (samma filsystem → atomiskt rename-swap nedan).
+        tmp_extract.mkdir(parents=True, exist_ok=False)
+        shutil.unpack_archive(str(snapshot), extract_dir=str(tmp_extract), format="zip")
+        # 2) Snapshota nuvarande katalog (ångringsbart) — fail-closed.
         if target.is_dir():
-            backup_tree(target, root)
+            if backup_tree(target, root) is None:
+                return False, (
+                    "Kunde inte säkerhetskopiera katalogens nuvarande innehåll — "
+                    "avbryter återställningen utan att röra katalogen."
+                )
             shutil.rmtree(target)
-        target.mkdir(parents=True, exist_ok=True)
-        shutil.unpack_archive(str(snapshot), extract_dir=str(target), format="zip")
+        # 3) Swappa in det uppackade innehållet.
+        tmp_extract.rename(target)
     except (OSError, shutil.Error, ValueError) as exc:
         return False, f"Kunde inte återställa: {exc}"
+    finally:
+        if tmp_extract.is_dir():
+            shutil.rmtree(tmp_extract, ignore_errors=True)
     return True, f"Återställde katalogen `{rel_path}` från `{snapshot.name}`."
 
 
@@ -324,7 +341,9 @@ def restore_backup(
     """Restore one snapshot onto its original repo file.
 
     The current file content is snapshotted first, so a restore is itself
-    undoable. Returns ``(ok, message)``.
+    undoable. Fails closed: if that pre-restore snapshot cannot be taken the
+    restore is aborted, so the current content is never silently lost.
+    Returns ``(ok, message)``.
     """
     root = (repo_root or find_repo_root()).resolve()
     target = (root / rel_path).resolve()
@@ -338,8 +357,12 @@ def restore_backup(
     expected_dir = (backup_root(root) / "files" / rel_path).resolve()
     if snapshot.resolve().parent != expected_dir:
         return False, "Snapshoten hör inte till den valda filen — inget återställdes."
+    if target.is_file() and backup_file(target, root) is None:
+        return False, (
+            "Kunde inte säkerhetskopiera filens nuvarande innehåll — "
+            "avbryter återställningen utan att röra filen."
+        )
     try:
-        backup_file(target, root)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(snapshot.read_bytes())
     except OSError as exc:

@@ -1054,7 +1054,13 @@ def _render_delete_variant(
         key=f"delete_variant_button_{selected_scaffold}_{selected_variant.get('id', '')}",
         disabled=not confirm,
     ):
-        backup_file(variant_path)
+        # Fail-closed: radera inte om snapshoten (Återställning) inte kunde tas.
+        if variant_path.is_file() and backup_file(variant_path, ctx.repo_root) is None:
+            st.error(
+                "Kunde inte ta en snapshot av variant-filen — "
+                "avbröt raderingen, inget togs bort."
+            )
+            return
         variant_path.unlink(missing_ok=True)
         st.success(
             f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}` "
@@ -1826,11 +1832,17 @@ def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
     variant_dir = ctx.variants_dir / scaffold_id
     scaffold_dir = ctx.scaffolds_dir / scaffold_id
 
+    # Fail-closed: ta zip-snapshots (Återställning) FÖRE någon radering.
+    # Misslyckas en snapshot avbryts hela raderingen utan att röra disken.
+    for directory in (variant_dir, scaffold_dir):
+        if directory.is_dir() and backup_tree(directory, ctx.repo_root) is None:
+            raise RuntimeError(
+                f"Kunde inte ta zip-snapshot av `{directory}` — "
+                "avbröt raderingen, inget togs bort."
+            )
     if variant_dir.is_dir():
-        backup_tree(variant_dir, ctx.repo_root)
         shutil.rmtree(variant_dir)
     if scaffold_dir.is_dir():
-        backup_tree(scaffold_dir, ctx.repo_root)
         shutil.rmtree(scaffold_dir)
 
     _update_types_for_deleted_scaffold(ctx, scaffold_id)
