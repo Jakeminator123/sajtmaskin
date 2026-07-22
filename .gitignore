@@ -296,4 +296,3 @@ docs/plans/**/run.log.jsonl
 
 # Local agent tooling (Cursor skills symlink) — never deployed, keep out of git
 .agents/
-.env*
