@@ -1,0 +1,61 @@
+---
+description: "Lokal MCP/Git/Vercel/Supabase/shadcn-setup för Cursor på denna maskin + worktrees. Följ vid tooling, deploy-loggar, DB-introspekt eller ny worktree."
+alwaysApply: true
+---
+
+# Lokal tooling (MCP / Git / Vercel / Supabase)
+
+Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende läses i `docs/`, övriga `.cursor/rules/` och `sajtmaskin-context`-skillen.
+
+## MCP-filer
+
+| Plats | Roll |
+|---|---|
+| `%USERPROFILE%\.cursor\mcp.json` | Global fallback (vercel + supabase read-only + shadcn) — funkar i worktrees utan lokal fil |
+| `.cursor/mcp.json` | Projekt-override (**gitignorerad**, committa aldrig) |
+| `.cursor/mcp.json.example` | Mall — kopiera till `.cursor/mcp.json` i nya worktrees |
+
+Ny worktree utan MCP:
+
+```powershell
+# från huvudcheckouten:
+pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees
+# eller bara denna checkout:
+pwsh -File scripts/cursor/sync-mcp-json.ps1
+```
+
+Plugins (`.cursor/settings.json`): `vercel` + `supabase` enabled.
+
+## MCP-servrar i detta repo
+
+| Server | URL / kommando | När |
+|---|---|---|
+| `vercel` | `https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin` | Deploy/loggar för **denna** app |
+| `user-vercel` | `https://mcp.vercel.com` | Fallback vid 403 / andra projekt |
+| `supabase` | `https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true` | Schema/SQL **read-only** |
+| `shadcn` | `scripts/cursor/shadcn-mcp.cmd` → `shadcn@4.13.1 mcp` | Registry-sök/install |
+
+- OAuth: Settings → Tools & MCP (grön status). Reload fönster efter `mcp.json`-ändring.
+- `plugin-vercel-vercel` kan ge 403 → använd `vercel` / `user-vercel`.
+- Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
+- Supabase-MCP: **ingen destruktiv SQL**. Ignorera RLS-varning på `public.schema_migrations` om inte explicit ombedd (migrationsmetadata, inte appdata).
+
+## Vercel / GitHub (denna maskin)
+
+- Vercel CLI: team `jakeminator123s-projects`, projekt `sajtmaskin` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`, team `team_j7KE5zKTm5rdg7zfWzOZhJ89`). Se `.vercel/repo.json`.
+- GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-nyckel: `~/.ssh/id_ed25519_github` (Host `github.com` i `~/.ssh/config`).
+- Terminal: PowerShell 7 (`pwsh`) — se även `bash-och-pwsh.mdc`.
+- Worktrees: eget fönster per checkout; byt inte branch i delad huvudcheckout — se `agent-worktree.mdc`.
+
+## shadcn
+
+- `components.json` styr registries (`@shadcnblocks`, `@tailark`, `@magicui`, …).
+- Föredra shadcn-MCP; annars `npx shadcn@4.13.1 …` (samma pin som wrappern).
+
+## Felsök “ibland funkar”
+
+1. Reload Cursor efter MCP-ändring  
+2. Tools & MCP → login / grön status  
+3. Worktree saknar `.cursor/mcp.json`? Kopiera example eller lita på global  
+4. Vercel 403 → `user-vercel`  
+5. `ssh`/`gh` saknas i terminal → ny pwsh-session (User PATH)

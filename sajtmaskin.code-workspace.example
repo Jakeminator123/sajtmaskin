@@ -1,0 +1,107 @@
+{
+  // Mall — kopiera till sajtmaskin.code-workspace (gitignorerad) vid behov.
+  // En rot = huvudcheckouten. Lägg inte till worktrees/globala Cursor-mappar här.
+  "folders": [
+    {
+      "name": "sajtmaskin",
+      "path": "."
+    }
+  ],
+  "settings": {
+    // Håll synkad med .vscode/settings.json (samma block i sajtmaskin.code-workspace).
+    "markdownlint.ignore": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/.next/**",
+      "**/out/**",
+      "**/build/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "**/research/**",
+      "**/pot_buggs/**",
+      "**/src/templates/**",
+      "**/.cursor/**",
+      "templates_v0/**",
+      "data/template-references/**",
+      "data/dossiers/_repo-cache/**"
+    ],
+    "editor.tabSize": 2,
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "eslint.useFlatConfig": true,
+    "files.eol": "\n",
+    "files.autoSave": "off",
+    "files.exclude": {
+      "**/.git": true,
+      "**/.next": true,
+      "**/node_modules": true,
+      "templates_v0/**": true,
+      "data/template-references/**": true,
+      "data/dossiers/_repo-cache/**": true,
+      "_parkering/**": true
+    },
+    "search.exclude": {
+      "**/.git": true,
+      "**/.next": true,
+      "**/node_modules": true,
+      "**/out": true,
+      "**/build": true,
+      "**/dist": true,
+      "templates_v0/**": true,
+      "data/template-references/**": true,
+      "data/dossiers/_repo-cache/**": true,
+      "_parkering/**": true
+    },
+    "files.watcherExclude": {
+      "**/.git/**": true,
+      "**/.next/**": true,
+      "**/node_modules/**": true,
+      "**/out/**": true,
+      "**/build/**": true,
+      "**/dist/**": true,
+      "**/.venv/**": true,
+      "**/.pytest_cache/**": true,
+      "templates_v0/**": true,
+      "data/template-references/**": true,
+      "data/dossiers/_repo-cache/**": true,
+      "eval-output/**": true,
+      "evals/results/**": true,
+      "_parkering/**": true
+    },
+    "search.useIgnoreFiles": true,
+    "search.useGlobalIgnoreFiles": true,
+    "search.useParentIgnoreFiles": true,
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "[json]": { "editor.defaultFormatter": "vscode.json-language-features" },
+    "[jsonc]": { "editor.defaultFormatter": "vscode.json-language-features" },
+    "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "tailwindCSS.experimental.classRegex": [
+      ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+      ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    ],
+    "git.autofetch": true,
+    "git.autofetchPeriod": 120,
+    "python.terminal.activateEnvironment": false,
+    "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+    "terminal.integrated.profiles.windows": {
+      "PowerShell 7": {
+        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "args": ["-NoLogo"],
+        "icon": "terminal-powershell"
+      }
+    },
+    "terminal.integrated.automationProfile.windows": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo", "-NoProfile"]
+    },
+    "terminal.integrated.env.windows": {
+      "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
+    }
+  }
+}
