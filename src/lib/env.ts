@@ -185,6 +185,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
   /** A7-2 (BUG-SWARM N#1): when affirmative, the cross-file import checker refuses to fabricate a silent null-render stub for a dossier-exposed import; the unresolved import degrades/blocks instead. Default off — flipping is a separate decision. */
   SAJTMASKIN_REFUSE_DOSSIER_STUBS: z.string().optional(),
+  /** Fas 4 (shadcn-registry-plan): search-driven UI Recipe candidate generation in `resolveShadcnUiRecipes` — capability signals + prompt keywords become deterministic registry-INDEX searches instead of the legacy hardcoded candidate lists. Default ON in runtime (OFF under NODE_ENV=test); set `0`/`false` to restore the legacy candidates exactly. Index fetch failure degrades to the legacy candidates automatically. No LLM calls, no new secret. Read via `isShadcnResolverSearchEnabled` i `src/lib/gen/data/shadcn-recipe-search.ts`. */
+  SAJTMASKIN_SHADCN_RESOLVER_SEARCH: z.string().optional(),
   /** Preview prewarm: default OFF. Requires preview-host base URL + API key (keyed lease HMAC); otherwise optional prewarm skips. Host ownership hides the skeleton/refuses WS, and the canonical subject cooldown survives boot failure. Deploy/verify host before app rollout or activation. Read via `FEATURES.previewPrewarm`. */
   SAJTMASKIN_PREVIEW_PREWARM: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */

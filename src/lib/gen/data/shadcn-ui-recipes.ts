@@ -7,6 +7,21 @@ import {
   getRegistryBaseUrl,
   getStyleFallbackChain,
 } from "@/lib/shadcn/registry-url";
+import {
+  buildCommunitySearchPlans,
+  buildOfficialSearchCandidates,
+  buildRecipeSearchIntents,
+  detectSectionTypes,
+  fetchOfficialIndexForResolver,
+  isShadcnResolverSearchEnabled,
+  loadCommunitySeedEntries,
+  loadDescribeCommunityRegistries,
+  pickDeterministic,
+  promptIncludes,
+  pushCandidate,
+  type CommunitySearchPlan,
+  type ShadcnUiRecipeCandidate,
+} from "./shadcn-recipe-search";
 
 const FETCH_TIMEOUT_MS = 2_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -32,12 +47,6 @@ export interface ShadcnUiRecipe {
   registryDependencies?: string[];
   files: ShadcnUiRecipeFile[];
   reason: string;
-}
-
-interface ShadcnUiRecipeCandidate {
-  name: string;
-  reason: string;
-  priority: number;
 }
 
 interface RegistryFile {
@@ -90,26 +99,6 @@ function getCached(key: string): ShadcnUiRecipe | null | undefined {
 
 function setCached(key: string, recipe: ShadcnUiRecipe | null): void {
   remoteCache.set(key, { recipe, ts: Date.now() });
-}
-
-function pushCandidate(
-  candidates: ShadcnUiRecipeCandidate[],
-  name: string,
-  reason: string,
-  priority: number,
-): void {
-  const existing = candidates.find((candidate) => candidate.name === name);
-  if (existing) {
-    existing.priority = Math.max(existing.priority, priority);
-    existing.reason = existing.priority === priority ? reason : existing.reason;
-    return;
-  }
-  candidates.push({ name, reason, priority });
-}
-
-function promptIncludes(prompt: string, terms: readonly string[]): boolean {
-  const lower = prompt.toLowerCase();
-  return terms.some((term) => lower.includes(term));
 }
 
 function registryItemType(rawType: string | undefined, source: ShadcnUiRecipeSource): ShadcnUiRecipe["itemType"] {
@@ -208,38 +197,8 @@ function loadCommunityRegistries(): CommunityRegistry[] {
   }
 }
 
-function detectSectionTypes(prompt: string): string[] {
-  const sectionPatterns: Array<{ terms: string[]; sectionType: string }> = [
-    { terms: ["hero", "hjälte", "banner", "splash"], sectionType: "hero" },
-    { terms: ["feature", "funktion", "förmåga"], sectionType: "features" },
-    { terms: ["pricing", "pris", "kostnad", "paket"], sectionType: "pricing" },
-    { terms: ["testimonial", "omdöme", "recension", "review"], sectionType: "testimonials" },
-    { terms: ["cta", "call to action", "uppman"], sectionType: "cta" },
-    { terms: ["faq", "frågor", "vanliga frågor"], sectionType: "faq" },
-    { terms: ["footer", "sidfot"], sectionType: "footer" },
-    { terms: ["navbar", "navigation", "header", "meny"], sectionType: "navbar" },
-    { terms: ["contact", "kontakt", "skicka meddelande"], sectionType: "contact" },
-    { terms: ["stats", "statistik", "siffror", "metrics"], sectionType: "stats" },
-  ];
-  return sectionPatterns
-    .filter(({ terms }) => promptIncludes(prompt, terms))
-    .map(({ sectionType }) => sectionType);
-}
-
-function hashSeed(seed: string): number {
-  let hash = 5381;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) + hash) ^ seed.charCodeAt(i);
-  }
-  return hash >>> 0;
-}
-
-function pickDeterministic<T>(items: readonly T[], seed: string): T {
-  return items[hashSeed(seed) % items.length];
-}
-
 async function fetchCommunityRecipe(
-  registry: CommunityRegistry,
+  registry: { namespace: string; url: string },
   itemName: string,
   reason: string,
 ): Promise<ShadcnUiRecipe | null> {
@@ -317,7 +276,16 @@ async function fetchCommunityRecipes(
   return recipes.slice(0, remainingSlots);
 }
 
-function buildCandidates(capabilities: InferredCapabilities, prompt: string): ShadcnUiRecipeCandidate[] {
+/**
+ * Legacy hardcoded candidate lists — the pre-Fas 4 behavior. Kept as the
+ * exact fallback when `SAJTMASKIN_SHADCN_RESOLVER_SEARCH` is off AND as the
+ * automatic degradation when the registry-index fetch fails (offline/timeout
+ * must never empty the candidate set). Exported for regression tests.
+ */
+export function buildLegacyCandidates(
+  capabilities: InferredCapabilities,
+  prompt: string,
+): ShadcnUiRecipeCandidate[] {
   const candidates: ShadcnUiRecipeCandidate[] = [];
 
   if (capabilities.needsPayments) {
@@ -382,6 +350,59 @@ function buildCandidates(capabilities: InferredCapabilities, prompt: string): Sh
   return candidates.sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
 }
 
+/**
+ * Fas 4: search-driven candidate generation. Returns `null` when the search
+ * path cannot produce official candidates (flag off is handled by the caller;
+ * here: index fetch failed OR search matched nothing) — the caller then runs
+ * the exact legacy path so network errors never shrink the candidate set.
+ */
+async function buildSearchCandidates(
+  capabilities: InferredCapabilities,
+  prompt: string,
+): Promise<{
+  candidates: ShadcnUiRecipeCandidate[];
+  communityPlans: CommunitySearchPlan[] | null;
+} | null> {
+  const indexItems = await fetchOfficialIndexForResolver();
+  if (!indexItems) return null;
+
+  const intents = buildRecipeSearchIntents(capabilities, prompt);
+  if (intents.length === 0) return null;
+
+  const candidates = buildOfficialSearchCandidates(indexItems, intents);
+  if (candidates.length === 0) return null;
+
+  const plans = buildCommunitySearchPlans(
+    loadDescribeCommunityRegistries(),
+    intents,
+    prompt,
+    loadCommunitySeedEntries(),
+  );
+  // Empty plans → the caller uses the legacy community flow for the fill so
+  // community coverage never regresses below the pre-search behavior.
+  return { candidates, communityPlans: plans.length > 0 ? plans : null };
+}
+
+async function fetchCommunityRecipesFromPlans(
+  plans: CommunitySearchPlan[],
+  remainingSlots: number,
+): Promise<ShadcnUiRecipe[]> {
+  if (remainingSlots <= 0) return [];
+  const recipes: ShadcnUiRecipe[] = [];
+  for (const plan of plans) {
+    if (recipes.length >= remainingSlots) break;
+    const recipe = await fetchCommunityRecipe(
+      { namespace: plan.namespace, url: plan.urlTemplate },
+      plan.itemName,
+      plan.reason,
+    );
+    if (recipe && !recipes.some((existing) => existing.name === recipe.name)) {
+      recipes.push(recipe);
+    }
+  }
+  return recipes;
+}
+
 export async function resolveShadcnUiRecipes(params: {
   capabilities: InferredCapabilities;
   prompt: string;
@@ -390,8 +411,23 @@ export async function resolveShadcnUiRecipes(params: {
   const maxRecipes = params.maxRecipes ?? 3;
   if (maxRecipes <= 0) return [];
 
+  let candidates: ShadcnUiRecipeCandidate[] | null = null;
+  let communityPlans: CommunitySearchPlan[] | null = null;
+
+  if (isShadcnResolverSearchEnabled()) {
+    const searched = await buildSearchCandidates(params.capabilities, params.prompt);
+    if (searched) {
+      candidates = searched.candidates;
+      communityPlans = searched.communityPlans;
+    }
+  }
+
+  // Flag off, index unreachable or zero search hits → exact legacy behavior.
+  if (!candidates) {
+    candidates = buildLegacyCandidates(params.capabilities, params.prompt);
+  }
+
   const recipes: ShadcnUiRecipe[] = [];
-  const candidates = buildCandidates(params.capabilities, params.prompt);
   for (const candidate of candidates.slice(0, MAX_REMOTE_CANDIDATES)) {
     if (recipes.length >= maxRecipes) break;
     const recipe = await fetchOfficialRecipe(candidate.name, candidate.reason);
@@ -402,11 +438,16 @@ export async function resolveShadcnUiRecipes(params: {
   }
 
   if (recipes.length < maxRecipes) {
-    const community = await fetchCommunityRecipes(
-      params.capabilities,
-      params.prompt,
-      maxRecipes - recipes.length,
-    );
+    const community = communityPlans
+      ? await fetchCommunityRecipesFromPlans(
+          communityPlans,
+          maxRecipes - recipes.length,
+        )
+      : await fetchCommunityRecipes(
+          params.capabilities,
+          params.prompt,
+          maxRecipes - recipes.length,
+        );
     for (const recipe of community) {
       if (!recipes.some((existing) => existing.name === recipe.name)) {
         recipes.push(recipe);

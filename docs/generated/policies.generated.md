@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
-<!-- source-fingerprint: config/env-policy.json sha256:7686796c26541c3e -->
+<!-- source-fingerprint: config/env-policy.json sha256:d7c788c958432404 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
@@ -127,6 +127,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_PROMPT_DUMP`                             | `local_only`           | —                                      | No            | No           |
 | `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD`         | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_REFUSE_DOSSIER_STUBS`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `SAJTMASKIN_SHADCN_RESOLVER_SEARCH`                  | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_SHIM_PREVIEW_DISABLED`                   | `optional_runtime`     | `preview`, `production`                | No            | No           |
 | `SAJTMASKIN_SOFT_TARGET_APP_CHARS`                   | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS`                 | `environment_specific` | `production`                           | No            | No           |

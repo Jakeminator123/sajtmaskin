@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   _clearShadcnUiRecipeCachesForTests,
+  buildLegacyCandidates,
   resolveShadcnUiRecipes,
 } from "./shadcn-ui-recipes";
+import { _clearShadcnRecipeSearchStateForTests } from "./shadcn-recipe-search";
+import { clearRegistryMemoryCache } from "@/lib/shadcn/registry-memory-cache";
 import type { InferredCapabilities } from "../capability-inference";
 
 const mockFetch = vi.fn();
@@ -32,6 +35,14 @@ function caps(overrides: Partial<InferredCapabilities> = {}): InferredCapabiliti
   };
 }
 
+/**
+ * The registry INDEX is fetched as `.../registry.json` on the server and via
+ * the `/api/shadcn/registry/index` proxy in browser-like envs (vitest = jsdom).
+ */
+function isIndexUrl(url: string): boolean {
+  return url.includes("registry.json") || url.includes("/api/shadcn/registry/index");
+}
+
 function registryResponse(name: string, style: string, type = "registry:ui") {
   return {
     ok: true,
@@ -55,12 +66,15 @@ function registryResponse(name: string, style: string, type = "registry:ui") {
 
 beforeEach(() => {
   _clearShadcnUiRecipeCachesForTests();
+  _clearShadcnRecipeSearchStateForTests();
+  clearRegistryMemoryCache();
   mockFetch.mockReset();
   vi.stubGlobal("fetch", mockFetch);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("resolveShadcnUiRecipes", () => {
@@ -107,6 +121,129 @@ describe("resolveShadcnUiRecipes", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.source).toBe("official");
+    expect(result[0]?.name).toBe("login-03");
+  });
+
+  // -------------------------------------------------------------------------
+  // Fas 4: search-driven candidate generation (flag-gated, legacy fallback)
+  // -------------------------------------------------------------------------
+
+  it("P1: flag OFF preserves the exact legacy behavior (no index fetch, legacy candidate order)", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "0");
+    mockFetch.mockResolvedValue(registryResponse("login-03", "new-york-v4", "registry:block"));
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps({ needsAuth: true }),
+      prompt: "bygg login",
+      maxRecipes: 1,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("login-03");
+    // The registry INDEX must never be fetched on the legacy path.
+    const fetchedUrls = mockFetch.mock.calls.map((call) => String(call[0]));
+    expect(fetchedUrls.some((url) => isIndexUrl(url))).toBe(false);
+    expect(fetchedUrls[0]).toContain("/login-03.json");
+    // And the candidate list itself matches the pre-Fas 4 hardcoded order.
+    const legacy = buildLegacyCandidates(caps({ needsAuth: true }), "bygg login");
+    expect(legacy.map((candidate) => candidate.name)).toEqual([
+      "login-03",
+      "login-04",
+      "signup-01",
+    ]);
+  });
+
+  it("P1: flag ON with unreachable index degrades to legacy candidates (never empty on network failure)", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (isIndexUrl(url)) throw new Error("offline");
+      return registryResponse("login-03", "new-york-v4", "registry:block");
+    });
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps({ needsAuth: true }),
+      prompt: "bygg login",
+      maxRecipes: 1,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("login-03");
+    expect(result[0]?.source).toBe("official");
+  });
+
+  it("flag ON resolves candidates via index search (auth → real login block from the index)", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (isIndexUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                name: "login-01",
+                type: "registry:block",
+                description: "A simple login form.",
+                categories: ["authentication", "login"],
+              },
+              {
+                name: "dashboard-01",
+                type: "registry:block",
+                description: "A dashboard with sidebar, charts and data table.",
+                categories: ["dashboard"],
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes("/login-01.json")) {
+        return registryResponse("login-01", "new-york-v4", "registry:block");
+      }
+      return { ok: false, status: 404, text: async () => "" };
+    });
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps({ needsAuth: true }),
+      prompt: "bygg login",
+      maxRecipes: 1,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("login-01");
+    expect(result[0]?.source).toBe("official");
+    expect(result[0]?.reason).toContain("auth");
+    // Import rewrite contract preserved on the search path.
+    expect(result[0]?.files[0]?.content).toContain("@/lib/utils");
+    expect(result[0]?.files[0]?.content).not.toContain("@/registry/");
+  });
+
+  it("flag ON with zero search hits falls back to legacy candidates", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (isIndexUrl(url)) {
+        // Index reachable but contains nothing matching auth queries.
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ name: "spinner", type: "registry:ui", description: "" }],
+          }),
+        };
+      }
+      if (url.includes("/login-03.json")) {
+        return registryResponse("login-03", "new-york-v4", "registry:block");
+      }
+      return { ok: false, status: 404, text: async () => "" };
+    });
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps({ needsAuth: true }),
+      prompt: "bygg login",
+      maxRecipes: 1,
+    });
+
+    expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("login-03");
   });
 
