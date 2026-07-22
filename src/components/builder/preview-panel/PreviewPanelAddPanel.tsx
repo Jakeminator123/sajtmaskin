@@ -30,10 +30,16 @@ export interface PreviewPanelAddPanelProps {
   onDragEnd?: () => void;
 }
 
-const TABS: { id: AddPanelTab; label: string; icon: typeof LayoutGrid; disabled?: boolean }[] = [
+const TABS: {
+  id: AddPanelTab;
+  label: string;
+  icon: typeof LayoutGrid;
+  /** "Beskriv" är förberedd men ännu inte funktionell → markeras med "snart"-badge. */
+  soon?: boolean;
+}[] = [
   { id: "block", label: "Block", icon: LayoutGrid },
   { id: "browse", label: "Bläddra", icon: Search },
-  { id: "describe", label: "Beskriv", icon: MessageSquareText, disabled: true },
+  { id: "describe", label: "Beskriv", icon: MessageSquareText, soon: true },
 ];
 
 export function PreviewPanelAddPanel({
@@ -62,23 +68,22 @@ export function PreviewPanelAddPanel({
               type="button"
               role="tab"
               aria-selected={isActive}
-              aria-disabled={tab.disabled || undefined}
-              disabled={tab.disabled}
-              onClick={() => {
-                if (tab.disabled) return;
-                setActiveTab(tab.id);
-              }}
-              title={tab.disabled ? "Beskriv-läget kommer snart" : undefined}
+              onClick={() => setActiveTab(tab.id)}
+              title={tab.soon ? "Beskriv-läget kommer snart" : undefined}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
                 isActive
                   ? "bg-violet-900/45 text-violet-100"
                   : "text-zinc-400 hover:bg-violet-950/40 hover:text-violet-200",
-                tab.disabled && "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-zinc-400",
               )}
             >
               <Icon className="h-3.5 w-3.5" aria-hidden />
               {tab.label}
+              {tab.soon ? (
+                <span className="rounded-full bg-violet-900/60 px-1 text-[8px] font-semibold tracking-wide text-violet-200/80 uppercase">
+                  snart
+                </span>
+              ) : null}
             </button>
           );
         })}
