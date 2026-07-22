@@ -280,6 +280,8 @@ def restore_tree(
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
     tmp_extract = target.parent / f".restore-tmp-{stamp}"
+    old_aside = target.parent / f".restore-old-{stamp}"
+    moved_old = False
     try:
         # 1) Validera zipen genom att packa upp till en temp-syskonkatalog
         #    (samma filsystem → atomiskt rename-swap nedan).
@@ -292,14 +294,31 @@ def restore_tree(
                     "Kunde inte säkerhetskopiera katalogens nuvarande innehåll — "
                     "avbryter återställningen utan att röra katalogen."
                 )
-            shutil.rmtree(target)
+            # Flytta undan (radera INTE) den levande katalogen så att den kan
+            # rullas tillbaka om swappen nedan misslyckas. Annars finns ett
+            # fönster där varken gammalt eller nytt innehåll ligger på den
+            # levande sökvägen (rename kan fela efter rmtree).
+            target.rename(old_aside)
+            moved_old = True
         # 3) Swappa in det uppackade innehållet.
         tmp_extract.rename(target)
     except (OSError, shutil.Error, ValueError) as exc:
+        # Rulla tillbaka: lägg tillbaka den undanflyttade katalogen om swappen
+        # aldrig landade, så den levande sökvägen aldrig blir tom.
+        if moved_old and not target.exists() and old_aside.is_dir():
+            try:
+                old_aside.rename(target)
+                moved_old = False
+            except OSError:
+                pass
         return False, f"Kunde inte återställa: {exc}"
     finally:
         if tmp_extract.is_dir():
             shutil.rmtree(tmp_extract, ignore_errors=True)
+        # old_aside finns kvar bara vid lyckad swap (redan zippad som
+        # undo-snapshot ovan) eller om rollback misslyckades — städa bort den.
+        if old_aside.is_dir():
+            shutil.rmtree(old_aside, ignore_errors=True)
     return True, f"Återställde katalogen `{rel_path}` från `{snapshot.name}`."
 
 

@@ -86,6 +86,12 @@ def run_backoffice_app(
         icon, _ = MODE_BADGES.get(PAGE_MAP[name].mode, ("", ""))
         return f"{icon} {name}".strip()
 
+    # Rensa persistad widget-state som pekar på borttagna/omdöpta områden eller
+    # vyer (t.ex. efter en omgruppering). Streamlit kraschar annars när ett
+    # radio/selectbox-värde i session_state inte längre finns i options.
+    if st.session_state.get("backoffice_group_radio") not in PAGE_GROUPS:
+        st.session_state.pop("backoffice_group_radio", None)
+
     with st.sidebar:
         st.subheader("Navigation")
         group = st.radio(
@@ -99,6 +105,8 @@ def run_backoffice_app(
         current = st.session_state["backoffice_nav"]
         if current not in group_pages:
             current = group_pages[0]
+        if st.session_state.get("backoffice_nav_select") not in group_pages:
+            st.session_state.pop("backoffice_nav_select", None)
         page = st.selectbox(
             "Vy",
             group_pages,

@@ -14,6 +14,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from backoffice.shared import (
     MAX_BACKUPS_PER_FILE,
@@ -193,6 +194,46 @@ class BackupTreeTests(unittest.TestCase):
         )
         # Ingen temp-katalog får lämnas kvar.
         leftovers = [p for p in self.dossier.parent.iterdir() if p.name.startswith(".restore-tmp-")]
+        self.assertEqual(leftovers, [])
+
+    def test_restore_tree_rolls_back_when_swap_fails(self) -> None:
+        """Fail-closed: om inswappen (rename av temp → mål) failar ska den
+        levande katalogen rullas tillbaka, aldrig lämnas tom."""
+        backup_tree(self.dossier, self.root)
+        # Ändra nuvarande innehåll så vi kan skilja rollback från restore.
+        (self.dossier / "manifest.json").write_text('{"id": "changed"}\n', encoding="utf-8")
+
+        rel = "data/dossiers/hard/example"
+        zips = list_tree_snapshots_for(rel, self.root)
+        target = (self.root / rel).resolve()
+
+        real_rename = Path.rename
+        calls = {"to_target": 0}
+
+        def fake_rename(self_path: Path, dest: object) -> object:
+            if Path(dest).resolve() == target:
+                calls["to_target"] += 1
+                # Fela bara på själva inswappen; låt rollbacken lyckas.
+                if calls["to_target"] == 1:
+                    raise OSError("simulerat swap-fel")
+            return real_rename(self_path, dest)
+
+        with mock.patch.object(Path, "rename", fake_rename):
+            ok, _message = restore_tree(rel, zips[0], self.root)
+
+        self.assertFalse(ok)
+        # Live-katalogen finns kvar med det nuvarande (ändrade) innehållet.
+        self.assertTrue((self.dossier / "manifest.json").is_file())
+        self.assertEqual(
+            (self.dossier / "manifest.json").read_text(encoding="utf-8"),
+            '{"id": "changed"}\n',
+        )
+        # Inga temp-/aside-kataloger lämnas kvar.
+        leftovers = [
+            p
+            for p in self.dossier.parent.iterdir()
+            if p.name.startswith(".restore-tmp-") or p.name.startswith(".restore-old-")
+        ]
         self.assertEqual(leftovers, [])
 
 
