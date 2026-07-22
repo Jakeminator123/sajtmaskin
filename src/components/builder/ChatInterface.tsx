@@ -177,6 +177,12 @@ interface ChatInterfaceProps {
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
   /**
+   * True medan en generering streamar. Speglar headerns tidigare
+   * `isConfigLocked` (= isAnyStreaming) så tema-väljaren bara låses under
+   * streaming — inte under chat-skapande/prompt-prep som `isBusy` gör.
+   */
+  isConfigLocked?: boolean;
+  /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
    * differs from the latest version, the composer shows a badge explaining
    * which base the next follow-up will be sent against. `null` means the
@@ -241,6 +247,7 @@ export function ChatInterface({
   continuePlanMode = false,
   designTheme,
   onDesignThemeChange,
+  isConfigLocked = false,
   followUpBaseInfo,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
@@ -722,7 +729,7 @@ export function ChatInterface({
                           variant="outline"
                           size="sm"
                           className="justify-start"
-                          disabled={inputDisabled}
+                          disabled={isConfigLocked}
                           title="Färgtema som skickas till genereringen (design tokens)"
                         >
                           <Palette className="h-4 w-4" />

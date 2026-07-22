@@ -936,6 +936,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
             designTheme={vm.designTheme}
             onDesignThemeChange={vm.setDesignTheme}
+            isConfigLocked={vm.isAnyStreaming}
             followUpBaseInfo={followUpBaseInfo}
           />
           <DeployNameDialog
