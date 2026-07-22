@@ -30,6 +30,11 @@ const LOOK_AT_TARGETS = [
 ]
 const GLOW_COLOR = "#5eead4"
 
+/**
+ * StageFrame — omsluter varje steg-scen. Aktivt steg lyfts, förstoras och roterar
+ * lite snabbare; inaktiva krymper och sjunker undan tydligt så det alltid går att
+ * se VILKET steg som är aktivt (kopplat till kort-listan + UI-stadiet till höger).
+ */
 function StageFrame({
   x,
   index,
@@ -47,13 +52,24 @@ function StageFrame({
   useFrame((_, delta) => {
     if (!groupRef.current) return
     const distance = Math.abs(activeStep - index)
-    const emphasis = THREE.MathUtils.clamp(1 - distance * 0.35, 0.45, 1)
-    const scale = 0.72 + emphasis * 0.34
+    const isActive = distance === 0
+    // Starkare kontrast än tidigare: aktivt ~1.22, grannar ~0.82, längre bort ~0.5.
+    const emphasis = THREE.MathUtils.clamp(1 - distance * 0.5, 0.3, 1)
+    const scale = 0.58 + emphasis * 0.64
     targetScale.setScalar(scale)
 
-    groupRef.current.scale.lerp(targetScale, 0.08)
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, distance === 0 ? 0.2 : -0.08 * distance, 0.08)
-    groupRef.current.rotation.y += delta * (0.18 + emphasis * 0.12)
+    groupRef.current.scale.lerp(targetScale, 0.09)
+    groupRef.current.position.y = THREE.MathUtils.lerp(
+      groupRef.current.position.y,
+      isActive ? 0.28 : -0.18 * distance,
+      0.09,
+    )
+    groupRef.current.position.z = THREE.MathUtils.lerp(
+      groupRef.current.position.z,
+      isActive ? 0.35 : -0.35 * distance,
+      0.09,
+    )
+    groupRef.current.rotation.y += delta * (isActive ? 0.34 : 0.12)
   })
 
   return (
@@ -125,34 +141,76 @@ function InputStage({ activeStep }: { activeStep: number }) {
   )
 }
 
+/**
+ * BuildStage — steg 3 "AI bygger". Speglar det faktiska UI-stadiet: en
+ * browser-mockup vars innehållsblock byggs upp (skalas in) i loop, med en
+ * omgivande kod-ring. Tydligare koppling till "sajten byggs" än en abstrakt form.
+ */
 function BuildStage({ activeStep }: { activeStep: number }) {
-  const cubes = useMemo(
-    () =>
-      Array.from({ length: 18 }, (_, index) => {
-        const angle = (index / 18) * Math.PI * 2
-        const radius = 0.7 + (index % 3) * 0.18
-        return {
-          position: [Math.cos(angle) * radius, (index - 9) * 0.11, Math.sin(angle) * radius] as const,
-          scale: 0.1 + (index % 4) * 0.03,
-        }
-      }),
+  const barsRef = useRef<THREE.Group>(null)
+  const contentBars = useMemo(
+    () => [
+      { y: 0.12, w: 1.5 },
+      { y: -0.16, w: 1.2 },
+      { y: -0.44, w: 1.62 },
+    ],
     [],
   )
+  const dots = useMemo(() => ["#f87171", "#fbbf24", "#34d399"], [])
+
+  useFrame((state) => {
+    if (!barsRef.current) return
+    const t = state.clock.getElapsedTime()
+    barsRef.current.children.forEach((child, i) => {
+      // Staggrad "build up": blocken växer in på bredden i en mjuk loop.
+      const phase = (t * 0.6 - i * 0.28) % 2.2
+      const grow = THREE.MathUtils.clamp(phase < 1.1 ? phase / 1.1 : 1, 0.05, 1)
+      child.scale.x = THREE.MathUtils.lerp(child.scale.x, grow, 0.15)
+    })
+  })
 
   return (
     <StageFrame x={STAGE_X[2]} index={2} activeStep={activeStep}>
-      <Float speed={1.4} rotationIntensity={0.3} floatIntensity={0.15}>
-        <mesh>
-          <icosahedronGeometry args={[0.8, 0]} />
-          <meshStandardMaterial color="#67e8f9" emissive="#0ea5e9" emissiveIntensity={1.2} wireframe />
-        </mesh>
+      <Float speed={1.2} rotationIntensity={0.12} floatIntensity={0.18}>
+        <group>
+          {/* Browser-ram */}
+          <mesh position={[0, 0, -0.06]}>
+            <boxGeometry args={[2.35, 1.7, 0.12]} />
+            <meshStandardMaterial color="#0b1220" emissive="#0f766e" emissiveIntensity={0.5} />
+          </mesh>
+          {/* Övre fältet */}
+          <mesh position={[0, 0.72, 0.02]}>
+            <boxGeometry args={[2.35, 0.3, 0.14]} />
+            <meshStandardMaterial color="#111827" emissive="#155e75" emissiveIntensity={0.7} />
+          </mesh>
+          {/* Trafikljus-prickar */}
+          {dots.map((color, i) => (
+            <mesh key={color} position={[-1.02 + i * 0.16, 0.72, 0.12]}>
+              <boxGeometry args={[0.08, 0.08, 0.05]} />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.1} />
+            </mesh>
+          ))}
+          {/* Hero-block */}
+          <mesh position={[0, 0.4, 0.08]}>
+            <boxGeometry args={[2.05, 0.18, 0.06]} />
+            <meshStandardMaterial color="#5eead4" emissive="#2dd4bf" emissiveIntensity={0.9} />
+          </mesh>
+          {/* Innehållsblock som byggs upp */}
+          <group ref={barsRef}>
+            {contentBars.map((bar) => (
+              <mesh key={bar.y} position={[0, bar.y, 0.08]}>
+                <boxGeometry args={[bar.w, 0.14, 0.05]} />
+                <meshStandardMaterial color="#67e8f9" emissive="#0ea5e9" emissiveIntensity={0.8} />
+              </mesh>
+            ))}
+          </group>
+        </group>
       </Float>
-      {cubes.map((cube, index) => (
-        <mesh key={index} position={cube.position} scale={cube.scale}>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color="#5eead4" emissive="#14b8a6" emissiveIntensity={0.8} />
-        </mesh>
-      ))}
+      {/* Omgivande kod-ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+        <torusGeometry args={[1.7, 0.015, 8, 90]} />
+        <meshBasicMaterial color="#5eead4" transparent opacity={0.3} />
+      </mesh>
     </StageFrame>
   )
 }
@@ -213,6 +271,50 @@ function ResultsStage({ activeStep }: { activeStep: number }) {
   )
 }
 
+/**
+ * ActiveSpotlight — en glödande piedestal + ljuskägla som glider till det aktiva
+ * stegets position. Gör "vilket steg är aktivt" omisskännligt även i 3D-vyn.
+ */
+function ActiveSpotlight({ activeStep }: { activeStep: number }) {
+  const ringRef = useRef<THREE.Mesh>(null)
+  const glowRef = useRef<THREE.Mesh>(null)
+  const lightRef = useRef<THREE.PointLight>(null)
+  const pulseRef = useRef<THREE.Mesh>(null)
+
+  useFrame((state) => {
+    const targetX = STAGE_X[activeStep] ?? 0
+    const t = state.clock.getElapsedTime()
+    for (const ref of [ringRef, glowRef, lightRef, pulseRef]) {
+      if (ref.current) ref.current.position.x = THREE.MathUtils.lerp(ref.current.position.x, targetX, 0.1)
+    }
+    if (pulseRef.current) {
+      const s = 1 + Math.sin(t * 2.2) * 0.12
+      pulseRef.current.scale.setScalar(s)
+      const mat = pulseRef.current.material as THREE.MeshBasicMaterial
+      mat.opacity = 0.22 + (Math.sin(t * 2.2) + 1) * 0.12
+    }
+  })
+
+  return (
+    <group>
+      {/* Glödande golvring under aktivt steg */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[STAGE_X[0], -1.6, 0]}>
+        <ringGeometry args={[0.8, 1.1, 64]} />
+        <meshBasicMaterial color={GLOW_COLOR} transparent opacity={0.55} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh ref={pulseRef} rotation={[-Math.PI / 2, 0, 0]} position={[STAGE_X[0], -1.59, 0]}>
+        <ringGeometry args={[1.12, 1.5, 64]} />
+        <meshBasicMaterial color={GLOW_COLOR} transparent opacity={0.25} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]} position={[STAGE_X[0], -1.61, 0]}>
+        <circleGeometry args={[0.78, 48]} />
+        <meshBasicMaterial color={GLOW_COLOR} transparent opacity={0.14} />
+      </mesh>
+      <pointLight ref={lightRef} position={[STAGE_X[0], 1.2, 2.2]} intensity={14} color={GLOW_COLOR} distance={7} />
+    </group>
+  )
+}
+
 function PipelineScene({ activeStep }: { activeStep: number }) {
   useFrame((state) => {
     const cameraTarget = CAMERA_TARGETS[activeStep] ?? CAMERA_TARGETS[0]
@@ -224,15 +326,18 @@ function PipelineScene({ activeStep }: { activeStep: number }) {
   return (
     <>
       <PerspectiveCamera makeDefault position={CAMERA_TARGETS[0]} fov={34} />
-      <ambientLight intensity={1.1} />
-      <pointLight position={[0, 4, 6]} intensity={20} color="#5eead4" />
-      <pointLight position={[4, -3, 4]} intensity={10} color="#60a5fa" />
-      <pointLight position={[-6, -2, 3]} intensity={7} color="#22c55e" />
+      <ambientLight intensity={0.9} />
+      <pointLight position={[0, 4, 6]} intensity={18} color="#5eead4" />
+      <pointLight position={[4, -3, 4]} intensity={9} color="#60a5fa" />
+      <pointLight position={[-6, -2, 3]} intensity={6} color="#22c55e" />
 
+      {/* Rail/golv */}
       <mesh position={[0, -1.65, -0.45]} scale={[11.5, 0.05, 0.05]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="#0f172a" emissive="#0f766e" emissiveIntensity={0.8} />
       </mesh>
+
+      <ActiveSpotlight activeStep={activeStep} />
 
       <CompanyStage activeStep={activeStep} />
       <InputStage activeStep={activeStep} />
@@ -285,9 +390,14 @@ export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-background/85 via-background/30 to-transparent" />
             <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-border/20 bg-background/55 p-4 backdrop-blur-xl">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-primary/75">Flow aktivt steg</p>
-                  <p className="mt-1 text-sm font-(--font-heading) text-foreground">{steps[activeStep]?.title}</p>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/12 text-sm font-(--font-heading) text-primary">
+                    {steps[activeStep]?.number}
+                  </span>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-primary/75">Aktivt steg</p>
+                    <p className="mt-0.5 text-sm font-(--font-heading) text-foreground">{steps[activeStep]?.title}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {steps.map((step, index) => (
@@ -315,31 +425,49 @@ export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
                 }}
                 data-step-index={index}
                 type="button"
+                aria-current={isActive ? "step" : undefined}
                 onMouseEnter={() => setActiveStep(index)}
                 onFocus={() => setActiveStep(index)}
                 onClick={() => setActiveStep(index)}
-                className={`w-full rounded-[24px] border p-4 text-left transition-all duration-300 ${
+                className={`relative w-full overflow-hidden rounded-[24px] border p-4 text-left transition-all duration-300 ${
                   isActive
-                    ? "border-primary/30 bg-primary/8 shadow-[0_16px_40px_rgba(8,145,178,0.12)]"
-                    : "border-border/15 bg-secondary/20 hover:border-border/35 hover:bg-secondary/30"
+                    ? "border-primary/40 bg-primary/10 shadow-[0_16px_44px_rgba(8,145,178,0.18)] ring-1 ring-primary/25 md:scale-[1.02]"
+                    : "border-border/15 bg-secondary/20 opacity-70 hover:opacity-100 hover:border-border/35 hover:bg-secondary/30"
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-sm font-(--font-heading) ${
-                    isActive ? "border-primary/25 bg-primary/10 text-primary" : "border-border/20 bg-background/40 text-muted-foreground"
-                  }`}>
+                {/* Aktiv-accent till vänster */}
+                <span
+                  className={`absolute inset-y-3 left-0 w-1 rounded-full bg-primary transition-all duration-300 ${
+                    isActive ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                <div className="flex items-start gap-3 pl-1">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-sm font-(--font-heading) transition-colors ${
+                      isActive
+                        ? "border-primary/40 bg-primary/15 text-primary"
+                        : "border-border/20 bg-background/40 text-muted-foreground"
+                    }`}
+                  >
                     {step.number}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-base font-(--font-heading) text-foreground">{step.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-base font-(--font-heading) text-foreground">{step.title}</p>
+                      {isActive && (
+                        <span className="rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                          Aktivt
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {step.bullets.map((bullet) => (
                         <span
                           key={bullet}
-                          className={`rounded-full border px-2.5 py-1 text-[11px] ${
+                          className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
                             isActive
-                              ? "border-primary/20 bg-primary/8 text-primary/90"
+                              ? "border-primary/25 bg-primary/10 text-primary/90"
                               : "border-border/20 bg-background/35 text-muted-foreground"
                           }`}
                         >
