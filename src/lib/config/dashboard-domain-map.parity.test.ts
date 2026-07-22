@@ -59,6 +59,19 @@ function normalizeLiteralPath(raw: string): { rel: string; kind: "file" | "dir" 
 //    (`data/prompt-dumps/*`) och finns bara på utvecklarmaskiner efter
 //    minst en generation. Backoffice "Prompt-dumps"-sidan läser dem.
 //    Samma wrong-coupling som `logs/**` och `data/scaffold-eval/reports/**`.
+//
+// 5. `data/backoffice/**` — backoffice-paneldata (pipeline-health-state) och
+//    backup/restore-snapshots (`shared.write_text/write_json` snapshotar hit
+//    före sparning). Hela `data/backoffice/` är gitignored (`.gitignore`) och
+//    skapas on-demand vid körning, så den finns aldrig på en ren CI-checkout.
+//    Backoffice "Återställning"/"Pipeline Health"-sidorna läser den. Samma
+//    wrong-coupling som `logs/**`.
+//
+// 6. `data/observability/**` — runtime-observability-artefakter (error-log RAG
+//    index, fixer-registry-snapshot). Hela `data/observability/` är gitignored
+//    och skrivs on-demand, aldrig på en ren CI-checkout. Backoffice
+//    "Error-log RAG"/"Fixer Registry"-sidorna läser den. Samma wrong-coupling
+//    som `logs/**`.
 function isRuntimeArtifactPath(rel: string): boolean {
   if (rel === "logs" || rel.startsWith("logs/")) return true;
   if (rel === ".cursor" || rel.startsWith(".cursor/")) return true;
@@ -68,6 +81,12 @@ function isRuntimeArtifactPath(rel: string): boolean {
   )
     return true;
   if (rel === "data/prompt-dumps" || rel.startsWith("data/prompt-dumps/")) {
+    return true;
+  }
+  if (rel === "data/backoffice" || rel.startsWith("data/backoffice/")) {
+    return true;
+  }
+  if (rel === "data/observability" || rel.startsWith("data/observability/")) {
     return true;
   }
   return false;
