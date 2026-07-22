@@ -99,6 +99,8 @@ export interface ConversationItemProps extends HTMLAttributes<HTMLDivElement> {
   messageId?: string;
   /** Mark this row as the start of a turn (e.g. a user message). */
   scrollAnchor?: boolean;
+  /** Keep a genuinely live first turn armed even when the transcript just mounted. */
+  liveScrollAnchor?: boolean;
 }
 
 // ============================================================================
@@ -151,7 +153,9 @@ function messageIdsFromChildren(children: ReactNode): string[] {
   return Children.toArray(children).flatMap((child) => {
     if (!isValidElement<ConversationItemProps>(child)) return [];
     const messageId = child.props.messageId;
-    return typeof messageId === "string" && messageId ? [messageId] : [];
+    return child.props.scrollAnchor && typeof messageId === "string" && messageId
+      ? [messageId]
+      : [];
   });
 }
 
@@ -349,13 +353,17 @@ export function ConversationItem({
   className,
   messageId,
   scrollAnchor,
+  liveScrollAnchor = false,
   ...props
 }: ConversationItemProps) {
   const liveAnchorIds = useContext(LiveMessageAnchorIdsContext);
   const effectiveScrollAnchor =
     liveAnchorIds === null
       ? scrollAnchor
-      : Boolean(scrollAnchor && messageId && liveAnchorIds.has(messageId));
+      : Boolean(
+          scrollAnchor &&
+            (liveScrollAnchor || (messageId && liveAnchorIds.has(messageId))),
+        );
 
   if (!isMessageScrollerEnabled()) {
     return <>{children}</>;
