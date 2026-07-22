@@ -263,7 +263,11 @@ describe("resolveShadcnUiRecipes", () => {
           }),
         };
       }
-      if (url.includes("shadcnblocks.com") || url.includes("tailark.com")) {
+      if (
+        url.includes("shadcnblocks.com") ||
+        url.includes("tailark.com") ||
+        url.includes("sajtmaskin.vercel.app")
+      ) {
         const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "pricing";
         return {
           ok: true,
