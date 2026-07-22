@@ -212,16 +212,37 @@ export function useInView(threshold = 0.3) {
  */
 export function useHashScroll() {
   useEffect(() => {
-    const scrollToHash = () => {
-      const id = window.location.hash.replace(/^#/, "")
+    const scrollToId = (id: string) => {
       if (!id) return
       // Vänta en frame så layouten hunnit sätta sig efter navigering.
       requestAnimationFrame(() => {
         document.getElementById(id)?.scrollIntoView({ block: "start" })
       })
     }
+    const scrollToHash = () => scrollToId(window.location.hash.replace(/^#/, ""))
+
+    // Next.js <Link href="/#priser"> på samma sida går via history.pushState,
+    // som varken avfyrar hashchange eller scrollar den inre containern —
+    // fånga därför klick på interna ankarlänkar direkt.
+    const handleClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const anchor = (event.target as HTMLElement | null)?.closest("a")
+      if (!anchor) return
+      const href = anchor.getAttribute("href")
+      if (!href || !href.includes("#")) return
+      const url = new URL(href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      if (url.pathname !== window.location.pathname) return
+      scrollToId(url.hash.replace(/^#/, ""))
+    }
+
     scrollToHash()
     window.addEventListener("hashchange", scrollToHash)
-    return () => window.removeEventListener("hashchange", scrollToHash)
+    document.addEventListener("click", handleClick)
+    return () => {
+      window.removeEventListener("hashchange", scrollToHash)
+      document.removeEventListener("click", handleClick)
+    }
   }, [])
 }

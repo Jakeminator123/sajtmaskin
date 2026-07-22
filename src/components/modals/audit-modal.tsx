@@ -322,35 +322,9 @@ export function AuditModal({
   // it is open (Tab/Shift+Tab cycle through the visible focusable elements).
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // The PDF report and build-confirmation dialogs render outside dialogRef;
-      // while one of them is stacked on top, the main dialog's trap must let
-      // go so keyboard users can Tab into the nested surface — but Escape must
-      // still dismiss the topmost dialog (AuditPdfReport has no own handler).
-      if (showPdfModal || showBuildConfirm) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          if (showBuildConfirm) setShowBuildConfirm(false);
-          else setShowPdfModal(false);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        // Don't close if user is typing in an input field
-        const target = e.target as HTMLElement;
-        const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
-        if (isInput || target.isContentEditable) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-        return;
-      }
-
-      if (e.key === "Tab") {
-        const container = dialogRef.current;
-        if (!container) return;
+    // Cycle Tab/Shift+Tab through the visible focusables of `container` so
+    // keyboard focus stays within the topmost dialog surface.
+    const trapTabWithin = (container: HTMLElement, e: KeyboardEvent) => {
         // Only visible focusables — inactive tab panels are display:none.
         const focusables = Array.from(
           container.querySelectorAll<HTMLElement>(
@@ -374,6 +348,41 @@ export function AuditModal({
           e.preventDefault();
           first.focus();
         }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Nested dialogs (PDF report / build confirmation) render outside
+      // dialogRef. While one is stacked on top, Escape dismisses the topmost
+      // dialog and the Tab trap retargets to it, so keyboard focus can neither
+      // get stuck in nor slip down to the underlying audit surface.
+      if (showPdfModal || showBuildConfirm) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (showBuildConfirm) setShowBuildConfirm(false);
+          else setShowPdfModal(false);
+          return;
+        }
+        if (e.key === "Tab") {
+          const nested = document.querySelector<HTMLElement>("[data-audit-nested-dialog]");
+          if (nested) trapTabWithin(nested, e);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        // Don't close if user is typing in an input field
+        const target = e.target as HTMLElement;
+        const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+        if (isInput || target.isContentEditable) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === "Tab") {
+        const container = dialogRef.current;
+        if (!container) return;
+        trapTabWithin(container, e);
       }
     };
     window.addEventListener("keydown", handleKeyDown, true);
@@ -1070,6 +1079,7 @@ export function AuditModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          data-audit-nested-dialog
           className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
           onClick={() => setShowBuildConfirm(false)}
         >
