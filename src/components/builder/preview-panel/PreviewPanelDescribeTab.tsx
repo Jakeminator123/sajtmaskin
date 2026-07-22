@@ -203,7 +203,7 @@ export function PreviewPanelDescribeTab({
                     candidate={candidate}
                     inserting={insertingKey === key}
                     inserted={insertedKey === key}
-                    insertDisabled={!onInsertItem || Boolean(insertingKey)}
+                    insertDisabled={disabled || !onInsertItem || Boolean(insertingKey)}
                     onInsert={() => void handleInsert(candidate)}
                   />
                 </li>
