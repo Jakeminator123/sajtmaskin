@@ -19,7 +19,7 @@
  * Client-safe by design (no `node:fs`): the heuristics mirror the stub
  * vocabulary of the 40-/41-placeholder files instead of reading them,
  * because `detect-integrations.ts` is imported by client components
- * (`ProjectEnvVarsPanel.tsx`).
+ * (builder env/dossier surfaces).
  */
 
 /** `.env`, `.env.local`, `.env.production`, `env.example`, `.env.example`, … */

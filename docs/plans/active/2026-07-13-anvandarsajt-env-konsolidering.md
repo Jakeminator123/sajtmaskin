@@ -27,6 +27,15 @@ en befintlig medveten policy (`env-flow-f2-mute.mdc`) och kräver därför ditt 
 > (`feat/byggblock-status-nycklar`) tillsammans med ny statusmodell
 > (`planned`/`blocked-build`/`built-demo`/`built-live`); `env-flow-f2-mute.mdc` är
 > omskriven där. B (kravytan → panelen) och panel-degraderingen tas i PR 2.
+>
+> **Ägarbeslut 2026-07-22 (chat, "helhetsgrepp"):** "PR 2" blev en hårdare
+> variant — `ProjectEnvVarsPanel` och `F3PlaceholderToggle` är **borttagna**
+> (inte degraderade), alla pek-ytor (`openProjectEnvVarsPanel`-callers) pekar
+> nu på `openDossiersPanel`, och placeholders är **alltid** tillåtna i F3
+> (`allowPlaceholdersInF3`-flaggan raderad ur preferences/gate). Byggblock är
+> därmed den enda env-ytan. Kvar av denna plan: fas 4 (env.example-badge +
+> `user`-vinner-test) samt att `F3RequirementsSurface` (412-kravytan, numera
+> sällsynt) på sikt kan förenklas.
 
 ## Nuläge (verifierat mot kod)
 

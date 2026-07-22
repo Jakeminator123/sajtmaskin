@@ -515,6 +515,13 @@ async function runTier2VerifyLane(params: {
       jobStartedAt?: string | null;
       jobFinishedAt?: string | null;
       error?: string;
+      // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): the server
+      // short-circuited the F2 RenderGate and left the version untouched
+      // (unverified/pending — a skipped gate is never promoted or marked
+      // `passed`; Codex P1 on #573).
+      skipped?: boolean;
+      disabled?: boolean;
+      reason?: string;
       visualQA?: QualityGateVisualQaResult;
       // Promotion guard markers (route returns `passed:false` alongside these):
       // `vmGatePassed` keeps the underlying VM-check status for diagnostics.
@@ -538,6 +545,38 @@ async function runTier2VerifyLane(params: {
         state: "output-error",
         errorText: data?.error || `Quality gate request failed (HTTP ${res.status})`,
       } as UiMessagePart);
+      return;
+    }
+
+    // Env kill-switch: the F2 quality gate is turned off server-side — the
+    // version was left untouched (unverified, never promoted/`passed`) →
+    // informational (not error) card. `promotionBlocked` is kept for
+    // defense-in-depth should a future skip path ever mutate state again.
+    if (data.disabled || data.skipped) {
+      const reasonText =
+        typeof data.reason === "string" && data.reason.trim()
+          ? data.reason
+          : "Quality gate avstängd.";
+      appendToolPartToMessage(
+        setMessages,
+        assistantMessageId,
+        (data.promotionBlocked
+          ? {
+              type: "tool:quality-gate",
+              toolName: "Quality gate",
+              toolCallId,
+              state: "output-error",
+              errorText: reasonText,
+            }
+          : {
+              type: "tool:quality-gate",
+              toolName: "Quality gate",
+              toolCallId,
+              state: "output-available",
+              output: { skipped: true, reason: reasonText },
+            }) as UiMessagePart,
+      );
+      mutateVersions?.();
       return;
     }
 
