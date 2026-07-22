@@ -99,6 +99,11 @@ def _render_file_section(ctx: BackofficeContext, entries: list[dict]) -> None:
         st.warning("Inga snapshots kvar för den valda filen.")
         return
 
+    # Beroende selectbox: byter man fil pekar persistad state fortfarande på en
+    # snapshot från förra filen. Rensa den om den inte finns i nya options, annars
+    # kraschar Streamlit på ett värde utanför listan.
+    if st.session_state.get("restore_snapshot_pick") not in snapshots:
+        st.session_state.pop("restore_snapshot_pick", None)
     picked_snapshot = st.selectbox(
         "Snapshot (nyast först)",
         snapshots,
@@ -183,6 +188,10 @@ def _render_tree_section(ctx: BackofficeContext, tree_entries: list[dict]) -> No
     if not zips:
         st.warning("Inga zip-snapshots kvar för den valda katalogen.")
         return
+    # Beroende selectbox: byter man katalog pekar persistad state fortfarande på
+    # en zip från förra katalogen. Rensa om den inte finns i nya options.
+    if st.session_state.get("restore_tree_zip_pick") not in zips:
+        st.session_state.pop("restore_tree_zip_pick", None)
     picked_zip = st.selectbox(
         "Zip-snapshot (nyast först)",
         zips,

@@ -376,6 +376,14 @@ def restore_backup(
     expected_dir = (backup_root(root) / "files" / rel_path).resolve()
     if snapshot.resolve().parent != expected_dir:
         return False, "Snapshoten hör inte till den valda filen — inget återställdes."
+    # Läs snapshotens innehåll INNAN backup_file() körs: den snapshotar
+    # nuvarande innehåll och prunar sedan till MAX_BACKUPS_PER_FILE. Har filen
+    # redan max antal snapshots kan pruningen radera just den .bak vi återställer
+    # från (den äldsta) innan vi hinner läsa den. Läs bytesen först.
+    try:
+        snapshot_bytes = snapshot.read_bytes()
+    except OSError as exc:
+        return False, f"Kunde inte läsa snapshoten: {exc}"
     if target.is_file() and backup_file(target, root) is None:
         return False, (
             "Kunde inte säkerhetskopiera filens nuvarande innehåll — "
@@ -383,7 +391,7 @@ def restore_backup(
         )
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(snapshot.read_bytes())
+        target.write_bytes(snapshot_bytes)
     except OSError as exc:
         return False, f"Kunde inte återställa: {exc}"
     return True, f"Återställde `{rel_path}` från `{snapshot.name}`."

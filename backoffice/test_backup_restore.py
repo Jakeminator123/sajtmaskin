@@ -111,6 +111,31 @@ class BackupFileTests(unittest.TestCase):
         self.assertEqual(entries[0]["file"], "config/x.json")
         self.assertEqual(entries[0]["snapshots"], 1)
 
+    def test_restore_oldest_snapshot_survives_prune(self) -> None:
+        """Fail-safe: att återställa den ÄLDSTA snapshoten får inte förloras när
+        pre-restore-backupen prunar bort den (filen har redan MAX snapshots)."""
+        target = self.root / "config" / "x.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("current\n", encoding="utf-8")
+        rel = "config/x.json"
+        bdir = backup_root(self.root) / "files" / rel
+        bdir.mkdir(parents=True, exist_ok=True)
+        # Fyll upp till MAX snapshots med deterministiska, gamla tidsstämplar så
+        # att pre-restore-backupen (real now-stämpel) tvingar bort just den äldsta.
+        for i in range(MAX_BACKUPS_PER_FILE):
+            content = "OLDEST\n" if i == 0 else f"filler-{i}\n"
+            (bdir / f"2020-01-01T00-00-{i:02d}-000000Z.bak").write_text(
+                content, encoding="utf-8"
+            )
+        snapshots = list_snapshots_for(rel, self.root)  # newest first
+        self.assertEqual(len(snapshots), MAX_BACKUPS_PER_FILE)
+        oldest = snapshots[-1]
+        self.assertEqual(oldest.read_text(encoding="utf-8"), "OLDEST\n")
+
+        ok, message = restore_backup(rel, oldest, self.root)
+        self.assertTrue(ok, message)
+        self.assertEqual(target.read_text(encoding="utf-8"), "OLDEST\n")
+
 
 class BackupTreeTests(unittest.TestCase):
     def setUp(self) -> None:
