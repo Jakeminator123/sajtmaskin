@@ -900,19 +900,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId={vm.chatId}
               activeVersionId={vm.activeVersionId}
             />
-          ) : (
-            <div className="border-border bg-muted/40 text-muted-foreground mx-3 mt-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
-              <span className="text-foreground font-medium">
-                API-nycklar:
-              </span>{" "}
-              fylls i under{" "}
-              <span className="text-foreground font-medium">Byggblock</span> i previewen —
-              redan i designläget om du vill. Utan nycklar körs integrationer i
-              demo-läge;{" "}
-              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span>{" "}
-              bygger den riktiga integrationskoden.
-            </div>
-          )}
+          ) : null}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList

@@ -73,7 +73,7 @@ export function LandingHero({
         className="cursor-default"
       >
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-fade-up leading-[1.1]"
+          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
         >
           Din n&auml;sta{" "}
@@ -89,7 +89,7 @@ export function LandingHero({
         </h1>
       </div>
       <p
-        className="text-base md:text-lg text-muted-foreground text-center max-w-2xl mb-8 leading-relaxed animate-fade-up text-pretty"
+        className="text-base md:text-lg text-muted-foreground text-center max-w-2xl mb-8 leading-relaxed animate-rise text-pretty"
         style={{ animationDelay: "0.4s" }}
       >
         Beskriv ditt f&ouml;retag &mdash; f&aring; en professionell sajt som driver aff&auml;rer, inte bara ser bra ut. Inga

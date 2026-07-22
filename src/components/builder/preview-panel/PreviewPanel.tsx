@@ -97,7 +97,6 @@ export function PreviewPanel({
   chatId,
   versionId,
   previewUrl,
-  alternatePreviewUrls,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
   onClear,
@@ -697,19 +696,6 @@ export function PreviewPanel({
     });
   }, [showElementRegistry, selectedRegistryLine, selectedPath]);
 
-  const handleRefresh = () => {
-    clearPreviewReadyTimer();
-    setIframeLoading(true);
-    setIframeError(false);
-    setIframeErrorMessage(null);
-    const iframe = iframeRef.current;
-    if (iframe) {
-      const base = previewUrl || iframe.src;
-      if (!base) return;
-      iframe.src = withInspectParam(buildPreviewSrc(base, Date.now()), base);
-    }
-  };
-
   const handleOpenInNewTab = () => {
     if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
@@ -976,60 +962,6 @@ export function PreviewPanel({
   const canManagePages = Boolean(
     chatId && versionId && !isV0Preview && lifecycleStage !== "integrations",
   );
-  /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
-  const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
-  const surfaceDescriptor = useMemo(() => {
-    if (viewMode === "registry") {
-      return {
-        label: "Elementregister",
-        detail: "Kodläge för att matcha UI-element mot filer och rader.",
-        className: "border-purple-900/40 bg-purple-950/25 text-purple-100",
-        badgeClassName: "border-purple-500/30 bg-purple-500/10 text-purple-200",
-      };
-    }
-    if (viewMode === "code") {
-      return {
-        label: "Kodvy",
-        detail: "Visar versionsfilerna direkt i buildern.",
-        className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-        badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
-      };
-    }
-    if (isTier2LivePreview) {
-      if (previewLifecycle === "recovering") {
-        return {
-          label: "Live-preview",
-          detail:
-            "Återansluter till live-preview — sessionen verifieras mot servern och preview startas om vid behov.",
-          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-        };
-      }
-      return {
-        label: "Live-preview",
-        detail:
-          "Din genererade sajt körs här med Next.js (motsvarar npm run dev) i en isolerad miljö.",
-        className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-        badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-      };
-    }
-    if (isV0Preview) {
-      return {
-        label: "Fallback preview",
-        detail:
-          "Visar en extern previewyta. Bra för snabb kontroll, men den kan avvika från lokal runtime och publicerad build.",
-        className: "border-yellow-900/40 bg-yellow-950/30 text-yellow-100",
-        badgeClassName: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
-      };
-    }
-    return {
-      label: "Extern preview",
-      detail: "Visar den aktuella preview-URL:en för vald version.",
-      className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-      badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
-    };
-  }, [viewMode, isTier2LivePreview, isV0Preview, previewLifecycle]);
-
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = useMemo(() => {
     if (!previewUrl) return "";
@@ -1111,10 +1043,8 @@ export function PreviewPanel({
     <div className="flex h-full flex-col bg-black/40">
       <PreviewPanelChrome
         previewUrl={previewUrl}
-        surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
-        livePreviewUrlStored={previewUrlPresent}
         inspectorEnabled={inspectorEnabled}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
@@ -1134,7 +1064,6 @@ export function PreviewPanel({
         onClear={onClear}
         handleClear={handleClear}
         isLoading={isLoading}
-        handleRefresh={handleRefresh}
         handleOpenInNewTab={handleOpenInNewTab}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
