@@ -661,16 +661,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
   // Färsk spegling av upptaget-läget så en async-sändare kan omkontrollera det
   // EFTER ett await (closure-fångat `catalogPickDisabled` hinner bli inaktuellt).
+  // Tilldelas i render-kroppen (inte i useEffect): en await-continuation kör
+  // som microtask direkt när promiset löser och kan hinna FÖRE effect-flushen —
+  // render-tilldelningen gör att refen alltid speglar senaste committade värdet.
   const catalogPickDisabledRef = useRef(catalogPickDisabled);
-  useEffect(() => {
-    catalogPickDisabledRef.current = catalogPickDisabled;
-  }, [catalogPickDisabled]);
+  catalogPickDisabledRef.current = catalogPickDisabled;
   // Färsk spegling av aktiv chatt av samma skäl: en insättning som awaitat
   // registry-hydreringen får inte skicka till en chatt användaren lämnat.
   const activeChatIdRef = useRef(vm.chatId);
-  useEffect(() => {
-    activeChatIdRef.current = vm.chatId;
-  }, [vm.chatId]);
+  activeChatIdRef.current = vm.chatId;
 
   // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
   // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
