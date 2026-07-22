@@ -12,6 +12,7 @@ const BASE_URL = URLS.baseUrl;
 export const STATIC_SITEMAP_REL_PATHS = [
   "",
   "/templates",
+  "/teknik",
   "/buy-credits",
   "/faq",
   "/om",
@@ -38,6 +39,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPriorities: Record<string, number> = {
     "": 1.0,
     "/templates": 0.9,
+    "/teknik": 0.8,
     "/buy-credits": 0.7,
     "/faq": 0.5,
     "/om": 0.45,
@@ -49,6 +51,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticFrequencies: Record<string, "weekly" | "monthly" | "yearly"> = {
     "": "weekly",
     "/templates": "weekly",
+    "/teknik": "monthly",
     "/buy-credits": "monthly",
     "/faq": "monthly",
     "/om": "monthly",
