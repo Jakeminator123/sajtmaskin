@@ -428,14 +428,28 @@ export async function resolveShadcnUiRecipes(params: {
   }
 
   const recipes: ShadcnUiRecipe[] = [];
-  for (const candidate of candidates.slice(0, MAX_REMOTE_CANDIDATES)) {
-    if (recipes.length >= maxRecipes) break;
-    const recipe = await fetchOfficialRecipe(candidate.name, candidate.reason);
-    if (!recipe) continue;
-    if (!recipes.some((existing) => existing.name === recipe.name)) {
-      recipes.push(recipe);
+  const officialCandidates = candidates.slice(0, MAX_REMOTE_CANDIDATES);
+  let nextOfficialCandidate = 0;
+
+  const fillOfficialUntil = async (limit: number): Promise<void> => {
+    while (recipes.length < limit && nextOfficialCandidate < officialCandidates.length) {
+      const candidate = officialCandidates[nextOfficialCandidate++]!;
+      const recipe = await fetchOfficialRecipe(candidate.name, candidate.reason);
+      if (!recipe) continue;
+      if (!recipes.some((existing) => existing.name === recipe.name)) {
+        recipes.push(recipe);
+      }
     }
-  }
+  };
+
+  // Search-driven section/effect plans are richer, purpose-built community
+  // blocks. Reserve one of the default recipe slots so generic official hits
+  // (e.g. card/card-demo/tabs for "pricing") cannot crowd them out. Keep
+  // official recipes first in the returned prompt order, and preserve the
+  // historical official-first behavior when maxRecipes=1.
+  const reservedCommunitySlots =
+    communityPlans && communityPlans.length > 0 && maxRecipes > 1 ? 1 : 0;
+  await fillOfficialUntil(maxRecipes - reservedCommunitySlots);
 
   if (recipes.length < maxRecipes) {
     const community = communityPlans
@@ -453,6 +467,13 @@ export async function resolveShadcnUiRecipes(params: {
         recipes.push(recipe);
       }
     }
+  }
+
+  // A planned community item may be unreachable. In that case, use the
+  // remaining already-ranked official candidates so reservation never reduces
+  // the resolver's output count.
+  if (recipes.length < maxRecipes && reservedCommunitySlots > 0) {
+    await fillOfficialUntil(maxRecipes);
   }
 
   return recipes.slice(0, maxRecipes);
