@@ -11,6 +11,11 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
  *
  * Additive + reversible: default ON, but a single env value flips it back to the
  * legacy behavior in any environment. Mirrors `inspector-feature.ts`.
+ *
+ * IMPORTANT: only the NEXT_PUBLIC flag is honored. The flag is read from client
+ * components, so a server-only variable would be visible during SSR but absent
+ * in the browser bundle — the two render passes would disagree and hydration
+ * would break. The build-time-inlined public flag is identical on both sides.
  */
 
 const DISABLED_VALUES = new Set(["0", "false", "no", "n", "off"]);
@@ -23,20 +28,12 @@ function parseOptionalScrollerFlag(value: string | undefined): boolean | null {
   return null;
 }
 
-/**
- * Resolve the flag. Precedence: public (client-inlined) flag first, then the
- * server flag, else default ON.
- */
+/** Resolve the flag: public (client-inlined) flag, else default ON. */
 export function isMessageScrollerEnabled(): boolean {
   const publicFlag = parseOptionalScrollerFlag(
     process.env.NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER,
   );
   if (publicFlag !== null) return publicFlag;
-
-  const serverFlag = parseOptionalScrollerFlag(
-    process.env.SAJTMASKIN_MESSAGE_SCROLLER,
-  );
-  if (serverFlag !== null) return serverFlag;
 
   return true;
 }

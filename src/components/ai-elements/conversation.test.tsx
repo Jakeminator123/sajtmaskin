@@ -8,9 +8,7 @@ import {
 } from "./conversation";
 
 const PUBLIC_KEY = "NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER";
-const SERVER_KEY = "SAJTMASKIN_MESSAGE_SCROLLER";
 const ORIGINAL_PUBLIC = process.env[PUBLIC_KEY];
-const ORIGINAL_SERVER = process.env[SERVER_KEY];
 
 function renderConversation() {
   return render(
@@ -31,14 +29,11 @@ function renderConversation() {
 afterEach(() => {
   if (typeof ORIGINAL_PUBLIC === "undefined") delete process.env[PUBLIC_KEY];
   else process.env[PUBLIC_KEY] = ORIGINAL_PUBLIC;
-  if (typeof ORIGINAL_SERVER === "undefined") delete process.env[SERVER_KEY];
-  else process.env[SERVER_KEY] = ORIGINAL_SERVER;
 });
 
 describe("Conversation — MessageScroller path (flag on / default)", () => {
   it("renders messages inside the MessageScroller frame", () => {
     delete process.env[PUBLIC_KEY];
-    delete process.env[SERVER_KEY];
 
     const { container } = renderConversation();
 

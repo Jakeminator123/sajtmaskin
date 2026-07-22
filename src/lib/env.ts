@@ -201,8 +201,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_SHIM_PREVIEW_DISABLED: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
-  /** Server fallback for the shadcn MessageScroller builder-chat scroll flag. Default ON. Read via `isMessageScrollerEnabled` in `src/lib/builder/message-scroller-feature.ts`. */
-  SAJTMASKIN_MESSAGE_SCROLLER: z.string().optional(),
 
   // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
