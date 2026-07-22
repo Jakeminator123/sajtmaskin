@@ -516,10 +516,9 @@ async function runTier2VerifyLane(params: {
       jobFinishedAt?: string | null;
       error?: string;
       // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): the server
-      // short-circuited the F2 RenderGate and auto-promoted the version.
-      // (`promotionBlocked` above still applies: when the finalize
-      // promote-guard refuses, the version is NOT green even though the gate
-      // was skipped.)
+      // short-circuited the F2 RenderGate and left the version untouched
+      // (unverified/pending — a skipped gate is never promoted or marked
+      // `passed`; Codex P1 on #573).
       skipped?: boolean;
       disabled?: boolean;
       reason?: string;
@@ -549,10 +548,10 @@ async function runTier2VerifyLane(params: {
       return;
     }
 
-    // Env kill-switch: the F2 quality gate is turned off server-side. Normally
-    // the version was auto-promoted → informational (not error) card. But if
-    // the finalize promote-guard blocked promotion (`promotionBlocked`), the
-    // version is NOT green — surface that honestly instead of a green skip.
+    // Env kill-switch: the F2 quality gate is turned off server-side — the
+    // version was left untouched (unverified, never promoted/`passed`) →
+    // informational (not error) card. `promotionBlocked` is kept for
+    // defense-in-depth should a future skip path ever mutate state again.
     if (data.disabled || data.skipped) {
       const reasonText =
         typeof data.reason === "string" && data.reason.trim()

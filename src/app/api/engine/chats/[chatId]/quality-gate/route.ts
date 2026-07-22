@@ -389,60 +389,48 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       const codeFiles = await getVersionFiles(internalVersionId);
 
       // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): skip the automatic F2
-      // RenderGate verify lane entirely. Promote the version straight to
-      // `passed` (still subject to the finalize false-green promote-guard) so it
-      // lands in the clean resting state WITHOUT the ~5-7s "verifying" spinner
-      // (never calls `markVersionVerifying`) or the superseded race. NEVER
-      // disables the explicit F3 integrations ReleaseGate — integrations must
-      // still typecheck+build before deploy.
+      // RenderGate verify lane entirely, WITHOUT touching version state (Codex
+      // P1 on #573: a skipped gate must never read as verified). The version
+      // stays exactly as it was — normally `pending`, which for an F2 design
+      // row is the honest "design ready, never gate-verified" resting state
+      // (`resolveEngineVersionVerificationSurfaceStatus` → `design_ready`, and
+      // the F2 deploy gate only blocks `failed`). No `markVersionVerifying`
+      // (so no ~5-7s "verifying" spinner), no promotion, no superseded
+      // mutation. NEVER disables the explicit F3 integrations ReleaseGate —
+      // integrations must still typecheck+build before deploy.
       if (!integrationsBuildGate && isQualityGateDisabledByEnv()) {
-        // Mirror the normal path: never auto-promote a fileless/unreadable
-        // snapshot — that would false-green an empty version.
+        // Mirror the normal path: a fileless/unreadable snapshot is still 404.
         if (!codeFiles || codeFiles.length === 0) {
           return NextResponse.json({ error: "No files found for version" }, { status: 404 });
         }
-        // A newer version exists → skip WITHOUT mutation (the newer row owns
-        // promotion). Honest "not promoted / not green", not a superseded
-        // failure mutation.
-        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
-        if (!stillLatest) {
-          return NextResponse.json({
-            passed: false,
-            skipped: true,
-            disabled: true,
-            superseded: true,
-            promoted: false,
-            checks: [],
-            reason:
-              "Quality gate avstängd; en nyare version finns — hoppar över utan mutation.",
+        // Durable trace (the response's skipped/disabled fields are ephemeral):
+        // one warning row so readiness/status consumers can see the gate was
+        // switched off for this version instead of silently never running.
+        if (dbConfigured) {
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:disabled-skip",
+              message:
+                "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — verify-lane hoppades över; versionen lämnas overifierad.",
+              meta: { reason: "quality_gate_disabled_by_env", serverOwned: false },
+            },
+          ]).catch((err) => {
+            warnLog("quality-gate", "Failed to persist disabled-skip log (non-fatal)", {
+              error: err instanceof Error ? err.message : String(err),
+            });
           });
         }
-        // Auto-promote, but STILL under the finalize false-green promote-guard:
-        // if the guard blocks (finalize verifier flagged the version)
-        // `promoteVersion` returns null → report NOT green (passed:false +
-        // promotionBlocked) so the disabled path can never false-green a
-        // guard-blocked version.
-        const promotedVersion = await promoteVersion(
-          internalVersionId,
-          "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — auto-godkänd utan verify-lane.",
-          qgRunId,
-        ).catch((err) => {
-          warnLog("quality-gate", "Disabled-path promote failed (non-fatal)", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-          return null;
-        });
-        const promoted = Boolean(promotedVersion);
         return NextResponse.json({
-          passed: promoted,
+          passed: false,
           skipped: true,
           disabled: true,
-          promoted,
-          promotionBlocked: !promoted,
+          promoted: false,
           checks: [],
-          reason: promoted
-            ? "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE."
-            : "Quality gate avstängd, men promotion blockerades (finalize-verifieraren) — versionen är inte godkänd.",
+          reason:
+            "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE — versionen lämnas overifierad (ingen verify-körning, ingen promotion).",
         });
       }
 

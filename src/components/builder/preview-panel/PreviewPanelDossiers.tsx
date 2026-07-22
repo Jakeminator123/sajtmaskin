@@ -337,6 +337,10 @@ export function PreviewPanelDossiers({
   const [saveError, setSaveError] = useState<{ dossierId: string; message: string } | null>(
     null,
   );
+  // Key currently being deleted ("Ta bort" on a configured key) — the only
+  // remaining delete surface after ProjectEnvVarsPanel was removed (P2
+  // BB#envdel1): a wrong/secret value must be removable from the product UI.
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const projectId = freshData?.projectId ?? null;
 
   // Secret-draft hygiene (Bugbot on this diff): typed-but-unsaved key values
@@ -419,6 +423,56 @@ export function PreviewPanelDossiers({
       }
     },
     [chatId, editingKeys, keyValues, projectId, savingDossierId, versionId],
+  );
+
+  // Delete a stored key via the canonical DELETE API (same route the removed
+  // ProjectEnvVarsPanel used). The `action: "deleted"` event clears local
+  // drafts for the key and refetches, so `hasRealValue` flips back honestly.
+  const handleDeleteKey = useCallback(
+    async (dossier: DossierOverviewEntry, envKey: string) => {
+      if (!projectId || savingDossierId || deletingKey) return;
+      setDeletingKey(envKey);
+      setSaveError(null);
+      try {
+        const response = await fetch(
+          `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keys: [envKey] }),
+          },
+        );
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.success) {
+          setSaveError({
+            dossierId: dossier.id,
+            message: data?.error || `Kunde inte ta bort ${envKey}.`,
+          });
+          return;
+        }
+        dispatchProjectEnvVarsUpdated({
+          projectId,
+          chatId,
+          versionId,
+          envKeys: [envKey],
+          action: "deleted",
+        });
+      } catch (error) {
+        setSaveError({
+          dossierId: dossier.id,
+          message:
+            error instanceof Error
+              ? `Kunde inte ta bort ${envKey}: ${error.message}`
+              : `Kunde inte ta bort ${envKey}.`,
+        });
+      } finally {
+        setDeletingKey(null);
+      }
+    },
+    [chatId, deletingKey, projectId, savingDossierId, versionId],
   );
 
   // Nothing wired yet: default the popover straight to "Bläddra katalog"
@@ -603,15 +657,29 @@ export function PreviewPanelDossiers({
                             />
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditingKeys((current) => new Set(current).add(env.key))
-                            }
-                            className="text-[10px] text-sky-300 hover:text-sky-200"
-                          >
-                            Ändra värde
-                          </button>
+                          <span className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingKeys((current) => new Set(current).add(env.key))
+                              }
+                              className="text-[10px] text-sky-300 hover:text-sky-200"
+                            >
+                              Ändra värde
+                            </button>
+                            {/* Delete surface (P2 BB#envdel1): the removed
+                                ProjectEnvVarsPanel was the only UI that could
+                                DELETE a stored key — wrong/secret values must
+                                stay removable from the builder. */}
+                            <button
+                              type="button"
+                              disabled={!projectId || deletingKey !== null || savingDossierId !== null}
+                              onClick={() => void handleDeleteKey(entry, env.key)}
+                              className="text-[10px] text-rose-300 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingKey === env.key ? "Tar bort…" : "Ta bort"}
+                            </button>
+                          </span>
                         )}
                       </li>
                     );

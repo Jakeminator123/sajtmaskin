@@ -319,7 +319,7 @@ describe("POST quality-gate", () => {
     expect(promoteVersion).not.toHaveBeenCalled();
   });
 
-  it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane, auto-promotes, no verify/spinner", async () => {
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane without promoting or mutating state", async () => {
     isQualityGateDisabledByEnv.mockReturnValue(true);
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
@@ -328,7 +328,6 @@ describe("POST quality-gate", () => {
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){}" },
     ]);
-    promoteVersion.mockResolvedValue({ id: "ver-1" });
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -341,52 +340,31 @@ describe("POST quality-gate", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toMatchObject({ passed: true, disabled: true, skipped: true, promoted: true });
-    // No verify lane, no "verifying" spinner, no superseded mutation.
-    expect(runQualityGateChecks).not.toHaveBeenCalled();
-    expect(markVersionVerifying).not.toHaveBeenCalled();
-    expect(markVersionSupersededByRepair).not.toHaveBeenCalled();
-    // Version is auto-promoted (still under the finalize promote-guard).
-    expect(promoteVersion).toHaveBeenCalledWith(
-      "ver-1",
-      expect.stringContaining("SAJTMASKIN_DISABLE_QUALITY_GATE"),
-      "run-1",
-    );
-    // Lease still released.
-    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
-  });
-
-  it("SAJTMASKIN_DISABLE_QUALITY_GATE: never false-greens when the promote guard blocks", async () => {
-    isQualityGateDisabledByEnv.mockReturnValue(true);
-    getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      chat: { id: "chat-1" },
-      version: { id: "ver-1", lifecycle_stage: "design" },
-    });
-    getVersionFiles.mockResolvedValue([
-      { path: "app/page.tsx", content: "export default function Page(){}" },
-    ]);
-    // Finalize promote-guard refuses promotion → promoteVersion returns null.
-    promoteVersion.mockResolvedValue(null);
-
-    const res = await POST(
-      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
-      }),
-      { params: Promise.resolve({ chatId: "chat-1" }) },
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    // NOT green: the guard blocked, so passed:false + promotionBlocked.
+    // Codex P1 on #573: a skipped gate must NEVER read as verified — no
+    // promotion, no `passed:true`; the version stays untouched (pending).
     expect(body).toMatchObject({
       passed: false,
       disabled: true,
+      skipped: true,
       promoted: false,
-      promotionBlocked: true,
     });
+    // No verify lane, no "verifying" spinner, no superseded mutation, and
+    // no verification-state mutation of ANY kind.
     expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(markVersionSupersededByRepair).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    // Durable trace: one warning log row records that the gate was skipped.
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        versionId: "ver-1",
+        level: "warning",
+        category: "quality-gate:disabled-skip",
+      }),
+    ]);
+    // Lease still released.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 
   it("SAJTMASKIN_DISABLE_QUALITY_GATE: never auto-promotes a fileless version (404)", async () => {
