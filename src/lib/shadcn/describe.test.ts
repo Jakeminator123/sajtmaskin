@@ -15,6 +15,7 @@ import {
   rankCandidatesWithLlm,
   simplifyQueries,
   simplifyQuery,
+  withDescribeModelFailover,
   withTimeout,
   type CommunityRegistryDescriptor,
   type DescribeCandidate,
@@ -131,6 +132,50 @@ describe("LLM steps fall back to the heuristic without a provider key", () => {
     );
     expect(result.ranking).toBe("heuristic");
     expect(result.candidates[0]?.name).toBe("pricing-table");
+  });
+});
+
+describe("LLM provider failover", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("tries Anthropic when the preferred OpenAI attempt fails", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
+    const attemptedModels: string[] = [];
+
+    const result = await withDescribeModelFailover(
+      "query generation",
+      5_000,
+      async (model) => {
+        attemptedModels.push(model);
+        if (attemptedModels.length === 1) throw new Error("429 rate limited");
+        return "anthropic-result";
+      },
+    );
+
+    expect(result).toBe("anthropic-result");
+    expect(attemptedModels).toHaveLength(2);
+    expect(attemptedModels[0]).not.toBe(attemptedModels[1]);
+  });
+
+  it("returns null only after every configured provider fails", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
+    const attemptedModels: string[] = [];
+
+    const result = await withDescribeModelFailover(
+      "ranking",
+      5_000,
+      async (model) => {
+        attemptedModels.push(model);
+        throw new Error("provider unavailable");
+      },
+    );
+
+    expect(result).toBeNull();
+    expect(attemptedModels).toHaveLength(2);
   });
 });
 
