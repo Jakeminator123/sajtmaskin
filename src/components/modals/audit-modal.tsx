@@ -416,12 +416,17 @@ export function AuditModal({
   // it opens — otherwise focus stays on the triggering button under the
   // overlay and Tab starts from the obscured audit surface.
   useEffect(() => {
-    if (!showPdfModal && !showBuildConfirm) return;
+    if (!showPdfModal && !showBuildConfirm && !showBuildOverlay) return;
     const raf = requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("[data-audit-nested-dialog]")?.focus();
+      // Nested dialogs (z-60) stack above the build-CTA overlay (z-40) —
+      // focus the topmost surface that is actually in the DOM.
+      const target =
+        document.querySelector<HTMLElement>("[data-audit-nested-dialog]") ??
+        document.querySelector<HTMLElement>("[data-audit-build-overlay]");
+      target?.focus();
     });
     return () => cancelAnimationFrame(raf);
-  }, [showPdfModal, showBuildConfirm]);
+  }, [showPdfModal, showBuildConfirm, showBuildOverlay]);
 
   // Move focus into the dialog on open and return it to the trigger on close.
   useEffect(() => {

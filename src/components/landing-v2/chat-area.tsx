@@ -55,10 +55,15 @@ export function ChatArea(props: ChatAreaProps = {}) {
   // Gamla bokmärken som /#funktioner har inget mål på startsidan längre —
   // skicka dem vidare till motsvarande sektion på /teknik.
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash === "#funktioner" || hash === "#teknik") {
-      router.replace(`/teknik${hash}`)
+    const redirectLegacyHash = () => {
+      const hash = window.location.hash
+      if (hash === "#funktioner" || hash === "#teknik") {
+        router.replace(`/teknik${hash}`)
+      }
     }
+    redirectLegacyHash()
+    window.addEventListener("hashchange", redirectLegacyHash)
+    return () => window.removeEventListener("hashchange", redirectLegacyHash)
   }, [router])
 
   return (

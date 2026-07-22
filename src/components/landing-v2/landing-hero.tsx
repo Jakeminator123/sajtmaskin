@@ -79,12 +79,15 @@ export function LandingHero({
         >
           <span aria-hidden="true">
             Din n&auml;sta{" "}
-            <span className="relative inline-block">
+            <span className="relative inline-block max-w-full">
               {/* Osynlig platshållare (längsta ordet) reserverar bredden så
-                  rubriken aldrig hoppar eller ombryts när ordet roterar. */}
-              <span className="invisible whitespace-nowrap">{longestSiteType}</span>
+                  rubriken aldrig hoppar eller ombryts när ordet roterar.
+                  Bara md+: på smala mobiler (utan radbrytningen nedan) skulle
+                  den tvinga in längsta ordets bredd på en rad och klippas av
+                  sidans overflow-x-hidden — där får ordet flöda naturligt. */}
+              <span className="invisible max-md:hidden whitespace-nowrap">{longestSiteType}</span>
               <span
-                className={`text-primary absolute inset-x-0 top-0 whitespace-nowrap text-center transition-all duration-300 ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
+                className={`text-primary md:absolute md:inset-x-0 md:top-0 md:whitespace-nowrap text-center transition-all duration-300 ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
               >
                 {rotatingType.text}
               </span>
