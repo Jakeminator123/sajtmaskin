@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowLeft, ImageOff, Loader2, Puzzle, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  ImageOff,
+  Loader2,
+  Plus,
+  Puzzle,
+  Search,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   buildPreviewImageUrl,
@@ -13,6 +22,10 @@ import {
   type ComponentItem,
   type RegistryItemKind,
 } from "@/lib/shadcn/registry-service";
+import {
+  OFFICIAL_SHADCN_REGISTRY,
+  type ShadcnInsertSelection,
+} from "@/lib/builder/shadcn-insert";
 
 /**
  * "Bläddra"-galleriet — väcker den vilande shadcn-registry-datan
@@ -21,11 +34,13 @@ import {
  * som en visuell kort-galleriyta i buildern.
  *
  * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * (Fas 3 — Bläddra).
+ * (Fas 3 — Bläddra + Fas 2 v1 — insättning).
  *
- * VIKTIGT (Fas 3-scope): att välja ett kort öppnar bara en detaljvy. INGEN
- * insättning kopplas ännu — se SEAM-kommentaren i detaljvyn nedan. Fetch sker via
- * de befintliga `/api/shadcn/registry`-proxyroutesen (fungerar i prod) och först
+ * Insättning (Fas 2 v1): kortvalets metadata skickas via `onInsertItem` genom
+ * den BEFINTLIGA sendMessage/own-engine-vägen (se `shadcn-insert.ts`) —
+ * generering + verify producerar en ny version. Aldrig rå filpatch. Utan
+ * callback är detaljvyn read-only (samma som Fas 3). Fetch sker via de
+ * befintliga `/api/shadcn/registry`-proxyroutesen (fungerar i prod) och först
  * när denna komponent monteras (dvs. när fliken öppnas). Flagga av = ingen fetch alls.
  */
 
@@ -33,6 +48,8 @@ type BrowseItemType = RegistryItemKind;
 
 export interface PreviewPanelBrowseGalleryProps {
   disabled?: boolean;
+  /** Insättnings-lane v1 (own-engine). Saknas → detaljvyns knapp är disabled. */
+  onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
 }
 
 const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
@@ -40,7 +57,10 @@ const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
   { id: "component", label: "Komponenter" },
 ];
 
-export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrowseGalleryProps) {
+export function PreviewPanelBrowseGallery({
+  disabled = false,
+  onInsertItem,
+}: PreviewPanelBrowseGalleryProps) {
   const [itemType, setItemType] = useState<BrowseItemType>("block");
   const [categories, setCategories] = useState<ComponentCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +136,11 @@ export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrow
       aria-label="Bläddra shadcn-galleri"
     >
       {selectedItem ? (
-        <BrowseDetailView item={selectedItem} onBack={() => setSelectedItem(null)} />
+        <BrowseDetailView
+          item={selectedItem}
+          onBack={() => setSelectedItem(null)}
+          onInsertItem={onInsertItem}
+        />
       ) : (
         <>
           {/* itemType-flikar: driver getBlocksByCategory vs getComponentsByCategory */}
@@ -305,16 +329,50 @@ function BrowseCard({ item, onSelect }: { item: ComponentItem; onSelect: () => v
   );
 }
 
-function BrowseDetailView({ item, onBack }: { item: ComponentItem; onBack: () => void }) {
+function BrowseDetailView({
+  item,
+  onBack,
+  onInsertItem,
+}: {
+  item: ComponentItem;
+  onBack: () => void;
+  onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+}) {
   const thumb = thumbnailUrl(item);
+  const [inserting, setInserting] = useState(false);
+  const [inserted, setInserted] = useState(false);
+  // Ref-guard mot dubbelklick: två snabba klick före nästa render ser båda
+  // `inserting === false` (stale closure) — refen uppdateras synkront och
+  // stoppar det andra klicket från att trigga en duplicerad generation.
+  const insertingRef = useRef(false);
 
-  // SEAM (Fas 2): här hakar den funktionella insättnings-lanen in senare
-  // (getRegistryItems → rewriteRegistryImports → dep-completer → own-engine
-  //  recipe-turn → Normalize/RepairGate/RenderGate → ny version + preview).
-  // I Fas 3 är detta medvetet en no-op: vi skriver INGET till användarsajten.
-  const handleInsert = () => {
-    /* no-op tills Fas 2-lanen kopplas in (se SEAM ovan). */
-  };
+  // Insättnings-lane v1 (Fas 2): kortvalets metadata → `shadcn-insert.ts` →
+  // BEFINTLIGA sendMessage/own-engine-vägen → generering + verify → ny version.
+  // Aldrig rå filpatch. SEAM (Fas 2 v2, utanför v1-scope): en deterministisk
+  // recipe-lane (getRegistryItems → rewriteRegistryImports → dep-completer →
+  // recipe-injektion i own-engine-turn) kan senare ersätta prompt-vägen — samma
+  // `ShadcnInsertSelection` som ingång.
+  const handleInsert = useCallback(async () => {
+    if (!onInsertItem || insertingRef.current) return;
+    insertingRef.current = true;
+    setInserting(true);
+    setInserted(false);
+    try {
+      await onInsertItem({
+        name: item.name,
+        registry: OFFICIAL_SHADCN_REGISTRY,
+        title: item.title,
+        description: item.description || undefined,
+        origin: "browse",
+      });
+      setInserted(true);
+    } catch {
+      // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
+    } finally {
+      insertingRef.current = false;
+      setInserting(false);
+    }
+  }, [onInsertItem, item]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -346,20 +404,48 @@ function BrowseDetailView({ item, onBack }: { item: ComponentItem; onBack: () =>
           <p className="mt-2 text-[11px] leading-snug text-zinc-400">{item.description}</p>
         ) : null}
 
-        <div className="mt-4 rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-100/90">
-          Insättning kommer i en senare fas. Just nu kan du bläddra och förhandsgranska —
-          blocket läggs inte till i sajten ännu.
-        </div>
+        {onInsertItem ? (
+          <div className="mt-4 rounded-md border border-violet-900/50 bg-violet-950/20 px-3 py-2 text-[11px] text-violet-200/80">
+            Blocket skickas till AI:n som bygger in det i sajten och verifierar att det
+            fungerar — en ny version skapas när genereringen är klar.
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-100/90">
+            Insättning är inte tillgänglig här ännu. Just nu kan du bläddra och
+            förhandsgranska — blocket läggs inte till i sajten.
+          </div>
+        )}
 
         <button
           type="button"
-          onClick={handleInsert}
-          disabled
-          aria-disabled
-          title="Insättning kopplas i en senare fas"
-          className="mt-3 w-full cursor-not-allowed rounded-md border border-violet-900/50 bg-violet-950/30 px-3 py-2 text-[11px] font-medium text-violet-300/70"
+          onClick={() => void handleInsert()}
+          disabled={!onInsertItem || inserting || inserted}
+          title={
+            onInsertItem
+              ? "Skicka blocket till AI:n för insättning"
+              : "Insättning är inte tillgänglig här ännu"
+          }
+          className={cn(
+            "mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-[11px] font-medium transition",
+            inserted
+              ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-200"
+              : onInsertItem
+                ? "border-violet-800/60 bg-violet-950/30 text-violet-200 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                : "cursor-not-allowed border-violet-900/50 bg-violet-950/30 text-violet-300/70",
+          )}
         >
-          Lägg till i sajten (snart)
+          {inserting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : inserted ? (
+            <Check className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {inserting
+            ? "Skickar…"
+            : inserted
+              ? "Skickat till chatten — se status där"
+              : "Lägg till i sajten"}
         </button>
       </div>
     </div>

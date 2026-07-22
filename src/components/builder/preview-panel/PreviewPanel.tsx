@@ -129,6 +129,7 @@ export function PreviewPanel({
   pendingPlacementItem = null,
   onPlacementComplete,
   onComposerAiFallback,
+  onShadcnItemInsert,
   lifecycleStage = null,
   isBusy = false,
   onF3MissingEnv,
@@ -1184,6 +1185,7 @@ export function PreviewPanel({
                 disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
                 onDragStart={() => setIsComposerDragging(true)}
                 onDragEnd={() => setIsComposerDragging(false)}
+                onInsertShadcnItem={onShadcnItemInsert}
               />
             ) : (
               <PreviewPanelComposerPalette

@@ -47,6 +47,10 @@ import {
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
+import {
+  buildShadcnInsertMessage,
+  type ShadcnInsertSelection,
+} from "@/lib/builder/shadcn-insert";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
@@ -246,6 +250,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     },
     [sendMessage, vm.chatId],
   );
+
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
   // A publication exists if there's a live deployment or a known hosting
@@ -654,6 +659,69 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // ett val medan en fråga väntar skulle tyst avfärda frågan. Disable:a
   // katalograderna i båda lägena (panelen visar en kort hint).
   const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
+  // Färsk spegling av upptaget-läget så en async-sändare kan omkontrollera det
+  // EFTER ett await (closure-fångat `catalogPickDisabled` hinner bli inaktuellt).
+  const catalogPickDisabledRef = useRef(catalogPickDisabled);
+  useEffect(() => {
+    catalogPickDisabledRef.current = catalogPickDisabled;
+  }, [catalogPickDisabled]);
+
+  // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
+  // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
+  // BEFINTLIGA sendMessage-vägen → own-engine genererar + verifierar
+  // (RenderGate) → ny version + preview. Aldrig rå filpatch. Fel re-throwas
+  // så panelens kort ALDRIG visar "skickad" för en misslyckad insättning.
+  // Global in-flight-spärr: kortens egna guards är per-komponent, så parallella
+  // val från Bläddra + Beskriv (t.ex. via tabbyte mitt i registry-fetchen, innan
+  // isBusy hunnit bli true) skulle annars kunna nå sendMessage båda två — den
+  // andra aborterar då den förstas stream.
+  const shadcnInsertInFlightRef = useRef(false);
+  const handleShadcnItemInsert = useCallback(
+    async (selection: ShadcnInsertSelection) => {
+      if (!vm.chatId) {
+        toast.error("Öppna eller skapa en chat först.");
+        throw new Error("no active chat");
+      }
+      // Samma gate som dossier-katalogvalen (`catalogPickDisabled`): sendMessage
+      // ABORTAR en pågående stream, och ett val medan en fråga väntar skulle
+      // tyst avfärda frågan. Kasta så kortet aldrig markeras "skickat".
+      if (catalogPickDisabled) {
+        toast.error(
+          isBusy
+            ? "Vänta tills den pågående genereringen är klar."
+            : "Svara på frågan i chatten innan du lägger till block.",
+        );
+        throw new Error("builder busy or awaiting reply");
+      }
+      if (shadcnInsertInFlightRef.current) {
+        toast.error("En insättning pågår redan — vänta tills den är klar.");
+        throw new Error("shadcn insert already in flight");
+      }
+      shadcnInsertInFlightRef.current = true;
+      try {
+        const built = await buildShadcnInsertMessage(selection);
+        // Omkontroll efter registry-fetchen: `catalogPickDisabled` lästes vid
+        // entry, men under await:et kan användaren ha startat en annan
+        // generering. sendMessage skulle då aborta den streamen — kasta i
+        // stället (kortet markeras aldrig skickat). Dossier-katalogen bygger
+        // meddelandet synkront och har därför inte det här fönstret.
+        if (catalogPickDisabledRef.current) {
+          toast.error("Vänta tills den pågående genereringen är klar.");
+          throw new Error("builder became busy during insert build");
+        }
+        try {
+          await sendMessage(built.message, { promptSourceMeta: built.meta });
+        } catch (err) {
+          toast.error("Kunde inte skicka blocket till own-engine.");
+          throw err;
+        }
+      } finally {
+        shadcnInsertInFlightRef.current = false;
+      }
+    },
+    [sendMessage, vm.chatId, catalogPickDisabled, isBusy],
+  );
+
   const handleRequestDossier = useCallback(
     (payload: { id: string; label: string }) => {
       const id = payload.id.trim();
@@ -1050,6 +1118,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}
+              onShadcnItemInsert={handleShadcnItemInsert}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
               onRequestDossier={handleRequestDossier}
