@@ -19,7 +19,7 @@ kopiera inte dess kö hit.
 | Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | DB-backoff, CSP/fontbrus och scaffold-lint ska levereras separat. |
 | Dossier/UI-ownership | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Lås att en dossier inte skapar en konkurrerande användaryta. |
 | Backoffice-stringens | [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md) | Kärnan implementerad 2026-07-21 (6 grupper, konsoliderade sidor, backup/Återställning); kvar: P2-städ (subprocess-helpers, terminologi-svep, fler tester). Refresh-handoff arkiverad. |
-| shadcn-registry + "Beskriv"-komposition | [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) | Fas 0-spike avgjord (HTTP-fetch, ingen shadcn-dep). Fas 1 discovery-route `POST /api/shadcn/describe` under arbete (flagg-gated, default av). Nästa: Fas 2 funktionell insättnings-lane + Fas 3-Beskriv-UI. |
+| shadcn-registry + "Beskriv"-komposition | [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) | Fas 0/1/2/3/5 mergade (#570/#576/#581/#574/#572). I granskning: #582 (Fas 4-resolver), #583 (Fas 2-härdning), #584 (Fas 6-proof). Öppna frågor 1+3 avgjorda. |
 
 ## Andra aktiva sanningar
 

@@ -121,19 +121,18 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 - **[P]** Kurera verifierade block (hero, pricing, dashboards, auth, booking, ai-chat, e-handel, integration-mocks) i ett internt shadcn-kompatibelt register med `dependencies`/`registryDependencies`/redan verifierad kod.
 - **[S]** Lägg registret i `components.json` → MCP + resolver + Beskriv använder samma källa automatiskt.
 
-## PR-mappning (allt mot `master`)
+## PR-mappning (allt mot `master`) — leveransstatus 2026-07-22
 
-| PR | Innehåll | Beror på | Risk |
-|---|---|---|---|
-| PR1 | Fas 0 (pin + `components.json` + spike-beslut) | — | Låg |
-| PR2 | Fas 1 + Fas 3-Bläddra (discovery-route + galleri, ingen insättning) | PR1 | Låg–medel |
-| PR3 | Fas 2 + Fas 3-Beskriv/insättning (funktionell) | PR2 | **Hög** |
-| PR4 | Fas 4 (resolver-konsolidering) | PR2 (adapter) | **Hög (skyddad)** |
-| PR5 | Fas 5 (MessageScroller + tester) | — (fristående) | Låg–medel |
-| PR6 | Fas 6 (eget register) | PR3–PR4 | Medel |
-
-Parallellt direkt: **PR1-spike**, **PR3-Bläddra-UI-data**, **PR5** kan alla starta oberoende.
-Kritisk väg: PR1-spike → PR2 → PR3; PR4 efter att PR2:s adapter är stabil.
+| PR | Innehåll | Status |
+|---|---|---|
+| #570 | Fas 0 (pin `shadcn@4.13.1` + `components.json`-registries + spike) | **Mergad.** Spiken avgjorde öppna fråga 1: HTTP-fetch, INGEN `shadcn`-runtime-dep. Obs: inbyggda `@shadcn`/`@v0` får aldrig deklareras i `registries` |
+| #576 | Fas 1 (`POST /api/shadcn/describe`, flagg-gated) | **Mergad** |
+| #574 | Fas 3-Bläddra ("Lägg till"-panel + galleri, flagg-gated) | **Mergad** |
+| #572 | Fas 5 (MessageScroller, flagg-gated) | **Mergad** |
+| #581 | Fas 2 v1 (insättnings-lane via own-engine + Beskriv-flik) | **Mergad** |
+| #583 | Fas 2-efterhärdning (chattbytes-guard, metadata-sanering, hydrerings-timeout, riktig disabled) | I granskning (`merge:ready`) |
+| #582 | Fas 4 (sökdriven kandidatgenerering i resolvern, flagg-gated + legacy-fallback) | Draft — författarens pass pågår |
+| #584 | Fas 6-proof (internt `@sajtmaskin`-register, 3 poster via `/r/{name}.json`) | Draft. Avgjorde öppna fråga 3: serveras från appen, ingen ny Blob-host |
 
 ## Tester som krävs (P1 enligt review-gaten — pipeline/preview/DB berörs)
 
@@ -212,6 +211,6 @@ arbetar på icke-överlappande filer eller i egna worktrees. Varje PR mot `maste
 
 ## Öppna frågor
 
-1. Fas 0-spiken: program-API i server-route **eller** fortsatt HTTP-fetch? (avgör Fas 1 & 4)
-2. Insättning: räcker v1 (prompt via own-engine) för lansering, eller krävs v2 (deterministisk lane) direkt?
-3. Eget @sajtmaskin-register (Fas 6): egen Blob-host eller återanvänd befintlig registry-infra?
+1. ~~Fas 0-spiken: program-API eller HTTP-fetch?~~ **Avgjord (#570):** HTTP-fetch, ingen `shadcn`-runtime-dep.
+2. Insättning: räcker v1 (prompt via own-engine) för lansering, eller krävs v2 (deterministisk lane)? v2-seamen dokumenterad i `shadcn-insert.ts`; sendMessage-utfallskontraktet ligger som BB#shadcn-lane1 (P3).
+3. ~~Eget @sajtmaskin-register: Blob eller befintlig infra?~~ **Avgjord (#584):** serveras från appen själv (`/r/{name}.json`).
