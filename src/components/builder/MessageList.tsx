@@ -3,6 +3,7 @@
 import {
   Conversation,
   ConversationContent,
+  ConversationItem,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
@@ -396,7 +397,10 @@ const MessageListComponent = ({
 
   return (
     <>
-      <Conversation className="h-full">
+      {/* key={chatId}: remount the scroller per chat so anchor/scroll offset
+          from the previous chat never leaks into the next one (messages can be
+          swapped in place on chat switch without an empty intermediate state). */}
+      <Conversation key={chatId ?? "no-chat"} className="h-full">
         <ConversationContent>
           {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
@@ -443,7 +447,12 @@ const MessageListComponent = ({
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
 
           return (
-            <Message key={message.id} from={message.role}>
+            <ConversationItem
+              key={message.id}
+              messageId={message.id}
+              scrollAnchor={message.role === "user"}
+            >
+              <Message from={message.role}>
               <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
@@ -592,7 +601,8 @@ const MessageListComponent = ({
                     />
                   )}
               </MessageContent>
-            </Message>
+              </Message>
+            </ConversationItem>
           );
           })}
 
@@ -602,6 +612,7 @@ const MessageListComponent = ({
               klipps av wrapperns overflow) och en icke-blockerande, flytande
               ankarknapp scrollar hit i stället för att öppna en overlay. */}
           {pendingReply && !isF3Continuation && (
+            <ConversationItem messageId={`pending-reply-${pendingReply.key}`}>
             <div
               ref={pendingReplyBlockRef}
               className="border-border bg-card mt-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs"
@@ -638,13 +649,15 @@ const MessageListComponent = ({
                 </p>
               )}
             </div>
+            </ConversationItem>
           )}
 
           {/* F3-continuation: never a dialog. A live marker auto-continues with a
               calm status row; a reloaded marker shows inline quick-replies so the
               user can still choose (no auto-fire on old history). */}
           {pendingReply && isF3Continuation && (
-            f3AutoContinueKey === pendingReply.key ? (
+            <ConversationItem messageId={`f3-continuation-${pendingReply.key}`}>
+              {f3AutoContinueKey === pendingReply.key ? (
               <div
                 className="text-muted-foreground bg-muted/40 mt-2 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
                 aria-live="polite"
@@ -677,7 +690,8 @@ const MessageListComponent = ({
                   </div>
                 ) : null}
               </div>
-            )
+              )}
+            </ConversationItem>
           )}
         </ConversationContent>
         <ConversationScrollButton />
