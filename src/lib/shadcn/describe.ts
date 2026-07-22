@@ -286,10 +286,37 @@ export function heuristicRankCandidates(
 // LLM STEPS (impure, with deterministic fallback)
 // ============================================================================
 
-/** Pick a runnable prompt-assist model, preferring OpenAI, else Anthropic. */
-function resolveDescribeModel(): string | null {
-  if (process.env.OPENAI_API_KEY?.trim()) return AUTO_BRIEF_MODEL_OPENAI;
-  if (process.env.ANTHROPIC_API_KEY?.trim()) return AUTO_BRIEF_MODEL_ANTHROPIC;
+/** Pick runnable prompt-assist models in failover order. */
+function resolveDescribeModels(): string[] {
+  const models: string[] = [];
+  if (process.env.OPENAI_API_KEY?.trim()) models.push(AUTO_BRIEF_MODEL_OPENAI);
+  if (process.env.ANTHROPIC_API_KEY?.trim()) models.push(AUTO_BRIEF_MODEL_ANTHROPIC);
+  return Array.from(new Set(models));
+}
+
+/**
+ * Run one LLM step with provider failover while preserving the step's original
+ * total time budget. A fast OpenAI error (for example 429/5xx) therefore tries
+ * Anthropic, while a genuinely stalled provider still cannot double latency.
+ */
+export async function withDescribeModelFailover<T>(
+  step: "query generation" | "ranking",
+  timeoutMs: number,
+  run: (model: string, abortSignal: AbortSignal) => Promise<T>,
+): Promise<T | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (const model of resolveDescribeModels()) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    try {
+      return await run(model, AbortSignal.timeout(remainingMs));
+    } catch (err) {
+      debugLog("shadcn-describe", `${step} provider attempt failed`, {
+        model,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
   return null;
 }
 
@@ -314,32 +341,34 @@ const QUERY_SYSTEM_PROMPT =
  * heuristic queries when no model/key is available or the call fails.
  */
 export async function generateQueriesWithLlm(description: string): Promise<string[]> {
-  const model = resolveDescribeModel();
   const fallback = fallbackQueriesFromDescription(description);
-  if (!model) return fallback;
-  try {
-    const result = await generateObject({
-      model: createDirectModel(model),
-      schema: queriesSchema,
-      messages: [
-        { role: "system", content: QUERY_SYSTEM_PROMPT },
-        { role: "user", content: description },
-      ],
-      maxRetries: 1,
-      maxOutputTokens: 512,
-      abortSignal: AbortSignal.timeout(QUERY_LLM_TIMEOUT_MS),
-    });
-    const queries = result.object.queries
-      .map((q) => q.trim().toLowerCase())
-      .filter(Boolean);
-    const deduped = Array.from(new Set(queries));
-    return deduped.length > 0 ? deduped.slice(0, 3) : fallback;
-  } catch (err) {
-    debugLog("shadcn-describe", "query generation fell back to heuristic", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return fallback;
-  }
+  const queries = await withDescribeModelFailover(
+    "query generation",
+    QUERY_LLM_TIMEOUT_MS,
+    async (model, abortSignal) => {
+      const result = await generateObject({
+        model: createDirectModel(model),
+        schema: queriesSchema,
+        messages: [
+          { role: "system", content: QUERY_SYSTEM_PROMPT },
+          { role: "user", content: description },
+        ],
+        maxRetries: 1,
+        maxOutputTokens: 512,
+        abortSignal,
+      });
+      const deduped = Array.from(
+        new Set(
+          result.object.queries
+            .map((query) => query.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      );
+      if (deduped.length === 0) throw new Error("provider returned no usable queries");
+      return deduped.slice(0, 3);
+    },
+  );
+  return queries ?? fallback;
 }
 
 const rankSchema = z.object({
@@ -364,10 +393,6 @@ export async function rankCandidatesWithLlm(
   limit: number,
 ): Promise<{ candidates: DescribeCandidate[]; ranking: "llm" | "heuristic" }> {
   if (candidates.length === 0) return { candidates: [], ranking: "heuristic" };
-  const model = resolveDescribeModel();
-  if (!model) {
-    return { candidates: heuristicRankCandidates(description, candidates, limit), ranking: "heuristic" };
-  }
 
   const catalog = candidates
     .map((candidate, index) => {
@@ -384,47 +409,52 @@ export async function rankCandidatesWithLlm(
     })
     .join("\n");
 
-  try {
-    const result = await generateObject({
-      model: createDirectModel(model),
-      schema: rankSchema,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You rank shadcn registry candidates by how well they match the user's " +
-            "description. Return ONLY indexes from the provided list, best first, at " +
-            `most ${limit} picks. Never invent components. Give a short reason per pick.`,
-        },
-        {
-          role: "user",
-          content: `Description:\n${description}\n\nCandidates:\n${catalog}`,
-        },
-      ],
-      maxRetries: 1,
-      maxOutputTokens: 1_024,
-      abortSignal: AbortSignal.timeout(RANK_LLM_TIMEOUT_MS),
-    });
+  const ranked = await withDescribeModelFailover(
+    "ranking",
+    RANK_LLM_TIMEOUT_MS,
+    async (model, abortSignal) => {
+      const result = await generateObject({
+        model: createDirectModel(model),
+        schema: rankSchema,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You rank shadcn registry candidates by how well they match the user's " +
+              "description. Return ONLY indexes from the provided list, best first, at " +
+              `most ${limit} picks. Never invent components. Give a short reason per pick.`,
+          },
+          {
+            role: "user",
+            content: `Description:\n${description}\n\nCandidates:\n${catalog}`,
+          },
+        ],
+        maxRetries: 1,
+        maxOutputTokens: 1_024,
+        abortSignal,
+      });
 
-    const seen = new Set<number>();
-    const ranked: DescribeCandidate[] = [];
-    for (const pick of result.object.picks) {
-      const idx = pick.index;
-      if (idx < 0 || idx >= candidates.length || seen.has(idx)) continue;
-      seen.add(idx);
-      ranked.push({ ...candidates[idx], reason: pick.reason || undefined });
-      if (ranked.length >= limit) break;
-    }
-    if (ranked.length === 0) {
-      return { candidates: heuristicRankCandidates(description, candidates, limit), ranking: "heuristic" };
-    }
-    return { candidates: ranked, ranking: "llm" };
-  } catch (err) {
-    debugLog("shadcn-describe", "ranking fell back to heuristic", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return { candidates: heuristicRankCandidates(description, candidates, limit), ranking: "heuristic" };
+      const seen = new Set<number>();
+      const selected: DescribeCandidate[] = [];
+      for (const pick of result.object.picks) {
+        const idx = pick.index;
+        if (idx < 0 || idx >= candidates.length || seen.has(idx)) continue;
+        seen.add(idx);
+        selected.push({ ...candidates[idx], reason: pick.reason || undefined });
+        if (selected.length >= limit) break;
+      }
+      if (selected.length === 0) throw new Error("provider returned no valid candidate picks");
+      return selected;
+    },
+  );
+
+  if (!ranked) {
+    return {
+      candidates: heuristicRankCandidates(description, candidates, limit),
+      ranking: "heuristic",
+    };
   }
+  return { candidates: ranked, ranking: "llm" };
 }
 
 // ============================================================================
