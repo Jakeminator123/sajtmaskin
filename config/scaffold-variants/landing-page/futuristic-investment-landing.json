@@ -15,8 +15,8 @@
   ],
   "fontPairings": [
     {
-      "heading": "Sentient",
-      "body": "Arial"
+      "heading": "Space Grotesk",
+      "body": "Inter"
     }
   ],
   "promptHints": [
@@ -31,7 +31,7 @@
   "themeTokens": {
     "background": "oklch(0.145 0 0)",
     "foreground": "oklch(0.985 0 0)",
-    "primary": "oklch(0.205 0 0)",
+    "primary": "oklch(0.8 0.13 88)",
     "radius": "0.75rem"
   },
   "sourceTemplateIds": [

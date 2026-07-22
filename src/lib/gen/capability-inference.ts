@@ -279,9 +279,13 @@ const RULES: CapabilityRule[] = [
     ],
   },
   {
+    // Command palette (cmd+k app-navigation overlay) ONLY. The generic
+    // "sökfält"/"quick search"/site content search belongs to the `site-search`
+    // capability (MiniSearch) — keeping those words here made a single prompt
+    // select BOTH command-palette and site-search (2026-07-22 taxonomy split).
     key: "needsCommandSearch",
     patterns: [
-      /\b(command.?palette|cmd.?k|sökpalett|sökfält|quick.?search|spotlight|command.?menu|kommandopalett)\b/i,
+      /\b(command.?palette|cmd.?k|sökpalett|spotlight|command.?menu|kommandopalett)\b/i,
     ],
   },
   {
