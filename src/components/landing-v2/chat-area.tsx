@@ -16,6 +16,7 @@ import {
 } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
 import { IntegrationCard } from "@/components/landing-v2/landing-tech-integration-cards"
+import { useHashScroll } from "@/components/landing-v2/landing-hooks"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
 
 export type { ChatAreaProps }
@@ -24,6 +25,9 @@ export type { ChatAreaProps }
 
 export function ChatArea(props: ChatAreaProps = {}) {
   const { expandedContent, heroPrefix } = props
+  // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
+  // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
+  useHashScroll()
   const {
     router,
     showVoiceRecorder,

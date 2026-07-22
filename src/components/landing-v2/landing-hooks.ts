@@ -203,3 +203,25 @@ export function useInView(threshold = 0.3) {
 
   return { ref, visible }
 }
+
+/**
+ * Scroll `#hash`-mål i sidor vars innehåll bor i den inre
+ * `[data-scroll-container]`-ytan. Nexts inbyggda hash-hantering scrollar bara
+ * `window`, så länkar som `/#priser` och `/teknik#funktioner` landar annars på
+ * sidtoppen. Körs vid mount (ankomst via navigation) och på `hashchange`.
+ */
+export function useHashScroll() {
+  useEffect(() => {
+    const scrollToHash = () => {
+      const id = window.location.hash.replace(/^#/, "")
+      if (!id) return
+      // Vänta en frame så layouten hunnit sätta sig efter navigering.
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: "start" })
+      })
+    }
+    scrollToHash()
+    window.addEventListener("hashchange", scrollToHash)
+    return () => window.removeEventListener("hashchange", scrollToHash)
+  }, [])
+}

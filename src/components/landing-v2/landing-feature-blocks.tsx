@@ -4,6 +4,7 @@ import { ArrowRight, X } from "lucide-react"
 import {
   useCallback,
   useEffect,
+  useRef,
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import { features } from "@/components/landing-v2/landing-chat-data"
@@ -93,15 +94,25 @@ export function FeatureModal({
 }) {
   const reducedMotion = usePrefersReducedMotion()
 
+  // Callers pass inline `onClose` lambdas and the surrounding sections
+  // re-render frequently (terminal typewriter) — route the callback through a
+  // ref so the lock effect below only re-runs when the dialog opens/closes.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  const open = feature !== null
+
   // Escape-to-close + lock the page's scroll container while the dialog is
   // open (the landing/teknik pages scroll in an inner [data-scroll-container],
   // so a body-only lock would not stop the background from scrolling).
   useEffect(() => {
-    if (!feature) return
+    if (!open) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
       }
     }
     const scrollContainer =
@@ -116,7 +127,7 @@ export function FeatureModal({
       if (scrollContainer) scrollContainer.style.overflow = previousContainerOverflow
       document.body.style.overflow = previousBodyOverflow
     }
-  }, [feature, onClose])
+  }, [open])
 
   if (!feature) return null
 

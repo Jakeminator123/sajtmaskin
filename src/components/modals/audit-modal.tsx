@@ -324,9 +324,18 @@ export function AuditModal({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // The PDF report and build-confirmation dialogs render outside dialogRef;
-      // while one of them is stacked on top, the main dialog's trap must let go
-      // so keyboard users can Tab into (and dismiss) the nested surface.
-      if (showPdfModal || showBuildConfirm) return;
+      // while one of them is stacked on top, the main dialog's trap must let
+      // go so keyboard users can Tab into the nested surface — but Escape must
+      // still dismiss the topmost dialog (AuditPdfReport has no own handler).
+      if (showPdfModal || showBuildConfirm) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (showBuildConfirm) setShowBuildConfirm(false);
+          else setShowPdfModal(false);
+        }
+        return;
+      }
       if (e.key === "Escape") {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
