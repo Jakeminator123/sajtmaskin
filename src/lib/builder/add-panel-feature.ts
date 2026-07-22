@@ -7,10 +7,12 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
  * flagga av = exakt dagens Composer-beteende (bar palette, "Composer"-knapp,
  * ingen registry-fetch). Flagga på = tabbad "Lägg till"-panel där "Block"-fliken
  * återanvänder dagens Composer-palette oförändrad, "Bläddra" väcker det vilande
- * shadcn-registry-galleriet, och "Beskriv" är en tom platshållare (senare fas).
+ * shadcn-registry-galleriet med insättning via own-engine-lanen (v1, se
+ * `shadcn-insert.ts`), och "Beskriv" är funktionell när även
+ * `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` är på (annars platshållare).
  *
  * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * (Fas 3 — Bläddra).
+ * (Fas 2 v1 + Fas 3).
  *
  * OBS för konsumenter i klientkomponenter: `NEXT_PUBLIC_*` inlineas vid build men
  * läs ändå flaggan EFTER mount (useEffect → state, initialt `false`) för att undvika

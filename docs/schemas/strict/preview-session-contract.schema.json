@@ -101,8 +101,8 @@
             "consumer": "DESIGN_PREVIEW_QUALITY_GATE_CHECKS"
           },
           "integrationsBuild": {
-            "checks": ["typecheck", "lint", "build"],
-            "purpose": "F3 quality gate. Used by `/finalize-design` flow and promotion paths.",
+            "checks": ["typecheck", "build"],
+            "purpose": "F3 quality gate. Used by `/finalize-design` flow and promotion paths. `lint` was removed from the blocking lane 2026-07-22 (style rules blocked buildable sites); the host still supports the check if the manifest re-enables it.",
             "consumer": "INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS"
           }
         },

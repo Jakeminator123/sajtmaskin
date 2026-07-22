@@ -43,14 +43,21 @@ const qualityGateTiers = getQualityGateTiersFromManifest();
 // 2026-04-23 change — F2 `designPreview` reduced to `typecheck` only.
 // F2 remains typecheck-only and keeps its render-first Advisory semantics.
 // F3 (`integrationsBuild`) is the single authoritative VM ReleaseGate:
-// typecheck first, project-local lint second, and the full Next build last.
+// typecheck first, then the full Next build.
+//
+// 2026-07-22 (ägarbeslut) — `lint` togs bort ur den blockerande F3-lanen:
+// prod-datan visade att lint failade 21/24 F3-körningar på stilregler
+// (t.ex. `react-hooks/set-state-in-effect`) medan typecheck+build passerade
+// — ett nitpicky gate-block utan riskteckning. Lägg tillbaka `"lint"` i
+// `config/ai_models/manifest.json` `qualityGateTiers.integrationsBuild`
+// om den någonsin behövs igen (koden stödjer checken fortfarande).
 //
 // Override in `config/ai_models/manifest.json` `qualityGateTiers.designPreview`
 // if you want `build`/`lint` back on the VM (e.g. while debugging a
 // particular Next-runtime failure). The schema in
 // `config/ai_models/manifest.schema.json` requires both lane keys.
 const DEFAULT_DESIGN_PREVIEW = ["typecheck"] as const;
-const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "lint", "build"] as const;
+const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "build"] as const;
 
 export const DESIGN_PREVIEW_QUALITY_GATE_CHECKS = sanitizeTierChecks(
   qualityGateTiers.designPreview,

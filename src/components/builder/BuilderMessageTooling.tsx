@@ -10,11 +10,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/builder/messageAdapter";
-import {
-  openDossiersPanel,
-  openIntegrationsPanel,
-  openProjectEnvVarsPanel,
-} from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { isGenericIntegrationName, resolveIntegrationDisplayName } from "@/lib/integrations/suggestion-display";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2 } from "lucide-react";
@@ -55,9 +51,9 @@ type StructuredToolPartsProps = {
 type CompactToolPartsProps = StructuredToolPartsProps & {
   /**
    * F2 vs F3 lifecycle gate. Env / integrations buttons inside compact
-   * tool parts are hidden during F2 because the target panel
-   * (`ProjectEnvVarsPanel`) is not mounted there. Only used by
-   * `CompactToolParts`; structured rendering does not surface env actions.
+   * tool parts are hidden during F2 to keep the chat env-silent
+   * (env-flow-f2-mute); the buttons open the Byggblock popover. Only used
+   * by `CompactToolParts`; structured rendering does not surface env actions.
    */
   lifecycleStage?:
     | import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage
@@ -757,7 +753,7 @@ export function CompactToolParts({
                   </Button>
                 )}
                 {!replyPrompt && (
-                  <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
+                  <Button size="sm" variant="outline" onClick={() => openDossiersPanel()}>
                     Visa integrationer
                   </Button>
                 )}
@@ -1541,8 +1537,6 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
       return "Åtgärd";
   }
 }
-
-export { openIntegrationsPanel, openProjectEnvVarsPanel };
 
 function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   if (!output || typeof output !== "object") return null;

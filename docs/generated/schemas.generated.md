@@ -15,7 +15,7 @@
 <!-- source-fingerprint: docs/schemas/strict/llm-fixer-aborted.schema.json sha256:1419d25b0f17519d -->
 <!-- source-fingerprint: docs/schemas/strict/llm-fixer-partial-response.schema.json sha256:5b95c26c840b7ca7 -->
 <!-- source-fingerprint: docs/schemas/strict/llm-repair-gate-deduped.schema.json sha256:9edfc1931c76d7a9 -->
-<!-- source-fingerprint: docs/schemas/strict/preview-session-contract.schema.json sha256:ee8bde8dfd788557 -->
+<!-- source-fingerprint: docs/schemas/strict/preview-session-contract.schema.json sha256:b8e9660d3dfae72c -->
 <!-- source-fingerprint: docs/schemas/strict/product-postcheck.schema.json sha256:b7eb5a41bdbb150c -->
 <!-- source-fingerprint: docs/schemas/strict/prompt-heuristic-tokens.schema.json sha256:db774abfd1233892 -->
 <!-- source-fingerprint: docs/schemas/strict/redis-health-check-report.schema.json sha256:312d296d7ed1c096 -->

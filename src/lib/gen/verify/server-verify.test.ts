@@ -555,11 +555,11 @@ describe("resolvePostRepairGateChecks (#260 P2 — build-origin false-green)", (
   it("#291 P1: re-gates an F3 repair on the full integrations lane even for a non-build (typecheck) failure", () => {
     // An F3/integrations repair that preserves/re-adds a tier-3 backend SDK
     // import must not be promoted after tsc-only — it has to pass the documented
-    // integrations lane (typecheck + build + lint).
+    // integrations lane (typecheck + build; lint dropped from the blocking lane
+    // 2026-07-22, see quality-gate-checks.ts).
     const checks = resolvePostRepairGateChecks(false, "fidelity3");
     expect(checks).toEqual(INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS);
     expect(checks).toContain("build");
-    expect(checks).toContain("lint");
     expect(checks).toContain("typecheck");
   });
 

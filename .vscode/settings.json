@@ -113,5 +113,6 @@
   },
   "terminal.integrated.env.windows": {
     "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
-  }
+  },
+  "js/ts.experimental.useTsgo": false
 }

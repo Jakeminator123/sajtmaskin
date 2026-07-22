@@ -114,8 +114,10 @@ Typisk ordning i runtime:
 11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder.
 12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
-    auktoritativ VM-gate: typecheck → projektlokal lint → build + env-krav.
-    Lint warnings är Advisory; lint errors är Blocker.
+    auktoritativ VM-gate: typecheck → build. Env-krav täcks av placeholders
+    (alltid tillåtna — demoläge tills riktiga nycklar fylls i via Byggblock).
+    Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler blockerade
+    byggbara sajter); den kan återaktiveras via manifestets `qualityGateTiers`.
 13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard.
 

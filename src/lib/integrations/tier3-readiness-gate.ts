@@ -16,10 +16,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
-import {
-  getStoredProjectEnvVarMap,
-  readAllowPlaceholdersInF3,
-} from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import {
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
@@ -268,8 +265,10 @@ function promotePendingProviderBuildKeys(
 /**
  * Full readiness decision for starting F3 from `versionId`: enforce the
  * Product Postcheck block, derive the file-based build spec, load the
- * project's stored env values, and validate every required real key
- * (honoring the "tillåt placeholders i F3" opt-in).
+ * project's stored env values, and validate every required real key.
+ * Placeholders are ALWAYS accepted for build keys (owner decision
+ * 2026-07-22) — F3 builds in demo mode and real keys land later via the
+ * Byggblock panel.
  *
  * Dossier scoping is resolved INTERNALLY from the chat's orchestration
  * snapshot ∪ the version's file evidence
@@ -347,9 +346,12 @@ export async function checkTier3ReadinessForVersion(params: {
         () => ({}) as Record<string, string>,
       )
     : ({} as Record<string, string>);
-  const allowPlaceholdersInF3 = await readAllowPlaceholdersInF3(params.projectId);
+  // Ägarbeslut 2026-07-22: placeholders är ALLTID tillåtna i F3 — bygget ska
+  // gå igenom i demoläge utan riktiga nycklar, och Byggblock-panelen är ytan
+  // där riktiga värden fylls i efteråt (built-demo → built-live). Den gamla
+  // per-projekt-opt-in:en (`allowPlaceholdersInF3`) är borttagen.
   const readiness = validateTier3Readiness(readinessSpec, projectEnvVars, {
-    allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
+    allowPlaceholdersForBuildKeys: true,
     placeholderEnvKeys: loadPlaceholderKeySet(),
   });
   if (!readiness.ready) {
