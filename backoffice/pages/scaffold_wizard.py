@@ -833,6 +833,24 @@ def _post_create_steps(variant_id: str) -> list[dict[str, Any]]:
     ]
 
 
+def _variant_has_patterns(ctx: BackofficeContext, scaffold_id: str, variant_id: str) -> bool:
+    """True only if the variant file actually has a populated signaturePatterns.
+
+    `scaffolds:variant-patterns` exits 0 even when the LLM call failed or the
+    variant was skipped, so exit code alone would be a false-green signal.
+    """
+    if not scaffold_id or not variant_id:
+        return False
+    path = ctx.variants_dir / scaffold_id / f"{variant_id}.json"
+    if not path.is_file():
+        return False
+    try:
+        sp = (read_json(path) or {}).get("signaturePatterns") or {}
+    except Exception:
+        return False
+    return bool(sp.get("layouts") and sp.get("motifs") and sp.get("antiPatterns"))
+
+
 def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None:
     variant_id = str(created.get("variantId", ""))
     scaffold_id = str(created.get("scaffoldId", ""))
@@ -867,7 +885,19 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
 
     def _run(step: dict[str, Any]) -> None:
         with st.spinner(f"Kör: {step['label']} …"):
-            results[step["key"]] = run_repo_command(ctx.repo_root, step["command"])
+            res = run_repo_command(ctx.repo_root, step["command"])
+        # Curation exits 0 even on LLM failure/skip — verify the file really got
+        # signaturePatterns so a no-op run can't show a false-green check.
+        if step["key"] == "patterns":
+            has_patterns = _variant_has_patterns(ctx, scaffold_id, variant_id)
+            res["verifiedOk"] = bool(res.get("ok") and has_patterns)
+            if res.get("ok") and not has_patterns:
+                res["warn"] = (
+                    "Kommandot kördes (exit 0) men varianten fick **inga** "
+                    "`signaturePatterns` — troligen LLM-fel eller skippad. Se loggen. "
+                    "Varianten blir inte matchoptimerad förrän detta lyckas."
+                )
+        results[step["key"]] = res
         st.session_state["swz_cmd_results"] = results
 
     if st.button("▶ Kör alla steg i följd", type="primary"):
@@ -895,12 +925,15 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         if res.get("skipped"):
             st.caption(f"• {step['label']}: hoppad (ingen API-nyckel).")
             continue
-        ok = bool(res.get("ok"))
+        # For pattern curation, trust the file-verified outcome over exit code.
+        ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))
         badge = "✅" if ok else "❌"
         st.markdown(
             f"{badge} **{step['label']}** — `{res.get('command', '')}` "
             f"({res.get('elapsedSec', '?')}s, exit {res.get('exitCode')})"
         )
+        if res.get("warn"):
+            st.warning(res["warn"])
         with st.expander("Visa logg", expanded=not ok):
             out = (res.get("stdoutTail") or "").strip()
             err = (res.get("stderrTail") or "").strip()
