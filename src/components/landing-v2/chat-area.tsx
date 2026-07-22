@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { ArrowRight, CheckCircle2, Rocket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
@@ -49,6 +50,16 @@ export function ChatArea(props: ChatAreaProps = {}) {
     startBuild,
     submitPrimaryInput,
   } = useLandingController(props)
+
+  // Legacy-djuplänkar: #funktioner/#teknik-sektionerna flyttade till /teknik.
+  // Gamla bokmärken som /#funktioner har inget mål på startsidan längre —
+  // skicka dem vidare till motsvarande sektion på /teknik.
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash === "#funktioner" || hash === "#teknik") {
+      router.replace(`/teknik${hash}`)
+    }
+  }, [router])
 
   return (
     <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -376,11 +376,22 @@ export function AuditModal({
 
         e.preventDefault();
         e.stopPropagation();
+        // The auto-shown build-CTA overlay stacks inside the dialog — Escape
+        // dismisses it first; a second Escape closes the audit itself.
+        if (showBuildOverlay) {
+          setShowBuildOverlay(false);
+          return;
+        }
         onClose();
         return;
       }
       if (e.key === "Tab") {
-        const container = dialogRef.current;
+        // While the build-CTA overlay covers the dialog, confine Tab to it so
+        // focus cannot reach the covered audit controls underneath.
+        const container =
+          (showBuildOverlay
+            ? document.querySelector<HTMLElement>("[data-audit-build-overlay]")
+            : null) ?? dialogRef.current;
         if (!container) return;
         trapTabWithin(container, e);
       }
@@ -391,14 +402,17 @@ export function AuditModal({
       window.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = "";
     };
-  }, [isOpen, onClose, showPdfModal, showBuildConfirm]);
+  }, [isOpen, onClose, showPdfModal, showBuildConfirm, showBuildOverlay]);
 
   // Move focus into the dialog on open and return it to the trigger on close.
   useEffect(() => {
     if (!isOpen) return;
     previouslyFocusedRef.current = (document.activeElement as HTMLElement) ?? null;
     const raf = requestAnimationFrame(() => {
-      dialogRef.current?.focus();
+      // When the build-CTA overlay auto-opens on top, it is the active prompt
+      // — send initial focus there instead of the covered dialog surface.
+      const buildOverlay = document.querySelector<HTMLElement>("[data-audit-build-overlay]");
+      (buildOverlay ?? dialogRef.current)?.focus();
     });
     return () => {
       cancelAnimationFrame(raf);
@@ -1024,7 +1038,9 @@ export function AuditModal({
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.95, opacity: 0, y: 10 }}
                     transition={{ type: "spring", damping: 24, stiffness: 260 }}
-                    className="border-brand-teal/40 w-full max-w-xl space-y-4 rounded-xl border bg-card p-6 shadow-2xl"
+                    data-audit-build-overlay
+                    tabIndex={-1}
+                    className="border-brand-teal/40 w-full max-w-xl space-y-4 rounded-xl border bg-card p-6 shadow-2xl outline-none"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-start gap-3">
