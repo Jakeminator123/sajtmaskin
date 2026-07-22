@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout/help-tooltip";
-import { ShaderBackground } from "@/components/layout/shader-background";
+import { SiteBackground } from "@/components/layout/site-background";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import {
   ArrowLeft,
@@ -245,9 +245,10 @@ export default function CategoryPage() {
   };
 
   return (
-    <main className="bg-background min-h-screen">
-      {/* Shader Background */}
-      <ShaderBackground theme="blue" speed={0.2} opacity={0.35} />
+    <main className="relative bg-background min-h-screen">
+      {/* Lätt delad bakgrund (WebGL-fri) — samma som förstasidan/övriga sidor,
+          betydligt lägre laddningskostnad än den tunga shader-bakgrunden. */}
+      <SiteBackground tint="template" />
 
       {/* Prompt Wizard Modal - Optimized V2 with 5 steps instead of 11 */}
       <PromptWizardModalV2

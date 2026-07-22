@@ -1,28 +1,12 @@
 "use client"
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-} from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createProject, deleteProject } from "@/lib/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
-import {
-  categories,
-  comparisonMethods,
-  comparisonScenarios,
-  features,
-  getComparisonScore,
-  siteTypes,
-  type ComparisonScenarioId,
-} from "@/components/landing-v2/landing-chat-data"
-import { use3DTilt, useHonestCounter, useRotatingText, useTerminalTypewriter } from "@/components/landing-v2/landing-hooks"
+import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
+import { use3DTilt, useHonestCounter, useRotatingText } from "@/components/landing-v2/landing-hooks"
 
 export interface ChatAreaProps {
   selectedCategory?: string | null
@@ -50,37 +34,6 @@ export function useLandingController({
   const selectedCategory = controlledCategory !== undefined ? controlledCategory : internalCategory
   const [inputValue, setInputValue] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeFeature, setActiveFeature] = useState<(typeof features)[number] | null>(null)
-  const [activeComparisonScenarioId, setActiveComparisonScenarioId] = useState<ComparisonScenarioId>("growth")
-  const [selectedComparisonMethodKey, setSelectedComparisonMethodKey] = useState("next")
-
-  const activeComparisonScenario =
-    comparisonScenarios.find((scenario) => scenario.id === activeComparisonScenarioId) ?? comparisonScenarios[0]!
-
-  const rankedComparisonMethods = useMemo(
-    () =>
-      comparisonMethods
-        .map((method) => ({
-          method,
-          total: getComparisonScore(method, activeComparisonScenario),
-        }))
-        .sort((a, b) => b.total - a.total),
-    [activeComparisonScenario],
-  )
-
-  const fallbackComparisonMethod = comparisonMethods[0]!
-  const selectedComparisonMethod = useMemo(
-    () =>
-      rankedComparisonMethods.find((entry) => entry.method.key === selectedComparisonMethodKey) ?? {
-        method: fallbackComparisonMethod,
-        total: getComparisonScore(fallbackComparisonMethod, activeComparisonScenario),
-      },
-    [activeComparisonScenario, fallbackComparisonMethod, rankedComparisonMethods, selectedComparisonMethodKey],
-  )
-
-  const wordpressComparisonMethod = comparisonMethods.find((method) => method.key === "wordpress") ?? fallbackComparisonMethod
-  const wordpressScenarioScore = getComparisonScore(wordpressComparisonMethod, activeComparisonScenario)
-  const selectedVsWordpressDelta = selectedComparisonMethod.total - wordpressScenarioScore
 
   const websitesCounter = useHonestCounter(
     2480,
@@ -94,19 +47,9 @@ export function useLandingController({
   )
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
-  const terminal = useTerminalTypewriter()
-  const terminalBoxRef = useRef<HTMLDivElement>(null)
 
   const preloadHowItWorksScene = useCallback(() => {
     void import("./how-it-works-scene")
-  }, [])
-
-  const handleTerminalMouse = useCallback((e: ReactMouseEvent) => {
-    const el = terminalBoxRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty("--term-glow-x", `${e.clientX - rect.left}px`)
-    el.style.setProperty("--term-glow-y", `${e.clientY - rect.top}px`)
   }, [])
 
   const pickCategory = useCallback(
@@ -134,19 +77,6 @@ export function useLandingController({
     },
     [onAuditUrlChange],
   )
-
-  useEffect(() => {
-    if (!activeFeature) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActiveFeature(null)
-    }
-    document.addEventListener("keydown", onKey)
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.removeEventListener("keydown", onKey)
-      document.body.style.overflow = ""
-    }
-  }, [activeFeature])
 
   useEffect(() => {
     if (isAuditMode && showVoiceRecorder) {
@@ -250,25 +180,10 @@ export function useLandingController({
     inputValue,
     setInputValue,
     isSubmitting,
-    activeFeature,
-    setActiveFeature,
-    activeComparisonScenarioId,
-    setActiveComparisonScenarioId,
-    selectedComparisonMethodKey,
-    setSelectedComparisonMethodKey,
-    activeComparisonScenario,
-    rankedComparisonMethods,
-    selectedComparisonMethod,
-    wordpressComparisonMethod,
-    wordpressScenarioScore,
-    selectedVsWordpressDelta,
     websitesCounter,
     usersCounter,
     rotatingType,
     headlineTilt,
-    terminal,
-    terminalBoxRef,
-    handleTerminalMouse,
     preloadHowItWorksScene,
     activeCategory,
     isAuditMode,

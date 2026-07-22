@@ -4,7 +4,7 @@ import { STATIC_SITEMAP_REL_PATHS } from "./sitemap";
 describe("marketing sitemap static paths", () => {
   it("includes core marketing, blog, and legal routes", () => {
     expect(STATIC_SITEMAP_REL_PATHS).toEqual(
-      expect.arrayContaining(["/blogg", "/om", "/faq", "/templates", "/terms", "/privacy"]),
+      expect.arrayContaining(["/blogg", "/om", "/faq", "/templates", "/teknik", "/terms", "/privacy"]),
     );
     expect(STATIC_SITEMAP_REL_PATHS[0]).toBe("");
   });

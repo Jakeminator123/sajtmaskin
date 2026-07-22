@@ -1,6 +1,7 @@
 "use client"
 
 import { Zap } from "lucide-react"
+import Link from "next/link"
 
 export function LandingFooter() {
   return (
@@ -34,19 +35,19 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produkt</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/teknik#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Funktioner
                 </a>
               </li>
               <li>
-                <a href="#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Teknik
                 </a>
               </li>
               <li>
-                <a href="#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Priser
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

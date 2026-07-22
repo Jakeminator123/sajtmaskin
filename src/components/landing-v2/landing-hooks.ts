@@ -203,3 +203,49 @@ export function useInView(threshold = 0.3) {
 
   return { ref, visible }
 }
+
+/**
+ * Scroll `#hash`-mål i sidor vars innehåll bor i den inre
+ * `[data-scroll-container]`-ytan. Nexts inbyggda hash-hantering scrollar bara
+ * `window`, så länkar som `/#priser` och `/teknik#funktioner` landar annars på
+ * sidtoppen. Körs vid mount (ankomst via navigation) och på `hashchange`.
+ */
+export function useHashScroll() {
+  useEffect(() => {
+    const scrollToId = (id: string) => {
+      if (!id) return
+      // Vänta en frame så layouten hunnit sätta sig efter navigering.
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: "start" })
+      })
+    }
+    const scrollToHash = () => scrollToId(window.location.hash.replace(/^#/, ""))
+
+    // Next.js <Link href="/#priser"> på samma sida går via history.pushState,
+    // som varken avfyrar hashchange eller scrollar den inre containern —
+    // fånga därför klick på interna ankarlänkar direkt.
+    const handleClick = (event: MouseEvent) => {
+      // Körs i capture-fas: Nexts Link-interception hinner annars sätta
+      // defaultPrevented innan vi ser klicket. Scrollen är oberoende av vem
+      // som sköter själva navigeringen, så den kan göras optimistiskt.
+      if (event.button !== 0) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const anchor = (event.target as HTMLElement | null)?.closest("a")
+      if (!anchor) return
+      const href = anchor.getAttribute("href")
+      if (!href || !href.includes("#")) return
+      const url = new URL(href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      if (url.pathname !== window.location.pathname) return
+      scrollToId(url.hash.replace(/^#/, ""))
+    }
+
+    scrollToHash()
+    window.addEventListener("hashchange", scrollToHash)
+    document.addEventListener("click", handleClick, true)
+    return () => {
+      window.removeEventListener("hashchange", scrollToHash)
+      document.removeEventListener("click", handleClick, true)
+    }
+  }, [])
+}
