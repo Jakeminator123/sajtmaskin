@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import MiniSearch from "minisearch";
 
 export interface SiteSearchItem {
@@ -47,6 +47,10 @@ export function SiteSearch({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // Unique per instance: two SiteSearch widgets on one page (e.g. desktop +
+  // mobile header) must not share listbox/option ids or their aria-controls /
+  // aria-activedescendant references collide.
+  const baseId = useId();
 
   const index = useMemo(() => {
     const mini = new MiniSearch<SiteSearchItem>({
@@ -105,7 +109,8 @@ export function SiteSearch({
     }
   }
 
-  const listboxId = "site-search-results";
+  const listboxId = `site-search-results-${baseId}`;
+  const optionId = (id: string) => `site-search-option-${baseId}-${id}`;
   const showList = open && query.trim().length >= 2;
 
   return (
@@ -118,7 +123,7 @@ export function SiteSearch({
         aria-controls={listboxId}
         aria-activedescendant={
           activeIndex >= 0 && results[activeIndex]
-            ? `site-search-option-${results[activeIndex].id}`
+            ? optionId(results[activeIndex].id)
             : undefined
         }
         autoComplete="off"
@@ -153,7 +158,7 @@ export function SiteSearch({
           {results.map((result, resultIndex) => (
             <li
               key={result.id}
-              id={`site-search-option-${result.id}`}
+              id={optionId(result.id)}
               role="option"
               aria-selected={resultIndex === activeIndex}
               className={[
