@@ -52,13 +52,12 @@ describe("GET /api/projects/[id]/preferences", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { preferences: unknown };
     expect(body.preferences).toEqual({
-      allowPlaceholdersInF3: false,
       seo: { optIn: false, siteUrl: null, brand: null, lastSetAt: null },
     });
   });
 
   it("returns SEO defaults when meta exists but has no `seo` key", async () => {
-    getProjectData.mockResolvedValue({ meta: { allowPlaceholdersInF3: true } });
+    getProjectData.mockResolvedValue({ meta: { someLegacyKey: true } });
 
     const res = await GET(makeRequest() as never, makeParams());
     expect(res.status).toBe(200);
@@ -244,7 +243,7 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
     expect(persisted.meta.seo.lastSetAt).not.toBe("2026-04-20T00:00:00.000Z");
   });
 
-  it("accepts allowPlaceholdersInF3 alongside seo", async () => {
+  it("ignores the removed allowPlaceholdersInF3 field (placeholders är alltid tillåtna)", async () => {
     getProjectData.mockResolvedValue(null);
 
     const res = await PATCH(
@@ -257,19 +256,16 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
 
     expect(res.status).toBe(200);
     const persisted = saveProjectData.mock.calls[0]?.[0] as {
-      meta: { allowPlaceholdersInF3: boolean; seo: { optIn: boolean } };
+      meta: Record<string, unknown> & { seo: { optIn: boolean } };
     };
-    expect(persisted.meta.allowPlaceholdersInF3).toBe(true);
+    expect(persisted.meta).not.toHaveProperty("allowPlaceholdersInF3");
     expect(persisted.meta.seo.optIn).toBe(true);
   });
 
   it("does not write seo key when seo not present in PATCH", async () => {
     getProjectData.mockResolvedValue(null);
 
-    const res = await PATCH(
-      makeRequest({ allowPlaceholdersInF3: false }) as never,
-      makeParams(),
-    );
+    const res = await PATCH(makeRequest({}) as never, makeParams());
 
     expect(res.status).toBe(200);
     const persisted = saveProjectData.mock.calls[0]?.[0] as { meta: Record<string, unknown> };

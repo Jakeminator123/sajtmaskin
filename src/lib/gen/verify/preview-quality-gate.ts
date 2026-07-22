@@ -19,6 +19,8 @@ import {
 import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { hasTraversalSegment } from "@/lib/utils/path-utils";
+import { getServerEnv } from "@/lib/env";
+import { isAffirmativeEnvValue } from "@/lib/env-affirmative";
 
 export type QualityGateCheckResult = {
   check: string;
@@ -95,6 +97,23 @@ function isSafeRelativePath(filePath: string): boolean {
 
 export function isQualityGateConfigured(): boolean {
   return Boolean(getPreviewHostBaseUrl());
+}
+
+/**
+ * Env kill-switch for the automatic F2 design-preview quality gate
+ * (RenderGate) — the ~5-7s "verifying" post-check spinner that appears after a
+ * new version renders. When `SAJTMASKIN_DISABLE_QUALITY_GATE` is affirmative
+ * ("1"/"true"/…), the client-triggered `POST /quality-gate` route
+ * short-circuits for the F2 lane: it skips the preview-host verify run,
+ * `markVersionVerifying` (so no spinner) and the superseded mutation, and
+ * leaves the version state UNTOUCHED — no promotion, no `passed` write (Codex
+ * P1 on #573: a skipped gate must never read as verified; a pending F2 design
+ * row already reads as `design_ready`). The explicit F3 integrations
+ * ReleaseGate ("Bygg integrationer") is NEVER disabled here — integrations
+ * must still typecheck+build before deploy. Default off.
+ */
+export function isQualityGateDisabledByEnv(): boolean {
+  return isAffirmativeEnvValue(getServerEnv().SAJTMASKIN_DISABLE_QUALITY_GATE);
 }
 
 export function exportableToQualityGateFiles(files: CodeFile[]): QualityGateFileLike[] {

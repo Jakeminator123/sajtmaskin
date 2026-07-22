@@ -17,6 +17,8 @@ alwaysApply: false
 
 F2 (`lifecycleStage === "design"`) får inte producera env-frågor **i chatten**. Tystnaden gäller env-*trafik i chatten* — inte frivillig konfiguration. **Ägarbeslut 2026-07-13 (ersätter det tidigare katalog/status-only-kontraktet):** Byggblock-popovern är den primära ytan för att välja, se status på och **konfigurera** dossiers — expanderade hard-dossier-rader har maskerade, write-only env-inputs i **både F2 och F3**, som sparar till kanoniska `POST /api/v0/projects/[projectId]/env-vars`. En sparad feature-runtime-nyckel flippar `built-demo` → `built-live` utan ny LLM-runda.
 
+**Ägarbeslut 2026-07-22:** Byggblock är numera den **enda** env-ytan — `ProjectEnvVarsPanel` (stora editorn) och `F3PlaceholderToggle` är borttagna. Placeholders är **alltid** tillåtna för build-nycklar i F3 (`allowPlaceholdersInF3`-flaggan finns inte längre): integrationsbygget går igenom i demoläge och riktiga nycklar fylls i via Byggblock efteråt. 412 kan bara uppstå för en build-nyckel som saknar placeholder i katalogen.
+
 Vid `finalize-design` `412` är serverns `missingByIntegration` fortsatt source of truth: kravytan (`F3RequirementsSurface`) visar exakt de nycklarna, och 412-utfallet **öppnar/fokuserar dessutom rätt dossier i Byggblock** (ren UI-åtgärd, ingen klient-omdetektion).
 
 F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — "Byggd" utan livenycklar heter alltid "Byggd — demo aktiv".
@@ -25,7 +27,7 @@ F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`
 
 1. Tool-gate: env-tools exponeras inte i F2.
 2. SSE-filter: tool-events droppas i F2.
-3. Panel-gate: `<ProjectEnvVarsPanel>` (stora editorn) bara i F3 — Byggblock-inputs täcker F2.
+3. En env-yta: `ProjectEnvVarsPanel` är borttagen (2026-07-22) — Byggblock-inputs är enda inmatningsytan i både F2 och F3.
 4. Post-finalize-gate: detected integrations droppas i F2.
 
 ## Förbjudet

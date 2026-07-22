@@ -25,7 +25,6 @@ import {
   PROJECT_ENV_VARS_UPDATED_EVENT,
   VERSION_STATUS_REFRESHED_EVENT,
   dispatchProjectEnvVarsUpdated,
-  openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
   readProjectEnvVarsUpdatedDetail,
 } from "@/lib/builder/project-env-events";
@@ -158,7 +157,7 @@ export function PreviewPanelDossiers({
   }, [load]);
 
   // Refetch when the popover OPENS (keeps env-key readiness fresh — e.g.
-  // after the user saved keys in ProjectEnvVarsPanel without a new version).
+  // after keys were saved elsewhere without a new version).
   // Deliberately NOT on close: the old `[open, load]`-effect refetched on the
   // close-flip too, a pointless request per stängning.
   useEffect(() => {
@@ -338,6 +337,10 @@ export function PreviewPanelDossiers({
   const [saveError, setSaveError] = useState<{ dossierId: string; message: string } | null>(
     null,
   );
+  // Key currently being deleted ("Ta bort" on a configured key) — the only
+  // remaining delete surface after ProjectEnvVarsPanel was removed (P2
+  // BB#envdel1): a wrong/secret value must be removable from the product UI.
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const projectId = freshData?.projectId ?? null;
 
   // Secret-draft hygiene (Bugbot on this diff): typed-but-unsaved key values
@@ -420,6 +423,56 @@ export function PreviewPanelDossiers({
       }
     },
     [chatId, editingKeys, keyValues, projectId, savingDossierId, versionId],
+  );
+
+  // Delete a stored key via the canonical DELETE API (same route the removed
+  // ProjectEnvVarsPanel used). The `action: "deleted"` event clears local
+  // drafts for the key and refetches, so `hasRealValue` flips back honestly.
+  const handleDeleteKey = useCallback(
+    async (dossier: DossierOverviewEntry, envKey: string) => {
+      if (!projectId || savingDossierId || deletingKey) return;
+      setDeletingKey(envKey);
+      setSaveError(null);
+      try {
+        const response = await fetch(
+          `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keys: [envKey] }),
+          },
+        );
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.success) {
+          setSaveError({
+            dossierId: dossier.id,
+            message: data?.error || `Kunde inte ta bort ${envKey}.`,
+          });
+          return;
+        }
+        dispatchProjectEnvVarsUpdated({
+          projectId,
+          chatId,
+          versionId,
+          envKeys: [envKey],
+          action: "deleted",
+        });
+      } catch (error) {
+        setSaveError({
+          dossierId: dossier.id,
+          message:
+            error instanceof Error
+              ? `Kunde inte ta bort ${envKey}: ${error.message}`
+              : `Kunde inte ta bort ${envKey}.`,
+        });
+      } finally {
+        setDeletingKey(null);
+      }
+    },
+    [chatId, deletingKey, projectId, savingDossierId, versionId],
   );
 
   // Nothing wired yet: default the popover straight to "Bläddra katalog"
@@ -604,15 +657,29 @@ export function PreviewPanelDossiers({
                             />
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditingKeys((current) => new Set(current).add(env.key))
-                            }
-                            className="text-[10px] text-sky-300 hover:text-sky-200"
-                          >
-                            Ändra värde
-                          </button>
+                          <span className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingKeys((current) => new Set(current).add(env.key))
+                              }
+                              className="text-[10px] text-sky-300 hover:text-sky-200"
+                            >
+                              Ändra värde
+                            </button>
+                            {/* Delete surface (P2 BB#envdel1): the removed
+                                ProjectEnvVarsPanel was the only UI that could
+                                DELETE a stored key — wrong/secret values must
+                                stay removable from the builder. */}
+                            <button
+                              type="button"
+                              disabled={!projectId || deletingKey !== null || savingDossierId !== null}
+                              onClick={() => void handleDeleteKey(entry, env.key)}
+                              className="text-[10px] text-rose-300 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingKey === env.key ? "Tar bort…" : "Ta bort"}
+                            </button>
+                          </span>
                         )}
                       </li>
                     );
@@ -736,7 +803,7 @@ export function PreviewPanelDossiers({
           </TabsList>
 
           <TabsContent value="wired" className="mt-0">
-            <div className="max-h-[420px] overflow-y-auto p-2">
+            <div className="max-h-105 overflow-y-auto p-2">
           {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -772,14 +839,14 @@ export function PreviewPanelDossiers({
 
           <TabsContent value="catalog" className="mt-0">
             {catalogPickDisabled ? (
-              <p className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200">
+              <p className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200">
                 Vänta tills pågående generering är klar innan du lägger till ett
                 byggblock.
               </p>
             ) : null}
             {pickedEntry ? (
               <p
-                className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200"
+                className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200"
                 aria-live="polite"
               >
                 Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
@@ -788,7 +855,7 @@ export function PreviewPanelDossiers({
                   : null}
               </p>
             ) : null}
-            <div className="max-h-[420px] overflow-y-auto p-2">
+            <div className="max-h-105 overflow-y-auto p-2">
               {catalogLoading && !catalogData ? (
                 <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -870,20 +937,8 @@ export function PreviewPanelDossiers({
           </TabsContent>
         </Tabs>
 
-        {/* In F3 the full env editor is mounted and can edit already-set keys,
-            which the inline "fill missing" inputs here cannot. Keep Dossiers as
-            the hub but offer a one-click path to the full panel. */}
-        {stage === "integrations" ? (
-          <div className="border-t border-gray-800 px-3 py-2">
-            <button
-              type="button"
-              onClick={() => openProjectEnvVarsPanel()}
-              className="text-[10px] text-sky-300 hover:text-sky-200"
-            >
-              Redigera alla miljövariabler i panelen
-            </button>
-          </div>
-        ) : null}
+        {/* Ägarbeslut 2026-07-22: den separata env-panelen är borttagen —
+            Byggblock-popovern är den enda env-ytan i både F2 och F3. */}
       </PopoverContent>
     </Popover>
   );
