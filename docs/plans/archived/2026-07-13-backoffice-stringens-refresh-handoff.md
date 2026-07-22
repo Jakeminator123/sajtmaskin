@@ -1,11 +1,16 @@
 ---
-status: active
+status: archived
 owner: unassigned
 created: 2026-07-13
 topic: Handoff — verifiera och "refresha" backoffice-stringensplanen mot nuvarande repo innan implementation
 source: Orkestrator-granskning 2026-07-13 (gh pr list / git log senaste 4 dygn) — planens nulägesbild hann bli delvis stale
 relates_to: docs/plans/active/2026-07-08-backoffice-stringens-plan.md
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Backoffice-stringensplan](../active/2026-07-08-backoffice-stringens-plan.md)
 
 # Handoff: refresha backoffice-stringensplanen
 
