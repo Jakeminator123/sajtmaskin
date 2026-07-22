@@ -23,7 +23,7 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 | `The term 'if' is not recognized` | `if`/`foreach`/`switch` använt som **värde** (t.ex. i `-f`, som argument eller i pipeline) | Wrappa i subexpression `$( ... )` — aldrig bara `( ... )`. Eller räkna ut i en variabel först. |
 | `The term 'grep'/'head'/'tail'/'sed'/'awk' is not recognized` | Bash-verktyg finns inte i pwsh | `Select-String`, `Select-Object -First N` / `-Last N`, eller Cursor Grep/StrReplace |
 | Villkor på git/npm/node slår fel fastän kommandot gick bra (eller tvärtom) | `$?` speglar inte extern exit-kod tillförlitligt | Använd `$LASTEXITCODE -eq 0` för externa program (`$?` bara för rena cmdlets) |
-| `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/Glob/StrReplace för dessa App Router-mappar |
+| `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/StrReplace för dessa App Router-mappar (Cursor **Glob** glob-tolkar `[ ]`, så escapa eller använd Read) |
 | Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
 | Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
 | Trunkerad (`…`) eller tom output vid pipe till fil | PS formaterar objekt för konsolbredd | Avsluta med `| Out-String` (ev. `| Format-Table -Auto | Out-String -Width 4096`) |

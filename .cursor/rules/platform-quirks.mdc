@@ -16,7 +16,7 @@ Undvik långa `node -e` / `python -c` med nästlade citat. Skriv hellre en tempo
 Sökvägar som `src/app/api/engine/chats/[chatId]/route.ts`, `[id]`, `[slug]`, `[...slug]` bråkar med `Test-Path`, `Get-Content`, `Set-Location`, `Copy-Item` m.fl. eftersom `[ ]` tolkas som wildcard → "hittas inte" eller fel träff.
 
 - Lägg till `-LiteralPath <sökväg>` (finns på de flesta path-cmdlets).
-- Eller föredra Cursor Read/Glob/Grep/StrReplace, som inte glob-tolkar.
+- Eller föredra Cursor Read/StrReplace/Grep, som tar bokstavlig sökväg. **Obs:** Cursor **Glob** är undantaget — dess `glob_pattern` är glob-syntax, så `[chatId]` blir en teckenklass även där. Escapa (`[[]chatId[]]`) eller använd Read med exakt sökväg i stället.
 
 ## LF/CRLF-fälla
 
