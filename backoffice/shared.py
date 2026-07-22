@@ -308,17 +308,25 @@ def restore_tree(
         if moved_old and not target.exists() and old_aside.is_dir():
             try:
                 old_aside.rename(target)
-                moved_old = False
             except OSError:
-                pass
+                # Rollbacken failade också. LÄMNA old_aside kvar — den håller
+                # det enda nära-live-innehållet (finns även som undo-snapshot-
+                # zip). Radera den ALDRIG här, annars förloras katalogen.
+                return False, (
+                    f"Kunde inte återställa: {exc}. Nuvarande innehåll ligger "
+                    f"kvar i `{old_aside.name}` och som zip-snapshot — "
+                    "inget raderades permanent."
+                )
         return False, f"Kunde inte återställa: {exc}"
     finally:
+        # Endast den disponibla temp-uppackningen städas ovillkorligt; källzipen
+        # finns alltid kvar. old_aside städas nedan, men BARA på success-vägen.
         if tmp_extract.is_dir():
             shutil.rmtree(tmp_extract, ignore_errors=True)
-        # old_aside finns kvar bara vid lyckad swap (redan zippad som
-        # undo-snapshot ovan) eller om rollback misslyckades — städa bort den.
-        if old_aside.is_dir():
-            shutil.rmtree(old_aside, ignore_errors=True)
+    # Lyckad swap: old_aside är det överspelade gamla innehållet (redan zippat
+    # som undo-snapshot ovan) → säkert att städa.
+    if old_aside.is_dir():
+        shutil.rmtree(old_aside, ignore_errors=True)
     return True, f"Återställde katalogen `{rel_path}` från `{snapshot.name}`."
 
 

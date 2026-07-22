@@ -261,6 +261,40 @@ class BackupTreeTests(unittest.TestCase):
         ]
         self.assertEqual(leftovers, [])
 
+    def test_restore_tree_preserves_data_when_rollback_also_fails(self) -> None:
+        """Fail-safe: failar BÅDE inswappen OCH rollbacken får det nära-live-
+        innehållet aldrig raderas — det ligger kvar i .restore-old + som zip."""
+        backup_tree(self.dossier, self.root)
+        (self.dossier / "manifest.json").write_text('{"id": "changed"}\n', encoding="utf-8")
+
+        rel = "data/dossiers/hard/example"
+        zips = list_tree_snapshots_for(rel, self.root)
+        target = (self.root / rel).resolve()
+
+        real_rename = Path.rename
+
+        def fake_rename(self_path: Path, dest: object) -> object:
+            # Fela ALLA renames till target (både swap och rollback).
+            if Path(dest).resolve() == target:
+                raise OSError("simulerat fel")
+            return real_rename(self_path, dest)
+
+        with mock.patch.object(Path, "rename", fake_rename):
+            ok, _message = restore_tree(rel, zips[0], self.root)
+
+        self.assertFalse(ok)
+        # Det nära-live-innehållet ligger kvar i en .restore-old-katalog.
+        asides = [
+            p for p in self.dossier.parent.iterdir() if p.name.startswith(".restore-old-")
+        ]
+        self.assertEqual(len(asides), 1)
+        self.assertEqual(
+            (asides[0] / "manifest.json").read_text(encoding="utf-8"),
+            '{"id": "changed"}\n',
+        )
+        # ...och finns dessutom som zip-snapshot (undo-snapshot före swappen).
+        self.assertGreaterEqual(len(list_tree_snapshots_for(rel, self.root)), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
