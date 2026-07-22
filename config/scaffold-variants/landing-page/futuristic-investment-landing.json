@@ -1,0 +1,40 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "futuristic-investment-landing",
+  "scaffoldId": "landing-page",
+  "label": "Futuristisk Investering Landningssida",
+  "signatureMotif": "Asymmetrisk hero med flytande 3D-partiklar",
+  "colorMode": "dark",
+  "keywords": [
+    "futuristic",
+    "investment",
+    "landing page",
+    "3D effects",
+    "dark theme",
+    "tech"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Sentient",
+      "body": "Arial"
+    }
+  ],
+  "promptHints": [
+    "Mörk palett med kontrasterande guld",
+    "Futuristiska 3D-partiklar",
+    "Minimalistisk typografi",
+    "Tydliga call-to-action-knappar",
+    "Teknologisk och modern känsla"
+  ],
+  "default": false,
+  "description": "Perfekt för tech-startups eller investeringsföretag som vill kommunicera innovation. Det visuella är distinkt med mörk palett och 3D-effekter.",
+  "themeTokens": {
+    "background": "oklch(0.145 0 0)",
+    "foreground": "oklch(0.985 0 0)",
+    "primary": "oklch(0.205 0 0)",
+    "radius": "0.75rem"
+  },
+  "sourceTemplateIds": [
+    "tnZGzubtsTc"
+  ]
+}
