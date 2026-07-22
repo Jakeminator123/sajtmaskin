@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface AuditModalProps {
@@ -89,6 +89,10 @@ export function AuditModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(Boolean(alreadySaved));
   const [saveError, setSaveError] = useState<string | null>(null);
+  // a11y: the dialog surface (focus trap target) + the element that had focus
+  // before the modal opened, so focus can be returned to the trigger on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   // Reset state when modal opens with new result. An already-persisted audit
   // (opened from /audits) starts as "Sparad" so it cannot POST a duplicate row.
@@ -314,33 +318,74 @@ export function AuditModal({
     onClose();
   }, [buildSuperPrompt, onBuildFromAudit, onClose, result]);
 
-  // Handle escape key
+  // Esc-to-close + a focus trap so keyboard focus stays inside the dialog while
+  // it is open (Tab/Shift+Tab cycle through the visible focusable elements).
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
         const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
-        const isContentEditable = target.isContentEditable;
-
-        if (isInput || isContentEditable) {
-          return;
-        }
+        if (isInput || target.isContentEditable) return;
 
         e.preventDefault();
         e.stopPropagation();
         onClose();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const container = dialogRef.current;
+        if (!container) return;
+        // Only visible focusables — inactive tab panels are display:none.
+        const focusables = Array.from(
+          container.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        if (focusables.length === 0) {
+          e.preventDefault();
+          container.focus();
+          return;
+        }
+        const first = focusables[0]!;
+        const last = focusables[focusables.length - 1]!;
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (active === first || active === container || !container.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
-    if (isOpen) {
-      window.addEventListener("keydown", handleEscape, true);
-      document.body.style.overflow = "hidden";
-    }
+    window.addEventListener("keydown", handleKeyDown, true);
+    document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", handleEscape, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = "";
     };
   }, [isOpen, onClose]);
+
+  // Move focus into the dialog on open and return it to the trigger on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    previouslyFocusedRef.current = (document.activeElement as HTMLElement) ?? null;
+    const raf = requestAnimationFrame(() => {
+      dialogRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      const trigger = previouslyFocusedRef.current;
+      if (trigger && typeof trigger.focus === "function") {
+        trigger.focus();
+      }
+    };
+  }, [isOpen]);
 
   const downloadJSON = useCallback(() => {
     if (!result) return;
@@ -416,20 +461,27 @@ export function AuditModal({
           onClick={onClose}
         >
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audit-modal-title"
+            tabIndex={-1}
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden border border-border bg-card"
+            className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
               <div className="flex items-center gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Analysresultat</h2>
+                  <h2 id="audit-modal-title" className="text-xl font-bold text-foreground">
+                    Analysresultat
+                  </h2>
                   <div className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="border border-border bg-secondary/40 px-2 py-0.5 text-foreground/90">
+                    <span className="rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-foreground/90">
                       {modeLabel} analys
                     </span>
                   </div>
@@ -457,53 +509,57 @@ export function AuditModal({
                   {scrapeLine && <div className="mt-1 text-[11px] text-muted-foreground/70">{scrapeLine}</div>}
                 </div>
                 {result.company && (
-                  <span className="bg-secondary px-3 py-1 text-sm text-foreground/90">
+                  <span className="rounded-md bg-secondary px-3 py-1 text-sm text-foreground/90">
                     {result.company}
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Save to account */}
-                <button
-                  onClick={handleSaveAudit}
-                  disabled={isSaving || isSaved}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                    isSaved
-                      ? "cursor-default bg-green-600/20 text-green-400"
-                      : "bg-secondary text-foreground/90 hover:bg-secondary/80"
-                  }`}
-                  title={isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"}
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isSaved ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {isSaved ? "Sparad" : "Spara"}
-                </button>
+                {/* Secondary actions — grouped into one tight, lower-emphasis
+                    cluster so the primary "Bygg förbättrad sida" CTA stands out. */}
+                <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-secondary/30 p-0.5">
+                  {/* Save to account */}
+                  <button
+                    onClick={handleSaveAudit}
+                    disabled={isSaving || isSaved}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      isSaved
+                        ? "cursor-default bg-green-600/20 text-green-400"
+                        : "text-foreground/80 hover:bg-secondary hover:text-foreground"
+                    }`}
+                    title={isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isSaved ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {isSaved ? "Sparad" : "Spara"}
+                  </button>
 
-                {/* PDF Report */}
-                <button
-                  onClick={() => setShowPdfModal(true)}
-                  className="flex items-center gap-2 bg-secondary px-3 py-1.5 text-sm text-foreground/90 transition-colors hover:bg-secondary/80"
-                  title="Ladda ner som PDF"
-                >
-                  <FileText className="h-4 w-4" />
-                  PDF
-                </button>
+                  {/* PDF Report */}
+                  <button
+                    onClick={() => setShowPdfModal(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                    title="Ladda ner som PDF"
+                  >
+                    <FileText className="h-4 w-4" />
+                    PDF
+                  </button>
 
-                {/* JSON Download */}
-                <button
-                  onClick={downloadJSON}
-                  className="flex items-center gap-2 bg-secondary px-3 py-1.5 text-sm text-foreground/90 transition-colors hover:bg-secondary/80"
-                  title="Ladda ner rådata som JSON"
-                >
-                  <Download className="h-4 w-4" />
-                  JSON
-                </button>
+                  {/* JSON Download */}
+                  <button
+                    onClick={downloadJSON}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                    title="Ladda ner rådata som JSON"
+                  >
+                    <Download className="h-4 w-4" />
+                    JSON
+                  </button>
+                </div>
 
                 {/* Build from Audit - Primary CTA */}
                 {onBuildFromAudit && (
@@ -512,7 +568,7 @@ export function AuditModal({
                       setShowBuildOverlay(false);
                       setShowBuildConfirm(true);
                     }}
-                    className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 shadow-brand-warm/25 hover:shadow-brand-warm/40 flex items-center gap-2 bg-linear-to-r px-4 py-2 text-sm font-semibold text-foreground shadow-lg transition-all"
+                    className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 shadow-brand-warm/25 hover:shadow-brand-warm/40 flex items-center gap-2 rounded-xl bg-linear-to-r px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all"
                     title="Skapa en ny sida baserad på denna analys"
                   >
                     <Hammer className="h-4 w-4" />
@@ -523,7 +579,7 @@ export function AuditModal({
                 <button
                   onClick={onClose}
                   aria-label="Stäng"
-                  className="p-2 text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -577,7 +633,7 @@ export function AuditModal({
                     {/* Strengths & Issues Grid */}
                     <div className="grid gap-4 md:grid-cols-2">
                       {result.strengths && result.strengths.length > 0 && (
-                        <div className="border border-green-500/30 bg-green-500/10 p-4">
+                        <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-green-400">
                             <span>✅</span> Styrkor
                           </h3>
@@ -593,7 +649,7 @@ export function AuditModal({
                       )}
 
                       {result.issues && result.issues.length > 0 && (
-                        <div className="border border-red-500/30 bg-red-500/10 p-4">
+                        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-red-400">
                             <span>⚠️</span> Problem
                           </h3>
@@ -611,7 +667,7 @@ export function AuditModal({
 
                     {/* Expected Outcomes */}
                     {result.expected_outcomes && result.expected_outcomes.length > 0 && (
-                      <div className="border border-border bg-secondary/30 p-4">
+                      <div className="rounded-xl border border-border bg-secondary/30 p-4">
                         <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-foreground">
                           <span>🎯</span> Förväntade resultat
                         </h3>
@@ -619,7 +675,7 @@ export function AuditModal({
                           {result.expected_outcomes.map((outcome, i) => (
                             <li
                               key={i}
-                              className="flex items-start gap-2 bg-secondary/30 p-2 text-sm text-foreground/90"
+                              className="flex items-start gap-2 rounded-lg bg-secondary/30 p-2 text-sm text-foreground/90"
                             >
                               <span className="text-brand-teal">📈</span>
                               <span>{outcome}</span>
@@ -654,13 +710,13 @@ export function AuditModal({
                     {/* Technical Recommendations */}
                     {result.technical_recommendations &&
                       result.technical_recommendations.length > 0 && (
-                        <div className="border border-border bg-secondary/40 p-6">
+                        <div className="rounded-xl border border-border bg-secondary/40 p-6">
                           <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-foreground">
                             <span className="text-brand-teal">⚙️</span> Tekniska rekommendationer
                           </h3>
                           <div className="space-y-4">
                             {result.technical_recommendations.map((rec, i) => (
-                              <div key={i} className="border border-border bg-secondary/30 p-4">
+                              <div key={i} className="rounded-lg border border-border bg-secondary/30 p-4">
                                 <h4 className="text-brand-teal mb-2 font-medium">{rec.area}</h4>
                                 <p className="mb-2 text-sm text-muted-foreground">
                                   <span className="text-muted-foreground/70">Nuläge:</span> {rec.current_state}
@@ -670,7 +726,7 @@ export function AuditModal({
                                   {rec.recommendation}
                                 </p>
                                 {rec.implementation && (
-                                  <pre className="mt-2 overflow-x-auto bg-card p-2 text-xs text-muted-foreground">
+                                  <pre className="mt-2 overflow-x-auto rounded-lg bg-card p-2 text-xs text-muted-foreground">
                                     {rec.implementation}
                                   </pre>
                                 )}
@@ -701,12 +757,12 @@ export function AuditModal({
 
                     {/* Competitor Insights */}
                     {result.competitor_insights && (
-                      <div className="border border-border bg-secondary/40 p-6">
+                      <div className="rounded-xl border border-border bg-secondary/40 p-6">
                         <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-foreground">
                           <span className="text-brand-teal">🏆</span> Konkurrentanalys
                         </h3>
                         <div className="grid gap-4 md:grid-cols-3">
-                          <div className="border border-border bg-secondary/30 p-3">
+                          <div className="rounded-lg border border-border bg-secondary/30 p-3">
                             <h4 className="mb-2 text-sm font-medium text-muted-foreground">
                               Branschstandard
                             </h4>
@@ -714,7 +770,7 @@ export function AuditModal({
                               {sanitizeDisplayText(result.competitor_insights.industry_standards)}
                             </p>
                           </div>
-                          <div className="border border-border bg-secondary/30 p-3">
+                          <div className="rounded-lg border border-border bg-secondary/30 p-3">
                             <h4 className="mb-2 text-sm font-medium text-muted-foreground">
                               Saknade funktioner
                             </h4>
@@ -722,7 +778,7 @@ export function AuditModal({
                               {sanitizeDisplayText(result.competitor_insights.missing_features)}
                             </p>
                           </div>
-                          <div className="border border-border bg-secondary/30 p-3">
+                          <div className="rounded-lg border border-border bg-secondary/30 p-3">
                             <h4 className="mb-2 text-sm font-medium text-muted-foreground">
                               Unika styrkor
                             </h4>
@@ -735,7 +791,7 @@ export function AuditModal({
                     )}
 
                     {hasAdvancedBusiness && (
-                      <div className="space-y-5 border border-border bg-secondary/40 p-6">
+                      <div className="space-y-5 rounded-xl border border-border bg-secondary/40 p-6">
                         <h3 className="mb-2 flex items-center gap-2 text-xl font-bold text-foreground">
                           <span className="text-brand-blue">🧭</span> Affärs- & marknadsprofil
                         </h3>
@@ -744,35 +800,35 @@ export function AuditModal({
                           <div className="space-y-3">
                             <h4 className="text-sm font-semibold text-foreground/90">Företagsprofil</h4>
                             <div className="grid gap-4 md:grid-cols-2">
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Bransch</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.business_profile.industry)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Företagsstorlek</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.business_profile.company_size)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Affärsmodell</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.business_profile.business_model)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Mognadsgrad</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.business_profile.maturity)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Kärnerbjudanden</p>
                                 {renderTextList(result.business_profile.core_offers)}
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Intäktsströmmar</p>
                                 {renderTextList(result.business_profile.revenue_streams)}
                               </div>
@@ -786,35 +842,35 @@ export function AuditModal({
                               Marknad & geografi
                             </h4>
                             <div className="grid gap-4 md:grid-cols-2">
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Primär geografi</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.market_context.primary_geography)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Serviceområde</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.market_context.service_area)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Konkurrensnivå</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.market_context.competition_level)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Nyckelkonkurrenter</p>
                                 {renderTextList(result.market_context.key_competitors)}
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Säsongsmönster</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.market_context.seasonal_patterns)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">
                                   Lokala marknadsdynamiker
                                 </p>
@@ -830,25 +886,25 @@ export function AuditModal({
                           <div className="space-y-3">
                             <h4 className="text-sm font-semibold text-foreground/90">Kundsegment</h4>
                             <div className="grid gap-4 md:grid-cols-2">
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Primär kundgrupp</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.customer_segments.primary_segment)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Sekundära kundgrupper</p>
                                 {renderTextList(result.customer_segments.secondary_segments)}
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Kundbehov</p>
                                 {renderTextList(result.customer_segments.customer_needs)}
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Beslutstriggers</p>
                                 {renderTextList(result.customer_segments.decision_triggers)}
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3 md:col-span-2">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3 md:col-span-2">
                                 <p className="mb-1 text-xs text-muted-foreground">Förtroendesignaler</p>
                                 {renderTextList(result.customer_segments.trust_signals)}
                               </div>
@@ -862,13 +918,13 @@ export function AuditModal({
                               Konkurrenslandskap
                             </h4>
                             <div className="grid gap-4 md:grid-cols-2">
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Positionering</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(result.competitive_landscape.positioning)}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Differentiering</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(
@@ -876,7 +932,7 @@ export function AuditModal({
                                   )}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Prisposition</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(
@@ -884,7 +940,7 @@ export function AuditModal({
                                   )}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3">
                                 <p className="mb-1 text-xs text-muted-foreground">Inträdesbarriärer</p>
                                 <p className="text-sm wrap-break-word whitespace-pre-wrap text-foreground/90">
                                   {sanitizeDisplayText(
@@ -892,7 +948,7 @@ export function AuditModal({
                                   )}
                                 </p>
                               </div>
-                              <div className="border border-border bg-secondary/30 p-3 md:col-span-2">
+                              <div className="rounded-lg border border-border bg-secondary/30 p-3 md:col-span-2">
                                 <p className="mb-1 text-xs text-muted-foreground">Möjligheter</p>
                                 {renderTextList(result.competitive_landscape.opportunities)}
                               </div>
@@ -925,7 +981,7 @@ export function AuditModal({
 
               {/* Save error message */}
               {saveError && (
-                <div className="mt-2 border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-400">
+                <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-400">
                   {saveError}
                 </div>
               )}
@@ -946,7 +1002,7 @@ export function AuditModal({
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.95, opacity: 0, y: 10 }}
                     transition={{ type: "spring", damping: 24, stiffness: 260 }}
-                    className="border-brand-teal/40 w-full max-w-xl space-y-4 border bg-card p-6 shadow-2xl"
+                    className="border-brand-teal/40 w-full max-w-xl space-y-4 rounded-xl border bg-card p-6 shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-start gap-3">
@@ -970,13 +1026,13 @@ export function AuditModal({
                     <div className="flex gap-3">
                       <button
                         onClick={() => setShowBuildOverlay(false)}
-                        className="flex-1 border border-border px-4 py-2 text-foreground/90 transition-colors hover:border-border hover:text-foreground"
+                        className="flex-1 rounded-xl border border-border px-4 py-2 text-foreground/90 transition-colors hover:border-border hover:text-foreground"
                       >
                         Nej, inte nu
                       </button>
                       <button
                         onClick={launchBuildFromAudit}
-                        className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 bg-linear-to-r px-4 py-2 font-semibold text-foreground transition-all"
+                        className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 rounded-xl bg-linear-to-r px-4 py-2 font-semibold text-white transition-all"
                       >
                         <Hammer className="h-4 w-4" />
                         Ja, kör igång
@@ -1008,7 +1064,7 @@ export function AuditModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="w-full max-w-md border border-border bg-card p-6 shadow-2xl"
+            className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
@@ -1021,7 +1077,7 @@ export function AuditModal({
                 </span>
                 .
               </p>
-              <div className="mb-6 border border-border bg-secondary/40 p-4 text-left">
+              <div className="mb-6 rounded-lg border border-border bg-secondary/40 p-4 text-left">
                 <p className="mb-2 text-xs text-muted-foreground/70 uppercase">Detta kommer att:</p>
                 <ul className="space-y-1 text-sm text-foreground/90">
                   <li className="flex items-start gap-2">
@@ -1045,7 +1101,7 @@ export function AuditModal({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowBuildConfirm(false)}
-                  className="flex-1 border border-border px-4 py-2 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                  className="flex-1 rounded-xl border border-border px-4 py-2 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
                 >
                   Avbryt
                 </button>
@@ -1054,7 +1110,7 @@ export function AuditModal({
                     setShowBuildConfirm(false);
                     launchBuildFromAudit();
                   }}
-                  className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 bg-linear-to-r px-4 py-2 font-semibold text-foreground transition-all"
+                  className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 rounded-xl bg-linear-to-r px-4 py-2 font-semibold text-white transition-all"
                 >
                   <Hammer className="h-4 w-4" />
                   Kör igång!
