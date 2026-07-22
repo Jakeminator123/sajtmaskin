@@ -35,6 +35,7 @@ import {
   QualityGateUnavailableError,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
+  isQualityGateDisabledByEnv,
   maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateChecks,
   qualityGateAllPassed,
@@ -386,6 +387,40 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // set to readiness/export/verify/promotion — no re-read that could observe
       // a different snapshot (TOCTOU + Codex P2 stale-snapshot fix).
       const codeFiles = await getVersionFiles(internalVersionId);
+
+      // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): skip the automatic F2
+      // RenderGate verify lane entirely. Promote the version straight to
+      // `passed` (still subject to the finalize false-green promote-guard) so it
+      // lands in the clean resting state WITHOUT the ~5-7s "verifying" spinner
+      // (never calls `markVersionVerifying`) or the superseded race. NEVER
+      // disables the explicit F3 integrations ReleaseGate — integrations must
+      // still typecheck+build before deploy.
+      if (!integrationsBuildGate && isQualityGateDisabledByEnv()) {
+        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
+        let promoted = false;
+        if (stillLatest) {
+          const promotedVersion = await promoteVersion(
+            internalVersionId,
+            "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — auto-godkänd utan verify-lane.",
+            qgRunId,
+          ).catch((err) => {
+            warnLog("quality-gate", "Disabled-path promote failed (non-fatal)", {
+              error: err instanceof Error ? err.message : String(err),
+            });
+            return null;
+          });
+          promoted = Boolean(promotedVersion);
+        }
+        return NextResponse.json({
+          passed: true,
+          skipped: true,
+          disabled: true,
+          promoted,
+          superseded: !stillLatest,
+          checks: [],
+          reason: "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE.",
+        });
+      }
 
       if (effectiveGate === "integrationsBuild") {
         const readiness = await checkTier3ReadinessForVersion({

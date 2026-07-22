@@ -7,8 +7,8 @@
 > Source: `data/dossiers/{hard,soft}/*/manifest.json#envVars`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
-<!-- source-fingerprint: config/env-policy.json sha256:008517dda5a607de -->
+<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
+<!-- source-fingerprint: config/env-policy.json sha256:dd215bf5436ef09f -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
@@ -16,10 +16,10 @@
 
 ## Quality-gate tiers
 
-| Lane                | Phase | Ordered checks                 |
-| ------------------- | ----- | ------------------------------ |
-| `designPreview`     | `F2`  | `typecheck`                    |
-| `integrationsBuild` | `F3`  | `typecheck` → `lint` → `build` |
+| Lane                | Phase | Ordered checks        |
+| ------------------- | ----- | --------------------- |
+| `designPreview`     | `F2`  | `typecheck`           |
+| `integrationsBuild` | `F3`  | `typecheck` → `build` |
 
 Structured result enums from the preview contract: `$.contracts.PreviewHostVerifyResponse.properties.results.items.properties.failureKind.enum`: `code`, `tooling`, `null`.
 
@@ -98,6 +98,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT`              | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEV_LOG`                                 | `local_only`           | —                                      | No            | Yes          |
+| `SAJTMASKIN_DISABLE_QUALITY_GATE`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DOSSIER_PIPELINE`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK`                    | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `SAJTMASKIN_LIVE_SITE_DOMAIN`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |

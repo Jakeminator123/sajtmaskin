@@ -26,6 +26,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
@@ -174,6 +175,7 @@
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
@@ -440,6 +442,16 @@
         "production"
       ],
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
+    },
+    {
+      "key": "SAJTMASKIN_DISABLE_QUALITY_GATE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Kill-switch for the automatic F2 design-preview quality gate (RenderGate) — the ~5-7s 'verifying' post-check spinner after a new version renders. When true/1, the client-triggered POST /quality-gate short-circuits for the F2 lane: it skips the preview-host verify run, markVersionVerifying (no spinner) and the superseded mutation, and auto-promotes the version (still subject to the finalize false-green promote-guard). The explicit F3 integrations ReleaseGate ('Bygg integrationer') is NEVER disabled — integrations still typecheck+build before deploy. Default off/unset = gate on. Reversible: unset/false restores the gate. Source: src/lib/gen/verify/preview-quality-gate.ts (isQualityGateDisabledByEnv), src/app/api/engine/chats/[chatId]/quality-gate/route.ts."
     },
     {
       "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",

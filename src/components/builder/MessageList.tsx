@@ -30,15 +30,29 @@ import {
   isActionableToolPart,
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
-import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import {
   F3_CONTINUATION_APPROVE_OPTION,
   F3_CONTINUATION_KIND,
 } from "@/lib/gen/stream/f3-continuation";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { VersionFeedback } from "@/components/builder/VersionFeedback";
-import { Streamdown } from "streamdown";
+import { Streamdown, type Components, type ExtraProps } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
+import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
+import type { MessagePart } from "@/lib/builder/messageAdapter";
+import type { ChatMessage } from "@/lib/builder/types";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
+import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type AnchorHTMLAttributes,
+} from "react";
 
 /**
  * Streamdown 2.x renders inline links inside a wrapper that, in
@@ -50,11 +64,19 @@ import { code as streamdownCode } from "@streamdown/code";
  * hatch: the `components` prop forwards ReactMarkdown's component
  * override map straight through.
  *
+ * Streamdown's `Components` intersects a per-tag prop map with a string
+ * index signature — those two shapes are incompatible under strict
+ * function checks, so we cast the override map once.
+ *
  * If/when Streamdown ships an explicit `linkPreview={false}` toggle
  * this override can be replaced.
  */
 const STREAMDOWN_PLAIN_COMPONENTS = {
-  a: ({ children, href, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+  a: ({
+    children,
+    href,
+    ...rest
+  }: AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps) => (
     <a
       {...rest}
       href={href}
@@ -65,13 +87,7 @@ const STREAMDOWN_PLAIN_COMPONENTS = {
       {children}
     </a>
   ),
-};
-import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
-import type { MessagePart } from "@/lib/builder/messageAdapter";
-import type { ChatMessage } from "@/lib/builder/types";
-import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
+} as Components;
 
 interface MessageListProps {
   chatId: string | null;
@@ -360,13 +376,12 @@ const MessageListComponent = ({
       lastAutoOpenedEnvRequirementRef.current = null;
       return;
     }
-    // F2-mute: ProjectEnvVarsPanel is only mounted in F3, so suppress the
-    // auto-open side effect during F2 to avoid silently dispatching events
-    // nothing is listening for.
+    // Byggblock-popovern är enda env-ytan (2026-07-22). Auto-öppning hålls
+    // kvar till F3 så F2-chatten förblir tyst om env (env-flow-f2-mute).
     if (!isIntegrations) return;
     if (lastAutoOpenedEnvRequirementRef.current === requirement.key) return;
     lastAutoOpenedEnvRequirementRef.current = requirement.key;
-    openProjectEnvVarsPanel(requirement.envKeys);
+    openDossiersPanel(requirement.envKeys);
   }, [latestEnvRequirement, isIntegrations]);
 
   const handlePendingReplyClick = async (option: string, optionIndex: number) => {
@@ -604,7 +619,7 @@ const MessageListComponent = ({
           {pendingReply && !isF3Continuation && (
             <div
               ref={pendingReplyBlockRef}
-              className="border-border bg-card mt-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs"
+              className="mt-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs"
               aria-live="polite"
             >
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">

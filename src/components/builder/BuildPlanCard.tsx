@@ -9,10 +9,7 @@ import {
   normalizePlanArtifact,
 } from "@/lib/gen/plan/schema";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import {
-  openIntegrationsPanel,
-  openProjectEnvVarsPanel,
-} from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 
 type Props = {
   rawPlan?: Record<string, unknown>;
@@ -203,10 +200,10 @@ export function BuildPlanCard({
                   size="sm"
                   variant="outline"
                   className="h-7 px-2 text-[11px]"
-                  onClick={() => openProjectEnvVarsPanel(requiredEnvKeys)}
+                  onClick={() => openDossiersPanel(requiredEnvKeys)}
                 >
                   <KeyRound className="mr-1 h-3.5 w-3.5" />
-                  Konfigurera env
+                  Öppna Byggblock
                 </Button>
               ) : null}
               {plan.contracts.integrations.length > 0 ? (
@@ -214,7 +211,7 @@ export function BuildPlanCard({
                   size="sm"
                   variant="outline"
                   className="h-7 px-2 text-[11px]"
-                  onClick={openIntegrationsPanel}
+                  onClick={() => openDossiersPanel()}
                 >
                   <Blocks className="mr-1 h-3.5 w-3.5" />
                   Visa integrationer

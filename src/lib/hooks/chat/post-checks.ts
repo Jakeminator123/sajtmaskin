@@ -515,6 +515,11 @@ async function runTier2VerifyLane(params: {
       jobStartedAt?: string | null;
       jobFinishedAt?: string | null;
       error?: string;
+      // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): the server
+      // short-circuited the F2 RenderGate and auto-promoted the version.
+      skipped?: boolean;
+      disabled?: boolean;
+      reason?: string;
       visualQA?: QualityGateVisualQaResult;
       // Promotion guard markers (route returns `passed:false` alongside these):
       // `vmGatePassed` keeps the underlying VM-check status for diagnostics.
@@ -538,6 +543,27 @@ async function runTier2VerifyLane(params: {
         state: "output-error",
         errorText: data?.error || `Quality gate request failed (HTTP ${res.status})`,
       } as UiMessagePart);
+      return;
+    }
+
+    // Env kill-switch: the F2 quality gate is turned off server-side. The
+    // version was already auto-promoted; surface an informational (not error)
+    // card and refresh the version status so the promoted state shows.
+    if (data.disabled || data.skipped) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId,
+        state: "output-available",
+        output: {
+          skipped: true,
+          reason:
+            typeof data.reason === "string" && data.reason.trim()
+              ? data.reason
+              : "Quality gate avstängd.",
+        },
+      } as UiMessagePart);
+      mutateVersions?.();
       return;
     }
 

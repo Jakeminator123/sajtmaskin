@@ -10,7 +10,6 @@ import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
-import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import {
   F3RequirementsSurface,
   F3StatusSurface,
@@ -893,14 +892,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             />
           ) : null}
           {f3Status ? <F3StatusSurface status={f3Status} /> : null}
-          {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
-            <ProjectEnvVarsPanel
-              externalProjectId={vm.externalProjectId}
-              appProjectId={vm.appProjectId}
-              chatId={vm.chatId}
-              activeVersionId={vm.activeVersionId}
-            />
-          ) : null}
+          {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
+              popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList

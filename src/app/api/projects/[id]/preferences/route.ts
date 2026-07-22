@@ -4,9 +4,6 @@
  * Lightweight `PATCH`/`GET` for project-scoped settings persisted in
  * `project_data.meta`. Today covers:
  *
- * - `allowPlaceholdersInF3` (boolean) — added in the F3-readiness rework
- *   so the UI can opt the project into "use placeholders even for tier-3
- *   keys at F3 build time".
  * - `seo` (SEO opt-in + siteUrl + brand-overrides) — added in PR-A of the
  *   SEO-F3-promotion track. Persists what the future Bygg-dialog will
  *   write. Pipeline-koppling that *reads* this is PR-B scope.
@@ -99,10 +96,6 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
     const existingData = await getProjectData(id);
     const existingMeta = asRecord(existingData?.meta);
 
-    if (typeof parsed.data.allowPlaceholdersInF3 === "boolean") {
-      existingMeta.allowPlaceholdersInF3 = parsed.data.allowPlaceholdersInF3;
-    }
-
     if (parsed.data.seo !== undefined) {
       const existingSeo = readSeoPreferencesFromMeta(existingMeta);
       const merged = mergeSeoPatch(
@@ -121,7 +114,6 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       preferences: {
-        allowPlaceholdersInF3: existingMeta.allowPlaceholdersInF3 === true,
         seo: readSeoPreferencesFromMeta(existingMeta),
       },
     });
@@ -162,7 +154,6 @@ async function handleGET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       preferences: {
-        allowPlaceholdersInF3: meta.allowPlaceholdersInF3 === true,
         // Defaults kept centralized in the schema module so future fields
         // get a single source of truth.
         seo: data ? readSeoPreferencesFromMeta(meta) : { ...SEO_PREFERENCES_DEFAULTS },

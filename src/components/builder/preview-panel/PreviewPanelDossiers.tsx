@@ -25,7 +25,6 @@ import {
   PROJECT_ENV_VARS_UPDATED_EVENT,
   VERSION_STATUS_REFRESHED_EVENT,
   dispatchProjectEnvVarsUpdated,
-  openProjectEnvVarsPanel,
   readDossiersPanelOpenDetail,
   readProjectEnvVarsUpdatedDetail,
 } from "@/lib/builder/project-env-events";
@@ -158,7 +157,7 @@ export function PreviewPanelDossiers({
   }, [load]);
 
   // Refetch when the popover OPENS (keeps env-key readiness fresh — e.g.
-  // after the user saved keys in ProjectEnvVarsPanel without a new version).
+  // after keys were saved elsewhere without a new version).
   // Deliberately NOT on close: the old `[open, load]`-effect refetched on the
   // close-flip too, a pointless request per stängning.
   useEffect(() => {
@@ -736,7 +735,7 @@ export function PreviewPanelDossiers({
           </TabsList>
 
           <TabsContent value="wired" className="mt-0">
-            <div className="max-h-[420px] overflow-y-auto p-2">
+            <div className="max-h-105 overflow-y-auto p-2">
           {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -772,14 +771,14 @@ export function PreviewPanelDossiers({
 
           <TabsContent value="catalog" className="mt-0">
             {catalogPickDisabled ? (
-              <p className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200">
+              <p className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200">
                 Vänta tills pågående generering är klar innan du lägger till ett
                 byggblock.
               </p>
             ) : null}
             {pickedEntry ? (
               <p
-                className="border-b border-gray-800 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-200"
+                className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200"
                 aria-live="polite"
               >
                 Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
@@ -788,7 +787,7 @@ export function PreviewPanelDossiers({
                   : null}
               </p>
             ) : null}
-            <div className="max-h-[420px] overflow-y-auto p-2">
+            <div className="max-h-105 overflow-y-auto p-2">
               {catalogLoading && !catalogData ? (
                 <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -870,20 +869,8 @@ export function PreviewPanelDossiers({
           </TabsContent>
         </Tabs>
 
-        {/* In F3 the full env editor is mounted and can edit already-set keys,
-            which the inline "fill missing" inputs here cannot. Keep Dossiers as
-            the hub but offer a one-click path to the full panel. */}
-        {stage === "integrations" ? (
-          <div className="border-t border-gray-800 px-3 py-2">
-            <button
-              type="button"
-              onClick={() => openProjectEnvVarsPanel()}
-              className="text-[10px] text-sky-300 hover:text-sky-200"
-            >
-              Redigera alla miljövariabler i panelen
-            </button>
-          </div>
-        ) : null}
+        {/* Ägarbeslut 2026-07-22: den separata env-panelen är borttagen —
+            Byggblock-popovern är den enda env-ytan i både F2 och F3. */}
       </PopoverContent>
     </Popover>
   );
