@@ -142,10 +142,13 @@ def _render_file_section(ctx: BackofficeContext, entries: list[dict]) -> None:
                 body += f"\n… ({len(diff_lines) - 400} rader till)"
             st.code(body or "(ingen textdiff)", language="diff")
 
+        # Bind bekräftelsen till exakt (fil, snapshot): byter man mål får man en
+        # ny, obockad checkbox så en gammal bekräftelse aldrig läcker över och
+        # aktiverar Återställ för fel fil.
         confirm = st.checkbox(
             f"Jag vill ersätta `{picked_file}` med snapshoten från "
             f"{_snapshot_label(picked_snapshot.name)}",
-            key="restore_confirm",
+            key=f"restore_confirm::{picked_file}::{picked_snapshot.name}",
         )
         if st.button("Återställ", type="primary", disabled=not confirm, key="restore_apply"):
             ok, message = restore_backup(picked_file, picked_snapshot, ctx.repo_root)
@@ -204,9 +207,10 @@ def _render_tree_section(ctx: BackofficeContext, tree_entries: list[dict]) -> No
             f"Katalogen `{picked_dir}` finns redan — en återställning zippar först "
             "nuvarande innehåll och ersätter det sedan med snapshoten."
         )
+    # Bind bekräftelsen till exakt (katalog, zip) — samma skäl som fil-restoren.
     confirm_tree = st.checkbox(
         f"Jag vill återställa katalogen `{picked_dir}` från zip-snapshoten",
-        key="restore_tree_confirm",
+        key=f"restore_tree_confirm::{picked_dir}::{picked_zip.name}",
     )
     if st.button(
         "Återställ katalog",

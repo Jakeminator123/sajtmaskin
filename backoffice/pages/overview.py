@@ -29,9 +29,11 @@ def render(ctx: BackofficeContext) -> None:
         "kanoniska filerna under `config/`, `src/lib/gen/scaffolds/` och `data/dossiers/`."
     )
     st.success(
-        "**Tryggt att experimentera:** varje sparning säkerhetskopierar först den gamla "
-        "filversionen. Blev något fel — öppna **Återställning** och rulla tillbaka. "
-        "Redigerbara vyer validerar dessutom mot schema före skrivning där schema finns."
+        "**Tryggt att experimentera:** de vanliga redigeringsvyerna säkerhetskopierar "
+        "den gamla filversionen före en sparning, och git är alltid det yttersta "
+        "skyddsnätet för spårade filer. Blev något fel — öppna **Återställning** och "
+        "rulla tillbaka. Redigerbara vyer validerar dessutom mot schema före skrivning "
+        "där schema finns."
     )
     nav_link_button("→ Öppna Återställning", "Återställning", key="overview_goto_restore")
 
