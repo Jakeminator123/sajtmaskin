@@ -40,7 +40,9 @@ The React-Three stack (`three`, `@react-three/fiber`, `@react-three/drei`, `@rea
 
 ## Dynamic UI Recipes
 
-When capabilities are detected, the orchestration pipeline resolves curated shadcn registry items through `src/lib/gen/data/shadcn-ui-recipes.ts` and injects them into the dynamic context as `## UI Recipes`. A recipe is a small, request-specific prompt reference: item metadata, dependencies, registry dependencies and compact excerpts from the most relevant files.
+When capabilities are detected, the orchestration pipeline resolves shadcn registry items through `src/lib/gen/data/shadcn-ui-recipes.ts` and injects them into the dynamic context as `## UI Recipes`. A recipe is a small, request-specific prompt reference: item metadata, dependencies, registry dependencies and compact excerpts from the most relevant files.
+
+Candidate selection is **search-driven** (Fas 4 of the shadcn-registry plan, 2026-07-22): capability signals + prompt keywords become deterministic search queries (`src/lib/gen/data/shadcn-recipe-search.ts`) that are fuzzy-matched against the official registry INDEX (name/title/description/categories, restricted to `registry:ui|block|example`) and the community registries declared in `components.json` (item catalog seeded by `config/community-registries.json`). No LLM calls run in the resolver — it sits in the orchestration critical path. Gated by `SAJTMASKIN_SHADCN_RESOLVER_SEARCH` (default ON; `0`/`false` restores the legacy hardcoded candidate lists exactly), and an index fetch failure automatically degrades to the same legacy lists so network errors never empty the candidate set. Regression evidence: `src/lib/gen/data/shadcn-recipe-search.snapshot.test.ts` (pinned index fixture, six prompt classes, legacy vs search).
 
 UI Recipes replace the old local `data/shadcn-examples/` cache and the old `## Component References` path. Static component patterns in `config/prompt-core/02-component-contract.md` still serve as always-present baseline; `## UI Recipes` add request-specific depth for blocks/components without giving the codegen LLM live MCP or arbitrary web access.
 

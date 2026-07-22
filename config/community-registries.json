@@ -37,6 +37,17 @@
     }
   },
   {
+    "namespace": "@sajtmaskin",
+    "url": "https://sajtmaskin.vercel.app/r/{name}.json",
+    "description": "Curated, self-contained Sajtmaskin blocks verified against the internal registry",
+    "maxPerGeneration": 1,
+    "sectionMappings": {
+      "hero": ["saas-hero"],
+      "pricing": ["pricing-section"],
+      "faq": ["faq-accordion"]
+    }
+  },
+  {
     "namespace": "@magicui",
     "url": "https://magicui.design/r/{name}",
     "description": "Animated UI effects",

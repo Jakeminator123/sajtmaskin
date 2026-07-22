@@ -140,6 +140,7 @@ export function PreviewPanelBrowseGallery({
           item={selectedItem}
           onBack={() => setSelectedItem(null)}
           onInsertItem={onInsertItem}
+          panelDisabled={disabled}
         />
       ) : (
         <>
@@ -333,10 +334,17 @@ function BrowseDetailView({
   item,
   onBack,
   onInsertItem,
+  panelDisabled = false,
 }: {
   item: ComponentItem;
   onBack: () => void;
   onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  /**
+   * Panelens disabled-läge (saknad preview, placement mode, composer-historik).
+   * Wrappern har bara `pointer-events-none` — utan detta kan tangentbordet
+   * fortfarande fokusera och aktivera knappen (Codex P2).
+   */
+  panelDisabled?: boolean;
 }) {
   const thumb = thumbnailUrl(item);
   const [inserting, setInserting] = useState(false);
@@ -366,6 +374,10 @@ function BrowseDetailView({
         origin: "browse",
       });
       setInserted(true);
+      // sendMessage exponerar inget utfall (BB#shadcn-lane1): vissa hanterade
+      // fel (409/412/abort) resolvar utan kast. Tidsbegränsa "Skickat"-låset
+      // så ett tyst misslyckande inte bränner kortet för nya försök.
+      window.setTimeout(() => setInserted(false), 8000);
     } catch {
       // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
     } finally {
@@ -419,7 +431,7 @@ function BrowseDetailView({
         <button
           type="button"
           onClick={() => void handleInsert()}
-          disabled={!onInsertItem || inserting || inserted}
+          disabled={!onInsertItem || panelDisabled || inserting || inserted}
           title={
             onInsertItem
               ? "Skicka blocket till AI:n för insättning"

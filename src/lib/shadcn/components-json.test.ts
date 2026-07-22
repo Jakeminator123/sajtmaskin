@@ -69,7 +69,9 @@ describe("components.json shadcn config", () => {
  * 2026-07-22-shadcn-registry-beskriv-komposition.md) makes `components.json`
  * the canonical registry config: a `registries` key mapping the community
  * namespaces (`@shadcnblocks`, `@tailark`, `@magicui`) that
- * `config/community-registries.json` seeds today.
+ * `config/community-registries.json` seeds today. Fas 6 adds the internal
+ * `@sajtmaskin` registry, served by the app itself from
+ * `src/app/r/[name]/route.ts` (see `src/lib/sajtmaskin-registry/`).
  *
  * The built-in `@shadcn` (and `@v0`) registries are pre-configured in the CLI
  * and MUST NOT be declared here — shadcn CLI 4.x rejects a components.json that
@@ -91,6 +93,8 @@ describe("components.json canonical registries", () => {
     "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
     "@tailark": "https://tailark.com/r/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
+    // Fas 6: internal registry served by the app itself (src/app/r/[name]/route.ts).
+    "@sajtmaskin": "https://sajtmaskin.vercel.app/r/{name}.json",
   };
 
   it("declares a registries map", () => {
@@ -98,7 +102,7 @@ describe("components.json canonical registries", () => {
     expect(typeof componentsJson.registries).toBe("object");
   });
 
-  it("maps exactly the community seed namespaces (built-in @shadcn/@v0 stay implicit)", () => {
+  it("maps exactly the expected namespaces (built-in @shadcn/@v0 stay implicit)", () => {
     expect(Object.keys(componentsJson.registries ?? {}).sort()).toEqual(
       Object.keys(EXPECTED_REGISTRIES).sort(),
     );

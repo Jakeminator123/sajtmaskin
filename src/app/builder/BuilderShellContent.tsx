@@ -661,10 +661,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
   // Färsk spegling av upptaget-läget så en async-sändare kan omkontrollera det
   // EFTER ett await (closure-fångat `catalogPickDisabled` hinner bli inaktuellt).
+  // Tilldelas i render-kroppen (inte i useEffect): en await-continuation kör
+  // som microtask direkt när promiset löser och kan hinna FÖRE effect-flushen —
+  // render-tilldelningen gör att refen alltid speglar senaste committade värdet.
   const catalogPickDisabledRef = useRef(catalogPickDisabled);
-  useEffect(() => {
-    catalogPickDisabledRef.current = catalogPickDisabled;
-  }, [catalogPickDisabled]);
+  catalogPickDisabledRef.current = catalogPickDisabled;
+  // Färsk spegling av aktiv chatt av samma skäl: en insättning som awaitat
+  // registry-hydreringen får inte skicka till en chatt användaren lämnat.
+  const activeChatIdRef = useRef(vm.chatId);
+  activeChatIdRef.current = vm.chatId;
 
   // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
   // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
@@ -697,16 +702,23 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         toast.error("En insättning pågår redan — vänta tills den är klar.");
         throw new Error("shadcn insert already in flight");
       }
+      const entryChatId = vm.chatId;
       shadcnInsertInFlightRef.current = true;
       try {
         const built = await buildShadcnInsertMessage(selection);
-        // Omkontroll efter registry-fetchen: `catalogPickDisabled` lästes vid
-        // entry, men under await:et kan användaren ha startat en annan
-        // generering. sendMessage skulle då aborta den streamen — kasta i
+        // Omkontroller efter registry-fetchen (upp till 8 s): closure-fångat
+        // state lästes vid entry och kan ha hunnit bli inaktuellt.
+        // (1) Chattbyte: skicka aldrig till en chatt användaren lämnat.
+        if (activeChatIdRef.current !== entryChatId) {
+          toast.error("Chatten byttes under insättningen — försök igen från den nya chatten.");
+          throw new Error("active chat changed during insert build");
+        }
+        // (2) Upptaget-läge: sendMessage skulle aborta en pågående stream, och
+        // ett val medan en fråga väntar skulle tyst avfärda frågan — kasta i
         // stället (kortet markeras aldrig skickat). Dossier-katalogen bygger
-        // meddelandet synkront och har därför inte det här fönstret.
+        // meddelandet synkront och har inte det här fönstret.
         if (catalogPickDisabledRef.current) {
-          toast.error("Vänta tills den pågående genereringen är klar.");
+          toast.error("Chatten är upptagen — vänta tills den är redo och försök igen.");
           throw new Error("builder became busy during insert build");
         }
         try {

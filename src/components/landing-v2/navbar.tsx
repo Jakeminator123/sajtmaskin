@@ -29,11 +29,13 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // "Funktioner" borttagen — features bor numera på /teknik (slimmare, mer
+  // företagsriktad nav). Sektionsankare använder absolut "/#…" så de fungerar
+  // även från andra sidor än startsidan (t.ex. /teknik).
   const navLinks = [
-    { href: "#funktioner", label: "Funktioner" },
-    { href: "#teknik", label: "Teknik" },
-    { href: "#hur-det-fungerar", label: "Hur det fungerar" },
-    { href: "#priser", label: "Priser" },
+    { href: "/teknik", label: "Teknik" },
+    { href: "/#hur-det-fungerar", label: "Hur det fungerar" },
+    { href: "/#priser", label: "Priser" },
     { href: "/faq", label: "FAQ" },
   ];
 
