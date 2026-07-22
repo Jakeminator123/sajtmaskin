@@ -335,7 +335,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ### Backoffice
 
-`npm run backoffice` startar Streamlit-app (`sajtmaskin_backoffice.py`). Sidor: Scaffolds, Research & Dossiers, Pipeline, Eval, Autofix & Kvalitet, Mental modell.
+`npm run backoffice` startar Streamlit-appen (`sajtmaskin_backoffice.py`). Scaffold-ytor: **Scaffolds** (översikt + termguide + detaljer + metadata-redigering, inkl. mental modell-docs), **Scaffold Lifecycle** (skapa/klona/radera + varianter + baseline-återställning), **Scaffold Wizard** (AI-guidat skapande), **Scaffold Performance** (telemetri-poäng) och **Dossiers (legoklossar)**. Alla sparningar säkerhetskopieras (sidan **Återställning**).
 
 ---
 

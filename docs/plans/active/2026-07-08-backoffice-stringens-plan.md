@@ -8,12 +8,16 @@ source: Kodläsning (app_main.py, shared.py, alla 34 pages/*.py) + read-only gra
 
 # Backoffice-stringensplan
 
+> **Implementerat i stora drag 2026-07-21** (branch `cursor/backoffice-forenkling-4973`,
+> på ägarens direkta begäran). Se `## Implementerat 2026-07-21` längst ned för
+> vad som landade och vad som återstår. Refresh-briefet är därmed överspelat och
+> arkiverat: [`../archived/2026-07-13-backoffice-stringens-refresh-handoff.md`](../archived/2026-07-13-backoffice-stringens-refresh-handoff.md).
+
 > **OBS 2026-07-13 — nulägesbilden är delvis stale.** Panelen växte **34→37 sidor**
 > och dossier-ytan byggdes om (PR #500: kategorivy + radera + skapa; #502: mock-hint)
-> efter att planen skrevs. **Verifiera underlaget om innan implementation** enligt
-> refresh-briefet: [`2026-07-13-backoffice-stringens-refresh-handoff.md`](2026-07-13-backoffice-stringens-refresh-handoff.md).
-> De strukturella fynden (2 `PAGE_GROUPS`, halva sidorna utan `render_where_panel`,
-> dubbla manifest-editorer) höll fortfarande vid stickprov 2026-07-13.
+> efter att planen skrevs. De strukturella fynden (2 `PAGE_GROUPS`, halva sidorna
+> utan `render_where_panel`, dubbla manifest-editorer) höll fortfarande vid
+> stickprov 2026-07-13 — och åtgärdades 2026-07-21 (se nedan).
 
 ## TL;DR
 
@@ -183,3 +187,23 @@ bör därför delas i mindre PR:ar (en konsolidering i taget), i linje med
 - Ingen migrering bort från Streamlit.
 - Ingen ändring av vilka data sidorna visar — bara hur sant, hur hittbart och
   hur enhetligt de visar det.
+
+## Implementerat 2026-07-21
+
+Ägaren bad direkt om förenkling + återställningsskydd; följande landade i en
+sammanhållen PR (37 → 35 sidor, 2 → 6 grupper):
+
+| Fynd | Status | Vad som gjordes |
+|---|---|---|
+| P0 #1 domain-map-täckning | **Klart** | Alla 35 sidor har post i `domain-map.json`; `test_domain_map_parity.py` är nu dubbelriktad. |
+| P1 #2 dubbla manifest-editorer | **Klart** | `autofix.py` är read-only läsvy (+ länk till `ai_models`); enda skrivytan för `manifest.json` är `ai_models`. |
+| P1 #3 scaffold-trippeln | **Klart** | `runtime_scaffolds.py` + gamla `scaffolds.py` + `mental_model.py` → en konsoliderad `Scaffolds`-sida; TS-parsing delas via `shared.extract_ts_string_*` (även lifecycle). |
+| P1 #4 grupp-uppdelning | **Klart** | 6 grupper: Start / Byggstenar / LLM & prompts / Miljö & policy / Drift & hälsa / Telemetri & loggar. Läges-badges (läser/redigerar/kör/destruktiv) per sida i sidomeny + Översikt. |
+| P1 #5 render_where_panel | **Delvis** | Standard på de omgjorda sidorna; övriga får summary-raden via domain-map (nu komplett). |
+| — (nytt) Återställning | **Klart** | Nytt backup-lager: `write_text`/`write_json` snapshotar före varje sparning; destruktiva katalog-raderingar (dossier/scaffold) zippas; ny sida `Återställning` med diff + rollback; tester i `test_backup_restore.py`. |
+| Repair Loop-sidan | **Klart** | Merged in i `Normalize / RepairGate & Kvalitet` som hardening-sektion. |
+
+Återstår (medvetet utanför denna PR): subprocess-helper-konsolidering (P2 #6),
+statisk-referens-badge (P2 #7), tester för `projects_admin`/`templates_blob`
+(P2 #8), full terminologi-svepning (P2 #9), ev. uppdelning av
+`scaffold_lifecycle.py` (P2 #10).

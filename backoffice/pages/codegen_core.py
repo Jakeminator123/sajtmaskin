@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 import streamlit as st
 
 from backoffice.shared import (
@@ -60,7 +58,7 @@ def _section_domain_rules(ctx: BackofficeContext) -> None:
                 + "\n".join(f"- {message}" for message in errors)
             )
             st.stop()
-        path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write_json(path, out)
         st.success(f"Sparade {len(out)} domain rules.")
 
 
@@ -98,9 +96,7 @@ def _section_heuristic_tokens(ctx: BackofficeContext) -> None:
                         + "\n".join(f"- {message}" for message in errors)
                     )
                     st.stop()
-                path.write_text(
-                    json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
-                )
+                write_json(path, data)
                 st.success(f"Sparade {len(parsed)} tokens för `{cat_key}`.")
 
 

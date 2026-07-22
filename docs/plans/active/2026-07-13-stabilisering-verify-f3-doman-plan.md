@@ -98,7 +98,7 @@ Kördokumentet `builder-stabilisering_9029564c.plan.md` är raderat; detta är k
 
 ## § 7 — Parallella/senare spår (ej denna plan)
 
-- **Backoffice-stringens refresh-handoff** — redan aktiv egen plan (`2026-07-13-backoffice-stringens-refresh-handoff.md`).
+- **Backoffice-stringens** — kärnan implementerad 2026-07-21; kvarvarande P2-städ spåras i `2026-07-08-backoffice-stringens-plan.md` (refresh-handoffen arkiverad).
 - **Dossier etapp 7.3-residual:** beteendetester per hard-dossier (mock mountar utan krasch) + aktiverings-E2E.
 - ~~Ospårade dossier-docs/tester~~ — löst: `docs/contracts/dossier-system.md`, stream-/post-finalize-testsviterna m.fl. är spårade på master sedan #503–#514.
 - Prod perf-index-härdning (#496), preview-host-kapacitet (M#fly1), övriga P2/P3 i backloggen.

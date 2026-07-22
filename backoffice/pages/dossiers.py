@@ -32,6 +32,8 @@ from typing import Any
 
 import streamlit as st
 
+from backoffice.shared import backup_file, backup_tree
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DOSSIER_ROOT = REPO_ROOT / "data" / "dossiers"
@@ -59,6 +61,7 @@ def _load_json(path: Path) -> dict[str, Any] | None:
 
 def _save_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    backup_file(path, REPO_ROOT)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -364,6 +367,7 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
         if errors:
             st.error("Validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors))
             return
+        backup_file(manifest_path, REPO_ROOT)
         manifest_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
         st.cache_data.clear()
@@ -412,13 +416,19 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
         return False, f"Sökvägen ligger utanför dossier-poolen: `{rel_path}` — inget raderades."
     if not target_dir.exists():
         return False, f"Katalogen finns inte längre: `{rel_path}`."
+    # Fail-closed: radera inte om zip-snapshoten (Återställning) inte kunde tas.
+    if backup_tree(target_dir, REPO_ROOT) is None:
+        return False, (
+            f"Kunde inte ta zip-snapshot av `{rel_path}` — "
+            "avbröt raderingen, inget raderades."
+        )
     shutil.rmtree(target_dir)
     return True, (
         f"Raderade `{rel_path}`.\n\n"
         "Nästa steg: bygg om capability-map (Capability map-fliken) och kör "
-        "`npm run dossiers:validate-all`. Ångra: `git checkout -- <sökvägen>` "
-        "funkar bara för dossiers som redan är incheckade — en ny, ocommittad "
-        "dossier (t.ex. ett färskt AI-utkast) kan INTE återställas via git."
+        "`npm run dossiers:validate-all`. Ångra: en zip-snapshot av katalogen "
+        "togs precis före raderingen — återställ den via sidan **Återställning** "
+        "(git funkar också för redan incheckade dossiers)."
     )
 
 
