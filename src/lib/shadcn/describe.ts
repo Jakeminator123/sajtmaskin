@@ -136,6 +136,14 @@ const MAX_COMMUNITY_MATCHES = 8;
 /** Hard cap on how many candidates we hydrate (bounds outbound requests). */
 const HYDRATE_CAP = 12;
 const COMMUNITY_FETCH_TIMEOUT_MS = 3_000;
+/**
+ * Per-call ceilings for the two LLM steps. A stalled provider connection is
+ * aborted and the deterministic heuristic takes over — so a slow provider
+ * degrades to a fast heuristic answer instead of burning the whole route
+ * budget (`maxDuration`) into a 504.
+ */
+const QUERY_LLM_TIMEOUT_MS = 20_000;
+const RANK_LLM_TIMEOUT_MS = 25_000;
 
 const COMPONENTS_JSON_PATH = join(process.cwd(), "components.json");
 const COMMUNITY_REGISTRIES_PATH = join(
@@ -505,6 +513,7 @@ export async function generateQueriesWithLlm(description: string): Promise<strin
       ],
       maxRetries: 1,
       maxOutputTokens: 512,
+      abortSignal: AbortSignal.timeout(QUERY_LLM_TIMEOUT_MS),
     });
     const queries = result.object.queries
       .map((q) => q.trim().toLowerCase())
@@ -580,6 +589,7 @@ export async function rankCandidatesWithLlm(
       ],
       maxRetries: 1,
       maxOutputTokens: 1_024,
+      abortSignal: AbortSignal.timeout(RANK_LLM_TIMEOUT_MS),
     });
 
     const seen = new Set<number>();

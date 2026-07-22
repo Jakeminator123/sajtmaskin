@@ -1,15 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RegistryIndexItem } from "@/lib/shadcn/registry-service";
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import {
   buildAddCommand,
   describeComponents,
   fallbackQueriesFromDescription,
+  generateQueriesWithLlm,
   heuristicRankCandidates,
   matchCommunityItems,
   matchOfficialIndex,
   mergeCommunityRegistries,
   OFFICIAL_REGISTRY,
+  rankCandidatesWithLlm,
   simplifyQueries,
   simplifyQuery,
   type CommunityRegistryDescriptor,
@@ -80,6 +82,53 @@ describe("simplifyQuery / simplifyQueries", () => {
     const out = simplifyQueries(["zzzznomatch"], "login form please");
     expect(out).not.toEqual(["zzzznomatch"]);
     expect(out.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LLM steps degrade to the deterministic heuristic without a provider key.
+// This is the same fallback the per-call abort timeout relies on, so a slow or
+// unavailable provider yields a fast heuristic answer instead of a 504.
+// ---------------------------------------------------------------------------
+
+describe("LLM steps fall back to the heuristic without a provider key", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("generateQueriesWithLlm returns deterministic queries when no key is set", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const description = "a pricing table with three tiers";
+    await expect(generateQueriesWithLlm(description)).resolves.toEqual(
+      fallbackQueriesFromDescription(description),
+    );
+  });
+
+  it("rankCandidatesWithLlm returns heuristic ranking when no key is set", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const candidates: DescribeCandidate[] = [
+      {
+        name: "pricing-table",
+        registry: OFFICIAL_REGISTRY,
+        description: "A pricing table",
+        addCommand: "npx shadcn@latest add pricing-table",
+      },
+      {
+        name: "table",
+        registry: OFFICIAL_REGISTRY,
+        description: "A data table",
+        addCommand: "npx shadcn@latest add table",
+      },
+    ];
+    const result = await rankCandidatesWithLlm(
+      "a pricing table with three tiers",
+      candidates,
+      2,
+    );
+    expect(result.ranking).toBe("heuristic");
+    expect(result.candidates[0]?.name).toBe("pricing-table");
   });
 });
 

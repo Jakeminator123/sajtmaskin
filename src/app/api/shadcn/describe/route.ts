@@ -8,7 +8,12 @@ import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";
 import { describeComponents } from "@/lib/shadcn/describe";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// A single request can run two provider calls (query generation + ranking, each
+// with one retry) plus hydrate up to a dozen registry items. The LLM steps are
+// individually abort-capped in `describe.ts` (they fall back to a deterministic
+// heuristic), so this ceiling only needs headroom above that budget + registry
+// latency — not the 600s a full generation route needs.
+export const maxDuration = 120;
 
 const describeRequestSchema = z.object({
   description: z.string().trim().min(1, "description is required").max(2_000),
