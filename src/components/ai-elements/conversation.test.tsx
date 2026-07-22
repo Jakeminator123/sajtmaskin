@@ -114,6 +114,29 @@ describe("Conversation — MessageScroller path (flag on / default)", () => {
     expect(anchorState("user-live")).toBe("true");
     expect(anchorState("user-old")).toBe("false");
   });
+
+  it("preserves anchoring for a genuinely live first turn", () => {
+    delete process.env[PUBLIC_KEY];
+    const { container } = render(
+      <Conversation className="h-full">
+        <ConversationContent>
+          <ConversationItem
+            messageId="user-first-live"
+            scrollAnchor
+            liveScrollAnchor
+          >
+            <div>First live prompt</div>
+          </ConversationItem>
+        </ConversationContent>
+      </Conversation>,
+    );
+
+    expect(
+      container
+        .querySelector('[data-message-id="user-first-live"]')
+        ?.getAttribute("data-scroll-anchor"),
+    ).toBe("true");
+  });
 });
 
 describe("Conversation — legacy path (flag off)", () => {
