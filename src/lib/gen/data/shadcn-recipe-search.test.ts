@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { clearRegistryMemoryCache } from "@/lib/shadcn/registry-memory-cache";
+import {
+  buildRegistryCacheKey,
+  clearRegistryMemoryCache,
+  setRegistryMemoryCache,
+} from "@/lib/shadcn/registry-memory-cache";
 import type { RegistryIndexItem } from "@/lib/shadcn/registry-service";
 import type { InferredCapabilities } from "../capability-inference";
 import {
@@ -329,5 +333,44 @@ describe("fetchOfficialIndexForResolver", () => {
   it("returns null for an empty/invalid index payload", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
     await expect(fetchOfficialIndexForResolver()).resolves.toBeNull();
+  });
+
+  it("recovers within the failure TTL when the shared memory cache is warmed", async () => {
+    mockFetch.mockRejectedValue(new Error("offline"));
+    await expect(fetchOfficialIndexForResolver()).resolves.toBeNull();
+    const callsAfterFailure = mockFetch.mock.calls.length;
+
+    // Another consumer (or an abandoned-but-successful fetch) warms the shared
+    // registry-service cache while the negative TTL is still active.
+    setRegistryMemoryCache(buildRegistryCacheKey("index", { source: "official" }), {
+      items: [{ name: "login-01", type: "registry:block" }],
+    });
+
+    const items = await fetchOfficialIndexForResolver();
+    expect(items?.[0]?.name).toBe("login-01");
+    // Served from the shared cache — no new network call.
+    expect(mockFetch.mock.calls.length).toBe(callsAfterFailure);
+  });
+
+  it("absorbs a late rejection from a fetch abandoned by the timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      let rejectLate: ((err: Error) => void) | undefined;
+      mockFetch.mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectLate = reject;
+          }),
+      );
+      const resultPromise = fetchOfficialIndexForResolver();
+      await vi.advanceTimersByTimeAsync(3_500);
+      await expect(resultPromise).resolves.toBeNull();
+      // The abandoned fetch rejects AFTER the timeout — must not produce an
+      // unhandled promise rejection (vitest fails the test run on those).
+      rejectLate?.(new Error("late upstream failure"));
+      await vi.advanceTimersByTimeAsync(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

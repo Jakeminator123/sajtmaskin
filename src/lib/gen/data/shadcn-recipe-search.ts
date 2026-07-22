@@ -36,8 +36,13 @@ import {
 } from "@/lib/shadcn/registry-search";
 import {
   fetchRegistryIndex,
+  type RegistryIndex,
   type RegistryIndexItem,
 } from "@/lib/shadcn/registry-service";
+import {
+  buildRegistryCacheKey,
+  getRegistryMemoryCache,
+} from "@/lib/shadcn/registry-memory-cache";
 import { debugLog } from "@/lib/utils/debug";
 import type { InferredCapabilities } from "../capability-inference";
 
@@ -447,25 +452,46 @@ export function _clearShadcnRecipeSearchStateForTests(): void {
 }
 
 /**
+ * Probe `registry-service`'s shared memory cache for an already-fetched
+ * official index (same key `fetchRegistryIndex()` writes: default style,
+ * official source) without touching the network.
+ */
+function probeSharedIndexCache(): RegistryIndexItem[] | null {
+  const cached = getRegistryMemoryCache<RegistryIndex>(
+    buildRegistryCacheKey("index", { source: "official" }),
+  );
+  const items = cached && Array.isArray(cached.items) ? cached.items : null;
+  return items && items.length > 0 ? items : null;
+}
+
+/**
  * Fetch the official registry index for the resolver. Success is cached by
  * `registry-service`'s shared bounded memory cache (5 min TTL — same spirit
  * as the resolver's per-item CACHE_TTL_MS). Returns `null` on failure/timeout
  * so the caller can fall back to the legacy candidates; failures are
  * negatively cached briefly so offline environments don't pay the timeout on
- * every generation.
+ * every generation. While the failure TTL is active the shared cache is still
+ * probed, so an index warmed meanwhile (e.g. by an abandoned-but-successful
+ * fetch or another consumer) ends the legacy degradation immediately.
  */
 export async function fetchOfficialIndexForResolver(): Promise<
   RegistryIndexItem[] | null
 > {
   if (indexFailureAt !== null && Date.now() - indexFailureAt < INDEX_FAILURE_TTL_MS) {
+    const warmed = probeSharedIndexCache();
+    if (warmed) {
+      indexFailureAt = null;
+      return warmed;
+    }
     return null;
   }
   try {
-    const index = await withTimeout(
-      fetchRegistryIndex(),
-      INDEX_FETCH_TIMEOUT_MS,
-      null,
-    );
+    const pending = fetchRegistryIndex();
+    // The fetch keeps running if the timeout wins the race below; absorb a
+    // late rejection so an abandoned fetch can't raise an unhandled promise
+    // rejection inside the orchestration path.
+    pending.catch(() => {});
+    const index = await withTimeout(pending, INDEX_FETCH_TIMEOUT_MS, null);
     const items = index && Array.isArray(index.items) ? index.items : null;
     if (!items || items.length === 0) {
       indexFailureAt = Date.now();
