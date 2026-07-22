@@ -48,6 +48,10 @@ import {
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
+import {
+  buildShadcnInsertMessage,
+  type ShadcnInsertSelection,
+} from "@/lib/builder/shadcn-insert";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
@@ -244,6 +248,28 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         },
       );
       await sendMessage(built.message, { promptSourceMeta: built.meta });
+    },
+    [sendMessage, vm.chatId],
+  );
+
+  // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
+  // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
+  // BEFINTLIGA sendMessage-vägen → own-engine genererar + verifierar
+  // (RenderGate) → ny version + preview. Aldrig rå filpatch. Fel re-throwas
+  // så panelens kort ALDRIG visar "skickad" för en misslyckad insättning.
+  const handleShadcnItemInsert = useCallback(
+    async (selection: ShadcnInsertSelection) => {
+      if (!vm.chatId) {
+        toast.error("Öppna eller skapa en chat först.");
+        throw new Error("no active chat");
+      }
+      try {
+        const built = await buildShadcnInsertMessage(selection);
+        await sendMessage(built.message, { promptSourceMeta: built.meta });
+      } catch (err) {
+        toast.error("Kunde inte skicka blocket till own-engine.");
+        throw err;
+      }
     },
     [sendMessage, vm.chatId],
   );
@@ -1056,6 +1082,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}
+              onShadcnItemInsert={handleShadcnItemInsert}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isBusy={isBusy}
               onRequestDossier={handleRequestDossier}

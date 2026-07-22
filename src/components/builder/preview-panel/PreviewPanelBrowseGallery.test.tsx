@@ -103,17 +103,17 @@ describe("PreviewPanelBrowseGallery", () => {
     expect(screen.queryByText("Login 01")).toBeNull();
   });
 
-  it("opens a no-op detail view on card click (insertion not wired in Fas 3)", async () => {
+  it("opens a read-only detail view when no insert callback is provided", async () => {
     render(<PreviewPanelBrowseGallery />);
     await waitFor(() => screen.getByText("Login 01"));
 
     fireEvent.click(screen.getByText("Login 01"));
 
-    // Detaljvyn visar block-namnet + not om senare fas
+    // Detaljvyn visar block-namnet + not om att insättning inte är tillgänglig
     expect(screen.getByText("login-01")).toBeTruthy();
-    expect(screen.getByText(/Insättning kommer i en senare fas/i)).toBeTruthy();
+    expect(screen.getByText(/Insättning är inte tillgänglig/i)).toBeTruthy();
 
-    // Insättnings-knappen är disabled (no-op tills Fas 2) och kastar inte
+    // Insättnings-knappen är disabled utan callback och kastar inte
     const insertButton = screen.getByRole("button", { name: /Lägg till i sajten/i });
     expect((insertButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(insertButton);
@@ -122,6 +122,42 @@ describe("PreviewPanelBrowseGallery", () => {
     // Tillbaka återgår till galleriet
     fireEvent.click(screen.getByRole("button", { name: /Tillbaka/i }));
     await waitFor(() => screen.getByText("Signup 01"));
+  });
+
+  it("kortval → onInsertItem med registry-metadata (insättnings-lane v1, Fas 2)", async () => {
+    const onInsertItem = vi.fn().mockResolvedValue(undefined);
+    render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    fireEvent.click(screen.getByText("Login 01"));
+
+    const insertButton = screen.getByRole("button", { name: /Lägg till i sajten/i });
+    expect((insertButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(insertButton);
+
+    await waitFor(() =>
+      expect(onInsertItem).toHaveBeenCalledWith({
+        name: "login-01",
+        registry: "@shadcn",
+        title: "Login 01",
+        description: "Enkelt inloggningsformulär",
+        origin: "browse",
+      }),
+    );
+    // Lyckad insättning bekräftas i detaljvyn.
+    await waitFor(() => screen.getByText(/Skickad — följ genereringen/i));
+  });
+
+  it("markerar ALDRIG detaljvyn som skickad när insättningen misslyckas", async () => {
+    const onInsertItem = vi.fn().mockRejectedValue(new Error("send failed"));
+    render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Skickad — följ genereringen/i)).toBeNull();
   });
 
   it("shows an error state with retry when the fetch rejects", async () => {

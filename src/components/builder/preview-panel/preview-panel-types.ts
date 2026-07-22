@@ -1,4 +1,5 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
+import type { ShadcnInsertSelection } from "@/lib/builder/shadcn-insert";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
@@ -125,6 +126,13 @@ export interface PreviewPanelProps {
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
   /** Own-engine / chat: skicka AI‑fallback när deterministisk patch inte är möjlig. */
   onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
+  /**
+   * Insättnings-lane v1 ("Lägg till"-ytan): valt registry-kort (Bläddra eller
+   * Beskriv) → välformat prompt via `shadcn-insert.ts` → BEFINTLIGA
+   * sendMessage/own-engine-vägen → generering + verify → ny version. Aldrig
+   * rå filpatch. Saknas → insättningsknapparna i panelen är disabled.
+   */
+  onShadcnItemInsert?: (selection: ShadcnInsertSelection) => void | Promise<void>;
   /**
    * F2 vs F3 stage of the active version. Controls visibility of the
    * "Bygg integrationer" (F3 trigger) button in the preview chrome. F2 (`design`)
