@@ -12,6 +12,7 @@
     "data/dossiers/**",
     "_parkering/**",
     "src/lib/gen/scaffolds/*/files/**",
+    "src/lib/sajtmaskin-registry/blocks/**",
     ".cursor/hooks/**",
     "preview-host/**",
     "**/*.config.{ts,js,mjs,cjs}"

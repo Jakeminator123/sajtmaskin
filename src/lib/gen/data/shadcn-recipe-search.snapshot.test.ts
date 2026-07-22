@@ -133,7 +133,11 @@ const SCENARIOS: Scenario[] = [
     expectedLegacy: ["card", "tabs"],
     expectedSearch: ["card", "card-demo", "tabs", "tabs-demo"],
     // Identical to the legacy per-section picks (pricing section, same DJB seed).
-    expectedCommunityPlans: ["@shadcnblocks/pricing3", "@tailark/pricing-3"],
+    expectedCommunityPlans: [
+      "@shadcnblocks/pricing3",
+      "@tailark/pricing-3",
+      "@sajtmaskin/pricing-section",
+    ],
   },
   {
     id: "charts",
