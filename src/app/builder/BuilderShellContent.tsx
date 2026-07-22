@@ -666,6 +666,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // BEFINTLIGA sendMessage-vägen → own-engine genererar + verifierar
   // (RenderGate) → ny version + preview. Aldrig rå filpatch. Fel re-throwas
   // så panelens kort ALDRIG visar "skickad" för en misslyckad insättning.
+  // Global in-flight-spärr: kortens egna guards är per-komponent, så parallella
+  // val från Bläddra + Beskriv (t.ex. via tabbyte mitt i registry-fetchen, innan
+  // isBusy hunnit bli true) skulle annars kunna nå sendMessage båda två — den
+  // andra aborterar då den förstas stream.
+  const shadcnInsertInFlightRef = useRef(false);
   const handleShadcnItemInsert = useCallback(
     async (selection: ShadcnInsertSelection) => {
       if (!vm.chatId) {
@@ -683,12 +688,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         );
         throw new Error("builder busy or awaiting reply");
       }
+      if (shadcnInsertInFlightRef.current) {
+        toast.error("En insättning pågår redan — vänta tills den är klar.");
+        throw new Error("shadcn insert already in flight");
+      }
+      shadcnInsertInFlightRef.current = true;
       try {
         const built = await buildShadcnInsertMessage(selection);
         await sendMessage(built.message, { promptSourceMeta: built.meta });
       } catch (err) {
         toast.error("Kunde inte skicka blocket till own-engine.");
         throw err;
+      } finally {
+        shadcnInsertInFlightRef.current = false;
       }
     },
     [sendMessage, vm.chatId, catalogPickDisabled, isBusy],
