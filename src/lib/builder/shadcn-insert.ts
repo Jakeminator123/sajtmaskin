@@ -28,6 +28,9 @@ import {
 /** Officiellt registry-namespace (klienten kan hämta item-kod via proxy-routen). */
 export const OFFICIAL_SHADCN_REGISTRY = "@shadcn";
 
+/** Tak för best-effort-hydreringen av officiell registry-källkod (Codex P2). */
+const HYDRATION_TIMEOUT_MS = 8_000;
+
 /** Valt registry-kort — gemensam payload för Bläddra- och Beskriv-valen. */
 export type ShadcnInsertSelection = {
   /** Registry-lokalt item-namn, t.ex. `login-03` eller `hero1`. */
@@ -64,11 +67,22 @@ export async function buildShadcnInsertMessage(
   let registryItem: ShadcnRegistryItem | null = null;
   if (selection.registry === OFFICIAL_SHADCN_REGISTRY) {
     const fetchItem = deps.fetchItem ?? fetchRegistryItem;
+    // Hydreringen är best-effort: en proxy/upstream som HÄNGER (i stället för
+    // att avvisa) får inte hålla kvar kortet i "Skickar…" och det globala
+    // in-flight-låset — degradera till metadata-prompt efter timeouten.
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const item = await fetchItem(selection.name);
-      registryItem = isUsableRegistryItem(item) ? item : null;
+      const item = await Promise.race([
+        fetchItem(selection.name),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), HYDRATION_TIMEOUT_MS);
+        }),
+      ]);
+      registryItem = item !== null && isUsableRegistryItem(item) ? item : null;
     } catch {
       registryItem = null;
+    } finally {
+      clearTimeout(timer);
     }
   }
   return buildPromptSourceMessage({
