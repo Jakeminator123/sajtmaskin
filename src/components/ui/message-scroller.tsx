@@ -84,14 +84,17 @@ function MessageScrollerItem({
   scrollAnchor = false,
   ...props
 }: React.ComponentProps<typeof MessageScrollerPrimitive.Item>) {
+  // Note: the upstream registry item also sets `content-visibility:auto` +
+  // `contain-intrinsic-size` here, but our inner `Message` (ai-elements)
+  // already applies that optimization per row. Nesting two deferred-layout
+  // layers with different intrinsic sizes makes the scroller's height
+  // tracking underestimate rows during streaming -> scroll jumps. Keep the
+  // single optimization layer in Message.
   return (
     <MessageScrollerPrimitive.Item
       data-slot="message-scroller-item"
       scrollAnchor={scrollAnchor}
-      className={cn(
-        "min-w-0 shrink-0 [contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
-        className,
-      )}
+      className={cn("min-w-0 shrink-0", className)}
       {...props}
     />
   );

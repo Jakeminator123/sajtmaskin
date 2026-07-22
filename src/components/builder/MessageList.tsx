@@ -612,7 +612,7 @@ const MessageListComponent = ({
               klipps av wrapperns overflow) och en icke-blockerande, flytande
               ankarknapp scrollar hit i stället för att öppna en overlay. */}
           {pendingReply && !isF3Continuation && (
-            <ConversationItem>
+            <ConversationItem messageId={`pending-reply-${pendingReply.key}`}>
             <div
               ref={pendingReplyBlockRef}
               className="border-border bg-card mt-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs"
@@ -656,7 +656,7 @@ const MessageListComponent = ({
               calm status row; a reloaded marker shows inline quick-replies so the
               user can still choose (no auto-fire on old history). */}
           {pendingReply && isF3Continuation && (
-            <ConversationItem>
+            <ConversationItem messageId={`f3-continuation-${pendingReply.key}`}>
               {f3AutoContinueKey === pendingReply.key ? (
               <div
                 className="text-muted-foreground bg-muted/40 mt-2 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
