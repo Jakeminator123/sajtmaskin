@@ -79,6 +79,20 @@ describe("@sajtmaskin registry schema", () => {
     }
   });
 
+  it("seeds every internal item for Registry Discovery", () => {
+    const seed = JSON.parse(
+      readFileSync(join(process.cwd(), "config", "community-registries.json"), "utf-8"),
+    ) as Array<{
+      namespace: string;
+      url: string;
+      sectionMappings?: Record<string, string[]>;
+    }>;
+    const internal = seed.find((entry) => entry.namespace === "@sajtmaskin");
+    expect(internal?.url).toBe("https://sajtmaskin.vercel.app/r/{name}.json");
+    const seededItems = Object.values(internal?.sectionMappings ?? {}).flat().sort();
+    expect(seededItems).toEqual([...itemNames].sort());
+  });
+
   it("returns null for unknown items", () => {
     expect(buildRegistryItem("does-not-exist")).toBeNull();
   });
