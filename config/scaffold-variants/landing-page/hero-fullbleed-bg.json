@@ -79,8 +79,10 @@
     "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 12%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 10%, transparent) 0%, transparent 36%)"
   },
   "sourceTemplateIds": [
-    "marketing-portfolio-starter-kit",
-    "ecommerce-storefront-starter"
+    "R3n0gnvYFbO",
+    "lJXGkoM1koN",
+    "jZpf5doYiNe",
+    "yih2hMiv5q3"
   ],
   "default": false
 }

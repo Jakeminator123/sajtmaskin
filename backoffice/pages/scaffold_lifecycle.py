@@ -196,11 +196,28 @@ def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -
     scaffold-variant create/edit forms call this before ``write_json`` so a
     schema-breaking edit is blocked with ``st.error`` instead of corrupting the
     matching config.
+
+    Utöver schemat blockeras döda ``sourceTemplateIds``: varje id måste finnas
+    i Blob-manifestet (`template-blob-manifest.json`). Detta speglar
+    CI-grinden i ``src/lib/gen/scaffold-variants/variant-integrity.test.ts``
+    så en variant aldrig kan sparas med en referens som testet sedan fäller.
     """
     schema_path = (
         ctx.repo_root / "docs" / "schemas" / "strict" / "scaffold-variant.schema.json"
     )
-    return validate_json_against_schema(payload, schema_path)
+    errors = validate_json_against_schema(payload, schema_path)
+
+    source_ids = payload.get("sourceTemplateIds") or []
+    if isinstance(source_ids, list) and source_ids:
+        lookup, _sources = _load_inspiration_lookup(ctx)
+        dead = [str(i) for i in source_ids if str(i).strip() and str(i) not in lookup]
+        if dead:
+            errors.append(
+                "sourceTemplateIds pekar på id:n som inte finns i Blob-manifestet "
+                f"(`{BLOB_MANIFEST_REL}`): {', '.join(dead)}. Använd riktiga v0-mall-id:n "
+                "(kolumnen Blob-id i Scaffold Wizard steg 1) eller ta bort raderna."
+            )
+    return errors
 
 
 def _load_variants(ctx: BackofficeContext) -> list[dict[str, Any]]:
@@ -569,8 +586,9 @@ def _render_tree_view(
     st.caption(
         "**Inspirationsreferenser ≠ runtime dossiers.** Variantens `sourceTemplateIds` är "
         "inspirationsetiketter som slås upp mot Blob-manifestet "
-        f"(`{BLOB_MANIFEST_REL}`, v0-mallarna i Vercel Blob). Oupplösta id:n är oftast "
-        "kvarvarande etiketter från den avvecklade legacy-katalogen — ofarliga, inget "
+        f"(`{BLOB_MANIFEST_REL}`, v0-mallarna i Vercel Blob). Sedan 2026-07-22 ska alla id:n "
+        "vara upplösbara — oupplösta id:n fälls av integritetsgrinden "
+        "(`variant-integrity.test.ts`) och blockeras vid sparande här. Inget "
         "injiceras från dem. Runtime-dossiers under `data/dossiers/{hard,soft}/` är en "
         f"separat pool: {runtime_total} dossiers "
         f"(hard={runtime_dossier_counts.get('hard', 0)}, soft={runtime_dossier_counts.get('soft', 0)}). "

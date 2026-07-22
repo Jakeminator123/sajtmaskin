@@ -72,11 +72,12 @@ export interface ScaffoldVariant {
   signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
   /**
-   * Inspiration reference ids. New entries are v0-mall Blob ids resolved
-   * against `src/lib/templates/template-blob-manifest.json` (written by the
-   * backoffice Scaffold Wizard); older entries are harmless legacy labels
-   * from the removed external-template pipeline. Runtime only renders them
-   * as a "Derived from curated references" prompt line — nothing is injected.
+   * Inspiration reference ids: v0-mall Blob ids resolved against
+   * `src/lib/templates/template-blob-manifest.json` (written by the
+   * backoffice Scaffold Wizard/Lifecycle). Since 2026-07-22 every id must
+   * exist in the Blob manifest (legacy labels were remapped) — enforced by
+   * `variant-integrity.test.ts`. Runtime only renders them as a
+   * "Derived from curated references" prompt line — nothing is injected.
    */
   sourceTemplateIds?: string[];
   default?: boolean;

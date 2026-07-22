@@ -774,13 +774,16 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
             except Exception as error:
                 st.error(f"Skapandet misslyckades (rollback körd där möjligt): {error}")
                 return
-            # Behåll steget på 4 och byt till den persistenta slutför-panelen där
-            # operatören kör efter-stegen med knappar (inga terminalkommandon).
+            # Behåll steget på 4 och byt till den persistenta slutför-panelen.
+            # Efter-stegen (designmönster → embeddings → validering) körs
+            # automatiskt vid nästa render — operatören ska aldrig lämnas med
+            # en halvfärdig variant utan att veta vad som återstår.
             st.session_state["swz_created"] = {
                 "variantId": str((payload or {}).get("id", "")),
                 "scaffoldId": str((payload or {}).get("scaffoldId", "")),
                 "message": message,
             }
+            st.session_state["swz_autorun"] = True
             for key in ("swz_draft", "swz_analysis", "swz_template", "swz_repo_summary"):
                 st.session_state.pop(key, None)
             st.session_state.pop("swz_cmd_results", None)
@@ -900,7 +903,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         results[step["key"]] = res
         st.session_state["swz_cmd_results"] = results
 
-    if st.button("▶ Kör alla steg i följd", type="primary"):
+    def _run_chain() -> None:
         # Fresh chain: drop stale results from earlier runs first, so a later
         # step's old ✅ can't linger as false-green when an early step now fails
         # and the chain stops before reaching it.
@@ -925,6 +928,17 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
                 }
                 st.session_state["swz_cmd_results"] = results
                 break
+
+    # Auto-run direkt efter skapandet (idiotsäkring): operatören ska inte
+    # behöva veta att knappen finns. Flaggan konsumeras så en manuell
+    # om-körning fortfarande går via knappen.
+    if st.session_state.pop("swz_autorun", False):
+        st.info("Kör efter-stegen automatiskt (designmönster → matchning → validering)…")
+        _run_chain()
+        st.rerun()
+
+    if st.button("▶ Kör alla steg i följd (igen)", type="primary"):
+        _run_chain()
         st.rerun()
 
     cols = st.columns(len(steps))
