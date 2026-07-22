@@ -845,7 +845,8 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
   return (
     <div
       data-audit-nested-dialog
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      tabIndex={-1}
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm outline-none"
     >
       <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 text-center">
         <div className="mb-4 flex items-center justify-center gap-3">

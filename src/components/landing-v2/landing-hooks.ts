@@ -225,7 +225,10 @@ export function useHashScroll() {
     // som varken avfyrar hashchange eller scrollar den inre containern —
     // fånga därför klick på interna ankarlänkar direkt.
     const handleClick = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0) return
+      // Körs i capture-fas: Nexts Link-interception hinner annars sätta
+      // defaultPrevented innan vi ser klicket. Scrollen är oberoende av vem
+      // som sköter själva navigeringen, så den kan göras optimistiskt.
+      if (event.button !== 0) return
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
       const anchor = (event.target as HTMLElement | null)?.closest("a")
       if (!anchor) return
@@ -239,10 +242,10 @@ export function useHashScroll() {
 
     scrollToHash()
     window.addEventListener("hashchange", scrollToHash)
-    document.addEventListener("click", handleClick)
+    document.addEventListener("click", handleClick, true)
     return () => {
       window.removeEventListener("hashchange", scrollToHash)
-      document.removeEventListener("click", handleClick)
+      document.removeEventListener("click", handleClick, true)
     }
   }, [])
 }

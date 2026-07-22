@@ -339,8 +339,16 @@ export function AuditModal({
         const first = focusables[0]!;
         const last = focusables[focusables.length - 1]!;
         const active = document.activeElement as HTMLElement | null;
+        // Focus outside the trapped surface (e.g. still on the button that
+        // opened a stacked dialog): pull it inside instead of letting Tab
+        // walk through obscured controls underneath.
+        if (!active || !container.contains(active)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+          return;
+        }
         if (e.shiftKey) {
-          if (active === first || active === container || !container.contains(active)) {
+          if (active === first || active === container) {
             e.preventDefault();
             last.focus();
           }
@@ -403,6 +411,17 @@ export function AuditModal({
       document.body.style.overflow = "";
     };
   }, [isOpen, onClose, showPdfModal, showBuildConfirm, showBuildOverlay]);
+
+  // Move focus into a stacked dialog (PDF report / build confirmation) when
+  // it opens — otherwise focus stays on the triggering button under the
+  // overlay and Tab starts from the obscured audit surface.
+  useEffect(() => {
+    if (!showPdfModal && !showBuildConfirm) return;
+    const raf = requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-audit-nested-dialog]")?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [showPdfModal, showBuildConfirm]);
 
   // Move focus into the dialog on open and return it to the trigger on close.
   useEffect(() => {
@@ -1096,7 +1115,8 @@ export function AuditModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           data-audit-nested-dialog
-          className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          tabIndex={-1}
+          className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm outline-none"
           onClick={() => setShowBuildConfirm(false)}
         >
           <motion.div
