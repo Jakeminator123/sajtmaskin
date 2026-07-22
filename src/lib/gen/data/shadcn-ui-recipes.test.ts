@@ -247,6 +247,93 @@ describe("resolveShadcnUiRecipes", () => {
     expect(result[0]?.name).toBe("login-03");
   });
 
+  it("reserves one default slot for a richer planned community section", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (isIndexUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              { name: "card", type: "registry:ui", title: "Card" },
+              { name: "card-demo", type: "registry:example", title: "Card Demo" },
+              { name: "tabs", type: "registry:ui", title: "Tabs" },
+            ],
+          }),
+        };
+      }
+      if (url.includes("shadcnblocks.com") || url.includes("tailark.com")) {
+        const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "pricing";
+        return {
+          ok: true,
+          json: async () => ({
+            name: itemName,
+            type: "registry:block",
+            files: [
+              {
+                path: `registry/community/${itemName}.tsx`,
+                type: "registry:component",
+                content: "export function PricingSection() { return null }",
+              },
+            ],
+          }),
+        };
+      }
+      const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "card";
+      return registryResponse(itemName, "new-york-v4");
+    });
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps(),
+      prompt: "bygg en pricing-sektion med tre paket",
+      maxRecipes: 3,
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result.slice(0, 2).every((recipe) => recipe.source === "official")).toBe(true);
+    expect(result[2]?.source).toBe("community");
+    expect(
+      mockFetch.mock.calls.some(([input]) =>
+        /shadcnblocks\.com|tailark\.com/.test(String(input)),
+      ),
+    ).toBe(true);
+  });
+
+  it("backfills the reserved slot from official candidates when community fetches fail", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (isIndexUrl(url)) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              { name: "card", type: "registry:ui", title: "Card" },
+              { name: "card-demo", type: "registry:example", title: "Card Demo" },
+              { name: "tabs", type: "registry:ui", title: "Tabs" },
+            ],
+          }),
+        };
+      }
+      if (url.includes("shadcnblocks.com") || url.includes("tailark.com")) {
+        return { ok: false, status: 503, text: async () => "" };
+      }
+      const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "card";
+      return registryResponse(itemName, "new-york-v4");
+    });
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps(),
+      prompt: "bygg en pricing-sektion med tre paket",
+      maxRecipes: 3,
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result.every((recipe) => recipe.source === "official")).toBe(true);
+    expect(result.map((recipe) => recipe.name)).toContain("tabs");
+  });
+
   it("uses community registries when no official candidate matched", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
