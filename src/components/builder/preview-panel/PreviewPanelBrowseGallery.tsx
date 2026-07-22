@@ -76,10 +76,16 @@ export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrow
 
   const handleSelectItemType = useCallback((next: BrowseItemType) => {
     // Reset transient view-state in the same tick as the itemType switch
-    // (avoids a separate reset effect / cascading render).
+    // (avoids a separate reset effect / cascading render). Categories, loading
+    // and query are also cleared here so the grid never shows the previous
+    // tab's cards (or filters the new list with a stale search string) during
+    // the frame(s) before the fetch effect runs.
     setItemType(next);
     setActiveCategory(null);
     setSelectedItem(null);
+    setCategories([]);
+    setLoading(true);
+    setQuery("");
   }, []);
 
   const filteredCategories = useMemo(() => {
