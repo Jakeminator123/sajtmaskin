@@ -4,7 +4,7 @@ import { buildChatReadiness } from "@/lib/chat-readiness";
 import { LaunchReadinessCard } from "./LaunchReadinessCard";
 
 vi.mock("@/lib/builder/project-env-events", () => ({
-  openProjectEnvVarsPanel: vi.fn(),
+  openDossiersPanel: vi.fn(),
 }));
 
 describe("LaunchReadinessCard", () => {

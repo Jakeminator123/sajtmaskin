@@ -1,37 +1,24 @@
 /**
- * Centralized window-event helpers for the builder's project-env-vars
- * and integrations side panels.
+ * Centralized window-event helpers for the builder's env/dossier surfaces.
+ *
+ * Ägarbeslut 2026-07-22: `ProjectEnvVarsPanel` (och dess öppna-kommandon
+ * `openProjectEnvVarsPanel`/`openIntegrationsPanel`) är borttagna —
+ * Byggblock-popovern (`PreviewPanelDossiers`, öppnas via
+ * `openDossiersPanel`) är den enda ytan för att se status på och fylla i
+ * miljövariabler, i både F2 och F3.
  *
  * Two distinct event flows live here:
  *
- * 1. **Open-panel commands** (`openProjectEnvVarsPanel`,
- *    `openIntegrationsPanel`) — fire-and-forget signals that ask the
- *    `ProjectEnvVarsPanel` to open / focus a tab.
- *
- *    F2-mute semantic: `ProjectEnvVarsPanel` only mounts during the F3
- *    "Bygg integrationer" lifecycle (`lifecycleStage === "integrations"`).
- *    In F2 (design preview), the panel is not in the tree, so dispatching
- *    these events is a silent no-op. This module DOES NOT gate dispatch by
- *    lifecycle — gating is done at the call site so that F2 UI can simply
- *    hide buttons rather than show buttons that silently do nothing.
+ * 1. **Open-panel command** (`openDossiersPanel`) — fire-and-forget signal
+ *    that asks the Byggblock popover to open and focus the dossier owning
+ *    the given env keys.
  *
  * 2. **Updated-notifications** (`PROJECT_ENV_VARS_UPDATED_EVENT`,
  *    `dispatchProjectEnvVarsUpdated`, `readProjectEnvVarsUpdatedDetail`) —
- *    notification dispatched by `ProjectEnvVarsPanel` after a successful
- *    save so other parts of the builder (preview view-models, readiness
- *    checks) can refresh derived state.
+ *    notification dispatched after a successful env-var save (Byggblock
+ *    inline inputs, kravytan) so other parts of the builder (preview
+ *    view-models, readiness checks) can refresh derived state.
  */
-
-export function openProjectEnvVarsPanel(envKeys?: string[]): void {
-  if (typeof window === "undefined") return;
-  const detail = Array.isArray(envKeys) && envKeys.length > 0 ? { envKeys } : {};
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail }));
-}
-
-export function openIntegrationsPanel(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
-}
 
 /**
  * Ask the preview-toolbar "Byggblock" popover to open. Optional `envKeys`

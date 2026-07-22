@@ -20,6 +20,7 @@
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
+    "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "PEXELS_API_KEY",
     "POSTGRES_URL_NON_POOLING",
@@ -28,6 +29,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
@@ -141,6 +143,7 @@
     "NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE",
     "NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER",
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
+    "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "NEXT_PUBLIC_SANITY_DATASET",
     "NEXT_PUBLIC_SANITY_PROJECT_ID",
@@ -178,6 +181,7 @@
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
@@ -446,6 +450,16 @@
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
     },
     {
+      "key": "SAJTMASKIN_DISABLE_QUALITY_GATE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Kill-switch for the automatic F2 design-preview quality gate (RenderGate) — the ~5-7s 'verifying' post-check spinner after a new version renders. When true/1, the client-triggered POST /quality-gate short-circuits for the F2 lane: it skips the preview-host verify run, markVersionVerifying (no spinner) and the superseded mutation, and leaves the version state untouched — NO promotion, no 'passed' write (a skipped gate must never read as verified; a pending F2 design row reads as design_ready). The explicit F3 integrations ReleaseGate ('Bygg integrationer') is NEVER disabled — integrations still typecheck+build before deploy. Default off/unset = gate on. Reversible: unset/false restores the gate. Source: src/lib/gen/verify/preview-quality-gate.ts (isQualityGateDisabledByEnv), src/app/api/engine/chats/[chatId]/quality-gate/route.ts."
+    },
+    {
       "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
       "classification": "optional_runtime",
       "recommendedVercelTargets": [
@@ -673,6 +687,15 @@
         "production"
       ],
       "notes": "Comma-separated hostname suffixes used by the app to recognize tier-2 preview-host URLs in dev and deployed environments."
+    },
+    {
+      "key": "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in, DEFAULT OFF. Enables the Fas 1 \"Beskriv\" discovery route POST /api/shadcn/describe (plan 2026-07-22-shadcn-registry-beskriv-komposition.md). The route translates a free-text description into registry search queries, searches the official + community registries over HTTP and ranks real matches; it writes NOTHING to the user site. Flag off = the route returns 404 and no new code path runs (zero behavior change). Reuses existing OPENAI_API_KEY / ANTHROPIC_API_KEY via src/lib/models/*; no new secret. NEXT_PUBLIC_ prefix is required so the builder client can gate the UI, and it inlines at build so a new deploy is needed to flip it in prod. Read via isShadcnDescribeEnabled (src/lib/shadcn/describe-feature.ts)."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",

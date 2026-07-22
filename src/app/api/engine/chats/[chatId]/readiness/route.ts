@@ -37,7 +37,6 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
-import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
   getEngineChatByIdForRequest,
@@ -393,9 +392,9 @@ async function buildEngineReadiness(
   // above (shared with the lifecycle blocker).
   const envGateActive = lifecycleStage === "integrations";
 
-  const allowPlaceholdersInF3 = envGateActive
-    ? await readAllowPlaceholdersInF3(chat.project_id)
-    : false;
+  // Ägarbeslut 2026-07-22: placeholders alltid tillåtna i F3 (opt-in-flaggan
+  // `allowPlaceholdersInF3` är borttagen — demoläge är default).
+  const allowPlaceholdersInF3 = envGateActive;
 
   // One owner (review round 2): snapshot ∪ version-presence — the same set the
   // dossiers panel reports, so an integration built into the version keeps its

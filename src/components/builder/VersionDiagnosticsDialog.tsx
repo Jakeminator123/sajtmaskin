@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { selectActiveErrorLogs } from "@/lib/builder/version-diagnostics-summary";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
@@ -394,7 +394,7 @@ export function VersionDiagnosticsDialog({
 
         <div className="flex flex-wrap gap-2">
           {isIntegrations ? (
-            <Button variant="outline" size="sm" onClick={() => openProjectEnvVarsPanel()}>
+            <Button variant="outline" size="sm" onClick={() => openDossiersPanel()}>
               <KeyRound className="mr-1 h-4 w-4" />
               Miljövariabler
             </Button>

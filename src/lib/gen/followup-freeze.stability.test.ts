@@ -271,7 +271,8 @@ describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {
 /**
  * Grandmaster Område 5 — 5-6: route HARD-CLAMP + explicit route-removal.
  *
- * Källa: docs/plans/avklarat/grandmaster/aktiviteter/5-6-route-hard-clamp.md
+ * Källa: grandmaster Område 5, akt 5-6 (route hard-clamp), PR #172 — planfilen
+ * är trimmad, se git-historik.
  *
  * Invariant som låses: en *neutral* follow-up får inte SILENTLY (tyst) tappa
  * en route som basversionen hade. Kontraktets frysta routes (existing + shell)
