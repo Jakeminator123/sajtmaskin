@@ -622,13 +622,16 @@ export function getComparisonScore(method: ComparisonMethod, scenario: Compariso
   return Math.round(weightedTotal / totalWeight)
 }
 
+// Roterande ord i heron: "Din nästa ___ på 30 sekunder".
+// Konsekvent sajt-form (…sajt/webbshop/portfolio) så meningen alltid läser rätt —
+// en företagssajt, inte själva verksamheten. Statisk lista = noll runtime-kostnad.
 export const siteTypes = [
-  "Restaurangsida",
+  "Frisörsajt",
+  "Restaurangsajt",
   "Konsultsajt",
-  "Frisårsalong",
   "Webbshop",
+  "Redovisningssajt",
+  "Bokningssajt",
+  "Hantverkarsajt",
   "Portfolio",
-  "Hantverkare",
-  "Bokningssida",
-  "Redovisningsbyrå",
 ]
