@@ -272,6 +272,22 @@ describe("describeComponents (orchestrator)", () => {
     expect(result.candidates.length).toBeLessThanOrEqual(10);
   });
 
+  it("forwards the requested style to official item hydration", async () => {
+    const seenStyles: (string | undefined)[] = [];
+    await describeComponents(
+      { description: "a login form", style: "new-york-v4" },
+      makeDeps({
+        fetchItem: async ({ registry, name, style }) => {
+          seenStyles.push(style);
+          return registry === OFFICIAL_REGISTRY && name === "login-03"
+            ? { name: "login-03" }
+            : null;
+        },
+      }),
+    );
+    expect(seenStyles).toContain("new-york-v4");
+  });
+
   it("drops community candidates whose item cannot be verified", async () => {
     const result = await describeComponents(
       { description: "hero section" },

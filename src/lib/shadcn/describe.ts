@@ -114,7 +114,11 @@ export interface DescribeDeps {
     limit: number,
   ) => Promise<{ candidates: DescribeCandidate[]; ranking: "llm" | "heuristic" }>;
   fetchOfficialIndex: (style?: string) => Promise<RegistryIndexItem[]>;
-  fetchItem: (ref: { registry: string; name: string }) => Promise<ShadcnRegistryItem | null>;
+  fetchItem: (ref: {
+    registry: string;
+    name: string;
+    style?: string;
+  }) => Promise<ShadcnRegistryItem | null>;
   communityRegistries: CommunityRegistryDescriptor[];
 }
 
@@ -623,10 +627,12 @@ function makeDefaultFetchItem(
   communityRegistries: CommunityRegistryDescriptor[],
 ): DescribeDeps["fetchItem"] {
   const byNamespace = new Map(communityRegistries.map((r) => [r.namespace, r]));
-  return async ({ registry, name }) => {
+  return async ({ registry, name, style }) => {
     if (registry === OFFICIAL_REGISTRY) {
       try {
-        return await fetchRegistryItem(name);
+        // Forward the requested style so hydrated deps/registryDependencies
+        // come from the SAME style as the index hit + preview PNGs.
+        return await fetchRegistryItem(name, style);
       } catch {
         return null;
       }
@@ -680,7 +686,7 @@ async function searchAndHydrate(
 
   const hydrated = await Promise.all(
     matched.map(async (ref) => {
-      const item = await deps.fetchItem({ registry: ref.registry, name: ref.name });
+      const item = await deps.fetchItem({ registry: ref.registry, name: ref.name, style });
       // Community items MUST verify (their existence is only a seed guess).
       // Official items survive a failed hydrate (they are real index entries).
       if (!item && ref.registry !== OFFICIAL_REGISTRY) return null;
