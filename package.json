@@ -71,7 +71,7 @@
     "scaffolds:variant-embeddings": "npx tsx scripts/scaffolds/generate-variant-embeddings.ts",
     "scaffolds:variant-patterns": "npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts",
     "scaffolds:variant-patterns:dry": "npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts --dry-run",
-    "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
+    "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts src/lib/gen/scaffold-variants/variant-integrity.test.ts",
     "dossiers:curate": "npx tsx scripts/dossiers/curate-from-reference.ts",
     "dossiers:normalize-legacy": "npx tsx scripts/dossiers/normalize-legacy-prospect.ts",
     "dossiers:capability-map:write": "npx tsx scripts/dossiers/regenerate-capability-map.ts --write",

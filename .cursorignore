@@ -67,6 +67,7 @@ data/prompt-dumps/*
 src/lib/templates/template-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
+config/scaffold-variants/_index/variant-embeddings.json
 
 # --- Cursor session / automation / migration ---
 .cursor/automation/runs/

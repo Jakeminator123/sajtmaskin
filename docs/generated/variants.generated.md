@@ -4,7 +4,7 @@
 > Source: `config/scaffold-variants/<scaffold>/<variant>.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:8242e88630bab112 -->
+<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:ba4a310bf3732288 -->
 
 # Scaffold variants
 
