@@ -50,7 +50,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
+  // Versionspanelen är infälld som standard — användaren fäller ut vid behov.
+  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(true);
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
     buildIntentParam,
   );

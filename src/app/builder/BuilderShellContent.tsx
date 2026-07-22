@@ -753,8 +753,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
         onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
-        designTheme={vm.designTheme}
-        onDesignThemeChange={vm.setDesignTheme}
         promptAssistModel={vm.promptAssistModel}
         promptAssistDeep={vm.promptAssistDeep}
         canUseDeepBrief={!vm.chatId}
@@ -936,6 +934,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isPreparingPrompt={vm.isPreparingPrompt}
             mediaEnabled={vm.mediaEnabled}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
+            designTheme={vm.designTheme}
+            onDesignThemeChange={vm.setDesignTheme}
             followUpBaseInfo={followUpBaseInfo}
           />
           <DeployNameDialog
