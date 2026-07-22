@@ -466,6 +466,9 @@ const MessageListComponent = ({
               key={message.id}
               messageId={message.id}
               scrollAnchor={message.role === "user"}
+              liveScrollAnchor={
+                message.role === "user" && isStreaming && !hasUserAfterCurrentMessage
+              }
             >
               <Message from={message.role}>
               <MessageContent>
