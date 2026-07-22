@@ -356,6 +356,61 @@ describe("POST quality-gate", () => {
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: never false-greens when the promote guard blocks", async () => {
+    isQualityGateDisabledByEnv.mockReturnValue(true);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    // Finalize promote-guard refuses promotion → promoteVersion returns null.
+    promoteVersion.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    // NOT green: the guard blocked, so passed:false + promotionBlocked.
+    expect(body).toMatchObject({
+      passed: false,
+      disabled: true,
+      promoted: false,
+      promotionBlocked: true,
+    });
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: never auto-promotes a fileless version (404)", async () => {
+    isQualityGateDisabledByEnv.mockReturnValue(true);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([]);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
   it("SAJTMASKIN_DISABLE_QUALITY_GATE: never disables the F3 integrations ReleaseGate", async () => {
     isQualityGateDisabledByEnv.mockReturnValue(true);
     getEngineVersionForChatByIdForRequest.mockResolvedValue({

@@ -517,6 +517,9 @@ async function runTier2VerifyLane(params: {
       error?: string;
       // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): the server
       // short-circuited the F2 RenderGate and auto-promoted the version.
+      // (`promotionBlocked` above still applies: when the finalize
+      // promote-guard refuses, the version is NOT green even though the gate
+      // was skipped.)
       skipped?: boolean;
       disabled?: boolean;
       reason?: string;
@@ -546,23 +549,34 @@ async function runTier2VerifyLane(params: {
       return;
     }
 
-    // Env kill-switch: the F2 quality gate is turned off server-side. The
-    // version was already auto-promoted; surface an informational (not error)
-    // card and refresh the version status so the promoted state shows.
+    // Env kill-switch: the F2 quality gate is turned off server-side. Normally
+    // the version was auto-promoted → informational (not error) card. But if
+    // the finalize promote-guard blocked promotion (`promotionBlocked`), the
+    // version is NOT green — surface that honestly instead of a green skip.
     if (data.disabled || data.skipped) {
-      appendToolPartToMessage(setMessages, assistantMessageId, {
-        type: "tool:quality-gate",
-        toolName: "Quality gate",
-        toolCallId,
-        state: "output-available",
-        output: {
-          skipped: true,
-          reason:
-            typeof data.reason === "string" && data.reason.trim()
-              ? data.reason
-              : "Quality gate avstängd.",
-        },
-      } as UiMessagePart);
+      const reasonText =
+        typeof data.reason === "string" && data.reason.trim()
+          ? data.reason
+          : "Quality gate avstängd.";
+      appendToolPartToMessage(
+        setMessages,
+        assistantMessageId,
+        (data.promotionBlocked
+          ? {
+              type: "tool:quality-gate",
+              toolName: "Quality gate",
+              toolCallId,
+              state: "output-error",
+              errorText: reasonText,
+            }
+          : {
+              type: "tool:quality-gate",
+              toolName: "Quality gate",
+              toolCallId,
+              state: "output-available",
+              output: { skipped: true, reason: reasonText },
+            }) as UiMessagePart,
+      );
       mutateVersions?.();
       return;
     }

@@ -396,29 +396,53 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // disables the explicit F3 integrations ReleaseGate — integrations must
       // still typecheck+build before deploy.
       if (!integrationsBuildGate && isQualityGateDisabledByEnv()) {
-        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
-        let promoted = false;
-        if (stillLatest) {
-          const promotedVersion = await promoteVersion(
-            internalVersionId,
-            "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — auto-godkänd utan verify-lane.",
-            qgRunId,
-          ).catch((err) => {
-            warnLog("quality-gate", "Disabled-path promote failed (non-fatal)", {
-              error: err instanceof Error ? err.message : String(err),
-            });
-            return null;
-          });
-          promoted = Boolean(promotedVersion);
+        // Mirror the normal path: never auto-promote a fileless/unreadable
+        // snapshot — that would false-green an empty version.
+        if (!codeFiles || codeFiles.length === 0) {
+          return NextResponse.json({ error: "No files found for version" }, { status: 404 });
         }
+        // A newer version exists → skip WITHOUT mutation (the newer row owns
+        // promotion). Honest "not promoted / not green", not a superseded
+        // failure mutation.
+        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
+        if (!stillLatest) {
+          return NextResponse.json({
+            passed: false,
+            skipped: true,
+            disabled: true,
+            superseded: true,
+            promoted: false,
+            checks: [],
+            reason:
+              "Quality gate avstängd; en nyare version finns — hoppar över utan mutation.",
+          });
+        }
+        // Auto-promote, but STILL under the finalize false-green promote-guard:
+        // if the guard blocks (finalize verifier flagged the version)
+        // `promoteVersion` returns null → report NOT green (passed:false +
+        // promotionBlocked) so the disabled path can never false-green a
+        // guard-blocked version.
+        const promotedVersion = await promoteVersion(
+          internalVersionId,
+          "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — auto-godkänd utan verify-lane.",
+          qgRunId,
+        ).catch((err) => {
+          warnLog("quality-gate", "Disabled-path promote failed (non-fatal)", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return null;
+        });
+        const promoted = Boolean(promotedVersion);
         return NextResponse.json({
-          passed: true,
+          passed: promoted,
           skipped: true,
           disabled: true,
           promoted,
-          superseded: !stillLatest,
+          promotionBlocked: !promoted,
           checks: [],
-          reason: "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE.",
+          reason: promoted
+            ? "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE."
+            : "Quality gate avstängd, men promotion blockerades (finalize-verifieraren) — versionen är inte godkänd.",
         });
       }
 
