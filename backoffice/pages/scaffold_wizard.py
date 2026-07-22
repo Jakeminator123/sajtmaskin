@@ -706,7 +706,14 @@ def _apply(ctx: BackofficeContext, draft: dict[str, Any], payload: dict[str, Any
             variant_dir.mkdir(parents=True, exist_ok=True)
             write_json(variant_dir / f"{variant['id']}.json", payload)
         except Exception:
-            _delete_scaffold(ctx, scaffold_id)
+            # Rulla tillbaka den nyss skapade scaffolden. Best-effort +
+            # snapshot=False: en fabriks-fräsch scaffold behöver ingen
+            # undo-snapshot, och en fail-closed städning får aldrig maskera
+            # det ursprungliga variant-skrivfelet nedan.
+            try:
+                _delete_scaffold(ctx, scaffold_id, snapshot=False)
+            except Exception:
+                pass
             raise
         return (
             f"Skapade scaffolden `{scaffold_id}` (klonad från `{scaffold['cloneFrom']}`) "

@@ -1828,18 +1828,25 @@ def _render_dependency_report(report: dict[str, Any]) -> None:
                 )
 
 
-def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
+def _delete_scaffold(
+    ctx: BackofficeContext, scaffold_id: str, *, snapshot: bool = True
+) -> None:
     variant_dir = ctx.variants_dir / scaffold_id
     scaffold_dir = ctx.scaffolds_dir / scaffold_id
 
     # Fail-closed: ta zip-snapshots (Återställning) FÖRE någon radering.
     # Misslyckas en snapshot avbryts hela raderingen utan att röra disken.
-    for directory in (variant_dir, scaffold_dir):
-        if directory.is_dir() and backup_tree(directory, ctx.repo_root) is None:
-            raise RuntimeError(
-                f"Kunde inte ta zip-snapshot av `{directory}` — "
-                "avbröt raderingen, inget togs bort."
-            )
+    # `snapshot=False` används vid rollback av en NYSS skapad scaffold (t.ex.
+    # Scaffold Wizard när variant-skrivningen failar): tidigare tillstånd är
+    # "fanns inte", så en undo-snapshot är meningslös och får inte blockera
+    # städningen eller maskera ursprungsfelet.
+    if snapshot:
+        for directory in (variant_dir, scaffold_dir):
+            if directory.is_dir() and backup_tree(directory, ctx.repo_root) is None:
+                raise RuntimeError(
+                    f"Kunde inte ta zip-snapshot av `{directory}` — "
+                    "avbröt raderingen, inget togs bort."
+                )
     if variant_dir.is_dir():
         shutil.rmtree(variant_dir)
     if scaffold_dir.is_dir():

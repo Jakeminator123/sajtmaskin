@@ -146,6 +146,7 @@ def _render_file_section(ctx: BackofficeContext, entries: list[dict]) -> None:
             ok, message = restore_backup(picked_file, picked_snapshot, ctx.repo_root)
             if ok:
                 st.success(message + " Det tidigare innehållet snapshotades också, så detta går att ångra.")
+                st.cache_data.clear()
                 st.rerun()
             else:
                 st.error(message)
@@ -207,6 +208,7 @@ def _render_tree_section(ctx: BackofficeContext, tree_entries: list[dict]) -> No
         ok, message = restore_tree(picked_dir, picked_zip, ctx.repo_root)
         if ok:
             st.success(message)
+            st.cache_data.clear()
             st.rerun()
         else:
             st.error(message)
