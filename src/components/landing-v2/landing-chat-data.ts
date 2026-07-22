@@ -635,3 +635,10 @@ export const siteTypes = [
   "Hantverkarsajt",
   "Portfolio",
 ]
+
+// Längsta ordet i listan — används som osynlig platshållare i heron så att
+// rubriken reserverar stabil bredd och aldrig hoppar/ombryts när ordet roterar.
+export const longestSiteType = siteTypes.reduce(
+  (longest, current) => (current.length > longest.length ? current : longest),
+  siteTypes[0] ?? "",
+)

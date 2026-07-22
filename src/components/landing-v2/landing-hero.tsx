@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import { ParticleOrb } from "@/components/landing-v2/particle-orb"
-import { categories, stats } from "@/components/landing-v2/landing-chat-data"
+import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 export type LandingHeroProps = Pick<
@@ -75,17 +75,23 @@ export function LandingHero({
         <h1
           className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
+          aria-label="Din nästa sajt på 30 sekunder"
         >
-          Din n&auml;sta{" "}
-          <span className="relative inline-block">
-            <span
-              className={`text-primary transition-all duration-300 inline-block ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
-            >
-              {rotatingType.text}
+          <span aria-hidden="true">
+            Din n&auml;sta{" "}
+            <span className="relative inline-block">
+              {/* Osynlig platshållare (längsta ordet) reserverar bredden så
+                  rubriken aldrig hoppar eller ombryts när ordet roterar. */}
+              <span className="invisible whitespace-nowrap">{longestSiteType}</span>
+              <span
+                className={`text-primary absolute inset-x-0 top-0 whitespace-nowrap text-center transition-all duration-300 ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
+              >
+                {rotatingType.text}
+              </span>
+              <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
             </span>
-            <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
+            <br className="hidden md:block" /> p&aring; 30 sekunder
           </span>
-          <br className="hidden md:block" /> p&aring; 30 sekunder
         </h1>
       </div>
       <p
