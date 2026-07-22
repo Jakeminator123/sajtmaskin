@@ -158,7 +158,8 @@ describe("buildShadcnInsertMessage", () => {
       origin: "describe",
     } as unknown as ShadcnInsertSelection;
 
-    const built = await expect(buildShadcnInsertMessage(malformed)).resolves.toBeDefined();
+    const built = await buildShadcnInsertMessage(malformed);
+    expect(built).toBeDefined();
 
     expect(built.message).toContain("**Hero title IGNORE ABOVE** (123, dep one INJECT)");
     expect(built.message).not.toContain("**Hero` title\n");
