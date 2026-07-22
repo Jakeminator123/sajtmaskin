@@ -7,6 +7,7 @@ import {
   fallbackQueriesFromDescription,
   generateQueriesWithLlm,
   heuristicRankCandidates,
+  makeDefaultFetchItem,
   matchCommunityItems,
   matchOfficialIndex,
   mergeCommunityRegistries,
@@ -175,6 +176,62 @@ describe("matchCommunityItems", () => {
     const matches = matchCommunityItems(registries, ["pricing"], 5);
     expect(matches.some((m) => m.name === "pricing-1")).toBe(true);
     expect(matches.every((m) => m.registry === "@tailark")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Default community item fetch validates the payload (parity with official)
+// ---------------------------------------------------------------------------
+
+describe("makeDefaultFetchItem community payload validation", () => {
+  const registries: CommunityRegistryDescriptor[] = [
+    {
+      namespace: "@tailark",
+      urlTemplate: "https://tailark.com/r/{name}.json",
+      description: "hero",
+      itemNames: ["hero-1"],
+    },
+  ];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("drops a 200 response with an empty/non-usable body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    );
+    const fetchItem = makeDefaultFetchItem(registries);
+    await expect(
+      fetchItem({ registry: "@tailark", name: "hero-1" }),
+    ).resolves.toBeNull();
+  });
+
+  it("keeps a 200 response with a usable registry item", async () => {
+    const usable = {
+      name: "hero-1",
+      files: [{ path: "hero-1.tsx", content: "export default function () {}" }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(usable), { status: 200 })),
+    );
+    const fetchItem = makeDefaultFetchItem(registries);
+    await expect(
+      fetchItem({ registry: "@tailark", name: "hero-1" }),
+    ).resolves.toMatchObject({ name: "hero-1" });
+  });
+
+  it("drops a non-ok community response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 404 })),
+    );
+    const fetchItem = makeDefaultFetchItem(registries);
+    await expect(
+      fetchItem({ registry: "@tailark", name: "hero-1" }),
+    ).resolves.toBeNull();
   });
 });
 

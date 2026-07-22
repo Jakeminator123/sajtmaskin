@@ -34,6 +34,7 @@ import {
   buildPreviewImageUrl,
   fetchRegistryItem,
   fetchRegistryIndex,
+  isUsableRegistryItem,
   type RegistryIndexItem,
 } from "@/lib/shadcn/registry-service";
 import { createDirectModel } from "@/lib/builder/direct-model";
@@ -633,7 +634,7 @@ function buildCommunityItemUrl(urlTemplate: string, name: string): string {
   return urlTemplate.replace("{name}", encodeURIComponent(name));
 }
 
-function makeDefaultFetchItem(
+export function makeDefaultFetchItem(
   communityRegistries: CommunityRegistryDescriptor[],
 ): DescribeDeps["fetchItem"] {
   const byNamespace = new Map(communityRegistries.map((r) => [r.namespace, r]));
@@ -655,7 +656,10 @@ function makeDefaultFetchItem(
         signal: AbortSignal.timeout(COMMUNITY_FETCH_TIMEOUT_MS),
       });
       if (!response.ok) return null;
-      return (await response.json()) as ShadcnRegistryItem;
+      const item = (await response.json()) as ShadcnRegistryItem;
+      // Parity with the official path: a 200 with an empty/garbage body (e.g.
+      // an error page serialized as JSON) must NOT surface as a real hit.
+      return isUsableRegistryItem(item) ? item : null;
     } catch {
       return null;
     }
