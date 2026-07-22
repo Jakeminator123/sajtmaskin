@@ -8,7 +8,7 @@
  * Töm-knapp + "inga träffar"-state ingår.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { getAllV0Categories, getTemplatesByCategory } from "@/lib/templates/client";
+import { filterCategoriesByQuery } from "@/components/templates/templates-search";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Wand2,
@@ -46,6 +47,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function TemplatesBrowser() {
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const categories = useMemo(
     () => getAllV0Categories().filter((c) => c.id !== "uncategorized"),
@@ -64,33 +66,44 @@ export function TemplatesBrowser() {
     return map;
   }, [categories]);
 
-  const q = query.trim().toLowerCase();
+  const trimmedQuery = query.trim();
 
-  const results = useMemo(() => {
-    if (!q) {
-      return categories.map((category) => ({
-        category,
-        count: templatesByCategory[category.id]?.length ?? 0,
-      }));
-    }
-    return categories
-      .map((category) => {
-        const templates = templatesByCategory[category.id] ?? [];
-        const directMatch =
-          category.title.toLowerCase().includes(q) ||
-          category.description.toLowerCase().includes(q);
-        const templateMatches = templates.filter((t) => t.title.toLowerCase().includes(q));
-        const show = directMatch || templateMatches.length > 0;
-        if (!show) return null;
-        return {
-          category,
-          count: directMatch ? templates.length : templateMatches.length,
-        };
-      })
-      .filter((entry): entry is { category: (typeof categories)[number]; count: number } =>
-        Boolean(entry),
-      );
-  }, [q, categories, templatesByCategory]);
+  // Slå upp kategori-objekt per id så vi kan rendera från det rena sökresultatet.
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, (typeof categories)[number]>();
+    for (const c of categories) map.set(c.id, c);
+    return map;
+  }, [categories]);
+
+  const results = useMemo(
+    () =>
+      filterCategoriesByQuery(categories, templatesByCategory, query)
+        .map(({ id, count }) => {
+          const category = categoriesById.get(id);
+          return category ? { category, count } : null;
+        })
+        .filter((entry): entry is { category: (typeof categories)[number]; count: number } =>
+          Boolean(entry),
+        ),
+    [query, categories, categoriesById, templatesByCategory],
+  );
+
+  // Fokusera sökfältet på "/" (som t.ex. GitHub) — hoppa över när användaren
+  // redan skriver i ett fält så genvägen aldrig stör inmatning.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div>
@@ -99,6 +112,7 @@ export function TemplatesBrowser() {
         <div className="focus-within:border-primary/40 focus-within:ring-primary/15 flex items-center gap-2 rounded-xl border border-border bg-card/60 px-4 backdrop-blur-sm transition-colors focus-within:ring-2">
           <Search className="text-muted-foreground h-4.5 w-4.5 shrink-0" aria-hidden />
           <input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -117,13 +131,17 @@ export function TemplatesBrowser() {
             </button>
           )}
         </div>
-        {q && (
-          <p className="text-muted-foreground mt-2 text-center text-xs">
-            {results.length > 0
-              ? `${results.length} kategori${results.length === 1 ? "" : "er"} matchar "${query.trim()}"`
-              : `Inga träffar för "${query.trim()}"`}
-          </p>
-        )}
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-muted-foreground mt-2 text-center text-xs empty:mt-0 empty:hidden"
+        >
+          {trimmedQuery
+            ? results.length > 0
+              ? `${results.length} kategori${results.length === 1 ? "" : "er"} matchar "${trimmedQuery}"`
+              : `Inga träffar för "${trimmedQuery}"`
+            : null}
+        </p>
       </div>
 
       {/* Resultat */}
