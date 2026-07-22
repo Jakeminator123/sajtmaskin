@@ -78,13 +78,8 @@ export function TemplatesBrowser() {
   const results = useMemo(
     () =>
       filterCategoriesByQuery(categories, templatesByCategory, query)
-        .map(({ id, count }) => {
-          const category = categoriesById.get(id);
-          return category ? { category, count } : null;
-        })
-        .filter((entry): entry is { category: (typeof categories)[number]; count: number } =>
-          Boolean(entry),
-        ),
+        .map(({ id }) => categoriesById.get(id))
+        .filter((category): category is (typeof categories)[number] => Boolean(category)),
     [query, categories, categoriesById, templatesByCategory],
   );
 
@@ -147,8 +142,12 @@ export function TemplatesBrowser() {
       {/* Resultat */}
       {results.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map(({ category, count }) => {
+          {results.map((category) => {
             const Icon = ICON_MAP[category.icon] || HelpCircle;
+            // Visa kategorins totala antal mallar — klick öppnar hela kategorin
+            // (osökt), så antalet ska spegla vad användaren faktiskt ser där,
+            // inte antalet sökträffar (som annars gav "1 mall" → hela kategorin).
+            const total = templatesByCategory[category.id]?.length ?? 0;
             return (
               <Link
                 key={category.id}
@@ -161,8 +160,10 @@ export function TemplatesBrowser() {
                   </div>
                   <div>
                     <h2 className="text-foreground font-medium tracking-tight">{category.title}</h2>
-                    {count > 0 && (
-                      <span className="text-muted-foreground text-xs">{count} mallar</span>
+                    {total > 0 && (
+                      <span className="text-muted-foreground text-xs">
+                        {total} mall{total === 1 ? "" : "ar"}
+                      </span>
                     )}
                   </div>
                 </div>
