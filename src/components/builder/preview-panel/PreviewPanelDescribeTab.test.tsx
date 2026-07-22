@@ -107,8 +107,8 @@ describe("PreviewPanelDescribeTab", () => {
         origin: "describe",
       }),
     );
-    // Lyckad insättning bekräftas på kortet.
-    await waitFor(() => screen.getByText(/Skickad — följ genereringen/i));
+    // Lyckat sänd-försök bekräftas på kortet (neutral copy — status ägs av chatten).
+    await waitFor(() => screen.getByText(/Skickat till chatten/i));
   });
 
   it("markerar ALDRIG kortet som skickat när insättningen misslyckas", async () => {
@@ -122,7 +122,7 @@ describe("PreviewPanelDescribeTab", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Lägg till i sajten/i })[0]);
 
     await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText(/Skickad — följ genereringen/i)).toBeNull();
+    expect(screen.queryByText(/Skickat till chatten/i)).toBeNull();
   });
 
   it("visar flagg-av-budskap när routen svarar 404", async () => {

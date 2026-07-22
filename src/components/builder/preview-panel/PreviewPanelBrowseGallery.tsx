@@ -444,7 +444,7 @@ function BrowseDetailView({
           {inserting
             ? "Skickar…"
             : inserted
-              ? "Skickad — följ genereringen i chatten"
+              ? "Skickat till chatten — se status där"
               : "Lägg till i sajten"}
         </button>
       </div>

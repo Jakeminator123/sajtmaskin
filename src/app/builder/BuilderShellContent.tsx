@@ -252,34 +252,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [sendMessage, vm.chatId],
   );
 
-  // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
-  // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
-  // BEFINTLIGA sendMessage-vägen → own-engine genererar + verifierar
-  // (RenderGate) → ny version + preview. Aldrig rå filpatch. Fel re-throwas
-  // så panelens kort ALDRIG visar "skickad" för en misslyckad insättning.
-  const handleShadcnItemInsert = useCallback(
-    async (selection: ShadcnInsertSelection) => {
-      if (!vm.chatId) {
-        toast.error("Öppna eller skapa en chat först.");
-        throw new Error("no active chat");
-      }
-      // Samma sista försvarslinje som dossier-katalogvalen (handleRequestDossier):
-      // sendMessage ABORTAR en pågående stream, så ett insättningsklick mitt i en
-      // generation ska aldrig skickas — kasta så kortet inte markeras "skickat".
-      if (isBusy) {
-        toast.error("Vänta tills den pågående genereringen är klar.");
-        throw new Error("builder busy");
-      }
-      try {
-        const built = await buildShadcnInsertMessage(selection);
-        await sendMessage(built.message, { promptSourceMeta: built.meta });
-      } catch (err) {
-        toast.error("Kunde inte skicka blocket till own-engine.");
-        throw err;
-      }
-    },
-    [sendMessage, vm.chatId, isBusy],
-  );
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
   // A publication exists if there's a live deployment or a known hosting
@@ -688,6 +660,40 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // ett val medan en fråga väntar skulle tyst avfärda frågan. Disable:a
   // katalograderna i båda lägena (panelen visar en kort hint).
   const catalogPickDisabled = isBusy || Boolean(latestPendingReply);
+
+  // Insättnings-lane v1 ("Lägg till"-ytan, Fas 2): valt registry-kort →
+  // välformat prompt (`shadcn-insert.ts`, hämtar registry-kod best-effort) →
+  // BEFINTLIGA sendMessage-vägen → own-engine genererar + verifierar
+  // (RenderGate) → ny version + preview. Aldrig rå filpatch. Fel re-throwas
+  // så panelens kort ALDRIG visar "skickad" för en misslyckad insättning.
+  const handleShadcnItemInsert = useCallback(
+    async (selection: ShadcnInsertSelection) => {
+      if (!vm.chatId) {
+        toast.error("Öppna eller skapa en chat först.");
+        throw new Error("no active chat");
+      }
+      // Samma gate som dossier-katalogvalen (`catalogPickDisabled`): sendMessage
+      // ABORTAR en pågående stream, och ett val medan en fråga väntar skulle
+      // tyst avfärda frågan. Kasta så kortet aldrig markeras "skickat".
+      if (catalogPickDisabled) {
+        toast.error(
+          isBusy
+            ? "Vänta tills den pågående genereringen är klar."
+            : "Svara på frågan i chatten innan du lägger till block.",
+        );
+        throw new Error("builder busy or awaiting reply");
+      }
+      try {
+        const built = await buildShadcnInsertMessage(selection);
+        await sendMessage(built.message, { promptSourceMeta: built.meta });
+      } catch (err) {
+        toast.error("Kunde inte skicka blocket till own-engine.");
+        throw err;
+      }
+    },
+    [sendMessage, vm.chatId, catalogPickDisabled, isBusy],
+  );
+
   const handleRequestDossier = useCallback(
     (payload: { id: string; label: string }) => {
       const id = payload.id.trim();

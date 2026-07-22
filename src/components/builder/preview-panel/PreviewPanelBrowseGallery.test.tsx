@@ -144,8 +144,8 @@ describe("PreviewPanelBrowseGallery", () => {
         origin: "browse",
       }),
     );
-    // Lyckad insättning bekräftas i detaljvyn.
-    await waitFor(() => screen.getByText(/Skickad — följ genereringen/i));
+    // Lyckat sänd-försök bekräftas i detaljvyn (neutral copy — status ägs av chatten).
+    await waitFor(() => screen.getByText(/Skickat till chatten/i));
   });
 
   it("markerar ALDRIG detaljvyn som skickad när insättningen misslyckas", async () => {
@@ -157,7 +157,7 @@ describe("PreviewPanelBrowseGallery", () => {
     fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
 
     await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText(/Skickad — följ genereringen/i)).toBeNull();
+    expect(screen.queryByText(/Skickat till chatten/i)).toBeNull();
   });
 
   it("shows an error state with retry when the fetch rejects", async () => {
