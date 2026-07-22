@@ -15,6 +15,7 @@ import {
   rankCandidatesWithLlm,
   simplifyQueries,
   simplifyQuery,
+  withTimeout,
   type CommunityRegistryDescriptor,
   type DescribeCandidate,
   type DescribeDeps,
@@ -176,6 +177,30 @@ describe("matchCommunityItems", () => {
     const matches = matchCommunityItems(registries, ["pricing"], 5);
     expect(matches.some((m) => m.name === "pricing-1")).toBe(true);
     expect(matches.every((m) => m.registry === "@tailark")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Outbound-call timeout bounding (official fetches degrade instead of hanging)
+// ---------------------------------------------------------------------------
+
+describe("withTimeout", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("resolves the value when the promise beats the budget", async () => {
+    await expect(withTimeout(Promise.resolve("ok"), 5_000, "fallback")).resolves.toBe(
+      "ok",
+    );
+  });
+
+  it("resolves the fallback when the promise exceeds the budget", async () => {
+    vi.useFakeTimers();
+    const never = new Promise<string>(() => {});
+    const raced = withTimeout(never, 5_000, "fallback");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(raced).resolves.toBe("fallback");
   });
 });
 

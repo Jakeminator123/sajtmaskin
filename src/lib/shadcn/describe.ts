@@ -145,6 +145,13 @@ const COMMUNITY_FETCH_TIMEOUT_MS = 3_000;
  */
 const QUERY_LLM_TIMEOUT_MS = 20_000;
 const RANK_LLM_TIMEOUT_MS = 25_000;
+/**
+ * Ceiling for each official registry HTTP call. `fetchRegistryIndex` /
+ * `fetchRegistryItem` (shared registry-service) take no abort signal, so we
+ * bound them at the orchestrator level: a stuck upstream degrades to the
+ * heuristic/index data instead of blocking the route until `maxDuration`.
+ */
+const OFFICIAL_FETCH_TIMEOUT_MS = 5_000;
 
 const COMPONENTS_JSON_PATH = join(process.cwd(), "components.json");
 const COMMUNITY_REGISTRIES_PATH = join(
@@ -618,10 +625,31 @@ export async function rankCandidatesWithLlm(
 // DEFAULT FETCHERS (impure)
 // ============================================================================
 
+/**
+ * Race a promise against a timeout, resolving to `fallback` if the budget
+ * elapses first. Bounds calls whose underlying transport takes no abort signal
+ * (the dangling work is abandoned, not awaited). Never rejects on timeout.
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function defaultFetchOfficialIndex(style?: string): Promise<RegistryIndexItem[]> {
   try {
-    const index = await fetchRegistryIndex(style);
-    return Array.isArray(index.items) ? index.items : [];
+    const index = await withTimeout(fetchRegistryIndex(style), OFFICIAL_FETCH_TIMEOUT_MS, null);
+    return index && Array.isArray(index.items) ? index.items : [];
   } catch (err) {
     debugLog("shadcn-describe", "official index fetch failed", {
       error: err instanceof Error ? err.message : String(err),
@@ -642,8 +670,14 @@ export function makeDefaultFetchItem(
     if (registry === OFFICIAL_REGISTRY) {
       try {
         // Forward the requested style so hydrated deps/registryDependencies
-        // come from the SAME style as the index hit + preview PNGs.
-        return await fetchRegistryItem(name, style);
+        // come from the SAME style as the index hit + preview PNGs. Bounded so a
+        // stuck upstream can't hold the route open until maxDuration — official
+        // hits survive a null hydrate (they are real index entries).
+        return await withTimeout(
+          fetchRegistryItem(name, style),
+          OFFICIAL_FETCH_TIMEOUT_MS,
+          null,
+        );
       } catch {
         return null;
       }
