@@ -43,22 +43,22 @@ arkitektoniskt tvingande regeln i planen.
 
 | Byggsten | Var | Status |
 |---|---|---|
-| shadcn MCP (Cursor/dev) | `.cursor/mcp.json.example` → `scripts/cursor/shadcn-mcp.cmd` (`npx -y shadcn@latest mcp`) | Finns — men opinnad |
+| shadcn MCP (Cursor/dev) | `.cursor/mcp.json.example` → `scripts/cursor/shadcn-mcp.cjs` (`npx -y shadcn@4.13.1 mcp`) | Aktiv och versionspinnad (#570) |
 | Registry-fetch (index/item, style-fallback, cache) | `src/lib/shadcn/registry-service.ts`, `registry-url.ts`, `registry-cache.ts` | Aktiv runtime |
 | Registry-proxy-routes | `src/app/api/shadcn/registry/{index,item,refresh}/` | Aktiv |
 | Sync + health | `scripts/shadcn/{sync-shadcn-registry.ts,registry-health.ts}` (`shadcn:sync`, `shadcn:health`) | Aktiv |
 | Import-/dep-repair | `registry-utils.ts` (`rewriteRegistryImports`), `src/lib/gen/autofix/{import-validator,dep-completer}.ts` | Aktiv |
 | Recept-resolver (mening → recipe) | `src/lib/gen/data/shadcn-ui-recipes.ts` (`resolveShadcnUiRecipes`) | Aktiv — sökdriven kandidatgenerering (Fas 4 levererad 2026-07-22; `SAJTMASKIN_SHADCN_RESOLVER_SEARCH`, legacy-fallback kvar) |
-| Community-register | `config/community-registries.json` (@shadcnblocks, @tailark, @magicui) | Separat fil, ej i `components.json` |
-| Galleri-DATA (kategorier, curated, featured) | `registry-service.ts` (`CURATED_UI_COLLECTIONS`, `FEATURED_BLOCKS`, `getBlocksByCategory`) | **Finns men vilande** — konsumeras bara av `runtime-library-audit.ts`, inget builder-UI |
-| Composer-yta (8 block) | `src/lib/builder/page-blocks-catalog.ts`, `preview-panel/PreviewPanelComposer.tsx`, `page-block-patch.ts` | Aktiv MVP, rå patch top/bottom, annars AI-fallback |
+| Community-register | `components.json` (kanoniska custom namespaces) + `config/community-registries.json` (sök-/sektionsseed) | Aktivt: @shadcnblocks, @tailark, @magicui och internt @sajtmaskin (#570, #584); inbyggda @shadcn/@v0 är implicita |
+| Galleri-DATA (kategorier, curated, featured) | `registry-service.ts` (`CURATED_UI_COLLECTIONS`, `FEATURED_BLOCKS`, `getBlocksByCategory`) | Aktiv i builderns Bläddra-flik (#574) |
+| "Lägg till"-yta | `PreviewPanelAddPanel.tsx`, `PreviewPanelBrowseGallery.tsx`, `PreviewPanelDescribeTab.tsx`, `src/lib/builder/shadcn-insert.ts` | Aktiv bakom feature flags: Block + Bläddra + Beskriv; registry-val går via insättnings-lane v1/own-engine + verify (#574, #581, #583) |
 | Inspect-brygga (placering) | `inspect-bridge-*.ts`, `usePreviewInspectBridge.ts`, `sectionAnalyzer.ts` | Flagg-gated, brygga (ingen worker) |
-| Builder-chat-scroll | `src/components/ai-elements/conversation.tsx` | Egen enkel scroll |
+| Builder-chat-scroll | `src/components/ai-elements/conversation.tsx`, `src/components/ui/message-scroller.tsx` | `@shadcn/react` MessageScroller är installerad och aktiv bakom `NEXT_PUBLIC_SAJTMASKIN_MESSAGE_SCROLLER` (#572) |
 
-**Externt verifierat:** shadcn:s program-API `shadcn/registry` (`getRegistries`,
-`searchRegistries`, `getRegistryItems`, `resolveRegistryItems`) existerar och är den stabila,
-dokumenterade vägen. `@shadcn/react` (MessageScroller) och `@shadcn/helpers/ai-sdk` finns men
-är **inte** installerade i `package.json` idag.
+**Externt verifierat:** shadcn:s program-API `shadcn/registry` existerar, men Fas 0-spiken
+valde HTTP-fetch för runtime (ingen `shadcn`-runtime-dependency). `@shadcn/react` 0.2.1 är
+installerat och driver MessageScroller; `@shadcn/helpers/ai-sdk` är fortsatt ett valfritt,
+ej installerat test-/demo-spår.
 
 ## Målbild (arkitektur)
 
@@ -79,30 +79,30 @@ dokumenterade vägen. `@shadcn/react` (MessageScroller) och `@shadcn/helpers/ai-
                                                                   ▼
                                                     ny version + preview (funktionell)
 
-   components.json  = KANONISK registry-config (@shadcn + @magicui/@tailark/@shadcnblocks + framtida @sajtmaskin)
-                      → delas av Cursor MCP · resolver · /describe · sync/health
+   components.json  = KANONISK custom registry-config (@magicui/@tailark/@shadcnblocks/@sajtmaskin;
+                      inbyggda @shadcn/@v0 är implicita) → delas av MCP · resolver · /describe · sync/health
 ```
 
 ## Nedbrytning i faser (delmoment + parallellt vs sekventiellt)
 
 Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras parallellt.
 
-### Fas 0 — Grund & konsolidering  · låg risk · additiv
+### Fas 0 — Grund & konsolidering  · låg risk · additiv · ✅ levererad 2026-07-22
 - **[P]** Versionspinna shadcn: `npx shadcn@4.13.1 mcp` i wrapper + config (ta bort `@latest`-drift).
-- **[P]** `components.json` → kanonisk `registries`-nyckel (@shadcn + @magicui/@tailark/@shadcnblocks). Behåll `community-registries.json` som seed tills resolvern läser `components.json`.
+- **[P]** `components.json` → kanonisk `registries`-nyckel för custom namespaces (@magicui/@tailark/@shadcnblocks; inbyggda @shadcn/@v0 förblir implicita). `community-registries.json` behålls som sök-/sektionsseed.
 - **[S] Spike:** kan `shadcn/registry`-program-API köras i en Next 16 server-route (bundle, `server-only`, ESM, ev. Commander-deps)? Beslut: program-API vs fortsatt HTTP-fetch. **Grindar Fas 1 & 4.**
 
-### Fas 1 — Discovery-lager ("Beskriv"-backend)  · additiv · flagg-gated
+### Fas 1 — Discovery-lager ("Beskriv"-backend)  · additiv · flagg-gated · ✅ levererad 2026-07-22
 - **[S]** `/api/shadcn/describe`: mening → LLM skriver sökfråga(or) → `searchRegistries`/HTTP → LLM rankar 5–10 verkliga träffar → returnerar `{name, registry, description, previewLight/Dark, dependencies, registryDependencies, addCommand}`. **Skriver inget till användarsajten.**
 - **[P]** No-results-robusthet (mening→0 träffar → förenkla query, retry).
 - **[P]** TS-paritet med coachens Python-PoC (`shadcn_sentence_picker.py`) som dev-verktyg/eval.
 
-### Fas 2 — Funktionell insättnings-lane  · SVÅRAST · rör preview/verify
+### Fas 2 — Funktionell insättnings-lane  · SVÅRAST · rör preview/verify · ✅ v1 levererad; v2-beslut kvar
 - **[S] v1 (säker):** vald kandidat → välformad prompt via **befintliga** `sendMessage`/AI-fallback (samma som Composer använder) → own-engine genererar + verifierar. Uppfyller kärnprincipen utan ny lane.
 - **[S] v2 (deterministisk):** dedikerad lane — `getRegistryItems` → `rewriteRegistryImports` + alias-scope → `dep-completer` utökad för `registryDependencies` + saknade ui-primitiver → recipe-injektion i own-engine-turn → `Normalize`/`RepairGate`/`RenderGate` → ny version.
 - **[P]** Fel/degraderingsyta när verify faller (Advisory, ej false-green).
 
-### Fas 3 — UI: "Lägg till"-yta (döp om Composer)  · frontend
+### Fas 3 — UI: "Lägg till"-yta (döp om Composer)  · frontend · ✅ kärnflöde levererat; drag-n-drop kvar
 - **[P]** Bläddra-flik: väck `CURATED_UI_COLLECTIONS`/`FEATURED_BLOCKS` som galleri m. thumbnails (kan börja **innan** Fas 1, datan finns).
 - **[S]** Beskriv-flik: fritext → `/api/shadcn/describe` → rankade kort → välj → Fas 2-lane. (Beror på Fas 1+2.)
 - **[P]** Drag-n-drop: återanvänd inspect-brygga + `sectionAnalyzer` för placering; sökning + "senast använda".
@@ -112,28 +112,30 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 - **[S]** ✅ Byt `buildCandidates` hårdkodade kandidater (`login-03`, `dashboard-01`, …) → sökdriven kandidatgenerering (HTTP-index + `registry-search.ts`, per Fas 0-spiken — inte program-API:t). Capability-signaler är **input** till query. Flagga `SAJTMASKIN_SHADCN_RESOLVER_SEARCH` (default på), legacy-kandidaterna kvar som fallback vid flagga av/indexfel.
 - **[S]** ✅ Regressionsgrind: snapshot-tester (pinnad index-fixtur, 6 promptklasser, legacy vs sök) i `shadcn-recipe-search.snapshot.test.ts` + P1-tester för flagga-av-paritet och nätfels-fallback.
 
-### Fas 5 — Builder-chat (fristående spår)  · helt parallelliserbart
+### Fas 5 — Builder-chat (fristående spår)  · helt parallelliserbart · ✅ MessageScroller levererad
 - **[P]** Installera `@shadcn/react`; ersätt `conversation.tsx`-scroll med `MessageScroller` (streaming utan hopp, anchor, bevarad läsposition, scroll-to-bottom).
 - **[P]** `@shadcn/helpers/ai-sdk` för deterministiska chat-strömtester (reasoning/tool-calls/sources/F2-F3-continuation) — test/demo, ej prod-modell.
 - **[P]** Ta in nya chat-komponenter (attachment, bubble, marker, message, message-scroller) kontrollerat i `SHADCN_COMPONENTS`.
 
-### Fas 6 — Eget @sajtmaskin-register  · långsiktigt · sist
+### Fas 6 — Eget @sajtmaskin-register  · långsiktigt · sist · ✅ proof levererat; expansion kvar
 - **[P]** Kurera verifierade block (hero, pricing, dashboards, auth, booking, ai-chat, e-handel, integration-mocks) i ett internt shadcn-kompatibelt register med `dependencies`/`registryDependencies`/redan verifierad kod.
 - **[S]** Lägg registret i `components.json` → MCP + resolver + Beskriv använder samma källa automatiskt.
 
-## PR-mappning (allt mot `master`)
+## PR-mappning (allt mot `master`) — leveransstatus 2026-07-22
 
-| PR | Innehåll | Beror på | Risk |
-|---|---|---|---|
-| PR1 | Fas 0 (pin + `components.json` + spike-beslut) | — | Låg |
-| PR2 | Fas 1 + Fas 3-Bläddra (discovery-route + galleri, ingen insättning) | PR1 | Låg–medel |
-| PR3 | Fas 2 + Fas 3-Beskriv/insättning (funktionell) | PR2 | **Hög** |
-| PR4 | Fas 4 (resolver-konsolidering) | PR2 (adapter) | **Hög (skyddad)** |
-| PR5 | Fas 5 (MessageScroller + tester) | — (fristående) | Låg–medel |
-| PR6 | Fas 6 (eget register) | PR3–PR4 | Medel |
+| PR | Innehåll | Status |
+|---|---|---|
+| #570 | Fas 0: pin `shadcn@4.13.1`, custom registries i `components.json`, HTTP-fetch-spike | **Mergad** |
+| #576 | Fas 1: `POST /api/shadcn/describe`, flagg-gated discovery | **Mergad** |
+| #574 | Fas 3: "Lägg till" + Bläddra-galleri | **Mergad** |
+| #572 | Fas 5: `@shadcn/react` MessageScroller | **Mergad** |
+| #581 | Fas 2 v1 + Beskriv-UI: insättning via own-engine/verify | **Mergad** |
+| #583 | Fas 2-härdning: chat-byte-guard, metadata-sanering, hydration-timeout och disabled-kontrakt | **Mergad** |
+| #582 | Fas 4: sökdriven resolver med legacy-fallback och reserverad community-plats | **Mergad** |
+| #584 | Fas 6-proof: internt `@sajtmaskin`-register, tre självbärande poster via `/r/{name}.json` | **Mergad** |
 
-Parallellt direkt: **PR1-spike**, **PR3-Bläddra-UI-data**, **PR5** kan alla starta oberoende.
-Kritisk väg: PR1-spike → PR2 → PR3; PR4 efter att PR2:s adapter är stabil.
+Kvarvarande aktivt scope: avgör om deterministisk lane v2 behövs, leverera eventuell
+drag-n-drop-placering och expandera det interna registret bortom proofets tre poster.
 
 ## Tester som krävs (P1 enligt review-gaten — pipeline/preview/DB berörs)
 
@@ -212,6 +214,6 @@ arbetar på icke-överlappande filer eller i egna worktrees. Varje PR mot `maste
 
 ## Öppna frågor
 
-1. Fas 0-spiken: program-API i server-route **eller** fortsatt HTTP-fetch? (avgör Fas 1 & 4)
-2. Insättning: räcker v1 (prompt via own-engine) för lansering, eller krävs v2 (deterministisk lane) direkt?
-3. Eget @sajtmaskin-register (Fas 6): egen Blob-host eller återanvänd befintlig registry-infra?
+1. ~~Program-API eller HTTP-fetch?~~ **Avgjord i #570:** HTTP-fetch, ingen `shadcn`-runtime-dependency.
+2. **Kvar:** v1 via own-engine är lanserad och härdad i #581/#583. Behövs även v2:s deterministiska lane, och i så fall för vilka block/placeringar?
+3. ~~Blob-host eller befintlig infra för `@sajtmaskin`?~~ **Avgjord i #584:** registret serveras av appen från `/r/{name}.json`.
