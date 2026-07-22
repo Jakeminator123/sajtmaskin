@@ -154,7 +154,12 @@ const METADATA_MAX_DEPENDENCIES = 20;
  * instruktionsrader i prompten (Codex P2 — samma hygien som docs-fältet).
  */
 function sanitizeInlineMetadata(value: unknown, maxChars = METADATA_INLINE_MAX_CHARS): string {
-  return capPayloadText(String(value ?? "").replace(/[`\r\n]+/g, " "), maxChars);
+  return capPayloadText(
+    String(value ?? "")
+      .replace(/[`\r\n]+/g, " ")
+      .replace(/\s+/g, " "),
+    maxChars,
+  );
 }
 
 /** Sanera + begränsa en dependency-lista från registry-metadata. */
