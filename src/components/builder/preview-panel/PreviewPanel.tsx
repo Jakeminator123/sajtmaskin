@@ -28,6 +28,8 @@ import {
   PreviewPanelComposerOverlay,
   PreviewPanelComposerPalette,
 } from "./PreviewPanelComposer";
+import { PreviewPanelAddPanel } from "./PreviewPanelAddPanel";
+import { isAddPanelEnabled } from "@/lib/builder/add-panel-feature";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "./PreviewPanelCodeSectionEditors";
@@ -139,6 +141,13 @@ export function PreviewPanel({
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
   const [composerMode, setComposerMode] = useState(false);
+  // "Lägg till"-ytan (tabbad panel) — flag-gated via NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL.
+  // Läs EFTER mount (initial false) för att undvika SSR/CSR-hydratmismatch, samma
+  // mönster som inspect-bridge-flaggan. Flagga av = dagens fristående Composer-palette.
+  const [addPanelEnabled, setAddPanelEnabled] = useState(false);
+  useEffect(() => {
+    setAddPanelEnabled(isAddPanelEnabled());
+  }, []);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
   const [composerUndoStack, setComposerUndoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerRedoStack, setComposerRedoStack] = useState<ComposerPatchHistoryEntry[]>([]);
@@ -1049,6 +1058,7 @@ export function PreviewPanel({
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
         composerMode={composerMode}
+        addPanelEnabled={addPanelEnabled}
         handleToggleComposer={handleToggleComposer}
         composerCanUndo={composerUndoStack.length > 0}
         composerCanRedo={composerRedoStack.length > 0}
@@ -1169,11 +1179,19 @@ export function PreviewPanel({
       ) : (
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           {composerMode ? (
-            <PreviewPanelComposerPalette
-              disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
-              onDragStart={() => setIsComposerDragging(true)}
-              onDragEnd={() => setIsComposerDragging(false)}
-            />
+            addPanelEnabled ? (
+              <PreviewPanelAddPanel
+                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                onDragStart={() => setIsComposerDragging(true)}
+                onDragEnd={() => setIsComposerDragging(false)}
+              />
+            ) : (
+              <PreviewPanelComposerPalette
+                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                onDragStart={() => setIsComposerDragging(true)}
+                onDragEnd={() => setIsComposerDragging(false)}
+              />
+            )
           ) : null}
           <div className="relative min-h-0 min-w-0 flex-1">
             <PreviewSurface

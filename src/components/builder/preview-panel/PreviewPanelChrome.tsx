@@ -39,6 +39,12 @@ interface PreviewPanelChromeProps {
   handleToggleInspect: () => void;
   placementMode: boolean;
   composerMode: boolean;
+  /**
+   * När true: knappen "Composer" byter copy till "Lägg till" (tabbad panel:
+   * Block/Bläddra/Beskriv). Flag-gated via NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL.
+   * Default false = dagens "Composer"-knapp/yta oförändrad.
+   */
+  addPanelEnabled?: boolean;
   handleToggleComposer: () => void;
   composerCanUndo: boolean;
   composerCanRedo: boolean;
@@ -131,6 +137,7 @@ export function PreviewPanelChrome({
   handleToggleInspect,
   placementMode,
   composerMode,
+  addPanelEnabled = false,
   handleToggleComposer,
   composerCanUndo,
   composerCanRedo,
@@ -422,16 +429,24 @@ export function PreviewPanelChrome({
                 : inspectMode
                   ? "Stäng inspektionsläget först"
                   : composerMode
-                    ? "Stäng Visual Composer"
-                    : "Dra sajblock till previewn (startsida)"
+                    ? addPanelEnabled
+                      ? "Stäng Lägg till"
+                      : "Stäng Visual Composer"
+                    : addPanelEnabled
+                      ? "Lägg till block: dra egna block eller bläddra galleriet"
+                      : "Dra sajblock till previewn (startsida)"
             }
             className={cn(
               "text-gray-400 hover:text-white",
               composerMode && "bg-violet-900/45 text-violet-200 hover:text-violet-100",
             )}
           >
-            <LayoutGrid className="mr-1 h-4 w-4" />
-            Composer
+            {addPanelEnabled ? (
+              <Plus className="mr-1 h-4 w-4" />
+            ) : (
+              <LayoutGrid className="mr-1 h-4 w-4" />
+            )}
+            {addPanelEnabled ? "Lägg till" : "Composer"}
           </Button>
           {composerMode ? (
             <>

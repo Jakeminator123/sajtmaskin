@@ -4,7 +4,7 @@
 > Source: `config/scaffold-variants/<scaffold>/<variant>.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:5f1a1f5b5ef177a9 -->
+<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:8242e88630bab112 -->
 
 # Scaffold variants
 
@@ -33,7 +33,7 @@ Canonical owner: variant JSON files. Runtime consumer/validator: scaffold-varian
 | `landing-page` | `bold-startup`                  | Bold Startup                          | `dark`     | No      | `Space Grotesk / Inter`, `Bricolage Grotesque / Plus Jakarta Sans`                 | high-contrast headlines, sharp gradients, and velocity-driven proof blocks                                             |
 | `landing-page` | `corporate-grid`                | Corporate Grid                        | `light`    | Yes     | `Manrope / Inter`, `Plus Jakarta Sans / IBM Plex Sans`                             | B2B trust signals, partner logos, enterprise case studies, and measured consulting hierarchy on a precise neutral grid |
 | `landing-page` | `editorial-lux`                 | Editorial Lux                         | `dark`     | No      | `Cormorant Garamond / Raleway`, `EB Garamond / Outfit`                             | editorial framing, premium contrast, and restrained luxury accents                                                     |
-| `landing-page` | `futuristic-investment-landing` | Futuristisk Investering Landningssida | `dark`     | No      | `Sentient / Arial`                                                                 | Asymmetrisk hero med flytande 3D-partiklar                                                                             |
+| `landing-page` | `futuristic-investment-landing` | Futuristisk Investering Landningssida | `dark`     | No      | `Space Grotesk / Inter`                                                            | Asymmetrisk hero med flytande 3D-partiklar                                                                             |
 | `landing-page` | `hero-fullbleed-bg`             | Full-bleed Hero                       | `either`   | No      | `Cormorant Garamond / Inter`, `Tenor Sans / DM Sans`, `Playfair Display / Manrope` | single full-viewport hero, layered background imagery, centered breathing CTA cluster — no two-column split above fold |
 | `landing-page` | `minimalist-mag`                | Minimalist Magazine                   | `light`    | No      | `Fraunces / Inter`, `Space Grotesk / IBM Plex Sans`                                | oversized display typography against generous white space with thin rules and quiet metadata                           |
 | `landing-page` | `nature-flow`                   | Nature Flow                           | `light`    | No      | `Fraunces / Nunito Sans`, `Source Serif 4 / Karla`                                 | organic curves, earth gradients, and natural contrast in section flow                                                  |

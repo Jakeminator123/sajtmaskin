@@ -41,7 +41,7 @@ if (!npxPath) {
   process.exit(1);
 }
 
-const npxArgs = ["-y", "shadcn@latest", "mcp"];
+const npxArgs = ["-y", "shadcn@4.13.1", "mcp"];
 const child =
   process.platform === "win32"
     ? spawn(

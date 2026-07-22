@@ -191,6 +191,13 @@ export function resolveCapabilitiesPresentInVersion(
  * their env keys with the manifest's real enforcement — while integrations
  * with no matching dossier keep the warn-only downgrade.
  *
+ * Merge rule: file evidence wins per CAPABILITY. A capability with real files
+ * takes its provider dossier from presence; the snapshot's guess for that same
+ * capability is dropped (never coexists). Capabilities with no file evidence
+ * keep their snapshot pick. This is what stops a snapshot-guessed `clerk-auth`
+ * (the `auth` default) from riding alongside an actually-built `supabase-auth`
+ * after the auth-capability merge.
+ *
  * Consumers (all five read THIS, never their own union): the dossiers panel
  * route, the readiness route, `finalize-design`, the stream-post F3 gate via
  * `checkTier3ReadinessForVersion`, and the deploy env gate.
@@ -213,9 +220,29 @@ export function resolveSelectedDossiersWithVersionPresence(params: {
       ? resolveDossiersPresentInVersion(params.versionFiles, params.configuredEnvKeys)
       : [];
   if (fromPresence.length === 0) return fromSnapshot;
+
+  // Capability-level precedence (auth-merge regression 2026-07-22): file
+  // evidence is the ground truth for WHICH provider a capability was built
+  // with. After the `supabase-auth`→`auth` taxonomy merge the persisted
+  // snapshot floor only carries the capability (`auth`), so snapshot
+  // re-selection — which has no prompt/provider context — falls back to the
+  // capability DEFAULT (`clerk-auth`). Deduping by dossier id then let that
+  // guessed default coexist with the actually-built sibling (`supabase-auth`),
+  // demanding BOTH providers' env keys (Clerk's are `build`-enforced) and
+  // blocking readiness/deploy. So when a capability has real file evidence,
+  // the file-evidenced dossier wins and any snapshot-guessed sibling under the
+  // SAME capability is dropped. Capabilities with no file evidence keep their
+  // snapshot pick (planned-but-unbuilt dossiers).
+  const presenceCapabilities = new Set(
+    fromPresence.map((selected) => selected.entry.capability.toLowerCase()),
+  );
   const byId = new Map<string, SelectedDossier>();
-  for (const selected of [...fromSnapshot, ...fromPresence]) {
+  for (const selected of fromSnapshot) {
+    if (presenceCapabilities.has(selected.entry.capability.toLowerCase())) continue;
     if (!byId.has(selected.entry.id)) byId.set(selected.entry.id, selected);
+  }
+  for (const selected of fromPresence) {
+    byId.set(selected.entry.id, selected);
   }
   return Array.from(byId.values());
 }

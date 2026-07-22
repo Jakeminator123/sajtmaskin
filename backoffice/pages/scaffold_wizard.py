@@ -901,11 +901,30 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         st.session_state["swz_cmd_results"] = results
 
     if st.button("▶ Kör alla steg i följd", type="primary"):
+        # Fresh chain: drop stale results from earlier runs first, so a later
+        # step's old ✅ can't linger as false-green when an early step now fails
+        # and the chain stops before reaching it.
+        for step in steps:
+            results.pop(step["key"], None)
+        st.session_state["swz_cmd_results"] = results
         for step in steps:
             if step["needs_api"] and not has_key:
                 results[step["key"]] = {"skipped": True, "command": " ".join(step["command"])}
                 continue
             _run(step)
+            # Fail-fast: a red step (e.g. designmönster-steget som inte gav
+            # signaturePatterns) must stop the chain — annars byggs embeddings
+            # och validering på halvfärdigt innehåll och visar falskt grönt.
+            res = results.get(step["key"], {})
+            step_ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))
+            if not step_ok:
+                results[step["key"]] = {
+                    **res,
+                    "warn": (res.get("warn") or "")
+                    + " Kedjan stoppades här — efterföljande steg kördes inte.",
+                }
+                st.session_state["swz_cmd_results"] = results
+                break
         st.rerun()
 
     cols = st.columns(len(steps))

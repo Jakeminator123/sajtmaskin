@@ -75,6 +75,7 @@ export const GOOGLE_FONT_REGISTRY: Record<string, GoogleFontEntry> = {
   // — Display —
   Bebas_Neue: { displayName: "Bebas Neue", variable: "--font-display", category: "display" },
   Tenor_Sans: { displayName: "Tenor Sans", variable: "--font-display", category: "display" },
+  Orbitron: { displayName: "Orbitron", variable: "--font-display", category: "display" },
 
   // — Mono —
   Geist_Mono: { displayName: "Geist Mono", variable: "--font-mono", category: "mono" },
