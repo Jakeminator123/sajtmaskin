@@ -94,16 +94,6 @@ exports[`LaunchReadinessCard > visar separata grupper för Blocker och Advisory 
         </div>
       </div>
     </div>
-    <div
-      class="text-[11px] text-muted-foreground"
-    >
-      Versionsstatus: 
-      <span
-        class="text-foreground"
-      >
-        failed
-      </span>
-    </div>
   </div>
 </div>
 `;

@@ -815,8 +815,11 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
 
   if (!shouldCollapse) {
+    // Declutter: a normal user prompt is echoed back only as a compact,
+    // lighter bubble (smaller padding + text) so the chat keeps the
+    // conversational record without a bulky blue block dominating the panel.
     return (
-      <MessageResponse>
+      <MessageResponse className="px-3 py-1.5 text-xs group-data-[role=user]:bg-brand-blue/85">
         <Streamdown
           plugins={{ code: streamdownCode }}
           components={STREAMDOWN_PLAIN_COMPONENTS}

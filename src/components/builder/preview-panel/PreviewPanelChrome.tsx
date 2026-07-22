@@ -12,7 +12,6 @@ import {
   Loader2,
   Plus,
   Redo2,
-  RefreshCw,
   Search,
   Undo2,
   X,
@@ -20,7 +19,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
@@ -33,19 +31,10 @@ import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
 import type { PreviewRouteInfo } from "./preview-route-helpers";
 import { cn } from "@/lib/utils";
 
-type SurfaceDescriptor = {
-  label: string;
-  detail: string;
-  className: string;
-  badgeClassName: string;
-};
-
 interface PreviewPanelChromeProps {
   previewUrl: string | null;
-  surfaceDescriptor: SurfaceDescriptor;
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
-  livePreviewUrlStored: boolean;
   inspectorEnabled: boolean;
   handleToggleInspect: () => void;
   placementMode: boolean;
@@ -65,7 +54,6 @@ interface PreviewPanelChromeProps {
   onClear?: (() => void) | null;
   handleClear: () => void;
   isLoading: boolean;
-  handleRefresh: () => void;
   handleOpenInNewTab: () => void;
   previewBuildError?: { stage: string; message: string } | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
@@ -137,10 +125,8 @@ interface PreviewPanelChromeProps {
 
 export function PreviewPanelChrome({
   previewUrl,
-  surfaceDescriptor,
   isOwnEnginePreview,
   isTier2LivePreview,
-  livePreviewUrlStored,
   inspectorEnabled,
   handleToggleInspect,
   placementMode,
@@ -160,7 +146,6 @@ export function PreviewPanelChrome({
   onClear,
   handleClear,
   isLoading,
-  handleRefresh,
   handleOpenInNewTab,
   previewBuildError,
   previewProdBuild,
@@ -262,25 +247,6 @@ export function PreviewPanelChrome({
     chatId.length > 0 &&
     lifecycleStage !== "integrations";
   const localizedVersionSummary = localizeVerificationSummary(activeVersionSummary);
-  // F2 (`design`) is a pure visual-fidelity stage that intentionally skips the
-  // F3 server-verify/quality-gate lane, so a finished design version never
-  // reaches `promoted` and rests outside the verify states. Treat a clean
-  // design preview as "klar" instead of nagging "ej verifierad" forever.
-  // Degraded/blocked/failed still fall through to their own (red/amber)
-  // branches above, so this never turns a genuinely broken version green.
-  // IMPORTANT (false-green guard): require an EXPLICIT `design` stage. The prop
-  // is `null` while deployReadiness is still loading, and an F3/integrations
-  // version with that null stage must NOT read as klar — so we do not use
-  // `!== "integrations"` here (that would treat unknown as design). Unknown →
-  // falls through to the honest "ej verifierad".
-  const isDesignStage = lifecycleStage === "design";
-  const designPreviewReadyTruth = {
-    tone: "success" as const,
-    title: "Designpreview klar",
-    detail:
-      localizedVersionSummary ||
-      "Designläge (F2) kör ingen separat F3-verifiering — previewn är klar att granska. Integrationer och verifiering aktiveras först i F3.",
-  };
   const versionWorkInProgress =
     activeVersionStatus === "generating" ||
     activeVersionStatus === "autofixing" ||
@@ -405,43 +371,18 @@ export function PreviewPanelChrome({
           "Verifiering hittade blockerande fel. Reparera versionen innan den används som klar.",
       };
     }
-    if (activeVersionStatus === "promoted") {
-      return {
-        tone: "success" as const,
-        title: "Version verifierad",
-        detail: localizedVersionSummary || "Versionens verifierade lifecycle är klar.",
-      };
-    }
-    if (activeVersionStatus === "ready") {
-      // F2 design preview is done — not "unverified", just not F3-verified.
-      if (isDesignStage) return designPreviewReadyTruth;
-      return {
-        tone: "info" as const,
-        title: "Preview startad, ej verifierad",
-        detail:
-          localizedVersionSummary ||
-          "Iframen har en preview-URL, men F3-verify/QG har inte gett en helhetsklar signal ännu.",
-      };
-    }
-    // Catch-all for any other resting state. F2/design is launchable as a
-    // design preview; only F3/integrations should read as "ej verifierad".
-    if (isDesignStage) return designPreviewReadyTruth;
-    return {
-      tone: "info" as const,
-      title: "Preview startad, ej verifierad",
-      detail:
-        localizedVersionSummary ||
-        "Iframen har en preview-URL, men verify/QG har inte gett en helhetsklar signal ännu.",
-    };
+    // Resting states (promoted/ready/design-klar/ej-verifierad) carry no
+    // actionable signal — they only repeated what the version panel already
+    // shows. Declutter: the truth bar now surfaces ONLY active work (pending),
+    // warnings and errors. All calm/success/info states render nothing.
+    return null;
   })();
   const previewTruthClassName =
     previewTruth?.tone === "error"
       ? "border-rose-900/55 bg-rose-950/45 text-rose-50"
       : previewTruth?.tone === "warning"
         ? "border-amber-900/50 bg-amber-950/40 text-amber-50"
-        : previewTruth?.tone === "success"
-          ? "border-sky-900/45 bg-sky-950/35 text-sky-50"
-          : "border-sky-900/45 bg-sky-950/30 text-sky-50";
+        : "border-sky-900/45 bg-sky-950/30 text-sky-50";
   const previewTruthTitleClassName =
     previewTruth?.tone === "error"
       ? "text-rose-100"
@@ -456,32 +397,8 @@ export function PreviewPanelChrome({
         : "text-sky-200/90";
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
-          <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
-            {surfaceDescriptor.label}
-          </Badge>
-          {isOwnEnginePreview && !livePreviewUrlStored ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Live-preview med Next.js i tier-2-runtime/VM är inte tillgänglig än — ofta miljö, npm install eller byggfel."
-            >
-              Live-preview väntar
-            </Badge>
-          ) : null}
-          {previewUrl && isTier2LivePreview && !isOwnEnginePreview ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Next.js körs i tier-2-preview (VM / legacy preview-kontrakt) — motsvarar lokal utveckling."
-            >
-              Next.js
-            </Badge>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
+      <div className="flex items-center justify-end border-b border-gray-800 px-4 py-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {showF3Trigger ? (
             <PreviewPanelF3Trigger
               chatId={chatId as string}
@@ -684,17 +601,6 @@ export function PreviewPanelChrome({
           ) : null}
           <Button
             variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            title="Uppdatera preview"
-            aria-label="Uppdatera preview"
-            className="text-gray-400 hover:text-white"
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          </Button>
-          <Button
-            variant="ghost"
             size="sm"
             onClick={handleOpenInNewTab}
             title="Öppna i ny flik"
@@ -706,18 +612,12 @@ export function PreviewPanelChrome({
         </div>
       </div>
 
-      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
-        {surfaceDescriptor.detail}
-      </div>
-
       {previewTruth ? (
         <Alert className={cn("mx-4 mt-2", previewTruthClassName)}>
           {previewTruth.tone === "error" ? (
             <AlertCircle className="h-4 w-4 text-rose-400" />
           ) : versionWorkInProgress || previewTruth.tone === "pending" ? (
             <Loader2 className="h-4 w-4 animate-spin text-sky-300" />
-          ) : previewTruth.tone === "success" ? (
-            <CircleCheck className="h-4 w-4 text-sky-300" />
           ) : (
             <AlertCircle className="h-4 w-4 text-amber-300" />
           )}
