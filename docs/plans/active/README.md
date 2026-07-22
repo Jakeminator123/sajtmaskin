@@ -19,7 +19,7 @@ kopiera inte dess kö hit.
 | Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | DB-backoff, CSP/fontbrus och scaffold-lint ska levereras separat. |
 | Dossier/UI-ownership | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Lås att en dossier inte skapar en konkurrerande användaryta. |
 | Backoffice-stringens | [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md) | Kärnan implementerad 2026-07-21 (6 grupper, konsoliderade sidor, backup/Återställning); kvar: P2-städ (subprocess-helpers, terminologi-svep, fler tester). Refresh-handoff arkiverad. |
-| shadcn-registry + "Beskriv"-komposition | [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) | Fas 0/1/2/3/5 mergade (#570/#576/#581/#574/#572). I granskning: #582 (Fas 4-resolver), #583 (Fas 2-härdning), #584 (Fas 6-proof). Öppna frågor 1+3 avgjorda. |
+| shadcn-registry + "Beskriv"-komposition | [`2026-07-22-shadcn-registry-beskriv-komposition.md`](2026-07-22-shadcn-registry-beskriv-komposition.md) | Fas 0–6:s första leverans är mergad (#570/#576/#574/#572/#581/#583/#582/#584). Nästa beslut: om v2-lanen behövs; därefter ev. drag-n-drop och expansion av `@sajtmaskin`-registret. |
 
 ## Andra aktiva sanningar
 
