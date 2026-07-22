@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
       "./node_modules/playwright-core/browsers.json",
       "./node_modules/@sparticuz/chromium/bin/**",
     ],
+    // @sajtmaskin registry route reads committed block TSX files at request
+    // time (same fs pattern as loadScaffoldFiles); force-include them so NFT
+    // never drops them from the serverless trace. Key is a glob — "/r/*"
+    // matches the "/r/[name]" route id ("[name]" literally would be parsed
+    // as a character class and never match).
+    "/r/*": ["./src/lib/sajtmaskin-registry/blocks/**"],
   },
   outputFileTracingExcludes: {
     "*": [
