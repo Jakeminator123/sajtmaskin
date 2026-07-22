@@ -6,7 +6,12 @@ import streamlit as st
 
 from backoffice.pages import PAGE_GROUPS, PAGE_MAP, PAGE_NAMES, PAGE_QUERY_ALIASES
 from backoffice.pages.llm_flow_status import build_canvas
-from backoffice.shared import build_backoffice_context, ensure_utf8_stdio, load_domain_map
+from backoffice.shared import (
+    MODE_BADGES,
+    build_backoffice_context,
+    ensure_utf8_stdio,
+    load_domain_map,
+)
 
 
 def _page_from_nav_query() -> str | None:
@@ -43,6 +48,7 @@ def run_backoffice_app(
         """
 <style>
     div[data-testid="stMetricValue"] { font-size: 1.1rem; }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label { padding: 0.05rem 0; }
 </style>
 """,
         unsafe_allow_html=True,
@@ -76,6 +82,10 @@ def run_backoffice_app(
         for group in PAGE_GROUPS
     }
 
+    def _mode_label(name: str) -> str:
+        icon, _ = MODE_BADGES.get(PAGE_MAP[name].mode, ("", ""))
+        return f"{icon} {name}".strip()
+
     with st.sidebar:
         st.subheader("Navigation")
         group = st.radio(
@@ -94,12 +104,13 @@ def run_backoffice_app(
             group_pages,
             index=group_pages.index(current),
             key="backoffice_nav_select",
-            format_func=lambda name: name,
+            format_func=_mode_label,
         )
         st.session_state["backoffice_nav"] = page
-        st.caption(
-            "`config/` · `docs/` · `.cursor/` · `scripts/` · `data/dossiers/`"
-        )
+        icon, mode_help = MODE_BADGES.get(PAGE_MAP[page].mode, ("", ""))
+        if mode_help:
+            st.caption(f"{icon} {mode_help}")
+        st.caption("🟢 läser · ✏️ redigerar · ⚙️ kör skript · 🔴 kan radera")
         st.divider()
         st.subheader("Repo")
         st.text_area(
@@ -118,14 +129,12 @@ def run_backoffice_app(
         st.info(
             f"Detta är den konsoliderade backoffice-appen. Du öppnade den via legacy-entrypointen `{legacy_source}`."
         )
-    st.caption(f"Område: **{PAGE_MAP[page].group}**")
+    spec = PAGE_MAP[page]
+    st.caption(f"Område: **{spec.group}** · {MODE_BADGES.get(spec.mode, ('', ''))[0]} {spec.mode}")
     page_summary = ((domain_map.get("pages") or {}).get(page) or {}).get("summary")
     if page_summary:
         st.caption(page_summary)
-    st.caption(
-        "En samlad Streamlit-yta för konfiguration, overhead, artifacts och driftpaneler. Kod är source of truth; panelen ska spegla runtime-sanningen."
-    )
+    elif spec.blurb:
+        st.caption(spec.blurb)
 
-    spec = PAGE_MAP[page]
     spec.render(ctx)
-

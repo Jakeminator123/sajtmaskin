@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -102,7 +103,7 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         research_json=scaffolds_dir / "scaffold-research.generated.json",
         embeddings_json=scaffolds_dir / "scaffold-embeddings.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
-        schema_md=root / "docs" / "architecture" / "scaffold-system.md",
+        schema_md=root / "docs" / "contracts" / "scaffold-system.md",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
         autofix_hook_ts=root / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts",
     )
@@ -113,6 +114,7 @@ def read_text(path: Path) -> str:
 
 
 def write_text(path: Path, content: str) -> None:
+    backup_file(path)
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
@@ -122,9 +124,227 @@ def read_json(path: Path) -> Any:
 
 
 def write_json(path: Path, data: Any) -> None:
+    backup_file(path)
     with path.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
         f.write("\n")
+
+
+# --- Säkerhetskopiering (backup/restore) ---------------------------------------
+# Alla sparningar som går via write_text/write_json säkerhetskopierar först den
+# befintliga filen till data/backoffice/backups/ (gitignorerad). Sidan
+# "Återställning" listar snapshots och kan rulla tillbaka en fil. Git är alltid
+# det yttersta skyddsnätet — detta är ett snabbt, UI-nära ångra-lager.
+
+BACKUP_DIR_PARTS = ("data", "backoffice", "backups")
+MAX_BACKUPS_PER_FILE = 20
+
+
+def backup_root(repo_root: Path | None = None) -> Path:
+    root = repo_root or find_repo_root()
+    return root.joinpath(*BACKUP_DIR_PARTS)
+
+
+def backup_file(path: Path, repo_root: Path | None = None) -> Path | None:
+    """Snapshot the current content of ``path`` before an overwrite/delete.
+
+    Returns the backup path, or ``None`` when no snapshot was taken (file does
+    not exist, path lies outside the repo, path is itself a backup, or the
+    backup infrastructure failed). Backup failure is deliberately non-fatal:
+    the save still goes through, and git remains the ultimate safety net.
+    Snapshots live under ``data/backoffice/backups/files/<rel-path>/<utc>.bak``
+    and are pruned to the newest :data:`MAX_BACKUPS_PER_FILE` per file.
+    """
+    try:
+        path = Path(path)
+        if not path.is_file():
+            return None
+        root = (repo_root or find_repo_root()).resolve()
+        resolved = path.resolve()
+        try:
+            rel = resolved.relative_to(root)
+        except ValueError:
+            return None
+        bdir = backup_root(root)
+        if bdir in resolved.parents:
+            return None
+        target_dir = bdir / "files" / rel.as_posix()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+        target = target_dir / f"{stamp}.bak"
+        target.write_bytes(resolved.read_bytes())
+        _prune_backups(target_dir)
+        return target
+    except Exception:
+        return None
+
+
+def _prune_backups(target_dir: Path) -> None:
+    snapshots = sorted(target_dir.glob("*.bak"))
+    for stale in snapshots[:-MAX_BACKUPS_PER_FILE]:
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+
+
+def backup_tree(dir_path: Path, repo_root: Path | None = None) -> Path | None:
+    """Zip an entire directory before a destructive delete (dossier/scaffold).
+
+    Snapshots land under ``data/backoffice/backups/trees/<rel-path>/<utc>.zip``
+    and can be restored from the Återställning page. Non-fatal on failure —
+    returns ``None`` and lets the caller continue (git remains the ultimate
+    safety net for tracked files).
+    """
+    try:
+        dir_path = Path(dir_path)
+        if not dir_path.is_dir():
+            return None
+        root = (repo_root or find_repo_root()).resolve()
+        resolved = dir_path.resolve()
+        try:
+            rel = resolved.relative_to(root)
+        except ValueError:
+            return None
+        bdir = backup_root(root)
+        if bdir == resolved or bdir in resolved.parents:
+            return None
+        target_dir = bdir / "trees" / rel.as_posix()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+        archive = shutil.make_archive(str(target_dir / stamp), "zip", root_dir=resolved)
+        snapshots = sorted(target_dir.glob("*.zip"))
+        for stale in snapshots[:-MAX_BACKUPS_PER_FILE]:
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+        return Path(archive)
+    except Exception:
+        return None
+
+
+def list_backup_trees(repo_root: Path | None = None) -> list[dict[str, Any]]:
+    """List every deleted/zipped directory that has at least one snapshot."""
+    trees_root = backup_root(repo_root) / "trees"
+    if not trees_root.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for dirpath, _dirnames, filenames in os.walk(trees_root):
+        snaps = sorted(n for n in filenames if n.endswith(".zip"))
+        if not snaps:
+            continue
+        rel = Path(dirpath).relative_to(trees_root).as_posix()
+        entries.append(
+            {
+                "dir": rel,
+                "snapshots": len(snaps),
+                "latest": snaps[-1].removesuffix(".zip"),
+            }
+        )
+    entries.sort(key=lambda e: str(e["latest"]), reverse=True)
+    return entries
+
+
+def list_tree_snapshots_for(rel_path: str, repo_root: Path | None = None) -> list[Path]:
+    target_dir = backup_root(repo_root) / "trees" / rel_path
+    if not target_dir.is_dir():
+        return []
+    return sorted(target_dir.glob("*.zip"), reverse=True)
+
+
+def restore_tree(
+    rel_path: str,
+    snapshot: Path,
+    repo_root: Path | None = None,
+) -> tuple[bool, str]:
+    """Restore a zipped directory snapshot onto its original repo path.
+
+    If the directory currently exists it is zipped first (so the restore is
+    undoable) and then replaced by the snapshot content.
+    """
+    root = (repo_root or find_repo_root()).resolve()
+    target = (root / rel_path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return False, f"Sökvägen ligger utanför repot: `{rel_path}` — inget återställdes."
+    snapshot = Path(snapshot)
+    if not snapshot.is_file():
+        return False, f"Snapshoten finns inte längre: `{snapshot.name}`."
+    expected_dir = (backup_root(root) / "trees" / rel_path).resolve()
+    if snapshot.resolve().parent != expected_dir:
+        return False, "Snapshoten hör inte till den valda katalogen — inget återställdes."
+    try:
+        if target.is_dir():
+            backup_tree(target, root)
+            shutil.rmtree(target)
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.unpack_archive(str(snapshot), extract_dir=str(target), format="zip")
+    except (OSError, shutil.Error, ValueError) as exc:
+        return False, f"Kunde inte återställa: {exc}"
+    return True, f"Återställde katalogen `{rel_path}` från `{snapshot.name}`."
+
+
+def list_backup_files(repo_root: Path | None = None) -> list[dict[str, Any]]:
+    """List every repo file that has at least one snapshot, newest first."""
+    files_root = backup_root(repo_root) / "files"
+    if not files_root.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for dirpath, _dirnames, filenames in os.walk(files_root):
+        snaps = sorted(n for n in filenames if n.endswith(".bak"))
+        if not snaps:
+            continue
+        rel = Path(dirpath).relative_to(files_root).as_posix()
+        entries.append(
+            {
+                "file": rel,
+                "snapshots": len(snaps),
+                "latest": snaps[-1].removesuffix(".bak"),
+            }
+        )
+    entries.sort(key=lambda e: str(e["latest"]), reverse=True)
+    return entries
+
+
+def list_snapshots_for(rel_path: str, repo_root: Path | None = None) -> list[Path]:
+    """Snapshots for one repo-relative file, newest first."""
+    target_dir = backup_root(repo_root) / "files" / rel_path
+    if not target_dir.is_dir():
+        return []
+    return sorted(target_dir.glob("*.bak"), reverse=True)
+
+
+def restore_backup(
+    rel_path: str,
+    snapshot: Path,
+    repo_root: Path | None = None,
+) -> tuple[bool, str]:
+    """Restore one snapshot onto its original repo file.
+
+    The current file content is snapshotted first, so a restore is itself
+    undoable. Returns ``(ok, message)``.
+    """
+    root = (repo_root or find_repo_root()).resolve()
+    target = (root / rel_path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return False, f"Sökvägen ligger utanför repot: `{rel_path}` — inget återställdes."
+    snapshot = Path(snapshot)
+    if not snapshot.is_file():
+        return False, f"Snapshoten finns inte längre: `{snapshot.name}`."
+    expected_dir = (backup_root(root) / "files" / rel_path).resolve()
+    if snapshot.resolve().parent != expected_dir:
+        return False, "Snapshoten hör inte till den valda filen — inget återställdes."
+    try:
+        backup_file(target, root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(snapshot.read_bytes())
+    except OSError as exc:
+        return False, f"Kunde inte återställa: {exc}"
+    return True, f"Återställde `{rel_path}` från `{snapshot.name}`."
 
 
 def _manifest_uri_format_is_valid(value: object) -> bool:
@@ -292,6 +512,30 @@ def read_route_maxduration_literals(repo_root: Path) -> list[dict[str, Any]]:
                 literal = int(matches[0])
         rows.append({"rel": rel, "manifestField": manifest_field, "literal": literal})
     return rows
+
+
+# Läge-badges: förklarar direkt i UI:t om en vy bara läser, redigerar filer,
+# kör skript eller innehåller destruktiva åtgärder. Läses av app_main (sidomeny)
+# och overview (kartan).
+MODE_BADGES = {
+    "read": ("🟢", "Läsvy — ändrar ingenting."),
+    "edit": ("✏️", "Redigerbar — sparningar säkerhetskopieras (se Återställning)."),
+    "run": ("⚙️", "Kör skript/kommandon — kan skriva genererade artefakter."),
+    "danger": ("🔴", "Innehåller destruktiva åtgärder (radering) — läs varningarna."),
+}
+
+
+def nav_link_button(label: str, page_name: str, *, key: str) -> None:
+    """Sidebar/page button that jumps to another backoffice page.
+
+    Clears the sidebar widget state so ``app_main`` re-derives group + page
+    from ``backoffice_nav`` on the rerun.
+    """
+    if st.button(label, key=key):
+        st.session_state["backoffice_nav"] = page_name
+        st.session_state.pop("backoffice_group_radio", None)
+        st.session_state.pop("backoffice_nav_select", None)
+        st.rerun()
 
 
 def render_where_panel(page: str, dm: dict[str, Any]) -> None:
@@ -1039,6 +1283,28 @@ def get_all_manifests(ctx: BackofficeContext) -> list[dict[str, Any]]:
             if parsed:
                 manifests.append(parsed)
     return manifests
+
+
+def unescape_ts_string(value: str) -> str:
+    return value.replace('\\"', '"').replace("\\\\", "\\")
+
+
+def extract_ts_string_field(text: str, field: str) -> str:
+    """Read one ``field: "value"`` string literal out of a manifest.ts text."""
+    match = re.search(rf'{field}:\s*\n?\s*"([^"]*(?:\\.[^"]*)*)"', text)
+    return unescape_ts_string(match.group(1)).strip() if match else ""
+
+
+def extract_ts_string_array_field(text: str, field: str) -> list[str]:
+    """Read one ``field: ["a", "b"]`` string array out of a manifest.ts text."""
+    match = re.search(rf"{field}:\s*\[(.*?)\]", text, re.DOTALL)
+    if not match:
+        return []
+    return [
+        unescape_ts_string(value)
+        for value in re.findall(r'"([^"]*(?:\\.[^"]*)*)"', match.group(1))
+        if unescape_ts_string(value).strip()
+    ]
 
 
 def extract_ts_union_values(text: str, type_name: str) -> list[str] | None:

@@ -13,6 +13,8 @@ import streamlit as st
 from backoffice.shared import (
     BackofficeContext,
     _escape_ts_string,
+    backup_file,
+    backup_tree,
     get_all_manifests,
     read_json,
     read_text,
@@ -21,6 +23,8 @@ from backoffice.shared import (
     write_json,
     write_text,
 )
+from backoffice.shared import extract_ts_string_array_field as _extract_ts_string_array_field
+from backoffice.shared import extract_ts_string_field as _extract_ts_string_field
 
 THEME_TOKEN_KEYS = (
     "background",
@@ -306,26 +310,6 @@ def _count_runtime_dossiers(ctx: BackofficeContext) -> dict[str, int]:
             if entry.is_dir() and not entry.name.startswith("_")
         )
     return counts
-
-
-def _unescape_ts_string(value: str) -> str:
-    return value.replace('\\"', '"').replace("\\\\", "\\")
-
-
-def _extract_ts_string_field(text: str, field: str) -> str:
-    match = re.search(rf'{field}:\s*\n?\s*"([^"]*(?:\\.[^"]*)*)"', text)
-    return _unescape_ts_string(match.group(1)).strip() if match else ""
-
-
-def _extract_ts_string_array_field(text: str, field: str) -> list[str]:
-    match = re.search(rf"{field}:\s*\[(.*?)\]", text, re.DOTALL)
-    if not match:
-        return []
-    return [
-        _unescape_ts_string(value)
-        for value in re.findall(r'"([^"]*(?:\\.[^"]*)*)"', match.group(1))
-        if _unescape_ts_string(value).strip()
-    ]
 
 
 def _source_defaults_from_manifest(manifest_path: Path) -> dict[str, Any]:
@@ -1070,9 +1054,11 @@ def _render_delete_variant(
         key=f"delete_variant_button_{selected_scaffold}_{selected_variant.get('id', '')}",
         disabled=not confirm,
     ):
+        backup_file(variant_path)
         variant_path.unlink(missing_ok=True)
         st.success(
-            f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}`. "
+            f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}` "
+            "(en snapshot ligger kvar under **Återställning**). "
             "Bygg om embeddings om du vill uppdatera relaterade artefakter."
         )
         st.rerun()
@@ -1841,8 +1827,10 @@ def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
     scaffold_dir = ctx.scaffolds_dir / scaffold_id
 
     if variant_dir.is_dir():
+        backup_tree(variant_dir, ctx.repo_root)
         shutil.rmtree(variant_dir)
     if scaffold_dir.is_dir():
+        backup_tree(scaffold_dir, ctx.repo_root)
         shutil.rmtree(scaffold_dir)
 
     _update_types_for_deleted_scaffold(ctx, scaffold_id)

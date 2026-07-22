@@ -18,7 +18,7 @@ kopiera inte dess kö hit.
 | Builder-status och UI-brus | [`2026-07-13-builder-status-ui-declutter.md`](2026-07-13-builder-status-ui-declutter.md) | Avgränsa copy och presentation från runtime-gates. |
 | Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | DB-backoff, CSP/fontbrus och scaffold-lint ska levereras separat. |
 | Dossier/UI-ownership | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Lås att en dossier inte skapar en konkurrerande användaryta. |
-| Backoffice-stringens | [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md) | Friska upp nuläget från [`refresh-handoff`](2026-07-13-backoffice-stringens-refresh-handoff.md) före implementation. |
+| Backoffice-stringens | [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md) | Kärnan implementerad 2026-07-21 (6 grupper, konsoliderade sidor, backup/Återställning); kvar: P2-städ (subprocess-helpers, terminologi-svep, fler tester). Refresh-handoff arkiverad. |
 
 ## Andra aktiva sanningar
 

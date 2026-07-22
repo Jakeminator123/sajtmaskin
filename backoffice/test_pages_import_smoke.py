@@ -47,7 +47,7 @@ class AllPagesImportSmokeTests(unittest.TestCase):
             "backoffice.pages.eval_page",
             "backoffice.pages.orchestration",
             "backoffice.pages.autofix",
-            "backoffice.pages.mental_model",
+            "backoffice.pages.restore",
         ]
         for module_name in ops_modules:
             module = importlib.import_module(module_name)
