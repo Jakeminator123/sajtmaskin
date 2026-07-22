@@ -263,6 +263,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         toast.error("Öppna eller skapa en chat först.");
         throw new Error("no active chat");
       }
+      // Samma sista försvarslinje som dossier-katalogvalen (handleRequestDossier):
+      // sendMessage ABORTAR en pågående stream, så ett insättningsklick mitt i en
+      // generation ska aldrig skickas — kasta så kortet inte markeras "skickat".
+      if (isBusy) {
+        toast.error("Vänta tills den pågående genereringen är klar.");
+        throw new Error("builder busy");
+      }
       try {
         const built = await buildShadcnInsertMessage(selection);
         await sendMessage(built.message, { promptSourceMeta: built.meta });
@@ -271,7 +278,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         throw err;
       }
     },
-    [sendMessage, vm.chatId],
+    [sendMessage, vm.chatId, isBusy],
   );
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
