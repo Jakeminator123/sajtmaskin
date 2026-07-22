@@ -5,6 +5,18 @@
       "args": ["/d", "/s", "/c", "\"${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd\""],
       "note": "shadcn/ui registry-MCP via lokal wrapper (scripts/cursor/shadcn-mcp.cmd → shadcn-mcp.cjs). Pinnad till shadcn@4.13.1 (ingen @latest-drift)."
     },
+    "vercel": {
+      "url": "https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin",
+      "note": "Projekt-scopad Vercel MCP för sajtmaskin. OAuth i Cursor (Needs login) — inga secrets i filen."
+    },
+    "user-vercel": {
+      "url": "https://mcp.vercel.com",
+      "note": "Konto-bred Vercel MCP (alla projekt/teams). Använd om projekt-scopad ger 403 eller saknar team."
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true",
+      "note": "Hostad Supabase MCP, scoped till sajtmaskin-projektet + read-only. OAuth i Cursor första gången."
+    },
     "v0": {
       "url": "https://mcp.v0.dev"
     },
@@ -15,11 +27,6 @@
       "type": "http",
       "url": "https://docs.openclaw.ai/mcp",
       "note": "Hostad docs-MCP direkt från docs.openclaw.ai — ingen lokal server behövs."
-    },
-    "vercel": {
-      "type": "http",
-      "url": "https://mcp.vercel.com",
-      "note": "Vercels officiella remote MCP (OAuth). Inga secrets i filen — Cursor visar 'Needs login' första gången, autentisera i webbläsaren."
     }
   }
 }
