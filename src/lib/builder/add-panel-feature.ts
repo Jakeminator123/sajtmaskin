@@ -11,7 +11,7 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
  * `shadcn-insert.ts`), och "Beskriv" är funktionell när även
  * `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` är på (annars platshållare).
  *
- * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
+ * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
  * (Fas 2 v1 + Fas 3).
  *
  * OBS för konsumenter i klientkomponenter: `NEXT_PUBLIC_*` inlineas vid build men

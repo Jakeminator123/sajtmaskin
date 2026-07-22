@@ -24,7 +24,7 @@ import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
  * Flagga av (default) renderar aldrig denna komponent → dagens beteende är
  * byte-för-byte oförändrat (se `PreviewPanel.tsx`-wiringen).
  *
- * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
+ * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
  * (Fas 2 v1 + Fas 3).
  */
 

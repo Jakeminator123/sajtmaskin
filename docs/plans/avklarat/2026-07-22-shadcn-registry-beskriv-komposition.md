@@ -1,9 +1,11 @@
 ---
-status: active
+status: avklarat
 owner: unassigned
 created: 2026-07-22
+completed: 2026-07-22
 topic: shadcn-registry-konsolidering + "Beskriv"-driven UI-komposition (Composer-ytan) — semantisk sökning över riktiga register, funktionell insättning via own-engine/verify, och byggbart eget @sajtmaskin-register
 source: Kodläsning + shadcn-docs-verifiering 2026-07-22 (explore-subagenter, WebFetch mot ui.shadcn.com/docs/{registry/mcp,helpers/ai-sdk,react/message-scroller}, WebSearch mot shadcn/registry-API) + extern coach-granskning av commit 83ce3472 + ägarens observationer om Composer-ytan
+note: Fas 0–6 första leverans mergad (#570/#572/#574/#576/#581/#582/#583/#584/#585). Behållen som fil eftersom kod/ENV/tester citerar den. Uppföljning (v2-lane, drag-n-drop, register-expansion) är backlog — inte aktiv plan.
 ---
 
 # shadcn-registry + "Beskriv"-komposition
@@ -152,7 +154,7 @@ drag-n-drop-placering och expandera det interna registret bortom proofets tre po
 
 | Yta | Ändring |
 |---|---|
-| `docs/plans/active/README.md` | Router-rad för denna plan (görs i samma commit) |
+| `docs/plans/avklarat/README.md` | Indexrad + denna fil (pensionerad från `active/` 2026-07-22) |
 | `docs/architecture/glossary.md` | Registrera nya begrepp: "Beskriv-flöde", "Registry Discovery", "@sajtmaskin-registry" (UI Recipe finns redan) |
 | `docs/architecture/llm-pipeline.md` | Uppdatera när resolvern (Fas 4) byter till `searchRegistries` |
 | `src/lib/shadcn/README.md` | Program-API-adapter + `components.json` som kanonisk registry-config |

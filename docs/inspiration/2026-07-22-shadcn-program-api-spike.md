@@ -1,6 +1,6 @@
 # Spike: `shadcn/registry` program-API i en Next 16 server-route?
 
-> Idé/lärdom (inte aktiv plan). Del av `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md` — **Fas 0**. Beslutet grindar Fas 1 & 4.
+> Idé/lärdom (inte aktiv plan). Del av `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md` — **Fas 0**. Beslutet grindar Fas 1 & 4.
 
 ## Fråga
 

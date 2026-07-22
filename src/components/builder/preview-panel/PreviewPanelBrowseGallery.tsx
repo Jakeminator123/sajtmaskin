@@ -33,7 +33,7 @@ import {
  * `getComponentsByCategory`/`searchBlocks` + thumbnails via `buildPreviewImageUrl`)
  * som en visuell kort-galleriyta i buildern.
  *
- * Del av plan: `docs/plans/active/2026-07-22-shadcn-registry-beskriv-komposition.md`
+ * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
  * (Fas 3 — Bläddra + Fas 2 v1 — insättning).
  *
  * Insättning (Fas 2 v1): kortvalets metadata skickas via `onInsertItem` genom
