@@ -1,39 +1,81 @@
-"""Normalize / RepairGate & Kvalitet — central överblick + manifest-baserad konfig."""
+"""Normalize / RepairGate & Kvalitet — samlad läsvy för fix-pipelinen.
+
+Read-only sedan 2026-07-21: den här sidan hade tidigare en egen kopia av
+manifest-editorn (repair-pass, tokenbudgetar, phase routing) som skrev samma
+`config/ai_models/manifest.json` som ai_models-sidan — två skrivytor för samma
+fil driftade isär. Nu ägs all redigering av **ai_models** (delen
+"Repair / budget / timeout" + "Generator-kedja"); den här vyn visar läget,
+statistiken och hardening-historiken (tidigare den separata sidan
+"Repair Loop (hardening)").
+"""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import streamlit as st
 
 from backoffice.shared import (
-    AVAILABLE_PHASE_MODELS,
     BUILD_PROFILE_ORDER,
-    PHASE_LABELS,
-    PHASE_ORDER,
-    REASONING_EFFORT_OPTIONS,
     BackofficeContext,
-    build_profile_defaults,
     human_model_label,
     load_fault_fix_csv,
-    phase_model_display_label,
+    nav_link_button,
     phase_routing_defaults,
-    phase_thinking_defaults,
-    phase_token_budget_entry,
     read_autofix_runtime_config,
     read_json,
-    validate_manifest_or_error,
-    write_json,
-    write_phase_thinking,
+    render_where_panel,
+    resolve_phase_models_for_dashboard,
+)
+
+# Hardening-historik (fd. sidan "Repair Loop"). Phases 2A–2C inlinades
+# 2026-04-28 — beteendet är ovillkorligt i verifier-phase.ts,
+# finalize-preflight.ts och persist-side-effects.ts.
+REPAIR_LOOP_INLINED_HISTORY = (
+    (
+        "Phase 2A — repairPassIndex propagation + pruneStaleVersionErrorLogs (SAJ-25)",
+        "Stops stale diagnostics from keeping a clean follow-up red by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass has no preflight/syntax blockers. Verifier-only findings stay on the latest pass but no longer keep older rows active. Inlined 2026-04-28 (was FEATURES.consistentRepairPassIndex).",
+    ),
+    (
+        "Phase 2B — verifier re-run after RepairGate",
+        "After RepairGate succeeds, re-run runVerifierPass once to confirm the fix actually addressed the Blocker finding. Capped at 1 re-run + 30s timeout. Inlined 2026-04-28 (was FEATURES.verifierRerunAfterFix).",
+    ),
+    (
+        "Phase 2C — skip RepairGate escalation on merged-only syntax fail",
+        "When stream-syntax already passed but merged-syntax fails, run only Normalize + esbuild revalidation. Saves a RepairGate call per follow-up. Inlined 2026-04-28 (was FEATURES.skipDoubleValidateAndFixOnMerge).",
+    ),
+)
+
+REPAIR_LOOP_TUNABLE = (
+    (
+        "recurringPatternsInMainPrompt",
+        "Phase 2D — recurring failures block in main system-prompt",
+        "Inject `### Recurring failures on this site` into the system-prompt for follow-ups so the codegen LLM sees what it just got wrong.",
+        "NODE_ENV == development",
+    ),
+    (
+        "useErrorLogRag",
+        "Phase 3 — vector RAG over error-log + auto-ingest",
+        "Producer writes NDJSON, indexer rebuilds TF-IDF snapshot, retriever surfaces `### Lessons from similar past builds` in system-prompt. Auto-rebuilt at npm run dev|build|start.",
+        'NODE_ENV != "test" (on in BOTH dev and prod, not dev-only)',
+    ),
 )
 
 
 def render(ctx: BackofficeContext) -> None:
+    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Normalize / RepairGate & Kvalitet")
+    render_where_panel("Normalize / RepairGate & Kvalitet", domain_map)
     st.caption(
-        "Central överblick för Normalize (kod: autofix), RepairGate (kod: LLM-fixer) och kvalitetspass. Den här sidan speglar samma `config/ai_models/manifest.json` som config-dashboarden använder."
+        "Samlad **läsvy** för Normalize (kod: autofix), RepairGate (kod: LLM-fixer), "
+        "kvalitetspass och repair-loop-hardening. Vill du ändra pass-gränser, "
+        "tokenbudgetar eller phase routing: gör det på **ai_models**-sidan "
+        "(enda skrivytan för `config/ai_models/manifest.json`)."
     )
+    nav_link_button("→ Redigera i ai_models", "ai_models", key="autofix_goto_ai_models")
 
     manifest = read_json(ctx.manifest_json) if ctx.manifest_json.exists() else None
     runtime_cfg = read_autofix_runtime_config(ctx.autofix_hook_ts)
@@ -74,7 +116,49 @@ LLM-generering
     )
 
     st.divider()
-    st.subheader("Runtime-gränser för RepairGate")
+    st.subheader("Aktuella styrvärden (läses ur manifest + kod)")
+    if isinstance(manifest, dict):
+        rp = manifest.get("repairPolicies") or {}
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Normalize-pass", int(rp.get("deterministicAutofixPasses", 2)))
+        c2.metric("Syntax-pass", int(rp.get("syntaxFixPasses", 3)))
+        c3.metric("Server repair-pass", int(rp.get("serverRepairPasses", 2)))
+        c4.metric("Manual repair-pass", int(rp.get("manualRepairRouteLlmPasses", 2)))
+        c5.metric("Repair accept-timeout (min)", int(rp.get("repairAcceptTimeoutMinutes", 5)))
+
+        tb = manifest.get("tokenBudgets") or {}
+        pgp = manifest.get("postGenerationPasses") or {}
+        b1, b2, b3 = st.columns(3)
+        b1.metric(
+            "Build max output tokens",
+            (tb.get("engineMaxOutputTokens") or {}).get("default", "—"),
+        )
+        b2.metric(
+            "Normalize/RepairGate max tokens",
+            (tb.get("autofixMaxOutputTokens") or {}).get("default", "—"),
+        )
+        b3.metric(
+            "Verifier max tokens",
+            (pgp.get("verifierMaxOutputTokens") or {}).get("default", "—"),
+        )
+
+        routing = phase_routing_defaults(manifest)
+        fixer_rows = []
+        for tier in BUILD_PROFILE_ORDER:
+            resolved = resolve_phase_models_for_dashboard(manifest, "fixer").get(tier, "")
+            fixer_rows.append(
+                {
+                    "byggprofil": tier,
+                    "fixer-modell (routing)": routing.get(tier, {}).get("fixer", "—"),
+                    "resolverad modell": human_model_label(resolved),
+                }
+            )
+        st.markdown("**Fixer-modell per byggprofil** (RepairGate)")
+        st.dataframe(fixer_rows, width="stretch", hide_index=True)
+    else:
+        st.error(f"Kunde inte läsa `{ctx.manifest_json.relative_to(ctx.repo_root).as_posix()}`.")
+
+    st.markdown("**Runtime-gränser för RepairGate** (hårdkodade i `useAutoFix.ts`)")
     rc1, rc2 = st.columns(2)
     rc1.metric(
         "Max RepairGate/autofix per chatt",
@@ -103,11 +187,74 @@ LLM-generering
         _render_fix_statistics(ctx)
 
     st.divider()
-    st.subheader("Centrala styrningar (manifest.json)")
-    if not isinstance(manifest, dict):
-        st.error(f"Kunde inte läsa `{ctx.manifest_json.relative_to(ctx.repo_root).as_posix()}`.")
-    else:
-        _render_manifest_controls(ctx, manifest)
+    _render_repair_loop_hardening(ctx)
+
+
+def _render_repair_loop_hardening(ctx: BackofficeContext) -> None:
+    st.subheader("Repair-loop hardening (historik + tunables)")
+    st.caption(
+        "Source of truth: `src/lib/config.ts` → `FEATURES`. Phases 2A/2B/2C inlinades "
+        "2026-04-28 — beteendet är ovillkorligt i `verifier-phase.ts`, "
+        "`finalize-preflight.ts` och `persist-side-effects.ts`. För Phase 2D + Phase 3 "
+        "(kvar i FEATURES): ändra konstanterna i `src/lib/config.ts`."
+    )
+
+    with st.expander("Inlined unconditional behaviour (post-2026-04-28)", expanded=False):
+        for label, helptext in REPAIR_LOOP_INLINED_HISTORY:
+            st.markdown(f"**{label}**")
+            st.caption(helptext)
+
+    with st.expander("Tunable feature state (FEATURES i src/lib/config.ts)", expanded=False):
+        for feature_key, label, helptext, value in REPAIR_LOOP_TUNABLE:
+            st.markdown(f"**{label}**")
+            st.caption(helptext)
+            st.code(f"FEATURES.{feature_key} = {value}", language="typescript")
+
+    with st.expander("Senaste 20 repair-loop-telemetri-events", expanded=False):
+        events = _read_recent_devlog_lines(ctx.repo_root, limit=20)
+        if not events:
+            st.caption(
+                "Inga events hittade i `logs/sajtmaskin-local.log` än. "
+                "Kör en generering och kom tillbaka."
+            )
+        else:
+            st.dataframe(events, width="stretch", hide_index=True)
+    st.caption(
+        "RAG-indexstatus och reindex-knapp finns på sidan **Error-log RAG** "
+        "(Drift & hälsa)."
+    )
+
+
+def _read_recent_devlog_lines(repo_root: Path, limit: int = 20) -> list[dict[str, Any]]:
+    """Return the most recent dev-log JSON events relevant to repair-loop telemetry."""
+    log_path = repo_root / "logs" / "sajtmaskin-local.log"
+    if not log_path.exists():
+        return []
+    interesting_types = {
+        "version_error_log_pruned",
+        "version_error_log_pruned.error",
+        "verifier_rerun_after_fix",
+        "verifier_rerun_after_fix.error",
+        "merged-syntax.mechanical-only.result",
+    }
+    events: list[dict[str, Any]] = []
+    try:
+        # Dev-log is typically < 5 MB — read all of it and filter.
+        with log_path.open("r", encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except Exception:
+                    continue
+                evt_type = obj.get("type") if isinstance(obj, dict) else None
+                if evt_type in interesting_types:
+                    events.append(obj)
+    except Exception:
+        return []
+    return list(reversed(events[-limit:]))
 
 
 def _render_fix_statistics(ctx: BackofficeContext) -> None:
@@ -224,207 +371,5 @@ def _render_fix_statistics(ctx: BackofficeContext) -> None:
             hide_index=True,
         )
         st.caption(
-            "CSV-loggen lagrar nu full ISO-tid i kolumnen `time`. Vyn visar senaste rader och kan senare utökas med riktiga dag/vecka-trender."
+            "CSV-loggen lagrar full ISO-tid i kolumnen `time`. Vyn visar senaste rader."
         )
-
-
-def _render_manifest_controls(ctx: BackofficeContext, manifest: dict[str, Any]) -> None:
-    rp = manifest.setdefault("repairPolicies", {})
-    tb = manifest.setdefault("tokenBudgets", {})
-    pgp = manifest.setdefault("postGenerationPasses", {})
-    routing = phase_routing_defaults(manifest)
-
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Normalize-pass", int(rp.get("deterministicAutofixPasses", 2)))
-    c2.metric("Syntax-pass", int(rp.get("syntaxFixPasses", 3)))
-    c3.metric("Server repair-pass", int(rp.get("serverRepairPasses", 2)))
-    c4.metric("Manual repair-pass", int(rp.get("manualRepairRouteLlmPasses", 2)))
-    c5.metric("Repair accept-timeout (min)", int(rp.get("repairAcceptTimeoutMinutes", 5)))
-
-    left, right = st.columns(2)
-    with left:
-        st.markdown("### Repair-pass")
-        deterministic_passes = st.number_input(
-            "Normalize-pass före RepairGate",
-            value=int(rp.get("deterministicAutofixPasses", 2)),
-            min_value=1,
-            max_value=10,
-            step=1,
-            key="bo_repair_deterministic",
-        )
-        syntax_passes = st.number_input(
-            "Syntax-fix-pass efter generering",
-            value=int(rp.get("syntaxFixPasses", 3)),
-            min_value=1,
-            max_value=10,
-            step=1,
-            key="bo_repair_syntax",
-        )
-        manual_passes = st.number_input(
-            "Manuell repair-route: max LLM-pass",
-            value=int(rp.get("manualRepairRouteLlmPasses", 2)),
-            min_value=1,
-            max_value=10,
-            step=1,
-            key="bo_repair_manual",
-        )
-        server_passes = st.number_input(
-            "Background server verify: max repair-pass",
-            value=int(rp.get("serverRepairPasses", 2)),
-            min_value=1,
-            max_value=10,
-            step=1,
-            key="bo_repair_server",
-        )
-        repair_accept_timeout = st.number_input(
-            "Repair available: auto-accept timeout (minuter)",
-            value=int(rp.get("repairAcceptTimeoutMinutes", 5)),
-            min_value=1,
-            max_value=120,
-            step=1,
-            key="bo_repair_accept_timeout",
-            help="Efter denna tid kan pending `repair_available` auto-accepteras i chat/versions/readiness-routes.",
-        )
-
-    with right:
-        st.markdown("### Tokenbudgetar")
-        engine_tokens = st.number_input(
-            "Build/generator max output tokens",
-            value=int((tb.get("engineMaxOutputTokens") or {}).get("default", 82768)),
-            step=1024,
-            key="bo_tb_engine",
-        )
-        autofix_tokens = st.number_input(
-            "Normalize / RepairGate max output tokens",
-            value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
-            step=512,
-            key="bo_tb_autofix",
-        )
-        verifier_tokens = st.number_input(
-            "Verifier max output tokens",
-            value=int((pgp.get("verifierMaxOutputTokens") or {}).get("default", 8192)),
-            step=256,
-            key="bo_pgp_verifier_tokens",
-        )
-        verifier_snippet = st.number_input(
-            "Verifier: snippet-tecken per fil",
-            value=int((pgp.get("verifierSnippetCharsPerFile") or {}).get("default", 14000)),
-            step=500,
-            key="bo_pgp_verifier_snippet",
-        )
-
-    st.markdown("### Phase routing")
-    st.caption(
-        "Choose a model per phase. `selected_build_model` is shown as `Tier model (...)`, and planner/generator still require the existing builder thinking toggle to be on."
-    )
-    build_defaults = build_profile_defaults(manifest)
-    thinking_defaults = phase_thinking_defaults(manifest)
-    edited_routing: dict[str, dict[str, str]] = {}
-    edited_thinking: dict[str, dict[str, dict[str, Any]]] = {}
-    tier_tabs = st.tabs([tier for tier in BUILD_PROFILE_ORDER])
-    for idx, tier in enumerate(BUILD_PROFILE_ORDER):
-        tier_routing = routing.get(tier) or {}
-        tier_thinking = thinking_defaults.get(tier) or {}
-        edited_routing[tier] = {}
-        edited_thinking[tier] = {}
-        with tier_tabs[idx]:
-            for phase in PHASE_ORDER:
-                current_model = (
-                    str(tier_routing.get(phase, "selected_build_model")).strip()
-                    or "selected_build_model"
-                )
-                current_thinking_cfg = tier_thinking.get(phase) or {}
-                current_thinking = bool(current_thinking_cfg.get("thinking", False))
-                current_effort = (
-                    str(current_thinking_cfg.get("reasoningEffort", "medium")).strip()
-                    or "medium"
-                )
-                budget = phase_token_budget_entry(manifest, phase)
-                st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
-                c1, c2, c3, c4 = st.columns([1.8, 0.9, 1.1, 1.1])
-                with c1:
-                    model_value = st.selectbox(
-                        "Model",
-                        AVAILABLE_PHASE_MODELS,
-                        index=AVAILABLE_PHASE_MODELS.index(current_model)
-                        if current_model in AVAILABLE_PHASE_MODELS
-                        else 0,
-                        key=f"bo_phase_model_{tier}_{phase}",
-                        format_func=lambda model_id, _tier=tier: phase_model_display_label(
-                            model_id,
-                            _tier,
-                            build_defaults,
-                        ),
-                    )
-                with c2:
-                    thinking_value = st.toggle(
-                        "Thinking",
-                        value=current_thinking,
-                        key=f"bo_phase_thinking_{tier}_{phase}",
-                    )
-                with c3:
-                    effort_value = st.selectbox(
-                        "Reasoning effort",
-                        REASONING_EFFORT_OPTIONS,
-                        index=REASONING_EFFORT_OPTIONS.index(current_effort)
-                        if current_effort in REASONING_EFFORT_OPTIONS
-                        else REASONING_EFFORT_OPTIONS.index("medium"),
-                        key=f"bo_phase_effort_{tier}_{phase}",
-                        disabled=not thinking_value,
-                    )
-                with c4:
-                    resolved_model_value = (
-                        build_defaults.get(tier, "").strip()
-                        if model_value == "selected_build_model"
-                        else model_value
-                    )
-                    st.text_input(
-                        "Resolved model",
-                        value=human_model_label(resolved_model_value),
-                        key=f"bo_phase_resolved_{tier}_{phase}",
-                        disabled=True,
-                    )
-                st.caption(
-                    f"Budget: `{budget['label']}` default={budget['default']} min={budget['min']} max={budget['max']} env={budget['envKey'] or '—'}. {budget['note']}"
-                )
-                edited_routing[tier][phase] = model_value
-                edited_thinking[tier][phase] = {
-                    "thinking": thinking_value,
-                    "reasoningEffort": effort_value,
-                }
-
-    if st.button("Spara Normalize / RepairGate & Kvalitet", type="primary"):
-        tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
-        tb.setdefault("autofixMaxOutputTokens", {})["default"] = int(autofix_tokens)
-        pgp.setdefault("verifierMaxOutputTokens", {})["default"] = int(verifier_tokens)
-        pgp.setdefault("verifierSnippetCharsPerFile", {})["default"] = int(verifier_snippet)
-        rp["deterministicAutofixPasses"] = int(deterministic_passes)
-        rp["syntaxFixPasses"] = int(syntax_passes)
-        rp["manualRepairRouteLlmPasses"] = int(manual_passes)
-        rp["serverRepairPasses"] = int(server_passes)
-        rp["repairAcceptTimeoutMinutes"] = int(repair_accept_timeout)
-        manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
-        for tier, phase_entries in edited_thinking.items():
-            for phase, cfg in phase_entries.items():
-                write_phase_thinking(
-                    manifest,
-                    tier,
-                    phase,
-                    bool(cfg.get("thinking", False)),
-                    str(cfg.get("reasoningEffort", "medium")),
-                )
-        errs = validate_manifest_or_error(manifest)
-        if errs:
-            st.error(
-                "Sparar inte — manifestet bryter mot schemat:\n"
-                + "\n".join(f"- {message}" for message in errs)
-            )
-            st.stop()
-        try:
-            write_json(ctx.manifest_json, manifest)
-            st.success(
-                "Sparade Normalize / RepairGate & Kvalitet-inställningar till config/ai_models/manifest.json."
-            )
-            st.rerun()
-        except Exception:
-            st.error("Kunde inte spara manifest.json.")

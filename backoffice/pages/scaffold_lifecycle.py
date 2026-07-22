@@ -13,6 +13,8 @@ import streamlit as st
 from backoffice.shared import (
     BackofficeContext,
     _escape_ts_string,
+    backup_file,
+    backup_tree,
     get_all_manifests,
     read_json,
     read_text,
@@ -21,6 +23,8 @@ from backoffice.shared import (
     write_json,
     write_text,
 )
+from backoffice.shared import extract_ts_string_array_field as _extract_ts_string_array_field
+from backoffice.shared import extract_ts_string_field as _extract_ts_string_field
 
 THEME_TOKEN_KEYS = (
     "background",
@@ -306,26 +310,6 @@ def _count_runtime_dossiers(ctx: BackofficeContext) -> dict[str, int]:
             if entry.is_dir() and not entry.name.startswith("_")
         )
     return counts
-
-
-def _unescape_ts_string(value: str) -> str:
-    return value.replace('\\"', '"').replace("\\\\", "\\")
-
-
-def _extract_ts_string_field(text: str, field: str) -> str:
-    match = re.search(rf'{field}:\s*\n?\s*"([^"]*(?:\\.[^"]*)*)"', text)
-    return _unescape_ts_string(match.group(1)).strip() if match else ""
-
-
-def _extract_ts_string_array_field(text: str, field: str) -> list[str]:
-    match = re.search(rf"{field}:\s*\[(.*?)\]", text, re.DOTALL)
-    if not match:
-        return []
-    return [
-        _unescape_ts_string(value)
-        for value in re.findall(r'"([^"]*(?:\\.[^"]*)*)"', match.group(1))
-        if _unescape_ts_string(value).strip()
-    ]
 
 
 def _source_defaults_from_manifest(manifest_path: Path) -> dict[str, Any]:
@@ -1070,9 +1054,17 @@ def _render_delete_variant(
         key=f"delete_variant_button_{selected_scaffold}_{selected_variant.get('id', '')}",
         disabled=not confirm,
     ):
+        # Fail-closed: radera inte om snapshoten (Återställning) inte kunde tas.
+        if variant_path.is_file() and backup_file(variant_path, ctx.repo_root) is None:
+            st.error(
+                "Kunde inte ta en snapshot av variant-filen — "
+                "avbröt raderingen, inget togs bort."
+            )
+            return
         variant_path.unlink(missing_ok=True)
         st.success(
-            f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}`. "
+            f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}` "
+            "(en snapshot ligger kvar under **Återställning**). "
             "Bygg om embeddings om du vill uppdatera relaterade artefakter."
         )
         st.rerun()
@@ -1836,10 +1828,25 @@ def _render_dependency_report(report: dict[str, Any]) -> None:
                 )
 
 
-def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
+def _delete_scaffold(
+    ctx: BackofficeContext, scaffold_id: str, *, snapshot: bool = True
+) -> None:
     variant_dir = ctx.variants_dir / scaffold_id
     scaffold_dir = ctx.scaffolds_dir / scaffold_id
 
+    # Fail-closed: ta zip-snapshots (Återställning) FÖRE någon radering.
+    # Misslyckas en snapshot avbryts hela raderingen utan att röra disken.
+    # `snapshot=False` används vid rollback av en NYSS skapad scaffold (t.ex.
+    # Scaffold Wizard när variant-skrivningen failar): tidigare tillstånd är
+    # "fanns inte", så en undo-snapshot är meningslös och får inte blockera
+    # städningen eller maskera ursprungsfelet.
+    if snapshot:
+        for directory in (variant_dir, scaffold_dir):
+            if directory.is_dir() and backup_tree(directory, ctx.repo_root) is None:
+                raise RuntimeError(
+                    f"Kunde inte ta zip-snapshot av `{directory}` — "
+                    "avbröt raderingen, inget togs bort."
+                )
     if variant_dir.is_dir():
         shutil.rmtree(variant_dir)
     if scaffold_dir.is_dir():

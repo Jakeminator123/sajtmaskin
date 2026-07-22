@@ -131,8 +131,8 @@
         "src/app/api/projects/[id]/analyze/route.ts"
       ]
     },
-    "Runtime scaffolds": {
-      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob).",
+    "Scaffolds": {
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). CRUD görs i Scaffold Lifecycle.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -445,6 +445,184 @@
         "backoffice/pages/eval_page.py",
         "scripts/scaffolds/eval-scaffold-selection.ts",
         "src/lib/gen/eval/cli.ts"
+      ]
+    },
+    "Återställning": {
+      "summary": "Ångra-lager för backoffice-redigeringar: varje sparning via shared.write_text/write_json säkerhetskopierar först den gamla filversionen till data/backoffice/backups/ (gitignorerad, max 20 snapshots per fil), och destruktiva katalog-raderingar (dossier/scaffold) zippas dit före rmtree. Vyn listar snapshots, visar diff mot nuvarande innehåll och kan rulla tillbaka — en återställning snapshotar i sin tur nuvarande innehåll så den är ångringsbar. Git-historiken är alltid det yttersta skyddsnätet för committade filer.",
+      "canonicalPaths": [
+        "data/backoffice/backups/",
+        "backoffice/shared.py",
+        "backoffice/pages/restore.py"
+      ],
+      "docsPaths": [],
+      "codeReaders": [
+        "backoffice/pages/restore.py",
+        "backoffice/test_backup_restore.py"
+      ]
+    },
+    "Scaffold Performance": {
+      "summary": "Read-only poängvy per scaffold från generation_telemetry (kör scripts/db/scaffold-scores.mjs via subprocess mot DB:n som .env.local pekar på). Beslutsunderlag för vilka scaffolds som presterar — ingen redigering här.",
+      "canonicalPaths": [
+        "backoffice/pages/scaffold_performance.py",
+        "scripts/db/scaffold-scores.mjs"
+      ],
+      "docsPaths": [
+        "docs/contracts/scaffold-system.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/scaffold_performance.py"
+      ]
+    },
+    "Dossiers (legoklossar)": {
+      "summary": "Adminvy för runtime dossiers (Byggblock/capability-moduler) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
+      "canonicalPaths": [
+        "data/dossiers/",
+        "data/dossiers/_index/capability-map.json",
+        "backoffice/pages/dossiers.py",
+        "scripts/dossiers/"
+      ],
+      "docsPaths": [
+        "docs/contracts/dossier-system.md",
+        ".cursor/rules/dossier-rules.mdc"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/dossier.schema.json"
+      ],
+      "codeReaders": [
+        "src/lib/gen/dossiers/registry.ts",
+        "backoffice/test_dossiers_page.py"
+      ]
+    },
+    "Orchestration Map": {
+      "summary": "Statisk referenskarta: parsar TS-typer (ScaffoldId, BuildIntent, PromptType m.fl.) direkt ur källfilerna och visar hur orkestreringssignalerna hänger ihop. Read-only — åldras bara om TS-filerna byter form.",
+      "canonicalPaths": [
+        "backoffice/pages/orchestration.py",
+        "src/lib/gen/scaffolds/types.ts",
+        "src/lib/builder/build-intent.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/llm-pipeline.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/orchestration.py"
+      ]
+    },
+    "Normalize / RepairGate & Kvalitet": {
+      "summary": "Read-only samlad vy för fix-pipelinen: Normalize (kod: autofix), RepairGate (kod: LLM-fixer), kvalitetspass, fix-statistik ur error-log.csv och repair-loop-hardening-historik (fd. sidan Repair Loop). All redigering av repair-pass/tokenbudgetar/phase routing görs på ai_models-sidan — enda skrivytan för config/ai_models/manifest.json.",
+      "canonicalPaths": [
+        "config/ai_models/manifest.json (redigeras via ai_models)",
+        "logs/llm-segmentts-and-index/error-log.csv",
+        "src/lib/hooks/chat/useAutoFix.ts",
+        "src/lib/config.ts (FEATURES)"
+      ],
+      "docsPaths": [
+        "docs/architecture/llm-pipeline.md",
+        "docs/architecture/glossary.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/autofix.py"
+      ]
+    },
+    "Fixer Registry": {
+      "summary": "Katalog över alla fixers (Normalize/RepairGate) ur FIXER_REGISTRY-snapshoten: kategori, fas, risk, status, triggers och telemetri. Snapshoten regenereras vid npm run dev|build|start och kan byggas om från vyn.",
+      "canonicalPaths": [
+        "src/lib/gen/autofix/fixer-registry.ts",
+        "data/observability/fixer-registry.snapshot.json",
+        "scripts/observability/dump-fixer-registry.mjs"
+      ],
+      "docsPaths": [
+        "docs/architecture/llm-pipeline.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/fixer_registry.py"
+      ]
+    },
+    "Error-log RAG": {
+      "summary": "Status för fel-loggens TF-IDF-RAG (producer-NDJSON + indexer-snapshot), kan tvinga omindexering (npm run rag:error-log:reindex) och läsa prod-fault-matrisen ur error_log_events (read-only SELECT via subprocess).",
+      "canonicalPaths": [
+        "logs/llm-segmentts-and-index/error-log.ndjson",
+        "data/observability/",
+        "scripts/observability/fault-matrix.mjs"
+      ],
+      "docsPaths": [
+        "docs/architecture/llm-pipeline.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/error_log_rag.py"
+      ]
+    },
+    "Pipeline Health": {
+      "summary": "Kör underhållsskript (embeddings, shadcn-sync, deps-baseline m.m.) med stale-detektion mot genererade artefakter, och persisterar körstatus lokalt i data/backoffice/pipeline-health-state.json. Obs: 'pipeline' här = underhålls-/asset-pipelinen, inte generierings-latens.",
+      "canonicalPaths": [
+        "backoffice/pages/pipeline_health.py",
+        "data/backoffice/pipeline-health-state.json"
+      ],
+      "docsPaths": [],
+      "codeReaders": [
+        "backoffice/test_pipeline_health_script_parity.py"
+      ]
+    },
+    "Observability": {
+      "summary": "Live-metrics från appens /api/metrics (Prometheus-format): fas-latens, fixer-utfall, verifier-counters. Kräver att dev-servern (eller prod-endpoint via SAJTMASKIN_METRICS_BASE_URL + token) är igång. Read-only.",
+      "canonicalPaths": [
+        "src/lib/observability/metrics.ts",
+        "backoffice/pages/observability.py",
+        "backoffice/observability_io.py"
+      ],
+      "docsPaths": [],
+      "codeReaders": [
+        "backoffice/test_observability_io.py"
+      ]
+    },
+    "LLM-flöde telemetri": {
+      "summary": "Read-only aggregerad tidslinje ur generationsloggen (logs/generationslogg/*/timeline.ndjson), waves 1–7: event-typer, fas-latens och utfall per körning. Kompletterar Selection Rationale (varför-valdes) och Generation History (DB-historik).",
+      "canonicalPaths": [
+        "logs/generationslogg/",
+        "src/lib/logging/generation-log-writer.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/runtime-contracts.md"
+      ],
+      "codeReaders": [
+        "backoffice/pages/llm_flode_telemetry.py"
+      ]
+    },
+    "LLM-flöde status": {
+      "summary": "Deterministisk statuskarta över LLM-flödet: renderar docs/canvases/llm-flow.canvas.json (gitignorerad sidecar, byggs om vid backoffice-start och via knapp) med processstatus, backlog och eval-scorecard.",
+      "canonicalPaths": [
+        "scripts/canvas/build-llm-flow-canvas.mjs",
+        "scripts/canvas/llm-flow-canvas.config.json",
+        "docs/canvases/llm-flow.canvas.txt"
+      ],
+      "docsPaths": [],
+      "codeReaders": [
+        "backoffice/pages/llm_flow_status.py",
+        "backoffice/app_main.py"
+      ]
+    },
+    "Projekt-admin (radera)": {
+      "summary": "DESTRUKTIV: massradera testkontons projekt i databasen via scripts/db/cleanup-test-projects.mjs. Dry-run är default; apply kräver explicit bekräftelse och föregående dry-run. DB-rader kan inte återställas via backoffice — dubbelkolla mål-DB:n.",
+      "canonicalPaths": [
+        "backoffice/pages/projects_admin.py",
+        "scripts/db/cleanup-test-projects.mjs"
+      ],
+      "docsPaths": [
+        ".cursor/rules/db-env-parity.mdc"
+      ],
+      "codeReaders": [
+        "backoffice/pages/projects_admin.py"
+      ]
+    },
+    "Mallar → Blob-upload": {
+      "summary": "Laddar upp v0-mallar (zip) till Vercel Blob och uppdaterar template-blob-manifest.json + galleri-katalogen via scripts/v0-templates/upload-mallar-blob.mjs. Mallar (v0-mallar i Blob-galleriet) är ett separat system från scaffolds och dossiers.",
+      "canonicalPaths": [
+        "src/lib/templates/template-blob-manifest.json",
+        "scripts/v0-templates/upload-mallar-blob.mjs"
+      ],
+      "docsPaths": [],
+      "codeReaders": [
+        "backoffice/pages/templates_blob.py",
+        "src/lib/templates/"
       ]
     },
     "Cursor-agenter": {

@@ -31,6 +31,20 @@ class DomainMapParityTests(unittest.TestCase):
         stale = sorted(k for k in (domain_map.get("pages") or {}) if k not in page_names)
         self.assertEqual(stale, [], f"domain-map.json names unknown pages: {stale}")
 
+    def test_every_registered_page_has_a_domain_map_entry(self) -> None:
+        """Bidirectional parity (sedan 2026-07-21): varje registrerad sida ska ha
+        en post i domain-map.json så "var ligger detta?"-hjälpen och summary-raden
+        aldrig tystnar för en ny sida. Lägg till summary + canonicalPaths när du
+        registrerar en ny PageSpec."""
+        domain_map = read_json(DOMAIN_MAP_JSON)
+        mapped = set((domain_map.get("pages") or {}).keys())
+        missing = sorted(name for name in PAGE_NAMES if name not in mapped)
+        self.assertEqual(
+            missing,
+            [],
+            f"Registered pages missing a domain-map.json entry: {missing}",
+        )
+
     def test_query_aliases_resolve_to_registered_pages(self) -> None:
         """Every ``PAGE_QUERY_ALIASES`` target must be a real registered page so
         a ``?nav=`` deep link can never resolve to a non-existent view."""

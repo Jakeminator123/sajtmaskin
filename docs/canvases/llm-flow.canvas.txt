@@ -63,91 +63,40 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "d40fe31c5",
-    "commitDate": "2026-06-28",
+    "commit": "f51ae989",
+    "commitDate": "2026-07-22",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 0,
-    "openP2": 10,
-    "openP3": 3,
+    "openP2": 22,
+    "openP3": 33,
     "blocked": 0,
-    "shaky": 4,
-    "evalExactHitPct": null
+    "shaky": 7,
+    "evalExactHitPct": 98.46
   },
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
-      "openBugs": 0,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 18,
-      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 18 commits / 14d"
-    },
-    {
-      "name": "Codegen core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 3,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 2,
-        "P3": 1,
+        "P3": 3,
         "other": 0
       },
-      "churn": 4,
-      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
+      "churn": 15,
+      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:2 P3:3)"
     },
     {
-      "name": "prompt-core",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 3,
-      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "3 commits / 14d"
-    },
-    {
-      "name": "ai_models",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 1,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 1,
-        "other": 0
-      },
-      "churn": 18,
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
-      "name": "Runtime scaffolds",
+      "name": "Codegen core",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -155,13 +104,64 @@ const DATA: CanvasData = {
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 3,
-        "P3": 1,
+        "P2": 2,
+        "P3": 2,
         "other": 0
       },
-      "churn": 15,
-      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
-      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
+      "churn": 2,
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
+      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
+    },
+    {
+      "name": "prompt-core",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 2,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 2,
+        "P3": 0,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
+    },
+    {
+      "name": "ai_models",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 10,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 2,
+        "P3": 8,
+        "other": 0
+      },
+      "churn": 23,
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
+      "note": "10 oppna backlog-rader (P0:0 P1:0 P2:2 P3:8)"
+    },
+    {
+      "name": "Scaffolds",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 18,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 10,
+        "P3": 8,
+        "other": 0
+      },
+      "churn": 17,
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
+      "note": "18 oppna backlog-rader (P0:0 P1:0 P2:10 P3:8)"
     },
     {
       "name": "Scaffold Lifecycle",
@@ -176,43 +176,43 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 7,
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
-      "note": "Aktiv: 7 commits / 14d"
+      "churn": 12,
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
+      "note": "Aktiv: 12 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 6,
+      "openBugs": 41,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 5,
-        "P3": 1,
+        "P2": 17,
+        "P3": 24,
         "other": 0
       },
-      "churn": 12,
+      "churn": 23,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:5 P3:1)"
+      "note": "41 oppna backlog-rader (P0:0 P1:0 P2:17 P3:24)"
     },
     {
       "name": "Eval",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 0,
+        "P3": 1,
         "other": 0
       },
-      "churn": 5,
+      "churn": 4,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "shaky": [
@@ -220,42 +220,73 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:5 P3:1)"
+      "reason": "41 oppna backlog-rader (P0:0 P1:0 P2:17 P3:24)"
     },
     {
-      "name": "Runtime scaffolds",
+      "name": "Scaffolds",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:3 P3:1)"
-    },
-    {
-      "name": "Codegen core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:2 P3:1)"
+      "reason": "18 oppna backlog-rader (P0:0 P1:0 P2:10 P3:8)"
     },
     {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "reason": "10 oppna backlog-rader (P0:0 P1:0 P2:2 P3:8)"
+    },
+    {
+      "name": "LLM-faser & runtime-sanning",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:2 P3:3)"
+    },
+    {
+      "name": "Codegen core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
     }
   ],
   "topOpenRisks": [
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "F3 build-plan härleds från `preGenerationContracts`, inte parent-versionens filer → tomt build-plan-block fas…"
+      "fynd": "**Tidigare LLM-byggd chattyta konkurrerar med senare `openai-chat`-dossier (dubbel chatt-yta/route):** en F2-…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Init och follow-up har olika capability-universum (drift)"
+      "fynd": "Sign-off/merge-freshness: `review-window` väntar bara in botar, gör INGEN verdict-bedömning, och blir grön ef…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Dossier/capability-threading svagt vissa paths (`capability-dossier-bridge.ts` → `orchestrate.ts`)"
+      "fynd": "\"Uppdatera preview\"-snurran roterar ~konstant: `isLoading` drivs av `previewLifecycle === \"recovering\"` + `pr…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "Nav-förvirring one-pager vs multi-page: scaffold `landing-page` valdes men route-planen skapade ändå fullvärd…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`postgres-drizzle`: `lib/db/schema.ts` är `rewritable` medan verbatim `lib/db/index.ts` importerar `./schema`…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`dashboard-charts` med `promptInstructionMode: compact` släpper client-only/avoid-regler i codegen-prompten →…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`analytics` + `dashboard` dubbel-triggar capabilities utan veto i follow-up-vokabulären → båda kan aktiveras …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "Dossier promotion i backoffice jämför inte `manifest.capability` mot plan — fel dossier kan promotas."
     },
     {
       "prio": "P2",
@@ -265,40 +296,422 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Inspect-bridge: ingen fallback när flagga PÅ men bridge ej kan injiceras (`ready` saknas) → inspektor inert"
+      "fynd": "F3 pre-gen contracts divergerar från approval-scopad build-plan: när parent-versionen saknar filhärledda inte…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` saknar regel i `config/env-policy.json` (env-sync defaultar okända `N…"
+      "fynd": "OC_DEBUG: `buildDebugSystemPrompt()` lovar alltid full kod + fynd + repo-kontext, men kontext-bygget får `deb…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Bridge-captures skickar element-center, inte faktisk klick-koordinat"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "Control-plane registry: `#fragment`-källreferenser valideras inte (strippar efter `#`, kollar bara att filen …"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "Nya sektions-capabilities (`logo-cloud`, `stats-counter`, `feature-grid`, `cta-section`, `gallery-lightbox`, …"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "react-import-konsolidering bailar (no-op) när `import * as React` finns i filen → duplicerade named/type reac…"
+      "fynd": "Preview-hosten (Fly `vm-fly-jakem`, single VM) har minnestryck: `npm install` OOM-killades 2× 2026-07-02 ~06:…"
     }
   ],
-  "topOpenRisksOmitted": 0,
-  "evals": null,
+  "topOpenRisksOmitted": 10,
+  "evals": {
+    "exactHitPct": 98.46,
+    "acceptableHitPct": null,
+    "total": 65,
+    "errors": null,
+    "rows": [
+      {
+        "id": "landing_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "landing_02",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "landing_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "landing_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "landing_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "saas_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "saas_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "saas_03",
+        "ok": true,
+        "method": "keyword",
+        "confidence": "medium"
+      },
+      {
+        "id": "saas_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "saas_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "portfolio_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "portfolio_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "portfolio_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "portfolio_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "portfolio_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "blog_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "blog_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "blog_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "blog_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "blog_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "dashboard_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "dashboard_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "dashboard_03",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "dashboard_04",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "dashboard_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "appshell_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "appshell_02",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "appshell_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "appshell_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "appshell_05",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "auth_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "auth_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "auth_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "auth_04",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "ecom_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "ecom_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "ecom_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "ecom_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "ecom_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "photoshop_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "photoshop_02",
+        "ok": false,
+        "method": "keyword",
+        "confidence": "medium"
+      },
+      {
+        "id": "photoshop_03",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "photoshop_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "hospitality_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "hospitality_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "hospitality_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "hospitality_04",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "hospitality_05",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "contentsite_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "contentsite_02",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "contentsite_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "contentsite_04",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "contentsite_05",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "base_01",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "base_02",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "base_03",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "base_04",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "cross_01",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "cross_02",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "cross_03",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "cross_04",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "cross_05",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "cross_06",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "cross_07",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "cross_08",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      }
+    ]
+  },
   "phases": [
-    "FAS 1 — Intent (prompt → OrchestrationInput)",
-    "FAS 2 — Orkestrering, codegen, finalize, persist",
-    "FAS 3 — Preview, quality gate, deploy"
+    "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
+    "FAS 2 - Orkestrering & build: system prompt, codegen, finalize, autofix, verifier, persist",
+    "FAS 3 - Preview & deploy: preview-host/VM, quality-gate, repair, deploy"
   ],
   "legend": [
     "Klart",
