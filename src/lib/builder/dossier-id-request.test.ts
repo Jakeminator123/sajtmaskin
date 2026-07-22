@@ -33,8 +33,8 @@ describe("detectRequestedDossierIds", () => {
 
   it("matches the indefinite form 'byggblock' too", () => {
     expect(
-      detectRequestedDossierIds("Jag vill ha ett byggblock (id: faq-accordion) på sidan"),
-    ).toEqual(["faq-accordion"]);
+      detectRequestedDossierIds("Jag vill ha ett byggblock (id: gallery-lightbox) på sidan"),
+    ).toEqual(["gallery-lightbox"]);
   });
 
   it("returns nothing without the byggblock keyword", () => {
@@ -55,15 +55,15 @@ describe("detectRequestedDossierIds", () => {
   it("dedupes and lowercases multiple ids", () => {
     expect(
       detectRequestedDossierIds(
-        'Lägg till byggblocket "A" (id: stripe-checkout) och byggblocket "B" (id: STRIPE-CHECKOUT) och byggblocket "C" (id: faq-accordion)',
+        'Lägg till byggblocket "A" (id: stripe-checkout) och byggblocket "B" (id: STRIPE-CHECKOUT) och byggblocket "C" (id: gallery-lightbox)',
       ),
-    ).toEqual(["stripe-checkout", "faq-accordion"]);
+    ).toEqual(["stripe-checkout", "gallery-lightbox"]);
   });
 });
 
 describe("mergeDossierIdCapabilities", () => {
   const resolver = (id: string) =>
-    id === "stripe-checkout" ? "payments" : id === "faq-accordion" ? "faq-section" : null;
+    id === "stripe-checkout" ? "payments" : id === "gallery-lightbox" ? "gallery-lightbox" : null;
 
   it("maps (id: stripe-checkout) to the payments capability", () => {
     const merged = mergeDossierIdCapabilities(
@@ -110,10 +110,10 @@ describe("mergeDossierIdCapabilities", () => {
     };
     const merged = mergeDossierIdCapabilities(
       detection,
-      'Lägg till byggblocket "FAQ Accordion" (id: faq-accordion)',
+      'Lägg till byggblocket "Bildgalleri" (id: gallery-lightbox)',
       resolver,
     );
-    expect(merged.capabilityIds).toEqual(["faq-section"]);
+    expect(merged.capabilityIds).toEqual(["gallery-lightbox"]);
     expect(merged.referencesExistingCapability).toBe(false);
   });
 });

@@ -461,27 +461,24 @@ export function findDuplicateDefaults(
 /**
  * Hard capabilities that are allowed to ship `mock: "none"` — the documented
  * exception list for the fallback-invariant ({@link findMissingMockFallbacks}).
- * Each of these surfaces cannot be faked into a believable keyless F2 demo, so
- * `none` (a discreet `IntegrationConfigNotice` / self-disable) is the correct
- * degradation rather than a bug. Every OTHER hard capability must declare a real
- * demo `mock` mode (`canned` / `seed` / `success`).
+ * Each of these surfaces has NO user-visible demo surface at all, so `none`
+ * (self-disable) is the correct degradation rather than a bug. Every OTHER
+ * hard capability must declare a real demo `mock` mode
+ * (`canned` / `seed` / `success` / `visual`).
  *
- * Owner decision 2026-07-12 (plan: dossier-grupper-och-fallback-kontrakt, akt 4.1).
+ * Owner decision 2026-07-12 (plan: dossier-grupper-och-fallback-kontrakt, akt
+ * 4.1); tightened 2026-07-22 (owner directive: EVERY user-visible category
+ * needs a demo fallback): payments / subscriptions / auth / realtime moved
+ * OFF this list — they now declare `mock: "visual"` (the interactive surface
+ * renders and the action opens an honest demo notice instead of performing
+ * the real operation; never fake sessions/charges/transport).
+ *
  * Adding a capability here is a contract choice, not a shortcut: a demo-able
- * capability (DB, CMS, e-post, AI, …) must gain a `mock` mode instead of an entry.
- * The value is the per-capability rationale (kept next to the key so the "why"
- * cannot drift from the list).
+ * capability (DB, CMS, e-post, AI, betalning, inloggning, …) must gain a
+ * `mock` mode instead of an entry. The value is the per-capability rationale
+ * (kept next to the key so the "why" cannot drift from the list).
  */
 export const MOCKLESS_CAPABILITY_EXCEPTIONS: Readonly<Record<string, string>> = {
-  payments:
-    "Money movement has no honest keyless demo — a fake charge would mislead; renders IntegrationConfigNotice until real keys are set.",
-  subscriptions:
-    "Recurring billing has the same problem as payments and also needs a signed-in user; no meaningful mock surface.",
-  auth: "A mocked login would hand out fake sessions; security-sensitive, so it shows a configuration banner instead of pretend-authenticating.",
-  "supabase-auth":
-    "Provider-specific auth — same rationale as `auth`; a real session/JWT cannot be faked safely.",
-  realtime:
-    "Live pub/sub needs a real transport; a mocked socket has nothing to echo, so it degrades to IntegrationConfigNotice.",
   analytics:
     "Fire-and-forget beacons have no visual surface to mock; keys are `warn-only` and the component self-disables when unset.",
   "error-tracking":
@@ -564,7 +561,7 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
       if ((dossier.mock ?? "none") === "none") {
         const role = dossier.defaultForCapability ? "default dossier" : "dossier";
         errors.push(
-          `hard capability "${cap}" ${role} "${dossier.id}" has mock="none" — needs a demo fallback (canned/seed/success) or the capability must be added to MOCKLESS_CAPABILITY_EXCEPTIONS with a rationale`,
+          `hard capability "${cap}" ${role} "${dossier.id}" has mock="none" — needs a demo fallback (canned/seed/success/visual) or the capability must be added to MOCKLESS_CAPABILITY_EXCEPTIONS with a rationale`,
         );
       }
     }

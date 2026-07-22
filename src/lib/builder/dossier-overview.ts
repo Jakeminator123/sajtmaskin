@@ -58,6 +58,8 @@ export interface DossierOverviewEntry {
   class: "hard" | "soft";
   capability: string;
   summary: string;
+  /** Swedish catalog description (manifest `summarySv`); fallback: `summary`. */
+  summarySv?: string;
   complexity: "simple" | "medium" | "advanced";
   requiresF3: boolean;
   configured: boolean;

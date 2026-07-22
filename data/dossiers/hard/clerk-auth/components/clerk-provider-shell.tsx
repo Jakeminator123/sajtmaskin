@@ -16,8 +16,11 @@ export interface ClerkProviderShellProps {
  * payload decodes to the instance's frontend API host followed by `$`.
  * Placeholder values (e.g. `pk_test_placeholder`) fail that check and make
  * `<ClerkProvider>` throw "Publishable key not valid" on mount.
+ *
+ * Exported so sibling components (e.g. `auth-buttons.tsx`) can take the demo
+ * path with the exact same check — one definition of "configured".
  */
-function isLikelyValidClerkPublishableKey(key: string | undefined): key is string {
+export function isLikelyValidClerkPublishableKey(key: string | undefined): key is string {
   if (!key) return false;
   const match = /^pk_(test|live)_([A-Za-z0-9+/=]+)$/.exec(key);
   if (!match) return false;
@@ -49,10 +52,10 @@ export function ClerkProviderShell({
       <>
         <div
           role="status"
-          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900"
+          className="border-b border-border bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground"
         >
-          Auth not configured: set <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> and{" "}
-          <code>CLERK_SECRET_KEY</code> in <code>.env.local</code> to enable login.
+          Inloggning i demoläge — sätt <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> och{" "}
+          <code>CLERK_SECRET_KEY</code> för riktiga konton.
         </div>
         {children}
       </>

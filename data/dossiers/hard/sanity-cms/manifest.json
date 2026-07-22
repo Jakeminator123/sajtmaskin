@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "sanity-cms",
   "mock": "seed",
-  "label": "Sanity CMS for Next.js",
+  "label": "CMS — Sanity",
   "capability": "cms",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Use when a Next.js App Router site should read structured content from Sanity, with optional draft preview / Presentation Tool Visual Editing. Ships only frontend integration glue — env config, a lazy public+draft client factory, a query helper, and paired draft-mode enable/disable routes. When Sanity env is missing or a preview placeholder, Sanity-backed pages must render the shipped seedContent plus a discreet SanityConfigNotice instead of crashing.",
+  "summarySv": "Kopplar sajten till Sanity, ett redigeringsverktyg där du uppdaterar texter och bilder utan att röra koden. Välj det när innehållet ska kunna ändras löpande av dig eller en redaktör; tills riktiga nycklar läggs in körs demoläge med färdigt exempelinnehåll, utan delad lagring.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SANITY_PROJECT_ID",

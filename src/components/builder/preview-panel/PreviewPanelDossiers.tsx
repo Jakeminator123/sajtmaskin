@@ -527,10 +527,12 @@ export function PreviewPanelDossiers({
         </button>
         {isExpanded ? (
           <div className="space-y-2 border-t border-gray-800 px-2.5 py-2 text-[11px] text-gray-300">
-            <p className="text-gray-400">{entry.summary}</p>
+            <p className="text-gray-400">{entry.summarySv ?? entry.summary}</p>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500">
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
-                {entry.class === "hard" ? "Hård (kräver nycklar)" : "Mjuk (självförsörjande)"}
+                {entry.class === "hard"
+                  ? "Kopplad (kräver extern tjänst/nycklar)"
+                  : "Fristående (inga nycklar behövs)"}
               </span>
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
                 Komplexitet: {entry.complexity}
@@ -848,11 +850,11 @@ export function PreviewPanelDossiers({
                                           : "border-gray-600/50 bg-gray-500/10 text-gray-300",
                                       )}
                                     >
-                                      {entry.class === "hard" ? "Hård" : "Mjuk"}
+                                      {entry.class === "hard" ? "Kopplad" : "Fristående"}
                                     </Badge>
                                   </span>
                                   <span className="mt-0.5 block truncate text-[10px] text-gray-500">
-                                    {entry.summary}
+                                    {entry.summarySv ?? entry.summary}
                                   </span>
                                 </span>
                               </button>

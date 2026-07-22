@@ -352,12 +352,12 @@ describe("dep-completer", () => {
     }
   });
 
-  // Dossier wave 3 (capability `supabase-auth`, 2026-07-08): the Supabase
-  // Auth SSR dossier's manifest dependency must resolve through the
-  // KNOWN_PACKAGES pin (never `latest`), and the capability must select the
-  // supabase-auth dossier — NOT clerk-auth (which owns the separate `auth`
-  // capability).
-  it("injects @supabase/ssr when supabase-auth is selected (not clerk)", () => {
+  // Taxonomy 2026-07-22: `supabase-auth` is a legacy capability ALIAS that
+  // normalizes to `auth` with a dossier pin on the supabase-auth provider.
+  // The Supabase Auth SSR dossier's manifest dependency must resolve through
+  // the KNOWN_PACKAGES pin (never `latest`), and the alias must select the
+  // supabase-auth dossier — NOT clerk-auth (the `auth` capability default).
+  it("injects @supabase/ssr when the legacy supabase-auth alias is requested (not clerk)", () => {
     const dossierSelection = selectDossiersForRequest({
       requestedCapabilities: ["supabase-auth"],
     });

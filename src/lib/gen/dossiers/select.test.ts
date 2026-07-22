@@ -86,7 +86,7 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
 
   it("marks soft dossier as configured (no env vars)", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["pricing-section"],
+      requestedCapabilities: ["gallery-lightbox"],
     });
     expect(result.selected[0]?.entry.class).toBe("soft");
     expect(result.selected[0]?.configured).toBe(true);
@@ -94,16 +94,16 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
 
   it("reads requestedCapabilities from brief object as fallback", () => {
     const result = selectDossiersForRequest({
-      brief: { requestedCapabilities: ["pricing-section"] },
+      brief: { requestedCapabilities: ["gallery-lightbox"] },
     });
     expect(result.selected).toHaveLength(1);
-    expect(result.selected[0]?.entry.id).toBe("pricing-tier-table");
+    expect(result.selected[0]?.entry.id).toBe("gallery-lightbox");
   });
 
   it("explicit option overrides brief", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["payments"],
-      brief: { requestedCapabilities: ["pricing-section"] },
+      brief: { requestedCapabilities: ["gallery-lightbox"] },
     });
     expect(result.selected.map((s) => s.entry.capability)).toEqual(["payments"]);
   });
@@ -118,7 +118,7 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
 
   it("eagerly loads instructions for selected dossiers", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["pricing-section"],
+      requestedCapabilities: ["gallery-lightbox"],
     });
     const instructions = result.selected[0]?.entry.instructions ?? "";
     expect(instructions).toContain("# When to use");
@@ -334,28 +334,73 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dependent capabilities (Codex P1 #475): `subscriptions` (paddle-billing)
-// only produces a working feature with a signed-in Supabase user, so every
-// selection of `subscriptions` must also pull `supabase-auth` — regardless of
-// which caller path (init, follow-up, snapshot, dep-completer) invoked select.
+// Dependent capabilities (Codex P1 #475, re-expressed after the 2026-07-22
+// auth merge): `subscriptions` (paddle-billing) only produces a working
+// feature with a signed-in Supabase user, so every selection of
+// `subscriptions` must also pull `auth` PINNED to the supabase-auth dossier
+// (reason "dependency-pin") — regardless of which caller path (init,
+// follow-up, snapshot, dep-completer) invoked select. Exactly ONE auth
+// dossier is ever selected — never two root middlewares.
 // ─────────────────────────────────────────────────────────────────────────
 describe("selectDossiersForRequest — dependent capabilities", () => {
-  it("co-selects supabase-auth whenever subscriptions is requested", () => {
+  it("co-selects the supabase-auth dossier under `auth` whenever subscriptions is requested", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions"],
     });
     const ids = result.selected.map((s) => s.entry.id);
     expect(ids).toContain("paddle-billing");
     expect(ids).toContain("supabase-auth");
-    expect(result.byCapability["supabase-auth"]).toEqual(["supabase-auth"]);
+    expect(result.byCapability["auth"]).toEqual(["supabase-auth"]);
+    const authPick = result.selected.find((s) => s.entry.id === "supabase-auth");
+    expect(authPick?.reason).toBe("dependency-pin");
+    expect(authPick?.entry.capability).toBe("auth");
   });
 
-  it("does not duplicate supabase-auth when both are requested explicitly", () => {
+  it("selects exactly ONE auth dossier for [subscriptions, auth] — the pin wins over the clerk default", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions", "auth"],
+    });
+    const authPicks = result.selected.filter((s) => s.entry.capability === "auth");
+    expect(authPicks).toHaveLength(1);
+    expect(authPicks[0]?.entry.id).toBe("supabase-auth");
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).not.toContain("clerk-auth");
+  });
+
+  it("does not duplicate supabase-auth when the legacy alias is requested alongside subscriptions", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions", "supabase-auth"],
     });
     const authPicks = result.selected.filter((s) => s.entry.id === "supabase-auth");
     expect(authPicks).toHaveLength(1);
+  });
+
+  it("resolves the legacy 'supabase-auth' capability alias to the pinned dossier under `auth`", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["supabase-auth"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(result.selected[0]?.entry.capability).toBe("auth");
+    expect(result.byCapability["auth"]).toEqual(["supabase-auth"]);
+  });
+
+  it("still picks clerk-auth (capability default) for a plain auth request", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
+  });
+
+  it("picks supabase-auth via relevance-keyword for 'logga in med supabase'", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "logga in med supabase",
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
   });
 
   it("does not pull supabase-auth for capabilities without a dependency", () => {
@@ -364,26 +409,6 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     });
     const ids = result.selected.map((s) => s.entry.id);
     expect(ids).not.toContain("supabase-auth");
-  });
-
-  it("drops generic auth when supabase-auth is present — never two root middlewares", () => {
-    // Raw callers (snapshot re-selection, dossiers route) can pass both; the
-    // orchestrate prompt-filter dedup does not protect them, so the expansion
-    // helper enforces it (bugbot high, dossier-batch): supabase-auth and
-    // clerk-auth both emit a root middleware.ts.
-    const viaDependency = selectDossiersForRequest({
-      requestedCapabilities: ["subscriptions", "auth"],
-    });
-    const idsViaDependency = viaDependency.selected.map((s) => s.entry.id);
-    expect(idsViaDependency).toContain("supabase-auth");
-    expect(idsViaDependency).not.toContain("clerk-auth");
-
-    const explicit = selectDossiersForRequest({
-      requestedCapabilities: ["supabase-auth", "auth"],
-    });
-    const idsExplicit = explicit.selected.map((s) => s.entry.id);
-    expect(idsExplicit).toContain("supabase-auth");
-    expect(idsExplicit).not.toContain("clerk-auth");
   });
 
   it("drops generic ai-chat when ai-tool-calling is present — no redundant chatbot", () => {
@@ -401,6 +426,41 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     });
     const ids = result.selected.map((s) => s.entry.id);
     expect(ids).toContain("openai-chat");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Taxonomy 2026-07-22: capability rename + new key-free soft dossiers.
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — command-palette rename + new soft dossiers", () => {
+  it("resolves the legacy 'command-search' alias to cmdk-command-palette under 'command-palette'", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["command-search"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("cmdk-command-palette");
+    expect(result.selected[0]?.entry.capability).toBe("command-palette");
+    expect(result.byCapability["command-palette"]).toEqual(["cmdk-command-palette"]);
+  });
+
+  it("selects maplibre-map for map-display", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["map-display"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("maplibre-map");
+    expect(result.selected[0]?.entry.class).toBe("soft");
+    expect(result.selected[0]?.configured).toBe(true);
+  });
+
+  it("selects local-site-search for site-search", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["site-search"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("local-site-search");
+    expect(result.selected[0]?.entry.class).toBe("soft");
+    expect(result.selected[0]?.configured).toBe(true);
   });
 });
 
@@ -475,7 +535,7 @@ describe("selectDossiersForRequest — configuredEnvKeys (project-scoped)", () =
 
   it("keeps soft dossiers configured regardless of configuredEnvKeys", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["pricing-section"],
+      requestedCapabilities: ["gallery-lightbox"],
       configuredEnvKeys: new Set<string>(),
     });
     expect(result.selected[0]?.configured).toBe(true);
@@ -500,8 +560,8 @@ describe("getAllDossiers", () => {
   it("hard dossiers default to verbatim, soft to rewritable", () => {
     const all = getAllDossiers();
     const stripe = all.find((d) => d.id === "stripe-checkout");
-    const pricing = all.find((d) => d.id === "pricing-tier-table");
+    const gallery = all.find((d) => d.id === "gallery-lightbox");
     expect(stripe?.codeFidelity).toBe("verbatim");
-    expect(pricing?.codeFidelity).toBe("rewritable");
+    expect(gallery?.codeFidelity).toBe("rewritable");
   });
 });

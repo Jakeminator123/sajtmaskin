@@ -27,6 +27,10 @@ semantik: uppdatera glossaryn och den faktiska signalägaren. Kör
 | mallar/templates för runtime-startpunkter | `scaffolds` |
 | "templates" om capability-moduler | `dossiers` — templates (= v0-mallar, Blob-galleriet) är ett helt separat system |
 | dossiers i user-synlig UI-copy | `Byggblock` (UI-label; kodidentifierare/routes behåller `dossier`) |
+| "hård"/"mjuk" dossier i user-synlig copy | `Kopplad` (hard — kräver extern tjänst/nycklar) / `Fristående` (soft — bara npm) |
+| "mock", "mockup", "fallback" om dossier-demo | `Demoläge` (manifestfältet `mock`: `seed`/`canned`/`success`/`visual`/`none`) |
+| `supabase-auth` som capability | `auth` — en capability sedan 2026-07-22; `supabase-auth` är dossier-/leverantörs-id under den (alias+pin i `select.ts`) |
+| `command-search` | `command-palette` (capability-id sedan 2026-07-22) |
 | "dossier" om galleri-mallar | `Template (v0-mall)` — dossiers har inga kategorier/thumbnails |
 | "kategori"/"grupp" som synonym för capability | `dossier-grupp` för UI-bucketen (10 st, presentations-lager i backoffice/builder) — `capability` är den selektionsstyrande funktionen, grupp styr aldrig val |
 | scaffold family, style direction | `scaffold variant` |

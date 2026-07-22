@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "rag-chat",
   "mock": "canned",
-  "label": "RAG Chat (documents Q&A)",
+  "label": "AI-chatt på eget innehåll (RAG)",
   "capability": "rag-chat",
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,
   "summary": "Use when a Next.js site needs a streaming chat assistant that answers from the site's OWN indexed content (RAG), not a generic chatbot (that is ai-chat). Ships a Vercel AI SDK chat route, a client chat component, a Drizzle/pgvector schema, retrieval + ingestion helpers, and a ready-to-run pgvector migration file. Requires a pgvector-capable Postgres and OpenAI; without real keys the route streams a canned demo reply (mock: canned) and the UI shows a discreet demo notice instead of crashing.",
+  "summarySv": "En chatt som svarar utifrån sajtens eget innehåll, så att besökare kan ställa frågor om just dina texter och dokument i stället för att få allmänna svar. Kräver databas och OpenAI-nyckel; tills de finns körs demoläge med trovärdiga låtsassvar.",
   "envVars": [
     {
       "key": "OPENAI_API_KEY",

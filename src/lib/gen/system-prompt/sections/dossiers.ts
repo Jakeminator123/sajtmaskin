@@ -115,8 +115,10 @@ function describeMockMode(mock: DossierEntry["mock"]): string {
       return "mock: seed — the data layer falls back to shipped `seedData` + a discreet notice when the connection is missing/placeholder, so DB views render in F2 without a real database.";
     case "success":
       return "mock: success — mutation endpoints return a fake success + a demo notice (`demo: true`) when no real key is set, so forms complete in F2 without wiring the provider.";
+    case "visual":
+      return "mock: visual — render the full interactive surface (button/controls/widget); when unconfigured the ACTION opens the dossier's honest demo notice instead of performing the real operation. Never fabricate sessions, charges or live transport; the real backend activates once provider values are set.";
     default:
-      return "mock: none — cannot be mocked meaningfully; render a discreet demo/configuration banner (IntegrationConfigNotice) when unconfigured.";
+      return "mock: none — no meaningful demo surface; render a discreet demo/configuration banner (IntegrationConfigNotice) when unconfigured, or self-disable.";
   }
 }
 

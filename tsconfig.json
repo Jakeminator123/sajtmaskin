@@ -24,6 +24,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@clerk/nextjs": [
+        "./tests/stubs/clerk-nextjs.tsx"
       ]
     },
     "target": "ES2022",
@@ -41,6 +44,7 @@
     "data/eval-runs",
     "data/dossiers",
     "data/template-references",
+    "_parkering",
     "archive",
     "ai-fal-image-generator",
     "output",

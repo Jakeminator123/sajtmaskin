@@ -1,13 +1,14 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "ably-realtime",
-  "mock": "none",
-  "label": "Ably Realtime for Next.js",
+  "mock": "visual",
+  "label": "Realtid — Ably",
   "capability": "realtime",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Use when a Next.js App Router project needs authenticated Ably realtime messaging from browser components, including pub/sub, presence, notifications, chat, or collaborative updates. Provides a server token-auth route plus a browser-side singleton Realtime client and optional provider wiring.",
+  "summary": "Use when a Next.js App Router project needs authenticated Ably realtime messaging from browser components, including pub/sub, presence, notifications, chat, or collaborative updates. Provides a server token-auth route plus a browser-side singleton Realtime client and optional provider wiring. Demo mode (mock: visual): the live widget/surface renders fully and shows an honest 'realtid ej kopplad'-notice when ABLY_API_KEY is missing or a placeholder (the auth route returns 503 realtime-not-configured) — never a simulated transport between real users.",
+  "summarySv": "Realtidsfunktioner (livechatt, notiser, närvaro, samarbete) via Ably. Utan riktig nyckel visas realtidsytan i demoläge med en tydlig notis — inga meddelanden skickas mellan riktiga besökare förrän Ably är kopplat.",
   "envVars": [
     {
       "key": "ABLY_API_KEY",

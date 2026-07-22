@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "mailchimp-newsletter",
   "mock": "success",
-  "label": "Mailchimp Newsletter Subscribe",
+  "label": "Nyhetsbrev — Mailchimp",
   "capability": "newsletter-subscribe",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Newsletter subscription form that POSTs to a Next.js Route Handler and adds the email to a Mailchimp audience. Client owns form state + UX (loading/success/already-subscribed/error); server route owns the Mailchimp REST call + validation. Degrades gracefully (mock: success): with no real MAILCHIMP_API_KEY (missing or an F2 preview stub) the route returns 200 { ok:true, demo:true } and the form shows a 'demo — not really subscribed' notice; a real key but missing MAILCHIMP_AUDIENCE_ID returns 503 with a 'configure newsletter' banner so F3 build does not crash.",
+  "summarySv": "Anmälningsformulär för nyhetsbrev som lägger till besökarens e-postadress i din lista hos Mailchimp. Utan riktiga nycklar körs demoläge: anmälan går igenom med tydlig demomarkering, men ingen läggs till på riktigt förrän nycklarna är på plats.",
   "envVars": [
     {
       "key": "MAILCHIMP_API_KEY",

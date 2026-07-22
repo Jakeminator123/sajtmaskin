@@ -20,7 +20,7 @@ describe("siteBriefSchema", () => {
       motionLevel: "moderate",
       qualityBar: "premium",
       seasonalHints: ["vår"],
-      requestedCapabilities: ["booking", "parallax-scroll"],
+      requestedCapabilities: ["booking", "map-display"],
       pages: [
         {
           name: "Hem",
@@ -71,7 +71,7 @@ describe("siteBriefSchema", () => {
     expect(parsed.motionLevel).toBe("moderate");
     expect(parsed.qualityBar).toBe("premium");
     expect(parsed.seasonalHints).toEqual(["vår"]);
-    expect(parsed.requestedCapabilities).toEqual(["booking", "parallax-scroll"]);
+    expect(parsed.requestedCapabilities).toEqual(["booking", "map-display"]);
   });
 
   it("defaults canonical init signals in simplified fallback schema", () => {

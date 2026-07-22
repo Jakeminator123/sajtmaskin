@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "fal-image-generation",
   "mock": "canned",
-  "label": "Fal Image Generation",
+  "label": "AI-bildgenerering — Fal",
   "capability": "image-generation",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Use when a Next.js App Router project needs a focused server-side text-to-image endpoint backed by Fal through the Vercel AI SDK. Provides a POST API route, shared request types, a single-provider config, and client-side helpers for previewing, sharing, or downloading returned base64 images.",
+  "summarySv": "Låter sajten skapa AI-bilder utifrån textbeskrivningar via tjänsten Fal. Välj det när besökare eller du själv ska kunna ta fram bilder direkt på sajten; utan riktig nyckel körs demoläge med platshållarbilder.",
   "envVars": [
     {
       "key": "FAL_API_KEY",

@@ -7,6 +7,7 @@ import { explicitlyRequests3D } from "../capability-inference";
 import {
   expandDependentCapabilities,
   getF3RequiredCapabilities,
+  normalizeCapabilityId,
 } from "../dossiers";
 import type { BuildSpec } from "../build-spec";
 
@@ -60,7 +61,19 @@ export function filterDossierCapabilitiesForPrompt(params: {
   previewPolicy: BuildSpec["previewPolicy"];
 }): string[] {
   const f2MutedIntegrationCapabilities = getF2MutedIntegrationCapabilities();
-  const filtered = params.capabilities.filter((capability) => {
+  // Alias-normalize BEFORE the mute check (test-sync finding 2026-07-22): a
+  // legacy snapshot can still carry `supabase-auth`, which must hit the F2
+  // mute as `auth` — checking the raw id would let the legacy alias bypass
+  // the mute and survive into an F2 round. Dedupe keeps order.
+  const seenNormalized = new Set<string>();
+  const normalizedCapabilities: string[] = [];
+  for (const raw of params.capabilities) {
+    const capability = normalizeCapabilityId(raw);
+    if (seenNormalized.has(capability)) continue;
+    seenNormalized.add(capability);
+    normalizedCapabilities.push(capability);
+  }
+  const filtered = normalizedCapabilities.filter((capability) => {
     // F2 integration-mute. Note: `contact-form` (resend) and
     // `newsletter-subscribe` (mailchimp) are covered by the derived set via
     // the server-file rule in `dossierRequiresF3` — the former per-prompt
@@ -99,24 +112,19 @@ export function filterDossierCapabilitiesForPrompt(params: {
   if (result.includes("physics-3d") && !result.includes("visual-3d")) {
     result = result.filter((capability) => capability !== "physics-3d");
   }
-  // Dependent capabilities (Codex P1 #475): `subscriptions` requires
-  // `supabase-auth` (paddle's customer-portal needs a signed-in Supabase
-  // user). Expanded AFTER the F2 mute (subscriptions never survives F2, so
-  // this only fires in F3) and BEFORE the supabase-auth/auth dedup below so a
-  // tag-along generic `auth` is correctly dropped in favor of the required
-  // Supabase stack. Same helper as selectDossiersForRequest — prompt and
-  // selection stay in lockstep.
+  // Dependent capabilities (Codex P1 #475, re-expressed after the
+  // auth-capability merge): `subscriptions` requires `auth` — and SELECTION
+  // pins that auth pick to the `supabase-auth` dossier (paddle's
+  // customer-portal needs a signed-in Supabase user; see
+  // `DEPENDENT_CAPABILITIES` in select.ts). Expanded AFTER the F2 mute
+  // (subscriptions never survives F2, so this only fires in F3). Same helper
+  // as selectDossiersForRequest — prompt and selection stay in lockstep. The
+  // helper also alias-normalizes legacy ids (`supabase-auth` → `auth`,
+  // `command-search` → `command-palette`) so stale snapshots keep resolving,
+  // and dedupes overlapping picks (ai-tool-calling wins over ai-chat). The
+  // former supabase-auth/auth dedup is obsolete: both dossiers share the
+  // `auth` capability now, so selection picks exactly one middleware owner.
   result = expandDependentCapabilities(result);
-  // Dossier wave 3: `supabase-auth` only enters the set via an EXPLICIT
-  // Supabase ask (brief is explicit-ask-only; follow-up vocabulary triggers on
-  // Supabase-specific phrases), while generic `auth` can tag along from the
-  // inferred-capability bridge (`needsAuth` matches the "login"/"auth" inside
-  // the same "supabase login" prompt). Both dossiers ship a root middleware.ts
-  // — injecting both would collide, and clerk-auth must never ride along on an
-  // explicit Supabase choice. Explicit provider wins: drop generic `auth`.
-  if (result.includes("supabase-auth") && result.includes("auth")) {
-    result = result.filter((capability) => capability !== "auth");
-  }
   // Money-flow dedup (bugbot high, dossier-batch): a recurring/subscriptions ask
   // can drag generic `payments` along (brief, inferred `needsPayments`, or a
   // prompt mentioning both "prenumeration" and "betala med kort"). stripe-checkout

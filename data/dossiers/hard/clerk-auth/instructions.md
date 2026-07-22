@@ -1,6 +1,6 @@
 # When to use
 
-Use this dossier when the brief declares the `auth` capability — the site needs real user accounts (login, signup, password reset, gated content). Triggers (Swedish + English): `auth`, `login`, `sign in`, `sign up`, `register`, `account`, `inloggning`, `registrering`, `logga in`, `konto`, `medlem`, `medlemssida`, `gated`, `protected route`, `dashboard requires login`.
+Use this dossier when the brief declares the `auth` capability — the site needs real user accounts (login, signup, password reset, gated content). Clerk is the CAPABILITY DEFAULT; the `supabase-auth` sibling wins only on an explicit Supabase ask or via the subscriptions/paddle dependency pin. Triggers (Swedish + English): `auth`, `login`, `sign in`, `sign up`, `register`, `account`, `inloggning`, `registrering`, `logga in`, `konto`, `medlem`, `medlemssida`, `gated`, `protected route`, `dashboard requires login`.
 
 Best fit:
 
@@ -20,7 +20,7 @@ The dossier ships three files. Drop each one in unchanged unless explicitly over
 
 1. **`components/middleware.ts` → `middleware.ts` at the project root** (verbatim). Clerk's middleware must live at the project root, not under `app/`, and the `matcher` syntax is load-bearing — paraphrasing the regex breaks session resolution on dynamic routes. The file key-gates itself: with missing or placeholder keys (e.g. `pk_test_placeholder`) it returns `NextResponse.next()` instead of invoking Clerk, so an unconfigured preview never 500s.
 2. **`components/clerk-provider-shell.tsx` → `components/clerk-provider-shell.tsx`** (verbatim). Wrap the entire `<body>…</body>` of `app/layout.tsx` in `<ClerkProviderShell>`. The shell adds an unconfigured-state fallback so the app does not crash when keys are missing in development.
-3. **`components/auth-buttons.tsx` → `components/auth-buttons.tsx`** (rewritable). Use `<AuthButtons />` in the site header / nav. You may restyle freely — change text, swap buttons for icon-only avatars, add a dropdown — but keep the `<SignedIn>` / `<SignedOut>` boundaries intact.
+3. **`components/auth-buttons.tsx` → `components/auth-buttons.tsx`** (verbatim). Use `<AuthButtons />` in the site header / nav; adapt labels via the `signInLabel`/`signUpLabel` props or wrap it in your own component. The file is verbatim because its key-gate is load-bearing (mock: visual): with missing/placeholder keys the same buttons render but open an honest "Inloggning i demoläge"-dialog instead of mounting Clerk components without a provider (which would crash), and no fake session is ever created.
 
 Minimal `app/layout.tsx`:
 
@@ -81,6 +81,6 @@ export default async function DashboardPage() {
 - Sign up with a throwaway email → land back on `/` with the avatar visible in the header.
 - Reload the page — still signed in (session cookie survives).
 - Visit a protected route (e.g. `/dashboard`) signed-out → redirected to `/sign-in`.
-- Remove `CLERK_SECRET_KEY` from `.env.local` and restart `next dev` — the page renders an "Auth not configured" placeholder banner instead of a blank screen / 500.
-- With placeholder keys (`pk_test_placeholder` / `sk_test_placeholder_preview`) every route still renders (middleware passes through, banner shows) — no "Publishable key not valid" 500.
+- Remove `CLERK_SECRET_KEY` from `.env.local` and restart `next dev` — the page renders the discreet "Inloggning i demoläge"-banner instead of a blank screen / 500, and the header buttons open the demo dialog on click.
+- With placeholder keys (`pk_test_placeholder` / `sk_test_placeholder_preview`) every route still renders (middleware passes through, demo banner shows) — no "Publishable key not valid" 500, and clicking "Logga in"/"Skapa konto" opens the demo dialog (no fake session).
 - Open the Network tab and confirm no request includes a `sk_…` token (the secret key must never reach the client).

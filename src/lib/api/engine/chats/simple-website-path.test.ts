@@ -116,24 +116,21 @@ describe("classifySimpleWebsitePath", () => {
   });
 });
 
-// #242 Alt A: a short init prompt that names a section dossier capability must
-// leave the simple fast lane so the full dossier pipeline runs.
+// #242 Alt A (re-scoped by taxonomy 2026-07-22): a short init prompt that
+// names a DOSSIER-BACKED section capability must leave the simple fast lane
+// so the full dossier pipeline runs. The parked section dossiers (logo-cloud,
+// stats-counter, feature-grid, cta-section, stepper) left the cue list —
+// those are ordinary freehand content now. Remaining cues: gallery-lightbox
+// + the new key-free map-display and site-search capabilities.
 describe("classifySimpleWebsitePath — section_capability_signal (#242 Alt A)", () => {
-  it("blocks the canonical example (kundloggor + nyckeltal)", () => {
-    expect(
-      base({ prompt: "gör en enkel hemsida med kundloggor och nyckeltal" }).reason,
-    ).toBe("section_capability_signal");
-  });
-
   it("blocks each section capability cue", () => {
     const cases: Array<[string, string]> = [
-      ["logo-cloud", "Bygg en enkel landningssida med kundloggor i sidfoten."],
-      ["logo-cloud-en", "Build a simple landing page with a trusted by logo strip."],
-      ["stats-counter", "Bygg en enkel sida med nyckeltal som visar resultat."],
-      ["feature-grid", "Bygg en enkel sida med en feature grid."],
-      ["cta-section", "Bygg en enkel landningssida med en tydlig CTA."],
       ["gallery-lightbox", "Bygg en enkel sida med ett bildgalleri och lightbox."],
-      ["stepper", "Bygg en enkel sida med ett formulär som wizard."],
+      ["gallery-lightbox-sv", "Bygg en enkel sida där man kan förstora bilder."],
+      ["map-display", "Bygg en enkel hemsida med en karta som visar hitta hit."],
+      ["map-display-en", "Build a simple page with a store locator."],
+      ["site-search", "Bygg en enkel hemsida med en sökfunktion."],
+      ["site-search-en", "Build a simple site with site-search powered by minisearch."],
     ];
     for (const [, prompt] of cases) {
       expect(base({ prompt }).reason).toBe("section_capability_signal");
@@ -143,10 +140,24 @@ describe("classifySimpleWebsitePath — section_capability_signal (#242 Alt A)",
   it("uses the shared detector result for named capabilities outside the legacy regex", () => {
     expect(
       base({
-        prompt: "Bygg en enkel sida med vanliga frågor.",
-        requestedDossierCapabilities: ["faq-section"],
+        prompt: "Bygg en enkel sida med sök.",
+        requestedDossierCapabilities: ["site-search"],
       }).reason,
     ).toBe("section_capability_signal");
+  });
+
+  it("does NOT block parked section phrases (freehand content now)", () => {
+    // Former #242 cues — after the 2026-07-22 parking these are ordinary
+    // marketing copy and must stay on the fast lane.
+    expect(
+      base({ prompt: "gör en enkel hemsida med kundloggor och nyckeltal" }).reason,
+    ).toBe("enabled");
+    expect(
+      base({ prompt: "Bygg en enkel landningssida med en tydlig CTA." }).reason,
+    ).toBe("enabled");
+    expect(
+      base({ prompt: "Bygg en enkel sida med en feature grid." }).reason,
+    ).toBe("enabled");
   });
 
   it("does NOT block ordinary marketing copy without a section cue", () => {

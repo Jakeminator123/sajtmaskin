@@ -68,6 +68,28 @@ export interface SelectDossiersOptions {
 }
 
 /**
+ * Legacy capability aliases. Old persisted snapshots/briefs (and older
+ * follow-up vocabulary hits) can still carry these ids; they normalize to the
+ * current capability so selection keeps resolving instead of silently
+ * skipping. Taxonomy 2026-07-22: `supabase-auth` merged into `auth` (one
+ * capability, two provider dossiers — clerk-auth default, supabase-auth via
+ * keyword/pin), and `command-search` renamed to `command-palette`.
+ */
+export const CAPABILITY_ALIASES: Readonly<Record<string, string>> = {
+  "supabase-auth": "auth",
+  "command-search": "command-palette",
+};
+
+/**
+ * Dossier pins for aliased capabilities: a legacy `supabase-auth` request
+ * meant the Supabase dossier SPECIFICALLY, so after normalizing to `auth` the
+ * pick must stay `supabase-auth` (not the clerk-auth capability default).
+ */
+const ALIAS_DOSSIER_PINS: Readonly<Record<string, string>> = {
+  "supabase-auth": "supabase-auth",
+};
+
+/**
  * Dependent capabilities: selecting the KEY capability only produces a working
  * feature if the VALUE capabilities ship alongside it. Applied by BOTH
  * selection (`selectDossiersForRequest`) and the prompt-capability filter
@@ -75,53 +97,94 @@ export interface SelectDossiersOptions {
  * path — init, follow-up, snapshot re-selection, dep-completer — pulls the
  * full stack.
  *
- * `subscriptions` ⇒ `supabase-auth` (Codex P1 #475): paddle-billing's
+ * `subscriptions` ⇒ `auth` PINNED to the `supabase-auth` dossier (Codex P1
+ * #475, re-expressed after the auth-capability merge): paddle-billing's
  * customer-portal route requires a signed-in Supabase user; without the
  * supabase-auth dossier the generated app has no middleware/callback/sign-in
- * surface, so the portal path is unreachable (always 401). Collision-free by
- * construction: paddle-billing ships no root middleware and namespaces its
- * Supabase helpers under `lib/paddle/`.
+ * surface, so the portal path is unreachable (always 401). The pin overrides
+ * both the capability default (clerk-auth) and prompt keywords — a
+ * subscriptions round must never ship Clerk. Collision-free by construction:
+ * paddle-billing ships no root middleware and namespaces its Supabase helpers
+ * under `lib/paddle/`.
  */
-const DEPENDENT_CAPABILITIES: Record<string, readonly string[]> = {
-  subscriptions: ["supabase-auth"],
+const DEPENDENT_CAPABILITIES: Record<
+  string,
+  readonly { capability: string; pinDossierId?: string }[]
+> = {
+  subscriptions: [{ capability: "auth", pinDossierId: "supabase-auth" }],
 };
 
 /**
  * Returns `capabilities` plus any dependent capabilities (deduped, input order
- * preserved, dependencies appended), then resolves hard file conflicts:
- * `supabase-auth` and generic `auth` (clerk-auth) both emit a root
- * `middleware.ts`, so whenever the Supabase stack is present — explicitly or
- * via a dependency — generic `auth` is dropped (bugbot high, dossier-batch:
- * the orchestrate prompt-filter already had this dedup, but raw callers of
- * selectDossiersForRequest — snapshot re-selection, dossiers route — could
- * still pass both and select two colliding root middlewares).
+ * preserved, dependencies appended), with overlapping picks resolved.
+ * Callers should alias-normalize first (`normalizeCapabilityId`); this
+ * function also normalizes defensively so raw callers with legacy ids get the
+ * same result.
  */
 export function expandDependentCapabilities(capabilities: string[]): string[] {
-  const out = [...capabilities];
-  const seen = new Set(out);
-  for (const cap of capabilities) {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const cap of capabilities.map(normalizeCapabilityId)) {
+    if (seen.has(cap)) continue;
+    seen.add(cap);
+    normalized.push(cap);
+  }
+  const out = [...normalized];
+  for (const cap of normalized) {
     for (const dep of DEPENDENT_CAPABILITIES[cap] ?? []) {
-      if (!seen.has(dep)) {
-        seen.add(dep);
-        out.push(dep);
+      if (!seen.has(dep.capability)) {
+        seen.add(dep.capability);
+        out.push(dep.capability);
       }
     }
   }
   let result = out;
-  if (seen.has("supabase-auth") && seen.has("auth")) {
-    result = result.filter((cap) => cap !== "auth");
-  }
   // `ai-tool-calling` (an AI assistant that calls server-side tools) and
   // `ai-chat` (a generic chatbot) are overlapping chat surfaces — the brief LLM
   // routinely nominates both for a single "AI assistant" ask, which injects two
   // competing chat routes/components (ai-tool-calling-chat's `/api/assistant` +
   // openai-chat's `/api/chat`) and doubles the env/scope. The more specific
-  // `ai-tool-calling` wins; generic `ai-chat` is dropped. Mirrors the
-  // supabase-auth vs auth dedup above.
+  // `ai-tool-calling` wins; generic `ai-chat` is dropped. (The former
+  // supabase-auth vs auth dedup is obsolete: both dossiers now share the
+  // `auth` capability, so selection picks exactly one — never two colliding
+  // root middlewares.)
   if (seen.has("ai-tool-calling") && seen.has("ai-chat")) {
     result = result.filter((cap) => cap !== "ai-chat");
   }
   return result;
+}
+
+/** Normalize a capability id through the legacy alias map (lowercased). */
+export function normalizeCapabilityId(capability: string): string {
+  const cap = String(capability).trim().toLowerCase();
+  return CAPABILITY_ALIASES[cap] ?? cap;
+}
+
+/**
+ * Dossier pins for the given (already alias-normalized) capability set:
+ * capability → dossier id that MUST win selection. Sources: legacy alias pins
+ * (`supabase-auth` → auth pinned to the Supabase dossier) and dependency pins
+ * (`subscriptions` ⇒ auth pinned to supabase-auth). Later sources never
+ * overwrite an earlier pin for the same capability.
+ */
+function resolveDossierPins(rawCapabilities: string[]): Map<string, string> {
+  const pins = new Map<string, string>();
+  for (const raw of rawCapabilities) {
+    const cap = String(raw).trim().toLowerCase();
+    const pin = ALIAS_DOSSIER_PINS[cap];
+    if (pin) {
+      const normalized = normalizeCapabilityId(cap);
+      if (!pins.has(normalized)) pins.set(normalized, pin);
+    }
+  }
+  for (const raw of rawCapabilities.map(normalizeCapabilityId)) {
+    for (const dep of DEPENDENT_CAPABILITIES[raw] ?? []) {
+      if (dep.pinDossierId && !pins.has(dep.capability)) {
+        pins.set(dep.capability, dep.pinDossierId);
+      }
+    }
+  }
+  return pins;
 }
 
 /**
@@ -212,6 +275,7 @@ function matchesRelevanceKeyword(entry: DossierEntry, promptText: string): boole
 function pickForCapability(
   cap: string,
   promptText: string | null,
+  pinnedDossierId?: string,
 ): {
   entry: DossierEntry;
   reason: SelectedDossier["reason"];
@@ -222,6 +286,13 @@ function pickForCapability(
   // even if two dossiers accidentally have defaultForCapability=true (last-
   // touched-wins in dirent iteration is undesirable cross-machine).
   const sorted = [...candidates].sort((a, b) => a.id.localeCompare(b.id));
+  // A dependency/alias pin beats everything — the dependent feature only
+  // works with this specific sibling (e.g. subscriptions ⇒ supabase-auth),
+  // so neither the capability default nor a prompt keyword may override it.
+  if (pinnedDossierId) {
+    const pinned = sorted.find((c) => c.id === pinnedDossierId);
+    if (pinned) return { entry: pinned, reason: "dependency-pin" };
+  }
   // Explicit provider intent beats the capability default: when the prompt
   // hits a sibling's relevanceKeywords ("MongoDB", "Neon"), that sibling is
   // what the user asked for. Deterministic on multi-hit: prefer the default
@@ -249,7 +320,9 @@ export function selectDossiersForRequest(
   opts: SelectDossiersOptions,
 ): DossierSelectionResult {
   const all = getAllDossiers();
-  const capabilities = expandDependentCapabilities(normalizeCapabilities(opts));
+  const rawCapabilities = normalizeCapabilities(opts);
+  const pins = resolveDossierPins(rawCapabilities);
+  const capabilities = expandDependentCapabilities(rawCapabilities);
   const promptText =
     typeof opts.promptText === "string" && opts.promptText.trim().length > 0
       ? opts.promptText
@@ -259,7 +332,7 @@ export function selectDossiersForRequest(
   const byCapability: Record<string, string[]> = {};
 
   for (const cap of capabilities) {
-    const pick = pickForCapability(cap, promptText);
+    const pick = pickForCapability(cap, promptText, pins.get(cap));
     if (!pick) continue;
     const entry: DossierEntry = {
       ...pick.entry,

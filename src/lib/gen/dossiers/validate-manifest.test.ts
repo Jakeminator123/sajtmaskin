@@ -198,10 +198,24 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     expect(errors[0]).toContain("cms");
   });
 
-  it("accepts a default dossier with a real mock mode (canned/seed/success)", () => {
-    for (const mock of ["canned", "seed", "success"] as const) {
+  it("accepts a default dossier with a real mock mode (canned/seed/success/visual)", () => {
+    for (const mock of ["canned", "seed", "success", "visual"] as const) {
       expect(findMissingMockFallbacks([hard("acme-db", "database", true, mock)])).toEqual([]);
     }
+  });
+
+  it("names every accepted mock mode in the error message (canned/seed/success/visual)", () => {
+    const errors = findMissingMockFallbacks([hard("acme-cms", "cms", true, "none")]);
+    expect(errors[0]).toContain("(canned/seed/success/visual)");
+  });
+
+  it("exempts ONLY analytics and error-tracking (taxonomy 2026-07-22)", () => {
+    // Every other capability must ship a real mock mode — auth/payments/
+    // realtime got mock:"visual" instead of an exception.
+    expect(Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort()).toEqual([
+      "analytics",
+      "error-tracking",
+    ]);
   });
 
   it("accepts every exempt capability shipping mock=none", () => {
@@ -282,8 +296,8 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
 
   it("ignores soft dossiers entirely", () => {
     const soft: DossierMockFallbackEntry = {
-      id: "faq-accordion",
-      capability: "faq-section",
+      id: "gallery-lightbox",
+      capability: "gallery-lightbox",
       class: "soft",
       defaultForCapability: true,
     };

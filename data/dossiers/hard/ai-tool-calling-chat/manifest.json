@@ -2,12 +2,13 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "ai-tool-calling-chat",
   "mock": "canned",
-  "label": "AI Tool-Calling Chat Route",
+  "label": "AI-assistent med verktyg",
   "capability": "ai-tool-calling",
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Use when a Next.js App Router project needs a streamed chat endpoint where the Vercel AI SDK can call server-side tools, return structured tool results, and automatically continue the assistant turn for multiple tool-call roundtrips. Pair with an existing chat UI that can render AI SDK UI message parts.",
+  "summarySv": "En AI-assistent som inte bara chattar utan också kan utföra uppgifter, till exempel slå upp information eller göra beräkningar med inbyggda verktyg. Välj den när assistenten ska göra mer än att svara på frågor; utan riktig nyckel körs demoläge med trovärdiga låtsassvar.",
   "envVars": [
     {
       "key": "OPENAI_API_KEY",

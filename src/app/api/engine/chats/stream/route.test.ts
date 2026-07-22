@@ -729,7 +729,10 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: "Gör en enkel hemsida med kundloggor och nyckeltal.",
+          // Taxonomy 2026-07-22: the former section cues (kundloggor/
+          // nyckeltal) are freehand content now; site-search + map-display
+          // are the dossier-backed capabilities a simple prompt can name.
+          message: "Gör en enkel hemsida med en sökfunktion och en karta som visar hitta hit.",
         }),
       }),
     );
@@ -742,11 +745,11 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       embeddingScaffoldMatch?: boolean;
     };
     expect(orchestrationInput.requestedDossierCapabilities).toEqual(
-      expect.arrayContaining(["logo-cloud", "stats-counter"]),
+      expect.arrayContaining(["site-search", "map-display"]),
     );
     expect(orchestrationInput.requestedCapabilityTiers).toMatchObject({
-      "logo-cloud": "specific",
-      "stats-counter": "specific",
+      "site-search": "specific",
+      "map-display": "specific",
     });
     expect(orchestrationInput.simpleWebsitePath).toBe(false);
     expect(orchestrationInput.embeddingScaffoldMatch).toBe(true);

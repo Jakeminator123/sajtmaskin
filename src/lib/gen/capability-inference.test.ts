@@ -292,17 +292,23 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(caps.needs3D).toBe(false);
     const hints = buildCapabilityHints(caps)!;
     expect(hints).toContain("Parallax requested");
-    expect(hints).toContain("ScrollParallaxLayer");
+    // Taxonomy 2026-07-22: the parallax dossier pair was parked — the hint now
+    // gives freehand guidance (framer-motion scroll transforms) instead of
+    // pointing at dossier components.
+    expect(hints).toContain("useScroll");
+    expect(hints).toContain("useTransform");
     expect(hints).not.toContain("Motion/animation requested");
   });
 
-  it("parallax hint mentions both DOM and R3F integrations", () => {
+  it("parallax hint covers pointer parallax and reduced-motion safety freehand", () => {
     const caps = inferCapabilities("Lägg till mouse-parallax på hero-kortet");
     expect(caps.needsParallax).toBe(true);
     const hints = buildCapabilityHints(caps)!;
-    expect(hints).toContain("PointerParallaxLayer");
-    expect(hints).toContain("usePointerParallax");
-    expect(hints).toContain("useFrame");
+    expect(hints).toContain("pointer/mouse parallax");
+    expect(hints).toContain("motion-reduce:hidden");
+    // The parked dossier components must NOT be referenced anymore.
+    expect(hints).not.toContain("PointerParallaxLayer");
+    expect(hints).not.toContain("ScrollParallaxLayer");
   });
 
   it("parallax + 3D produces both 3D and parallax hints", () => {

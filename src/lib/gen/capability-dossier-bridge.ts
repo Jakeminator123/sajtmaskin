@@ -8,7 +8,10 @@ type CapabilityDossierBridgeEntry = {
 export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needs3D", dossierCapabilities: ["visual-3d"] },
   { flag: "needsPhysics", dossierCapabilities: ["physics-3d"] },
-  { flag: "needsParallax", dossierCapabilities: ["parallax-scroll", "parallax-pointer"] },
+  // `needsParallax` no longer bridges to dossiers — the parallax pair was
+  // parked (taxonomy 2026-07-22: trivial CSS/transform patterns the codegen
+  // LLM writes better freehand). The flag still drives the freehand parallax
+  // guidance block in `capability-inference.ts`.
   { flag: "needsPayments", dossierCapabilities: ["payments"] },
   // #475 split follow-up (review round 2): recurring/subscription vocabulary
   // routes to `subscriptions` (paddle-billing) — via needsPayments it injected
@@ -22,7 +25,7 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needsDatabase", dossierCapabilities: ["database"] },
   { flag: "needsForms", dossierCapabilities: ["contact-form"] },
   { flag: "needsCarousel", dossierCapabilities: ["carousel"] },
-  { flag: "needsCommandSearch", dossierCapabilities: ["command-search"] },
+  { flag: "needsCommandSearch", dossierCapabilities: ["command-palette"] },
   // `needsGame` is distinct from `needs3D` / `needsPhysics` — a game requires
   // state + loop + controls + collision + score + restart, not just
   // decorative motion or rigid bodies. When the prompt is both a game AND

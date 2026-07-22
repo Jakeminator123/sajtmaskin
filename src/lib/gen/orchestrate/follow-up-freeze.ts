@@ -5,7 +5,7 @@
  * (structural split, no behavior change).
  */
 import { normalizeRoutePath } from "../route-plan";
-import { expandDependentCapabilities } from "../dossiers";
+import { expandDependentCapabilities, normalizeCapabilityId } from "../dossiers";
 import type { BuildSpec } from "../build-spec";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import { getF2MutedIntegrationCapabilities } from "./capability-prompt-filter";
@@ -425,9 +425,12 @@ export function enforceFollowUpCapabilityFloor(
  *     parent/base version (already built — safe to keep so they still wire up).
  *
  * The allowed set is dependency-expanded (via {@link expandDependentCapabilities})
- * so a kept `subscriptions` still pulls its required `supabase-auth`. Any
- * capability NOT in the allowed set — a speculative brief/floor entry with no
- * ask, approval, or file evidence — is dropped. Pure; the caller logs
+ * so a kept `subscriptions` still pulls its required `auth` (pinned to the
+ * supabase-auth dossier in selection). Any capability NOT in the allowed set —
+ * a speculative brief/floor entry with no ask, approval, or file evidence — is
+ * dropped. Candidates are alias-normalized before the comparison
+ * (test-sync finding 2026-07-22): a legacy snapshot id like `supabase-auth`
+ * must be RECOGNIZED as `auth`, not dropped as unknown. Pure; the caller logs
  * `dropped` for observability and only reassigns when something was dropped.
  *
  * Only F3 rounds call this; F2/design rounds keep can-only-grow untouched.
@@ -446,10 +449,18 @@ export function scopeF3DossierCapabilities(params: {
     ),
   );
   const capabilities: string[] = [];
+  const seen = new Set<string>();
   const dropped: string[] = [];
   for (const cap of params.capabilities) {
-    if (allowed.has(cap)) capabilities.push(cap);
-    else dropped.push(cap);
+    const normalized = normalizeCapabilityId(cap);
+    if (allowed.has(normalized)) {
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        capabilities.push(normalized);
+      }
+    } else {
+      dropped.push(cap);
+    }
   }
   return { capabilities, dropped };
 }

@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "dashboard-charts",
-  "label": "Dashboard Charts",
+  "label": "Diagram & grafer",
   "capability": "dashboard-charts",
   "codeFidelity": "rewritable",
   "complexity": "simple",
   "defaultForCapability": true,
   "summary": "Use when a generated site needs reusable client-side dashboard chart primitives: a VisActor/VChart React wrapper, a neutral chart card container, a sample line-chart spec, and small formatting/classname helpers. Best for analytics sections or dashboard pages, not full app shells or data backends.",
+  "summarySv": "Färdiga diagram och grafer för att visa siffror på ett tydligt sätt, till exempel försäljning eller besök över tid. Välj det när sajten behöver en översikt med staplar och kurvor; fungerar helt utan externa tjänster.",
   "envVars": [],
   "dependencies": [
     "@visactor/react-vchart",

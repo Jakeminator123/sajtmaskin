@@ -27,9 +27,14 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
     expect(resend?.mock).toBe("success");
     const neon = all.find((d) => d.id === "neon-postgres");
     expect(neon?.mock).toBe("seed");
-    // A dossier with no declared mock stays undefined (schema-optional).
+    const drizzle = all.find((d) => d.id === "postgres-drizzle");
+    expect(drizzle?.mock).toBe("seed");
+    // Taxonomy 2026-07-22: payment/auth/realtime surfaces render a full
+    // interactive demo surface (mock: visual) instead of a dead placeholder.
     const stripe = all.find((d) => d.id === "stripe-checkout");
-    expect(stripe?.mock).toBe("none");
+    expect(stripe?.mock).toBe("visual");
+    const ably = all.find((d) => d.id === "ably-realtime");
+    expect(ably?.mock).toBe("visual");
   });
 });
 
@@ -40,7 +45,7 @@ describe("registry list cache invalidates on manifest mtime change", () => {
 
     // Touch one manifest's mtime forward by 1s — this must invalidate the
     // list cache even though the file content hasn't changed.
-    const manifestPath = join(ROOT, "soft", "pricing-tier-table", "manifest.json");
+    const manifestPath = join(ROOT, "soft", "gallery-lightbox", "manifest.json");
     const stat = statSync(manifestPath);
     const future = new Date(stat.mtimeMs + 5_000);
     utimesSync(manifestPath, future, future);
@@ -48,7 +53,7 @@ describe("registry list cache invalidates on manifest mtime change", () => {
     const second = getAllDossiers();
     // Same shape, but the call should not have hit the stale cached array.
     // Verify by checking the entry came from a fresh load (id present).
-    expect(second.find((d) => d.id === "pricing-tier-table")).toBeDefined();
+    expect(second.find((d) => d.id === "gallery-lightbox")).toBeDefined();
     expect(second.length).toBe(first.length);
 
     // Reset mtime back so we don't dirty the working tree timestamps.
@@ -112,7 +117,9 @@ describe("getCapabilityMap", () => {
   it("groups dossiers by capability with sorted ids", () => {
     const map = getCapabilityMap();
     expect(map["payments"]).toContain("stripe-checkout");
-    expect(map["pricing-section"]).toContain("pricing-tier-table");
+    expect(map["site-search"]).toContain("local-site-search");
+    // One capability, two provider siblings after the 2026-07-22 auth merge.
+    expect(map["auth"]).toEqual(["clerk-auth", "supabase-auth"]);
     for (const ids of Object.values(map)) {
       const sorted = [...ids].sort();
       expect(ids).toEqual(sorted);

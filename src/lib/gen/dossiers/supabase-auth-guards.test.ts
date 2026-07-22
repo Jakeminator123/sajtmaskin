@@ -9,9 +9,16 @@
  *     absolute URLs, scheme prefixes, protocol-relative "//host", backslash
  *     smuggling and control characters must all fall back to "/".
  *  2. `isSupabaseAuthConfigured` / `getSupabaseAuthConfig` — the lazy env
- *     guard (mock: none). Missing OR placeholder values (F2 preview stubs,
- *     dummy/changeme/your_-style stand-ins) count as NOT configured, so the
- *     UI shows the "Auth ej konfigurerat" notice instead of the SDK throwing.
+ *     guard (mock: visual since taxonomy 2026-07-22). Missing OR placeholder
+ *     values (F2 preview stubs, dummy/changeme/your_-style stand-ins) count
+ *     as NOT configured, so the UI renders the demo-mode surface instead of
+ *     the SDK throwing.
+ *
+ * Selection-level collision guards (exactly one auth dossier — the former
+ * "both capabilities selected → dedup drops auth" premise) moved to
+ * select.test.ts after the supabase-auth → auth capability merge: the two
+ * providers now share ONE capability, so selection picks exactly one root
+ * middleware owner by construction (pin/relevance-keyword tests there).
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -95,7 +102,7 @@ describe("sanitizeNextPath — open-redirect payloads fall back to '/'", () => {
   });
 });
 
-describe("supabase-auth env guard — lazy config (mock: none)", () => {
+describe("supabase-auth env guard — lazy config (mock: visual)", () => {
   const ENV_KEYS = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"] as const;
   const saved = new Map<string, string | undefined>();
 

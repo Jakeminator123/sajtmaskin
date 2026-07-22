@@ -1,0 +1,30 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "maplibre-map",
+  "label": "Karta (MapLibre)",
+  "capability": "map-display",
+  "codeFidelity": "rewritable",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Interactive map for contact/location sections built on MapLibre GL with OpenFreeMap vector tiles — no API key, no account, works fully in F2 preview. Ships an SSR-safe client component with markers + popups, cooperative scroll gestures, a loading skeleton and a graceful list fallback if tiles cannot load. The component file is verbatim (SSR/cleanup wiring is load-bearing); adapt via props at the call site.",
+  "summarySv": "Interaktiv karta för t.ex. 'Hitta hit'-sektioner. Ingen API-nyckel eller konto behövs — kartan fungerar direkt i förhandsvisningen. Markörer och popup-rutor styrs med props; om kartan inte kan laddas visas platserna som en snygg lista i stället.",
+  "envVars": [],
+  "dependencies": ["maplibre-gl"],
+  "files": [
+    {
+      "path": "components/map-display.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "MapDisplay",
+      "type": "component",
+      "import": "@/components/map-display"
+    }
+  ],
+  "lastVerified": "2026-07-22",
+  "sourceRepoUrl": "https://github.com/maplibre/maplibre-gl-js",
+  "promptInstructionMode": "selected-sections"
+}

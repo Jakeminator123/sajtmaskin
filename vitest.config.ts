@@ -27,6 +27,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      // clerk-auth dossier components import the GENERATED site's dependency
+      // `@clerk/nextjs` (not installed in this repo). Alias to an inert stub
+      // so the demo-mode branch is unit-testable (dossier-config-fallback).
+      "@clerk/nextjs": path.resolve(__dirname, "tests/stubs/clerk-nextjs.tsx"),
     },
   },
   test: {

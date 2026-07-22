@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "vercel-analytics",
-  "label": "Besöksstatistik",
+  "label": "Besöksstatistik — Vercel",
   "capability": "analytics",
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": true,
   "summary": "Besöksstatistik: sidvisningar och Core Web Vitals för den publicerade sajten (implementeras med @vercel/analytics). Lägger till komponenterna <Analytics /> + <SpeedInsights /> i root-layouten — noll konfiguration, hostingen injicerar projekttoken automatiskt vid publicering. Självinaktiveras i utvecklingsläge och är säker att ha monterad i alla miljöer.",
+  "summarySv": "Besöksstatistik inbyggd i hostingen: se hur många som besöker sajten och hur snabbt den laddar, utan att du behöver ställa in något — allt kopplas automatiskt när sajten publiceras. Utan den kopplingen stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
   "envVars": [],
   "dependencies": ["@vercel/analytics", "@vercel/speed-insights"],
   "files": [

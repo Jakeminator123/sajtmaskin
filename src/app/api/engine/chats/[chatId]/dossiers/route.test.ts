@@ -103,16 +103,17 @@ function softDossier(): SelectedDossier {
   return {
     entry: {
       class: "soft",
-      id: "faq-accordion",
-      label: "FAQ Accordion",
-      capability: "faq-section",
+      id: "gallery-lightbox",
+      label: "Bildgalleri med lightbox",
+      capability: "gallery-lightbox",
       codeFidelity: "rewritable",
       complexity: "simple",
       defaultForCapability: true,
-      summary: "Self-contained FAQ accordion section using theme tokens.",
+      summary: "Self-contained click-to-enlarge image gallery using theme tokens.",
+      summarySv: "Bildgalleri där besökare kan förstora bilder.",
       envVars: [],
       dependencies: [],
-      files: [{ path: "components/faq-accordion.tsx", role: "client" }],
+      files: [{ path: "components/gallery-lightbox.tsx", role: "client" }],
       lastVerified: "2026-06-25",
     },
     reason: "capability-match",
@@ -195,7 +196,7 @@ describe("GET dossiers overview", () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
       project_id: "proj_1",
-      orchestration_snapshot: { requestedCapabilities: ["payments", "faq-section"] },
+      orchestration_snapshot: { requestedCapabilities: ["payments", "gallery-lightbox"] },
     });
     getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
     getPreferredVersion.mockResolvedValue({
@@ -262,9 +263,12 @@ describe("GET dossiers overview", () => {
       placeholderCovered: false,
     });
 
-    const faq = body.dossiers.find((d) => d.id === "faq-accordion");
-    expect(faq?.requiresF3).toBe(false);
-    expect(faq?.status).toBe("self-contained");
+    const gallery = body.dossiers.find((d) => d.id === "gallery-lightbox");
+    expect(gallery?.requiresF3).toBe(false);
+    expect(gallery?.status).toBe("self-contained");
+    // §13: the optional Swedish catalog description is threaded through the
+    // overview payload so the panel can render `summarySv ?? summary`.
+    expect(gallery?.summarySv).toBe("Bildgalleri där besökare kan förstora bilder.");
   });
 
   it("flags stored real values and placeholder coverage per env key (built-live)", async () => {

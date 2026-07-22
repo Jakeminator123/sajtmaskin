@@ -1,0 +1,30 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "local-site-search",
+  "label": "Sök på sajten (lokal)",
+  "capability": "site-search",
+  "codeFidelity": "rewritable",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Client-side site search over the site's own content using MiniSearch — fuzzy + prefix matching, zero backend, zero keys, fully functional in F2 preview. Ships an accessible combobox component (keyboard navigation, ARIA listbox, Enter-to-navigate); the codegen LLM supplies the searchable items (pages, products, articles) at the call site. The component file is verbatim (keyboard/ARIA machinery is load-bearing); a future external provider (Algolia etc.) can join this capability as a hard sibling.",
+  "summarySv": "Sökfunktion som söker i sajtens eget innehåll (sidor, produkter, artiklar) direkt i webbläsaren — ingen extern tjänst eller nyckel behövs och den fungerar direkt i förhandsvisningen. Tål stavfel (fuzzy) och visar träffar medan man skriver.",
+  "envVars": [],
+  "dependencies": ["minisearch"],
+  "files": [
+    {
+      "path": "components/site-search.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "SiteSearch",
+      "type": "component",
+      "import": "@/components/site-search"
+    }
+  ],
+  "lastVerified": "2026-07-22",
+  "sourceRepoUrl": "https://github.com/lucaong/minisearch",
+  "promptInstructionMode": "selected-sections"
+}

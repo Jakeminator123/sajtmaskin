@@ -65,6 +65,19 @@ describe("scopeF3DossierCapabilities", () => {
     ]);
   });
 
+  it("recognizes a LEGACY candidate id via alias normalization instead of dropping it", () => {
+    // Test-sync finding 2026-07-22: a stale snapshot candidate `supabase-auth`
+    // must be recognized as `auth` (kept, normalized) when auth is allowed —
+    // the raw-id comparison used to drop it as unknown.
+    const result = scopeF3DossierCapabilities({
+      capabilities: ["supabase-auth", "payments"],
+      explicitCapabilities: ["auth"],
+      fileEvidenceCapabilities: [],
+    });
+    expect(result.capabilities).toEqual(["auth"]);
+    expect(result.dropped).toEqual(["payments"]);
+  });
+
   it("keeps capabilities explicitly asked/approved in the current round", () => {
     const result = scopeF3DossierCapabilities({
       capabilities: ["payments", "analytics"],
@@ -76,14 +89,15 @@ describe("scopeF3DossierCapabilities", () => {
   });
 
   it("keeps a dependent companion capability when its key capability survives", () => {
-    // `subscriptions` has file evidence → allowed; its dependent `supabase-auth`
-    // must ride along even though it has no independent evidence.
+    // `subscriptions` has file evidence → allowed; its dependent `auth`
+    // (pinned to the supabase-auth dossier at selection time) must ride along
+    // even though it has no independent evidence.
     const result = scopeF3DossierCapabilities({
-      capabilities: ["subscriptions", "supabase-auth", "analytics"],
+      capabilities: ["subscriptions", "auth", "analytics"],
       explicitCapabilities: [],
       fileEvidenceCapabilities: ["subscriptions"],
     });
-    expect(result.capabilities).toEqual(["subscriptions", "supabase-auth"]);
+    expect(result.capabilities).toEqual(["subscriptions", "auth"]);
     expect(result.dropped).toEqual(["analytics"]);
   });
 
@@ -301,32 +315,35 @@ describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () =>
     expect(result).toContain("physics-3d");
   });
 
-  it("leaves unrelated capabilities untouched", () => {
+  it("leaves unrelated capabilities untouched (alias-normalized)", () => {
+    // `command-search` is a legacy alias — the expansion helper normalizes it
+    // to `command-palette` on the way through; the capability itself survives.
     const result = filterDossierCapabilitiesForPrompt({
-      capabilities: ["parallax-scroll", "command-search"],
+      capabilities: ["gallery-lightbox", "command-search"],
       prompt: "a marketing site",
       previewPolicy: "fidelity2",
     });
-    expect(result).toEqual(["parallax-scroll", "command-search"]);
+    expect(result).toEqual(["gallery-lightbox", "command-palette"]);
   });
 });
 
-describe("filterDossierCapabilitiesForPrompt (dossier wave 3: supabase-auth vs auth)", () => {
-  // Non-competition contract: on an explicit Supabase prompt the inferred
-  // `needsAuth` bridge still adds generic `auth` (its patterns match the
-  // "login"/"auth" inside "supabase login"), but clerk-auth must never be
-  // injected alongside supabase-auth — both ship a root middleware.ts.
-  it("drops generic auth when supabase-auth is explicitly selected (F3)", () => {
+describe("filterDossierCapabilitiesForPrompt (auth after the 2026-07-22 merge)", () => {
+  // clerk-auth and supabase-auth are provider siblings under ONE `auth`
+  // capability now. A raw list carrying the legacy `supabase-auth` id plus
+  // generic `auth` must collapse to a single `auth` entry (alias
+  // normalization + dedup) — selection then picks exactly one middleware
+  // owner via the alias pin / relevance keywords.
+  it("merges legacy supabase-auth + auth into ONE auth entry (F3)", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["supabase-auth", "auth"],
       prompt: "medlemssida med supabase login",
       previewPolicy: "fidelity3",
     });
-    expect(result).toContain("supabase-auth");
-    expect(result).not.toContain("auth");
+    expect(result.filter((cap) => cap === "auth")).toHaveLength(1);
+    expect(result).not.toContain("supabase-auth");
   });
 
-  it("keeps generic auth (clerk) when supabase-auth is not requested (F3)", () => {
+  it("keeps generic auth when only auth is requested (F3)", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["auth"],
       prompt: "medlemssida med inloggning",
@@ -335,13 +352,25 @@ describe("filterDossierCapabilitiesForPrompt (dossier wave 3: supabase-auth vs a
     expect(result).toContain("auth");
   });
 
-  it("mutes supabase-auth in F2 like other server-surface integrations", () => {
+  it("mutes the LEGACY supabase-auth id in F2 (alias normalized before the mute)", () => {
+    // Test-sync finding 2026-07-22: the mute used to check the raw id, so a
+    // stale snapshot carrying `supabase-auth` bypassed the F2 mute and
+    // survived as `auth`. Normalization now runs first.
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["supabase-auth"],
       prompt: "medlemssida med supabase login",
       previewPolicy: "fidelity2",
     });
-    expect(result).not.toContain("supabase-auth");
+    expect(result).toEqual([]);
+  });
+
+  it("mutes auth in F2 like other server-surface integrations", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["auth"],
+      prompt: "medlemssida med supabase login",
+      previewPolicy: "fidelity2",
+    });
+    expect(result).not.toContain("auth");
   });
 });
 
@@ -371,32 +400,34 @@ describe("filterDossierCapabilitiesForPrompt (subscriptions vs payments dedup)",
   });
 });
 
-describe("filterDossierCapabilitiesForPrompt (dependent capability: subscriptions ⇒ supabase-auth)", () => {
-  // Codex P1 #475: paddle's customer-portal requires a signed-in Supabase
-  // user — a bare `subscriptions` selection must pull the supabase-auth stack
-  // (middleware, callback, sign-in surface) or the portal path is always 401.
-  it("expands subscriptions with supabase-auth in F3", () => {
+describe("filterDossierCapabilitiesForPrompt (dependent capability: subscriptions ⇒ auth)", () => {
+  // Codex P1 #475, re-expressed after the auth merge: paddle's customer-portal
+  // requires a signed-in Supabase user — a bare `subscriptions` selection must
+  // pull `auth` (which selection pins to the supabase-auth dossier) or the
+  // portal path is always 401.
+  it("expands subscriptions with auth in F3", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["subscriptions"],
       prompt: "lägg till prenumerationer för medlemmar",
       previewPolicy: "fidelity3",
     });
     expect(result).toContain("subscriptions");
-    expect(result).toContain("supabase-auth");
+    expect(result).toContain("auth");
+    expect(result).not.toContain("supabase-auth");
   });
 
-  it("drops tag-along generic auth in favor of the required supabase-auth (F3)", () => {
+  it("keeps ONE auth entry when generic auth tags along with subscriptions (F3)", () => {
     // Inferred `needsAuth` can add generic `auth` on a membership prompt; the
-    // expansion adds supabase-auth, and the existing dedup must then drop
-    // `auth` so clerk-auth's root middleware never collides.
+    // expansion dedupes it into a single `auth` entry. Which PROVIDER wins is
+    // selection's job — the dependency pin picks the supabase-auth dossier
+    // (see select.test.ts), so clerk-auth's root middleware never collides.
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["subscriptions", "auth"],
       prompt: "medlemssida med prenumerationer och inloggning",
       previewPolicy: "fidelity3",
     });
     expect(result).toContain("subscriptions");
-    expect(result).toContain("supabase-auth");
-    expect(result).not.toContain("auth");
+    expect(result.filter((cap) => cap === "auth")).toHaveLength(1);
   });
 
   it("does NOT expand in F2 — subscriptions is muted before expansion runs", () => {
@@ -406,7 +437,7 @@ describe("filterDossierCapabilitiesForPrompt (dependent capability: subscription
       previewPolicy: "fidelity2",
     });
     expect(result).not.toContain("subscriptions");
-    expect(result).not.toContain("supabase-auth");
+    expect(result).not.toContain("auth");
   });
 });
 

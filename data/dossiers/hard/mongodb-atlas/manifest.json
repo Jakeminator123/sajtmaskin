@@ -2,13 +2,14 @@
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "mongodb-atlas",
   "mock": "seed",
-  "label": "MongoDB Atlas",
+  "label": "Databas — MongoDB Atlas",
   "capability": "database",
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
   "relevanceKeywords": ["mongodb", "mongo", "mongodb atlas"],
   "summary": "Use when a Next.js App Router project explicitly needs MongoDB Atlas as its server-side database. Provides a lazy reusable MongoDB client helper and a lightweight health-check route for validating Atlas connectivity from server code only; when MONGODB_URI is missing the app must fall back to static seedData with a discreet config notice instead of crashing.",
+  "summarySv": "Databas hos MongoDB Atlas för att spara och visa information på sajten. Välj den bara när du uttryckligen vill ha MongoDB; utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
   "envVars": [
     {
       "key": "MONGODB_URI",

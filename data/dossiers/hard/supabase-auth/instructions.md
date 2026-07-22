@@ -1,6 +1,6 @@
 # When to use
 
-- Use ONLY when the project EXPLICITLY chooses Supabase Auth (the user names Supabase for login/auth). A generic "login / inloggning / auth" ask is the `auth` capability (clerk-auth), not this dossier.
+- Provider sibling under the shared `auth` capability. Selected when the user EXPLICITLY names Supabase for login/auth (manifest `relevanceKeywords`), or automatically when `subscriptions`/paddle-billing is selected (dependency pin — the customer portal needs a signed-in Supabase user). A generic "login / inloggning / auth" ask picks the capability default (clerk-auth), not this dossier.
 - Fit: Next.js App Router apps needing cookie-based sessions, SSR auth state, middleware session refresh, and server-side user checks.
 - Appropriate for dashboards, member areas, app shells, and protected route groups.
 - Supports email/password, magic link, and OAuth flows configured in Supabase.
@@ -18,10 +18,11 @@
 
 # Mock/demo mode
 
-`mock: none` — login cannot be meaningfully mocked (a fake session would misrepresent what the site does). Without real keys the dossier degrades instead:
+`mock: visual` — the login SURFACE renders fully in demo mode, but no fake session is ever created (a fake session would misrepresent what the site does). Without real keys the dossier degrades:
 
 - The env guard treats a missing value OR a preview stub (`..._placeholder_preview_not_real`, `dummy`, `changeme`, `your_...`) as NOT configured — on ALL keys, so a seeded F2 stub never reaches `createServerClient`/`createBrowserClient` as a real URL/key.
-- Middleware passes through (`NextResponse.next()`), the callback skips the code exchange, and `<SupabaseAuthNotice />` renders a discreet "Auth ej konfigurerat" banner next to the auth UI. Everything else on the site keeps working.
+- Render the login/signup UI as usual; gate submission on `isSupabaseAuthConfigured()` — when `false`, submitting shows `<SupabaseAuthNotice />` (the honest "Auth ej konfigurerat" notice) instead of calling the client. Visitors SEE the auth flow; nobody gets a pretend session.
+- Middleware passes through (`NextResponse.next()`), the callback skips the code exchange. Everything else on the site keeps working.
 - Real sign-in activates only when both `NEXT_PUBLIC_SUPABASE_*` values are genuine (F3 / "Bygg integrationer").
 
 # UX rules
@@ -53,4 +54,4 @@
 - Refresh the page and confirm the session persists through cookies.
 - Sign out and confirm protected routes redirect away from private content.
 - For OAuth, confirm the callback exchanges the code and redirects only to safe same-origin paths (try `?next=https://evil.example` — it must fall back to `/`).
-- Remove the Supabase env vars (or leave the preview stubs) and reload — the middleware passes through and `<SupabaseAuthNotice />` shows the "Auth ej konfigurerat" banner instead of a 500 (mock: none).
+- Remove the Supabase env vars (or leave the preview stubs) and reload — the login UI still renders, submitting shows `<SupabaseAuthNotice />` ("Auth ej konfigurerat") instead of a 500, and no session is created (mock: visual).

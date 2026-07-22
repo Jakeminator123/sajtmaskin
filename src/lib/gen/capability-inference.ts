@@ -463,7 +463,7 @@ export function buildCapabilityHints(
   }
   if (caps.needsParallax) {
     lines.push(
-      "- **Parallax requested**: Use the parallax dossier(s) selected for this build. For scroll-driven parallax, wrap layers in `ScrollParallaxLayer` from `@/components/scroll-parallax-layer` (one section ref drives many sibling layers). For pointer/mouse parallax on DOM, use `PointerParallaxLayer` from `@/components/pointer-parallax-layer`. For pointer parallax inside a React Three Fiber scene, call `usePointerParallax(targetRef)` from `@/components/use-pointer-parallax` and read the returned ref inside `useFrame`. NEVER apply `motion-reduce:hidden` on the parallax layer itself — keep the content visible at its end-state when reduced motion is on. Add framer-motion to deps when scroll-parallax is in scope.",
+      "- **Parallax requested**: Implement parallax freehand — for scroll-driven parallax prefer framer-motion `useScroll` + `useTransform` (or pure CSS transforms) on layered elements inside a section with a single scroll driver; for pointer/mouse parallax translate layers a few pixels from normalized pointer position via rAF-throttled state. Respect reduced motion: NEVER apply `motion-reduce:hidden` on the parallax layer itself — keep content visible at its end-state when reduced motion is on (use `motion-safe:` variants or a `prefers-reduced-motion` check). Add framer-motion to deps when scroll-parallax is in scope.",
     );
   }
   if (caps.needsPayments) {

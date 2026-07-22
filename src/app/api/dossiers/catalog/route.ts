@@ -34,6 +34,7 @@ export async function GET() {
       capability: entry.capability,
       class: entry.class,
       summary: entry.summary,
+      summarySv: entry.summarySv,
       envVarCount: (entry.envVars ?? []).length,
       groupId: group.id,
       groupLabel: group.label,

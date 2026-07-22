@@ -1,12 +1,13 @@
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "sentry-error-tracking",
-  "label": "Sentry Error Tracking",
+  "label": "Felrapportering — Sentry",
   "capability": "error-tracking",
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": true,
   "summary": "Production error tracking + performance monitoring via Sentry. Adds three init shims (client / server / edge) plus an instrumentation entry that wires them into Next.js. Self-disables when NEXT_PUBLIC_SENTRY_DSN is empty so dev/preview environments do not ship beacons. Use when the brief asks for crash reporting, observability, 'know when the site breaks', or production-grade monitoring.",
+  "summarySv": "Felrapportering via Sentry som meddelar dig när något går sönder på den publicerade sajten, utan att besökarna behöver höra av sig. Utan nyckel stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SENTRY_DSN",

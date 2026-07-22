@@ -8,14 +8,17 @@ file plus a reference URL/repo and output a complete dossier directory.
 
 A dossier is a small, reusable building block injected into the codegen LLM's
 prompt when a brief asks for the matching capability. One dossier maps to
-**one capability** (an abstract intent like `payments`, `parallax-scroll`,
-`testimonials-section`, `visual-3d`).
+**one capability** (an abstract intent like `payments`, `map-display`,
+`site-search`, `visual-3d`). A dossier earns its place only when it carries an
+external key/service OR a technical pattern the codegen LLM repeatedly gets
+wrong freehand — plain content sections (FAQ, pricing, testimonials, CTA)
+are freehand page content, not dossiers (taxonomy decision 2026-07-22).
 
 Source-of-truth files:
 
 - Schema: [`docs/schemas/strict/dossier.schema.json`](../schemas/strict/dossier.schema.json)
 - Architecture: [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md)
-- Existing examples: [`data/dossiers/soft/three-fiber-canvas/`](../../data/dossiers/soft/three-fiber-canvas/), [`data/dossiers/soft/scroll-parallax/`](../../data/dossiers/soft/scroll-parallax/), [`data/dossiers/hard/stripe-checkout/`](../../data/dossiers/hard/stripe-checkout/)
+- Existing examples: [`data/dossiers/soft/three-fiber-canvas/`](../../data/dossiers/soft/three-fiber-canvas/), [`data/dossiers/soft/maplibre-map/`](../../data/dossiers/soft/maplibre-map/), [`data/dossiers/hard/stripe-checkout/`](../../data/dossiers/hard/stripe-checkout/)
 
 ## Class decision (`hard` vs `soft`)
 
@@ -24,7 +27,7 @@ Encoded in the folder path. Pick exactly one:
 | Class | Folder | Use when |
 |---|---|---|
 | `hard` | `data/dossiers/hard/<id>/` | The dossier needs **external secrets** (API keys, OAuth client IDs, webhook signing secrets) declared in `envVars`. Preflight checks env. Examples: Stripe, Auth.js, OpenAI, Resend. |
-| `soft` | `data/dossiers/soft/<id>/` | The dossier is **self-contained** (UI sections, animation patterns, R3F shells, layout primitives). No envVars. Examples: pricing-tier-table, three-fiber-canvas, scroll-parallax, faq-accordion. |
+| `soft` | `data/dossiers/soft/<id>/` | The dossier is **self-contained** (interaction patterns, R3F shells, key-free features). No envVars. Examples: three-fiber-canvas, maplibre-map, local-site-search, gallery-lightbox. |
 
 If the reference uses a third-party SDK that needs an API key → `hard`. If it
 is a pure React/CSS pattern → `soft`.
@@ -34,10 +37,10 @@ is a pure React/CSS pattern → `soft`.
 Capability ids are kebab-case, free-form, but follow these conventions:
 
 - One word: `payments`, `analytics`.
-- `<domain>-<noun>` for vertical sections: `pricing-section`, `faq-section`,
-  `testimonials-section`, `contact-form`.
-- `<family>-<variant>` for related dossiers in a namespace: `parallax-scroll`,
-  `parallax-pointer`, `visual-3d`.
+- `<domain>-<noun>` for compound intents: `contact-form`, `site-search`,
+  `map-display`.
+- `<family>-<variant>` for related dossiers in a namespace: `visual-3d`,
+  `physics-3d`.
 - New capabilities are allowed — but check
   [`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json)
   first to avoid synonyms (`carousel-slider` and `image-slider` should be one
@@ -97,7 +100,8 @@ The `<id>` MUST equal the directory name and match the regex
 | `codeFidelity` | enum | yes | `verbatim` for SDK glue/webhooks/auth that must not be paraphrased. `rewritable` for UI components the LLM may adapt. |
 | `complexity` | enum | yes | `simple` = 1-2 files, no env. `medium` = 3-5 files OR env required. `advanced` = >5 files or multi-step setup. |
 | `defaultForCapability` | bool | no (default false) | Set `true` for the canonical implementation. When two dossiers share a capability the default wins selection. |
-| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without a real key: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `none` (config banner only). **EVERY hard dossier must declare `mock ≠ none`** (per-dossier since 2026-07-12) unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` — enforced by `dossiers:validate-all` (see checklist item 8). Omit for soft dossiers. |
+| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without a real key: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `visual` (full interactive surface; the ACTION opens an honest demo notice/modal — never fake sessions/charges/transport), `none` (self-disable — analytics/error-tracking only). **EVERY hard dossier must declare `mock ≠ none`** (per-dossier since 2026-07-12) unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` (only `analytics` + `error-tracking` since 2026-07-22) — enforced by `dossiers:validate-all` (see checklist item 8). Omit for soft dossiers. |
+| `summarySv` | string | no | Swedish catalog description for END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt; UI falls back to `summary` when omitted. Write for a non-technical site owner. |
 | `summary` | string (30-600) | yes | 1-3 sentences: what it does, when to use, key safety contract. Written for the codegen LLM, not for humans. Verbs in present tense. |
 | `envVars` | array | no | Only for `hard` dossiers. Each entry needs `key` (UPPER_SNAKE_CASE), `required` (bool), `purpose` (10-240 chars), and optional `enforcement` (see below). |
 | `envVars[].enforcement` | enum | no | Defaults to `"build"`. One of: `"build"` (real value required at F3 build time — secret keys, server-side database URLs, anything where a placeholder crashes deploy); `"feature-runtime"` (the SDK is imported but the dossier's UI shows a configuration banner / popup at runtime when the value is missing — the "Klarna-popup" pattern; F3 surfaces as warning, not blocker); `"warn-only"` (component self-disables on empty value, e.g. `if (!domain) return null` — surfaced only as info). The F3 readiness gate filters `requiredRealEnvKeys` to `build`-enforcement only, so getting this wrong either blocks deploy unnecessarily or lets a deploy succeed with broken integrations. Be honest about whether the dossier's runtime actually has graceful fallback before tagging `feature-runtime`. |

@@ -24,8 +24,8 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
     total: 2,
     groups: [
       {
-        id: "payments",
-        label: "Betalningar",
+        id: "commerce",
+        label: "Betalning & handel",
         dossiers: [
           {
             id: "stripe-checkout",
@@ -34,8 +34,8 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
             class: "hard",
             summary: "Stripe-baserad checkout.",
             envVarCount: 2,
-            groupId: "payments",
-            groupLabel: "Betalningar",
+            groupId: "commerce",
+            groupLabel: "Betalning & handel",
           },
           {
             id: "klarna-checkout",
@@ -44,8 +44,8 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
             class: "hard",
             summary: "Klarna-baserad checkout.",
             envVarCount: 1,
-            groupId: "payments",
-            groupLabel: "Betalningar",
+            groupId: "commerce",
+            groupLabel: "Betalning & handel",
           },
         ],
       },
@@ -104,7 +104,7 @@ describe("PreviewPanelDossiers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Betalningar")).toBeTruthy();
+      expect(screen.getByText("Betalning & handel")).toBeTruthy();
     });
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
@@ -183,11 +183,12 @@ describe("PreviewPanelDossiers", () => {
         counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
         dossiers: [
           {
-            id: "faq-accordion",
-            label: "FAQ Accordion",
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
             class: "soft",
-            capability: "faq-section",
-            summary: "Statisk FAQ-sektion.",
+            capability: "gallery-lightbox",
+            summary: "Click-to-enlarge image gallery.",
+            summarySv: "Bildgalleri där bilder kan förstoras.",
             complexity: "simple",
             requiresF3: false,
             configured: true,
@@ -209,7 +210,7 @@ describe("PreviewPanelDossiers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("FAQ Accordion")).toBeTruthy();
+      expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
     });
     // The catalog tab's content is not shown by default when something is
     // already wired.
