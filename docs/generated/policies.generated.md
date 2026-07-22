@@ -7,8 +7,8 @@
 > Source: `data/dossiers/{hard,soft}/*/manifest.json#envVars`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:5c59b8c12c9506a8 -->
-<!-- source-fingerprint: config/env-policy.json sha256:763b04ecd3c14d63 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
+<!-- source-fingerprint: config/env-policy.json sha256:780c2363d6cbf56d -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
@@ -16,10 +16,10 @@
 
 ## Quality-gate tiers
 
-| Lane                | Phase | Ordered checks                 |
-| ------------------- | ----- | ------------------------------ |
-| `designPreview`     | `F2`  | `typecheck`                    |
-| `integrationsBuild` | `F3`  | `typecheck` → `lint` → `build` |
+| Lane                | Phase | Ordered checks        |
+| ------------------- | ----- | --------------------- |
+| `designPreview`     | `F2`  | `typecheck`           |
+| `integrationsBuild` | `F3`  | `typecheck` → `build` |
 
 Structured result enums from the preview contract: `$.contracts.PreviewHostVerifyResponse.properties.results.items.properties.failureKind.enum`: `code`, `tooling`, `null`.
 
@@ -72,6 +72,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_AVATAR_CLIENT_KEY`                      | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_AVATAR_ENABLED`                         | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_BASE_URL`                               | `environment_specific` | `preview`, `production`                | No            | No           |
+| `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
@@ -98,6 +99,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT`              | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEV_LOG`                                 | `local_only`           | —                                      | No            | Yes          |
+| `SAJTMASKIN_DISABLE_QUALITY_GATE`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DOSSIER_PIPELINE`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK`                    | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `SAJTMASKIN_LIVE_SITE_DOMAIN`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |

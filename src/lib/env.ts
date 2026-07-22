@@ -189,6 +189,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_PREWARM: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),
+  /** Kill-switch for the automatic F2 design-preview quality gate (RenderGate) — the ~5-7s "verifying" post-check after a new version renders. Affirmative ("1"/"true") short-circuits the client-triggered `POST /quality-gate` F2 lane: no preview-host verify run, no `verifying` spinner, no superseded mutation, and NO promotion — the version stays unverified/pending (a skipped gate must never read as `passed`). The explicit F3 integrations ReleaseGate is UNAFFECTED. Read via `isQualityGateDisabledByEnv` in `src/lib/gen/verify/preview-quality-gate.ts`. Default off. */
+  SAJTMASKIN_DISABLE_QUALITY_GATE: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
@@ -224,6 +226,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT: z.string().optional(),
   /** Inspector "bridge"-engine (instrumenterad preview + postMessage). Default AV — opt-in, reversibel. */
   NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE: z.string().optional(),
+  /** "Beskriv"-discovery-lager (Fas 1): server-route `POST /api/shadcn/describe` som översätter en fritext-beskrivning till registry-sökfrågor, söker officiella + community-register och rankar verkliga träffar. Default AV — flagga av = routen svarar 404, noll beteendeändring. Skriver inget till användarsajten. Read via `isShadcnDescribeEnabled` i `src/lib/shadcn/describe-feature.ts`. */
+  NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE: z.string().optional(),
   /** Tabbad "Lägg till"-panel i preview-ytan (Block/Bläddra/Beskriv). Default AV — opt-in, reversibel. Läses via `isAddPanelEnabled` i `src/lib/builder/add-panel-feature.ts`. */
   NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */

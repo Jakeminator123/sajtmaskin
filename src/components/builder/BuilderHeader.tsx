@@ -7,7 +7,6 @@ import {
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
-import { DESIGN_THEME_OPTIONS, type DesignTheme } from "@/lib/builder/theme-presets";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
@@ -22,6 +21,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -49,7 +51,6 @@ import {
   Plus,
   Lightbulb,
   Globe,
-  Palette,
   Rocket,
   Save,
   Settings2,
@@ -67,9 +68,6 @@ export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
   onApplyAnthropicComparePreset: () => void;
-
-  designTheme: DesignTheme;
-  onDesignThemeChange: (theme: DesignTheme) => void;
 
   promptAssistModel: string;
   promptAssistDeep: boolean;
@@ -145,8 +143,6 @@ export function BuilderHeader(props: {
     selectedModelTier,
     onSelectedModelTierChange,
     onApplyAnthropicComparePreset,
-    designTheme,
-    onDesignThemeChange,
     promptAssistModel: _promptAssistModel,
     promptAssistDeep,
     canUseDeepBrief,
@@ -215,8 +211,6 @@ export function BuilderHeader(props: {
       : scaffoldMode === "auto"
         ? "Auto"
         : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
-  const currentThemeLabel =
-    DESIGN_THEME_OPTIONS.find((option) => option.value === designTheme)?.label ?? "Av";
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
@@ -340,99 +334,94 @@ export function BuilderHeader(props: {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
-                    <Layers className="h-4 w-4" />
-                    <span className="hidden max-w-[180px] truncate sm:inline">
-                      Scaffold: {scaffoldButtonLabel}
-                    </span>
+                  {/* Triggern lämnas aktiv — varje item/submeny har egen spärr
+                      (isBusy för import/export och Spara, isConfigLocked för
+                      scaffold/inställningar), så scaffold och inställningar
+                      förblir nåbara under chat-skapande precis som tidigare. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Fler åtgärder: spara, scaffold, inställningar, import och export"
+                    title="Spara, scaffold, inställningar, import och export"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="hidden sm:inline">Mer</span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Scaffold — startpunkt för genererad kod</p>
+                <p>Spara projektet, välj scaffold, ändra inställningar eller importera/exportera</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Scaffold</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
-              onValueChange={(v) => {
-                if (v === "off" || v === "auto") {
-                  onScaffoldModeChange(v);
-                  onScaffoldIdChange(null);
-                } else if (v.startsWith("manual:")) {
-                  const id = v.slice("manual:".length);
-                  onScaffoldModeChange("manual");
-                  onScaffoldIdChange(id || null);
-                }
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuLabel>Projekt</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={!canSaveProject || isBusy || isSavingProject}
+              onSelect={(event) => {
+                event.preventDefault();
+                runDeferredAction(() => {
+                  void onSaveProject();
+                });
               }}
             >
-              <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                Välj själv
-              </DropdownMenuLabel>
-              {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
-                <DropdownMenuRadioItem
-                  key={scaffold.id}
-                  value={`manual:${scaffold.id}`}
+              {isSavingProject ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Spara projekt
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={isConfigLocked}>
+                <Layers className="mr-2 h-4 w-4" />
+                <span className="max-w-[160px] truncate">Scaffold: {scaffoldButtonLabel}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                <DropdownMenuLabel>Scaffold</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
+                  onValueChange={(v) => {
+                    if (v === "off" || v === "auto") {
+                      onScaffoldModeChange(v);
+                      onScaffoldIdChange(null);
+                    } else if (v.startsWith("manual:")) {
+                      const id = v.slice("manual:".length);
+                      onScaffoldModeChange("manual");
+                      onScaffoldIdChange(id || null);
+                    }
+                  }}
                 >
-                  <span className="font-medium">{scaffold.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">
-                    {scaffold.description}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                    Välj själv
+                  </DropdownMenuLabel>
+                  {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
+                    <DropdownMenuRadioItem
+                      key={scaffold.id}
+                      value={`manual:${scaffold.id}`}
+                    >
+                      <span className="font-medium">{scaffold.label}</span>
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        {scaffold.description}
+                      </span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
-                    <Palette className="h-4 w-4" />
-                    <span className="hidden max-w-[140px] truncate sm:inline">
-                      Tema: {currentThemeLabel}
-                    </span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Färgtema som skickas till genereringen (design tokens)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Färgtema</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={designTheme}
-              onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
-            >
-              {DESIGN_THEME_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isConfigLocked}>
-              <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Inställningar</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={isConfigLocked}>
+                <Settings2 className="mr-2 h-4 w-4" />
+                Inställningar
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
             <DropdownMenuLabel>Generering</DropdownMenuLabel>
             {/* Fast-tier (gpt-5.4-fast) does not support reasoning deltas
                 in the manifest — server-side phase routing already forces
@@ -634,33 +623,10 @@ export function BuilderHeader(props: {
               <Lightbulb className="mr-2 h-4 w-4" />
               Visa tips efter AI-svar
             </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu></>}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBusy}
-                    aria-label="Fler åtgärder: import, runtime och nedladdning"
-                    title="Importera, starta runtime eller ladda ner ZIP"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="hidden sm:inline">Mer</span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Importera från GitHub eller ZIP, eller ladda ner projektet som ZIP</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuSeparator />
             <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={isBusy}
@@ -699,7 +665,7 @@ export function BuilderHeader(props: {
               Exportera till GitHub
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu></>}
 
         {isBusy ? (
           <Button
@@ -726,25 +692,6 @@ export function BuilderHeader(props: {
             <Plus className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">Ny chat</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            runDeferredAction(() => {
-              void onSaveProject();
-            })
-          }
-          disabled={!canSaveProject || isBusy || isSavingProject}
-          title="Spara projekt"
-        >
-          {isSavingProject ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Spara</span>
         </Button>
 
         {deploymentHistoryHydrationFailed ? (

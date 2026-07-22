@@ -35,6 +35,7 @@ import {
   QualityGateUnavailableError,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
+  isQualityGateDisabledByEnv,
   maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateChecks,
   qualityGateAllPassed,
@@ -386,6 +387,52 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // set to readiness/export/verify/promotion — no re-read that could observe
       // a different snapshot (TOCTOU + Codex P2 stale-snapshot fix).
       const codeFiles = await getVersionFiles(internalVersionId);
+
+      // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): skip the automatic F2
+      // RenderGate verify lane entirely, WITHOUT touching version state (Codex
+      // P1 on #573: a skipped gate must never read as verified). The version
+      // stays exactly as it was — normally `pending`, which for an F2 design
+      // row is the honest "design ready, never gate-verified" resting state
+      // (`resolveEngineVersionVerificationSurfaceStatus` → `design_ready`, and
+      // the F2 deploy gate only blocks `failed`). No `markVersionVerifying`
+      // (so no ~5-7s "verifying" spinner), no promotion, no superseded
+      // mutation. NEVER disables the explicit F3 integrations ReleaseGate —
+      // integrations must still typecheck+build before deploy.
+      if (!integrationsBuildGate && isQualityGateDisabledByEnv()) {
+        // Mirror the normal path: a fileless/unreadable snapshot is still 404.
+        if (!codeFiles || codeFiles.length === 0) {
+          return NextResponse.json({ error: "No files found for version" }, { status: 404 });
+        }
+        // Durable trace (the response's skipped/disabled fields are ephemeral):
+        // one warning row so readiness/status consumers can see the gate was
+        // switched off for this version instead of silently never running.
+        if (dbConfigured) {
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:disabled-skip",
+              message:
+                "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — verify-lane hoppades över; versionen lämnas overifierad.",
+              meta: { reason: "quality_gate_disabled_by_env", serverOwned: false },
+            },
+          ]).catch((err) => {
+            warnLog("quality-gate", "Failed to persist disabled-skip log (non-fatal)", {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        }
+        return NextResponse.json({
+          passed: false,
+          skipped: true,
+          disabled: true,
+          promoted: false,
+          checks: [],
+          reason:
+            "Quality gate avstängd via SAJTMASKIN_DISABLE_QUALITY_GATE — versionen lämnas overifierad (ingen verify-körning, ingen promotion).",
+        });
+      }
 
       if (effectiveGate === "integrationsBuild") {
         const readiness = await checkTier3ReadinessForVersion({

@@ -240,16 +240,3 @@ export async function getStoredProjectEnvVarMap(projectId: string): Promise<Reco
     return acc;
   }, {});
 }
-
-export async function readAllowPlaceholdersInF3(
-  projectId: string | null | undefined,
-): Promise<boolean> {
-  if (!projectId) return false;
-  try {
-    const data = await getProjectData(projectId);
-    const meta = asRecord(data?.meta);
-    return meta?.allowPlaceholdersInF3 === true;
-  } catch {
-    return false;
-  }
-}

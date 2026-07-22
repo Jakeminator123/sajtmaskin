@@ -72,9 +72,11 @@ Verify responses can contain extra install-context rows in `results[]`:
 
 Generated/exportable Next projects pin Next, TypeScript, ESLint and
 `eslint-config-next` and ship `eslint.config.mjs`. F2 remains typecheck-only.
-F3 runs `typecheck → lint → build`; lint warnings are Advisory, lint errors are
-Blocker, and missing local lint tooling/configuration is a non-repairable tooling
-failure rather than a green skip.
+F3 runs `typecheck → build` — the `lint` check was removed from the blocking
+lane 2026-07-22 (style rules blocked buildable sites). The host still supports
+`lint` if the manifest re-enables it; when it runs: lint warnings are Advisory,
+lint errors are Blocker, and missing local lint tooling/configuration is a
+non-repairable tooling failure rather than a green skip.
 
 Verify reuse is isolated: live `node_modules` is copied, never symlinked, so a
 verify command cannot mutate the running site's dependency tree.

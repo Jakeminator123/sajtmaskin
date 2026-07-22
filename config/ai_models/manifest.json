@@ -352,7 +352,6 @@
     ],
     "integrationsBuild": [
       "typecheck",
-      "lint",
       "build"
     ]
   },

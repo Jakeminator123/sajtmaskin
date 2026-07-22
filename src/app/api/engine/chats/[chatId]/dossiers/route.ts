@@ -72,7 +72,7 @@ import {
   validateTier3Readiness,
   type Tier3IntegrationRequirement,
 } from "@/lib/integrations/tier3-build-spec";
-import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import type {
   DossierOverviewEntry,
@@ -288,16 +288,12 @@ async function buildDossierOverview(
 
   let missingByKey = new Map<string, string[]>();
   if (spec && spec.requirements.length > 0 && version) {
-    // Mirror the readiness route's env gate: placeholder values only count as
-    // "satisfied" once the version is in F3 (`integrations`). Accepting them in
-    // F2 would clear `blocked-build` while the canonical readiness / env gate
-    // still treats the same keys as missing (a false green).
-    const allowPlaceholdersInF3 =
-      lifecycleStage === "integrations"
-        ? await readAllowPlaceholdersInF3(chat.project_id)
-        : false;
+    // Mirror the readiness route's env gate: placeholders are ALWAYS accepted
+    // for build keys in F3 (ägarbeslut 2026-07-22 — bygget går i demoläge och
+    // riktiga nycklar fylls i via Byggblock). In F2 the strict view stays so
+    // the panel honestly shows which keys still lack real values.
     const readiness = validateTier3Readiness(spec, projectEnvVars, {
-      allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
+      allowPlaceholdersForBuildKeys: lifecycleStage === "integrations",
       placeholderEnvKeys: placeholderKeySet,
     });
     missingByKey = new Map(

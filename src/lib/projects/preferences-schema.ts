@@ -10,9 +10,9 @@
  * Keeping the schema here (not next to the route) lets the future UI pull
  * the same Zod types without depending on `src/app/`-internals.
  *
- * Scope: PR-A only. Currently covers `allowPlaceholdersInF3` (existing) and
- * `seo` (new). Add new keys here as they get persisted under
- * `project_data.meta`.
+ * Scope: currently covers `seo`. Add new keys here as they get persisted
+ * under `project_data.meta`. (`allowPlaceholdersInF3` togs bort 2026-07-22 —
+ * placeholders är alltid tillåtna i F3 numera.)
  */
 import { z } from "zod";
 
@@ -78,7 +78,6 @@ export type SeoPreferences = z.infer<typeof seoPreferencesSchema>;
  * All fields optional so partial updates are allowed.
  */
 export const projectPreferencesPatchSchema = z.object({
-  allowPlaceholdersInF3: z.boolean().optional(),
   seo: seoPreferencesSchema.optional(),
 });
 

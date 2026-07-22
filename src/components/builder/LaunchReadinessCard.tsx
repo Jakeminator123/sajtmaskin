@@ -14,7 +14,7 @@ import {
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -62,7 +62,7 @@ function renderItem(
           variant="ghost"
           size="sm"
           className="mt-1 h-7 px-2 text-[11px]"
-          onClick={() => openProjectEnvVarsPanel(envKeys)}
+          onClick={() => openDossiersPanel(envKeys)}
         >
           Öppna miljövariabler
         </Button>

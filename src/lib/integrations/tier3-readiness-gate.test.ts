@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
-const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
 const getLatestEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 
@@ -15,7 +14,6 @@ vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
-  readAllowPlaceholdersInF3,
 }));
 vi.mock("@/lib/gen/preview/env-local", () => ({ loadPlaceholderKeySet }));
 vi.mock("@/lib/db/services/version-errors", () => ({ getLatestEngineVersionErrorLogs }));
@@ -40,7 +38,6 @@ beforeEach(() => {
   ]);
   detectIntegrationsFromVersionFiles.mockReturnValue(stripeDetection);
   getStoredProjectEnvVarMap.mockResolvedValue({});
-  readAllowPlaceholdersInF3.mockResolvedValue(false);
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
   getLatestEngineVersionErrorLogs.mockResolvedValue([]);
 });
@@ -56,7 +53,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     expect(result).toEqual({ ok: false, reason: "version_files_unavailable" });
   });
 
-  it("blocks with missing_env when a required real key is absent", async () => {
+  it("blocks with missing_env when a required real key is absent AND has no placeholder", async () => {
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -70,6 +67,16 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     } else {
       throw new Error(`expected missing_env, got ${JSON.stringify(result)}`);
     }
+  });
+
+  it("passes on a placeholder-covered build key (placeholders alltid tillåtna, 2026-07-22)", async () => {
+    loadPlaceholderKeySet.mockReturnValue(new Set(["STRIPE_SECRET_KEY"]));
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("blocks on a pending approved clerk provider even when parent files have no clerk evidence (M#f3env1)", async () => {

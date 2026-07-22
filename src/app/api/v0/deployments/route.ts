@@ -50,7 +50,6 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
-import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
   clearProjectBrandedDomainVerification,
@@ -656,9 +655,9 @@ export async function POST(req: Request) {
       const lifecycleStage =
         typeof engineVersion.lifecycle_stage === "string" ? engineVersion.lifecycle_stage : "design";
       const envGateActive = lifecycleStage === "integrations";
-      const allowPlaceholdersInF3 = envGateActive
-        ? await readAllowPlaceholdersInF3(engineProjectId)
-        : false;
+      // Ägarbeslut 2026-07-22: placeholders alltid tillåtna i F3 (opt-in-
+      // flaggan `allowPlaceholdersInF3` är borttagen — demoläge är default).
+      const allowPlaceholdersInF3 = envGateActive;
       // One owner (review round 2): snapshot ∪ version-presence — parity with
       // the readiness route's set is real now (both call the shared resolver),
       // not just claimed. `codeFiles` was already loaded above (single read).

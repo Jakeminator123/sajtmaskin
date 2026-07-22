@@ -86,8 +86,11 @@ Invariants:
 
 - RenderGate (kod: `designPreview`) är F2-gaten: preview ska boota/rendera.
 - ReleaseGate (kod: `integrationsBuild`) är F3-gaten: en lease-skyddad
-  filesnapshot verifieras i VM med typecheck → projektlokal lint → build.
-  Lint errors och env-krav är Blocker; lint warnings är Advisory.
+  filesnapshot verifieras i VM med typecheck → build (lint borttagen ur den
+  blockerande lanen 2026-07-22; kan återaktiveras via manifestet). Env-krav
+  täcks av placeholders (alltid tillåtna — demoläge tills riktiga nycklar
+  fylls i via Byggblock); en build-nyckel utan placeholder-täckning är
+  fortfarande Blocker.
 - F3 ska alltid gatea integration/build hårdare än F2.
 - En vald hard- eller soft-Byggblock behåller sin F2 visuella fallback.
   `buildBlockingKeys` är bara en säkerhetsgate per nyckel, inte ett register över

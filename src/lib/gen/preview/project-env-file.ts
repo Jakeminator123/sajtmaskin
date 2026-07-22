@@ -6,8 +6,8 @@
  * never has to answer "which env vars do you need?" in F2 — instead, every
  * detected/required key is silently parked in `env.example` with placeholder
  * values that document what the project COULD use. The only place a user
- * is ever asked to fill in real values is the F3 ("Bygg integrationer") flow, which
- * mounts `ProjectEnvVarsPanel`.
+ * ever fills in real values is Byggblock-popovern (inline write-only-inputs
+ * per dossier-rad, F2+F3 — `ProjectEnvVarsPanel` togs bort 2026-07-22).
  *
  * IMPORTANT: this file is intentionally `env.example` (not `.env.local`,
  * not `.env`, not the prior `env.env`). Next.js does NOT load it at

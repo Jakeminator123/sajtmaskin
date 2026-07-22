@@ -211,6 +211,31 @@ export default defineConfig([
     "dist/**",
     "next-env.d.ts",
   ]),
+  // React Compiler-era react-hooks rules ship as errors in eslint-config-next.
+  // They are quality signals ("prefer this pattern"), not runtime breakage, so
+  // they must stay ADVISORY (warn) — a hand-rolled setState-in-effect renders
+  // fine, and a single such warning should never hard-fail \`eslint .\` (the F3
+  // ReleaseGate treats lint errors as blocking, warnings as advisory).
+  //
+  // The files scope below MUST match eslint-config-next's own react-hooks glob
+  // (js, jsx, mjs, ts, tsx, mts, cts): eslint-config-next registers the
+  // react-hooks plugin ONLY for those extensions. An unscoped override would
+  // reference these rule names for e.g. a .cjs config file too, where the
+  // plugin is NOT registered — ESLint then aborts the whole run with "could
+  // not find plugin react-hooks", re-hard-blocking the ReleaseGate this fix
+  // removes. (The Sajtmaskin app avoids this by injecting the same warns into
+  // the already-scoped eslint-config-next objects.)
+  {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/static-components": "warn",
+    },
+  },
 ]);
 `;
 
@@ -336,33 +361,47 @@ export function cn(...inputs: ClassValue[]) {
  * Canonical reduced-motion hook shipped with every exported project.
  *
  * Rationale: without this file, ad-hoc motion components often hand-roll
- * a `useState(false) + useEffect(() => setMounted(true), [])` guard — a
- * pattern that React 19 + eslint-plugin-react-hooks flags under
- * \`react-hooks/set-state-in-effect\`. Subscribing to \`matchMedia\` is the
- * explicitly-allowed shape (external store → setState is fine).
+ * a \`useState(false) + useEffect(() => setReduced(mql.matches), [])\` guard.
+ * That shape reads an external store (\`matchMedia\`) by calling setState
+ * synchronously inside an effect — exactly what React 19 +
+ * eslint-plugin-react-hooks flags under \`react-hooks/set-state-in-effect\`,
+ * which ships as an ERROR in \`eslint-config-next\` and therefore hard-blocks
+ * the F3 ReleaseGate lint check.
  *
- * Returns \`true\` on the server and on first render client-side to avoid
- * hydration mismatches; flips to the live \`matchMedia\` result on mount.
+ * The canonical fix is \`useSyncExternalStore\` — the React-blessed primitive
+ * for subscribing to an external store like \`matchMedia\`. It is lint-clean
+ * (no setState-in-effect), SSR-safe (\`getServerSnapshot\` returns \`false\` so
+ * server + first client render agree, then it flips to the live value after
+ * hydration) and returns a primitive boolean so it never re-renders in a loop.
  */
 const LIB_USE_REDUCED_MOTION = `"use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
+function subscribe(onChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => {};
+  }
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function getSnapshot(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
+
 export function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const query = window.matchMedia(REDUCED_MOTION_QUERY);
-    setReduced(query.matches);
-    const handleChange = (event: MediaQueryListEvent) => setReduced(event.matches);
-    query.addEventListener("change", handleChange);
-    return () => query.removeEventListener("change", handleChange);
-  }, []);
-
-  return reduced;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 `;
 

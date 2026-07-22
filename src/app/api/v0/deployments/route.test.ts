@@ -254,7 +254,7 @@ describe("POST /api/v0/deployments", () => {
   // tier-3-stub-covered key (e.g. Stripe) was silently treated as merely
   // "placeholder covered" (warning) instead of genuinely missing (blocker),
   // even though the readiness route already blocked the same version.
-  it("precheckOnly blocks a tier-3 placeholder-covered key for an F3 (integrations) version, matching readiness", async () => {
+  it("precheckOnly lets a tier-3 placeholder-covered key deploy in F3 (placeholders alltid tillåtna, 2026-07-22)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1", project_id: "proj_1" },
       version: { id: "ver_1", chat_id: "chat_1", lifecycle_stage: "integrations" },
@@ -282,10 +282,11 @@ describe("POST /api/v0/deployments", () => {
     const json = (await res.json()) as {
       deployReadiness?: { ready: boolean; missingEnv: string[] };
     };
-    // F2 default would have surfaced this as a warning only (see the test
-    // above) — F3 must treat it as genuinely missing, matching readiness.
-    expect(json.deployReadiness?.ready).toBe(false);
-    expect(json.deployReadiness?.missingEnv).toContain("STRIPE_SECRET_KEY");
+    // Ägarbeslut 2026-07-22: placeholder-täckta build-nycklar blockerar inte
+    // längre F3-deploy — sajten publiceras i demoläge och nyckeln fylls i via
+    // Byggblock (samma beteende som F2-warning-vägen i testet ovan).
+    expect(json.deployReadiness?.ready).toBe(true);
+    expect(json.deployReadiness?.missingEnv ?? []).not.toContain("STRIPE_SECRET_KEY");
   });
 
   // Product decision: placeholder-covered / feature-runtime env keys must

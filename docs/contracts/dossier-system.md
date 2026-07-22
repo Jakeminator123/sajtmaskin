@@ -88,9 +88,10 @@ första dossiern i id-ordning; flera *flaggade* defaults ägs av
 `defaultForCapability`-unikhetskontrollen. **Obs:** detta är en
 metadata-invariant — beteendegarantin (monterar utan krasch, känner igen
 placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
-är acceptanskriterium i etapp 7 av plan
-`2026-07-12-dossier-grupper-och-fallback-kontrakt` och ska bevisas med tester,
-inte bara manifest-fält.
+är ett acceptanskriterium som ägs av detta kontrakt och bevisas med tester
+(t.ex. `dossier-config-fallback.test.tsx`), inte bara med manifest-fält.
+(Ursprung: grandmaster-planen för dossier-grupper och fallback-kontrakt,
+etapp 7 — planfilen är trimmad, full text i git-historik.)
 
 **Undantagslistan** (`MOCKLESS_CAPABILITY_EXCEPTIONS` i samma fil) — capabilities
 där `mock: none` är legitimt eftersom det inte finns någon användarsynlig yta

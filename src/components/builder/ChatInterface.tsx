@@ -20,7 +20,26 @@ import { MediaDrawer } from "@/components/media/media-drawer";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Layers, Loader2, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DESIGN_THEME_OPTIONS, type DesignTheme } from "@/lib/builder/theme-presets";
+import {
+  ChevronDown,
+  FileText,
+  ImageIcon,
+  Layers,
+  Loader2,
+  Palette,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
@@ -153,6 +172,16 @@ interface ChatInterfaceProps {
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
   continuePlanMode?: boolean;
+  /** Färgtema (design tokens) som skickas till genereringen. Renderas i
+   * "Avancerat"-overlayn ovanför chatinputen när båda props finns. */
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
+  /**
+   * True medan en generering streamar. Speglar headerns tidigare
+   * `isConfigLocked` (= isAnyStreaming) så tema-väljaren bara låses under
+   * streaming — inte under chat-skapande/prompt-prep som `isBusy` gör.
+   */
+  isConfigLocked?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
    * differs from the latest version, the composer shows a badge explaining
@@ -216,9 +245,13 @@ export function ChatInterface({
   isPreparingPrompt = false,
   mediaEnabled = false,
   continuePlanMode = false,
+  designTheme,
+  onDesignThemeChange,
+  isConfigLocked = false,
   followUpBaseInfo,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
@@ -243,6 +276,8 @@ export function ChatInterface({
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
 
+  const currentThemeLabel =
+    DESIGN_THEME_OPTIONS.find((option) => option.value === designTheme)?.label ?? "Av";
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
@@ -656,16 +691,72 @@ export function ChatInterface({
             Verktyg
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={handlePlanRequest}
-              disabled={inputDisabled || !input.trim()}
-              title="Gör en plan eller PRD innan kod"
-            >
-              <FileText className="size-3" />
-              Plan
-            </button>
+            <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+                  title="Avancerade verktyg: plan och färgtema"
+                >
+                  <SlidersHorizontal className="size-3" />
+                  Avancerat
+                  <ChevronDown className="size-3 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" side="top" className="w-64 p-3">
+                <p className="text-muted-foreground mb-2 text-[11px] font-medium">Avancerat</p>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => {
+                      setIsAdvancedOpen(false);
+                      void handlePlanRequest();
+                    }}
+                    disabled={inputDisabled || !input.trim()}
+                    title="Gör en plan eller PRD innan kod"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Plan
+                  </Button>
+                  {onDesignThemeChange && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="justify-start"
+                          disabled={isConfigLocked}
+                          title="Färgtema som skickas till genereringen (design tokens)"
+                        >
+                          <Palette className="h-4 w-4" />
+                          <span className="max-w-[140px] truncate">
+                            Tema: {currentThemeLabel}
+                          </span>
+                          <ChevronDown className="ml-auto h-3 w-3 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56">
+                        <DropdownMenuLabel>Färgtema</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup
+                          value={designTheme ?? "off"}
+                          onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
+                        >
+                          {DESIGN_THEME_OPTIONS.map((option) => (
+                            <DropdownMenuRadioItem key={option.value} value={option.value}>
+                              {option.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (

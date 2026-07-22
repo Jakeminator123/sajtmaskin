@@ -28,9 +28,6 @@ function baseProps(overrides: Partial<BuilderHeaderProps> = {}): BuilderHeaderPr
     onSelectedModelTierChange: () => {},
     onApplyAnthropicComparePreset: () => {},
 
-    designTheme: "blue",
-    onDesignThemeChange: () => {},
-
     promptAssistModel: "off",
     promptAssistDeep: false,
     canUseDeepBrief: true,

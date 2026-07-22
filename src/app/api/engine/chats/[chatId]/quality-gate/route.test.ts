@@ -15,6 +15,7 @@ const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const isQualityGateConfigured = vi.hoisted(() => vi.fn());
+const isQualityGateDisabledByEnv = vi.hoisted(() => vi.fn());
 const exportableToQualityGateFiles = vi.hoisted(() => vi.fn());
 const maybeAnalyzeVisualQAForPassedExportable = vi.hoisted(() => vi.fn());
 const describeQualityGateVerification = vi.hoisted(() => vi.fn());
@@ -94,6 +95,7 @@ vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   describeQualityGateVerification,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
+  isQualityGateDisabledByEnv,
   maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateChecks,
   qualityGateAllPassed,
@@ -130,6 +132,7 @@ describe("POST quality-gate", () => {
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
+    isQualityGateDisabledByEnv.mockReturnValue(false);
   });
 
   it("rejects an empty checks array before touching verify dependencies", async () => {
@@ -314,6 +317,129 @@ describe("POST quality-gate", () => {
     expect(body.promoted).toBe(false);
     expect(markVersionSupersededByRepair).toHaveBeenCalledWith("ver-1", null, "run-1");
     expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane without promoting or mutating state", async () => {
+    isQualityGateDisabledByEnv.mockReturnValue(true);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    // Codex P1 on #573: a skipped gate must NEVER read as verified — no
+    // promotion, no `passed:true`; the version stays untouched (pending).
+    expect(body).toMatchObject({
+      passed: false,
+      disabled: true,
+      skipped: true,
+      promoted: false,
+    });
+    // No verify lane, no "verifying" spinner, no superseded mutation, and
+    // no verification-state mutation of ANY kind.
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(markVersionSupersededByRepair).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    // Durable trace: one warning log row records that the gate was skipped.
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        versionId: "ver-1",
+        level: "warning",
+        category: "quality-gate:disabled-skip",
+      }),
+    ]);
+    // Lease still released.
+    expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+  });
+
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: never auto-promotes a fileless version (404)", async () => {
+    isQualityGateDisabledByEnv.mockReturnValue(true);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", lifecycle_stage: "design" },
+    });
+    getVersionFiles.mockResolvedValue([]);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+  });
+
+  it("SAJTMASKIN_DISABLE_QUALITY_GATE: never disables the F3 integrations ReleaseGate", async () => {
+    isQualityGateDisabledByEnv.mockReturnValue(true);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: "project-1", orchestration_snapshot: null },
+      version: {
+        id: "ver-f3",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    checkTier3ReadinessForVersion.mockResolvedValue({ ok: true, spec: { requirements: [] } });
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [
+        { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 },
+        { check: "build", passed: true, exitCode: 0, output: "", durationMs: 20 },
+      ],
+      verifyLaneDurationMs: 30,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.030Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-f3" });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-f3", gate: "integrationsBuild" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    // The F3 ReleaseGate still runs the authoritative build lane despite the flag.
+    expect(runQualityGateChecks).toHaveBeenCalled();
+    expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([
+      ...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+    ]);
   });
 
   it("marks the version failed and returns passed:false when the promote guard blocks", async () => {
@@ -995,13 +1121,13 @@ describe("POST quality-gate", () => {
 
     expect(res.status).toBe(200);
     // Server-authoritative override: the F3 row is verified on the full
-    // integrations build lane (typecheck + lint + build), NOT typecheck-only —
-    // the client can no longer downgrade an F3 version to a false-green gate.
+    // integrations build lane (typecheck + build; lint borttagen ur den
+    // blockerande lanen 2026-07-22), NOT typecheck-only — the client can no
+    // longer downgrade an F3 version to a false-green gate.
     expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
     const f3Checks = runQualityGateChecks.mock.calls[0][0].checks;
     expect(f3Checks).toEqual([...INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS]);
     expect(f3Checks).toContain("build");
-    expect(f3Checks).toContain("lint");
     expect(f3Checks).not.toEqual(["typecheck"]);
   });
 
@@ -1057,7 +1183,6 @@ describe("POST quality-gate", () => {
     expect(res.status).toBe(200);
     expect(runQualityGateChecks.mock.calls[0][0].checks).toEqual([
       "typecheck",
-      "lint",
       "build",
     ]);
     expect(promoteVersion).toHaveBeenCalledTimes(1);

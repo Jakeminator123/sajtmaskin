@@ -362,6 +362,89 @@ describe("PreviewPanelDossiers", () => {
     expect(document.body.innerHTML).not.toContain("sk-my-secret-key");
   });
 
+  // Delete surface (P2 BB#envdel1): the removed ProjectEnvVarsPanel was the
+  // only UI that could DELETE a stored key — the Byggblock popover must offer
+  // a remove path for configured keys against the canonical DELETE API.
+  it("deletes a configured key via the project env-vars DELETE API", async () => {
+    const configuredResponse = wiredResponse({
+      counts: { total: 1, hard: 1, soft: 0, builtLive: 1, builtDemo: 0, blockedBuild: 0, planned: 0 },
+      dossiers: [
+        {
+          id: "openai-chat",
+          label: "OpenAI Chat",
+          class: "hard",
+          capability: "ai-chat",
+          summary: "Chatbot via OpenAI.",
+          complexity: "medium",
+          requiresF3: true,
+          configured: true,
+          dependencies: [],
+          envVars: [
+            {
+              key: "OPENAI_API_KEY",
+              required: true,
+              enforcement: "feature-runtime",
+              purpose: "OpenAI auth.",
+              hasRealValue: true,
+              placeholderCovered: false,
+            },
+          ],
+          status: "built-live",
+          missingKeys: [],
+          missingLiveKeys: [],
+          lastVerified: "2026-01-01",
+        },
+      ],
+    });
+    const deleteCalls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        deleteCalls.push({
+          url,
+          method: String(init?.method ?? "GET"),
+          body: JSON.parse(String(init?.body ?? "null")),
+        });
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(configuredResponse);
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    // Configured key → no input, but "Ändra värde" + "Ta bort" actions.
+    const deleteButton = await screen.findByRole("button", { name: "Ta bort" });
+    const dossierFetchCallsBeforeDelete = fetchMock.mock.calls.filter(
+      (call) => String(call[0]).includes("/chats/") && String(call[0]).includes("/dossiers"),
+    ).length;
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(deleteCalls.length).toBe(1);
+    });
+    expect(deleteCalls[0].url).toContain("/api/v0/projects/proj_1/env-vars");
+    expect(deleteCalls[0].method).toBe("DELETE");
+    expect(deleteCalls[0].body).toEqual({ keys: ["OPENAI_API_KEY"] });
+    // The deleted-event triggers a status refetch (live → demo comes from data).
+    await waitFor(() => {
+      const after = fetchMock.mock.calls.filter(
+        (call) => String(call[0]).includes("/chats/") && String(call[0]).includes("/dossiers"),
+      ).length;
+      expect(after).toBeGreaterThan(dossierFetchCallsBeforeDelete);
+    });
+  });
+
   // Regression (Bugbot on this diff): a typed-but-unsaved secret draft must
   // not survive a chat switch — the panel stays mounted across chats, and a
   // stale draft could otherwise be saved into the NEXT chat's project.

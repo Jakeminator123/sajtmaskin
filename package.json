@@ -82,6 +82,7 @@
     "shadcn:sync:soft": "npm run shadcn:sync || echo [shadcn-sync] Registry check skipped",
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
     "shadcn:health": "npx tsx scripts/shadcn/registry-health.ts",
+    "shadcn:describe": "npx tsx scripts/shadcn/describe-eval.ts",
     "plans:archive": "node scripts/plans/auto-archive.mjs",
     "plans:archive:apply": "node scripts/plans/auto-archive.mjs --apply",
     "plans:history:check": "node scripts/plans/check-history-status.mjs",

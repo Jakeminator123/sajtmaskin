@@ -39,7 +39,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |
 | RepairGate | Den enda LLM-repair-porten i finalize när Normalize och statiska kontroller lämnar residual. |
 | RenderGate | F2-gate som bevisar att preview bootar/renderar; typecheck är Advisory utom render-risk-koder. |
-| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: lease-skyddad VM-kontroll i ordningen typecheck → projektlokal lint → build. Lint errors och env-/Product Postcheck-krav blockerar; lint warnings är Advisory. Kör alltid på en `integrations`-version. |
+| ReleaseGate | F3-gate för explicit integration/build/deploybarhet: lease-skyddad VM-kontroll i ordningen typecheck → build (lint togs bort ur den blockerande lanen 2026-07-22 — stilregler blockerade byggbara sajter). Env-krav täcks av placeholders (alltid tillåtna, demoläge); Product Postcheck-krav blockerar. Kör alltid på en `integrations`-version. |
 | Advisory | Synlig varning/degradation som inte blockerar promote/preview. |
 | Blocker | Fel som stoppar promote, preview eller F3-release tills det är åtgärdat. |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke, t.ex. F2-kontroll av navigation, CTA, formulär och runtime-krasch. |
@@ -52,6 +52,8 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |
 | Error-log RAG | TF-IDF-retriever över historiska fault/fix-events. Init och follow-up injicerar `### Lessons from similar past builds` i system-prompten via cosine similarity på term-frekvenser. **Inte** embeddings/pgvector. I prod är indexet cross-tenant (rå `faultText` redakteras i renderingen). Styrs av `FEATURES.useErrorLogRag` (`NODE_ENV !== 'test'`). |
+| Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. Grunden för Beskriv-flödet. Skriver aldrig till användarsajten. |
+| Beskriv-flöde | Fritext → LLM-genererade registry-sökfrågor → Registry Discovery → LLM-rankning av 5–10 **verkliga** träffar → kandidater (`{name, registry, description, previewLight/Dark, dependencies, registryDependencies, addCommand}`). Fas 1-backend: `POST /api/shadcn/describe` (`src/lib/shadcn/describe.ts`), flagg-gated bakom `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (default av → 404). LLM-stegen har deterministisk heuristik-fallback. Insättning av vald kandidat sker i senare faser via samma funktionella kedja som gör en UI Recipe körbar — Beskriv-flödet i sig är bara discovery. |
 
 ## Publicering och URL-nivåer
 
@@ -75,7 +77,7 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Normalize | Mekanisk kodstädning före LLM. | autofix, mekanisk autofix, url-expand, deterministisk import-repair |
 | RepairGate | Enda LLM-repair-porten. | runLlmRepairGate/RepairLedger, LLM-fix, syntax-fixer, verifier-fixer, server-repair-LLM |
 | RenderGate | F2: preview bootar/renderar; typecheck Advisory utom render-risk-koder. | quality gate (designPreview), preview-check |
-| ReleaseGate | F3: typecheck → lint → build + env, explicit; lint warnings Advisory. | quality gate (integrationsBuild), build gate, readiness |
+| ReleaseGate | F3: typecheck → build, explicit; placeholders alltid OK för env (lint borttagen ur blockerande lane 2026-07-22). | quality gate (integrationsBuild), build gate, readiness |
 | Advisory | Synligt men ej blockerande. | warning, soft fail, degraded/typecheck_advisory |
 | Blocker | Stoppar promote/preview. | hard fail, blocking, preview-blocking |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke. | product postcheck |

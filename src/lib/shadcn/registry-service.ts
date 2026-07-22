@@ -281,7 +281,7 @@ export async function fetchRegistrySummary(style?: string): Promise<RegistrySumm
  * returnerar HTTP 200 men tomt innehåll (t.ex. radix-vega/form.json som per
  * 2026-04 publiceras utan files-array).
  */
-function isUsableRegistryItem(data: ShadcnRegistryItem | null | undefined): boolean {
+export function isUsableRegistryItem(data: ShadcnRegistryItem | null | undefined): boolean {
   if (!data) return false;
   if (Array.isArray(data.files) && data.files.length > 0) return true;
   // Block-only payloads (markdown/preview-only) räknas också som "fanns".

@@ -16,10 +16,12 @@
 | `registry-cache.ts` | Optional DB-backed cache for registry index (server). Uses same `source` + style + base URL as routes. |
 | `registry-utils.ts` | Import rewrites, markdown previews, **prompt text** for adding blocks/components (`buildShadcnBlockPrompt`, …). |
 | `registry-types.ts` | Types for registry JSON. |
+| `describe.ts` | Fas 1 "Beskriv"-discovery: free-text → LLM search queries → search official + community registries (HTTP) → rank REAL hits. Reads registries only; writes nothing. Deterministic heuristic fallback when no provider key. |
+| `describe-feature.ts` | Flag helper `isShadcnDescribeEnabled()` for `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (default off → route 404). |
 
 **Related (outside this folder)**
 
 - `src/lib/gen/data/shadcn-components.ts` — PascalCase → import slug map for prompts/post-processing.
 - `src/lib/builder/shadcn-component-metadata.ts` — UI metadata (categories, preview hints) for the picker.
 
-**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh.
+**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh. `src/app/api/shadcn/describe/` — flag-gated Fas 1 discovery route (`POST`, default 404).

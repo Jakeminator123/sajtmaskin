@@ -2,6 +2,12 @@
 
 > Flyttade `[x]`-rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter 818-svärmens verifiering + batch-fix-PR (branch `fix/bug-swarm-batch-0702`) 2026-07-02. Äldre historik: [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Env-konsolideringens merge-gate 2026-07-22 — delete-yta återställd (PR #573)
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | **Env-delete-UI försvann med `ProjectEnvVarsPanel`:** env-UI-konsolideringen tog bort panelen som var enda builder-ytan som kunde `DELETE` sparade projekt-env-vars. `PreviewPanelDossiers` (Byggblock) upsertade bara nycklar via POST och saknade delete-flöde, så fel värde/hemlighet gick inte att ta bort från produkt-UI:t. | BB#envdel1 (bugbot på feat/anvandarsajt-env-konsolidering 2026-07-22) | **PR #573**: "Ta bort"-knapp per konfigurerad nyckel i Byggblock-popovern mot befintligt `DELETE /api/v0/projects/[projectId]/env-vars` (`keys`), med `action: "deleted"`-event (rensar drafts + refetch) + komponenttest. Residual (custom icke-dossier-nycklar utan editor) = egen P2-rad i Aktiv kö (Codex P2 på #573). |
+
 ## Stabiliseringsplanens PR 2+3 2026-07-13 — verify-lane + domänrester fixade (PR #518/#519)
 
 Stabiliseringsplanen (`docs/plans/active/2026-07-13-stabilisering-verify-f3-doman-plan.md`) PR 2 och PR 3 mergade med fulla externa review-varv (Codex + Bugbot + VADE, 15 fynd totalt varav 14 fixade och 1 dismissed — triage dokumenterad i respektive PR). Residual noterad på B3/E2-raden: `version.degraded`-emits (inkl. #518:s reconcile-emit) delar den kända efemära in-memory-bus-begränsningen cross-instance; löses av durable bus-initiativet, inte per emit-site.

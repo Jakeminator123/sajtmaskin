@@ -141,7 +141,7 @@ defaultvärden:
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
 | `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | RenderGate för F2 (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
-| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "lint", "build"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). |
+| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler som `react-hooks/set-state-in-effect` blockerade sajter vars typecheck+build passerade — 21/24 F3-körningar föll på lint). |
 
 ### Deterministisk F3-fork
 
@@ -151,7 +151,7 @@ ny `engine_versions`-rad med `lifecycle_stage = integrations`,
 ReleaseGate körs sedan på den nya F3-raden; den får aldrig promotera F2-raden.
 Ett direkt `gate: "integrationsBuild"` accepterar bara en tenant-/chat-säkrad
 F3-version och återkör den delade env-/Product Postcheck-grinden innan
-typecheck, lint och build. `passed` räcker inte som klientframgång:
+typecheck och build. `passed` räcker inte som klientframgång:
 `promoted = true`, ej `superseded`, ej `promoteError` och
 `vmGatePassed !== false` krävs.
 
@@ -159,14 +159,18 @@ F2 behåller en typecheck-only RenderGate med render-first Advisory-semantik.
 Warm ESLint är endast explicit opt-in lokal diagnostik och kan inte starta
 RepairGate eller påverka promotion. F3 har en enda auktoritativ VM-ReleaseGate
 som kör den exporterade sajtens projektlokala verktyg i ordningen
-`typecheck → lint → build`.
+`typecheck → build`.
 
-Lint severity är explicit: ESLint errors är Blocker och kan gå till befintlig
-RepairGate; warnings returneras som `advisory: true`, syns i logg/status och
-blockerar varken promotion eller startar repair. Saknad lokal ESLint eller
-konfiguration är ett `failureKind: "tooling"` med `repairable: false`, aldrig
-en grön skip och aldrig ett LLM-repairfel. Verify-lanen använder inga `npx`
--kommandon och kan därför inte ladda ned verktyg implicit.
+Lint är sedan 2026-07-22 borttagen ur den blockerande F3-lanen (ägarbeslut):
+prod-datan visade 21/24 F3-körningar failade på lint-stilregler (t.ex.
+`react-hooks/set-state-in-effect`) trots att typecheck+build passerade. VM:ens
+lint-check + `classifyLintResult` finns kvar i koden (preview-hostens
+verify-lane stödjer fortfarande `lint`), så checken kan återaktiveras via
+manifestets `qualityGateTiers.integrationsBuild`. När den körs gäller: errors
+= Blocker (repairable), warnings = `advisory: true`, saknad lokal ESLint =
+`failureKind: "tooling"` med `repairable: false` — aldrig en grön skip.
+Verify-lanen använder inga `npx`-kommandon och kan därför inte ladda ned
+verktyg implicit.
 
 Revert: sätt `qualityGateTiers.designPreview` till
 `["typecheck", "lint", "build"]` i `config/ai_models/manifest.json` om
@@ -203,7 +207,7 @@ predikat så de aldrig är oense:
 
 **Falsk-grön-skydd** (varför detta inte blir tyst grön):
 
-- Bara F2. F3 (`integrations`) kör alltid full `typecheck + lint + build`.
+- Bara F2. F3 (`integrations`) kör alltid full `typecheck + build`.
 - Bara när **varje** failande check är `typecheck`. Ett `build`- eller
   `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) är Blocker som förr.
 - **Bara Advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
@@ -256,7 +260,7 @@ köra diagnostic-only: findings syns, men promotion/reparation sker inte automat
 
 Accepterar en legacy-kompatibel `checks`-lista, men serverns
 `lifecycle_stage` väljer alltid den kanoniska lanen: F2 typecheck-only och F3
-typecheck → lint → build. Klient-body kan varken upp- eller nedgradera checks.
+typecheck → build. Klient-body kan varken upp- eller nedgradera checks.
 
 ### 3. Efter repair
 
