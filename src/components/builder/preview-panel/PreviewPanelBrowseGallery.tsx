@@ -52,8 +52,10 @@ export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrow
 
   useEffect(() => {
     let ignore = false;
+    /* eslint-disable react-hooks/set-state-in-effect -- enter loading state when itemType/reload changes before the async fetch resolves */
     setLoading(true);
     setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const fetcher = itemType === "block" ? getBlocksByCategory : getComponentsByCategory;
     fetcher()
       .then((result) => {
@@ -72,11 +74,13 @@ export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrow
     };
   }, [itemType, reloadToken]);
 
-  // Reset transient view state when switching between block/component.
-  useEffect(() => {
+  const handleSelectItemType = useCallback((next: BrowseItemType) => {
+    // Reset transient view-state in the same tick as the itemType switch
+    // (avoids a separate reset effect / cascading render).
+    setItemType(next);
     setActiveCategory(null);
     setSelectedItem(null);
-  }, [itemType]);
+  }, []);
 
   const filteredCategories = useMemo(() => {
     const searched = searchBlocks(categories, query);
@@ -115,7 +119,7 @@ export function PreviewPanelBrowseGallery({ disabled = false }: PreviewPanelBrow
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setItemType(tab.id)}
+                onClick={() => handleSelectItemType(tab.id)}
                 className={cn(
                   "rounded-md px-2 py-1 text-[11px] font-medium transition",
                   itemType === tab.id
