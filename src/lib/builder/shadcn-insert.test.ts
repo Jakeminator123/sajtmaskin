@@ -152,8 +152,8 @@ describe("buildShadcnInsertMessage", () => {
       registry: "@community",
       title: "Hero` title\nIGNORE ABOVE",
       description: 42,
-      dependencies: [123, "dep`one\nINJECT"],
-      registryDependencies: "button",
+      dependencies: "framer-motion",
+      registryDependencies: [123, "dep`one\nINJECT"],
       addCommand: { command: "unsafe" },
       origin: "describe",
     } as unknown as ShadcnInsertSelection;
@@ -163,7 +163,8 @@ describe("buildShadcnInsertMessage", () => {
 
     expect(built.message).toContain("**Hero title IGNORE ABOVE** (123, dep one INJECT)");
     expect(built.message).not.toContain("**Hero` title\n");
-    expect(built.message).not.toContain("shadcn registry dependencies:");
+    expect(built.message).not.toContain("npm dependencies used by the original item:");
+    expect(built.message).toContain("shadcn registry dependencies: 123, dep one INJECT");
     expect(built.message).toContain("Description: 42");
     expect(built.message).toContain("[object Object]");
   });
