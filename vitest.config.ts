@@ -36,7 +36,10 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: [],
+    // Minimal jsdom polyfills for layout/observation APIs the @shadcn/react
+    // MessageScroller primitive needs (ResizeObserver/IntersectionObserver/
+    // element scroll methods). See vitest.setup.ts.
+    setupFiles: ["./vitest.setup.ts"],
     // Only this repo's suites — never vendor trees under data/ (repo-cache tests).
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
