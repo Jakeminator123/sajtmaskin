@@ -11,9 +11,29 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 |---|---|
 | `Get-ChildItem`, `Get-Content`, `Select-String` | `ls -la`, `cat`, `grep`, `sed` |
 | `$env:NAME = "x"` | `export NAME=x` |
-| `; if ($?) { ... }` | `&&` / `||` |
+| `; if ($LASTEXITCODE -eq 0) { ... }` | `&&` / `||` |
 | `foreach ($x in $items) { ... }` | `for x in ...; do ...` |
 | here-string `@" ... "@` | heredoc `<<EOF` |
 | `Remove-Item -Recurse -Force` | `rm -rf` |
 
-För stora edits: föredra Cursor Read/Glob/Grep/StrReplace eller skriv ett litet Node/Python-script i fil.
+## Vanliga felkällor (dessa ger hårda fel)
+
+| Symptom / felmeddelande | Orsak | Fix |
+|---|---|---|
+| `The term 'if' is not recognized` | `if`/`foreach`/`switch` använt som **värde** (t.ex. i `-f`, som argument eller i pipeline) | Wrappa i subexpression `$( ... )` — aldrig bara `( ... )`. Eller räkna ut i en variabel först. |
+| `The term 'grep'/'head'/'tail'/'sed'/'awk' is not recognized` | Bash-verktyg finns inte i pwsh | `Select-String`, `Select-Object -First N` / `-Last N`, eller Cursor Grep/StrReplace |
+| Villkor på git/npm/node slår fel fastän kommandot gick bra (eller tvärtom) | `$?` speglar inte extern exit-kod tillförlitligt | Använd `$LASTEXITCODE -eq 0` för externa program (`$?` bara för rena cmdlets) |
+| `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/Glob/StrReplace för dessa App Router-mappar |
+| Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
+| Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
+| Trunkerad (`…`) eller tom output vid pipe till fil | PS formaterar objekt för konsolbredd | Avsluta med `| Out-String` (ev. `| Format-Table -Auto | Out-String -Width 4096`) |
+
+## Kedja kommandon
+
+- Ett kommando per rad, separera med `;` — inte nyrad (verktyget kör en enda kommandosträng).
+- `&&`/`||` finns i PS7 men blanda inte med bash-antaganden; villkora hellre på `$LASTEXITCODE`.
+- Oberoende kommandon: kör som separata (parallella) verktygsanrop i stället för en lång kedja.
+
+## När en one-liner blir krånglig
+
+Krångliga citat, loopar eller `if`-uttryck → skriv en liten `.ps1`/`.mjs`-fil och kör den, eller använd Cursor Read/Glob/Grep/StrReplace. Det är mer robust än att kämpa med inline-escaping. Samma för stora edits.

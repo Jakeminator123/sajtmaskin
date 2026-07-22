@@ -5,9 +5,18 @@ alwaysApply: false
 
 # Platform quirks
 
+> Fler pwsh-felkällor (`if`-som-värde, `$?` vs `$LASTEXITCODE`, here-strings, verktygskedjor) finns i den alltid-aktiva [`bash-och-pwsh.mdc`](bash-och-pwsh.mdc).
+
 ## PowerShell och citat
 
 Undvik långa `node -e` / `python -c` med nästlade citat. Skriv hellre en temporär scriptfil eller använd repo-script.
+
+## `[ ]` i sökvägar (App Router-mappar)
+
+Sökvägar som `src/app/api/engine/chats/[chatId]/route.ts`, `[id]`, `[slug]`, `[...slug]` bråkar med `Test-Path`, `Get-Content`, `Set-Location`, `Copy-Item` m.fl. eftersom `[ ]` tolkas som wildcard → "hittas inte" eller fel träff.
+
+- Lägg till `-LiteralPath <sökväg>` (finns på de flesta path-cmdlets).
+- Eller föredra Cursor Read/Glob/Grep/StrReplace, som inte glob-tolkar.
 
 ## LF/CRLF-fälla
 
