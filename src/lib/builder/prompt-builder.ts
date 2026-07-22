@@ -115,9 +115,14 @@ function buildCustomizationInstruction(customization?: string): string {
   ].join("\n");
 }
 
-function formatDependencySuffix(dependencies?: string[]): string {
-  if (!dependencies || dependencies.length === 0) return "";
-  const preview = dependencies.slice(0, 4).join(", ");
+function formatDependencySuffix(dependencies?: unknown): string {
+  if (!Array.isArray(dependencies) || dependencies.length === 0) return "";
+  const preview = dependencies
+    .slice(0, 4)
+    .map((value) => sanitizeInlineMetadata(value, 60))
+    .filter(Boolean)
+    .join(", ");
+  if (!preview) return "";
   return ` (${preview}${dependencies.length > 4 ? "..." : ""})`;
 }
 
@@ -148,15 +153,17 @@ const METADATA_MAX_DEPENDENCIES = 20;
  * fientligt register inte kan bryta sig ur inline-markeringen och smuggla in
  * instruktionsrader i prompten (Codex P2 — samma hygien som docs-fältet).
  */
-function sanitizeInlineMetadata(value: string, maxChars = METADATA_INLINE_MAX_CHARS): string {
-  return capPayloadText(value.replace(/[`\r\n]+/g, " "), maxChars);
+function sanitizeInlineMetadata(value: unknown, maxChars = METADATA_INLINE_MAX_CHARS): string {
+  return capPayloadText(String(value ?? "").replace(/[`\r\n]+/g, " "), maxChars);
 }
 
 /** Sanera + begränsa en dependency-lista från registry-metadata. */
-function sanitizeDependencyList(values: string[]): string {
+function sanitizeDependencyList(values: unknown): string {
+  if (!Array.isArray(values)) return "";
   return values
     .slice(0, METADATA_MAX_DEPENDENCIES)
     .map((value) => sanitizeInlineMetadata(value, 60))
+    .filter(Boolean)
     .join(", ");
 }
 
@@ -189,14 +196,16 @@ function buildShadcnItemMetadataPrompt(source: ShadcnItemPromptSource, docs?: st
   lines.push(
     "IMPORTANT: never import a package or component that does not exist in the project. If a required shadcn/ui primitive is missing, CREATE it under `src/components/ui/` with a minimal shadcn/ui implementation.",
   );
-  if (source.dependencies?.length) {
+  const dependencies = sanitizeDependencyList(source.dependencies);
+  if (dependencies) {
     lines.push(
-      `npm dependencies used by the original item: ${sanitizeDependencyList(source.dependencies)}. Ensure these exist in package.json if you actually use them.`,
+      `npm dependencies used by the original item: ${dependencies}. Ensure these exist in package.json if you actually use them.`,
     );
   }
-  if (source.registryDependencies?.length) {
+  const registryDependencies = sanitizeDependencyList(source.registryDependencies);
+  if (registryDependencies) {
     lines.push(
-      `shadcn registry dependencies: ${sanitizeDependencyList(source.registryDependencies)}. Create any of these UI primitives that are missing.`,
+      `shadcn registry dependencies: ${registryDependencies}. Create any of these UI primitives that are missing.`,
     );
   }
   if (source.addCommand) {
@@ -340,7 +349,10 @@ export function buildPromptSourceMessage(
     }
 
     case "shadcn-item": {
-      const title = source.title || source.name || "UI-element";
+      // Titeln och dependency-suffixen ligger i det yttre placement-kuvertet,
+      // alltså måste samma community-metadata-hygien gälla där som i
+      // metadata-promptens inre block.
+      const title = sanitizeInlineMetadata(source.title || source.name) || "UI-element";
       const item = source.registryItem ?? null;
       const hasFiles = Boolean(item?.files?.length);
       const depsLabel = formatDependencySuffix(
