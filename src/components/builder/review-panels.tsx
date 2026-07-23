@@ -1,8 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-
 // ---------------------------------------------------------------------------
 // Formatting helpers (moved here since only used in review rendering)
 // ---------------------------------------------------------------------------
@@ -82,190 +79,6 @@ export function PostCheckPanel(props: PostCheckPanelProps) {
             Öppna preview-länk
           </a>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ReviewBlock — generic pass/fail review panel for SEO, analytics, editorial,
-// business workflows. Renders full (structured) or compact mode.
-// ---------------------------------------------------------------------------
-
-export type ReviewBlockProps = {
-  variant: "full" | "compact";
-  title: string;
-  passed: boolean;
-  passedLabel: string;
-  failedLabel: string;
-  details: string[];
-  issues: string[];
-  tips: string[];
-  maxIssues?: number;
-  maxTips?: number;
-  /**
-   * SEO-findings NEVER block anything in the product (post-check, publish
-   * opt-in and the scaffold baseline all treat SEO as advisory — see
-   * `seo-preflight.ts` `non_blocking_quality_warning`). The owner still
-   * PERCEIVES the amber "failed" tone as a failing check. When true, the
-   * "not passed" state renders in a neutral info tone instead of amber, so
-   * this block never reads as a blocker even when it has findings.
-   */
-  advisory?: boolean;
-};
-
-export function ReviewBlock({
-  variant,
-  title,
-  passed,
-  passedLabel,
-  failedLabel,
-  details,
-  issues,
-  tips,
-  maxIssues,
-  maxTips,
-  advisory = false,
-}: ReviewBlockProps) {
-  const issueLimit = maxIssues ?? (variant === "full" ? 4 : 1);
-  const tipLimit = maxTips ?? (variant === "full" ? 3 : 1);
-  const notPassedToneClass = advisory ? "text-sky-300" : "text-amber-300";
-
-  if (variant === "compact") {
-    return (
-      <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className={passed ? "text-emerald-300" : notPassedToneClass}>
-          {passed ? passedLabel : failedLabel}
-        </p>
-        {details.length > 0 && (
-          <p className="text-muted-foreground mt-1">{details.join(" • ")}</p>
-        )}
-        {issues.slice(0, issueLimit).map((issue) => (
-          <p key={issue} className="text-muted-foreground mt-1">{issue}</p>
-        ))}
-        {tips.slice(0, tipLimit).map((tip) => (
-          <p key={tip} className="text-muted-foreground mt-1">Tips: {tip}</p>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-        {title}
-      </div>
-      <div className="space-y-1 text-muted-foreground">
-        <div className={passed ? "text-emerald-300" : notPassedToneClass}>
-          {passed ? passedLabel : failedLabel}
-        </div>
-        {details.map((detail) => (
-          <div key={detail}>{detail}</div>
-        ))}
-        {issues.length > 0 && (
-          <ul className="mt-1 space-y-1">
-            {issues.slice(0, issueLimit).map((issue) => (
-              <li key={issue}>- {issue}</li>
-            ))}
-          </ul>
-        )}
-        {tips.length > 0 && (
-          <ul className="mt-1 space-y-1">
-            {tips.slice(0, tipLimit).map((tip) => (
-              <li key={tip}>- {tip}</li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ActionStrip — quick-reply buttons (structured) or text hint (compact)
-// ---------------------------------------------------------------------------
-
-export type ActionStripProps = {
-  variant: "full" | "compact";
-  show: boolean;
-  color: "cyan" | "violet" | "sky" | "emerald";
-  title: string;
-  question: string;
-  options: string[];
-  labels: string[];
-  keyPrefix: string;
-  messageId: string;
-  pendingQuickReplyKey: string | null;
-  onQuickReply?: (messageId: string, optionIndex: number, text: string) => void;
-  quickReplyDisabled?: boolean;
-  formatButtonLabel?: (option: string, index: number, total: number) => string;
-};
-
-const COLOR_CLASSES = {
-  cyan: "border-cyan-500/50 bg-cyan-500/10 text-cyan-200",
-  violet: "border-violet-500/50 bg-violet-500/10 text-violet-200",
-  sky: "border-sky-500/50 bg-sky-500/10 text-sky-200",
-  emerald: "border-emerald-500/50 bg-emerald-500/10 text-emerald-200",
-} as const;
-
-export function ActionStrip({
-  variant,
-  show,
-  color,
-  title,
-  question,
-  options,
-  labels,
-  keyPrefix,
-  messageId,
-  pendingQuickReplyKey,
-  onQuickReply,
-  quickReplyDisabled = false,
-  formatButtonLabel,
-}: ActionStripProps) {
-  if (!show) return null;
-
-  if (variant === "compact") {
-    return (
-      <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className={COLOR_CLASSES[color].split(" ").pop()}>{question}</p>
-        {labels.length > 0 && (
-          <p className="text-muted-foreground mt-1">
-            Förslag: {labels.slice(0, 2).join(" • ")}
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  if (!onQuickReply) return null;
-
-  return (
-    <div className={`mb-3 rounded-md border p-3 text-xs ${COLOR_CLASSES[color]}`}>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
-        {title}
-      </p>
-      <p className="text-foreground text-sm font-semibold">{question}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((option, optionIndex) => {
-          const replyKey = `${messageId}:${keyPrefix}:${optionIndex}:${option}`;
-          const isPending = pendingQuickReplyKey === replyKey;
-          const label = formatButtonLabel
-            ? formatButtonLabel(option, optionIndex, options.length)
-            : (labels[optionIndex] ?? option);
-          return (
-            <Button
-              key={replyKey}
-              size="sm"
-              variant="secondary"
-              disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
-              onClick={() => void onQuickReply(messageId, optionIndex, option)}
-            >
-              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {label}
-            </Button>
-          );
-        })}
       </div>
     </div>
   );
@@ -382,7 +195,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
               )}
               {!check.passed && check.output && (
                 <span
-                  className="ml-1 max-w-[280px] truncate text-[10px] text-rose-400/70"
+                  className="ml-1 max-w-70 truncate text-[10px] text-rose-400/70"
                   title={check.output}
                 >
                   {check.output.split("\n")[0]?.slice(0, 80)}

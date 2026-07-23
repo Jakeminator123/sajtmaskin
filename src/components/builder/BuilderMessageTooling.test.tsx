@@ -590,7 +590,9 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Orsak: Repair request failed (HTTP 500)")).toBeTruthy();
   });
 
-  it("shows business workflow quick actions from post-check output", () => {
+  it("renders no SEO/analytics/editorial/business review panels even when legacy output carries the summaries", () => {
+    // 2026-07-23 declutter: old versions can still have these summary fields
+    // persisted in tool output — the UI must ignore them silently.
     render(
       <StructuredToolParts
         messageId="msg_4"
@@ -612,16 +614,23 @@ describe("StructuredToolParts", () => {
                   autoFixQueued: false,
                 },
                 demoUrl: "https://preview.example",
+                seoSummary: {
+                  passed: false,
+                  issueCount: 3,
+                  topIssues: ["Metadata saknar canonical-strategi."],
+                  suggestedPrompts: ["Fyll ut metadata för sajten."],
+                  suggestedLabels: ["metadata"],
+                  canonical: false,
+                  ogImage: false,
+                  homeH1Count: 1,
+                },
                 businessWorkflowSummary: {
-                  packCount: 2,
-                  labels: ["Lead form + email routing", "Booking / calendar"],
-                  suggestedPrompts: [
-                    "Gör leadformuläret produktionsredo med e-postrouting eller CRM-koppling, tydlig success/error-feedback och utan att ändra designen i övrigt.",
-                    "Koppla boknings-CTA:n till ett riktigt bokningsflöde med Cal.com eller Calendly och behåll resten av sidan som den är.",
-                  ],
-                  recommendedIntegrations: ["Resend", "Calendly"],
+                  packCount: 1,
+                  labels: ["Lead form + email routing"],
+                  suggestedPrompts: ["Gör leadformuläret produktionsredo."],
+                  recommendedIntegrations: ["Resend"],
                   hasLeadCapture: true,
-                  hasBookingFlow: true,
+                  hasBookingFlow: false,
                   hasCrmSync: false,
                 },
               },
@@ -635,118 +644,9 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Snabb konfigurering")).toBeTruthy();
-    expect(screen.getByText("Vilket affärsflöde vill du konfigurera härnäst?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Konfigurera Lead form \+ email routing/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Konfigurera Booking \/ calendar/i })).toBeTruthy();
-  });
-
-  it("shows SEO quick actions from post-check output", () => {
-    render(
-      <StructuredToolParts
-        messageId="msg_5"
-        toolParts={[
-          {
-            type: "tool",
-            tool: {
-              type: "tool:post-check",
-              state: "output-available",
-              output: {
-                summary: {
-                  files: 4,
-                  added: 1,
-                  modified: 2,
-                  removed: 0,
-                  warnings: 2,
-                  provisional: false,
-                  qualityGatePending: false,
-                  autoFixQueued: false,
-                },
-                demoUrl: "https://preview.example",
-                seoSummary: {
-                  passed: false,
-                  issueCount: 3,
-                  topIssues: [
-                    "Metadata saknar canonical-strategi.",
-                    "Projektet saknar app/robots.ts.",
-                  ],
-                  suggestedPrompts: [
-                    "Fyll ut metadata för sajten med title och description utan att ändra sidlayouten.",
-                    "Lägg till en canonical-strategi i metadata för sajten utan att ändra designen i övrigt.",
-                    "Lägg till robots.ts och sitemap.ts med rimliga standarder för indexering utan att ändra designen.",
-                  ],
-                  suggestedLabels: ["metadata", "canonical", "robots"],
-                  canonical: false,
-                  ogImage: false,
-                  homeH1Count: 1,
-                },
-              },
-            },
-          } as never,
-        ]}
-        pendingReply={null}
-        hasUserAfterCurrentMessage={false}
-        pendingQuickReplyKey={null}
-        onQuickReply={vi.fn(async () => true)}
-      />,
-    );
-
-    expect(screen.getByText("Snabb SEO-fix")).toBeTruthy();
-    expect(screen.getByText("Vilken SEO-del vill du förbättra härnäst?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Fixa metadata/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Fixa canonical/i })).toBeTruthy();
-  });
-
-  it("shows analytics quick actions from post-check output", () => {
-    render(
-      <StructuredToolParts
-        messageId="msg_6"
-        toolParts={[
-          {
-            type: "tool",
-            tool: {
-              type: "tool:post-check",
-              state: "output-available",
-              output: {
-                summary: {
-                  files: 4,
-                  added: 1,
-                  modified: 2,
-                  removed: 0,
-                  warnings: 1,
-                  provisional: false,
-                  qualityGatePending: false,
-                  autoFixQueued: false,
-                },
-                demoUrl: "https://preview.example",
-                analyticsSummary: {
-                  passed: false,
-                  issueCount: 1,
-                  topIssues: [
-                    "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
-                  ],
-                  suggestedPrompts: [
-                    "Lägg till en analytics-tracker för sajten och behåll resten av layouten oförändrad.",
-                  ],
-                  suggestedLabels: ["tracking"],
-                  trackerDetected: false,
-                  trackerProviders: [],
-                  conversionSurfaceCount: 2,
-                  conversionEventCount: 0,
-                },
-              },
-            },
-          } as never,
-        ]}
-        pendingReply={null}
-        hasUserAfterCurrentMessage={false}
-        pendingQuickReplyKey={null}
-        onQuickReply={vi.fn(async () => true)}
-      />,
-    );
-
-    expect(screen.getByText("Snabb tracking-fix")).toBeTruthy();
-    expect(screen.getByText("Vilken tracking-del vill du förbättra härnäst?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Fixa tracking/i })).toBeTruthy();
+    expect(screen.queryByText("Snabb SEO-fix")).toBeNull();
+    expect(screen.queryByText(/SEO-tips/)).toBeNull();
+    expect(screen.queryByText("Snabb konfigurering")).toBeNull();
+    expect(screen.queryByText("Snabb tracking-fix")).toBeNull();
   });
 });

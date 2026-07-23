@@ -323,12 +323,50 @@ export function useSendMessage(
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
         const streamRequestStartedAt = Date.now();
-        const response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
+        let response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
           signal: streamController.signal,
         });
+
+        // 5-2 stale-base auto-rebase (fast-edit robustness, 2026-07-23): a 409
+        // here means another writer (client autofix, accepted server repair,
+        // parallel tab) advanced the chat head after this client's last
+        // refresh. Instead of failing the user's prompt with a "reload the
+        // page" toast, retry ONCE with the server's latest version as explicit
+        // base — pinning the base skips the gate by design (same mechanism the
+        // F3/autofix overrides use). If the head moves AGAIN between retry and
+        // gate, the second 409 falls through to the reload toast below.
+        if (response.status === 409 && !usedEngineBaseVersionOverride) {
+          const staleData = (await response
+            .clone()
+            .json()
+            .catch(() => null)) as Record<string, unknown> | null;
+          const latestVersionIdFromServer =
+            staleData?.reason === "stale_base_version" &&
+            typeof staleData.latestVersionId === "string"
+              ? staleData.latestVersionId.trim()
+              : "";
+          if (latestVersionIdFromServer) {
+            promptMeta.engineBaseVersionId = latestVersionIdFromServer;
+            promptMeta.engineLatestKnownVersionId = latestVersionIdFromServer;
+            debugLog("AI", "Stale base auto-rebase: retrying against latest version", {
+              latestVersionId: latestVersionIdFromServer,
+            });
+            toast.message("Byggde vidare på senaste versionen", {
+              description:
+                "En nyare version hade hunnit skapas — din ändring appliceras på den i stället.",
+            });
+            mutateVersions();
+            response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+              signal: streamController.signal,
+            });
+          }
+        }
 
         if (!response.ok) {
           let errorData: Record<string, unknown> | null = null;

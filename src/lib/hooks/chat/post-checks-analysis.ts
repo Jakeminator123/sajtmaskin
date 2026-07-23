@@ -1,10 +1,6 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type PlannedRoute } from "@/lib/gen/route-plan";
 import {
-  detectBusinessWorkflowPacks,
-  type BusinessWorkflowPack,
-} from "@/lib/gen/packs/business-packs";
-import {
   runProjectSanityChecks,
   type SanityIssue,
   type SanityResult,
@@ -59,58 +55,6 @@ export type SeoReview = {
   };
 };
 
-type AnalyticsIssue = {
-  severity: "info" | "warning" | "error";
-  code:
-    | "missing-analytics-tracker"
-    | "missing-conversion-events";
-  message: string;
-  file?: string | null;
-};
-
-export type AnalyticsReview = {
-  passed: boolean;
-  issues: AnalyticsIssue[];
-  signals: {
-    trackerDetected: boolean;
-    trackerProviders: string[];
-    conversionSurfaceCount: number;
-    conversionEventCount: number;
-  };
-};
-
-export type EditorialPack = {
-  id:
-    | "hero"
-    | "services"
-    | "testimonials"
-    | "team"
-    | "faq"
-    | "contact"
-    | "blog"
-    | "metadata";
-  label: string;
-  reason: string;
-  suggestedPrompt: string;
-};
-
-export type EditorialReview = {
-  packs: EditorialPack[];
-  signals: {
-    hasBlogCollection: boolean;
-    hasContactFlow: boolean;
-  };
-};
-
-export type BusinessWorkflowReview = {
-  packs: BusinessWorkflowPack[];
-  signals: {
-    hasLeadCapture: boolean;
-    hasBookingFlow: boolean;
-    hasCrmSync: boolean;
-  };
-};
-
 export type PostCheckBaseline = {
   previousVersionId: string | null;
   changes: FileDiff | null;
@@ -120,10 +64,12 @@ export type PostCheckBaseline = {
   lucideLinkMisuse: string[];
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
+  /**
+   * Advisory-only SEO scan. Not shown in the chat post-check anymore
+   * (2026-07-23 declutter) — kept because the `seo` error-log row feeds the
+   * launch-readiness advisories and the publish surface.
+   */
   seoReview: SeoReview;
-  analyticsReview: AnalyticsReview;
-  editorialReview: EditorialReview;
-  businessWorkflowReview: BusinessWorkflowReview;
   sanity: SanityResult;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
@@ -438,178 +384,6 @@ function buildSeoReview(files: FileEntry[]): SeoReview {
   };
 }
 
-function detectAnalyticsSignals(files: FileEntry[]) {
-  const combined = files.map((file) => file.content ?? "").join("\n\n");
-  const trackerProviders = [
-    { label: "Besöksstatistik", match: /@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics/i },
-    { label: "Google Analytics", match: /\bgtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID/i },
-    { label: "Google Tag Manager", match: /googletagmanager|dataLayer\.push|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+/i },
-    { label: "Plausible", match: /\bplausible\b|NEXT_PUBLIC_PLAUSIBLE_DOMAIN/i },
-    { label: "PostHog", match: /\bposthog\b|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST/i },
-    { label: "Mixpanel", match: /\bmixpanel\b|mixpanel\.track/i },
-    { label: "Fathom", match: /\bfathom\b|trackGoal|trackEvent/i },
-  ]
-    .filter((provider) => provider.match.test(combined))
-    .map((provider) => provider.label);
-
-  const conversionSurfaceCount = files.reduce((count, file) => {
-    const content = file.content ?? "";
-    const formHits = (content.match(/<form\b|onSubmit=|type=["']submit["']/gi) || []).length;
-    const ctaHits = (content.match(/mailto:|tel:|book now|boka nu|quote request|request quote|checkout|subscribe/gi) || []).length;
-    return count + formHits + ctaHits;
-  }, 0);
-
-  const conversionEventCount = files.reduce((count, file) => {
-    const content = file.content ?? "";
-    const eventHits =
-      (content.match(/gtag\(\s*["']event["']/gi) || []).length +
-      (content.match(/dataLayer\.push\(\s*\{/gi) || []).length +
-      (content.match(/plausible\(\s*["']/gi) || []).length +
-      (content.match(/posthog\.capture\(/gi) || []).length +
-      (content.match(/mixpanel\.track\(/gi) || []).length +
-      (content.match(/trackGoal\(|trackEvent\(/gi) || []).length;
-    return count + eventHits;
-  }, 0);
-
-  return {
-    trackerDetected: trackerProviders.length > 0,
-    trackerProviders,
-    conversionSurfaceCount,
-    conversionEventCount,
-  };
-}
-
-export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
-  const signals = detectAnalyticsSignals(files);
-  const issues: AnalyticsIssue[] = [];
-
-  if (signals.conversionSurfaceCount > 0 && !signals.trackerDetected) {
-    issues.push({
-      severity: "info",
-      code: "missing-analytics-tracker",
-      message: "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
-      file: null,
-    });
-  }
-
-  if (signals.conversionSurfaceCount > 0 && signals.trackerDetected && signals.conversionEventCount === 0) {
-    issues.push({
-      severity: "info",
-      code: "missing-conversion-events",
-      message: "Tracker finns, men inga tydliga konverteringsevents hittades för CTA-/formulärflöden.",
-      file: null,
-    });
-  }
-
-  return {
-    passed: issues.length === 0,
-    issues,
-    signals,
-  };
-}
-
-function buildEditorialReview(files: FileEntry[]): EditorialReview {
-  const combined = files.map((file) => file.content ?? "").join("\n\n");
-  const routeNames = files.map((file) => file.name).join("\n");
-  const packs: EditorialPack[] = [];
-
-  const pushPack = (pack: EditorialPack) => {
-    if (!packs.some((existing) => existing.id === pack.id)) {
-      packs.push(pack);
-    }
-  };
-
-  if (/\bhero\b|text-5xl|text-6xl|primary cta|headline/i.test(combined)) {
-    pushPack({
-      id: "hero",
-      label: "Hero",
-      reason: "Startsidan verkar ha en hero- eller top-section med huvudbudskap och CTA.",
-      suggestedPrompt: "Uppdatera hero-sektionen med ny rubrik, ingress och CTA utan att ändra resten av designen.",
-    });
-  }
-  if (/\b(services?|offerings|what we do)\b/i.test(combined) && /id=["']?(services|tjanster|erbjudande)\b|<h[2-3][^>]*>\s*(Tjänster|Services|Erbjudande)/i.test(combined)) {
-    pushPack({
-      id: "services",
-      label: "Services",
-      reason: "Sajten verkar ha ett tjänste- eller erbjudandeblock.",
-      suggestedPrompt: "Uppdatera tjänste-/erbjudandesektionen med nya titlar, beskrivningar och ordning utan att göra en full redesign.",
-    });
-  }
-  if (/\btestimonial|testimonials|reviews?|kundomdomen|kundrecension/i.test(combined)) {
-    pushPack({
-      id: "testimonials",
-      label: "Testimonials",
-      reason: "Sajten verkar ha social proof i form av omdömen eller testimonials.",
-      suggestedPrompt: "Uppdatera testimonials-sektionen med nya kundnamn, citat och roller utan att ändra layouten.",
-    });
-  }
-  if (/\b(team|medarbetare|our people|staff)\b/i.test(combined) && /id=["']?team\b|<h[2-3][^>]*>\s*(Team|Medarbetare|Our People)/i.test(combined)) {
-    pushPack({
-      id: "team",
-      label: "Team",
-      reason: "Sajten verkar ha en team- eller people-sektion.",
-      suggestedPrompt: "Uppdatera team-sektionen med nya personer, roller och korta bio-texter utan att ändra resten av sidan.",
-    });
-  }
-  if (/\bfaq\b/i.test(combined) || (/\b(accordion|frågor|fragor|questions)\b/i.test(combined) && /id=["']?faq\b|<h[2-3][^>]*>\s*(FAQ|Vanliga frågor|Questions)/i.test(combined))) {
-    pushPack({
-      id: "faq",
-      label: "FAQ",
-      reason: "Sajten verkar ha en FAQ eller frågesektion.",
-      suggestedPrompt: "Uppdatera FAQ-sektionen med nya frågor och svar utan att ändra den visuella strukturen.",
-    });
-  }
-  if (/\bcontact\b|kontakt|mailto:|tel:|<form\b/i.test(combined)) {
-    pushPack({
-      id: "contact",
-      label: "Contact",
-      reason: "Sajten verkar ha kontaktuppgifter eller kontaktflöde.",
-      suggestedPrompt: "Uppdatera kontaktsektionen med nya kontaktuppgifter, öppettider och CTA utan att ändra resten av designen.",
-    });
-  }
-  if (/\bblog\b|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
-    pushPack({
-      id: "blog",
-      label: "Blog / content",
-      reason: "Sajten verkar ha blogg- eller innehållssidor.",
-      suggestedPrompt: "Uppdatera blogg-/innehållssektionen med nya artikeltitlar, sammanfattningar eller metadata utan att ändra site shell.",
-    });
-  }
-  if (/\bexport\s+const\s+metadata\b|generateMetadata|application\/ld\+json/i.test(combined)) {
-    pushPack({
-      id: "metadata",
-      label: "Metadata",
-      reason: "Sajten verkar redan ha metadata/SEO-yta som kan redigeras separat.",
-      suggestedPrompt: "Uppdatera metadata, titelmall, beskrivning och social sharing-text utan att ändra sidlayouten.",
-    });
-  }
-
-  return {
-    packs,
-    signals: {
-      hasBlogCollection: packs.some((pack) => pack.id === "blog"),
-      hasContactFlow: packs.some((pack) => pack.id === "contact"),
-    },
-  };
-}
-
-function buildBusinessWorkflowReview(files: FileEntry[]): BusinessWorkflowReview {
-  const combined = files.map((file) => file.content ?? "").join("\n\n");
-  const packs = detectBusinessWorkflowPacks(combined);
-  return {
-    packs,
-    signals: {
-      hasLeadCapture: packs.some(
-        (pack) => pack.id === "lead-capture" && pack.signalStrength !== "weak",
-      ),
-      hasBookingFlow: packs.some(
-        (pack) => pack.id === "booking" && pack.signalStrength !== "weak",
-      ),
-      hasCrmSync: packs.some((pack) => pack.id === "crm-sync"),
-    },
-  };
-}
-
 export function buildPostCheckBaseline(params: {
   currentFiles: FileEntry[];
   previousFiles: FileEntry[];
@@ -639,9 +413,6 @@ export function buildPostCheckBaseline(params: {
   const missingPlannedRoutes = findMissingPlannedRoutes(preflight?.routePlan, routePaths);
   const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
   const seoReview = buildSeoReview(currentFiles);
-  const analyticsReview = buildAnalyticsReview(currentFiles);
-  const editorialReview = buildEditorialReview(currentFiles);
-  const businessWorkflowReview = buildBusinessWorkflowReview(currentFiles);
   const sanity = runProjectSanityChecks(
     currentFiles.map((file) => ({
       path: file.name,
@@ -669,16 +440,9 @@ export function buildPostCheckBaseline(params: {
   if (sanityErrors.length > 0 || sanityWarnings.length > 0) {
     warnings.push(`Kodsanity: ${sanityErrors.length} error, ${sanityWarnings.length} warning.`);
   }
-  if (!seoReview.passed) {
-    const preview = seoReview.issues
-      .slice(0, 4)
-      .map((issue) => issue.message)
-      .join(" | ");
-    const suffix = seoReview.issues.length > 4 ? " …" : "";
-    warnings.push(`SEO: ${preview}${suffix}`);
-  }
-  // Analytics, editorial, and business packs are logged as separate info-level
-  // entries via post-checks-results — not included in the warning baseline.
+  // SEO is advisory-only and no longer part of the user-facing warning
+  // baseline (2026-07-23 declutter). The `seo` error-log row below still
+  // feeds the launch-readiness advisories.
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -701,9 +465,6 @@ export function buildPostCheckBaseline(params: {
     suspiciousUseCalls,
     designTokens,
     seoReview,
-    analyticsReview,
-    editorialReview,
-    businessWorkflowReview,
     sanity,
     sanityIssues,
     sanityErrors,

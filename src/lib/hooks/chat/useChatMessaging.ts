@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { warnLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, ChatMessagingParams, ChatMessagingReturn } from "./types";
+import type {
+  AutoFixPayload,
+  ChatMessagingParams,
+  ChatMessagingReturn,
+  MessageOptions,
+} from "./types";
 import { clearCreateChatLock } from "./helpers";
 import { useCreateChat } from "./useCreateChat";
 import { useSendMessage } from "./useSendMessage";
@@ -100,16 +105,57 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
     setIsCreatingChat,
   } = useCreateChat(params, { buildBuilderParams, ...sharedDeps });
 
-  const { sendMessage } = useSendMessage(params, { createNewChat, ...sharedDeps });
+  const { sendMessage: sendMessageRaw } = useSendMessage(params, { createNewChat, ...sharedDeps });
 
-  const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage, getActiveChatId);
+  // Fast-edit robustness (2026-07-23): a queued client autofix must never
+  // collide with a generation the user just started. Two shared signals:
+  //   - `generationActiveRef` is true for the whole lifetime of a send
+  //     (fetch + SSE stream). useAutoFix consults it before scheduling AND
+  //     right before firing, because an autofix `sendMessage` would abort the
+  //     in-flight stream via `streamAbortRef` — the "versionen hoppar när jag
+  //     editerar snabbt" failure mode.
+  //   - a USER-initiated send cancels any still-pending scheduled autofix:
+  //     the fix targeted a version the new generation supersedes anyway.
+  const generationActiveRef = useRef(false);
+  const cancelPendingAutoFixRef = useRef<() => void>(() => {});
+
+  const sendMessage = useCallback(
+    async (messageText: string, options: MessageOptions = {}) => {
+      const isAutofixSend = options.promptSourceMeta?.sourceKind === "autofix";
+      if (!isAutofixSend) {
+        cancelPendingAutoFixRef.current();
+      }
+      generationActiveRef.current = true;
+      try {
+        await sendMessageRaw(messageText, options);
+      } finally {
+        generationActiveRef.current = false;
+      }
+    },
+    [sendMessageRaw],
+  );
+
+  const isGenerationActive = useCallback(() => generationActiveRef.current, []);
+
+  const { autoFixHandlerRef: resolvedAutoFixRef, cancelPendingAutoFix } = useAutoFix(
+    sendMessage,
+    getActiveChatId,
+    isGenerationActive,
+  );
   useEffect(() => {
     autoFixHandlerRef.current = resolvedAutoFixRef.current;
   });
+  useEffect(() => {
+    cancelPendingAutoFixRef.current = cancelPendingAutoFix;
+  }, [cancelPendingAutoFix]);
 
   const cancelActiveGeneration = useCallback(() => {
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
+    generationActiveRef.current = false;
+    // The user explicitly stopped — a queued autofix for the stopped/previous
+    // version must not sneak in afterwards.
+    cancelPendingAutoFixRef.current();
     clearStreamSafetyTimer();
     pendingCreateKeyRef.current = null;
     clearCreateChatLock();
