@@ -16,6 +16,8 @@ export interface ChatAreaProps {
   auditUrl?: string
   onAuditUrlChange?: (url: string) => void
   onAuditSubmit?: () => void
+  /** Opens the intro video (opt-in — it never auto-opens on first visit). */
+  onPlayIntro?: () => void
 }
 
 /** Return shape of `useLandingController` — for prop typing in split components (type-only imports). */

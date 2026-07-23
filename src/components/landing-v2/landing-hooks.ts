@@ -159,8 +159,11 @@ export function useHonestCounter(fakeTarget: number, realValue: number, message:
 export function useRotatingText(items: string[], interval = 2400) {
   const [index, setIndex] = useState(0)
   const [visible, setVisible] = useState(true)
+  const reduceMotion = usePrefersReducedMotion()
 
   useEffect(() => {
+    // prefers-reduced-motion: fryser rotationen på aktuellt ord.
+    if (reduceMotion) return
     const timer = setInterval(() => {
       setVisible(false)
       setTimeout(() => {
@@ -169,7 +172,7 @@ export function useRotatingText(items: string[], interval = 2400) {
       }, 300)
     }, interval)
     return () => clearInterval(timer)
-  }, [items.length, interval])
+  }, [items.length, interval, reduceMotion])
 
   return { text: items[index] ?? "", visible }
 }
