@@ -62,11 +62,15 @@ function countLines(content: string): number {
 }
 
 function scoreFilePriority(path: string): number {
-  if (path === "app/page.tsx") return 0;
-  if (path === "app/layout.tsx") return 1;
-  if (path === "app/globals.css") return 2;
-  if (path.startsWith("app/")) return 3;
-  if (path.startsWith("components/")) return 4;
+  // Imported repos (v0-templates / ZIP imports) often keep the app under
+  // `src/` — score those files as if the prefix weren't there so the home
+  // page / layout / globals of a `src/app/` repo still lead the context.
+  const normalized = path.startsWith("src/") ? path.slice("src/".length) : path;
+  if (normalized === "app/page.tsx" || normalized === "pages/index.tsx") return 0;
+  if (normalized === "app/layout.tsx") return 1;
+  if (normalized === "app/globals.css") return 2;
+  if (normalized.startsWith("app/") || normalized.startsWith("pages/")) return 3;
+  if (normalized.startsWith("components/")) return 4;
   return 5;
 }
 

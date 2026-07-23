@@ -22,6 +22,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject,
+  chatUsesVerbatimRepo: vi.fn().mockResolvedValue(false),
 }));
 
 // NOTE: `sanitizeEnvSecretsForPublicExport` and `stripGeneratedEnvLocalForZip`

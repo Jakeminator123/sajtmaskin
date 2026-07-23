@@ -7,7 +7,16 @@ so it is safe in any environment:  python -m unittest test_pydatabastest
 
 import unittest
 
-from pydatabastest import FAIL, PASS, WARN, classify_empty_group
+from pydatabastest import (
+    ACKNOWLEDGED_EXTRA_TABLES,
+    EXPECTED_TABLES,
+    FAIL,
+    KNOWN_EXTRA_TABLES,
+    PASS,
+    WARN,
+    classify_empty_group,
+    classify_table_drift,
+)
 
 
 class ClassifyEmptyGroupTests(unittest.TestCase):
@@ -53,6 +62,39 @@ class ClassifyEmptyGroupTests(unittest.TestCase):
         status, _, detail = classify_empty_group("info", ["app_projects"], {}, ["app_projects"])
         self.assertEqual(status, WARN)
         self.assertIn("count failed", detail)
+
+
+class ClassifyTableDriftTests(unittest.TestCase):
+    """Drift-klassificeringen (backlog: extern coach-review på #495) — tidigare
+    inline i inspect_db, nu ren funktion. Låser de två sista otestade
+    beteendena: ACKNOWLEDGED_EXTRA_TABLES tillåts (schema_migrations) och en
+    okänd extra tabell klassas som drift (FAIL-vägen)."""
+
+    def _full_schema(self) -> set[str]:
+        return set(EXPECTED_TABLES) | set(KNOWN_EXTRA_TABLES)
+
+    def test_acknowledged_extra_table_is_not_drift(self):
+        tables = self._full_schema() | set(ACKNOWLEDGED_EXTRA_TABLES)
+        extra, missing_known = classify_table_drift(tables)
+        self.assertEqual(extra, [])
+        self.assertEqual(missing_known, [])
+
+    def test_unknown_extra_table_is_drift(self):
+        tables = self._full_schema() | {"rogue_table"}
+        extra, _ = classify_table_drift(tables)
+        self.assertEqual(extra, ["rogue_table"])
+
+    def test_missing_known_extra_is_drift_not_clean(self):
+        tables = set(EXPECTED_TABLES)  # KNOWN_EXTRA (error_log_events) saknas
+        extra, missing_known = classify_table_drift(tables)
+        self.assertEqual(extra, [])
+        self.assertEqual(missing_known, list(KNOWN_EXTRA_TABLES))
+
+    def test_clean_schema_without_acknowledged_is_clean(self):
+        # ACKNOWLEDGED-tabeller är tillåtna men inte krävda.
+        extra, missing_known = classify_table_drift(self._full_schema())
+        self.assertEqual(extra, [])
+        self.assertEqual(missing_known, [])
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ import {
   FolderGit2,
   Github,
   HelpCircle,
+  History,
   Image as ImageIcon,
   Layers,
   Loader2,
@@ -138,6 +139,10 @@ export function BuilderHeader(props: {
   deploymentHistoryHydrationFailed?: boolean;
   onRetryDeploymentHistory?: () => void;
   deployDisabledReason?: string | null;
+
+  /** Toggles the version-history drawer (desktop only — panel is hidden < lg). */
+  onToggleVersions?: () => void;
+  isVersionPanelOpen?: boolean;
 }) {
   const {
     selectedModelTier,
@@ -199,6 +204,8 @@ export function BuilderHeader(props: {
     deploymentHistoryHydrationFailed,
     onRetryDeploymentHistory,
     deployDisabledReason,
+    onToggleVersions,
+    isVersionPanelOpen = false,
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
@@ -693,6 +700,20 @@ export function BuilderHeader(props: {
           )}
           <span className="hidden sm:inline">Ny chat</span>
         </Button>
+
+        {onToggleVersions ? (
+          <Button
+            variant={isVersionPanelOpen ? "secondary" : "outline"}
+            size="sm"
+            onClick={onToggleVersions}
+            aria-pressed={isVersionPanelOpen}
+            title={isVersionPanelOpen ? "Stäng versionshistoriken" : "Öppna versionshistoriken"}
+            className="hidden lg:inline-flex"
+          >
+            <History className="h-4 w-4" />
+            <span className="hidden xl:inline">Versioner</span>
+          </Button>
+        ) : null}
 
         {deploymentHistoryHydrationFailed ? (
           <TooltipProvider>

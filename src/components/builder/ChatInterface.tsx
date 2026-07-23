@@ -48,6 +48,10 @@ import {
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
+import {
+  PROMPT_PREFILL_EVENT,
+  type PromptPrefillEventDetail,
+} from "@/lib/builder/prompt-prefill-event";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -502,6 +506,19 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
+  // Exempelprompter från preview-panelens empty state fyller chattens input
+  // (skickar INTE automatiskt — användaren får redigera och trycka Enter).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
+      if (typeof detail?.text !== "string" || !detail.text.trim()) return;
+      setInput(detail.text);
+      onPromptAssistModeReset?.();
+    };
+    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
+    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
+  }, [onPromptAssistModeReset]);
+
   const handlePlanRequest = async () => {
     if (inputDisabled) return;
     const current = input.trim();
@@ -687,7 +704,7 @@ export function ChatInterface({
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
-          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
+          <p className="text-muted-foreground text-[11px] leading-4" suppressHydrationWarning>
             Verktyg
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -906,7 +923,7 @@ export function ChatInterface({
             aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
             autoComplete="off"
             disabled={inputDisabled}
-            className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
+            className="text-foreground min-h-[96px] border-0 text-[15px] shadow-none placeholder:text-zinc-400 focus-visible:ring-0"
           />
         </PromptInputBody>
         <PromptInputFooter className="flex-col items-stretch gap-1.5">

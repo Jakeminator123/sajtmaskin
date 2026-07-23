@@ -386,6 +386,24 @@ async function runStartPreviewSession(
             updateFiles,
             collectRequiredUiComponents(updateFiles),
           ).map((f) => ({ name: f.path, content: f.content }));
+      // Same placeholder parity as the fresh-start branch below: a session
+      // update replaces the workspace files wholesale, so a verbatim fileset
+      // (imported repos / finalize-preflighted files) must keep the injected
+      // placeholder API route or later follow-ups silently drop it from the
+      // live VM while verify still ships it.
+      if (skipScaffoldForUpdate) {
+        const hasPlaceholderForUpdate = runtimeForUpdate.some(
+          (f) =>
+            f.name === "app/api/placeholder/route.ts" ||
+            f.name === "app/api/placeholder/route.js",
+        );
+        if (!hasPlaceholderForUpdate) {
+          runtimeForUpdate.push({
+            name: "app/api/placeholder/route.ts",
+            content: PLACEHOLDER_API_ROUTE,
+          });
+        }
+      }
       const envLocalPath = ".env.local";
       const envIdx = runtimeForUpdate.findIndex((f) => f.name === envLocalPath);
       let priorEnvLocal: string | null = null;

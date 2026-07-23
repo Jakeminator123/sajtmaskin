@@ -579,6 +579,145 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("retries retryable 503 from /quality-gate before surfacing (F2-lane parity with F3)", async () => {
+    // Granska-svärm F5 på #504: /quality-gate svarar 503 `lease_unavailable`/
+    // `quality_gate_unavailable` när leasen/verify-lanen är tillfälligt nere.
+    // F3-vägarna retryar; F2-lanen ska också göra det i stället för att
+    // behandla ett övergående 503 som ett generiskt fel.
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let qualityGateCalls = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          qualityGateCalls += 1;
+          if (qualityGateCalls <= 2) {
+            return jsonResponse(
+              { error: "Version lease unavailable", code: "lease_unavailable", retryable: true },
+              503,
+            );
+          }
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    vi.useFakeTimers();
+    try {
+      const runPromise = runPostGenerationChecks({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: "https://preview.example/ver_1",
+        assistantMessageId: "assistant_1",
+        setMessages: store.setMessages,
+        onAutoFix,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await runPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(qualityGateCalls).toBe(3);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).toBe("output-available");
+    expect((qualityGate?.output as Record<string, unknown>).passed).toBe(true);
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a persistent 503 from /quality-gate after bounded retries", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let qualityGateCalls = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          qualityGateCalls += 1;
+          return jsonResponse(
+            { error: "Verify lane unavailable", code: "quality_gate_unavailable", retryable: true },
+            503,
+          );
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    vi.useFakeTimers();
+    try {
+      const runPromise = runPostGenerationChecks({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: "https://preview.example/ver_1",
+        assistantMessageId: "assistant_1",
+        setMessages: store.setMessages,
+        onAutoFix,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await runPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // 1 originalanrop + 2 bounded retries, sedan vanlig felhantering.
+    expect(qualityGateCalls).toBe(3);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).toBe("output-error");
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
   it("shows lint warnings as advisory and never queues repair", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();

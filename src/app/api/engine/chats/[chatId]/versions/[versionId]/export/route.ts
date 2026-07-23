@@ -3,7 +3,10 @@ import { put } from "@vercel/blob";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import { sanitizeEnvSecretsForPublicExport } from "@/lib/gen/export/sanitize-public-export";
 import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
@@ -47,12 +50,17 @@ export async function POST(
       }
       const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
+        // Imported repos (v0-templates / ZIP imports) export verbatim — no
+        // scaffold merge / baseline dep pins on top of the template's stack.
+        const verbatimRepo = await chatUsesVerbatimRepo(chatId);
         // B11: this blob is uploaded with `access: "public"`, so strip secret
         // values from any `.env*` file before zipping (owner-scoped /download
         // routes keep full content). Then drop the verify-lane placeholder
         // `.env.local` entirely from the artifact (compose AFTER sanitize).
         const completeProject = stripGeneratedEnvLocalForZip(
-          sanitizeEnvSecretsForPublicExport(await buildExportableProject(codeFiles)),
+          sanitizeEnvSecretsForPublicExport(
+            await buildExportableProject(codeFiles, { verbatimRepo }),
+          ),
         );
         const JSZip = (await import("jszip")).default;
         const zip = new JSZip();

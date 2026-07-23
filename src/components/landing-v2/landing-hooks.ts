@@ -19,6 +19,50 @@ export function usePrefersReducedMotion(): boolean {
 
   return reduce
 }
+
+type NetworkInformationLike = {
+  saveData?: boolean
+  effectiveType?: string
+  downlink?: number
+  addEventListener?: (type: "change", listener: () => void) => void
+  removeEventListener?: (type: "change", listener: () => void) => void
+}
+
+const SLOW_EFFECTIVE_TYPES = new Set(["slow-2g", "2g", "3g"])
+
+/**
+ * Rapporterar `true` när användaren ber om datasparläge (`Save-Data`) eller sitter
+ * på en svag uppkoppling (`effectiveType` 2g/3g eller låg `downlink`). Används för
+ * att servera en statisk fallback i stället för att ladda ner + rita WebGL-scener,
+ * så förstasidan förblir snabb på dåliga nät. SSR-säker: `false` tills mount.
+ */
+export function useSaveData(): boolean {
+  const [saveData, setSaveData] = useState(false)
+
+  useEffect(() => {
+    const connection = (
+      navigator as Navigator & { connection?: NetworkInformationLike }
+    ).connection
+    if (!connection) return
+
+    const sync = () => {
+      const slow =
+        connection.saveData === true ||
+        (typeof connection.effectiveType === "string" &&
+          SLOW_EFFECTIVE_TYPES.has(connection.effectiveType)) ||
+        (typeof connection.downlink === "number" &&
+          connection.downlink > 0 &&
+          connection.downlink < 1.5)
+      setSaveData(Boolean(slow))
+    }
+
+    sync()
+    connection.addEventListener?.("change", sync)
+    return () => connection.removeEventListener?.("change", sync)
+  }, [])
+
+  return saveData
+}
 const TILT_NEUTRAL = "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)"
 
 export function use3DTilt(intensity = 12) {
@@ -159,8 +203,11 @@ export function useHonestCounter(fakeTarget: number, realValue: number, message:
 export function useRotatingText(items: string[], interval = 2400) {
   const [index, setIndex] = useState(0)
   const [visible, setVisible] = useState(true)
+  const reduceMotion = usePrefersReducedMotion()
 
   useEffect(() => {
+    // prefers-reduced-motion: fryser rotationen på aktuellt ord.
+    if (reduceMotion) return
     const timer = setInterval(() => {
       setVisible(false)
       setTimeout(() => {
@@ -169,7 +216,7 @@ export function useRotatingText(items: string[], interval = 2400) {
       }, 300)
     }, interval)
     return () => clearInterval(timer)
-  }, [items.length, interval])
+  }, [items.length, interval, reduceMotion])
 
   return { text: items[index] ?? "", visible }
 }

@@ -52,6 +52,7 @@ export {
   getPreferredVersion,
   getVersionsByChat,
   getVersionById,
+  chatHasImportedRepoVersion,
 } from "./chat-repository/versions";
 
 export { updateVersionFiles } from "./chat-repository/version-files";

@@ -95,6 +95,8 @@ export async function runCodegenTurn(params: {
   followUpCapabilityDetection: FollowUpCapabilityDetection;
   followUpIntent: FollowUpIntentMode;
   persistedScaffoldId: string | null;
+  /** Chat started from a verbatim repo import (`edit_kind="imported_repo"`). */
+  importedRepoMode: boolean;
   ignorePersistedScaffoldForMatch: boolean;
   f3ContinuationDecision: F3ContinuationDecision | null;
   f3ApprovalBuildRound: boolean;
@@ -139,6 +141,7 @@ export async function runCodegenTurn(params: {
     followUpCapabilityDetection,
     followUpIntent,
     persistedScaffoldId,
+    importedRepoMode,
     ignorePersistedScaffoldForMatch,
     f3ContinuationDecision,
     f3ApprovalBuildRound,
@@ -260,6 +263,7 @@ export async function runCodegenTurn(params: {
     resolvedImageGenerations,
     designReferences,
     persistedScaffoldId,
+    importedRepoMode,
     previousFilesCount: previousFiles.length,
     hasFollowUpBase,
     ignorePersistedScaffoldForMatch,
@@ -327,8 +331,11 @@ export async function runCodegenTurn(params: {
     buildIntent: engineIntent,
     context: preGenerationContracts,
   });
+  // Imported-repo chats never persist a scaffold id — the repo is the
+  // project, and a pinned scaffold would poison every later follow-up.
   if (
     resolvedScaffold &&
+    !importedRepoMode &&
     (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
   ) {
     try {

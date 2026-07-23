@@ -465,6 +465,10 @@ async function runTier2VerifyLane(params: {
   } = params;
   const toolCallId = `quality-gate:${versionId}`;
   const checks = DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
+  // Bounded retry for retryable 503s from /quality-gate — see the loop below.
+  const QUALITY_GATE_RETRYABLE_STATUS = 503;
+  const QUALITY_GATE_503_MAX_RETRIES = 2;
+  const QUALITY_GATE_503_RETRY_BASE_DELAY_MS = 2_000;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:quality-gate",
@@ -484,14 +488,30 @@ async function runTier2VerifyLane(params: {
       // Soft landing: warning-only during telemetry week.
     }
 
-    const res = await fetch(
-      `${engineChatBaseUrl(chatId)}/quality-gate`,
-      {
+    const postQualityGate = () =>
+      fetch(`${engineChatBaseUrl(chatId)}/quality-gate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, checks }),
-      },
-    );
+      });
+
+    let res = await postQualityGate();
+    // Retryable 503 (granska-svärm F5 på #504): /quality-gate svarar 503 med
+    // `lease_unavailable`/`quality_gate_unavailable` när leasen/verify-lanen är
+    // tillfälligt otillgänglig — F3-vägarna (f3-finalize-action,
+    // useResumePendingVerification) retryar redan dessa; F2-lanen behandlade
+    // dem som generiska fel. Bounded backoff, därefter faller vi igenom till
+    // den vanliga felhanteringen nedan.
+    for (
+      let attempt = 1;
+      res.status === QUALITY_GATE_RETRYABLE_STATUS && attempt <= QUALITY_GATE_503_MAX_RETRIES;
+      attempt++
+    ) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, QUALITY_GATE_503_RETRY_BASE_DELAY_MS * attempt),
+      );
+      res = await postQualityGate();
+    }
 
     if (res.status === 501) {
       appendToolPartToMessage(setMessages, assistantMessageId, {

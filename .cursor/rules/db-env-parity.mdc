@@ -13,6 +13,8 @@ alwaysApply: false
 
 Lokal framgång bevisar **inte** prod. Prod kan ha en annan Postgres (Supabase prod-region) och egna Upstash/Redis/Blob-instanser. När du sätter något för dev/lokalt: gör motsvarande för **alla** Vercel-miljöer och rätt databas.
 
+**Kanonisk dev/prod-identitet:** `config/db-targets.json` (dev = `yubbckduwblyrbnlglwf` i `eu-north-1`, prod = `egcitvwgettkftkyzbvn` i `us-east-1`). Entydig tabell: `docs/ENV.md` → "Databas: dev/prod-identitet". Verifiera target med `npm run db:check-target -- --expect=dev|prod` (sanitiserad utskrift, aldrig credentials) — CI kör samma guard mot `POSTGRES_URL_PROD` före prod-migrationer.
+
 ## Migrationer (körs INTE automatiskt vid Vercel-deploy)
 
 Lägger du en migration i `src/lib/db/migrations/` (och rör en INSERT/kolumn): kör mot **både** dev och prod innan merge går live. Annars bryts även vanlig drift i prod.

@@ -95,6 +95,35 @@ export function useSendMessage(
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
+
+      // 5-2 stale-base gate (client half), delad mellan stream-vägen och
+      // /messages-nätverksfallbacken (backlog PR #355-triage #20): servern har
+      // redan en nyare version än den requesten byggdes mot — visa
+      // reload-UX:en + refresha versionslistan i stället för generiskt fel.
+      const handleStaleBaseVersion = (
+        status: number,
+        errorData: Record<string, unknown> | null,
+      ): boolean => {
+        if (status !== 409 || errorData?.reason !== "stale_base_version") return false;
+        toast.error(
+          "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
+        );
+        mutateVersions();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content:
+                    m.content?.trim() ||
+                    "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
+                  isStreaming: false,
+                }
+              : m,
+          ),
+        );
+        return true;
+      };
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
@@ -484,30 +513,8 @@ export function useSendMessage(
             );
             return;
           }
-          // 5-2 stale-base gate (client half): the server already has a newer
-          // version than the one this request was built against. Surface a
-          // reload hint and refresh the version list instead of falling
-          // through to the generic error/abort path.
-          if (response.status === 409 && errorData?.reason === "stale_base_version") {
-            toast.error(
-              "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
-            );
-            mutateVersions();
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMessageId
-                  ? {
-                      ...m,
-                      content:
-                        m.content?.trim() ||
-                        "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
-                      isStreaming: false,
-                    }
-                  : m,
-              ),
-            );
-            return;
-          }
+          // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
+          if (handleStaleBaseVersion(response.status, errorData)) return;
           throw new Error(
             buildApiErrorMessage({
               response,
@@ -576,6 +583,9 @@ export function useSendMessage(
               } catch {
                 // ignore
               }
+              // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
+              // som stream-vägen — inte ett generiskt "Failed to send message".
+              if (handleStaleBaseVersion(fallbackRes.status, errorData)) return;
               throw new Error(
                 buildApiErrorMessage({
                   response: fallbackRes,

@@ -8,18 +8,29 @@
  * (data/dossiers/{hard,soft}/). Never writes anything.
  *
  * Usage:
- *   node scripts/dossiers/inventory-legacy.mjs [--root=C:\path\to\legacy] [--json]
- *   node scripts/dossiers/inventory-legacy.mjs --detail=<id-prefix>
+ *   npm run dossiers:inventory-legacy [-- --root=/path/to/legacy] [-- --json]
+ *   npm run dossiers:inventory-legacy -- --detail=<id-prefix>
+ *
+ * Default root: sibling folder `../dossiers-legacy-2026-04-20` next to the
+ * repo root (same convention as DOSSIER_PROSPECT_ROOT/`../dossiers-prospect`);
+ * override with DOSSIER_LEGACY_ROOT or --root=.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const getArg = (name) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.split("=").slice(1).join("=") : null;
 };
-const ROOT = getArg("root") ?? "C:\\Users\\jakem\\dev\\projects\\dossiers-legacy-2026-04-20";
+// Platform-neutral default (backlog A#19–A#20, #419): the legacy snapshot
+// lives OUTSIDE the repo as a sibling folder — same convention as the
+// prospect root in normalize-legacy-prospect.ts (`../dossiers-prospect`).
+// Override with DOSSIER_LEGACY_ROOT or --root=.
+const DEFAULT_LEGACY_ROOT =
+  process.env.DOSSIER_LEGACY_ROOT?.trim() ||
+  resolve(process.cwd(), "..", "dossiers-legacy-2026-04-20");
+const ROOT = getArg("root") ?? DEFAULT_LEGACY_ROOT;
 const AS_JSON = args.includes("--json");
 const DETAIL = getArg("detail");
 

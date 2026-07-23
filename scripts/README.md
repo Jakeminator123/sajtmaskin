@@ -15,7 +15,7 @@ scriptinventariet eller historiken för borttagna pipelines.
 | Scaffolds | `npm run scaffolds:validate`, [`scaffolds/`](scaffolds/) |
 | Dossiers | `npm run dossiers:validate-all`, [`dossiers/`](dossiers/) |
 | Control plane | `npm run control-plane:check`, [`control-plane/`](control-plane/) |
-| Databas och migrationer | [`db/`](db/) |
+| Databas och migrationer | [`db/`](db/) — prod-migrationer appliceras av CI-jobben `prod-migrations-apply`/`prod-migrations-applied` (`db/migrate-prod.mjs` + `db/check-migrations-applied.mjs`), inte av Vercel-deployen |
 | Env-drift | [`env/`](env/), [`../docs/ENV.md`](../docs/ENV.md) |
 | Preview-host | [`../preview-host/README.md`](../preview-host/README.md) |
 | Eval | [`eval/`](eval/) |

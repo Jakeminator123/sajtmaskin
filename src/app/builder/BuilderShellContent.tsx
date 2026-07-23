@@ -46,6 +46,7 @@ import {
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
+import { PROMPT_PREFILL_EVENT } from "@/lib/builder/prompt-prefill-event";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import {
   buildShadcnInsertMessage,
@@ -298,6 +299,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+
+  // Exempelprompt-chip i preview-panelens välkomstläge fyller chattens input —
+  // på mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser
+  // den ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
+  useEffect(() => {
+    const handler = () => setMobileTab("chat");
+    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
+    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
+  }, []);
   const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
@@ -898,6 +908,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}
         onRetryDeploymentHistory={vm.refetchDeploymentHistory}
         deployDisabledReason={deployDisabledReason}
+        onToggleVersions={vm.handleToggleVersionPanel}
+        isVersionPanelOpen={!vm.isVersionPanelCollapsed}
       />
       <ModelTraceOverlay
         selectedModelTier={vm.selectedModelTier}
@@ -1172,25 +1184,25 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onF3ReleaseSettled={vm.handleDeterministicF3Settled}
             />
           </div>
-          <div
-            className={cn(
-              "border-border bg-background hidden h-full flex-col border-l transition-[width] duration-200 lg:flex",
-              vm.isVersionPanelCollapsed ? "lg:w-10" : "lg:w-80",
-            )}
-          >
-            <VersionHistory
-              chatId={vm.chatId}
-              selectedVersionId={vm.activeVersionId}
-              activePreviewSessionId={vm.activePreviewSessionId}
-              onVersionSelect={handleVersionSelect}
-              onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
-              isCollapsed={vm.isVersionPanelCollapsed}
-              onToggleCollapse={vm.handleToggleVersionPanel}
-              versions={vm.effectiveVersionsList}
-              mutateVersions={vm.mutateVersions}
-              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-            />
-          </div>
+          {/* Versionshistoriken är en riktig drawer: helt dold när den är
+              stängd (ingen tunn vertikal remsa) och öppnas/stängs via
+              "Versioner"-knappen i headern eller panelens egen stängknapp. */}
+          {!vm.isVersionPanelCollapsed && (
+            <div className="border-border bg-background hidden h-full w-80 flex-col border-l lg:flex">
+              <VersionHistory
+                chatId={vm.chatId}
+                selectedVersionId={vm.activeVersionId}
+                activePreviewSessionId={vm.activePreviewSessionId}
+                onVersionSelect={handleVersionSelect}
+                onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
+                isCollapsed={false}
+                onToggleCollapse={vm.handleToggleVersionPanel}
+                versions={vm.effectiveVersionsList}
+                mutateVersions={vm.mutateVersions}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              />
+            </div>
+          )}
         </div>
       </div>
 

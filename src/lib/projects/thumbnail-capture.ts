@@ -24,6 +24,13 @@ const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
+/**
+ * Explicit screenshot deadline. Without it Playwright's default (30s) plus
+ * navigation/settle time can push the total past the route's `maxDuration`
+ * (60s) — the function is then killed mid-shot and surfaces as the opaque
+ * "page.screenshot: Target page, context or browser has been closed".
+ */
+const SCREENSHOT_TIMEOUT_MS = 15_000;
 
 export const THUMBNAIL_VIEWPORT = { width: 1200, height: 750 } as const;
 
@@ -100,8 +107,13 @@ export async function captureThumbnailScreenshot(
   opts: { isFinalUrlAllowed: (finalUrl: URL) => boolean },
 ): Promise<Buffer> {
   let browser: Browser | null = null;
+  // Stage tracking: "page.screenshot: Target page, context or browser has
+  // been closed" alone says nothing about WHERE the capture died. Every
+  // failure is rethrown with the stage so the route log pinpoints it.
+  let stage = "launch";
   try {
     browser = await launchBrowser();
+    stage = "new-page";
     const page = await browser.newPage({
       viewport: { ...THUMBNAIL_VIEWPORT },
       deviceScaleFactor: 1,
@@ -135,8 +147,10 @@ export async function captureThumbnailScreenshot(
       }
     });
 
+    stage = "navigate";
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
     // Best-effort settle: network idle + fonts, same pattern as inspector-capture.
+    stage = "settle";
     await page
       .waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT_MS })
       .catch(() => undefined);
@@ -155,9 +169,21 @@ export async function captureThumbnailScreenshot(
 
     // Re-check right before the shot: redirects/JS/meta-refresh may have moved
     // the main frame anywhere public during navigation or the settle waits.
+    stage = "final-url-check";
     assertFinalUrlAllowed(page.url(), opts.isFinalUrlAllowed);
 
-    return await page.screenshot({ type: "jpeg", quality: 70, fullPage: false });
+    stage = "screenshot";
+    return await page.screenshot({
+      type: "jpeg",
+      quality: 70,
+      fullPage: false,
+      timeout: SCREENSHOT_TIMEOUT_MS,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Thumbnail capture failed at stage "${stage}": ${message}`, {
+      cause: error,
+    });
   } finally {
     if (browser) await browser.close().catch(() => undefined);
   }

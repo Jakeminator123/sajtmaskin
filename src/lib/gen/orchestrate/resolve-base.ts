@@ -105,10 +105,17 @@ export async function resolveOrchestrationBase(
     simpleWebsitePath = false,
   } = input;
 
+  // Imported repos (verbatim v0-template / ZIP imports) never get a scaffold:
+  // the repo IS the project. Neutralize both the requested mode and any
+  // persisted scaffold id (older follow-ups could pin one onto imported chats
+  // via the auto-match + updateChatScaffoldId path).
+  const importedRepoMode = input.importedRepoMode === true;
+  const effectiveScaffoldMode = importedRepoMode ? "off" : scaffoldMode;
+
   let resolvedScaffold: ScaffoldManifest | null = null;
   let scaffoldSelection: ScaffoldSelectionMeta = {
     selectedScaffold: null,
-    selectionMethod: scaffoldMode === "off" ? "off" : "default",
+    selectionMethod: effectiveScaffoldMode === "off" ? "off" : "default",
     selectionConfidence: "low",
     topCandidates: [],
     keywordScores: {},
@@ -209,7 +216,7 @@ export async function resolveOrchestrationBase(
   // lands so the intent of the dead-looking signal is documented in code.
 
   const effectivePersistedScaffoldId =
-    ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
+    importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
   const uiRecipesPromise = simpleWebsitePath
     ? Promise.resolve<ShadcnUiRecipe[]>([])
@@ -221,9 +228,9 @@ export async function resolveOrchestrationBase(
   let uiRecipes: ShadcnUiRecipe[] = [];
   let resolvedUiRecipes = false;
 
-  if (scaffoldMode === "off") {
+  if (effectiveScaffoldMode === "off") {
     resolvedScaffold = null;
-  } else if (scaffoldMode === "manual" && scaffoldId) {
+  } else if (effectiveScaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
     scaffoldSelection = {
       ...scaffoldSelection,
@@ -243,7 +250,7 @@ export async function resolveOrchestrationBase(
       selectionConfidence: resolvedScaffold ? "high" : "low",
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
-  } else if (scaffoldMode === "auto") {
+  } else if (effectiveScaffoldMode === "auto") {
     // P26: scaffold matcher (embedding + keyword) must see the *raw* user
     // message, not the wrapped optimizedMessage. See `scaffoldMatchPrompt`
     // doc on `OrchestrationInput` for the full failure mode.
@@ -292,7 +299,11 @@ export async function resolveOrchestrationBase(
   const scaffoldFreeze = enforceFollowUpScaffoldFreeze({
     resolvedMode,
     ignorePersistedScaffoldForMatch,
-    contractScaffoldId: input.followUpContract?.scaffoldId ?? null,
+    // Imported repos: never let a contract scaffold id (possibly pinned by an
+    // older buggy follow-up) resurrect a scaffold onto a verbatim repo.
+    contractScaffoldId: importedRepoMode
+      ? null
+      : input.followUpContract?.scaffoldId ?? null,
     resolvedScaffoldId: resolvedScaffold?.id ?? null,
   });
   if (scaffoldFreeze.clamped && scaffoldFreeze.scaffoldId) {

@@ -799,6 +799,50 @@ describe("detectFollowUpCapabilities — database", () => {
     );
     expect(result.capabilityIds).toContain("database");
   });
+
+  // Codex P2 ×2 på #445 (negations-paret) — veto-sidan: en NEGERAD
+  // konkurrent får inte tysta capabilityn. "inte prisma" är ett bortval,
+  // inte ett Prisma-val.
+  it("detects database when the competing ORM is negated ('postgres, inte prisma')", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till postgres för bokningarna, inte prisma",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  it("detects database for 'add postgres not firebase'", () => {
+    const result = detectFollowUpCapabilities(
+      "add postgres not firebase for the orders",
+    );
+    expect(result.capabilityIds).toContain("database");
+  });
+
+  // Codex P2 ×2 på #445 — spegelfallet: en negerad DB-provider i en annars
+  // orelaterad follow-up får inte emitta `database` (skulle annars kunna
+  // injicera default-Postgres-dossiern trots explicit negativ).
+  it("does NOT detect database when the only provider mention is negated ('no postgres')", () => {
+    // (contact-form suppressas här också — av den ÄLDRE BACKEND_TERMS-negationen
+    // "no postgres" = formulär utan backend; det är avsiktligt och testas i
+    // negated-capabilities-blocket. Den här raden gäller database-emissionen.)
+    const result = detectFollowUpCapabilities(
+      "add a contact form, no postgres",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  it("does NOT detect database for 'lägg till ett bildgalleri, ingen postgres'", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bildgalleri, ingen postgres",
+    );
+    expect(result.capabilityIds).not.toContain("database");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+  });
+
+  it("does NOT detect database for 'lägg till auth utan postgres'", () => {
+    const result = detectFollowUpCapabilities("lägg till auth utan postgres");
+    expect(result.capabilityIds).not.toContain("database");
+    expect(result.capabilityIds).toContain("auth");
+  });
 });
 
 describe("detectFollowUpCapabilities — ai-tool-calling", () => {

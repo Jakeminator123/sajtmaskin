@@ -28,7 +28,10 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -294,7 +297,11 @@ export async function triggerServerVerification(params: {
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
-    const exportable = await buildExportableProject(codeFiles);
+    // Imported repos (v0-templates / ZIP imports) verify verbatim so the gate
+    // tests the SAME project the preview VM runs — never a scaffold-merged
+    // variant with force-pinned baseline dependency versions.
+    const verbatimRepo = await chatUsesVerbatimRepo(chatId);
+    const exportable = await buildExportableProject(codeFiles, { verbatimRepo });
     const gateResult = await runQualityGateOnExportable({
       chatId,
       versionId,
@@ -1028,7 +1035,12 @@ async function tryServerRepairLoop(params: {
   // server-verify path is tracked as a follow-up (needs a repair_available
   // bus-settle). See BUG-SWARM-BACKLOG.md.
 
-  const exportable = await buildExportableProject(codeFiles);
+  // Same verbatim rule as the verify lane: imported repos are gated on the
+  // project as-is, never a scaffold-merged variant.
+  const repairVerbatimRepo = await chatUsesVerbatimRepo(chatId);
+  const exportable = await buildExportableProject(codeFiles, {
+    verbatimRepo: repairVerbatimRepo,
+  });
   const initialContent = serializeCodeProject(exportable);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
@@ -1081,7 +1093,9 @@ async function tryServerRepairLoop(params: {
         stillMissing: reinjection.stillMissing,
       });
     }
-    const exportableForGate = await buildExportableProject(repairedFiles);
+    const exportableForGate = await buildExportableProject(repairedFiles, {
+      verbatimRepo: repairVerbatimRepo,
+    });
     const decision = await shouldPromoteAfterRepair({
       chatId,
       versionId,

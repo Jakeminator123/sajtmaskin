@@ -88,13 +88,23 @@ export interface RunFinalizePreflightParams {
    */
   projectEnvLocalOptions?: ProjectEnvLocalOptions;
   /**
-   * True for verbatim imported-repo edits (v0-template chats). Relaxes ONLY the
-   * scaffold-*contract* check (project-sanity) from blocking errors to
-   * non-blocking warnings — an arbitrary v0 repo does not conform to the
-   * own-engine scaffold contract. Render-safety gates stay blocking for all
-   * chats: the composition-aware home-route gate (a dropped/broken page or
-   * missing delegated component must still block, not ship blank), merged-syntax,
-   * degeneracy, and buildable-preview.
+   * True for verbatim imported-repo edits (v0-template chats). Two effects:
+   *
+   * 1. Skips the own-engine project assembly (`buildCompleteProject` +
+   *    `repairGeneratedFiles`): no scaffold-file injection, no baseline
+   *    `package.json` merge/force-pins (next/react/react-dom/lucide), no
+   *    mechanical autofix pass over the whole repo. The imported repo keeps
+   *    its own dependency versions, lockfile consistency, config files and
+   *    structure — parity with the verbatim init import (`skipRepair` +
+   *    `skipProjectScaffold` in `/api/template`).
+   * 2. Relaxes ONLY the scaffold-*contract* check (project-sanity) from
+   *    blocking errors to non-blocking warnings — an arbitrary v0 repo does
+   *    not conform to the own-engine scaffold contract.
+   *
+   * Render-safety gates stay blocking for all chats: the composition-aware
+   * home-route gate (a dropped/broken page or missing delegated component
+   * must still block, not ship blank), merged-syntax, degeneracy, and
+   * buildable-preview.
    */
   importedRepoMode?: boolean;
 }
@@ -1054,7 +1064,13 @@ export async function runFinalizePreflight({
       });
     }
 
-    const repairResult = repairGeneratedFiles(finalFiles);
+    // Imported repos skip the own-engine mechanical fixer pass (parity with
+    // the verbatim init import's `skipRepair`) — the rules are tuned for the
+    // scaffold stack and must not rewrite an arbitrary repo. Merged-syntax
+    // validation and the render-safety gates below still run.
+    const repairResult = importedRepoMode
+      ? { files: finalFiles, fixes: [] }
+      : repairGeneratedFiles(finalFiles);
     finalFiles = repairResult.files;
     if (repairResult.fixes.length > 0) {
       nextFilesJson = JSON.stringify(finalFiles);
@@ -1335,13 +1351,30 @@ export async function runFinalizePreflight({
       });
     }
     finalizedFilesForPreview = finalFiles;
-    let completeProjectFiles = repairGeneratedFiles(
-      buildCompleteProject(
-        cleanedFiles,
-        collectRequiredUiComponents(cleanedFiles),
-        projectEnvLocalOptions,
-      ),
-    ).files;
+    // Imported repos are persisted VERBATIM: no scaffold-file injection, no
+    // baseline package.json merge (which force-pins next/react/react-dom and
+    // adds scaffold deps — breaking templates on other framework majors and
+    // invalidating their lockfiles), and no mechanical autofix pass tuned for
+    // the own-engine stack. Parity with the init import path, which starts
+    // the preview with `skipRepair` + `skipProjectScaffold`. The preview host
+    // injects the placeholder API route and builds `.env.local` at session
+    // start; `env.example` is injected separately by the preflight phase.
+    let completeProjectFiles = importedRepoMode
+      ? cleanedFiles
+      : repairGeneratedFiles(
+          buildCompleteProject(
+            cleanedFiles,
+            collectRequiredUiComponents(cleanedFiles),
+            projectEnvLocalOptions,
+          ),
+        ).files;
+    if (importedRepoMode) {
+      devLogAppend("in-progress", {
+        type: "preflight.imported-repo.assembly-skipped",
+        chatId,
+        fileCount: completeProjectFiles.length,
+      });
+    }
     // Final degenerate-payload guard (Codex #322): the ASSEMBLED project — not
     // just the pre-assembly input — is what gets persisted, and finalize can
     // AMPLIFY size (the credential-deck incident: ~84 KB model output → ~4.4 MB

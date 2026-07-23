@@ -10,8 +10,8 @@ export function HowItWorksFallback() {
   return (
     <div className="rounded-[32px] border border-border/20 bg-card/30 p-5 md:p-6 shadow-[0_24px_80px_rgba(6,10,20,0.28)]">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
-        <div className="relative overflow-hidden rounded-[28px] border border-border/20 bg-secondary/20 min-h-[420px]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(45,212,191,0.16),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_40%,rgba(34,197,94,0.04)_100%)]" />
+        <div className="relative overflow-hidden rounded-[28px] border border-border/20 bg-[#060b16] min-h-[420px]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(45,212,191,0.20),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(34,197,94,0.12),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_40%)]" />
           {/* Browser-mockup (speglar "AI bygger sajten"-stadiet) */}
           <div className="absolute left-1/2 top-1/2 w-[62%] max-w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-primary/25 bg-background/60 shadow-[0_20px_60px_rgba(6,10,20,0.35)] backdrop-blur-sm">
             <div className="flex items-center gap-1.5 border-b border-border/20 bg-secondary/40 px-3 py-2">

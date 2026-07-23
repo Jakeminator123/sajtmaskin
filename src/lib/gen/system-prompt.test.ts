@@ -66,6 +66,24 @@ describe("buildDynamicContext", () => {
     expect(context).not.toContain("## Original Request");
   });
 
+  it("renders the Imported Template Project contract only for imported-repo follow-ups", async () => {
+    const imported = await buildDynamicContext({
+      intent: "website",
+      generationMode: "followUp",
+      importedRepoMode: true,
+      buildSpec: lightFollowUpSpec,
+    });
+    expect(imported.context).toContain("## Imported Template Project (verbatim repo)");
+    expect(imported.context).toContain("Do NOT rewrite `package.json`");
+
+    const normal = await buildDynamicContext({
+      intent: "website",
+      generationMode: "followUp",
+      buildSpec: lightFollowUpSpec,
+    });
+    expect(normal.context).not.toContain("## Imported Template Project");
+  });
+
   describe("Generation Profile", () => {
     it("still includes Generation Profile for light follow-up when buildSpec is present", async () => {
       const { context } = await buildDynamicContext({
