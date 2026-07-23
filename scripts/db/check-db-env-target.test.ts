@@ -4,6 +4,8 @@ import {
   describeDbTarget,
   extractSupabaseProjectRef,
   loadDbTargets,
+  normalizeDbUrlValue,
+  resolveConfiguredDbUrl,
 } from "./check-db-env-target.mjs";
 
 const targets = {
@@ -109,6 +111,47 @@ describe("checkDbEnvTarget", () => {
         expect(result.message).not.toContain("secret");
       }
     }
+  });
+});
+
+describe("normalizeDbUrlValue", () => {
+  it("strips surrounding quotes", () => {
+    expect(normalizeDbUrlValue(`"${DEV_POOLER}"`)).toBe(DEV_POOLER);
+    expect(normalizeDbUrlValue(`'${DEV_POOLER}'`)).toBe(DEV_POOLER);
+  });
+
+  it("skips uninterpolated placeholders", () => {
+    expect(normalizeDbUrlValue("${POSTGRES_URL}")).toBeUndefined();
+    expect(normalizeDbUrlValue("$POSTGRES_URL")).toBeUndefined();
+  });
+
+  it("returns undefined for empty/whitespace/non-strings", () => {
+    expect(normalizeDbUrlValue("   ")).toBeUndefined();
+    expect(normalizeDbUrlValue(undefined)).toBeUndefined();
+  });
+});
+
+describe("resolveConfiguredDbUrl", () => {
+  it("falls back past an uninterpolated POSTGRES_URL placeholder to a real alias", () => {
+    // Speglar runtime-kontraktet i src/lib/db/env.ts: primärnyckeln är en
+    // ointerpolerad template, den riktiga URL:en ligger i storage-aliaset.
+    const resolved = resolveConfiguredDbUrl({
+      POSTGRES_URL: "${POSTGRES_URL}",
+      STORAGE_POSTGRES_URL: DEV_POOLER,
+    });
+    expect(resolved).toEqual({ key: "STORAGE_POSTGRES_URL", value: DEV_POOLER });
+  });
+
+  it("takes the first real URL in key order", () => {
+    const resolved = resolveConfiguredDbUrl({
+      POSTGRES_URL: PROD_POOLER,
+      DATABASE_URL: DEV_POOLER,
+    });
+    expect(resolved).toEqual({ key: "POSTGRES_URL", value: PROD_POOLER });
+  });
+
+  it("returns null when only placeholders are set", () => {
+    expect(resolveConfiguredDbUrl({ POSTGRES_URL: "${POSTGRES_URL}" })).toBeNull();
   });
 });
 

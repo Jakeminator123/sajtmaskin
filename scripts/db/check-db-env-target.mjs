@@ -86,9 +86,35 @@ export function describeDbTarget(urlValue) {
   }
 }
 
-function resolveConfiguredDbUrl(env = process.env) {
+/**
+ * Normaliserar ett rått env-värde till en användbar connection-URL, eller
+ * `undefined` om värdet inte är en riktig URL. Speglar runtime-resolvern
+ * (`normalizeDbEnvUrl` i `src/lib/db/env.ts`): strippar omgivande citattecken
+ * och hoppar över ointerpolerade placeholders (`${POSTGRES_URL}` / `$POSTGRES_URL`).
+ * Utan detta kunde guarden validera en annan sträng än den appen och
+ * migrationerna faktiskt använder (t.ex. Vercel/Supabase-setups där primärnyckeln
+ * är en template men den riktiga URL:en ligger i ett storage-alias) → falsk röd.
+ */
+export function normalizeDbUrlValue(raw) {
+  if (typeof raw !== "string") return undefined;
+  let value = raw.trim();
+  if (!value) return undefined;
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+    if (!value) return undefined;
+  }
+  if (/^\$\{[A-Z0-9_]+\}$/.test(value) || /^\$[A-Z0-9_]+$/.test(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+export function resolveConfiguredDbUrl(env = process.env) {
   for (const key of CONNECTION_KEYS) {
-    const value = env[key]?.trim();
+    const value = normalizeDbUrlValue(env[key]);
     if (value) return { key, value };
   }
   return null;
