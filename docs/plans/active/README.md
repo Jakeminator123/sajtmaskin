@@ -13,6 +13,7 @@ kopiera inte dess kö hit.
 
 | Spår | Plan | Nästa beslut eller leverans |
 | --- | --- | --- |
+| Preview-/verifieringslivscykel | [`2026-07-preview-verification-lifecycle-simplification.md`](2026-07-preview-verification-lifecycle-simplification.md) | Levereras i PR: reload-dedup, icke-blockerande verify-UX, en F3-ägare, neutral supersede. Follow-up: runtime-ready-ombyggnad. |
 | Verify/F3/domän-stabilisering | [`2026-07-13-stabilisering-verify-f3-doman-plan.md`](2026-07-13-stabilisering-verify-f3-doman-plan.md) | Slutför planens kvarvarande review-, invalidation- och canary-punkter. |
 | Användarsajtens env-yta | [`2026-07-13-anvandarsajt-env-konsolidering.md`](2026-07-13-anvandarsajt-env-konsolidering.md) | Kräver produktbeslut eftersom förslaget påverkar F2:s env-policy. |
 | Builder-status och UI-brus | [`2026-07-13-builder-status-ui-declutter.md`](2026-07-13-builder-status-ui-declutter.md) | Avgränsa copy och presentation från runtime-gates. |

@@ -145,7 +145,7 @@ export function mapVersionStatusToDisplay(
   }
 
   const phase = status.phase;
-  const isTerminal = phase === "done" || phase === "failed";
+  const isTerminal = phase === "done" || phase === "failed" || phase === "superseded";
 
   // Derived `retrying`: a newer version exists and this one is still
   // mid-flight. Terminal phases keep their own token (a failed/done
@@ -163,6 +163,10 @@ export function mapVersionStatusToDisplay(
       return makeDisplay("blocked", degraded, degradations);
     case "failed":
       return makeDisplay("failed", degraded, degradations);
+    case "superseded":
+      // Terminal-neutral (2026-07): renders the amber "Ersatt" badge — the
+      // same token the mid-flight not-latest derivation uses — never red.
+      return makeDisplay("retrying", degraded, degradations);
     case "streaming":
       return makeDisplay("generating", degraded, degradations);
     case "autofixing":

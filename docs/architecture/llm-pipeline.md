@@ -112,14 +112,23 @@ Typisk ordning i runtime:
     tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
     bevis på att den persistade versionen är redo.
 11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
-    typecheck är Advisory utom render-risk-koder.
+    typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
+    (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2
+    (`design_preview_skip_verify`, M#vlane1).
 12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
     auktoritativ VM-gate: typecheck → build. Env-krav täcks av placeholders
     (alltid tillåtna — demoläge tills riktiga nycklar fylls i via Byggblock).
     Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler blockerade
     byggbara sajter); den kan återaktiveras via manifestets `qualityGateTiers`.
+    Ägare: **servern** (post-finalize `triggerServerVerification`) — klientens
+    post-check-lane POSTar sedan 2026-07 aldrig `/quality-gate` för
+    `integrations`-versioner utan följer utfallet via status-polling. Den
+    deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
+    är klientens `runF3FinalizeAction` enda gate-anropare.
 13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
-    gate-resultat och promote-guard.
+    gate-resultat och promote-guard. En version som hinner ersättas av en
+    nyare under gaten settlas terminal-neutralt som `superseded` ("Ersatt",
+    aldrig rött `failed`; se `docs/schemas/quality-gate.md`).
 
 Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den

@@ -147,3 +147,54 @@ export function resolveAlternatePreviewUrls(params: {
     storedLivePreviewUrl,
   };
 }
+
+export type PreviewHandoffAction = "noop" | "set-url" | "bump";
+
+export type PreviewHandoffDecision = {
+  action: PreviewHandoffAction;
+  /** Dedup key (`<versionId>:<normalizedUrl>`) — record as lastAppliedKey when applied. */
+  key: string | null;
+};
+
+/**
+ * Decide how a preview-URL handoff (SSE `preview-ready`/`done`, bootstrap
+ * response, non-stream create/send, version sync) reaches the iframe.
+ *
+ * Contract: the iframe reloads BOTH when its URL changes and when the refresh
+ * token bumps — doing both across separate ticks double-loads, and replaying
+ * the same handoff from multiple sources (preview-ready → done → bootstrap)
+ * used to reload the same session 2–4 times. So a handoff is exactly one of:
+ *
+ * - `set-url`  — the URL differs from what is showing (the URL change itself
+ *                reloads; never bump on top of it), or nothing is showing yet.
+ * - `bump`     — same URL is already showing but this version's content is new
+ *                (follow-up swapped files into the same VM session).
+ * - `noop`     — the same `versionId:url` handoff was already applied once
+ *                (`lastAppliedKey`), so a later source must not reload again.
+ *
+ * `force` (explicit user restart) skips the dedup latch but still picks
+ * set-url vs bump so it causes exactly one reload. An empty `currentUrl`
+ * always sets (never noop) — a cleared preview must be repopulated even if
+ * the latch remembers the key.
+ */
+export function decidePreviewHandoff(params: {
+  incomingUrl: string | null | undefined;
+  currentUrl: string | null | undefined;
+  versionId?: string | null;
+  lastAppliedKey: string | null;
+  force?: boolean;
+}): PreviewHandoffDecision {
+  const incoming = normalizePreviewUrl(params.incomingUrl);
+  if (!incoming) return { action: "noop", key: null };
+  const versionKeyPart =
+    typeof params.versionId === "string" && params.versionId.trim().length > 0
+      ? params.versionId.trim()
+      : "?";
+  const key = `${versionKeyPart}:${incoming}`;
+  const current = normalizePreviewUrl(params.currentUrl);
+  if (!current) return { action: "set-url", key };
+  if (!params.force && params.lastAppliedKey !== null && key === params.lastAppliedKey) {
+    return { action: "noop", key };
+  }
+  return incoming === current ? { action: "bump", key } : { action: "set-url", key };
+}

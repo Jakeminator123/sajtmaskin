@@ -158,6 +158,13 @@ function buildLifecycleBlocker(
     };
   }
 
+  if (status === "superseded") {
+    // Terminal-neutral: en nyare version tog över mitt under verifieringen.
+    // Inte ett fel — den nyare versionen äger sin egen readiness. Ingen
+    // blocker/varning här; deploy-gaten hanterar F3-fallet separat.
+    return null;
+  }
+
   return null;
 }
 

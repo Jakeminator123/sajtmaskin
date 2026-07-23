@@ -247,6 +247,137 @@ describe("runPostGenerationChecks", () => {
     expect(output.autoFixQueued).toBe(false);
   });
 
+  // Regression (2026-07 preview-lifecycle simplification, punkt 5): the
+  // server post-finalize lane is the single ReleaseGate owner for F3 —
+  // the client post-check must NOT POST /quality-gate for an
+  // `integrations` version (it used to race the server for the same
+  // version lease → 409 version_busy noise + duplicated VM work).
+  it("skips the client quality-gate lane for F3 (integrations) versions — server owns the ReleaseGate", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_f3",
+                versionId: "ver_f3",
+                demoUrl: "https://preview.example/ver_f3",
+                lifecycleStage: "integrations",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_f3")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          throw new Error("client must not POST /quality-gate for an F3 version");
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_f3",
+      demoUrl: "https://preview.example/ver_f3",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).toBe("output-available");
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.skipped).toBe(true);
+    expect(output.serverOwned).toBe(true);
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  // Regression (punkt 7): a superseded gate response is terminal-neutral —
+  // no rose failure card, no repair/autofix against the abandoned version.
+  it("renders a neutral card and never repairs when the quality gate reports superseded", async () => {
+    const onAutoFix = vi.fn();
+    const mutateVersions = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            superseded: true,
+            promoted: false,
+            checks: [],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      mutateVersions,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).toBe("output-available");
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.superseded).toBe(true);
+    expect(output.skipped).toBe(true);
+    // `passed: false` from the response must NOT leak into the card output.
+    expect(output.passed).toBeUndefined();
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.endsWith("/repair"))).toBe(false);
+  });
+
   it("revalidates both status surfaces once on completion (mutateVersions + onComplete)", async () => {
     const mutateVersions = vi.fn();
     const onComplete = vi.fn();

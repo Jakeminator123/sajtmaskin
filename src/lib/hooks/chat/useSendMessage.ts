@@ -65,7 +65,7 @@ export function useSendMessage(
     setPreviewBuildError,
     setPreviewProdBuild,
     setPreviewPending,
-    onPreviewRefresh,
+    applyPreviewHandoff,
     onVersionStatusRefresh,
     onDeterministicF3Settled,
     onGenerationComplete,
@@ -162,15 +162,21 @@ export function useSendMessage(
               | undefined,
           );
         const preflight = readPreviewPreflight(data);
+        const resolvedVersionId =
+          data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
         if (previewResolved) {
           const n = normalizePreviewUrl(previewResolved);
           if (n && !isCompatibilityShimPreviewUrl(n)) {
-            setCurrentPreviewUrl(n);
+            if (applyPreviewHandoff) {
+              applyPreviewHandoff({
+                url: n,
+                versionId: resolvedVersionId ? String(resolvedVersionId) : null,
+              });
+            } else {
+              setCurrentPreviewUrl(n);
+            }
           }
         }
-        onPreviewRefresh?.();
-        const resolvedVersionId =
-          data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
         const responseText =
           (typeof data?.text === "string" && data.text) ||
           (typeof data?.message === "string" && data.message) ||
@@ -537,7 +543,7 @@ export function useSendMessage(
             setPreviewBuildError,
             setPreviewProdBuild,
             setPreviewPending,
-            onPreviewRefresh,
+            applyPreviewHandoff,
             onVersionStatusRefresh,
             onGenerationComplete,
             onPreviewSessionMeta,
@@ -644,7 +650,7 @@ export function useSendMessage(
       setCurrentPreviewUrl,
       setPreviewBuildError,
       setPreviewProdBuild,
-      onPreviewRefresh,
+      applyPreviewHandoff,
       onVersionStatusRefresh,
       onDeterministicF3Settled,
       onGenerationComplete,

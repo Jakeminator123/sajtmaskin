@@ -489,6 +489,40 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
       }
 
+      // Early supersede check (2026-07 preview-lifecycle simplification): if a
+      // newer version already exists, the VM verify lane (~30-45 s install +
+      // typecheck/build) would only produce a result the late supersede check
+      // below discards anyway. Settle terminal-neutral `superseded` now —
+      // before `markVersionVerifying` — so the abandoned row never spins and
+      // the lane budget goes to the newer version instead. Mirrors
+      // server-verify's pre-gate skip. Placed AFTER the F3 readiness block so
+      // the explicit integrationsBuild flow keeps its 412/409 readiness
+      // contract (env dialogs in the builder depend on those statuses).
+      if (!(await isLatestVersionForChat(chatId, internalVersionId))) {
+        await markVersionSupersededByRepair(internalVersionId, null, qgRunId).catch((err) => {
+          console.warn("[quality-gate] Failed to mark superseded version (early):", err);
+        });
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: internalVersionId,
+            level: "warning",
+            category: "quality-gate:superseded",
+            message:
+              "Quality gate skipped: a newer version already exists; version settled as superseded before the verify lane ran.",
+            meta: { serverOwned: false, early: true },
+          },
+        ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
+          console.warn("[quality-gate] Failed to persist early superseded log:", err);
+        });
+        return NextResponse.json({
+          passed: false,
+          superseded: true,
+          promoted: false,
+          checks: [],
+        });
+      }
+
       if (codeFiles && codeFiles.length > 0) {
         if (!isQualityGateConfigured()) {
           return NextResponse.json(

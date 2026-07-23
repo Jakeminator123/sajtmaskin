@@ -318,6 +318,10 @@ describe("POST quality-gate", () => {
     expect(body.promoted).toBe(false);
     expect(markVersionSupersededByRepair).toHaveBeenCalledWith("ver-1", null, "run-1");
     expect(promoteVersion).not.toHaveBeenCalled();
+    // 2026-07 early supersede: the expensive VM verify lane must never run for
+    // a version a newer one already replaced — settle before markVersionVerifying.
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
   });
 
   it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane without promoting or mutating state", async () => {

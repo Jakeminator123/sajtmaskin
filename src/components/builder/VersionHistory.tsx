@@ -854,7 +854,15 @@ export function VersionHistory({
                             className:
                               "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
                           }
-                        : null;
+                        : verificationSurfaceStatus === "superseded"
+                          ? {
+                              label: "Ersatt",
+                              title:
+                                "En nyare version tog över innan verifieringen hann bli klar. Inte ett fel — den nyare versionen gäller.",
+                              className:
+                                "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                            }
+                          : null;
             const runtimeStatusForRow =
               isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
             const runtimeBadge =

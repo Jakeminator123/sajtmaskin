@@ -46,6 +46,17 @@ describe("mapVersionStatusToDisplay — phase branches", () => {
     expect(mapVersionStatusToDisplay(status({ phase: "failed" }), LATEST).status).toBe("failed");
   });
 
+  it("maps superseded phase to retrying (amber 'Ersatt') — never failed, latest or not", () => {
+    // 2026-07 terminal-neutral supersede: the reconciled DB phase renders the
+    // same neutral badge as the mid-flight not-latest derivation.
+    expect(mapVersionStatusToDisplay(status({ phase: "superseded" }), LATEST).status).toBe(
+      "retrying",
+    );
+    expect(
+      mapVersionStatusToDisplay(status({ phase: "superseded" }), { isLatest: false }).status,
+    ).toBe("retrying");
+  });
+
   it("maps streaming to generating", () => {
     expect(mapVersionStatusToDisplay(status({ phase: "streaming" }), LATEST).status).toBe(
       "generating",

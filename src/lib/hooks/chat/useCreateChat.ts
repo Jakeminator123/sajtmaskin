@@ -67,7 +67,7 @@ export function useCreateChat(
     setPreviewBuildError,
     setPreviewProdBuild,
     setPreviewPending,
-    onPreviewRefresh,
+    applyPreviewHandoff,
     onVersionStatusRefresh,
     onGenerationComplete,
     onPreviewSessionMeta,
@@ -307,8 +307,14 @@ export function useCreateChat(
         toast.success("Sajt skapad!");
 
         if (resolvedDemoUrl) {
-          setCurrentPreviewUrl(resolvedDemoUrl);
-          onPreviewRefresh?.();
+          if (applyPreviewHandoff) {
+            applyPreviewHandoff({
+              url: resolvedDemoUrl,
+              versionId: resolvedVersionId ? String(resolvedVersionId) : null,
+            });
+          } else {
+            setCurrentPreviewUrl(resolvedDemoUrl);
+          }
         }
         setPreviewPending?.(previewPending);
         onGenerationComplete?.({
@@ -470,7 +476,7 @@ export function useCreateChat(
               setPreviewBuildError,
               setPreviewProdBuild,
               setPreviewPending,
-              onPreviewRefresh,
+              applyPreviewHandoff,
               onVersionStatusRefresh,
               onGenerationComplete,
               onPreviewSessionMeta,
@@ -586,7 +592,7 @@ export function useCreateChat(
       setCurrentPreviewUrl,
       setPreviewBuildError,
       setPreviewProdBuild,
-      onPreviewRefresh,
+      applyPreviewHandoff,
       onVersionStatusRefresh,
       onGenerationComplete,
       onPreviewSessionMeta,

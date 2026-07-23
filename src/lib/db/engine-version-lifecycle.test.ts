@@ -67,6 +67,12 @@ describe("resolveEngineVersionLifecycleStatus", () => {
       resolveEngineVersionLifecycleStatus({ releaseState: "promoted", verificationState: "repairing" }),
     ).toBe("promoted");
   });
+
+  it("returns superseded for superseded state (terminal-neutral, never failed)", () => {
+    expect(resolveEngineVersionLifecycleStatus({ verificationState: "superseded" })).toBe(
+      "superseded",
+    );
+  });
 });
 
 describe("resolveEngineVersionVerificationSurfaceStatus", () => {
@@ -95,6 +101,12 @@ describe("resolveEngineVersionVerificationSurfaceStatus", () => {
     expect(resolveEngineVersionVerificationSurfaceStatus({ releaseState: "promoted" })).toBe(
       "verified",
     );
+  });
+
+  it("surfaces superseded as its own neutral badge status (never failed)", () => {
+    expect(
+      resolveEngineVersionVerificationSurfaceStatus({ verificationState: "superseded" }),
+    ).toBe("superseded");
   });
 });
 
@@ -165,6 +177,19 @@ describe("resolveDeployReleaseGate", () => {
     expect(gate.code).toBe("DEPLOY_VERSION_FAILED");
   });
 
+  // 2026-07: superseded är terminal-neutralt — som pending, inte som failed.
+  it("treats superseded like pending: F2 deployable, F3 not green", () => {
+    expect(
+      resolveDeployReleaseGate({ lifecycle_stage: "design", verification_state: "superseded" }),
+    ).toEqual({ allowed: true });
+    const f3 = resolveDeployReleaseGate({
+      lifecycle_stage: "integrations",
+      verification_state: "superseded",
+    });
+    expect(f3.allowed).toBe(false);
+    expect(f3.code).toBe("DEPLOY_RELEASE_GATE_NOT_GREEN");
+  });
+
   it("treats legacy rows without lifecycle_stage as design (soft)", () => {
     expect(resolveDeployReleaseGate({ verification_state: "pending" })).toEqual({ allowed: true });
     expect(resolveDeployReleaseGate({})).toEqual({ allowed: true });
@@ -227,5 +252,20 @@ describe("selectPreferredEngineVersion", () => {
     ];
     const preferred = selectPreferredEngineVersion(versions);
     expect(preferred?.versionNumber).toBe(2);
+  });
+
+  it("never prefers a superseded row (abandoned mid-verify snapshot)", () => {
+    const versions = [
+      { versionNumber: 1, verificationState: "passed" },
+      { versionNumber: 2, verificationState: "superseded" },
+    ];
+    const preferred = selectPreferredEngineVersion(versions);
+    expect(preferred?.versionNumber).toBe(1);
+  });
+});
+
+describe("canExposeEnginePreview — superseded", () => {
+  it("allows preview of a superseded version (neutral, like an old pending version)", () => {
+    expect(canExposeEnginePreview({ verificationState: "superseded" })).toBe(true);
   });
 });

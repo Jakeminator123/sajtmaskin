@@ -231,16 +231,26 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         // persist every time and leave `preview_url = null` forever. Bounded
         // retry-after-release rides over the brief lease/verify row lock so the
         // idempotent URL lands without blocking to statement_timeout.
-        const persisted = await updateVersionPreviewUrl(versionRow.id, sr.previewUrl, {
-          lockTimeoutMs: 2000,
-          maxRetries: 3,
-          retryDelayMs: 300,
+        //
+        // Scheduled via after() (2026-07 preview-lifecycle simplification):
+        // the write is idempotent bookkeeping — the response already carries
+        // `previewUrl` from the start result, so the user-visible response
+        // must never wait up to lockTimeout×retries (~7 s) on a version row
+        // that the verify lease happens to hold.
+        const persistVersionId = versionRow.id;
+        const persistPreviewUrl = sr.previewUrl;
+        after(async () => {
+          const persisted = await updateVersionPreviewUrl(persistVersionId, persistPreviewUrl, {
+            lockTimeoutMs: 2000,
+            maxRetries: 3,
+            retryDelayMs: 300,
+          });
+          if (!persisted) {
+            console.warn(
+              `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${persistVersionId} — session is running; next start re-persists.`,
+            );
+          }
         });
-        if (!persisted) {
-          console.warn(
-            `[preview-session] previewUrl persist skipped (row contention or missing row) for ${chatId}/${versionRow.id} — session is running; next start re-persists.`,
-          );
-        }
       }
 
       // M#pv1: the resume-verified path is a real runtime-ready receipt
