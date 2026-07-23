@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Cookie, Gamepad2 } from "lucide-react";
 
@@ -32,7 +32,7 @@ export function CookieBanner() {
     }
   }, []);
 
-  const persistConsent = (value: "accepted" | "declined") => {
+  const persistConsent = useCallback((value: "accepted" | "declined") => {
     if (typeof window !== "undefined") {
       localStorage.setItem("cookie-consent", value);
       if (value === "accepted") {
@@ -41,7 +41,34 @@ export function CookieBanner() {
     }
     setShowGame(false);
     setIsVisible(false);
-  };
+  }, []);
+
+  // Tracks a Cookie Quest win in THIS session so closing the game can dismiss the
+  // banner only after a real win here — not because another tab happened to write
+  // consent while the game was open (that must not steal the explicit choice).
+  const wonRef = useRef(false);
+
+  // Cookie Quest win: record consent IMMEDIATELY (the win overlay already tells
+  // the player cookies were accepted). A stable identity via useCallback is what
+  // stops the game's close timer from being reset on every CookieBanner re-render
+  // (it lives in the root layout), and persisting up-front means a fast Esc/close
+  // during the victory pause can no longer drop the just-won consent.
+  const handleGameWin = useCallback(() => {
+    wonRef.current = true;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cookie-consent", "accepted");
+      localStorage.setItem("cookie-consent-date", new Date().toISOString());
+    }
+  }, []);
+
+  // Closing the game dismisses the banner only after a win in this session;
+  // closing without a win leaves the banner up so an explicit choice is still made.
+  const handleGameClose = useCallback(() => {
+    setShowGame(false);
+    if (wonRef.current) {
+      setIsVisible(false);
+    }
+  }, []);
 
   if (!isVisible) return null;
 
@@ -95,8 +122,8 @@ export function CookieBanner() {
 
       {showGame && (
         <CookieGameModal
-          onWin={() => persistConsent("accepted")}
-          onClose={() => setShowGame(false)}
+          onWin={handleGameWin}
+          onClose={handleGameClose}
         />
       )}
     </>
