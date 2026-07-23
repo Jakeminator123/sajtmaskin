@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks";
+import { useInView, usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks";
 
 /*
  * The Three.js scene (three + @react-three/fiber, hundreds of KB) is split into
@@ -27,6 +27,8 @@ function StaticOrbFallback() {
 export function ParticleOrb() {
   const { ref, visible } = useInView(0.12);
   const reducedMotion = usePrefersReducedMotion();
+  const saveData = useSaveData();
+  const staticOnly = reducedMotion || saveData;
 
   return (
     <div ref={ref} className="w-48 h-48 relative">
@@ -37,7 +39,7 @@ export function ParticleOrb() {
             "radial-gradient(circle, rgba(45,212,191,0.2) 0%, rgba(45,212,191,0.05) 40%, transparent 70%)",
         }}
       />
-      {reducedMotion ? (
+      {staticOnly ? (
         <StaticOrbFallback />
       ) : visible ? (
         <ParticleOrbCanvas />

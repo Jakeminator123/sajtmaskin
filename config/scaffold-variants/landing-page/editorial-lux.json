@@ -65,10 +65,9 @@
     "bodyBackgroundImage": "radial-gradient(ellipse at top, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 18%, transparent) 0%, transparent 32%)"
   },
   "sourceTemplateIds": [
-    "portfolio-magic-portfolio-for-next-js",
-    "portfolio-next-js-portfolio-with-pageview-counter",
-    "portfolio-nim-minimalist-personal-site",
-    "blog-a-next-js-14-blog-with-server-components"
+    "XOMN4texeRO",
+    "ZIHJBIvfeuW",
+    "ezmvVsZJxz8"
   ],
   "default": false
 }

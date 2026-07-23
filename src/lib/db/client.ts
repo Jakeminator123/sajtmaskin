@@ -137,7 +137,8 @@ function looksPooled(connStr: string): boolean {
   }
 }
 
-function parsePositiveIntEnv(value: string | undefined): number | undefined {
+/** @internal exported for tests. */
+export function parsePositiveIntEnv(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number.parseInt(value.trim(), 10);
   if (!Number.isFinite(n) || n <= 0) return undefined;
@@ -160,6 +161,14 @@ function resolveIdleTimeoutMs(connStr: string): number {
   // connections quickly so they return to the pooler. Direct Postgres can
   // afford to keep them around longer.
   return looksPooled(connStr) ? 5_000 : 30_000;
+}
+
+/** @internal exported for tests. */
+export function resolveConnectTimeoutMs(): number {
+  // Observerade "Connection timeout"-fel på polling-routes (version-status/
+  // readiness) i Vercel-prod kan bero på långsam pool-acquisition mot Supabase-
+  // poolern under kalla starter — gör gränsen justerbar utan deploy av kod.
+  return parsePositiveIntEnv(process.env.POSTGRES_CONNECT_TIMEOUT_MS) ?? 10_000;
 }
 
 /**
@@ -190,7 +199,11 @@ const pool = (globalForPool.__sajtmaskinPgPool__ ??= connectionString
       ssl: resolvePoolSslConfig(connectionString),
       max: resolvePoolMax(connectionString),
       idleTimeoutMillis: resolveIdleTimeoutMs(connectionString),
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: resolveConnectTimeoutMs(),
+      // TCP keep-alive: utan den kan en anslutning som poolern tyst släppt
+      // ligga kvar som "ledig" i pg-poolen och ge connection-timeout/reset
+      // först när nästa query försöker använda den (serverless-idle-fönster).
+      keepAlive: true,
     })
   : null);
 

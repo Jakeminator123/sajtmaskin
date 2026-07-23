@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   X,
   Globe,
@@ -57,9 +57,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   };
 
   const handleSkip = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
-    }
     onSkip();
   };
 
@@ -73,9 +70,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   };
 
   const handleSubmit = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
-    }
     onComplete({
       existingUrl,
       urlPurpose,
@@ -295,20 +289,20 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
 }
 
 /**
- * Hook to manage onboarding state
+ * Hook to manage onboarding state.
+ *
+ * The intro video is strictly opt-in: it never auto-opens on first visit
+ * (auto-opening competed with the cookie banner and the hero for attention).
+ * Open it via `openOnboarding` from an explicit user action, e.g. the
+ * "Se intron"-link on the landing page.
  */
 export function useOnboarding() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hasSeenOnboarding = localStorage.getItem("sajtmaskin_onboarding_seen");
-    if (!hasSeenOnboarding) {
-      /* eslint-disable-next-line react-hooks/set-state-in-effect -- show modal once from localStorage */
-      setShowOnboarding(true);
-    }
-  }, []);
+  const openOnboarding = () => {
+    setShowOnboarding(true);
+  };
 
   const handleComplete = (data: OnboardingData) => {
     setOnboardingData(data);
@@ -319,19 +313,11 @@ export function useOnboarding() {
     setShowOnboarding(false);
   };
 
-  const resetOnboarding = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("sajtmaskin_onboarding_seen");
-    }
-    setShowOnboarding(true);
-    setOnboardingData(null);
-  };
-
   return {
     showOnboarding,
     onboardingData,
+    openOnboarding,
     handleComplete,
     handleSkip,
-    resetOnboarding,
   };
 }

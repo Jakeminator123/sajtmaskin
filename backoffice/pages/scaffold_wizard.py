@@ -22,6 +22,8 @@ from backoffice.pages.scaffold_lifecycle import (
     COMPLEXITY_OPTIONS,
     SITE_KIND_OPTIONS,
     _create_scaffold,
+    _dead_source_template_ids,
+    _dead_source_template_ids_message,
     _delete_scaffold,
     _slugify,
     _validate_variant_payload,
@@ -657,10 +659,18 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
 
     if payload is not None:
         if new_scaffold:
+            # The new scaffold's id isn't in the on-disk schema enum yet, so use
+            # the in-memory enum patch. But ALSO run the Blob sourceTemplateIds
+            # integrity check (variant-integrity.test.ts gate) that
+            # _validate_variant_payload does — schema validation alone won't
+            # catch a sourceTemplateId missing from template-blob-manifest.json.
             schema = wiz.load_variant_schema(ctx.repo_root)
             errors = wiz.validate_variant_payload_against_schema(
                 payload, schema, extra_scaffold_id=scaffold_id
             )
+            dead = _dead_source_template_ids(ctx, payload)
+            if dead:
+                errors = [*errors, _dead_source_template_ids_message(dead)]
         else:
             errors = _validate_variant_payload(ctx, payload)
         add(
@@ -774,13 +784,16 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
             except Exception as error:
                 st.error(f"Skapandet misslyckades (rollback körd där möjligt): {error}")
                 return
-            # Behåll steget på 4 och byt till den persistenta slutför-panelen där
-            # operatören kör efter-stegen med knappar (inga terminalkommandon).
+            # Behåll steget på 4 och byt till den persistenta slutför-panelen.
+            # Efter-stegen (designmönster → embeddings → validering) körs
+            # automatiskt vid nästa render — operatören ska aldrig lämnas med
+            # en halvfärdig variant utan att veta vad som återstår.
             st.session_state["swz_created"] = {
                 "variantId": str((payload or {}).get("id", "")),
                 "scaffoldId": str((payload or {}).get("scaffoldId", "")),
                 "message": message,
             }
+            st.session_state["swz_autorun"] = True
             for key in ("swz_draft", "swz_analysis", "swz_template", "swz_repo_summary"):
                 st.session_state.pop(key, None)
             st.session_state.pop("swz_cmd_results", None)
@@ -900,7 +913,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         results[step["key"]] = res
         st.session_state["swz_cmd_results"] = results
 
-    if st.button("▶ Kör alla steg i följd", type="primary"):
+    def _run_chain() -> None:
         # Fresh chain: drop stale results from earlier runs first, so a later
         # step's old ✅ can't linger as false-green when an early step now fails
         # and the chain stops before reaching it.
@@ -925,6 +938,17 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
                 }
                 st.session_state["swz_cmd_results"] = results
                 break
+
+    # Auto-run direkt efter skapandet (idiotsäkring): operatören ska inte
+    # behöva veta att knappen finns. Flaggan konsumeras så en manuell
+    # om-körning fortfarande går via knappen.
+    if st.session_state.pop("swz_autorun", False):
+        st.info("Kör efter-stegen automatiskt (designmönster → matchning → validering)…")
+        _run_chain()
+        st.rerun()
+
+    if st.button("▶ Kör alla steg i följd (igen)", type="primary"):
+        _run_chain()
         st.rerun()
 
     cols = st.columns(len(steps))

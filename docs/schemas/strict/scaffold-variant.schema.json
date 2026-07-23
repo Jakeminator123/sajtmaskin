@@ -147,7 +147,7 @@
       "type": "array",
       "items": { "type": "string" },
       "maxItems": 6,
-      "description": "Inspiration reference ids: v0-mall Blob ids (template-blob-manifest.json, written by the backoffice Scaffold Wizard) or harmless legacy labels. Rendered as a prompt line only — nothing is injected."
+      "description": "Inspiration reference ids: v0-mall Blob ids resolved against template-blob-manifest.json (written by the backoffice Scaffold Wizard / Lifecycle). Since 2026-07-22 every id MUST exist in the Blob manifest — enforced by variant-integrity.test.ts and the backoffice save guard. Rendered as a prompt line only — nothing is injected."
     },
     "default": {
       "type": "boolean",

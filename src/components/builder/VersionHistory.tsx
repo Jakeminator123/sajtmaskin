@@ -16,7 +16,6 @@ import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/pr
 import {
   AlertCircle,
   CheckCircle,
-  ChevronLeft,
   ChevronRight,
   Clock,
   Download,
@@ -535,26 +534,10 @@ export function VersionHistory({
 
   const canToggleCollapse = typeof onToggleCollapse === "function";
 
+  // Stängd drawer renderar ingenting — ingen tunn "Versioner"-remsa.
+  // Öppning sker via "Versioner"-knappen i builder-headern.
   if (isCollapsed) {
-    return (
-      <div className="flex h-full flex-col items-center gap-2 py-2">
-        {canToggleCollapse && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onToggleCollapse}
-            title="Expandera versioner"
-            aria-label="Expandera versioner"
-            className="h-7 w-7"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-        <span className="text-muted-foreground rotate-90 text-[10px] tracking-wide uppercase">
-          Versioner
-        </span>
-      </div>
-    );
+    return null;
   }
 
   if (!chatId) {

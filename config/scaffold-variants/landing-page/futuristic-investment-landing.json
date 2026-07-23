@@ -11,7 +11,13 @@
     "landing page",
     "3D effects",
     "dark theme",
-    "tech"
+    "tech",
+    "investering",
+    "fintech",
+    "innovation",
+    "kapital",
+    "riskkapital",
+    "startup"
   ],
   "fontPairings": [
     {
@@ -26,6 +32,27 @@
     "Tydliga call-to-action-knappar",
     "Teknologisk och modern känsla"
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use an asymmetric hero with a 60/40 split, left-aligned investment pitch, and a floating cluster of gold-lit 3D particles on the right.",
+      "Build trust sections as a horizontal metrics band with oversized numbers, thin dividers, and subtle glowing stat cards hovering above the dark background.",
+      "Compose feature blocks as staggered two-column rows where alternating text panels face glassy visual cards containing charts, network nodes, or abstract 3D objects.",
+      "Present pricing or plan tiers in a three-column grid with the center card slightly raised, brighter gold accents, and a stronger outer glow.",
+      "Use the final call-to-action as a narrow centered panel framed by soft radial light, with concise copy and two high-contrast buttons side by side."
+    ],
+    "motifs": [
+      "Dark graphite surfaces with restrained gold highlights, 0.75rem corners, and soft luminous edges that make cards feel gently backlit.",
+      "Floating 3D particles, orbital dots, or abstract metallic spheres should create depth without becoming a literal illustration scene.",
+      "Minimal typography with wide spacing, bold geometric headings, and compact supporting copy over large areas of negative space.",
+      "Hairline borders, translucent glass panels, and faint grid or radial glow overlays should imply financial-tech precision at first glance."
+    ],
+    "antiPatterns": [
+      "Avoid playful neon rainbow gradients or cyberpunk color overload; this variant should feel premium investment tech, not gaming or nightlife.",
+      "Never use bright white full-bleed sections that break the dark immersive atmosphere and weaken the gold-accent contrast.",
+      "Avoid dense dashboard-style screens packed with tables and tiny charts; the landing page should stay cinematic, selective, and sales-focused.",
+      "Do not use soft organic blobs or hand-drawn shapes; the visual language should stay sharp, geometric, and technologically precise."
+    ]
+  },
   "default": false,
   "description": "Perfekt för tech-startups eller investeringsföretag som vill kommunicera innovation. Det visuella är distinkt med mörk palett och 3D-effekter.",
   "themeTokens": {

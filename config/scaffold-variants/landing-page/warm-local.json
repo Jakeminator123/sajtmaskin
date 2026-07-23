@@ -67,10 +67,9 @@
     "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 10%, white) 0%, transparent 26%), linear-gradient(to bottom, color-mix(in oklab, var(--color-accent) 18%, white) 0%, transparent 24%)"
   },
   "sourceTemplateIds": [
-    "documentation-nextra-docs-starter-kit",
-    "cms-next-js-waitlist-with-notion-cms",
-    "blog-a-next-js-14-blog-with-server-components",
-    "blog-blog-with-agility-cms-and-next-js"
+    "GN3Z2rw5BZz",
+    "iBPsMqPGRTZ",
+    "mEefgKyVifq"
   ],
   "default": false
 }

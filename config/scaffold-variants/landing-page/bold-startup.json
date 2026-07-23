@@ -66,10 +66,10 @@
     "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 18%, transparent) 0%, transparent 32%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 14%, transparent) 0%, transparent 30%)"
   },
   "sourceTemplateIds": [
-    "saas-finwise-saas-landing-page",
-    "saas-next-js-enterprise-boilerplate",
-    "ecommerce-medusa-next-js-ecommerce-store-starter",
-    "saas-paddle-billing-subscription-starter"
+    "W0v7PBF5ev4",
+    "XQxxv76lK5w",
+    "zdiN8dHwaaT",
+    "rHTER3Yq6df"
   ],
   "default": false
 }

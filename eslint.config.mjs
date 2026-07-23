@@ -30,8 +30,6 @@ export default defineConfig([
 
   // Global ignores
   globalIgnores([
-    // Vendored / cached third-party trees (not maintained in this repo)
-    "research/**/*",
     // Eval artifacts deliberately preserve broken generated code for debugging.
     "data/eval-runs/**/*",
     // Vendored upstream repos used as reference material for the dossier /
@@ -53,7 +51,6 @@ export default defineConfig([
     // maintained — kept on disk for reference only.
     "archive/**/*",
     ".cursor/bugs/**/*",
-    "src/templates/**/*",
     ".next/**/*",
     ".vercel/**/*",
     "out/**/*",
