@@ -197,12 +197,19 @@ function parseArgs(argv) {
  * `override: false` gör att CI:s explicit injicerade `POSTGRES_URL` (och alla
  * redan exporterade värden) fortsatt vinner — filerna fyller bara i det som
  * saknas. CLI-only: körs aldrig vid import (testerna rör bara rena funktioner).
+ *
+ * Ordningen är avgörande: eftersom `override: false` gör att den FÖRSTA filen
+ * som sätter en nyckel vinner, måste prod-snapshoten laddas FÖRE `.env.local`
+ * för `--expect=prod`. Annars skulle en dev-orienterad `POSTGRES_URL` i
+ * `.env.local` skugga prod-snapshoten och guarden skulle validera fel URL
+ * (falsk röd). Detta speglar `migrate-prod.mjs` som läser `POSTGRES_URL` direkt
+ * ur snapshoten och ignorerar `.env.local`.
  */
 function loadLocalEnvFiles(expect) {
-  if (existsSync(".env.local")) config({ path: ".env.local", override: false });
   if (expect === "prod" && existsSync(".env.vercel.production.pulled")) {
     config({ path: ".env.vercel.production.pulled", override: false });
   }
+  if (existsSync(".env.local")) config({ path: ".env.local", override: false });
 }
 
 function main() {
