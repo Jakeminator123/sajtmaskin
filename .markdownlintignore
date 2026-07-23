@@ -8,11 +8,8 @@ out/
 build/
 dist/
 coverage/
-src/templates/
 base/
 sajtmaskin/
-research/
-pot_buggs/
 
 # Cursor / local worktrees (if present inside repo clone)
 .cursor/
