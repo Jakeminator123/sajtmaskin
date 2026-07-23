@@ -310,6 +310,16 @@ jobs:
             echo "::warning::POSTGRES_URL_PROD saknas — hoppar över auto-apply (fork/no-secret)."
           fi
 
+      # Dev/prod-identitetsguard: POSTGRES_URL_PROD MÅSTE peka på prod-Supabase
+      # (config/db-targets.json). Stoppar att prod-migrationer någonsin körs
+      # mot dev-databasen (eller ett okänt projekt) p.g.a. felkonfigurerad
+      # secret. Sanitiserad utskrift — aldrig credentials.
+      - name: Verify prod DB identity (db-targets guard)
+        if: steps.creds.outputs.present == 'true'
+        run: node scripts/db/check-db-env-target.mjs --expect=prod
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+
       - name: Apply pending migrations to production (idempotent)
         if: steps.creds.outputs.present == 'true'
         run: npx tsx scripts/db/run-migrations.ts

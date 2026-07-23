@@ -162,6 +162,13 @@ function resolveIdleTimeoutMs(connStr: string): number {
   return looksPooled(connStr) ? 5_000 : 30_000;
 }
 
+function resolveConnectTimeoutMs(): number {
+  // Observerade "Connection timeout"-fel på polling-routes (version-status/
+  // readiness) i Vercel-prod kan bero på långsam pool-acquisition mot Supabase-
+  // poolern under kalla starter — gör gränsen justerbar utan deploy av kod.
+  return parsePositiveIntEnv(process.env.POSTGRES_CONNECT_TIMEOUT_MS) ?? 10_000;
+}
+
 /**
  * HMR-survivable pool cache.
  *
@@ -190,7 +197,11 @@ const pool = (globalForPool.__sajtmaskinPgPool__ ??= connectionString
       ssl: resolvePoolSslConfig(connectionString),
       max: resolvePoolMax(connectionString),
       idleTimeoutMillis: resolveIdleTimeoutMs(connectionString),
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: resolveConnectTimeoutMs(),
+      // TCP keep-alive: utan den kan en anslutning som poolern tyst släppt
+      // ligga kvar som "ledig" i pg-poolen och ge connection-timeout/reset
+      // först när nästa query försöker använda den (serverless-idle-fönster).
+      keepAlive: true,
     })
   : null);
 
