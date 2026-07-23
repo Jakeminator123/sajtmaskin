@@ -52,6 +52,16 @@ export const maxDuration = 800;
 
 /** Uses preview-host verify lane for verification only (typecheck/build/lint), not the live preview workspace. */
 
+/**
+ * Bounded row-lock wait for the route's own diagnostics writes (M#el2, syskon
+ * till /error-log-fixen 2026-07-03): inserting an error-log row takes an FK
+ * `FOR KEY SHARE`-lock på `engine_versions`-raden. Vid lease-kontention
+ * blockerade dessa best-effort-writes annars till globala `statement_timeout`
+ * innan `.catch` degraderade — långsamt, om än inte 500. Samma värde som
+ * /error-log-routens `ERROR_LOG_LOCK_TIMEOUT_MS`.
+ */
+const QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS = 3_000;
+
 const requestSchema = z.object({
   versionId: z.string().min(1),
   /**
@@ -417,7 +427,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
                 "Quality gate avstängd (SAJTMASKIN_DISABLE_QUALITY_GATE) — verify-lane hoppades över; versionen lämnas overifierad.",
               meta: { reason: "quality_gate_disabled_by_env", serverOwned: false },
             },
-          ]).catch((err) => {
+          ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
             warnLog("quality-gate", "Failed to persist disabled-skip log (non-fatal)", {
               error: err instanceof Error ? err.message : String(err),
             });
@@ -584,7 +594,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
                 serverOwned: false,
               },
             },
-          ]).catch((err) => {
+          ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
             console.warn("[quality-gate] Failed to persist superseded log:", err);
           });
           return NextResponse.json({
@@ -640,7 +650,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             }),
         ];
         if (logs.length > 0 && dbConfigured) {
-          await createEngineVersionErrorLogs(logs).catch((err) => {
+          await createEngineVersionErrorLogs(logs, {
+            lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS,
+          }).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
@@ -724,7 +736,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
                   serverOwned: false,
                 },
               },
-            ]).catch((err) => {
+            ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
               console.warn(
                 "[quality-gate] Failed to persist promote-guard-unavailable log:",
                 err,

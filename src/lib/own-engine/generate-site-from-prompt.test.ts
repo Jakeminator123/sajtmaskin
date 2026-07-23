@@ -286,4 +286,39 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
 
     expect(updateChatOrchestrationSnapshotMock).toHaveBeenCalled();
   }, 30_000);
+
+  it("returns partial success with previewStartFailed when the preview session cannot start (PR #355-triage #40)", async () => {
+    // En färdig, persisterad generation får inte kastas bort för att
+    // preview-hosten är onåbar — versionen/filerna är fullt användbara.
+    startPreviewSessionMock.mockResolvedValue({
+      ok: false,
+      error: { stage: "boot", message: "preview host unreachable" },
+    });
+
+    const result = await generateOwnEngineSiteFromPrompt({
+      prompt: "Bygg en hemsida för en advokatbyrå",
+      projectId: "proj_3",
+      buildIntent: "website",
+    });
+
+    expect(result.versionId).toBe(VERSION_ID);
+    expect(result.filesCount).toBeGreaterThan(0);
+    expect(result.previewStartFailed).toEqual({
+      stage: "boot",
+      message: "preview host unreachable",
+    });
+    expect(result.previewSessionId).toBeUndefined();
+    // Ingen preview-URL persistas för en session som aldrig startade.
+    expect(updateVersionPreviewUrlMock).not.toHaveBeenCalled();
+  }, 30_000);
+
+  it("reports previewStartFailed: null when the preview session starts", async () => {
+    const result = await generateOwnEngineSiteFromPrompt({
+      prompt: "Bygg en hemsida för en advokatbyrå",
+      projectId: "proj_4",
+      buildIntent: "website",
+    });
+    expect(result.previewStartFailed).toBeNull();
+    expect(result.runtimeUrl).toContain("https://preview.test/");
+  }, 30_000);
 });

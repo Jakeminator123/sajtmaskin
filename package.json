@@ -75,6 +75,7 @@
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts src/lib/gen/scaffold-variants/variant-integrity.test.ts",
     "dossiers:curate": "npx tsx scripts/dossiers/curate-from-reference.ts",
     "dossiers:normalize-legacy": "npx tsx scripts/dossiers/normalize-legacy-prospect.ts",
+    "dossiers:inventory-legacy": "node scripts/dossiers/inventory-legacy.mjs",
     "dossiers:capability-map:write": "npx tsx scripts/dossiers/regenerate-capability-map.ts --write",
     "dossiers:validate-all": "npx tsx scripts/dossiers/validate-all.ts && node scripts/dossiers/check-sdk-versions.mjs",
     "dossiers:check-sdk": "node scripts/dossiers/check-sdk-versions.mjs",

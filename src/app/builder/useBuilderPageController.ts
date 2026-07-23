@@ -803,6 +803,12 @@ export function useBuilderPageController() {
     pendingBriefRef.current = null;
 
     if (shouldResetChatState) {
+      // PR #355-triage #7 (backlog): en pågående generation-stream från den
+      // förra sessionen måste avbrytas INNAN chat-state nollställs — annars
+      // fortsätter den gamla streamen skriva meddelanden/versioner in i den
+      // färska sessionens tomma state. Abort är idempotent (no-op utan
+      // aktiv stream) och triggar client-abort-vägen, inte ett fel-svar.
+      cancelActiveGeneration();
       setChatId(null);
       setMessages([]);
       setCurrentPreviewUrl(null);
@@ -824,6 +830,7 @@ export function useBuilderPageController() {
     promptParam,
     pendingBriefRef,
     promptFetchDoneRef,
+    cancelActiveGeneration,
     setChatId,
     setMessages,
     setCurrentPreviewUrl,

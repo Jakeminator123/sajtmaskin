@@ -35,6 +35,8 @@ Checklista:
 | Pipeline/status | `npm run typecheck` + relevant vitest + docs-sync |
 | Stor filflytt | `npm run typecheck` + grep efter gamla paths |
 
+Required checks på PR mot master: `quality`, `backoffice-tests`, `schema-drift` samt `review-window` (pending tills PR ≥ 7 min + externa botar klara — se `pr-merge-review-gate.mdc`). Efter merge (push till master) kör CI dessutom `prod-migrations-apply` → `prod-migrations-applied` som applicerar/verifierar prod-migrationer (gate:ade bakom `quality` + `schema-drift`).
+
 ## Docs
 
 Docs ska spegla runtime. Ersätt gammal text, lägg inte nya lager ovanpå. Ta bort döda länkar och obsolete tabellrader när du rör området.

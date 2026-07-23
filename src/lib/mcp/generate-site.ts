@@ -30,6 +30,11 @@ export type GenerateSiteResult = {
   ports?: number[];
   scaffoldId: string | null;
   filesCount: number;
+  /**
+   * Partial success (PR #355-triage #40): generation + persisted version are
+   * valid but the tier-2 preview session failed to start. `null` = preview OK.
+   */
+  previewStartFailed: { stage: string; message: string } | null;
 };
 
 function deriveProjectName(prompt: string): string {
@@ -103,5 +108,6 @@ export async function generateSiteFromPrompt(
     ports: generated.ports,
     scaffoldId: generated.scaffoldId,
     filesCount: generated.filesCount,
+    previewStartFailed: generated.previewStartFailed,
   };
 }

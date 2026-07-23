@@ -95,6 +95,45 @@ export function hasNegatedTerms(prompt: string, terms: RegExp[]): boolean {
   return windows.some((window) => terms.some((term) => term.test(window)));
 }
 
+/** Teckenintervall (start/slut) för varje negationsfönster i prompten. */
+function negatedWindowRanges(prompt: string): Array<{ start: number; end: number }> {
+  const text = String(prompt ?? "");
+  return [...text.matchAll(NEGATION_TERM_RE)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + 140,
+  }));
+}
+
+/**
+ * True när `term` matchar prompten men VARJE förekomst ligger inne i ett
+ * negationsfönster ("…, inte prisma" / "no postgres"). Cross-cutting-verktyget
+ * för provider-negation (Codex P2 ×2 på #445):
+ *
+ *  - Vocabulary-VETON ska hoppas över när konkurrent-termen är negerad
+ *    ("lägg till postgres, inte prisma" får inte tysta `database`).
+ *  - Positiva capability-TRÄFFAR ska ignoreras när providern är negerad
+ *    ("add a contact form, no postgres" får inte emitta `database`).
+ *
+ * En term som förekommer både negerat och icke-negerat ("använd mongodb,
+ * inte postgres" för mönstret som matchar båda) räknas som positiv — minst
+ * en förekomst utanför fönstren vinner.
+ */
+export function isTermFullyNegated(prompt: string, term: RegExp): boolean {
+  const text = String(prompt ?? "");
+  const windows = negatedWindowRanges(text);
+  if (windows.length === 0) return false;
+  const flags = term.flags.includes("g") ? term.flags : `${term.flags}g`;
+  const globalTerm = new RegExp(term.source, flags);
+  let sawMatch = false;
+  for (const match of text.matchAll(globalTerm)) {
+    sawMatch = true;
+    const idx = match.index ?? 0;
+    const insideWindow = windows.some((w) => idx >= w.start && idx < w.end);
+    if (!insideWindow) return false;
+  }
+  return sawMatch;
+}
+
 export function hasNegatedRedesignIntent(prompt: string): boolean {
   return hasNegatedTerms(prompt, REDESIGN_TERMS);
 }

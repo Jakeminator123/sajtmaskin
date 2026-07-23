@@ -48,6 +48,13 @@ export type GenerateOwnEngineSiteFromPromptResult = {
   files: Array<{ path: string; content: string }>;
   contentForVersion: string;
   model: string;
+  /**
+   * Set when the generation finished + persisted but the tier-2 preview
+   * session could not start (PR #355-triage #40). The saved version/files are
+   * fully usable; the caller decides how to surface the missing preview.
+   * `null` = preview started normally.
+   */
+  previewStartFailed: { stage: string; message: string } | null;
 };
 
 function getContentText(data: unknown): string {
@@ -299,14 +306,22 @@ export async function generateOwnEngineSiteFromPrompt(
       skipProjectScaffold: true,
     },
   );
+  // PR #355-triage #40 (backlog): preview-start-fel får INTE kasta bort en
+  // färdig, redan sparad generation — versionen/filerna är persisterade och
+  // fullt användbara (preview kan startas senare via preview-session-vägen).
+  // Returnera partial success med `previewStartFailed` i stället för throw.
+  let previewSessionId: string | undefined;
+  let previewStartFailed: { stage: string; message: string } | null = null;
   if (!previewSessionStarted.ok) {
-    throw new Error(
-      `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
-    );
+    previewStartFailed = {
+      stage: previewSessionStarted.error.stage,
+      message: previewSessionStarted.error.message,
+    };
+  } else {
+    runtimeUrl = previewSessionStarted.result.previewUrl;
+    previewSessionId = previewSessionStarted.result.previewSessionId;
+    await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
   }
-  runtimeUrl = previewSessionStarted.result.previewUrl;
-  const previewSessionId = previewSessionStarted.result.previewSessionId;
-  await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
 
   return {
     projectId,
@@ -326,5 +341,6 @@ export async function generateOwnEngineSiteFromPrompt(
     files,
     contentForVersion: finalized.contentForVersion,
     model: String(generatorModel),
+    previewStartFailed,
   };
 }

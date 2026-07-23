@@ -89,29 +89,42 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       </div>
 
       <div className="hidden lg:flex items-center gap-3">
-        {isInitialized && isAuthenticated && (
-          <Button
-            variant="ghost"
-            className="text-sm text-muted-foreground hover:text-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4 mr-1.5" />
-            Logga ut
-          </Button>
+        {!isInitialized ? (
+          // Auth-hydration (backlog /logg-internet fynd #22): rendera inte
+          // gäst-CTA:erna ("Logga in"/"Kom igång gratis") innan auth-state är
+          // läst — inloggade användare såg dem flimra i ~1 render. Skeletons
+          // håller platsen tills isInitialized.
+          <>
+            <div className="h-9 w-24 rounded-lg bg-secondary/30 animate-pulse" aria-hidden />
+            <div className="h-9 w-36 rounded-lg bg-secondary/30 animate-pulse" aria-hidden />
+          </>
+        ) : (
+          <>
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                className="text-sm text-muted-foreground hover:text-foreground"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-1.5" />
+                Logga ut
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              className="text-sm text-muted-foreground hover:text-foreground"
+              onClick={handleLoginOrProjectsClick}
+            >
+              {isAuthenticated ? "Mina projekt" : "Logga in"}
+            </Button>
+            <Button
+              className="btn-3d btn-glow text-sm bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-lg shadow-primary/20"
+              onClick={handlePrimaryClick}
+            >
+              {isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
+            </Button>
+          </>
         )}
-        <Button
-          variant="ghost"
-          className="text-sm text-muted-foreground hover:text-foreground"
-          onClick={handleLoginOrProjectsClick}
-        >
-          {isInitialized && isAuthenticated ? "Mina projekt" : "Logga in"}
-        </Button>
-        <Button
-          className="btn-3d btn-glow text-sm bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-lg shadow-primary/20"
-          onClick={handlePrimaryClick}
-        >
-          {isInitialized && isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
-        </Button>
       </div>
 
       <Button
@@ -137,35 +150,45 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
             </Link>
           ))}
           <div className="flex flex-col gap-2 pt-4 mt-2 border-t border-border/30">
-            {isInitialized && isAuthenticated && (
-              <Button
-                variant="ghost"
-                className="justify-start text-sm text-muted-foreground hover:text-foreground"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-1.5" />
-                Logga ut
-              </Button>
+            {!isInitialized ? (
+              // Samma auth-hydration-guard som desktop-CTA:erna ovan.
+              <>
+                <div className="h-10 w-full rounded-lg bg-secondary/30 animate-pulse" aria-hidden />
+                <div className="h-10 w-full rounded-lg bg-secondary/30 animate-pulse" aria-hidden />
+              </>
+            ) : (
+              <>
+                {isAuthenticated && (
+                  <Button
+                    variant="ghost"
+                    className="justify-start text-sm text-muted-foreground hover:text-foreground"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4 mr-1.5" />
+                    Logga ut
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  className="justify-start text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    handleLoginOrProjectsClick();
+                  }}
+                >
+                  {isAuthenticated ? "Mina projekt" : "Logga in"}
+                </Button>
+                <Button
+                  className="btn-3d btn-glow text-sm bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    handlePrimaryClick();
+                  }}
+                >
+                  {isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
+                </Button>
+              </>
             )}
-            <Button
-              variant="ghost"
-              className="justify-start text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                setMobileOpen(false);
-                handleLoginOrProjectsClick();
-              }}
-            >
-              {isInitialized && isAuthenticated ? "Mina projekt" : "Logga in"}
-            </Button>
-            <Button
-              className="btn-3d btn-glow text-sm bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
-              onClick={() => {
-                setMobileOpen(false);
-                handlePrimaryClick();
-              }}
-            >
-              {isInitialized && isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
-            </Button>
           </div>
         </div>
       )}

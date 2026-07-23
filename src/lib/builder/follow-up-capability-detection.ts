@@ -27,7 +27,7 @@
  */
 
 import { CAPABILITY_VOCABULARY } from "./follow-up-capability-vocabulary";
-import { isCapabilityNegated } from "./prompt-negation";
+import { isCapabilityNegated, isTermFullyNegated } from "./prompt-negation";
 
 export type CapabilitySpecificityTier = "generic" | "specific" | "beyond-dossier";
 
@@ -304,7 +304,24 @@ export function detectFollowUpCapabilities(
     const matchedKeywords = findMatches(trimmed, entry.patterns);
     if (matchedKeywords.length === 0) continue;
     if (isCapabilityNegated(trimmed, entry.capability)) continue;
-    if (entry.vetoes && entry.vetoes.some((re) => re.test(trimmed))) continue;
+    // Provider-negation, positiva träffar (Codex P2 på #445, spegelfallet):
+    // "add a contact form, no postgres" matchar `database`-mönstret bara via
+    // den NEGERADE providern — kräv minst ett mönster med en förekomst
+    // utanför negationsfönstren. "använd mongodb, inte postgres" överlever
+    // (mongodb-förekomsten är icke-negerad i samma mönster).
+    const hasPositiveMatch = entry.patterns.some(
+      (re) => re.test(trimmed) && !isTermFullyNegated(trimmed, re),
+    );
+    if (!hasPositiveMatch) continue;
+    // Provider-negation, veton (Codex P2 på #445): en NEGERAD konkurrent får
+    // inte tysta capabilityn — "lägg till postgres, inte prisma" är en
+    // explicit positiv postgres-ask, inte ett Prisma-val.
+    if (
+      entry.vetoes &&
+      entry.vetoes.some((re) => re.test(trimmed) && !isTermFullyNegated(trimmed, re))
+    ) {
+      continue;
+    }
     const tier = resolveTier({
       capability: entry.capability,
       message: trimmed,
