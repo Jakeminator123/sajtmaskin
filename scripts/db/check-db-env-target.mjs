@@ -112,6 +112,10 @@ export function normalizeDbUrlValue(raw) {
   return value;
 }
 
+/**
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {{ key: string, value: string } | null}
+ */
 export function resolveConfiguredDbUrl(env = process.env) {
   for (const key of CONNECTION_KEYS) {
     const value = normalizeDbUrlValue(env[key]);
