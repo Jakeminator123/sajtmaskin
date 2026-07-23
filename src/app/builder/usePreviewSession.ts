@@ -23,7 +23,6 @@ export type UsePreviewSessionParams = {
   currentPreviewUrl: string | null;
   activePreviewSessionMeta: { previewSessionId: string; versionId: string } | null;
   setCurrentPreviewUrl: (url: string) => void;
-  bumpPreviewRefreshToken: () => void;
   setPreviewSessionRecovering: (v: boolean) => void;
   previewBootstrapDoneKeysRef: MutableRefObject<Set<string>>;
   setForcedPreviewRestartKey: (key: string | null) => void;
@@ -59,7 +58,6 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     currentPreviewUrl,
     activePreviewSessionMeta,
     setCurrentPreviewUrl,
-    bumpPreviewRefreshToken,
     setPreviewSessionRecovering,
     previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey,
@@ -292,8 +290,9 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
             versionId,
             detail: "status_running_mismatch",
           });
+          // URL change alone reloads the iframe — bumping the refresh token
+          // on top caused a second load for the same resync.
           setCurrentPreviewUrl(serverUrl);
-          bumpPreviewRefreshToken();
         }
       }
       return;
@@ -332,7 +331,6 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     activePreviewSessionMeta,
     currentPreviewUrl,
     setCurrentPreviewUrl,
-    bumpPreviewRefreshToken,
     setPreviewSessionRecovering,
     triggerForcedPreviewRestart,
     onRecoverFailed,

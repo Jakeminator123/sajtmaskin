@@ -263,17 +263,21 @@ export async function runPostGenerationChecks(params: {
       preflight,
     });
 
-    const imageValidation = await validateImages({
-      chatId,
-      versionId,
-      signal: controller.signal,
-    });
-    const productPostcheck = await runProductPostcheckApi({
-      chatId,
-      versionId,
-      previewUrl: baseline.resolvedDemoUrl ?? null,
-      signal: controller.signal,
-    });
+    // Independent HTTP checks — run in parallel so the post-check tail (and
+    // the verify-lane behind it) is not serialized on two network round-trips.
+    const [imageValidation, productPostcheck] = await Promise.all([
+      validateImages({
+        chatId,
+        versionId,
+        signal: controller.signal,
+      }),
+      runProductPostcheckApi({
+        chatId,
+        versionId,
+        previewUrl: baseline.resolvedDemoUrl ?? null,
+        signal: controller.signal,
+      }),
+    ]);
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
@@ -345,12 +349,38 @@ export async function runPostGenerationChecks(params: {
       }),
     );
 
+    // Single F3 gate owner (2026-07 preview-lifecycle simplification): for an
+    // `integrations` (F3) version the SERVER post-finalize lane already runs
+    // the authoritative ReleaseGate (`resolvePostFinalizeServerVerifyDecision`
+    // → `triggerServerVerification`, reason `policy_match`). Firing a second
+    // `/quality-gate` POST from here raced that lane for the same version
+    // lease (409 `version_busy` noise, duplicated VM work). The client
+    // observes the outcome via the existing status polling
+    // (`useVersionStatus` / `useVersions`) instead.
+    const currentVersionEntry = versions.find(
+      (v) => v.versionId === versionId || v.id === versionId,
+    );
+    const serverOwnsVerifyLane = currentVersionEntry?.lifecycleStage === "integrations";
+
     // Verify-lane only runs when the version is actually verify-pending.
     // `autoFixReasons === []` alone is NOT enough: degenerate output (M#dgc)
     // clears the autofix queue while the version is terminally failed
     // server-side (`verifyPending === false`) — running the VM verify lane
     // there just burns work on a version the degeneracy guard already failed.
-    if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
+    if (serverOwnsVerifyLane) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: {
+          skipped: true,
+          reason:
+            "ReleaseGate (typecheck + build) körs av servern för F3-versioner — status uppdateras i versionspanelen.",
+          serverOwned: true,
+        },
+      } as UiMessagePart);
+    } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
       void runTier2VerifyLane({
         chatId,
         versionId,
@@ -532,6 +562,11 @@ async function runTier2VerifyLane(params: {
       jobStartedAt?: string | null;
       jobFinishedAt?: string | null;
       error?: string;
+      // Terminal-neutral supersede: the gate finished after a newer version
+      // was created — the server marked this version `superseded` and skipped
+      // all state mutation. Never render a red/rose failure card and never
+      // start repair/autofix against the abandoned version.
+      superseded?: boolean;
       // Env kill-switch (SAJTMASKIN_DISABLE_QUALITY_GATE): the server
       // short-circuited the F2 RenderGate and left the version untouched
       // (unverified/pending — a skipped gate is never promoted or marked
@@ -562,6 +597,23 @@ async function runTier2VerifyLane(params: {
         state: "output-error",
         errorText: data?.error || `Quality gate request failed (HTTP ${res.status})`,
       } as UiMessagePart);
+      return;
+    }
+
+    if (data.superseded) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId,
+        state: "output-available",
+        output: {
+          skipped: true,
+          superseded: true,
+          reason:
+            "En nyare version tog över innan verifieringen hann bli klar — den här versionen markerades som ersatt (inte fel). Den nya versionen verifieras separat.",
+        },
+      } as UiMessagePart);
+      mutateVersions?.();
       return;
     }
 

@@ -61,7 +61,12 @@ export type StreamContext = {
   setPreviewBuildError?: (payload: PreviewBuildErrorPayload | null) => void;
   setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
   setPreviewPending?: (pending: boolean) => void;
-  onPreviewRefresh?: () => void;
+  /** See `ChatMessagingParams.applyPreviewHandoff` — dedup'd URL-or-bump handoff. */
+  applyPreviewHandoff?: (params: {
+    url: string | null | undefined;
+    versionId?: string | null;
+    force?: boolean;
+  }) => void;
   /** Område 6-3 punkt 1: post-check completion → guaranteed status refetch. */
   onVersionStatusRefresh?: () => void;
   onGenerationComplete?: (data: {
@@ -92,7 +97,6 @@ export async function handleSseStream(
   let linkedProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
-  let progressivePreviewFired = false;
   let didReceiveDone = false;
   let generationProgressStarted = false;
   let generationDoneProgressReceived = false;
@@ -124,7 +128,6 @@ export async function handleSseStream(
     setPreviewBuildError,
     setPreviewProdBuild,
     setPreviewPending,
-    onPreviewRefresh,
     onVersionStatusRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -133,6 +136,26 @@ export async function handleSseStream(
   } = ctx;
 
   const effectiveChatId = ctx.chatId;
+
+  // Dedup'd preview handoff: exactly one iframe reload per stream run even
+  // when preview-ready AND done both carry the same URL. The per-run latch
+  // here is deliberate (not just the controller's versionId:url latch):
+  // `versionIdFromStream` may still be null when preview-ready arrives and
+  // only resolve at done, which would give the two events different dedup
+  // keys. Falls back to a plain URL set (which itself reloads the iframe)
+  // when the controller callback is not wired (tests).
+  let deliveredPreviewUrlForRun: string | null = null;
+  const deliverPreviewUrl = (url: string | null | undefined, versionId: string | null) => {
+    const normalized = typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
+    if (!normalized) return;
+    if (deliveredPreviewUrlForRun === normalized) return;
+    deliveredPreviewUrlForRun = normalized;
+    if (ctx.applyPreviewHandoff) {
+      ctx.applyPreviewHandoff({ url: normalized, versionId });
+      return;
+    }
+    setCurrentPreviewUrl(normalized);
+  };
 
   const getProgressToolName = (step: string) => {
     if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
@@ -654,15 +677,6 @@ export async function handleSseStream(
               recordStreamText(streamStats, "content", previous, merged, incoming.length);
               accumulatedContent = merged;
               requestStreamingTextFlush("content");
-
-              if (!progressivePreviewFired && accumulatedContent.includes("\n```\n")) {
-                const fileBlockCount = (accumulatedContent.match(/```\w+\s+file="[^"]+"/g) || []).length;
-                const closedBlockCount = (accumulatedContent.match(/\n```\n/g) || []).length;
-                if (fileBlockCount >= 2 && closedBlockCount >= 2) {
-                  progressivePreviewFired = true;
-                  onPreviewRefresh?.();
-                }
-              }
             }
             break;
           }
@@ -835,8 +849,7 @@ export async function handleSseStream(
             setPreviewBuildError?.(null);
 
             if (previewUrl) {
-              setCurrentPreviewUrl(previewUrl);
-              onPreviewRefresh?.();
+              deliverPreviewUrl(previewUrl, versionIdFromStream);
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
               if (pendingPost) {
                 pendingPost.demoUrl = previewUrl;
@@ -955,10 +968,6 @@ export async function handleSseStream(
             const effectiveDoneDemo = resolveCanonicalLivePreviewUrlFromDonePayload(
               doneData as { previewUrl?: unknown; demoUrl?: unknown },
             );
-            if (effectiveDoneDemo) {
-              setCurrentPreviewUrl(effectiveDoneDemo);
-              onPreviewRefresh?.();
-            }
             setPreviewPending?.(Boolean(doneData.previewPending));
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
@@ -971,6 +980,12 @@ export async function handleSseStream(
               null;
             if (resolvedVersionId) {
               versionIdFromStream = String(resolvedVersionId);
+            }
+            if (effectiveDoneDemo) {
+              // After versionId resolution so the dedup key matches the one
+              // preview-ready used — a done that repeats the same URL for the
+              // same version must not reload the iframe a second time.
+              deliverPreviewUrl(effectiveDoneDemo, versionIdFromStream);
             }
             const awaitingInput = Boolean(doneData.awaitingInput);
             const hasRecoveredArtifact =

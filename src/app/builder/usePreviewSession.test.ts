@@ -33,7 +33,6 @@ function harness(overrides?: {
         currentPreviewUrl: TIER2_URL,
         activePreviewSessionMeta: { previewSessionId: "sbx_1", versionId: "ver_2" },
         setCurrentPreviewUrl: vi.fn(),
-        bumpPreviewRefreshToken: vi.fn(),
         setPreviewSessionRecovering: setRecovering,
         previewBootstrapDoneKeysRef: bootstrapDone,
         setForcedPreviewRestartKey: setForceKey,

@@ -68,6 +68,7 @@ import {
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
+import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -139,11 +140,15 @@ function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
-  const isPreviewLoading =
-    vm.isCreatingChat ||
-    vm.previewPending ||
-    vm.previewLifecycle === "recovering" ||
-    (!vm.currentPreviewUrl && vm.isAnyStreaming);
+  // Non-blocking verify/pending UX — see `shouldBlockPreviewWithLoadingOverlay`:
+  // background verification/bootstrap never click-blocks a live preview.
+  const isPreviewLoading = shouldBlockPreviewWithLoadingOverlay({
+    isCreatingChat: vm.isCreatingChat,
+    previewPending: vm.previewPending,
+    previewLifecycle: vm.previewLifecycle,
+    currentPreviewUrl: vm.currentPreviewUrl,
+    isAnyStreaming: vm.isAnyStreaming,
+  });
   const activeVersionSummary = useMemo(() => {
     return vm.activeVersionId
       ? vm.effectiveVersionsList.find(
@@ -1125,8 +1130,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onForcePreviewResync={() => vm.forcePreviewResync()}
               versionMismatchPayload={vm.versionMismatchPayload}
               onNavigatePreviewUrl={(url) => {
+                // The URL change reloads the iframe by itself; bumping the
+                // refresh token too caused a double load on every page-tab
+                // click (PreviewPanel no longer sets iframe.src imperatively).
                 vm.setCurrentPreviewUrl(url);
-                vm.bumpPreviewRefreshToken();
               }}
               isLoading={isPreviewLoading}
               imageGenerationsEnabled={vm.enableImageGenerations}

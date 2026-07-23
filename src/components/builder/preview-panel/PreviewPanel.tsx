@@ -731,14 +731,11 @@ export function PreviewPanel({
         ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
         : buildExternalRoutePreviewUrl(previewUrl, route);
       if (!nextUrl || nextUrl === previewUrl) return;
-      // Route buttons should update the visible iframe immediately; the
-      // parent callback keeps outer builder state in sync.
+      // Single reload owner: the parent updates `previewUrl`, whose prop
+      // change rewrites the iframe src (one load). The previous imperative
+      // `iframe.src = …` here raced that prop-driven write and double-loaded
+      // the preview on every page-tab click.
       onNavigatePreviewUrl?.(nextUrl);
-      const iframe = iframeRef.current;
-      if (iframe) {
-        iframe.src = withInspectParam(buildPreviewSrc(nextUrl, Date.now()), nextUrl);
-      }
-      setIframeLoading(true);
       setIframeError(false);
       setIframeErrorMessage(null);
     },
@@ -746,9 +743,6 @@ export function PreviewPanel({
       previewUrl,
       isOwnEnginePreview,
       onNavigatePreviewUrl,
-      buildPreviewSrc,
-      withInspectParam,
-      setIframeLoading,
       setIframeError,
       setIframeErrorMessage,
     ],

@@ -8,6 +8,12 @@ export const ENGINE_VERSION_VERIFICATION_STATES = [
   "repair_available",
   "passed",
   "failed",
+  // Terminal-neutral: verifieringen övergavs för att en NYARE version tog
+  // över (supersede) — inte ett fel på innehållet. Renderas "Ersatt" (aldrig
+  // rött), startar aldrig repair, och behandlas som `pending` i deploy-gaten
+  // (F2 deploybar, F3 kräver fortfarande grön ReleaseGate). Historiska rader
+  // före 2026-07 skrevs som `failed` och behåller det.
+  "superseded",
 ] as const;
 export type EngineVersionVerificationState = (typeof ENGINE_VERSION_VERIFICATION_STATES)[number];
 
@@ -79,6 +85,7 @@ export type EngineVersionLifecycleStatus =
   | "repairing"
   | "repair_available"
   | "failed"
+  | "superseded"
   | "promoted";
 
 export type QualityTier = "none" | "preview" | "tier2" | "production";
@@ -89,6 +96,7 @@ export type EngineVersionVerificationSurfaceStatus =
   | "verifying"
   | "repair_available"
   | "failed"
+  | "superseded"
   | "unverified";
 
 export function resolveQualityTier(
@@ -128,6 +136,9 @@ export function resolveEngineVersionLifecycleStatus(
   if (verificationState === "failed") {
     return "failed";
   }
+  if (verificationState === "superseded") {
+    return "superseded";
+  }
   return "draft";
 }
 
@@ -138,6 +149,7 @@ export function resolveEngineVersionVerificationSurfaceStatus(
   const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
   if (lifecycleStatus === "promoted") return "verified";
   if (lifecycleStatus === "failed") return "failed";
+  if (lifecycleStatus === "superseded") return "superseded";
   if (lifecycleStatus === "repair_available") return "repair_available";
   if (lifecycleStatus === "repairing" || lifecycleStatus === "verifying") {
     return isServerVerifyExpectedForLifecycle(version) ? "verifying" : "design_ready";
@@ -160,11 +172,13 @@ export type DeployReleaseGateResult = {
  * - F3 (`integrations`): hård gate — deploy tillåts ENDAST när versionen är
  *   bevisat grön, dvs. `verification_state === "passed"` ELLER
  *   `release_state === "promoted"`. Allt annat (pending/verifying/repairing/
- *   repair_available) blockeras med `DEPLOY_RELEASE_GATE_NOT_GREEN` —
- *   ReleaseGate (typecheck + build + lint) måste passera först.
+ *   repair_available/superseded) blockeras med `DEPLOY_RELEASE_GATE_NOT_GREEN`
+ *   — ReleaseGate (typecheck + build) måste passera först.
  * - F2 (`design`): mjuk gate — server-verify körs aldrig
  *   (`design_preview_skip_verify`), så staten stannar typiskt `pending`.
  *   Endast `verification_state === "failed"` blockerar.
+ * - `superseded` behandlas som `pending` (neutral, inte fel): F2 deploybar,
+ *   F3 fortfarande inte grön.
  * - `failed` blockerar i BÅDA stadierna (även om raden råkar vara promoted):
  *   en underkänd quality gate får aldrig publiceras.
  */
@@ -191,7 +205,7 @@ export function resolveDeployReleaseGate(
       allowed: false,
       code: "DEPLOY_RELEASE_GATE_NOT_GREEN",
       message:
-        'Integrationsversionen (F3) har inte passerat ReleaseGate (typecheck + build + lint) ännu och kan inte publiceras. Kör "Bygg integrationer" eller verifiera om, och publicera när versionen är grön.',
+        'Integrationsversionen (F3) har inte passerat ReleaseGate (typecheck + build) ännu och kan inte publiceras. Kör "Bygg integrationer" eller verifiera om, och publicera när versionen är grön.',
     };
   }
 
@@ -227,10 +241,11 @@ export function sortEngineVersionsNewestFirst<T extends EngineVersionLifecycleLi
 /**
  * Pick the preferred version for follow-ups and UI display.
  *
- * Semantics: newest non-failed version wins. `promoted` is a quality
- * signal (used by deploy via `selectDeployTargetEngineVersion`), NOT a
- * version-selection signal — otherwise a newer draft is silently ignored
- * and follow-ups merge against stale files.
+ * Semantics: newest non-failed, non-superseded version wins. `promoted` is a
+ * quality signal (used by deploy via `selectDeployTargetEngineVersion`), NOT
+ * a version-selection signal — otherwise a newer draft is silently ignored
+ * and follow-ups merge against stale files. `superseded` rows are abandoned
+ * mid-verify snapshots that a newer version replaced — never prefer them.
  */
 export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLike>(
   versions: T[],
@@ -241,7 +256,10 @@ export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLik
   }
 
   return (
-    sorted.find((version) => resolveEngineVersionLifecycleStatus(version) !== "failed") ?? sorted[0]
+    sorted.find((version) => {
+      const status = resolveEngineVersionLifecycleStatus(version);
+      return status !== "failed" && status !== "superseded";
+    }) ?? sorted[0]
   );
 }
 
@@ -255,11 +273,11 @@ export function selectDeployTargetEngineVersion<T extends EngineVersionLifecycle
   versions: T[],
 ): T | undefined {
   const sorted = sortEngineVersionsNewestFirst(versions);
-  const integrations = sorted.find(
-    (version) =>
-      resolveEngineVersionLifecycleStage(version) === "integrations" &&
-      resolveEngineVersionLifecycleStatus(version) !== "failed",
-  );
+  const integrations = sorted.find((version) => {
+    if (resolveEngineVersionLifecycleStage(version) !== "integrations") return false;
+    const status = resolveEngineVersionLifecycleStatus(version);
+    return status !== "failed" && status !== "superseded";
+  });
   if (integrations) return integrations;
   return selectPreferredEngineVersion(versions);
 }

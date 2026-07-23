@@ -54,7 +54,9 @@ import {
   isShimOrMissingPreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
+  decidePreviewHandoff,
   isTier2LivePreviewUrl,
+  normalizePreviewUrl,
   resolveAlternatePreviewUrls,
 } from "@/lib/gen/preview/preview-url-classifier";
 import {
@@ -118,6 +120,43 @@ export function useBuilderPageController() {
   const bumpPreviewRefreshToken = useCallback(() => {
     setPreviewRefreshToken(Date.now());
   }, [setPreviewRefreshToken]);
+
+  // ── Dedup'd preview handoff ──────────────────────────────────────────
+  // The iframe reloads BOTH on URL change and on refresh-token bump. Every
+  // preview handoff (SSE preview-ready/done, bootstrap response, non-stream
+  // create/send, version sync) therefore goes through this single callback:
+  // it applies `decidePreviewHandoff` (set-url OR bump, never both) with a
+  // shared `versionId:url` latch so the same handoff replayed from several
+  // sources reloads the iframe at most once.
+  const currentPreviewUrlRef = useRef<string | null>(currentPreviewUrl);
+  useEffect(() => {
+    currentPreviewUrlRef.current = currentPreviewUrl;
+  }, [currentPreviewUrl]);
+  const lastPreviewHandoffKeyRef = useRef<string | null>(null);
+
+  const applyPreviewHandoff = useCallback(
+    (params: { url: string | null | undefined; versionId?: string | null; force?: boolean }) => {
+      const decision = decidePreviewHandoff({
+        incomingUrl: params.url,
+        currentUrl: currentPreviewUrlRef.current,
+        versionId: params.versionId,
+        lastAppliedKey: lastPreviewHandoffKeyRef.current,
+        force: params.force,
+      });
+      if (decision.action === "noop") return;
+      lastPreviewHandoffKeyRef.current = decision.key;
+      if (decision.action === "set-url") {
+        const normalized = normalizePreviewUrl(params.url);
+        // Sync the ref immediately — a second handoff can arrive in the same
+        // tick, before the state effect above has re-run.
+        currentPreviewUrlRef.current = normalized;
+        setCurrentPreviewUrl(normalized);
+        return;
+      }
+      bumpPreviewRefreshToken();
+    },
+    [setCurrentPreviewUrl, bumpPreviewRefreshToken],
+  );
 
   // Område 6-3 punkt 1: deterministic post-check completion → version-status
   // refetch. The post-generation check flow calls `onVersionStatusRefresh`
@@ -431,6 +470,7 @@ export function useBuilderPageController() {
     currentPreviewUrl: state.currentPreviewUrl,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
+    applyPreviewHandoff,
     mutateChat,
     mutateVersions,
     isShimOrMissingPreviewUrl,
@@ -459,7 +499,6 @@ export function useBuilderPageController() {
     currentPreviewUrl: state.currentPreviewUrl,
     activePreviewSessionMeta,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
-    bumpPreviewRefreshToken,
     setPreviewSessionRecovering: vmPreview.setPreviewSessionRecovering,
     previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
@@ -479,6 +518,8 @@ export function useBuilderPageController() {
 
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentPreviewUrl(null);
+    currentPreviewUrlRef.current = null;
+    lastPreviewHandoffKeyRef.current = null;
     setPreviewRefreshToken(0);
     resetPreviewForNewChat();
   }, [setCurrentPreviewUrl, setPreviewRefreshToken, resetPreviewForNewChat]);
@@ -519,7 +560,7 @@ export function useBuilderPageController() {
       setPreviewBuildError,
       setPreviewProdBuild,
       setPreviewPending,
-      onPreviewRefresh: bumpPreviewRefreshToken,
+      applyPreviewHandoff,
       onVersionStatusRefresh: bumpVersionStatusRefresh,
       onDeterministicF3Settled: handleDeterministicF3Settled,
       onGenerationComplete: deployActions.handleGenerationComplete,
@@ -1546,6 +1587,7 @@ export function useBuilderPageController() {
         return;
       }
       setCurrentPreviewUrl(null);
+      currentPreviewUrlRef.current = null;
       setPreviewRefreshToken(Date.now());
       return;
     }
@@ -1571,13 +1613,15 @@ export function useBuilderPageController() {
         }
         return;
       }
-      setCurrentPreviewUrl(nextDemoUrl);
-      setPreviewRefreshToken(Date.now());
+      // Dedup'd handoff: the URL change alone reloads the iframe (no token
+      // bump on top), and the shared latch prevents a re-reload when the
+      // stream/bootstrap already delivered this exact version+URL.
+      applyPreviewHandoff({ url: nextDemoUrl, versionId: derived.activeVersionId });
       if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
         setPreviewPending(false);
       }
     }
-  }, [derived.activeVersionId, derived.latestVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
+  }, [derived.activeVersionId, derived.latestVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending, applyPreviewHandoff]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(
     () =>

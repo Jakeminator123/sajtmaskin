@@ -17,8 +17,12 @@
  * Legacy ↔ bus differences (documented intentionally — see PR):
  *   - `generating` and `blocked` are NEW lifecycle-badge states the bus
  *     surfaces that the legacy DB resolver folded into "Draft".
- *   - A superseded terminal `failed` version shows "Fel" (not the legacy
- *     "Ersatt"); `mapVersionStatusToDisplay` keeps terminal phases as-is.
+ *   - Superseded versions (2026-07): the DB writes terminal-neutral
+ *     `verification_state = "superseded"` (never `failed`), so an abandoned
+ *     mid-verify version renders amber "Ersatt" — via the derived `retrying`
+ *     token (non-latest + non-terminal bus) and the "Ersatt" verification
+ *     badge — never the red "Fel". Rows superseded before 2026-07 keep their
+ *     historical `failed`.
  *   - "Fix redo" (repair-available) is no longer a lifecycle-badge state;
  *     it is surfaced by the dedicated verification badge
  *     (`resolveEngineVersionVerificationSurfaceStatus`) + the

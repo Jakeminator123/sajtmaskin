@@ -73,6 +73,12 @@ export type UseBuilderVmPreviewParams = {
   currentPreviewUrl: string | null;
   setCurrentPreviewUrl: (url: string | null) => void;
   bumpPreviewRefreshToken: () => void;
+  /** Dedup'd URL-or-bump handoff owned by the controller — see `decidePreviewHandoff`. */
+  applyPreviewHandoff?: (params: {
+    url: string | null | undefined;
+    versionId?: string | null;
+    force?: boolean;
+  }) => void;
   mutateChat: () => void;
   mutateVersions: () => void;
   isShimOrMissingPreviewUrl: (url: string | null | undefined) => boolean;
@@ -96,6 +102,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     currentPreviewUrl,
     setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
+    applyPreviewHandoff,
     mutateChat,
     mutateVersions,
     isShimOrMissingPreviewUrl,
@@ -485,8 +492,19 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
           setPreviewPending(false);
           setPreviewSessionRecovering(false);
           onBootstrapRecoverSucceeded?.();
-          setCurrentPreviewUrl(data.previewUrl.trim());
-          bumpPreviewRefreshToken();
+          if (applyPreviewHandoff) {
+            // Dedup'd: if the SSE stream already delivered this version+URL,
+            // the bootstrap response must not reload the iframe again. A
+            // forced restart bypasses the latch (fresh boot ⇒ reload once).
+            applyPreviewHandoff({
+              url: data.previewUrl.trim(),
+              versionId: activeVersionId,
+              force: isForcedRestart,
+            });
+          } else {
+            setCurrentPreviewUrl(data.previewUrl.trim());
+            bumpPreviewRefreshToken();
+          }
           const activeVid = activeVersionId;
           if (
             activeVid &&
@@ -559,6 +577,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     setCurrentPreviewUrl,
     setPreviewPending,
     bumpPreviewRefreshToken,
+    applyPreviewHandoff,
     mutateChat,
     mutateVersions,
     syncServerStateAfterPreviewBootstrap,

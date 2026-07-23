@@ -336,13 +336,35 @@ export async function promoteVersionIfUnleased(
   return getStoredVersion(versionId);
 }
 
+/**
+ * Terminal-neutral supersede (2026-07 preview-lifecycle simplification): a
+ * newer version took over while this one was mid-verify. Previously this
+ * delegated to `failVersionVerification`, which painted the abandoned row as
+ * a red "Fel" and let clients open repair against it — ~26 % of prod versions
+ * ended falsely red this way. `superseded` renders "Ersatt", never triggers
+ * repair, and behaves like `pending` in the deploy gate.
+ */
 export async function markVersionSupersededByRepair(
   versionId: string,
   repairedVersionId: string | null = null,
   runId?: string,
 ): Promise<Version | null> {
   const summary = repairedVersionId
-    ? `Superseded by repaired version ${repairedVersionId}.`
-    : "Superseded by repaired version.";
-  return failVersionVerification(versionId, summary, runId);
+    ? `Ersatt av nyare version ${repairedVersionId}.`
+    : "Ersatt av en nyare version.";
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "superseded",
+      verificationSummary: summary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
+      promotedAt: null,
+    })
+    .where(versionWriteWhere(versionId, runId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
 }
