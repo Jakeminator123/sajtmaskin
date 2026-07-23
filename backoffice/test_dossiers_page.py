@@ -243,5 +243,58 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         self.assertEqual(self._read_capability(), "cms")
 
 
+class PromoteProspectCapabilityGateTests(unittest.TestCase):
+    """Capability-match-gaten i `_promote_prospect` (backlog A#14, #419):
+    ett utkast vars manifest.capability driftat från plan-postens
+    targetCapability får inte promotas in i live-poolen. Gaten ligger före
+    manifest-/strict-schema-valideringen, så testerna behöver bara minimala
+    manifests och skriver aldrig till någon live-pool."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        draft = self.root / "legacy-1" / "_v2-draft"
+        draft.mkdir(parents=True)
+        (draft / "manifest.json").write_text(
+            json.dumps({"id": "acme-pay", "capability": "payments"}), encoding="utf-8"
+        )
+
+    def _entry(self, **overrides: object) -> dict[str, object]:
+        entry: dict[str, object] = {
+            "legacyId": "legacy-1",
+            "targetClass": "hard",
+            "targetId": "acme-pay",
+            "targetCapability": "payments",
+        }
+        entry.update(overrides)
+        return entry
+
+    def test_capability_mismatch_blocks_promotion(self) -> None:
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(targetCapability="database"), force=False
+        )
+        self.assertFalse(ok)
+        self.assertIn("targetCapability", msg)
+
+    def test_capability_match_is_case_insensitive_and_trimmed(self) -> None:
+        # Matchar gaten (normaliserad jämförelse) → faller vidare till den
+        # vanliga manifest-valideringen, som failar på det minimala manifestet
+        # av ANDRA skäl. Poängen: inget capability-fel.
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(targetCapability="  PAYMENTS "), force=False
+        )
+        self.assertFalse(ok)
+        self.assertNotIn("targetCapability", msg)
+
+    def test_missing_plan_capability_skips_gate(self) -> None:
+        # Äldre plan-poster utan targetCapability ska inte blockeras av gaten.
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(targetCapability=None), force=False
+        )
+        self.assertFalse(ok)
+        self.assertNotIn("targetCapability", msg)
+
+
 if __name__ == "__main__":
     unittest.main()

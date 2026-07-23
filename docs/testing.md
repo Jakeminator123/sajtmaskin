@@ -27,6 +27,9 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 |---|---|---|---|---|
 | `db:schema-drift` | `schema-drift` | push + PR mot `master` | **Ja** — hård gate | Deterministisk, nyckelfri, billig → trygg att blockera |
 | Bredare stabilitets-lane (`*.stability.test.ts(x)`) | `stability` | push + PR mot `master` | **Nej** — warn-only | Kan vara flaky medan lanen stabiliseras |
+| Extern review-fönster | `review-window` | PR mot `master` | **Ja** — required check | Pending tills PR:en är ≥ 7 min och kända externa botar för head-SHA:n är klara (10 min cap) — teknisk enforcement av merge-gaten i `pr-merge-review-gate.mdc` |
+| Prod-migrationer (`scripts/db/migrate-prod.mjs`) | `prod-migrations-apply` | push till `master` + manuell dispatch (aldrig PR — prod-secret injiceras inte på `pull_request`) | Gate:ad bakom `quality` + `schema-drift` | Migrationer körs inte av Vercel-deployen; idempotent + bokför `schema_migrations`-ledgern |
+| Ledger-verifiering (`scripts/db/check-migrations-applied.mjs`) | `prod-migrations-applied` | efter `prod-migrations-apply` | Post-condition (skippas när apply skippas) | Verifierar att prod-ledgern täcker alla migrationsfiler — fångar tyst missad apply |
 
 - Det blockerande `schema-drift`-jobbet kör enbart `npm run db:schema-drift` (utan `continue-on-error`).
   Ett rött resultat stoppar push/PR/merge → fångar t.ex. tabell/index som finns i `schema.ts`

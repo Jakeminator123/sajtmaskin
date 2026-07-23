@@ -143,6 +143,9 @@ def _variant_payload(
     world_class_text: str,
     source_template_ids_text: str,
     reference_scaffold_ids_text: str,
+    signature_layouts_text: str = "",
+    signature_motifs_text: str = "",
+    signature_anti_patterns_text: str = "",
 ) -> dict[str, Any]:
     payload = {
         key: value
@@ -185,7 +188,44 @@ def _variant_payload(
         else:
             payload.pop(key, None)
 
+    # signaturePatterns: build from the form fields when the operator supplied
+    # any of them; otherwise keep whatever was copied from `existing` (so an
+    # edit that leaves the pattern fields untouched preserves curated patterns).
+    sig_layouts = _normalize_lines(signature_layouts_text)
+    sig_motifs = _normalize_lines(signature_motifs_text)
+    sig_anti = _normalize_lines(signature_anti_patterns_text)
+    if sig_layouts or sig_motifs or sig_anti:
+        payload["signaturePatterns"] = {
+            "layouts": sig_layouts,
+            "motifs": sig_motifs,
+            "antiPatterns": sig_anti,
+        }
+
     return payload
+
+
+def _dead_source_template_ids(ctx: BackofficeContext, payload: dict[str, Any]) -> list[str]:
+    """Return the ``sourceTemplateIds`` that do NOT resolve to a real v0-mall in
+    the Blob manifest (`template-blob-manifest.json`).
+
+    Shared by ``_validate_variant_payload`` (Lifecycle create/edit) and the
+    Scaffold Wizard's new-scaffold path so both mirror the CI gate
+    (`variant-integrity.test.ts`): every referenced id must exist in the Blob
+    manifest, otherwise the gate fails once the variant lands.
+    """
+    source_ids = payload.get("sourceTemplateIds") or []
+    if not (isinstance(source_ids, list) and source_ids):
+        return []
+    lookup, _sources = _load_inspiration_lookup(ctx)
+    return [str(i) for i in source_ids if str(i).strip() and str(i) not in lookup]
+
+
+def _dead_source_template_ids_message(dead: list[str]) -> str:
+    return (
+        "sourceTemplateIds pekar på id:n som inte finns i Blob-manifestet "
+        f"(`{BLOB_MANIFEST_REL}`): {', '.join(dead)}. Använd riktiga v0-mall-id:n "
+        "(kolumnen Blob-id i Scaffold Wizard steg 1) eller ta bort raderna."
+    )
 
 
 def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -> list[str]:
@@ -207,17 +247,184 @@ def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -
     )
     errors = validate_json_against_schema(payload, schema_path)
 
-    source_ids = payload.get("sourceTemplateIds") or []
-    if isinstance(source_ids, list) and source_ids:
-        lookup, _sources = _load_inspiration_lookup(ctx)
-        dead = [str(i) for i in source_ids if str(i).strip() and str(i) not in lookup]
-        if dead:
-            errors.append(
-                "sourceTemplateIds pekar på id:n som inte finns i Blob-manifestet "
-                f"(`{BLOB_MANIFEST_REL}`): {', '.join(dead)}. Använd riktiga v0-mall-id:n "
-                "(kolumnen Blob-id i Scaffold Wizard steg 1) eller ta bort raderna."
-            )
+    dead = _dead_source_template_ids(ctx, payload)
+    if dead:
+        errors.append(_dead_source_template_ids_message(dead))
     return errors
+
+
+# Minsta signaturePatterns-krav som CI-grinden
+# (`src/lib/gen/scaffold-variants/variant-integrity.test.ts`) tvingar: >=3
+# layouts, >=2 motifs, >=2 antiPatterns. Speglas här så backoffice inte kan
+# spara en halvfärdig variant som testet sedan fäller.
+_SIG_MIN_LAYOUTS = 3
+_SIG_MIN_MOTIFS = 2
+_SIG_MIN_ANTI = 2
+
+
+def _signature_patterns_ok(payload: dict[str, Any]) -> bool:
+    sp = payload.get("signaturePatterns")
+    if not isinstance(sp, dict):
+        return False
+    layouts = sp.get("layouts")
+    motifs = sp.get("motifs")
+    anti = sp.get("antiPatterns")
+    return (
+        isinstance(layouts, list)
+        and len(layouts) >= _SIG_MIN_LAYOUTS
+        and isinstance(motifs, list)
+        and len(motifs) >= _SIG_MIN_MOTIFS
+        and isinstance(anti, list)
+        and len(anti) >= _SIG_MIN_ANTI
+    )
+
+
+def _sibling_default_variant_ids(
+    ctx: BackofficeContext, scaffold_id: str, *, exclude_id: str
+) -> list[str]:
+    """Ids of OTHER variants in ``scaffold_id`` already marked ``default: true``.
+
+    Used to enforce the gate's "at most one default per scaffold" convention at
+    save time (create + edit), mirroring the Wizard's default-conflict guard.
+    """
+    out: list[str] = []
+    variant_dir = ctx.variants_dir / scaffold_id
+    if not variant_dir.is_dir():
+        return out
+    for path in sorted(variant_dir.glob("*.json")):
+        if path.stem == exclude_id:
+            continue
+        try:
+            data = read_json(path)
+        except Exception:
+            continue
+        if isinstance(data, dict) and data.get("default") is True:
+            out.append(path.stem)
+    return out
+
+
+def _variant_integrity_errors(
+    ctx: BackofficeContext,
+    payload: dict[str, Any],
+    *,
+    sibling_defaults: list[str] | None = None,
+) -> list[str]:
+    """Mirror the parts of the CI gate (`variant-integrity.test.ts`) that the
+    JSON schema alone does NOT enforce, so the Lifecycle create/edit forms can
+    block a save that would later fail ``npm run scaffolds:validate``:
+
+    - curated ``signaturePatterns`` (>=3 layouts / >=2 motifs / >=2 antiPatterns);
+    - at most one ``default: true`` per scaffold.
+
+    (``sourceTemplateIds`` resolvability is covered by ``_validate_variant_payload``.
+    Embeddings-index membership is intentionally NOT checked here: a new entry
+    needs an embedding vector — the flow tells the operator to run
+    ``npm run scaffolds:variant-embeddings`` instead.)
+    """
+    errors: list[str] = []
+    if not _signature_patterns_ok(payload):
+        errors.append(
+            "signaturePatterns saknas eller är ofullständig — CI-grinden "
+            "(`variant-integrity.test.ts`) kräver minst "
+            f"{_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
+            f"{_SIG_MIN_ANTI} antiPatterns. Fyll i fälten under **Advanced**, "
+            "eller skapa varianten via **Scaffold Wizard** som AI-kurerar mönstren."
+        )
+    if payload.get("default") is True and sibling_defaults:
+        errors.append(
+            "Det finns redan en default-variant för scaffolden: "
+            + ", ".join(f"`{sibling}`" for sibling in sibling_defaults)
+            + ". Konventionen är exakt en default per scaffold — avmarkera den "
+            "andra först (eller lämna den här som icke-default)."
+        )
+    return errors
+
+
+def _variant_embeddings_index_path(ctx: BackofficeContext) -> Path:
+    return ctx.variants_dir / "_index" / "variant-embeddings.json"
+
+
+def _prune_variant_embeddings(
+    ctx: BackofficeContext,
+    scaffold_id: str,
+    variant_ids: list[str] | None = None,
+) -> int:
+    """Remove variant-embeddings index entries for a deleted variant/scaffold and
+    return how many were removed.
+
+    ``variant_ids=None`` prunes EVERY entry for ``scaffold_id`` (used when a whole
+    scaffold is deleted); otherwise only the given ``<scaffold>/<id>`` entries are
+    removed (single variant delete).
+
+    The CI gate (`variant-integrity.test.ts`) fails on stale index entries for
+    deleted variants, so delete-flows call this to keep the index in lockstep
+    with the variant files. No-op (returns 0) when the index is missing/unreadable
+    or has no matching entries, so it never blocks a delete.
+    """
+    path = _variant_embeddings_index_path(ctx)
+    if not path.is_file():
+        return 0
+    try:
+        data = read_json(path)
+    except Exception:
+        return 0
+    if not isinstance(data, dict) or not isinstance(data.get("embeddings"), list):
+        return 0
+    original = data["embeddings"]
+
+    def _is_target(entry: Any) -> bool:
+        if not isinstance(entry, dict):
+            return False
+        if str(entry.get("scaffoldId", "")) != scaffold_id:
+            return False
+        if variant_ids is None:
+            return True
+        return str(entry.get("id", "")) in {str(vid) for vid in variant_ids}
+
+    filtered = [entry for entry in original if not _is_target(entry)]
+    removed = len(original) - len(filtered)
+    if removed:
+        data["embeddings"] = filtered
+        if isinstance(data.get("_meta"), dict):
+            data["_meta"]["count"] = len(filtered)
+        write_json(path, data)
+    return removed
+
+
+_POST_ACTION_NOTE_KEY = "scaffold_lifecycle_post_action_note"
+
+
+def _flash_note(message: str, *, level: str = "success") -> None:
+    """Persist a note across the ``st.rerun()`` that create/edit/delete trigger.
+
+    A plain ``st.success``/``st.warning`` rendered right before ``st.rerun()`` is
+    discarded by the rerun, so post-action guidance (e.g. "rebuild embeddings")
+    would never be seen. Stash it in session state and render it on the next run.
+    """
+    st.session_state[_POST_ACTION_NOTE_KEY] = {"message": message, "level": level}
+
+
+def _render_flashed_note() -> None:
+    note = st.session_state.pop(_POST_ACTION_NOTE_KEY, None)
+    if not isinstance(note, dict):
+        return
+    level = str(note.get("level", "success"))
+    message = str(note.get("message", ""))
+    if not message:
+        return
+    if level == "warning":
+        st.warning(message)
+    elif level == "error":
+        st.error(message)
+    else:
+        st.success(message)
+
+
+_REBUILD_EMBEDDINGS_HINT = (
+    "Kör sedan `npm run scaffolds:variant-embeddings` så varianten registreras i "
+    "matchnings-indexet (`variant-embeddings.json`) — annars fäller CI-grinden "
+    "(`variant-integrity.test.ts`) den som saknad tills indexet byggts om."
+)
 
 
 def _load_variants(ctx: BackofficeContext) -> list[dict[str, Any]]:
@@ -467,6 +674,31 @@ def _render_manifest_ts(
     return "\n".join(lines)
 
 
+# Valid, deterministic starter signaturePatterns for the auto-created neutral
+# variant. Meets the CI gate thresholds (>=3 layouts / >=2 motifs / >=2
+# antiPatterns) AND the schema minLengths (layouts >=12, motifs/antiPatterns
+# >=10 chars) so a freshly created scaffold's starter variant passes
+# `npm run scaffolds:validate` without a manual curation step. Operators can
+# still upgrade these with `npm run scaffolds:variant-patterns -- --force
+# --only=neutral-core` for AI-curated, variant-specific patterns.
+def _neutral_starter_signature_patterns(label: str) -> dict[str, list[str]]:
+    return {
+        "layouts": [
+            "Lead with a clear single-column hero: concise headline, one supporting sentence, and a single primary call-to-action.",
+            "Stack content in evenly spaced full-width sections with generous vertical rhythm and a consistent container width.",
+            "Use a simple responsive card grid (2-3 columns) for feature or content blocks that collapses to one column on mobile.",
+        ],
+        "motifs": [
+            "Neutral surfaces with a single restrained accent color, comfortable spacing, and a readable typographic hierarchy.",
+            "Soft consistent corner radius and light borders so components read as calm and extension-friendly.",
+        ],
+        "antiPatterns": [
+            "Avoid loud gradients, dense dashboards, or heavy decoration that would fight a neutral, adaptable starter.",
+            "Do not lock in a strong niche aesthetic; keep the expression flexible until the user's actual domain is known.",
+        ],
+    }
+
+
 def _neutral_variant_payload(
     ctx: BackofficeContext,
     *,
@@ -520,6 +752,7 @@ def _neutral_variant_payload(
                 "Preserve structural clarity first, then adapt the expression to the user's actual domain.",
             ],
             "sourceTemplateIds": [],
+            "signaturePatterns": _neutral_starter_signature_patterns(label),
             "default": True,
         }
     )
@@ -732,6 +965,27 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
             height=140,
             key="create_variant_theme_tokens",
         )
+        st.markdown("**Signature patterns** — krävs av CI-grinden (`variant-integrity.test.ts`).")
+        st.caption(
+            f"Minst {_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
+            f"{_SIG_MIN_ANTI} antiPatterns (en konkret mening per rad). Vill du hellre "
+            "AI-kurera dem? Skapa varianten via **Scaffold Wizard** i stället."
+        )
+        signature_layouts_text = st.text_area(
+            "Signature layouts (one per line)",
+            height=120,
+            key="create_variant_sig_layouts",
+        )
+        signature_motifs_text = st.text_area(
+            "Signature motifs (one per line)",
+            height=100,
+            key="create_variant_sig_motifs",
+        )
+        signature_anti_patterns_text = st.text_area(
+            "Signature antiPatterns (one per line)",
+            height=100,
+            key="create_variant_sig_anti",
+        )
         with st.expander("Advanced fields", expanded=False):
             style_rules_text = st.text_area(
                 "Style Rules (one per line)",
@@ -805,6 +1059,9 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
             world_class_text=world_class_text,
             source_template_ids_text=source_template_ids_text,
             reference_scaffold_ids_text=reference_scaffold_ids_text,
+            signature_layouts_text=signature_layouts_text,
+            signature_motifs_text=signature_motifs_text,
+            signature_anti_patterns_text=signature_anti_patterns_text,
         )
     except ValueError as error:
         st.error(str(error))
@@ -818,9 +1075,25 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
         )
         st.stop()
 
+    integrity_errors = _variant_integrity_errors(
+        ctx,
+        payload,
+        sibling_defaults=_sibling_default_variant_ids(
+            ctx, scaffold_id, exclude_id=variant_id
+        ),
+    )
+    if integrity_errors:
+        st.error(
+            "Varianten sparades inte – den skulle fällas av CI-grinden "
+            "(`npm run scaffolds:validate`):\n\n"
+            + "\n".join(f"- {message}" for message in integrity_errors)
+        )
+        st.stop()
+
     target_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(target_path, payload)
-    st.success(f"Skapade `{target_path.relative_to(ctx.repo_root).as_posix()}`.")
+    rel = target_path.relative_to(ctx.repo_root).as_posix()
+    _flash_note(f"Skapade `{rel}`. {_REBUILD_EMBEDDINGS_HINT}", level="warning")
     st.rerun()
 
 
@@ -866,6 +1139,15 @@ def _render_edit_variant(
         "sourceTemplateIds": _format_string_list(selected_variant.get("sourceTemplateIds", [])),
         "referenceScaffoldIds": _format_string_list(
             selected_variant.get("referenceScaffoldIds", [])
+        ),
+        "signatureLayouts": _format_string_list(
+            (selected_variant.get("signaturePatterns") or {}).get("layouts", [])
+        ),
+        "signatureMotifs": _format_string_list(
+            (selected_variant.get("signaturePatterns") or {}).get("motifs", [])
+        ),
+        "signatureAntiPatterns": _format_string_list(
+            (selected_variant.get("signaturePatterns") or {}).get("antiPatterns", [])
         ),
     }
     variant_key = f"{selected_scaffold}_{defaults['id']}"
@@ -931,6 +1213,30 @@ def _render_edit_variant(
             value=defaults["themeTokens"],
             height=140,
             key=f"edit_theme_tokens_{variant_key}",
+        )
+        st.markdown("**Signature patterns** — krävs av CI-grinden (`variant-integrity.test.ts`).")
+        st.caption(
+            f"Minst {_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
+            f"{_SIG_MIN_ANTI} antiPatterns. Töm alla tre fälten för att behålla "
+            "de befintliga mönstren oförändrade."
+        )
+        edited_signature_layouts = st.text_area(
+            "Signature layouts (one per line)",
+            value=defaults["signatureLayouts"],
+            height=120,
+            key=f"edit_sig_layouts_{variant_key}",
+        )
+        edited_signature_motifs = st.text_area(
+            "Signature motifs (one per line)",
+            value=defaults["signatureMotifs"],
+            height=100,
+            key=f"edit_sig_motifs_{variant_key}",
+        )
+        edited_signature_anti_patterns = st.text_area(
+            "Signature antiPatterns (one per line)",
+            value=defaults["signatureAntiPatterns"],
+            height=100,
+            key=f"edit_sig_anti_{variant_key}",
         )
         with st.expander("Advanced fields", expanded=False):
             edited_style_rules = st.text_area(
@@ -1002,6 +1308,9 @@ def _render_edit_variant(
             world_class_text=edited_world_class,
             source_template_ids_text=edited_source_ids,
             reference_scaffold_ids_text=edited_reference_scaffold_ids,
+            signature_layouts_text=edited_signature_layouts,
+            signature_motifs_text=edited_signature_motifs,
+            signature_anti_patterns_text=edited_signature_anti_patterns,
         )
     except ValueError as error:
         st.error(str(error))
@@ -1012,6 +1321,21 @@ def _render_edit_variant(
         st.error(
             "Varianten sparades inte – schemavalideringen misslyckades:\n\n"
             + "\n".join(f"- {message}" for message in errors)
+        )
+        st.stop()
+
+    integrity_errors = _variant_integrity_errors(
+        ctx,
+        payload,
+        sibling_defaults=_sibling_default_variant_ids(
+            ctx, selected_scaffold, exclude_id=defaults["id"]
+        ),
+    )
+    if integrity_errors:
+        st.error(
+            "Varianten sparades inte – den skulle fällas av CI-grinden "
+            "(`npm run scaffolds:validate`):\n\n"
+            + "\n".join(f"- {message}" for message in integrity_errors)
         )
         st.stop()
 
@@ -1080,11 +1404,21 @@ def _render_delete_variant(
             )
             return
         variant_path.unlink(missing_ok=True)
-        st.success(
-            f"Raderade `{variant_path.relative_to(ctx.repo_root).as_posix()}` "
-            "(en snapshot ligger kvar under **Återställning**). "
-            "Bygg om embeddings om du vill uppdatera relaterade artefakter."
-        )
+        variant_id = str(selected_variant.get("id", "")) or variant_path.stem
+        removed = _prune_variant_embeddings(ctx, selected_scaffold, [variant_id])
+        rel = variant_path.relative_to(ctx.repo_root).as_posix()
+        if removed:
+            note = (
+                f"Raderade `{rel}` och rensade {removed} post ur matchnings-indexet "
+                "(`variant-embeddings.json`) så CI-grinden inte fäller en förlegad post. "
+                "En snapshot ligger kvar under **Återställning**."
+            )
+        else:
+            note = (
+                f"Raderade `{rel}` (ingen matchande post i `variant-embeddings.json`). "
+                "En snapshot ligger kvar under **Återställning**."
+            )
+        _flash_note(note, level="success")
         st.rerun()
 
 
@@ -1875,6 +2209,9 @@ def _delete_scaffold(
     _update_embedding_locale_for_deleted_scaffold(ctx, scaffold_id)
     _update_variant_schema_enum(ctx, scaffold_id, add=False)
     _clean_generated_scaffold_artifacts(ctx, scaffold_id)
+    # Prune the deleted scaffold's variant-embeddings entries too, otherwise the
+    # integrity gate (variant-integrity.test.ts) fails on stale index rows.
+    _prune_variant_embeddings(ctx, scaffold_id)
 
 
 def _render_delete_scaffold(
@@ -2234,6 +2571,7 @@ def render(ctx: BackofficeContext) -> None:
         _render_create_scaffold(ctx, manifests)
 
     with variants_tab:
+        _render_flashed_note()
         st.subheader("Skapa ny variant")
         _render_create_variant(scaffold_ids, ctx)
         st.divider()

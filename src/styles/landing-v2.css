@@ -498,4 +498,11 @@
   .landing-v2-page .animate-rise {
     animation: none !important;
   }
+
+  /* .animate-fade-up startar på opacity:0 — utan denna override blir
+     innehåll osynligt/fördröjt även för användare som bett om mindre rörelse. */
+  .landing-v2-page .animate-fade-up {
+    animation: none !important;
+    opacity: 1;
+  }
 }

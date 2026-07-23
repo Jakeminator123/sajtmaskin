@@ -113,7 +113,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import parse_qs, unquote, urlparse
 
 # --------------------------------------------------------------------------- #
@@ -513,6 +513,25 @@ def classify_empty_group(
     )
 
 
+def classify_table_drift(tables: Set[str]) -> Tuple[List[str], List[str]]:
+    """Pure drift-classification for a DB's table set (unit-testable).
+
+    Returns (unclassified_extra, missing_known_extra):
+      - unclassified_extra: tables present that are neither EXPECTED, KNOWN_EXTRA
+        nor ACKNOWLEDGED_EXTRA (e.g. `schema_migrations`) -> schema drift, FAIL.
+      - missing_known_extra: KNOWN_EXTRA tables that are absent — the db:init
+        migration did not run (schema drift), not a clean state.
+    """
+    unclassified_extra = sorted(
+        set(tables)
+        - set(EXPECTED_TABLES)
+        - set(KNOWN_EXTRA_TABLES)
+        - set(ACKNOWLEDGED_EXTRA_TABLES)
+    )
+    missing_known_extra = [t for t in KNOWN_EXTRA_TABLES if t not in tables]
+    return unclassified_extra, missing_known_extra
+
+
 def inspect_db(
     name: str, urls: List[str], report: Report, *, empty_mode: str
 ) -> DbState:
@@ -561,12 +580,7 @@ def inspect_db(
         else:
             report.add(PASS, f"{label} schema present", f"all {len(EXPECTED_TABLES)} expected tables exist")
 
-        extra = sorted(
-            state.tables
-            - set(EXPECTED_TABLES)
-            - set(KNOWN_EXTRA_TABLES)
-            - set(ACKNOWLEDGED_EXTRA_TABLES)
-        )
+        extra, missing_known_extra = classify_table_drift(state.tables)
         if extra:
             report.add(
                 FAIL,
@@ -576,7 +590,6 @@ def inspect_db(
 
         # Known extras are created by db:init migrations and must exist in both DBs;
         # a missing one means the migration did not run (schema drift), not a clean extra.
-        missing_known_extra = [t for t in KNOWN_EXTRA_TABLES if t not in state.tables]
         if missing_known_extra:
             report.add(
                 FAIL,

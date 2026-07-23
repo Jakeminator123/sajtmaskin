@@ -14,7 +14,7 @@
 
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
-import { getLatestEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { getLatestEngineVersionErrorLogForCategory } from "@/lib/db/services/version-errors";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import {
@@ -120,11 +120,17 @@ export type Tier3GateResult =
  * newest summary row wins (a later passing postcheck unblocks). Read
  * failures fail open with a log — defense-in-depth on top of the client
  * button; a telemetry hiccup must not brick the legit F3 flow.
+ *
+ * Codex P2 on #353 (backlog): reads the summary row via a category-scoped
+ * `LIMIT 1` query — the previous 200-row window could be crowded out by
+ * per-warning postcheck rows, silently unblocking the gate.
  */
 export async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
   try {
-    const logs = await getLatestEngineVersionErrorLogs(versionId, 200);
-    const summary = logs.find((log) => log.category === "product_postcheck.summary");
+    const summary = await getLatestEngineVersionErrorLogForCategory(
+      versionId,
+      "product_postcheck.summary",
+    );
     const meta =
       summary?.meta && typeof summary.meta === "object"
         ? (summary.meta as Record<string, unknown>)

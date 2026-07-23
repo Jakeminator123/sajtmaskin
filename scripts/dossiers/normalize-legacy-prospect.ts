@@ -49,6 +49,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import OpenAI from "openai";
 
@@ -431,12 +432,40 @@ function writeDraft(
   writeFileSync(join(draftDir, "REVIEW.md"), review, "utf-8");
 }
 
+/**
+ * Parse a prospects.json payload into the plan list. Guards against invalid
+ * JSON and a missing/malformed `prospects` array — a broken prospects.json
+ * previously crashed the CLI with an opaque `undefined.filter` TypeError
+ * (backlog A#15, #419). Exported for the regression test.
+ */
+export function parseProspectsPlanFile(raw: string, planPath: string): ProspectPlan[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `prospects.json is not valid JSON (${planPath}): ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  const prospects =
+    parsed && typeof parsed === "object"
+      ? (parsed as { prospects?: unknown }).prospects
+      : undefined;
+  if (!Array.isArray(prospects)) {
+    throw new Error(
+      `prospects.json must contain a "prospects" array (${planPath}) — got ` +
+        `${prospects === undefined ? 'no "prospects" key' : typeof prospects}.`,
+    );
+  }
+  return prospects as ProspectPlan[];
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   const root = resolve(args.root);
   const planPath = join(root, "prospects.json");
   if (!existsSync(planPath)) throw new Error(`prospects.json not found in ${root}`);
-  const plans: ProspectPlan[] = JSON.parse(readFileSync(planPath, "utf-8")).prospects;
+  const plans: ProspectPlan[] = parseProspectsPlanFile(readFileSync(planPath, "utf-8"), planPath);
 
   const selected = plans.filter((p) => (args.only ? p.legacyId === args.only : true));
   if (selected.length === 0) throw new Error(`No prospect matches --only=${args.only}`);
@@ -547,7 +576,23 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+// Only run when invoked directly (so the regression test can import
+// parseProspectsPlanFile without booting the OpenAI client or touching the
+// filesystem). URL-string comparison is robust across Windows backslash/
+// drive-letter differences — same pattern as check-sdk-versions.mjs.
+function isInvokedDirectly(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

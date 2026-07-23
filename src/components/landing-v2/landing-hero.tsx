@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUp, ChevronDown, Mic, Video, X } from "lucide-react"
+import { ArrowUp, ChevronDown, Mic, Play, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
@@ -25,11 +25,12 @@ export type LandingHeroProps = Pick<
   | "handleAuditUrlChange"
   | "submitPrimaryInput"
 > &
-  Pick<ChatAreaProps, "heroPrefix" | "expandedContent">
+  Pick<ChatAreaProps, "heroPrefix" | "expandedContent" | "onPlayIntro">
 
 export function LandingHero({
   heroPrefix,
   expandedContent,
+  onPlayIntro,
   selectedCategory,
   pickCategory,
   showVoiceRecorder,
@@ -79,15 +80,17 @@ export function LandingHero({
         >
           <span aria-hidden="true">
             Din n&auml;sta{" "}
-            <span className="relative inline-block max-w-full">
-              {/* Osynlig platshållare (längsta ordet) reserverar bredden så
-                  rubriken aldrig hoppar eller ombryts när ordet roterar.
-                  Bara md+: på smala mobiler (utan radbrytningen nedan) skulle
-                  den tvinga in längsta ordets bredd på en rad och klippas av
-                  sidans overflow-x-hidden — där får ordet flöda naturligt. */}
-              <span className="invisible max-md:hidden whitespace-nowrap">{longestSiteType}</span>
+            <span className="relative inline-grid max-w-full align-baseline">
+              {/* Osynlig platshållare (längsta ordet) delar grid-cell med det
+                  synliga ordet och reserverar bredd/höjd — rubriken hoppar
+                  aldrig och understrykningen spänner alltid ordets yta.
+                  Under sm döljs platshållaren: på mycket smala mobiler skulle
+                  längsta ordets reserverade bredd annars kunna klippas av
+                  sidans overflow-x-hidden — där sätter det synliga ordet
+                  cellens bredd i stället (understrykningen följer ordet). */}
+              <span className="invisible whitespace-nowrap [grid-area:1/1] max-sm:hidden">{longestSiteType}</span>
               <span
-                className={`text-primary md:absolute md:inset-x-0 md:top-0 md:whitespace-nowrap text-center transition-all duration-300 ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
+                className={`text-primary whitespace-nowrap text-center [grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
               >
                 {rotatingType.text}
               </span>
@@ -269,6 +272,18 @@ export function LandingHero({
           </div>
         </div>
       </div>
+
+      {onPlayIntro && (
+        <button
+          type="button"
+          onClick={onPlayIntro}
+          className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors animate-fade-up"
+          style={{ animationDelay: "0.65s" }}
+        >
+          <Play className="w-3 h-3" aria-hidden="true" />
+          Ny h&auml;r? Se intron (ca 2 min)
+        </button>
+      )}
 
       {expandedContent && (
         <div className="w-full flex justify-center mt-8 animate-fade-up">

@@ -162,6 +162,7 @@
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_REVIEW_REASONING_EFFORT",
     "PEXELS_API_KEY",
+    "POSTGRES_CONNECT_TIMEOUT_MS",
     "POSTGRES_POOL_IDLE_TIMEOUT_MS",
     "POSTGRES_POOL_MAX",
     "REDIS_URL",
@@ -290,6 +291,16 @@
         "production"
       ],
       "notes": "Direct non-pooled database URL."
+    },
+    {
+      "key": "POSTGRES_CONNECT_TIMEOUT_MS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for pg Pool connectionTimeoutMillis (default 10000). Raise if serverless cold-path pool acquisition times out against the Supabase pooler."
     },
     {
       "key": "POSTGRES_POOL_MAX",

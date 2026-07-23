@@ -8,9 +8,6 @@
     "**/build/**",
     "**/dist/**",
     "**/coverage/**",
-    "**/research/**",
-    "**/pot_buggs/**",
-    "**/src/templates/**",
     "**/.cursor/**",
     "templates_v0/**",
     "data/template-references/**",
@@ -67,7 +64,6 @@
     "data/template-references/**": true,
     "data/dossiers/_repo-cache/**": true,
     "eval-output/**": true,
-    "evals/results/**": true,
     "_parkering/**": true
   },
   "search.useIgnoreFiles": true,

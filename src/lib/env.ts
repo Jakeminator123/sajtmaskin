@@ -26,6 +26,7 @@ export const serverSchema = z.object({
   POSTGRES_URL_NON_POOLING: z.string().optional(),
   POSTGRES_POOL_MAX: z.string().optional(),
   POSTGRES_POOL_IDLE_TIMEOUT_MS: z.string().optional(),
+  POSTGRES_CONNECT_TIMEOUT_MS: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().optional(),

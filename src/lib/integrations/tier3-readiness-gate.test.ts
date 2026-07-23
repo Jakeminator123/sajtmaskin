@@ -8,7 +8,7 @@ const getVersionFiles = vi.hoisted(() => vi.fn());
 const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
-const getLatestEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
@@ -16,7 +16,9 @@ vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
 }));
 vi.mock("@/lib/gen/preview/env-local", () => ({ loadPlaceholderKeySet }));
-vi.mock("@/lib/db/services/version-errors", () => ({ getLatestEngineVersionErrorLogs }));
+vi.mock("@/lib/db/services/version-errors", () => ({
+  getLatestEngineVersionErrorLogForCategory,
+}));
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
 
@@ -39,8 +41,8 @@ beforeEach(() => {
   detectIntegrationsFromVersionFiles.mockReturnValue(stripeDetection);
   getStoredProjectEnvVarMap.mockResolvedValue({});
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
-  getLatestEngineVersionErrorLogs.mockResolvedValue([]);
-});
+  getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
+  });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   it("blocks with version_files_unavailable when files cannot be read (G#21)", async () => {
@@ -136,9 +138,10 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("blocks with product_postcheck_blocked when the newest summary row is blocking (Codex P1 r5)", async () => {
-    getLatestEngineVersionErrorLogs.mockResolvedValue([
-      { category: "product_postcheck.summary", meta: { productBlocked: true } },
-    ]);
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      category: "product_postcheck.summary",
+      meta: { productBlocked: true },
+    });
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -150,9 +153,10 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("can inherit Product Postcheck from an exact-file F2 parent", async () => {
-    getLatestEngineVersionErrorLogs.mockResolvedValue([
-      { category: "product_postcheck.summary", meta: { productBlocked: true } },
-    ]);
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      category: "product_postcheck.summary",
+      meta: { productBlocked: true },
+    });
 
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3_exact",
@@ -162,19 +166,22 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
 
     expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
-    expect(getLatestEngineVersionErrorLogs).toHaveBeenCalledWith(
+    // Category-scoped read (Codex P2 #353): exact query, no 200-row window
+    // that per-warning postcheck rows could crowd the summary out of.
+    expect(getLatestEngineVersionErrorLogForCategory).toHaveBeenCalledWith(
       "ver_f2_parent",
-      200,
+      "product_postcheck.summary",
     );
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
   it("lets a later passing summary unblock (newest row wins) and fails open on read errors", async () => {
-    getLatestEngineVersionErrorLogs.mockResolvedValue([
-      // Newest-first (ORDER BY created_at DESC in the service).
-      { category: "product_postcheck.summary", meta: { productBlocked: false } },
-      { category: "product_postcheck.summary", meta: { productBlocked: true } },
-    ]);
+    // The category-scoped service query returns the NEWEST summary row only
+    // (ORDER BY created_at DESC LIMIT 1) — an older blocking row is invisible.
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      category: "product_postcheck.summary",
+      meta: { productBlocked: false },
+    });
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const unblocked = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
@@ -183,7 +190,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
     expect(unblocked.ok).toBe(true);
 
-    getLatestEngineVersionErrorLogs.mockRejectedValue(new Error("db down"));
+    getLatestEngineVersionErrorLogForCategory.mockRejectedValue(new Error("db down"));
     const failOpen = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,

@@ -258,10 +258,16 @@ export function usePreviewPanelInspectMapPlacement(options: {
     if (inspectEngine === "bridge") return;
     setElementMap([]);
     let cancelled = false;
+    // Timer-leak guard (CI-flake, run 29202297223): the pending sleep timer
+    // must be cleared on unmount, otherwise it fires after jsdom teardown in
+    // tests ("ReferenceError: window is not defined"). Track the id here and
+    // clear it in the effect cleanup — a cleared sleep never resolves, which
+    // is fine because `cancelled` would have short-circuited `run()` anyway.
+    let pendingSleepTimerId: number | null = null;
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => {
-        const timerId = window.setTimeout(() => {
-          window.clearTimeout(timerId);
+        pendingSleepTimerId = window.setTimeout(() => {
+          pendingSleepTimerId = null;
           resolve();
         }, ms);
       });
@@ -283,6 +289,10 @@ export function usePreviewPanelInspectMapPlacement(options: {
     void run();
     return () => {
       cancelled = true;
+      if (pendingSleepTimerId !== null) {
+        window.clearTimeout(pendingSleepTimerId);
+        pendingSleepTimerId = null;
+      }
     };
   }, [previewUrl, versionId, fetchElementMap, inspectorEnabled, iframeRef, inspectEngine]);
 

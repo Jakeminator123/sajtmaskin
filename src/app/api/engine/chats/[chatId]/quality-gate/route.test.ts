@@ -357,13 +357,19 @@ describe("POST quality-gate", () => {
     expect(promoteVersion).not.toHaveBeenCalled();
     expect(failVersionVerification).not.toHaveBeenCalled();
     // Durable trace: one warning log row records that the gate was skipped.
-    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith([
-      expect.objectContaining({
-        versionId: "ver-1",
-        level: "warning",
-        category: "quality-gate:disabled-skip",
-      }),
-    ]);
+    // Bounded row-lock wait (M#el2): the route's own diagnostics writes must
+    // pass lockTimeoutMs so lease contention degrades fast instead of blocking
+    // to the global statement_timeout.
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          versionId: "ver-1",
+          level: "warning",
+          category: "quality-gate:disabled-skip",
+        }),
+      ],
+      { lockTimeoutMs: expect.any(Number) },
+    );
     // Lease still released.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });

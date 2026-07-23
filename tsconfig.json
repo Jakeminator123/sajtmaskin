@@ -46,16 +46,13 @@
     "data/template-references",
     "_parkering",
     "archive",
-    "ai-fal-image-generator",
     "output",
-    "src/templates",
     "src/lib/gen/scaffolds/*/files",
     "drizzle.config.ts",
     "old",
     "_template_refs",
     "e2e",
     "vercel_templates_levels",
-    "research",
     "övrigt/testyta",
     "test_scarfold_foto"
   ]

@@ -13,9 +13,6 @@ next-env.d.ts
 *.tsbuildinfo
 package-lock.json
 
-# Templates (external code)
-src/templates/
-
 # MCP docs
 services/mpc/docs/docgrab__*/
 
