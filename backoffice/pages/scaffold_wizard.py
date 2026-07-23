@@ -22,6 +22,8 @@ from backoffice.pages.scaffold_lifecycle import (
     COMPLEXITY_OPTIONS,
     SITE_KIND_OPTIONS,
     _create_scaffold,
+    _dead_source_template_ids,
+    _dead_source_template_ids_message,
     _delete_scaffold,
     _slugify,
     _validate_variant_payload,
@@ -657,10 +659,18 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
 
     if payload is not None:
         if new_scaffold:
+            # The new scaffold's id isn't in the on-disk schema enum yet, so use
+            # the in-memory enum patch. But ALSO run the Blob sourceTemplateIds
+            # integrity check (variant-integrity.test.ts gate) that
+            # _validate_variant_payload does — schema validation alone won't
+            # catch a sourceTemplateId missing from template-blob-manifest.json.
             schema = wiz.load_variant_schema(ctx.repo_root)
             errors = wiz.validate_variant_payload_against_schema(
                 payload, schema, extra_scaffold_id=scaffold_id
             )
+            dead = _dead_source_template_ids(ctx, payload)
+            if dead:
+                errors = [*errors, _dead_source_template_ids_message(dead)]
         else:
             errors = _validate_variant_payload(ctx, payload)
         add(

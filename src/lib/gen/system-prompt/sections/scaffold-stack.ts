@@ -9,6 +9,7 @@
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ScaffoldVariant } from "../../scaffold-variants";
 import { resolveGoogleFontImportName } from "../../data/google-font-registry";
+import { resolveBlobTemplateReferenceLabels } from "@/lib/templates/blob-manifest-labels";
 import { formatThemeTokenLines } from "../theme-token";
 import type { ScaffoldManifest, ScaffoldId } from "../../scaffolds/types";
 import { buildRegistryDrivenShadcnToolkitSummary } from "../../data/shadcn-toolkit-summary";
@@ -111,8 +112,14 @@ export function renderScaffoldVariantBlock(
     parts.push(...themeTokenLines);
   }
   if ((effectiveVariant.sourceTemplateIds?.length ?? 0) > 0) {
+    // Resolve opaque Blob ids (post-2026-07-22 remap) to manifest titles so the
+    // model sees meaningful references, not noise like "8Y9E0cStKrW". Unknown
+    // legacy labels fall back to the raw id.
+    const referenceLabels = resolveBlobTemplateReferenceLabels(
+      effectiveVariant.sourceTemplateIds!.slice(0, 4),
+    );
     parts.push(
-      `- **Derived from curated references:** ${effectiveVariant.sourceTemplateIds!.slice(0, 4).join(", ")}`,
+      `- **Derived from curated references:** ${referenceLabels.join(", ")}`,
     );
   }
   parts.push("");
