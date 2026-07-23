@@ -19,7 +19,10 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { warnLog } from "@/lib/utils/debug";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
@@ -498,7 +501,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           );
         }
 
-        const completeProjectFiles = await buildExportableProject(codeFiles);
+        // Imported repos (v0-templates / ZIP imports) are gated verbatim so
+        // the verify tests the same project the preview VM runs — never a
+        // scaffold-merged variant with force-pinned baseline deps.
+        const verbatimRepo = await chatUsesVerbatimRepo(chatId);
+        const completeProjectFiles = await buildExportableProject(codeFiles, {
+          verbatimRepo,
+        });
         const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
         verifyLaneStarted = true;

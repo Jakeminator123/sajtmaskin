@@ -202,8 +202,7 @@ export async function runPreflightPhase(params: {
   let importedRepoMode = false;
   if (previousFiles && previousFiles.length > 0) {
     try {
-      const versions = await chatRepo.getVersionsByChat(chatId);
-      importedRepoMode = versions.some((v) => v.edit_kind === "imported_repo");
+      importedRepoMode = await chatRepo.chatHasImportedRepoVersion(chatId);
     } catch {
       /* best-effort; default to strict scaffold gates on lookup failure */
     }

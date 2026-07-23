@@ -845,11 +845,22 @@ describe("runFinalizePreflight", () => {
       ],
     });
 
+    // Imported repos are persisted VERBATIM (no scaffold assembly), so the
+    // fixture must carry the repo's own package.json — just like the real
+    // follow-up merge does (previousFiles = whole imported repo).
     const result = await runFinalizePreflight({
       chatId: "chat_imported_sanity",
       model: "gpt-5.4",
       filesJson: JSON.stringify([
         { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+            scripts: { dev: "next dev" },
+          }),
+          language: "json",
+        },
       ]),
       importedRepoMode: true,
     });
@@ -859,6 +870,14 @@ describe("runFinalizePreflight", () => {
     );
     expect(sanityIssue?.severity).toBe("warning");
     expect(result.previewStart.canStartPreview).toBe(true);
+    // Verbatim rule: no scaffold assembly ran, and the template's own
+    // dependency pins survived untouched (no baseline force-pins).
+    expect(buildCompleteProject).not.toHaveBeenCalled();
+    expect(repairGeneratedFiles).not.toHaveBeenCalled();
+    const persistedPkg = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>)
+      .find((f) => f.path === "package.json");
+    expect(persistedPkg).toBeDefined();
+    expect(JSON.parse(persistedPkg!.content).dependencies.next).toBe("14.2.3");
   });
 
   it("does not flag a composed home route that delegates to a real local component", async () => {

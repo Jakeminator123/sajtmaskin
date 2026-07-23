@@ -77,6 +77,14 @@ export interface BuildFollowUpOrchestrationInputParams {
   configuredEnvKeys?: ReadonlySet<string>;
   /** File-derived parent-version F3 build plan from the readiness gate. */
   tier3BuildSpec?: OrchestrationInput["tier3BuildSpec"];
+  /**
+   * True when the chat started from a verbatim repo import (v0-template /
+   * ZIP) — `edit_kind="imported_repo"` in the chat's version history. Forces
+   * `scaffoldMode: "off"` (no scaffold auto-match onto an arbitrary repo) and
+   * threads `importedRepoMode` to orchestrate/system-prompt so the LLM edits
+   * the repo on its own terms instead of assuming the scaffold stack.
+   */
+  importedRepoMode?: boolean;
 }
 
 function buildClearRedesignBriefFallbackFromSnapshot(
@@ -132,6 +140,8 @@ export function buildFollowUpOrchestrationInput(
         }
       : null;
 
+  const importedRepoMode = params.importedRepoMode === true;
+
   const commonInput: OrchestrationInput = {
     prompt: params.optimizedMessage,
     rawPrompt: params.message,
@@ -141,8 +151,12 @@ export function buildFollowUpOrchestrationInput(
     capabilitiesPrompt: params.message,
     scaffoldMatchPrompt: params.message,
     buildIntent: params.buildIntent,
-    scaffoldMode: params.parsedMeta.scaffoldMode,
-    scaffoldId: params.parsedMeta.scaffoldId,
+    // Imported repos never get a scaffold matched/pinned onto them — the
+    // repo is the project. resolve-base additionally neutralizes any
+    // persisted scaffold id when `importedRepoMode` is set.
+    scaffoldMode: importedRepoMode ? "off" : params.parsedMeta.scaffoldMode,
+    scaffoldId: importedRepoMode ? null : params.parsedMeta.scaffoldId,
+    importedRepoMode,
     brief: resolveFollowUpActiveBrief(params),
     themeColors: params.parsedMeta.themeColors,
     imageGenerations: params.resolvedImageGenerations,

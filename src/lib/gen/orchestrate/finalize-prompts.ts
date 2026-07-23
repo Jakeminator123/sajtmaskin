@@ -153,6 +153,7 @@ export async function finalizeOrchestrationPrompts(
     customInstructions,
     userPrompt: input.prompt,
     generationMode: resolvedMode,
+    importedRepoMode: input.importedRepoMode === true,
     followUpIntent: input.followUpIntent,
     sessionSeed: input.sessionSeed,
     chatId: input.chatId ?? null,

@@ -249,6 +249,30 @@ export async function getVersionsByChat(chatId: string): Promise<Version[]> {
   return rows.map((r) => toRow(r) as unknown as Version);
 }
 
+/**
+ * True when the chat's version history contains an `edit_kind="imported_repo"`
+ * row — i.e. the chat started from a verbatim repo import (v0-template from
+ * Blob via `POST /api/template`, or ZIP/GitHub via `/api/engine/chats/init`).
+ *
+ * Canonical detection for "imported repo mode": follow-up orchestration,
+ * finalize preflight and export/verify assembly all branch on this signal so
+ * an imported repo is edited verbatim instead of being forced through the
+ * own-engine scaffold contract (baseline dep pins, scaffold-file injection).
+ */
+export async function chatHasImportedRepoVersion(chatId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: engineVersions.id })
+    .from(engineVersions)
+    .where(
+      and(
+        eq(engineVersions.chatId, chatId),
+        eq(engineVersions.editKind, "imported_repo"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function getVersionById(versionId: string): Promise<Version | null> {
   const rows = await db
     .select()

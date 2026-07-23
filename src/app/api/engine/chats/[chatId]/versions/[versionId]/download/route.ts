@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 export async function GET(
@@ -17,10 +20,13 @@ export async function GET(
     }
     const codeFiles = await getVersionFiles(scopedVersion.version.id);
     if (codeFiles && codeFiles.length > 0) {
+      // Imported repos (v0-templates / ZIP imports) download verbatim — no
+      // scaffold merge / baseline dep pins on top of the template's own stack.
+      const verbatimRepo = await chatUsesVerbatimRepo(chatId);
       // Strip the verify-lane placeholder `.env.local` at the download boundary
       // (the shared builder keeps it for the verify/quality-gate lane).
       const completeProject = stripGeneratedEnvLocalForZip(
-        await buildExportableProject(codeFiles),
+        await buildExportableProject(codeFiles, { verbatimRepo }),
       );
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();

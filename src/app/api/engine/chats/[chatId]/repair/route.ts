@@ -16,7 +16,10 @@ import {
   releaseVersionLease,
   renewVersionLease,
 } from "@/lib/db/chat-repository-pg";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import {
   QUALITY_GATE_SETUP_HINT,
   QualityGateUnavailableError,
@@ -255,7 +258,10 @@ async function handlePOST(
       });
     }
 
-    const exportable = await buildExportableProject(codeFiles);
+    // Imported repos (v0-templates / ZIP imports) are repaired/gated verbatim
+    // — never a scaffold-merged variant with force-pinned baseline deps.
+    const verbatimRepo = await chatUsesVerbatimRepo(chatId);
+    const exportable = await buildExportableProject(codeFiles, { verbatimRepo });
     const initialContent = filesToCodeProject(exportable);
     const gateFailures = repairContext.qualityGate ?? [];
     const currentVersionErrors = normalizeRepairContextLines(
@@ -347,7 +353,7 @@ async function handlePOST(
       // kept 30s under the route budget). Renew here so a slow gate cannot
       // expire the lease before the renew-before-save below.
       if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
-      const exportable = await buildExportableProject(repairedFiles);
+      const exportable = await buildExportableProject(repairedFiles, { verbatimRepo });
       // Fas 3 same-signal-kontrakt: the post-repair gate re-runs every check
       // that originally failed (union with the base lane) — a repair is only
       // "repaired" when the SAME signal passes again. Build-origin escalation

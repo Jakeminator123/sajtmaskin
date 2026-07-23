@@ -633,6 +633,13 @@ export async function handleMessageStreamRequest(
         const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
         const persistedScaffoldId = engineChat.scaffold_id;
+        // Imported-repo detection (verbatim v0-template / ZIP chats): reuses
+        // the version list already loaded above. Fail-open to `false` on a
+        // failed versions query — same default as finalize's independent
+        // `chatHasImportedRepoVersion` lookup (strict scaffold behavior).
+        const importedRepoMode =
+          versionsQuerySucceeded &&
+          existingVersionsForChat.some((v) => v.edit_kind === "imported_repo");
         const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
           hasPreviousFiles: hasFollowUpBase,
           followUpIntent,
@@ -657,6 +664,7 @@ export async function handleMessageStreamRequest(
             buildProfileId,
             designReferences,
             persistedScaffoldId,
+            importedRepoMode,
             previousFiles,
             hasFollowUpBase,
             ignorePersistedScaffoldForMatch,
@@ -737,6 +745,7 @@ export async function handleMessageStreamRequest(
           followUpCapabilityDetection,
           followUpIntent,
           persistedScaffoldId,
+          importedRepoMode,
           ignorePersistedScaffoldForMatch,
           f3ContinuationDecision,
           f3ApprovalBuildRound,

@@ -58,6 +58,7 @@ import {
   renderFileSurfaceBudgetBlock,
   renderGenerationModeBlock,
   renderGenerationProfileBlock,
+  renderImportedRepoBlock,
   renderPreGenerationContractsBlock,
   renderTier3IntegrationBlock,
 } from "./sections/session-contracts";
@@ -207,6 +208,7 @@ export function buildDynamicContext(
 
   const parts: string[] = [];
   parts.push(...renderGenerationModeBlock(isFollowUp));
+  parts.push(...renderImportedRepoBlock(options.importedRepoMode));
   parts.push(...renderCustomInstructionsBlock(customInstructions));
   parts.push(...renderF2ContractBlock(buildSpec));
   parts.push(...renderBuildIntentBlock(intent));
