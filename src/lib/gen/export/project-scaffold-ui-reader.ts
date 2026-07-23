@@ -91,7 +91,9 @@ function readUiComponent(name: string, fileIndex: UiComponentFileIndex): string 
  */
 function startsWithUseClientDirective(content: string): boolean {
   const stripped = content.replace(/^\uFEFF/, "").replace(/^\s+/, "");
-  return /^["']use client["']\s*;?/.test(stripped);
+  // Backreference so the closing quote must match the opening one — a
+  // mismatched `"use client'` is not a valid directive and must not count.
+  return /^(["'])use client\1\s*;?/.test(stripped);
 }
 
 /**

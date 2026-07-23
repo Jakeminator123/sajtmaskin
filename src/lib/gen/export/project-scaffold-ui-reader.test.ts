@@ -42,6 +42,13 @@ describe("ensureClientDirectiveForVendoredUi", () => {
     expect(ensureClientDirectiveForVendoredUi(src)).toBe(src);
   });
 
+  it("does not treat mismatched quotes as a valid existing directive", () => {
+    // `"use client'` (open double, close single) is not a valid JS directive;
+    // a radix-importing file starting with it must still get a real one.
+    const src = "\"use client'\nimport { Slot } from \"radix-ui\"\nexport const X = Slot.Root";
+    expect(ensureClientDirectiveForVendoredUi(src).startsWith('"use client";\n\n')).toBe(true);
+  });
+
   it("does not touch a server-safe primitive with no radix/createContext usage", () => {
     const src = 'import { cn } from "@/lib/utils"\nexport function Separator(props) { return <hr {...props} /> }';
     expect(ensureClientDirectiveForVendoredUi(src)).toBe(src);
