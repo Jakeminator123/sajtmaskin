@@ -204,14 +204,16 @@ export function CookieGameModal({ onWin, onClose }: CookieGameModalProps) {
     [pacmanPos, dots, gameStarted, hasWon, gameOver],
   );
 
-  // Win → acceptera cookies efter en kort segerpaus. Timern städas vid
-  // unmount så en stängd modal aldrig kan skriva över ett senare
-  // "Endast nödvändiga"-val med en försenad accept.
+  // Win → record consent immediately (the overlay already says cookies were
+  // accepted), then close after a short victory pause. `onWin` only persists and
+  // `onClose` dismisses; both are stable, so a CookieBanner re-render no longer
+  // restarts this timer, and a fast Esc/close can't drop the just-won consent.
   useEffect(() => {
     if (!hasWon) return;
-    const timer = setTimeout(() => onWin(), 2000);
+    onWin();
+    const timer = setTimeout(() => onClose(), 2000);
     return () => clearTimeout(timer);
-  }, [hasWon, onWin]);
+  }, [hasWon, onWin, onClose]);
 
   // Keyboard controls (Escape closes; arrows/WASD steer)
   useEffect(() => {
