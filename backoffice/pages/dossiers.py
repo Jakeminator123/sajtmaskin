@@ -1047,6 +1047,20 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
             f"Utkastets manifest.id ({manifest.get('id')!r}) matchar inte plan-postens "
             f"targetId ({target_id!r}). Kör om normaliseringen mot aktuell plan."
         )
+    # Capability-match-gate (backlog A#14, #419): planen är selektionens
+    # sanning — ett utkast vars manifest.capability driftat från plan-postens
+    # targetCapability skulle promota fel dossier in i capability-poolen.
+    # Normaliserad jämförelse (trim + lowercase), samma disciplin som
+    # resolveDossierGroup. En plan-post UTAN targetCapability släpps igenom
+    # (äldre planer) — gaten låser bara uttryckliga mismatchar.
+    plan_capability = str(entry.get("targetCapability") or "").strip()
+    manifest_capability = str(manifest.get("capability") or "").strip()
+    if plan_capability and manifest_capability.lower() != plan_capability.lower():
+        return False, (
+            f"Utkastets manifest.capability ({manifest_capability!r}) matchar inte "
+            f"plan-postens targetCapability ({plan_capability!r}). Kör om "
+            "normaliseringen mot aktuell plan (eller uppdatera prospects.json)."
+        )
     errors = _validate_manifest(manifest)
     if errors:
         return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
