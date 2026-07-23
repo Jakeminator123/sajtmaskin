@@ -121,6 +121,13 @@ export interface DynamicContextOptions {
   userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
+  /**
+   * True when the chat started from a verbatim repo import (v0-template /
+   * ZIP). Renders the "Imported Template Project" contract block so the LLM
+   * edits the repo on its own terms (structure, dependency versions, package
+   * manager) instead of assuming the own-engine scaffold stack.
+   */
+  importedRepoMode?: boolean;
   /** Follow-up intent helps choose compact context; heavy context and redesign still keep full context. */
   followUpIntent?: "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "ambiguous-followup" | "capability-add" | "capability-modify" | "neutral";
   buildSpec?: BuildSpec | null;

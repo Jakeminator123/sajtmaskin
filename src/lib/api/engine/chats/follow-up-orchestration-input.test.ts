@@ -213,6 +213,24 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(emptyProviders.dossierProviderHints).toBeUndefined();
   });
 
+  it("importedRepoMode forces scaffoldMode off and threads the flag (v0-template follow-ups)", () => {
+    const params = baseParams({ importedRepoMode: true });
+
+    const planInput = buildFollowUpOrchestrationInput({ ...params, mode: "plan" });
+    const codegenInput = buildFollowUpOrchestrationInput({ ...params, mode: "codegen" });
+
+    for (const input of [planInput, codegenInput]) {
+      expect(input.scaffoldMode).toBe("off");
+      expect(input.scaffoldId).toBeNull();
+      expect(input.importedRepoMode).toBe(true);
+    }
+
+    // Default (non-imported) keeps the requested scaffold mode.
+    const normalInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
+    expect(normalInput.scaffoldMode).toBe("auto");
+    expect(normalInput.importedRepoMode).toBe(false);
+  });
+
   it("hasFollowUpBase=false suppresses follow-up-only signals on both modes", () => {
     const params = baseParams({
       hasFollowUpBase: false,

@@ -7,7 +7,10 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import {
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+} from "@/lib/gen/export/build-exportable-project";
 import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 /**
@@ -32,9 +35,14 @@ async function buildZipBufferFromEngineVersion(
   if (!files || files.length === 0) {
     return null;
   }
+  // Imported repos (v0-templates / ZIP imports) download verbatim — no
+  // scaffold merge / baseline dep pins on top of the template's own stack.
+  const verbatimRepo = await chatUsesVerbatimRepo(chatId);
   // Strip the verify-lane placeholder `.env.local` at the download boundary
   // (the shared builder keeps it for the verify/quality-gate lane).
-  const completeProject = stripGeneratedEnvLocalForZip(await buildExportableProject(files));
+  const completeProject = stripGeneratedEnvLocalForZip(
+    await buildExportableProject(files, { verbatimRepo }),
+  );
   const zip = new JSZip();
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";

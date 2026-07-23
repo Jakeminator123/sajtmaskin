@@ -59,6 +59,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject: vi.fn(async (f: unknown) => f),
+  chatUsesVerbatimRepo: vi.fn().mockResolvedValue(false),
 }));
 vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   QUALITY_GATE_SETUP_HINT: "hint",

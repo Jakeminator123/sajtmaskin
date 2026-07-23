@@ -694,6 +694,49 @@ describe("buildExportableProject", () => {
     expect(env?.content).toContain("STRIPE_SECRET_KEY=");
     expect(env?.content).toContain("CONTENTFUL_ACCESS_TOKEN=");
   });
+
+  it("verbatimRepo: passes an imported repo through untouched (no scaffold merge, no dep pins)", async () => {
+    const templatePkg = {
+      dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+      scripts: { dev: "next dev" },
+      packageManager: "pnpm@11.1.0",
+    };
+    const generated: CodeFile[] = [
+      { path: "package.json", content: JSON.stringify(templatePkg), language: "json" },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: 9", language: "text" },
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return <div>Template</div>; }",
+        language: "tsx",
+      },
+      {
+        path: ".env.local",
+        content: `${PIPELINE_ENV_LOCAL_MARKER}\nSTRIPE_SECRET_KEY=scoped\n`,
+        language: "text",
+      },
+    ];
+
+    const exported = await buildExportableProject(generated, { verbatimRepo: true });
+    const paths = exported.map((f) => f.path);
+
+    // Verbatim: no scaffold files injected, template versions untouched.
+    expect(paths).not.toContain("app/layout.tsx");
+    expect(paths).not.toContain("app/globals.css");
+    const pkg = JSON.parse(exported.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+      packageManager?: string;
+    };
+    expect(pkg.dependencies.next).toBe("14.2.3");
+    expect(pkg.dependencies.react).toBe("18.3.1");
+    expect(pkg.packageManager).toBe("pnpm@11.1.0");
+    // Pipeline-authored env artifact is still dropped (dossier-scoped view).
+    expect(paths).not.toContain(".env.local");
+    // The repo's lockfile survives so frozen installs stay consistent.
+    expect(paths).toContain("pnpm-lock.yaml");
+    // Preview↔verify parity: the placeholder API route the preview VM injects
+    // (startPreviewSession skipProjectScaffold path) ships in verify/export too.
+    expect(paths).toContain("app/api/placeholder/route.ts");
+  });
 });
 
 describe("runProjectSanityChecks peer heuristics", () => {

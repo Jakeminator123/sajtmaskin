@@ -81,6 +81,7 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject,
+  chatUsesVerbatimRepo: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
@@ -1025,7 +1026,9 @@ describe("POST quality-gate", () => {
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
       expect.objectContaining({ preloadedFiles: snapshotFiles }),
     );
-    expect(buildExportableProject).toHaveBeenCalledWith(snapshotFiles);
+    expect(buildExportableProject).toHaveBeenCalledWith(snapshotFiles, {
+      verbatimRepo: false,
+    });
   });
 
   it("returns a retryable 503 (NOT failed) when the verify lane is unreachable", async () => {

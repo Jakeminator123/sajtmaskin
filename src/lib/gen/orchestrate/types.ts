@@ -269,6 +269,23 @@ export interface OrchestrationInput {
    * (legacy) → deprecated `process.env` fallback. Prompt-only; no gate impact.
    */
   configuredEnvKeys?: ReadonlySet<string>;
+  /**
+   * True when the chat started from a verbatim repo import (v0-template from
+   * Blob, or ZIP/GitHub import) — detected via `edit_kind="imported_repo"` on
+   * the chat's version history (`chatHasImportedRepoVersion`). In this mode
+   * the project does NOT follow the own-engine scaffold contract, so
+   * orchestration must not force one onto it:
+   *
+   *  - scaffold resolution is disabled (treated as `scaffoldMode: "off"`),
+   *    including any persisted/contract scaffold id (which older buggy
+   *    follow-ups may have pinned onto imported chats);
+   *  - the system prompt renders an "Imported Template Project" contract
+   *    block instead of scaffold/variant context.
+   *
+   * Finalize (`runFinalizePreflight`) reads the same signal independently to
+   * skip scaffold assembly + baseline dependency force-pins.
+   */
+  importedRepoMode?: boolean;
 }
 
 export interface OrchestrationBase {

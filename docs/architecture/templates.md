@@ -47,7 +47,13 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 | Repair/scaffold-merge | Hoppas över (`skipRepair`, `skipProjectScaffold`) | Körs (`buildCompleteProject`) |
 | Provenance | `editKind: "imported_repo"` | normal |
 
-**Vid follow-up-redigering** av en importerad mall körs `buildCompleteProject`, som mergar mot baselinen men **bara force-pinnar** `next`, `react`, `react-dom`, `lucide-react` (`BASELINE_PINNED_DEPS`). Allt annat (inkl. `tailwindcss`) behåller mallens version, och scaffold-filer injiceras bara om de **saknas**. Project-sanity-fel nedgraderas till varningar för `imported_repo`; render-safety-gates (home-route, merged-syntax) är kvar.
+**Vid follow-up-redigering** av en importerad mall gäller **imported repo mode** (detekteras via `edit_kind="imported_repo"` i chattens versionshistorik, `chatHasImportedRepoVersion`):
+
+- **Orchestration:** ingen scaffold matchas eller pinnas (`scaffoldMode: "off"`, persisted/contract-scaffoldId neutraliseras), och systemprompten renderar blocket `## Imported Template Project (verbatim repo)` som instruerar LLM:en att respektera repots struktur, versioner och `package.json`.
+- **Finalize:** `buildCompleteProject` + den mekaniska fixer-passen **hoppas över** — inga scaffold-filer injiceras, inga baseline-force-pins (`next`/`react`/`react-dom`/`lucide-react`), mallens lockfil förblir konsistent med dess `package.json`. Merged-syntax, degeneracy och home-route-gaten (render-safety) körs fortfarande; project-sanity-fel nedgraderas till varningar.
+- **Export/nedladdning/verify/repair/quality-gate:** `buildExportableProject(..., { verbatimRepo: true })` — samma verbatim-filer överallt, så RenderGate testar exakt det projekt preview-VM:en kör.
+
+(Före 2026-07-23 mergades follow-ups mot scaffold-baselinen med force-pins, vilket kunde bryta mallar på äldre Next/React-majors och ogiltigförklara deras lockfil — se BUG-SWARM-BACKLOG M#tmpl1.)
 
 ### 4b. Normalize vid import (enda undantaget från verbatim)
 

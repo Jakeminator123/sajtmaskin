@@ -38,6 +38,30 @@ export function renderGenerationModeBlock(isFollowUp: boolean): string[] {
   ];
 }
 
+/**
+ * Contract block for follow-ups on verbatim repo imports (v0-templates from
+ * Blob / ZIP imports). These projects do NOT follow the own-engine scaffold
+ * conventions — they ship their own package.json (often pnpm + different
+ * framework versions), file structure and config. Without this block the LLM
+ * tends to "normalize" the repo toward the standard scaffold stack, which
+ * breaks lockfile-frozen installs and working templates.
+ */
+export function renderImportedRepoBlock(importedRepoMode: boolean | undefined): string[] {
+  if (!importedRepoMode) return [];
+  return [
+    "## Imported Template Project (verbatim repo)",
+    "",
+    "This project was imported as a COMPLETE, WORKING repository (a v0 template or repo import). It is not built on the standard scaffold. Non-negotiable rules:",
+    "",
+    "- **Respect the repo's own structure and conventions.** Files may live under `src/app/`, use different aliases, or follow patterns unlike the standard scaffold. Follow what the existing files do — never restructure to match scaffold conventions.",
+    "- **Do NOT rewrite `package.json` unless the change genuinely requires a new dependency.** If you must add one, add ONLY that dependency and keep every existing version, script, `packageManager` field and override exactly as-is. Never change the versions of `next`, `react`, `react-dom`, `tailwindcss` or any other existing dependency.",
+    "- **Do NOT emit lockfiles** (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`) or config files (`next.config.*`, `tsconfig.json`, `postcss.config.*`, `tailwind.config.*`) unless the user's request is specifically about them.",
+    "- **Emit only the files you change.** The rest of the repo is preserved as-is.",
+    "- Use the libraries and versions the repo already depends on. Check `## Current Project Files` for what exists before importing anything new.",
+    "",
+  ];
+}
+
 export function renderCustomInstructionsBlock(customInstructions?: string): string[] {
   const trimmedCustom = customInstructions?.trim();
   if (!trimmedCustom) return [];

@@ -55,6 +55,8 @@ export async function runPlanModeTurn(params: {
   buildProfileId: BuildProfileId;
   designReferences: ReturnType<typeof summarizeDesignReferences>;
   persistedScaffoldId: string | null;
+  /** Chat started from a verbatim repo import (`edit_kind="imported_repo"`). */
+  importedRepoMode: boolean;
   previousFiles: CodeFile[];
   hasFollowUpBase: boolean;
   ignorePersistedScaffoldForMatch: boolean;
@@ -84,6 +86,7 @@ export async function runPlanModeTurn(params: {
     buildProfileId,
     designReferences,
     persistedScaffoldId,
+    importedRepoMode,
     previousFiles,
     hasFollowUpBase,
     ignorePersistedScaffoldForMatch,
@@ -120,6 +123,7 @@ export async function runPlanModeTurn(params: {
       resolvedImageGenerations,
       designReferences,
       persistedScaffoldId,
+      importedRepoMode,
       previousFilesCount: previousFiles.length,
       hasFollowUpBase,
       ignorePersistedScaffoldForMatch,
@@ -144,8 +148,10 @@ export async function runPlanModeTurn(params: {
     scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
   });
   const planResolvedScaffold = planOrchestration.resolvedScaffold;
+  // Imported-repo chats never persist a scaffold id (see codegen-turn).
   if (
     planResolvedScaffold &&
+    !importedRepoMode &&
     (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
   ) {
     try {

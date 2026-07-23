@@ -15,6 +15,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject,
+  chatUsesVerbatimRepo: vi.fn().mockResolvedValue(false),
 }));
 
 // NOTE: `stripGeneratedEnvLocalForZip` is intentionally NOT mocked — we exercise
