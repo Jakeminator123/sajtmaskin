@@ -495,6 +495,10 @@ export function useAutoFix(
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPayloadKeyRef = useRef<string | null>(null);
   const autoFixInFlightRef = useRef(false);
+  // Bumped by cancelPendingAutoFix so an autofix still in its async prelude
+  // (in-flight gate set, timer not yet armed) can detect a superseding user
+  // prompt and bail before it schedules a now-stale fix.
+  const autoFixCancelGenerationRef = useRef(0);
 
   /**
    * Drops a scheduled-but-not-yet-sent autofix. Called by the send lane when
@@ -505,6 +509,12 @@ export function useAutoFix(
    * the in-flight gate, and the user's send aborts that stream anyway).
    */
   const cancelPendingAutoFix = useCallback(() => {
+    // Invalidate any handler still in its async prelude (in-flight gate set,
+    // timer not yet armed): clearing only the armed timer misses that window,
+    // so a superseded fix could still arm + fire ~1.5–4s later when the chat
+    // head did not advance (e.g. the user's prompt 409'd). The prelude and the
+    // timer callback both re-check this counter and bail.
+    autoFixCancelGenerationRef.current += 1;
     if (pendingTimerRef.current) {
       clearTimeout(pendingTimerRef.current);
       pendingTimerRef.current = null;
@@ -545,6 +555,10 @@ export function useAutoFix(
           return;
         }
         autoFixInFlightRef.current = true;
+        // Snapshot the cancel counter so a user prompt submitted during the
+        // async prelude below (which bumps it via cancelPendingAutoFix) makes
+        // this attempt bail before it arms a stale timer.
+        const cancelGeneration = autoFixCancelGenerationRef.current;
         let scheduled = false;
         try {
           const now = Date.now();
@@ -593,6 +607,12 @@ export function useAutoFix(
               : null;
           const delayMs = isManual ? 0 : chatTotal === 0 ? 1500 : 4000;
 
+          // A user prompt submitted during the awaits above (cancelPendingAutoFix)
+          // supersedes this queued fix — bail before arming the timer so a stale
+          // autofix can't fire after the user's intent. The finally releases the
+          // in-flight gate because `scheduled` stays false.
+          if (autoFixCancelGenerationRef.current !== cancelGeneration) return;
+
           pendingPayloadKeyRef.current = reasonKey;
           scheduled = true;
 
@@ -625,6 +645,9 @@ export function useAutoFix(
                 // stream into chat B, or abort the user's fresh generation.
                 if (!isActiveChat()) return;
                 if (isGenerationActive?.() === true) return;
+                // A user prompt that arrived while these guard awaits were in
+                // flight also supersedes this fix.
+                if (autoFixCancelGenerationRef.current !== cancelGeneration) return;
                 pendingPayloadKeyRef.current = null;
 
                 // Count the attempt only now that a real send is actually

@@ -331,6 +331,56 @@ describe("useAutoFix", () => {
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("cancelPendingAutoFix during the async prelude prevents a stale scheduled fix (Bugbot)", async () => {
+    // The user submits a new prompt WHILE this autofix is still in its async
+    // prelude (in-flight gate set, schedule timer NOT yet armed) — here modelled
+    // by firing cancel when the prelude's `/versions` freshness guard runs.
+    // The old cancel only cleared an already-armed timer, so the prelude went on
+    // to arm a stale timer that fired ~1.5–4s later. The cancel-generation guard
+    // must make the prelude bail before scheduling.
+    const sendMessage = vi.fn(async () => undefined);
+    let cancel: (() => void) | null = null;
+    let firedCancel = false;
+    const baseFetch = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (!firedCancel && String(input).includes("/versions")) {
+          firedCancel = true;
+          cancel?.();
+        }
+        return baseFetch(input);
+      }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+    cancel = result.current.cancelPendingAutoFix;
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    // No stale fix fired despite the head not advancing.
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    // The in-flight gate was still released: a fresh autofix proceeds normally.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["typecheck failed"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
