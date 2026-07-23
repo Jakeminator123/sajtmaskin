@@ -144,6 +144,39 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(messages.every((m) => !m.isStreaming)).toBe(true);
   });
 
+  // PR #355-triage #20 (backlog): the /messages network fallback must reuse
+  // the SAME stale-base reload UX as the stream path — a 409
+  // stale_base_version through the fallback previously fell into the generic
+  // "Failed to send message" error path.
+  it("surfaces the stale-base reload UX when the 409 arrives via the /messages fallback", async () => {
+    fetchMock
+      // Stream POST: network error → triggers the /messages fallback.
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      // Fallback POST /messages: stale-base 409.
+      .mockResolvedValueOnce(
+        jsonResponse(409, {
+          error: "stale_base_version",
+          reason: "stale_base_version",
+          latestVersionId: "ver_new",
+        }),
+      );
+
+    const { result, messagesBox, mutateVersions } = createHarness({
+      activeVersionId: "ver_old",
+      latestKnownVersionId: "ver_old",
+    });
+
+    await send(result, "Uppdatera hero copy");
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/ladda om/i);
+    expect(mutateVersions).toHaveBeenCalledTimes(1);
+
+    const assistant = messagesBox.current.find((m) => m.role === "assistant");
+    expect(assistant?.isStreaming).toBe(false);
+    expect(assistant?.content).toMatch(/nyare version/i);
+  });
+
   // S4: with no known-latest version the client must NOT send the stale-base
   // signal, so the follow-up proceeds normally (no false 409 on a first/
   // signal-less message).
