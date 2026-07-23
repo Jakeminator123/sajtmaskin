@@ -898,6 +898,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}
         onRetryDeploymentHistory={vm.refetchDeploymentHistory}
         deployDisabledReason={deployDisabledReason}
+        onToggleVersions={vm.handleToggleVersionPanel}
+        isVersionPanelOpen={!vm.isVersionPanelCollapsed}
       />
       <ModelTraceOverlay
         selectedModelTier={vm.selectedModelTier}
@@ -1172,25 +1174,25 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onF3ReleaseSettled={vm.handleDeterministicF3Settled}
             />
           </div>
-          <div
-            className={cn(
-              "border-border bg-background hidden h-full flex-col border-l transition-[width] duration-200 lg:flex",
-              vm.isVersionPanelCollapsed ? "lg:w-10" : "lg:w-80",
-            )}
-          >
-            <VersionHistory
-              chatId={vm.chatId}
-              selectedVersionId={vm.activeVersionId}
-              activePreviewSessionId={vm.activePreviewSessionId}
-              onVersionSelect={handleVersionSelect}
-              onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
-              isCollapsed={vm.isVersionPanelCollapsed}
-              onToggleCollapse={vm.handleToggleVersionPanel}
-              versions={vm.effectiveVersionsList}
-              mutateVersions={vm.mutateVersions}
-              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-            />
-          </div>
+          {/* Versionshistoriken är en riktig drawer: helt dold när den är
+              stängd (ingen tunn vertikal remsa) och öppnas/stängs via
+              "Versioner"-knappen i headern eller panelens egen stängknapp. */}
+          {!vm.isVersionPanelCollapsed && (
+            <div className="border-border bg-background hidden h-full w-80 flex-col border-l lg:flex">
+              <VersionHistory
+                chatId={vm.chatId}
+                selectedVersionId={vm.activeVersionId}
+                activePreviewSessionId={vm.activePreviewSessionId}
+                onVersionSelect={handleVersionSelect}
+                onPreviewResync={(versionId) => vm.forcePreviewResync(versionId)}
+                isCollapsed={false}
+                onToggleCollapse={vm.handleToggleVersionPanel}
+                versions={vm.effectiveVersionsList}
+                mutateVersions={vm.mutateVersions}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              />
+            </div>
+          )}
         </div>
       </div>
 
