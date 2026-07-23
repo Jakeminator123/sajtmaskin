@@ -46,6 +46,7 @@ import {
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
+import { PROMPT_PREFILL_EVENT } from "@/lib/builder/prompt-prefill-event";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import {
   buildShadcnInsertMessage,
@@ -298,6 +299,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+
+  // Exempelprompt-chip i preview-panelens välkomstläge fyller chattens input —
+  // på mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser
+  // den ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
+  useEffect(() => {
+    const handler = () => setMobileTab("chat");
+    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
+    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
+  }, []);
   const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);

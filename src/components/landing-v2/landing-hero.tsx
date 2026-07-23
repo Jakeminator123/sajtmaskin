@@ -82,10 +82,13 @@ export function LandingHero({
             Din n&auml;sta{" "}
             <span className="relative inline-grid max-w-full align-baseline">
               {/* Osynlig platshållare (längsta ordet) delar grid-cell med det
-                  synliga ordet och reserverar bredd/höjd på ALLA skärmstorlekar
-                  — rubriken hoppar aldrig och understrykningen spänner alltid
-                  hela ordets yta. Radbryts som en enhet på smala mobiler. */}
-              <span className="invisible whitespace-nowrap [grid-area:1/1]">{longestSiteType}</span>
+                  synliga ordet och reserverar bredd/höjd — rubriken hoppar
+                  aldrig och understrykningen spänner alltid ordets yta.
+                  Under sm döljs platshållaren: på mycket smala mobiler skulle
+                  längsta ordets reserverade bredd annars kunna klippas av
+                  sidans overflow-x-hidden — där sätter det synliga ordet
+                  cellens bredd i stället (understrykningen följer ordet). */}
+              <span className="invisible whitespace-nowrap [grid-area:1/1] max-sm:hidden">{longestSiteType}</span>
               <span
                 className={`text-primary whitespace-nowrap text-center [grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
               >

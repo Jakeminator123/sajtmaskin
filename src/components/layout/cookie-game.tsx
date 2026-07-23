@@ -198,12 +198,20 @@ export function CookieGameModal({ onWin, onClose }: CookieGameModalProps) {
         if (newPos.x === COOKIE_POS.x && newPos.y === COOKIE_POS.y) {
           setHasWon(true);
           setScore((s) => s + 100);
-          setTimeout(() => onWin(), 2000);
         }
       }
     },
-    [pacmanPos, dots, gameStarted, hasWon, gameOver, onWin],
+    [pacmanPos, dots, gameStarted, hasWon, gameOver],
   );
+
+  // Win → acceptera cookies efter en kort segerpaus. Timern städas vid
+  // unmount så en stängd modal aldrig kan skriva över ett senare
+  // "Endast nödvändiga"-val med en försenad accept.
+  useEffect(() => {
+    if (!hasWon) return;
+    const timer = setTimeout(() => onWin(), 2000);
+    return () => clearTimeout(timer);
+  }, [hasWon, onWin]);
 
   // Keyboard controls (Escape closes; arrows/WASD steer)
   useEffect(() => {
