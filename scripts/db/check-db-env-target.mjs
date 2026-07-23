@@ -15,6 +15,7 @@
  *
  * Exit codes: 0 = OK/varning, 1 = fel target eller saknad URL.
  */
+import { config } from "dotenv";
 import { existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -189,6 +190,21 @@ function parseArgs(argv) {
   return args;
 }
 
+/**
+ * Laddar de lokala env-filerna som syskonskripten använder (`check-dev-db.mjs`
+ * → `.env.local`, `migrate-prod.mjs` → `.env.vercel.production.pulled`) så den
+ * dokumenterade lokala `db:check-target`-kommandot faktiskt hittar en URL.
+ * `override: false` gör att CI:s explicit injicerade `POSTGRES_URL` (och alla
+ * redan exporterade värden) fortsatt vinner — filerna fyller bara i det som
+ * saknas. CLI-only: körs aldrig vid import (testerna rör bara rena funktioner).
+ */
+function loadLocalEnvFiles(expect) {
+  if (existsSync(".env.local")) config({ path: ".env.local", override: false });
+  if (expect === "prod" && existsSync(".env.vercel.production.pulled")) {
+    config({ path: ".env.vercel.production.pulled", override: false });
+  }
+}
+
 function main() {
   const { expect } = parseArgs(process.argv.slice(2));
   if (!expect) {
@@ -196,6 +212,7 @@ function main() {
     process.exit(1);
   }
 
+  loadLocalEnvFiles(expect);
   const targets = loadDbTargets();
   const resolved = resolveConfiguredDbUrl();
   const result = checkDbEnvTarget({ expect, urlValue: resolved?.value, targets });
