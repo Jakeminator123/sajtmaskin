@@ -202,6 +202,33 @@ export async function getLatestEngineVersionErrorLogs(
 }
 
 /**
+ * Newest error-log row for a version within ONE category (exact `LIMIT 1`
+ * query). Codex P2 on #353 (backlog): the F3 gate previously fetched the
+ * latest 200 rows and searched them for `product_postcheck.summary` — the
+ * postcheck writes one row per product warning, so a noisy version could push
+ * the summary row outside the window and silently unblock the gate. A
+ * category-scoped query cannot be crowded out.
+ */
+export async function getLatestEngineVersionErrorLogForCategory(
+  versionId: string,
+  category: string,
+): Promise<VersionErrorLog | null> {
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(engineVersionErrorLogs)
+    .where(
+      and(
+        eq(engineVersionErrorLogs.version_id, versionId),
+        eq(engineVersionErrorLogs.category, category),
+      ),
+    )
+    .orderBy(desc(engineVersionErrorLogs.created_at))
+    .limit(1);
+  return (rows[0] as VersionErrorLog | undefined) ?? null;
+}
+
+/**
  * Repair-loop hardening — SAJ-25.
  *
  * When a follow-up/repair pass on the SAME `versionId` has no current
