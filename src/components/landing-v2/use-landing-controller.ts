@@ -6,7 +6,13 @@ import { toast } from "sonner"
 import { createProject, deleteProject } from "@/lib/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
-import { use3DTilt, useHonestCounter, useRotatingText } from "@/components/landing-v2/landing-hooks"
+import {
+  use3DTilt,
+  useHonestCounter,
+  usePrefersReducedMotion,
+  useRotatingText,
+  useSaveData,
+} from "@/components/landing-v2/landing-hooks"
 
 export interface ChatAreaProps {
   selectedCategory?: string | null
@@ -48,9 +54,16 @@ export function useLandingController({
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
 
+  // Statiskt läge (reduced-motion / save-data / svagt nät) laddar aldrig WebGL-scenen,
+  // så hovern ska inte heller föhämta den tunga three.js-chunken på svaga nät.
+  const reduceMotion = usePrefersReducedMotion()
+  const saveData = useSaveData()
+  const staticOnly = reduceMotion || saveData
+
   const preloadHowItWorksScene = useCallback(() => {
+    if (staticOnly) return
     void import("./how-it-works-scene")
-  }, [])
+  }, [staticOnly])
 
   const pickCategory = useCallback(
     (id: string | null) => {
