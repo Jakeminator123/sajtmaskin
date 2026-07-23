@@ -1,0 +1,14 @@
+{
+  // Mall — kopiera till sajtmaskin.code-workspace (gitignorerad) vid behov.
+  // En rot = huvudcheckouten. Lägg inte till worktrees/globala Cursor-mappar här.
+  //
+  // Alla editor-settings bor i .vscode/settings.json (committad, canonical) och
+  // gäller denna rot oavsett om du öppnar mappen eller denna workspace-fil.
+  // Duplicera dem INTE här — det skapar bara drift.
+  "folders": [
+    {
+      "name": "sajtmaskin",
+      "path": "."
+    }
+  ]
+}

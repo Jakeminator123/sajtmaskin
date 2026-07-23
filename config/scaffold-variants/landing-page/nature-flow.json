@@ -66,10 +66,9 @@
     "bodyBackgroundImage": "linear-gradient(to bottom, color-mix(in oklab, var(--color-primary) 8%, white) 0%, transparent 28%), radial-gradient(circle at top right, color-mix(in oklab, var(--color-accent) 16%, white) 0%, transparent 22%)"
   },
   "sourceTemplateIds": [
-    "ecommerce-paddle-mobile-web-payments-starter",
-    "ecommerce-builder-io-shopify-commerce",
-    "cms-next-js-waitlist-with-notion-cms",
-    "documentation-taxonomy"
+    "jZpf5doYiNe",
+    "XOMN4texeRO",
+    "mEefgKyVifq"
   ],
   "default": false
 }

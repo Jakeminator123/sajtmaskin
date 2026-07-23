@@ -75,10 +75,9 @@
     "bodyBackgroundImage": "radial-gradient(circle at top right, color-mix(in oklab, var(--color-primary) 7%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom left, color-mix(in oklab, var(--color-accent) 6%, transparent) 0%, transparent 40%)"
   },
   "sourceTemplateIds": [
-    "starter-next-js-app-router-playground",
-    "starter-sanity-next-js-clean-app",
-    "saas-finwise-saas-landing-page",
-    "saas-vercel-with-clerk-auth"
+    "fUqrRFEXLnm",
+    "sV0OtrkXM6x",
+    "Vt3PtqfiHkh"
   ],
   "default": false
 }

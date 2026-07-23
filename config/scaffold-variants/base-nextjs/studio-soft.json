@@ -75,10 +75,9 @@
     "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 6%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 8%, transparent) 0%, transparent 42%)"
   },
   "sourceTemplateIds": [
-    "starter-sanity-next-js-clean-app",
-    "starter-next-js-app-router-playground",
-    "blog-next-js-wisp-corporate-blog-starter",
-    "saas-vercel-with-clerk-auth"
+    "XOMN4texeRO",
+    "iBPsMqPGRTZ",
+    "ZIHJBIvfeuW"
   ],
   "default": false
 }

@@ -19,6 +19,50 @@ export function usePrefersReducedMotion(): boolean {
 
   return reduce
 }
+
+type NetworkInformationLike = {
+  saveData?: boolean
+  effectiveType?: string
+  downlink?: number
+  addEventListener?: (type: "change", listener: () => void) => void
+  removeEventListener?: (type: "change", listener: () => void) => void
+}
+
+const SLOW_EFFECTIVE_TYPES = new Set(["slow-2g", "2g", "3g"])
+
+/**
+ * Rapporterar `true` när användaren ber om datasparläge (`Save-Data`) eller sitter
+ * på en svag uppkoppling (`effectiveType` 2g/3g eller låg `downlink`). Används för
+ * att servera en statisk fallback i stället för att ladda ner + rita WebGL-scener,
+ * så förstasidan förblir snabb på dåliga nät. SSR-säker: `false` tills mount.
+ */
+export function useSaveData(): boolean {
+  const [saveData, setSaveData] = useState(false)
+
+  useEffect(() => {
+    const connection = (
+      navigator as Navigator & { connection?: NetworkInformationLike }
+    ).connection
+    if (!connection) return
+
+    const sync = () => {
+      const slow =
+        connection.saveData === true ||
+        (typeof connection.effectiveType === "string" &&
+          SLOW_EFFECTIVE_TYPES.has(connection.effectiveType)) ||
+        (typeof connection.downlink === "number" &&
+          connection.downlink > 0 &&
+          connection.downlink < 1.5)
+      setSaveData(Boolean(slow))
+    }
+
+    sync()
+    connection.addEventListener?.("change", sync)
+    return () => connection.removeEventListener?.("change", sync)
+  }, [])
+
+  return saveData
+}
 const TILT_NEUTRAL = "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)"
 
 export function use3DTilt(intensity = 12) {

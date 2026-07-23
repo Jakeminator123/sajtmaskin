@@ -1,6 +1,6 @@
 # Scaffold-systemet
 
-**Senast uppdaterad:** 2026-06-23 (variantantal synkat mot `config/scaffold-variants/`). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
+**Senast uppdaterad:** 2026-07-22 (30 variants; `sourceTemplateIds` remappade till riktiga v0-mall-Blob-id:n + integritetsgrind). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
 Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
@@ -11,16 +11,16 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 | ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant |
 |---|---|---|---|---|---|---|
 | `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` |
-| `landing-page` | Landing Page | marketing | medium | website, template | **9** | `corporate-grid` |
+| `landing-page` | Landing Page | marketing | medium | website, template | **10** | `corporate-grid` |
 | `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` |
 | `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` |
 | `blog` | Blog | editorial | medium | website, template | 2 | `editorial-serif` |
 | `dashboard` | Dashboard | app | advanced | app | 2 | `glass-frosted` |
 | `auth-pages` | Auth Pages | app | simple | website, app, template | 2 | `clean-auth` |
 | `ecommerce` | E-handel | commerce | advanced | website, template | 3 | `megastore-clean` |
-| `app-shell` | App Shell | app | medium | app | 2 | `clean-utility` |
+| `app-shell` | App Shell | app | medium | app | 3 | `clean-utility` |
 
-**Totalt:** 9 scaffolds, 28 variants (variant-JSON under `config/scaffold-variants/<scaffold>/`, exkl. `_index/`). Variants ojämnt fördelade.
+**Totalt:** 9 scaffolds, 30 variants (variant-JSON under `config/scaffold-variants/<scaffold>/`, exkl. `_index/`). Variants ojämnt fördelade. De två wizard-skapade (2026-07: `futuristic-investment-landing`, `quantum-aegis`) är fullt kuraterade.
 
 > Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
 > för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
@@ -31,9 +31,13 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 
 Per scaffold finns en eller flera variants med design-axes (label, description, keywords, fontPairings, signatureMotif, themeTokens, promptHints, colorMode, default).
 
-**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla variant-JSON-filer (då 21, idag 28). Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
+**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla variant-JSON-filer (då 21, idag 30). Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
 
-**Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser. Övriga har bra design-axes men kan ha generiska sourceTemplateIds.
+**Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser.
+
+**`sourceTemplateIds` (sedan 2026-07-22):** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades i en engångskörning, `scripts/scaffolds/remap-variant-source-templates.mjs`). Fältet är fortsatt en proveniens-etikett — ingen mallkod injiceras — men id:na är nu upplösbara i backoffice och verifieras av integritetsgrinden nedan.
+
+**Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt fler än en default per scaffold.
 
 ---
 
