@@ -108,11 +108,50 @@ afterEach(() => {
 });
 
 describe("useSendMessage 5-2 stale-base gate (client half)", () => {
-  // S5: a 409 stale_base_version must surface a reload toast and leave the
-  // chat state consistent — no duplicate/stuck optimistic user message and
-  // the assistant turn stops streaming. The hardest scenario to smoke
-  // manually, so it is locked here.
-  it("surfaces a reload toast and resets state on a 409 stale_base_version", async () => {
+  // Fast-edit robustness (2026-07-23): the FIRST 409 stale_base_version is
+  // auto-rebased — the send retries once against the server's latest version
+  // so a quick follow-up prompt survives an autofix/repair that advanced the
+  // head. Only a SECOND consecutive 409 falls back to the reload toast.
+  it("auto-rebases onto the server's latest version on a 409 stale_base_version", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      if (bodies.length === 1) {
+        return jsonResponse(409, {
+          error: "stale_base_version",
+          reason: "stale_base_version",
+          latestVersionId: "ver_new",
+        });
+      }
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result, mutateVersions } = createHarness({
+      activeVersionId: "ver_old",
+      latestKnownVersionId: "ver_old",
+    });
+
+    await send(result, "Uppdatera hero copy");
+
+    expect(bodies).toHaveLength(2);
+    const retryMeta = (bodies[1]?.meta ?? {}) as Record<string, unknown>;
+    expect(retryMeta.engineBaseVersionId).toBe("ver_new");
+    expect(retryMeta.engineLatestKnownVersionId).toBe("ver_new");
+    expect(handleSseStream).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.message).toHaveBeenCalledWith(
+      "Byggde vidare på senaste versionen",
+      expect.anything(),
+    );
+    expect(mutateVersions).toHaveBeenCalled();
+  });
+
+  // S5 (fallback): if the head moves AGAIN between rebase and retry, the
+  // second 409 must surface the reload toast and leave the chat state
+  // consistent — no duplicate/stuck optimistic user message and the
+  // assistant turn stops streaming.
+  it("surfaces a reload toast and resets state when the auto-rebase retry also hits 409", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(409, {
         error: "stale_base_version",
@@ -130,7 +169,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
 
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/ladda om/i);
-    expect(mutateVersions).toHaveBeenCalledTimes(1);
+    expect(mutateVersions).toHaveBeenCalled();
     expect(handleSseStream).not.toHaveBeenCalled();
 
     const messages = messagesBox.current;

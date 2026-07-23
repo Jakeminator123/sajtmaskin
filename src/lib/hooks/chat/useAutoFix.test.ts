@@ -243,6 +243,144 @@ describe("useAutoFix", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
+  it("never schedules an autofix while a generation stream is active (fast-edit guard)", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() =>
+      useAutoFix(sendMessage, () => "chat_1", () => true),
+    );
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("skips a scheduled autofix when a generation starts while the guards are in flight", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    let generationActive = false;
+    const baseFetch = globalThis.fetch;
+    // The user submits a prompt while the timer callback's guard requests are
+    // running: flip the flag when `/readiness` fires so only the post-await
+    // re-check can catch it.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/readiness")) generationActive = true;
+        return baseFetch(input);
+      }),
+    );
+    const { result } = renderHook(() =>
+      useAutoFix(sendMessage, () => "chat_1", () => generationActive),
+    );
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("cancelPendingAutoFix drops a scheduled-but-not-sent autofix (user prompt supersedes)", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    // Cancel before the schedule timer fires (the user sent a new prompt).
+    act(() => {
+      result.current.cancelPendingAutoFix();
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    // The in-flight gate was released by the cancel: a NEW autofix event
+    // (e.g. from the next generation's post-check) still goes through.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["typecheck failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancelPendingAutoFix during the async prelude prevents a stale scheduled fix (Bugbot)", async () => {
+    // The user submits a new prompt WHILE this autofix is still in its async
+    // prelude (in-flight gate set, schedule timer NOT yet armed) — here modelled
+    // by firing cancel when the prelude's `/versions` freshness guard runs.
+    // The old cancel only cleared an already-armed timer, so the prelude went on
+    // to arm a stale timer that fired ~1.5–4s later. The cancel-generation guard
+    // must make the prelude bail before scheduling.
+    const sendMessage = vi.fn(async () => undefined);
+    let cancel: (() => void) | null = null;
+    let firedCancel = false;
+    const baseFetch = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (!firedCancel && String(input).includes("/versions")) {
+          firedCancel = true;
+          cancel?.();
+        }
+        return baseFetch(input);
+      }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+    cancel = result.current.cancelPendingAutoFix;
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    // No stale fix fired despite the head not advancing.
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    // The in-flight gate was still released: a fresh autofix proceeds normally.
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["typecheck failed"],
+      });
+      await vi.runAllTimersAsync();
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it.skipIf(capOverridden)("does not start a second autofix while one is still in flight (no overlap)", async () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(

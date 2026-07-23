@@ -23,7 +23,7 @@
   },
   "eslint.useFlatConfig": true,
   "files.eol": "\n",
-  "files.autoSave": "off",
+  "files.autoSave": "afterDelay",
 
   // ── Dölj i Explorer ──
   "files.exclude": {

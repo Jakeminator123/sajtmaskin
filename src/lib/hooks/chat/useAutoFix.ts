@@ -482,12 +482,46 @@ export function useAutoFix(
    * and fail-open: when omitted or returning null/undefined, no chat guard runs.
    */
   getActiveChatId?: () => string | null | undefined,
+  /**
+   * Returns true while a generation stream (user prompt OR another autofix)
+   * is actively running. An automatic autofix must NEVER start then: its
+   * `sendMessage` would abort the in-flight stream via `streamAbortRef`
+   * ("versionen hoppar när jag editerar snabbt"). Optional and fail-open.
+   */
+  isGenerationActive?: () => boolean,
 ) {
   const autoFixAttemptsRef = useRef<Record<string, AttemptEntry>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPayloadKeyRef = useRef<string | null>(null);
   const autoFixInFlightRef = useRef(false);
+  // Bumped by cancelPendingAutoFix so an autofix still in its async prelude
+  // (in-flight gate set, timer not yet armed) can detect a superseding user
+  // prompt and bail before it schedules a now-stale fix.
+  const autoFixCancelGenerationRef = useRef(0);
+
+  /**
+   * Drops a scheduled-but-not-yet-sent autofix. Called by the send lane when
+   * the USER submits a new prompt: their intent supersedes the queued fix —
+   * the fix targeted a version the new generation is about to replace, and
+   * letting the timer fire mid-stream would abort the user's generation.
+   * A fix whose send already started is not touched (its own finally owns
+   * the in-flight gate, and the user's send aborts that stream anyway).
+   */
+  const cancelPendingAutoFix = useCallback(() => {
+    // Invalidate any handler still in its async prelude (in-flight gate set,
+    // timer not yet armed): clearing only the armed timer misses that window,
+    // so a superseded fix could still arm + fire ~1.5–4s later when the chat
+    // head did not advance (e.g. the user's prompt 409'd). The prelude and the
+    // timer callback both re-check this counter and bail.
+    autoFixCancelGenerationRef.current += 1;
+    if (pendingTimerRef.current) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+      autoFixInFlightRef.current = false;
+    }
+    pendingPayloadKeyRef.current = null;
+  }, []);
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
@@ -512,7 +546,19 @@ export function useAutoFix(
           if (isManual) notifyManualAutofixBusy();
           return;
         }
+        // A user generation is already streaming (e.g. the user sent a new
+        // prompt while this version's post-check was still running). Don't even
+        // schedule: the fix targets a version that is being superseded, and a
+        // later send would abort the user's stream.
+        if (isGenerationActive?.() === true) {
+          if (isManual) notifyManualAutofixBusy();
+          return;
+        }
         autoFixInFlightRef.current = true;
+        // Snapshot the cancel counter so a user prompt submitted during the
+        // async prelude below (which bumps it via cancelPendingAutoFix) makes
+        // this attempt bail before it arms a stale timer.
+        const cancelGeneration = autoFixCancelGenerationRef.current;
         let scheduled = false;
         try {
           const now = Date.now();
@@ -561,6 +607,12 @@ export function useAutoFix(
               : null;
           const delayMs = isManual ? 0 : chatTotal === 0 ? 1500 : 4000;
 
+          // A user prompt submitted during the awaits above (cancelPendingAutoFix)
+          // supersedes this queued fix — bail before arming the timer so a stale
+          // autofix can't fire after the user's intent. The finally releases the
+          // in-flight gate because `scheduled` stays false.
+          if (autoFixCancelGenerationRef.current !== cancelGeneration) return;
+
           pendingPayloadKeyRef.current = reasonKey;
           scheduled = true;
 
@@ -569,6 +621,13 @@ export function useAutoFix(
             void (async () => {
               try {
                 if (pendingPayloadKeyRef.current !== reasonKey) return;
+                // NEVER fire while a generation stream is running: sendMessage
+                // aborts the active stream controller, so an automatic fix that
+                // fires mid-stream would kill the user's own generation and
+                // produce the "versions jump when I edit quickly" failure mode.
+                // Manual triggers are also blocked here — the busy toast below
+                // in the schedule path already told the user to wait.
+                if (isGenerationActive?.() === true) return;
                 // Skip if the user navigated to a different chat since this
                 // autofix was scheduled — never apply chat A's fix to chat B.
                 // Fail-open when the active chat is unknown (getter absent/null).
@@ -581,9 +640,14 @@ export function useAutoFix(
                 if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
                 // Re-check AFTER the awaits (Codex P1, PR #393): the two guard
                 // requests above can take long enough for the user to switch
-                // chats while they are in flight — the pre-await sample alone
-                // would then let chat A's autofix stream into chat B.
+                // chats — or submit a new prompt — while they are in flight.
+                // The pre-await sample alone would then let chat A's autofix
+                // stream into chat B, or abort the user's fresh generation.
                 if (!isActiveChat()) return;
+                if (isGenerationActive?.() === true) return;
+                // A user prompt that arrived while these guard awaits were in
+                // flight also supersedes this fix.
+                if (autoFixCancelGenerationRef.current !== cancelGeneration) return;
                 pendingPayloadKeyRef.current = null;
 
                 // Count the attempt only now that a real send is actually
@@ -631,7 +695,7 @@ export function useAutoFix(
         }
       })();
     },
-    [sendMessage, getActiveChatId],
+    [sendMessage, getActiveChatId, isGenerationActive],
   );
 
   useEffect(() => {
@@ -660,5 +724,5 @@ export function useAutoFix(
     };
   }, [handleAutoFix]);
 
-  return { autoFixHandlerRef };
+  return { autoFixHandlerRef, cancelPendingAutoFix };
 }
