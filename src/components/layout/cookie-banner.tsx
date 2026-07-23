@@ -50,7 +50,7 @@ export function CookieBanner() {
       <aside
         role="dialog"
         aria-label="Cookie-inställningar"
-        className="border-border/60 bg-card/95 fixed bottom-4 left-4 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-2xl backdrop-blur-md"
+        className="border-border/60 bg-card/95 fixed bottom-4 left-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-2xl backdrop-blur-md"
       >
         <div className="flex items-start gap-3">
           <div className="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">

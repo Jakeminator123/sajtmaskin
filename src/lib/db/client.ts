@@ -137,7 +137,8 @@ function looksPooled(connStr: string): boolean {
   }
 }
 
-function parsePositiveIntEnv(value: string | undefined): number | undefined {
+/** @internal exported for tests. */
+export function parsePositiveIntEnv(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const n = Number.parseInt(value.trim(), 10);
   if (!Number.isFinite(n) || n <= 0) return undefined;
@@ -162,7 +163,8 @@ function resolveIdleTimeoutMs(connStr: string): number {
   return looksPooled(connStr) ? 5_000 : 30_000;
 }
 
-function resolveConnectTimeoutMs(): number {
+/** @internal exported for tests. */
+export function resolveConnectTimeoutMs(): number {
   // Observerade "Connection timeout"-fel på polling-routes (version-status/
   // readiness) i Vercel-prod kan bero på långsam pool-acquisition mot Supabase-
   // poolern under kalla starter — gör gränsen justerbar utan deploy av kod.
