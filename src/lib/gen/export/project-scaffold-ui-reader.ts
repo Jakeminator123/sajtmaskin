@@ -78,8 +78,43 @@ function readUiComponent(name: string, fileIndex: UiComponentFileIndex): string 
   const fullPath = fileIndex.get(name);
   if (!fullPath) return null;
   try {
-    return fs.readFileSync(/* turbopackIgnore: true */ fullPath, "utf-8");
+    const raw = fs.readFileSync(/* turbopackIgnore: true */ fullPath, "utf-8");
+    return ensureClientDirectiveForVendoredUi(raw);
   } catch {
     return null;
   }
+}
+
+/**
+ * A React `"use client"` directive is only honored as the very first statement
+ * of a module. Allow a leading BOM and blank lines, but nothing else before it.
+ */
+function startsWithUseClientDirective(content: string): boolean {
+  const stripped = content.replace(/^\uFEFF/, "").replace(/^\s+/, "");
+  // Backreference so the closing quote must match the opening one — a
+  // mismatched `"use client'` is not a valid directive and must not count.
+  return /^(["'])use client\1\s*;?/.test(stripped);
+}
+
+/**
+ * Radix `Slot` (imported from `radix-ui`) and any module-scope `createContext`
+ * call run at import-evaluation time, which is illegal in a React Server
+ * Component. Several vendored shadcn primitives (`button`, `badge`, `card`,
+ * `input`, …) import `Slot` for the `asChild` prop WITHOUT a `"use client"`
+ * directive. When a generated site imports one into its server tree
+ * (`app/layout.tsx` → `site-header.tsx` → `button.tsx`), Next.js throws
+ * `createContext only works in Client Components` and the whole page 500s.
+ *
+ * The F2 quality gate is typecheck-only, so this runtime/RSC-boundary failure
+ * is never caught — a "verified"/promoted version still crashes. These
+ * primitives are always safe as client components (leaf UI, serializable
+ * props), so we prepend the directive to the COPY shipped into the generated
+ * project. The platform's own `src/components/ui/*` source files are untouched.
+ */
+const NEEDS_CLIENT_DIRECTIVE_RE = /from\s+["']radix-ui["']|from\s+["']@radix-ui\/|\bcreateContext\b/;
+
+export function ensureClientDirectiveForVendoredUi(content: string): string {
+  if (startsWithUseClientDirective(content)) return content;
+  if (!NEEDS_CLIENT_DIRECTIVE_RE.test(content)) return content;
+  return `"use client";\n\n${content}`;
 }
