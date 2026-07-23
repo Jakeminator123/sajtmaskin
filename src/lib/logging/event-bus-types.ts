@@ -252,7 +252,12 @@ export type VersionStatusPhase =
   | "repairing"
   | "blocked"
   | "done"
-  | "failed";
+  | "failed"
+  // Terminal-neutral (2026-07): the DB settled the row as `superseded` (a
+  // newer version took over mid-verify). Never emitted by the projection
+  // itself — injected by `reconcileTerminalDbState` from the authoritative
+  // DB verification_state so a superseded row can never spin forever.
+  | "superseded";
 
 export interface VersionStatus {
   /** Last seen `runId` — `null` when the stream is empty. */

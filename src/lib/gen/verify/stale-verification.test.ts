@@ -137,4 +137,32 @@ describe("reconcileTerminalDbState", () => {
       expect(reconcileTerminalDbState(status, s)).toBe(status);
     }
   });
+
+  // 2026-07 terminal-neutral supersede (Bugbot on the lifecycle-simplification
+  // branch): the verify lanes return early on supersede WITHOUT a terminal bus
+  // emit, so DB `superseded` must settle a still-spinning projection — and
+  // override stale terminal bus phases — or the builder spins forever.
+  it("maps DB superseded → phase superseded when the bus is still spinning", () => {
+    const out = reconcileTerminalDbState(makeStatus({ phase: "verifying" }), "superseded");
+    expect(out.phase).toBe("superseded");
+  });
+
+  it("lets DB superseded override stale terminal bus phases (neutral, never red/green)", () => {
+    expect(
+      reconcileTerminalDbState(makeStatus({ phase: "failed" }), "superseded").phase,
+    ).toBe("superseded");
+    expect(
+      reconcileTerminalDbState(makeStatus({ phase: "done", done: true }), "superseded").phase,
+    ).toBe("superseded");
+  });
+
+  it("preserves degradations when settling superseded", () => {
+    const degraded = makeStatus({
+      phase: "verifying",
+      degradations: [{ kind: "product_postcheck_skipped", message: "skip", meta: null }],
+    });
+    const out = reconcileTerminalDbState(degraded, "superseded");
+    expect(out.phase).toBe("superseded");
+    expect(out.degradations).toHaveLength(1);
+  });
 });
