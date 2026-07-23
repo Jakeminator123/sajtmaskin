@@ -53,7 +53,7 @@ function RootLandingContent() {
   const [auditSubmitSignal, setAuditSubmitSignal] = useState(0);
 
   const entry = useEntryParams();
-  const { showOnboarding, handleComplete, handleSkip } = useOnboarding();
+  const { showOnboarding, openOnboarding, handleComplete, handleSkip } = useOnboarding();
 
   useEffect(() => {
     fetchUser().catch(() => {});
@@ -396,6 +396,7 @@ function RootLandingContent() {
           auditUrl={auditUrl}
           onAuditUrlChange={setAuditUrl}
           onAuditSubmit={handleAuditSubmitFromHero}
+          onPlayIntro={openOnboarding}
         />
       </div>
 

@@ -70,7 +70,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Klient-autofix-tak | `NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=3`, `NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON=1`, `NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS=300000` | Styr klient-driven **automatisk** autofix i [`useAutoFix.ts`](../src/lib/hooks/chat/useAutoFix.ts). Värdena ovan är defaults. Max-per-chat (default **3**) hindrar oändliga repair-loopar; sätt `=1` för den gamla konservativa loopen. Max-per-reason (1) hindrar att samma fel-typ lagas om automatiskt. Manuell "Kör autofix" (Version Diagnostics) bypassar taken. NEXT_PUBLIC_-prefix krävs eftersom värdena läses i klient-bundlen. |
 | Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
 | Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Validerade via `serverSchema` men listade i `runtimeOnlyKeys` i `config/env-policy.json` så env-tooling (`manage_env.py`) inte kräver dem i `.env.local`/Vercel-snapshots. Default av. `logs/generationslogg/` behåller bara de 5 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04). `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` togs bort i omtag-04 (hårdkodat 10 000 ord). |
-| Postgres-pool | `POSTGRES_POOL_MAX`, `POSTGRES_POOL_IDLE_TIMEOUT_MS` | Override för pool-storlek + idle-timeout per processinstans i [`src/lib/db/client.ts`](../src/lib/db/client.ts). Default väljs automatiskt: pooled connection (Supabase pgbouncer / `?pgbouncer=true` / hostname `pooler.*` / port 6543/5433) får `max=3` + idle 5s, direkt Postgres får `max=10` + idle 30s. Sätt `POSTGRES_POOL_MAX` lägre om du ser `EMAXCONNSESSION: max clients` i Fly-loggar (SAJ-7 / B1). |
+| Postgres-pool | `POSTGRES_POOL_MAX`, `POSTGRES_POOL_IDLE_TIMEOUT_MS`, `POSTGRES_CONNECT_TIMEOUT_MS` | Override för pool-storlek + idle-timeout + connect-timeout per processinstans i [`src/lib/db/client.ts`](../src/lib/db/client.ts). Default väljs automatiskt: pooled connection (Supabase pgbouncer / `?pgbouncer=true` / hostname `pooler.*` / port 6543/5433) får `max=3` + idle 5s, direkt Postgres får `max=10` + idle 30s; connect-timeout default 10s. Sätt `POSTGRES_POOL_MAX` lägre om du ser `EMAXCONNSESSION: max clients` i Fly-loggar (SAJ-7 / B1); höj `POSTGRES_CONNECT_TIMEOUT_MS` vid "Connection timeout" på polling-routes (version-status/readiness) i serverless. |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
 > **Termnot — `runtimeOnlyKeys` i `env-policy.json`** styr env-tooling (`manage_env.py`, audit, reconcile) så vissa nycklar inte behöver finnas i `.env.local`/Vercel-snapshots. Det betyder **inte** "saknas i `serverSchema`" — t.ex. `SAJTMASKIN_DEV_LOG` och `SAJTMASKIN_VISUAL_QA` finns i båda. `serverSchema` är fortsatt single source of truth för varje env-var appen läser.
@@ -86,6 +86,25 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | **Vercel-managed** | Nycklar som plattformen eller Next sätter (t.ex. `NODE_ENV`, `VERCEL_URL`) — **pusha inte** egna värden från laptop om policyn säger motsatsen; se `classification: vercel_managed` i `env-policy.json`. |
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
+
+---
+
+## Databas: dev/prod-identitet (kanonisk mappning)
+
+Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/lib/db/env.ts)). Vilken databas det faktiskt är avgörs av miljön:
+
+| Yta | Env-variabel | Supabase-projekt | Region |
+|---|---|---|---|
+| Vercel **Development** | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
+| Vercel **Production** | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
+| Lokal dev (**`.env.local`**) | `POSTGRES_URL` | dev (eller lokal throwaway-Postgres) | `eu-north-1` |
+| GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | CI refererar båda; migrate-jobben mappar prod-secreten → `POSTGRES_URL` | resp. ovan |
+| `.env.vercel.production.pulled` | endast **explicit lokal prod-snapshot** | prod | `us-east-1` |
+| Supabase-MCP (IDE-tooling) | — | scoped till **dev**-projektet, read-only | `eu-north-1` |
+
+- **Maskinläsbar sanning:** [`config/db-targets.json`](../config/db-targets.json).
+- **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` innan prod-migrationer auto-appliceras (`prod-migrations-apply` i [`ci.yml`](../.github/workflows/ci.yml)) — fel projekt ⇒ hårt rött.
+- Next.js-runtime läser **aldrig** `POSTGRES_URL_DEV`/`POSTGRES_URL_PROD` — de finns bara i CI.
 
 ---
 

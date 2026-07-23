@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:7cafc5bb97e3c21b -->
+<!-- source-fingerprint: config/env-policy.json sha256:549933ea9ce86d07 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:0c2e52196a0e33d0 -->
 
@@ -84,6 +84,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `OPENAI_API_KEY`                                     | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_TOKEN`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_URL`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `POSTGRES_CONNECT_TIMEOUT_MS`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_POOL_IDLE_TIMEOUT_MS`                      | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_POOL_MAX`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_URL`                                       | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |

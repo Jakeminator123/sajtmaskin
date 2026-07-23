@@ -25,7 +25,7 @@ export type { ChatAreaProps }
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export function ChatArea(props: ChatAreaProps = {}) {
-  const { expandedContent, heroPrefix } = props
+  const { expandedContent, heroPrefix, onPlayIntro } = props
   // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
   // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
   useHashScroll()
@@ -83,6 +83,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
         <LandingHero
           heroPrefix={heroPrefix}
           expandedContent={expandedContent}
+          onPlayIntro={onPlayIntro}
           selectedCategory={selectedCategory}
           pickCategory={pickCategory}
           showVoiceRecorder={showVoiceRecorder}

@@ -1,14 +1,42 @@
 "use client";
 
-import { AlertCircle, Loader2, MessageCircleQuestion, RotateCcw, Wand2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Loader2,
+  MessageCircleQuestion,
+  RotateCcw,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import {
   formatRepairPassProgress,
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import { dispatchPromptPrefill } from "@/lib/builder/prompt-prefill-event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+/** Klickbara exempelprompter i välkomst-läget — fyller chattens input. */
+const EXAMPLE_PROMPTS = [
+  {
+    label: "Frisörsalong med bokning",
+    prompt:
+      "En modern sajt för min frisörsalong i Göteborg med prislista, öppettider och en tydlig boka tid-knapp.",
+  },
+  {
+    label: "Konsult-landningssida",
+    prompt:
+      "En professionell landningssida för min konsultverksamhet inom ekonomi, med tjänster, referenser och kontaktformulär.",
+  },
+  {
+    label: "Fotograf-portfolio",
+    prompt:
+      "En portfolio för en fotograf med bildgalleri, om-sida och prisexempel för bröllop och företagsfoto.",
+  },
+] as const;
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
@@ -158,10 +186,71 @@ export function PreviewPanelEmptyState({
             ? Wand2
             : AlertCircle;
 
+  // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
+  // förklara nästa steg och erbjud exempelprompter — inte bara en tom yta.
+  const showWelcome =
+    isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
+
+  if (showWelcome) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center overflow-y-auto bg-black/20 px-6 py-8">
+        <div className="w-full max-w-md text-center">
+          <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
+            <Sparkles className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <h2 className="text-foreground mb-2 text-xl font-semibold tracking-tight">
+            Vad vill du bygga?
+          </h2>
+          <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
+            Beskriv din sajt i chatten till vänster så genererar vi en första version med
+            live-förhandsvisning här. Du kan sedan förfina den steg för steg.
+          </p>
+
+          <ol className="text-muted-foreground mx-auto mb-7 grid max-w-sm gap-2 text-left text-sm">
+            {[
+              "Beskriv företaget och vad sajten ska göra",
+              "Få en förhandsvisning på ca 2 minuter",
+              "Justera med följdfrågor och publicera",
+            ].map((step, i) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="bg-secondary text-foreground mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+
+          <p className="text-muted-foreground/80 mb-2.5 text-xs font-medium tracking-wide uppercase">
+            Eller börja från ett exempel
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {EXAMPLE_PROMPTS.map((example) => (
+              <button
+                key={example.label}
+                type="button"
+                onClick={() => dispatchPromptPrefill(example.prompt)}
+                className="border-border/60 bg-secondary/40 text-foreground hover:border-primary/40 hover:bg-secondary/70 rounded-full border px-3.5 py-1.5 text-xs transition-colors"
+                title={example.prompt}
+              >
+                {example.label}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-muted-foreground/70 mt-6 inline-flex items-center gap-1.5 text-xs">
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Skriv i chatten till vänster för att starta
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
+    <div className="text-muted-foreground flex h-full flex-col items-center justify-center bg-black/20 px-6 text-center">
       <EmptyIcon className={cn("mb-4 h-12 w-12", previewPending && "animate-spin")} />
-      <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
+      <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
       </p>
       <p className="text-sm" suppressHydrationWarning>
