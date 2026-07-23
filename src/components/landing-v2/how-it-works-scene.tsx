@@ -600,7 +600,11 @@ export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
         <div className="lg:sticky lg:top-24">
           <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-border/20 bg-[#060b16] md:min-h-[520px]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(45,212,191,0.20),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(34,197,94,0.12),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_40%)]" />
-            <Canvas gl={{ alpha: true, antialias: true }} dpr={[1, 1.6]}>
+            <Canvas
+              gl={{ alpha: true, antialias: true }}
+              dpr={[1, 1.6]}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            >
               <PipelineScene activeStep={activeStep} />
             </Canvas>
 
