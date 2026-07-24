@@ -653,6 +653,98 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByLabelText(/Åtgärd krävs/i)).toBeNull();
   });
 
+  // Codex P2 on #573: a custom `process.env.*` key from generated code is not
+  // owned by any dossier — the focus request must surface it in the "Egna
+  // nycklar"-section with a savable input instead of silently doing nothing
+  // (the user was otherwise stuck on an unfixable deploy/finalize blocker).
+  it("surfaces an unowned custom env-blocker with a savable input (Egna nycklar)", async () => {
+    const savedCalls: Array<{ url: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        savedCalls.push({ url, body: JSON.parse(String(init?.body ?? "null")) });
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(wiredResponse());
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    // No dossier owns the key → it lands in the custom-keys section.
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(savedCalls.length).toBe(1);
+    });
+    expect(savedCalls[0].url).toContain("/api/v0/projects/proj_1/env-vars");
+    expect(savedCalls[0].body).toEqual({
+      vars: [{ key: "MY_CUSTOM_SERVICE_KEY", value: "real-secret-value", sensitive: true }],
+      upsert: true,
+    });
+    // Write-only: the secret never echoes back into the DOM after save.
+    await waitFor(() => {
+      expect(document.body.innerHTML).not.toContain("real-secret-value");
+    });
+  });
+
+  it("lets the user add an arbitrary UPPER_SNAKE key manually and rejects invalid names", async () => {
+    // A wired dossier keeps "Inkopplade" as the default tab, where the
+    // custom-keys section lives.
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            class: "soft",
+            capability: "gallery-lightbox",
+            summary: "Click-to-enlarge image gallery.",
+            complexity: "simple",
+            requiresF3: false,
+            configured: true,
+            dependencies: [],
+            envVars: [],
+            status: "self-contained",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const nameInput = await screen.findByLabelText("Namn på egen env-nyckel");
+    fireEvent.change(nameInput, { target: { value: "not a key!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till" }));
+    expect(screen.getByText(/Ogiltigt nyckelnamn/i)).toBeTruthy();
+
+    fireEvent.change(nameInput, { target: { value: "my_new_key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till" }));
+    // Uppercased and rendered with its own value input.
+    expect(await screen.findByLabelText("Värde för MY_NEW_KEY")).toBeTruthy();
+    expect(screen.queryByText(/Ogiltigt nyckelnamn/i)).toBeNull();
+  });
+
   it("refetches the wired list when a new version lands while the popover is open (versionStatusNonce signal)", async () => {
     const fetchMock = stubFetch({
       wired: wiredResponse({

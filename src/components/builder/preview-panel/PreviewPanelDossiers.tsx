@@ -305,25 +305,61 @@ export function PreviewPanelDossiers({
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
 
+  // Custom env-blockers (Codex P2 on #573): a `custom-env` key detected in
+  // generated code is not owned by any dossier, so a 412/deploy focus request
+  // for it had NO row to expand — and with ProjectEnvVarsPanel removed the
+  // user was stuck on an unfixable env blocker. Unowned focus keys render as
+  // an "Egna nycklar"-section with the same write-only inputs, saving to the
+  // same canonical env-vars API. The user can also add an arbitrary
+  // UPPER_SNAKE key manually.
+  const [customFocusKeys, setCustomFocusKeys] = useState<string[]>([]);
+  const [customKeyDraft, setCustomKeyDraft] = useState("");
+  const [customKeyDraftError, setCustomKeyDraftError] = useState<string | null>(null);
+  const [customSaving, setCustomSaving] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
+
   // Resolve a pending focus request once fresh data is available: expand the
   // first dossier that owns one of the requested keys. The pending list is
   // only consumed on a MATCH (Bugbot on this diff): the open-event itself
   // triggers a refetch, and the target dossier may only appear in that
   // fresher response — clearing on a stale miss would drop the 412 focus.
-  // An unmatched request survives refetches and is discarded on close.
+  // Keys that no dossier owns AFTER the refetch settles are consumed into
+  // the custom-keys section instead (Codex P2 on #573); a request that
+  // never resolves is discarded on close.
   useEffect(() => {
     if (!pendingFocusKeys || !freshData) return;
     const wanted = new Set(pendingFocusKeys.map((key) => key.toUpperCase()));
     const target = freshData.dossiers.find((dossier) =>
       dossier.envVars.some((env) => wanted.has(env.key.toUpperCase())),
     );
-    if (!target) return;
-    // Re-assert the tab on match: the empty-state auto-switch (below) may
-    // have flipped to "catalog" while the refetch was in flight.
-    setActiveTab("wired");
-    setExpandedId(target.id);
+    if (target) {
+      // Re-assert the tab on match: the empty-state auto-switch (below) may
+      // have flipped to "catalog" while the refetch was in flight.
+      setActiveTab("wired");
+      setExpandedId(target.id);
+      setPendingFocusKeys(null);
+      return;
+    }
+    // No owner in this response. Wait out an in-flight refetch first — the
+    // owning dossier may only appear in the fresher data, and routing its
+    // key to the custom section prematurely would hide the real row.
+    if (loading) return;
+    const ownedKeys = new Set(
+      freshData.dossiers.flatMap((dossier) =>
+        dossier.envVars.map((env) => env.key.toUpperCase()),
+      ),
+    );
+    const unowned = [...wanted].filter((key) => !ownedKeys.has(key));
+    if (unowned.length > 0) {
+      setActiveTab("wired");
+      setCustomFocusKeys((current) => {
+        const seen = new Set(current.map((key) => key.toUpperCase()));
+        const additions = unowned.filter((key) => !seen.has(key));
+        return additions.length > 0 ? [...current, ...additions] : current;
+      });
+    }
     setPendingFocusKeys(null);
-  }, [pendingFocusKeys, freshData]);
+  }, [pendingFocusKeys, freshData, loading]);
 
   // Inline env-key saves (write-only): values live only in local state until
   // POSTed to the canonical project env-vars API, then the fields are
@@ -352,6 +388,10 @@ export function PreviewPanelDossiers({
     setEditingKeys(new Set());
     setSaveError(null);
     setPendingFocusKeys(null);
+    setCustomFocusKeys([]);
+    setCustomKeyDraft("");
+    setCustomKeyDraftError(null);
+    setCustomError(null);
   }, [chatId]);
 
   const handleSaveKeys = useCallback(
@@ -475,6 +515,83 @@ export function PreviewPanelDossiers({
     [chatId, deletingKey, projectId, savingDossierId, versionId],
   );
 
+  // Save filled custom keys to the same canonical env-vars API the dossier
+  // rows use. Write-only like the dossier inputs: values are cleared on
+  // success and never read back; readiness surfaces refetch via the event.
+  const handleSaveCustomKeys = useCallback(async () => {
+    if (!projectId || customSaving || savingDossierId) return;
+    const filled = customFocusKeys.filter(
+      (key) => (keyValues[key] ?? "").trim().length > 0,
+    );
+    if (filled.length === 0) return;
+    setCustomSaving(true);
+    setCustomError(null);
+    try {
+      const vars = filled.map((key) => ({
+        key,
+        value: keyValues[key].trim(),
+        sensitive: true,
+      }));
+      const response = await fetch(
+        `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vars, upsert: true }),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.success) {
+        setCustomError(data?.error || "Kunde inte spara nycklarna.");
+        return;
+      }
+      setKeyValues((current) => {
+        const next = { ...current };
+        for (const key of filled) delete next[key];
+        return next;
+      });
+      setCustomFocusKeys((current) => current.filter((key) => !filled.includes(key)));
+      dispatchProjectEnvVarsUpdated({
+        projectId,
+        chatId,
+        versionId,
+        envKeys: filled,
+      });
+    } catch (error) {
+      setCustomError(
+        error instanceof Error
+          ? `Kunde inte spara nycklarna: ${error.message}`
+          : "Kunde inte spara nycklarna.",
+      );
+    } finally {
+      setCustomSaving(false);
+    }
+  }, [chatId, customFocusKeys, customSaving, keyValues, projectId, savingDossierId, versionId]);
+
+  // Manual add of an arbitrary UPPER_SNAKE key (the removed
+  // ProjectEnvVarsPanel was the only surface that could do this). Client-side
+  // format guard mirrors the POST route's key validation for immediate UX.
+  const handleAddCustomKey = useCallback(() => {
+    const key = customKeyDraft.trim().toUpperCase();
+    if (!key) return;
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+      setCustomKeyDraftError(
+        "Ogiltigt nyckelnamn — använd VERSALER, siffror och understreck (t.ex. MY_API_KEY).",
+      );
+      return;
+    }
+    setCustomKeyDraftError(null);
+    setCustomKeyDraft("");
+    setCustomFocusKeys((current) =>
+      current.some((existing) => existing.toUpperCase() === key)
+        ? current
+        : [...current, key],
+    );
+  }, [customKeyDraft]);
+
   // Nothing wired yet: default the popover straight to "Bläddra katalog"
   // instead of an empty "Inkopplade"-tab, once per chat/version context.
   // Never fights a manual tab switch afterwards.
@@ -485,8 +602,17 @@ export function PreviewPanelDossiers({
   useEffect(() => {
     if (hasAutoSwitchedTabRef.current || !freshData) return;
     hasAutoSwitchedTabRef.current = true;
-    if (freshData.counts.total === 0) setActiveTab("catalog");
-  }, [freshData]);
+    // A pending/handled focus request targets the "Inkopplade"-tab (dossier
+    // row OR custom-keys section) — the empty-state default must not win
+    // over it in the same commit (both effects fire on the same freshData).
+    if (
+      freshData.counts.total === 0 &&
+      !pendingFocusKeys &&
+      customFocusKeys.length === 0
+    ) {
+      setActiveTab("catalog");
+    }
+  }, [freshData, pendingFocusKeys, customFocusKeys]);
 
   const handleSelectCatalogDossier = useCallback(
     (entry: DossierCatalogEntry) => {
@@ -827,6 +953,104 @@ export function PreviewPanelDossiers({
               ))}
             </div>
           )}
+
+          {/* Egna nycklar (Codex P2 on #573): custom env-blockers ur genererad
+              kod som inget byggblock äger + manuell "lägg till egen nyckel".
+              Samma write-only-kontrakt och POST-API som dossier-raderna. */}
+          <div className="mt-3 space-y-2 border-t border-gray-800 px-1 pt-2">
+            <p className="text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+              Egna nycklar
+            </p>
+            {customFocusKeys.length > 0 ? (
+              <ul className="space-y-2">
+                {customFocusKeys.map((key) => (
+                  <li key={key} className="space-y-1">
+                    <code className="rounded bg-gray-800/60 px-1 py-0.5 text-[10px] text-gray-200">
+                      {key}
+                    </code>
+                    <span className="flex items-center gap-1.5">
+                      <KeyRound className="h-3 w-3 shrink-0 text-gray-500" />
+                      <Input
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-label={`Värde för ${key}`}
+                        value={keyValues[key] ?? ""}
+                        disabled={!projectId || customSaving}
+                        onChange={(event) =>
+                          setKeyValues((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }))
+                        }
+                        placeholder={projectId ? "Klistra in riktigt värde" : "Projekt saknas"}
+                        className="h-7 border-gray-700 bg-black/30 text-[11px]"
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[10px] text-gray-500">
+                Nycklar som koden använder men inget byggblock äger hamnar här.
+              </p>
+            )}
+            {customFocusKeys.length > 0 ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-6 px-2 text-[10px]"
+                disabled={
+                  !projectId ||
+                  customSaving ||
+                  !customFocusKeys.some((key) => (keyValues[key] ?? "").trim().length > 0)
+                }
+                onClick={() => void handleSaveCustomKeys()}
+              >
+                {customSaving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                Spara och aktivera
+              </Button>
+            ) : null}
+            {customError ? (
+              <p className="text-[10px] text-rose-300">{customError}</p>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label="Namn på egen env-nyckel"
+                value={customKeyDraft}
+                disabled={!projectId}
+                onChange={(event) => setCustomKeyDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddCustomKey();
+                  }
+                }}
+                placeholder="MY_API_KEY"
+                className="h-7 border-gray-700 bg-black/30 font-mono text-[11px] uppercase"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[10px]"
+                disabled={!projectId || customKeyDraft.trim().length === 0}
+                onClick={handleAddCustomKey}
+              >
+                Lägg till
+              </Button>
+            </div>
+            {customKeyDraftError ? (
+              <p className="text-[10px] text-rose-300">{customKeyDraftError}</p>
+            ) : null}
+            {!projectId ? (
+              <p className="text-[10px] text-gray-500">
+                Nycklar kan sparas när chatten är kopplad till ett projekt.
+              </p>
+            ) : null}
+          </div>
 
           {freshData && !freshData.versionFilesAvailable ? (
             <p className="mt-2 border-t border-gray-800 px-1 pt-2 text-[10px] text-gray-500">
