@@ -30,6 +30,10 @@ export default defineConfig({
       // clerk-auth dossier components import the GENERATED site's dependency
       // `@clerk/nextjs` (not installed in this repo). Alias to an inert stub
       // so the demo-mode branch is unit-testable (dossier-config-fallback).
+      // The subpath must come FIRST — Vite matches string aliases by prefix,
+      // so the package-root entry would otherwise rewrite `/server` imports
+      // (the dossier middleware) onto the root stub.
+      "@clerk/nextjs/server": path.resolve(__dirname, "tests/stubs/clerk-nextjs-server.ts"),
       "@clerk/nextjs": path.resolve(__dirname, "tests/stubs/clerk-nextjs.tsx"),
     },
   },
