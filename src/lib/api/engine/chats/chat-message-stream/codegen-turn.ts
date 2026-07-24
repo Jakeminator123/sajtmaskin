@@ -103,6 +103,14 @@ export async function runCodegenTurn(params: {
   f3ApprovedDossierCapabilities: string[];
   f3EffectiveApprovedProviders: string[];
   fileDerivedTier3BuildSpec: Tier3BuildSpec | null;
+  /**
+   * The base version the F3 readiness gate resolved and the build actually
+   * forks from (explicit chat-scoped `engineBaseVersionId`, else preferred).
+   * Persisted as lineage instead of the raw client `parentVersionId` so
+   * `parent_version_id` can never point at a version that was not the build
+   * base (Codex P2 on #352). Null outside integrations rounds.
+   */
+  f3ResolvedBaseVersionId: string | null;
   commitCreditsOnce: ReturnType<typeof createCommitCreditsOnce>;
   prewarmLeaseKey: ReturnType<typeof createPreviewPrewarmLeaseKey>;
   versionsQuerySucceeded: boolean;
@@ -148,6 +156,7 @@ export async function runCodegenTurn(params: {
     f3ApprovedDossierCapabilities,
     f3EffectiveApprovedProviders,
     fileDerivedTier3BuildSpec,
+    f3ResolvedBaseVersionId,
     commitCreditsOnce,
     prewarmLeaseKey,
     versionsQuerySucceeded,
@@ -582,9 +591,14 @@ export async function runCodegenTurn(params: {
       metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
         ? metaEngineBaseVersionId
         : undefined,
+    // Lineage from the SAME resolution as the gate/build base (Codex P2 on
+    // #352): a direct F3 caller sending only `parentVersionId` is gated and
+    // built against preferred — persisting the raw client id would record a
+    // parent that never was the build base. Falls back to the client id only
+    // if the gate did not resolve a base (defensive; the gate fails closed).
     lifecycleParentVersionId:
       parsedMeta.lifecycleStage === "integrations"
-        ? parsedMeta.parentVersionId
+        ? (f3ResolvedBaseVersionId ?? parsedMeta.parentVersionId)
         : null,
     // P2 F3-loop (åtgärd 3): forward the marker's tool-only round
     // counter so a repeated tool-only outcome escalates (round 2 →

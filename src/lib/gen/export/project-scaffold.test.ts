@@ -729,13 +729,42 @@ describe("buildExportableProject", () => {
     expect(pkg.dependencies.next).toBe("14.2.3");
     expect(pkg.dependencies.react).toBe("18.3.1");
     expect(pkg.packageManager).toBe("pnpm@11.1.0");
-    // Pipeline-authored env artifact is still dropped (dossier-scoped view).
-    expect(paths).not.toContain(".env.local");
+    // Pipeline-authored env artifact is dropped, but preview↔verify parity
+    // (Codex P2 on #594) re-ships the PLACEHOLDER envelope: live preview
+    // writes a runtime `.env.local`, so verify must not build env-less.
+    const env = exported.find((f) => f.path === ".env.local");
+    expect(env).toBeDefined();
+    expect(env!.content).toContain("CONTENTFUL_ACCESS_TOKEN=");
+    // Placeholders only — the scoped pipeline value never rides along raw.
+    expect(env!.content).not.toContain("STRIPE_SECRET_KEY=scoped");
     // The repo's lockfile survives so frozen installs stay consistent.
     expect(paths).toContain("pnpm-lock.yaml");
     // Preview↔verify parity: the placeholder API route the preview VM injects
     // (startPreviewSession skipProjectScaffold path) ships in verify/export too.
     expect(paths).toContain("app/api/placeholder/route.ts");
+  });
+
+  // Codex P2 on #594, ownership rule: a TEMPLATE-authored `.env.local` (not
+  // pipeline-authored) is the repo's own file and must pass through verbatim —
+  // never be replaced by the placeholder envelope.
+  it("verbatimRepo: keeps a template-authored .env.local untouched", async () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return null; }",
+        language: "tsx",
+      },
+      {
+        path: ".env.local",
+        content: "MY_TEMPLATE_KEY=template-owned\n",
+        language: "text",
+      },
+    ];
+
+    const exported = await buildExportableProject(generated, { verbatimRepo: true });
+    const env = exported.find((f) => f.path === ".env.local");
+    expect(env?.content).toBe("MY_TEMPLATE_KEY=template-owned\n");
   });
 });
 

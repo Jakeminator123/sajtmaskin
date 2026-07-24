@@ -11,6 +11,7 @@
 - Use `getAblyClient()` from client components to share one Ably Realtime connection.
 - Optionally wrap a feature subtree with `AblyClientProvider` to initialize and close the shared connection.
 - Subscribe to scoped channels such as `org:{orgId}:notifications` or `room:{roomId}` and unsubscribe on cleanup.
+- Place `RealtimeConfigNotice` next to every important realtime surface (chat panel, notification feed, presence list). It renders nothing when Ably is configured and shows the honest "realtid ej kopplad" demo notice when the auth route answers 503 — do not build a custom not-configured banner.
 - Publish authoritative events from server routes, server actions, jobs, or trusted backend code.
 - Replace the per-visitor anonymous `clientId` in the auth route's `resolveClientId()` with a stable authenticated user id when the app has auth.
 
@@ -34,7 +35,7 @@
 
 - Start the app with `ABLY_API_KEY` set.
 - Request `/api/ably/auth`; it should return an Ably token request JSON payload, not the raw API key.
-- With `ABLY_API_KEY` unset OR a preview placeholder (values containing `placeholder`/`not_real`): the route returns `503 { error: "realtime-not-configured" }` — never a raw 500 and never a real Ably call with a fabricated key. Realtime surfaces should render their "unavailable" connection state (see UX rules) as the discreet not-configured fallback.
+- With `ABLY_API_KEY` unset OR a preview placeholder (values containing `placeholder`/`not_real`): the route returns `503 { error: "realtime-not-configured" }` — never a raw 500 and never a real Ably call with a fabricated key. `RealtimeConfigNotice` renders the honest demo notice in this state; realtime surfaces should additionally render their "unavailable" connection state (see UX rules).
 - Render a client component that calls `getAblyClient()` and subscribes to a test channel.
 - Publish a test event from trusted server-side code and confirm the browser updates without refresh.
 - For presence, open two tabs with different user ids and confirm enter/leave events update.

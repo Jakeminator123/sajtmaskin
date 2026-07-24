@@ -35,7 +35,12 @@ import type { F3ContinuationDecision } from "./f3-continuation-phase";
  * F3 build plan reflects the parent version's real integrations.
  *
  * Returns an early Response on every gated/refused path, otherwise the
- * file-derived Tier-3 build spec (or `null`) for the generation.
+ * file-derived Tier-3 build spec (or `null`) for the generation plus the
+ * resolved gate/build base version id (`f3ResolvedBaseVersionId`) so the
+ * codegen turn can persist LINEAGE from the same resolution the gate and
+ * build actually used (Codex P2 on #352: a direct caller sending only
+ * `parentVersionId` was gated/built against preferred but persisted the raw
+ * `parentVersionId` as lineage — a version that never was the build base).
  */
 export async function runF3ReadinessGate(params: {
   chatId: string;
@@ -47,7 +52,13 @@ export async function runF3ReadinessGate(params: {
   f3ContinuationDecision: F3ContinuationDecision | null;
   previousFiles: CodeFile[];
   attachSessionCookie: (response: Response) => Response;
-}): Promise<Response | { fileDerivedTier3BuildSpec: Tier3BuildSpec | null }> {
+}): Promise<
+  | Response
+  | {
+      fileDerivedTier3BuildSpec: Tier3BuildSpec | null;
+      f3ResolvedBaseVersionId: string | null;
+    }
+> {
   const {
     chatId,
     message,
@@ -60,6 +71,7 @@ export async function runF3ReadinessGate(params: {
     attachSessionCookie,
   } = params;
   let fileDerivedTier3BuildSpec: Tier3BuildSpec | null = null;
+  let f3ResolvedBaseVersionId: string | null = null;
   if (parsedMeta.lifecycleStage === "integrations" && !metaPlanMode) {
     // Codex P1 (PR #351): the readiness gate must inspect the version the
     // generation will ACTUALLY build from — `engineBaseVersionId` drives
@@ -122,6 +134,7 @@ export async function runF3ReadinessGate(params: {
       }
       gateVersionId =
         gateVersionId ?? (await resolveChatPreferredVersionId(engineChat.id));
+      f3ResolvedBaseVersionId = gateVersionId;
       if (!gateVersionId) {
         return attachSessionCookie(
           NextResponse.json(
@@ -345,5 +358,5 @@ export async function runF3ReadinessGate(params: {
       );
     }
   }
-  return { fileDerivedTier3BuildSpec };
+  return { fileDerivedTier3BuildSpec, f3ResolvedBaseVersionId };
 }

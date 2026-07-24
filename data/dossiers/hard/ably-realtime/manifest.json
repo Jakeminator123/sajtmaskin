@@ -35,6 +35,11 @@
       "path": "components/api/ably/auth/route.ts",
       "role": "server",
       "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/realtime-config-notice.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
     }
   ],
   "exposes": [
@@ -52,9 +57,14 @@
       "name": "AblyClientProvider",
       "type": "component",
       "import": "@/components/AblyClientProvider"
+    },
+    {
+      "name": "RealtimeConfigNotice",
+      "type": "component",
+      "import": "@/components/realtime-config-notice"
     }
   ],
   "lastVerified": "2026-04-18",
-  "notes": "Keep the API key server-only. The auth route returns 503 realtime-not-configured when ABLY_API_KEY is missing OR a preview placeholder (F2 mock-seed values must never trigger a real Ably call), so the integration degrades at feature runtime rather than build time. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (same no-false-green rule as PR #422).",
+  "notes": "Keep the API key server-only. The auth route returns 503 realtime-not-configured when ABLY_API_KEY is missing OR a preview placeholder, so the integration degrades at feature runtime rather than build time. Demo surface is deterministic (BB#dostax1): RealtimeConfigNotice probes the auth route and renders the honest 'realtid ej kopplad' notice on 503 — codegen only places it next to realtime surfaces. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green rule, PR #422).",
   "promptInstructionMode": "selected-sections"
 }

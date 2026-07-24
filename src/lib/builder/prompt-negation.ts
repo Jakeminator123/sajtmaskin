@@ -82,17 +82,23 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   "error-tracking": INTEGRATION_TERMS,
 };
 
-function negatedWindows(prompt: string): string[] {
-  const text = String(prompt ?? "");
-  return [...text.matchAll(NEGATION_TERM_RE)]
-    .map((match) => text.slice(match.index ?? 0, (match.index ?? 0) + 140))
-    .filter(Boolean);
-}
+/**
+ * Klausulgräns för ett negationsfönster (Codex P2 på #592): negationens
+ * räckvidd slutar vid meningsslut, vid adversativt "men"/"but", eller vid ett
+ * komma som inleder en NY imperativ-sats ("no auth, add a map" /
+ * "lägg inte till auth, lägg till postgres"). Ett komma som bara fortsätter
+ * en negerad substantivlista ("lägg inte till backend, auth eller betalning")
+ * avslutar INTE fönstret — därav verb-kravet efter kommat.
+ */
+const CLAUSE_BOUNDARY_RE =
+  /[.;!?\n]|,\s*(?:och\s+|and\s+|sedan\s+|sen\s+|then\s+)?(?:lägg|skapa|bygg|gör|använd|visa|byt|ta\s+bort|add|create|build|make|use|show|include|inkludera|implementera|implement|remove)(?![\p{L}\p{N}_])|\s(?:men|but)(?![\p{L}\p{N}_])/iu;
 
-export function hasNegatedTerms(prompt: string, terms: RegExp[]): boolean {
-  const windows = negatedWindows(prompt);
-  if (windows.length === 0) return false;
-  return windows.some((window) => terms.some((term) => term.test(window)));
+const NEGATION_WINDOW_MAX_CHARS = 140;
+
+function negationWindowEnd(text: string, start: number): number {
+  const cap = Math.min(text.length, start + NEGATION_WINDOW_MAX_CHARS);
+  const boundaryIdx = text.slice(start, cap).search(CLAUSE_BOUNDARY_RE);
+  return boundaryIdx === -1 ? cap : start + boundaryIdx;
 }
 
 /** Teckenintervall (start/slut) för varje negationsfönster i prompten. */
@@ -100,8 +106,21 @@ function negatedWindowRanges(prompt: string): Array<{ start: number; end: number
   const text = String(prompt ?? "");
   return [...text.matchAll(NEGATION_TERM_RE)].map((match) => ({
     start: match.index ?? 0,
-    end: (match.index ?? 0) + 140,
+    end: negationWindowEnd(text, match.index ?? 0),
   }));
+}
+
+function negatedWindows(prompt: string): string[] {
+  const text = String(prompt ?? "");
+  return negatedWindowRanges(text)
+    .map((range) => text.slice(range.start, range.end))
+    .filter(Boolean);
+}
+
+export function hasNegatedTerms(prompt: string, terms: RegExp[]): boolean {
+  const windows = negatedWindows(prompt);
+  if (windows.length === 0) return false;
+  return windows.some((window) => terms.some((term) => term.test(window)));
 }
 
 /**

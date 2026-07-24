@@ -363,7 +363,7 @@ export async function handleMessageStreamRequest(
         if (f3GateResult instanceof Response) {
           return f3GateResult;
         }
-        const { fileDerivedTier3BuildSpec } = f3GateResult;
+        const { fileDerivedTier3BuildSpec, f3ResolvedBaseVersionId } = f3GateResult;
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`
         // drives routing + orchestration decisions in this function;
         // `hasMergeablePrevious` is forwarded (via `previousFilesCount`) to
@@ -752,6 +752,7 @@ export async function handleMessageStreamRequest(
           f3ApprovedDossierCapabilities,
           f3EffectiveApprovedProviders,
           fileDerivedTier3BuildSpec,
+          f3ResolvedBaseVersionId,
           commitCreditsOnce,
           prewarmLeaseKey,
           versionsQuerySucceeded,
