@@ -66,6 +66,22 @@ function checkScaffold(cacheRoot, scaffoldId) {
           `tsconfig.json maps "@/*" to ${JSON.stringify(alias)} instead of ["./*"] — stale provisioning, re-run npm run provision:warm-cache`,
         );
       }
+      // Generated-only SDK stubs (Codex P2 on #600): the cache must both
+      // alias the package AND carry the stub file, or pre-VM tsc reports
+      // TS2307 on valid generated Clerk code.
+      if (existsSync(join(REPO_ROOT, "tests", "stubs", "clerk-nextjs.tsx"))) {
+        const clerkAlias = tsconfig?.compilerOptions?.paths?.["@clerk/nextjs"];
+        const stubTarget = Array.isArray(clerkAlias) ? clerkAlias[0] : null;
+        if (!stubTarget) {
+          problems.push(
+            '"@clerk/nextjs" stub alias missing — stale provisioning, re-run npm run provision:warm-cache',
+          );
+        } else if (!existsSync(join(cacheDir, stubTarget))) {
+          problems.push(
+            `"@clerk/nextjs" stub file missing at ${stubTarget} — re-run npm run provision:warm-cache`,
+          );
+        }
+      }
     } catch (err) {
       problems.push(`tsconfig.json unreadable: ${err instanceof Error ? err.message : String(err)}`);
     }
