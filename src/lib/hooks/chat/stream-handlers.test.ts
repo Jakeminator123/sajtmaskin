@@ -621,10 +621,14 @@ describe("handleSseStream", () => {
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
 
-  // Regression (punkt 2): preview-ready and done both carry the session URL —
-  // the per-run latch must collapse them into ONE handoff so the iframe never
-  // reloads twice for the same delivered preview.
-  it("delivers the preview URL exactly once when preview-ready and done repeat the same URL", async () => {
+  // Regression (punkt 2 + Bugbot): preview-ready delivers the session URL before
+  // the stream reports versionId (`?:url`), then done re-delivers the SAME URL
+  // with the resolved versionId. Both handoffs fire, but the SECOND is a
+  // no-reload latch upgrade (decidePreviewHandoff returns noop for `?:url` ->
+  // `versionId:url`), so the iframe still reloads exactly once — and the
+  // controller latch advances to `versionId:url` instead of staying stuck at
+  // `?:url` (which would later swallow a genuine new-version bump).
+  it("re-delivers with the resolved versionId at done so the handoff latch upgrades (no double reload)", async () => {
     const applyPreviewHandoff = vi.fn();
     consumeSseResponse.mockImplementation(
       async (
@@ -668,10 +672,16 @@ describe("handleSseStream", () => {
       new AbortController().signal,
     );
 
-    expect(applyPreviewHandoff).toHaveBeenCalledTimes(1);
-    expect(applyPreviewHandoff).toHaveBeenCalledWith({
+    expect(applyPreviewHandoff).toHaveBeenCalledTimes(2);
+    // preview-ready: versionId unresolved → sets `?:url` (the one reload).
+    expect(applyPreviewHandoff).toHaveBeenNthCalledWith(1, {
       url: "https://vm-fly-jakem.fly.dev/chat_1",
       versionId: null,
+    });
+    // done: resolved versionId for the same URL → no-reload latch upgrade.
+    expect(applyPreviewHandoff).toHaveBeenNthCalledWith(2, {
+      url: "https://vm-fly-jakem.fly.dev/chat_1",
+      versionId: "ver_1",
     });
   });
 
