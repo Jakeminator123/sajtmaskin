@@ -7,6 +7,7 @@ import {
 import type { RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
   extractSectionZones,
+  isSameInsertionPoint,
   nearestInsertionPoint,
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
@@ -191,7 +192,14 @@ export function usePreviewPanelInspectMapPlacement(options: {
       const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
       const yPercent = Number(((y / rect.height) * 100).toFixed(2));
       const insertion = nearestInsertionPoint(yPercent, sectionZones);
-      setHoveredPlacement(insertion);
+      // `nearestInsertionPoint` returnerar alltid ett nytt objekt, men antalet
+      // distinkta insättningspunkter är litet. Utan identitetsjämförelsen
+      // renderar hela PreviewPanel om på varje pekarhändelse — och sedan
+      // registry-drag:en (#602) kopplade `dragover` till samma handler gäller
+      // det under hela draget, inte bara vid hover.
+      setHoveredPlacement((prev) =>
+        isSameInsertionPoint(prev, insertion) ? prev : insertion,
+      );
     },
     [zonesActive, sectionZones],
   );
