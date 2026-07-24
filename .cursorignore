@@ -155,3 +155,8 @@ _parkering/
 
 # Anvandarens personliga publiceringsmaterial (spegel av .gitignore)
 /publicerings-material/
+
+# Genererad Blob-manifest + template-registry (ren data, inget kodvärde för
+# semantisk sökning). Öppna med @ eller Read vid behov.
+src/lib/templates/template-blob-manifest.json
+src/lib/templates/templates.json
