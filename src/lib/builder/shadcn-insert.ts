@@ -45,7 +45,52 @@ export type ShadcnInsertSelection = {
   addCommand?: string;
   /** Var valet gjordes. Styr inte prompt-innehållet — bara telemetri/copy. */
   origin: "browse" | "describe";
+  /**
+   * Placeringsankare från drag-and-drop mot previewn (`buildComposerDropDetail`
+   * → `nearestInsertionPoint`): t.ex. `top`, `bottom`, `after-hero`. Saknas vid
+   * klick-insättning → prompten får dagens default ("Längst ner").
+   */
+  placement?: string;
+  /** Svensk placeringslabel för prompt-kuvertet, t.ex. "Efter Hero". */
+  placementLabel?: string;
+  /** Label på den detekterade ankarsektionen (om droppen träffade en). */
+  anchorSectionLabel?: string;
 };
+
+// ============================================================================
+// DRAG-AND-DROP (Bläddra-/Beskriv-kort → preview-overlay)
+// ============================================================================
+
+/**
+ * DataTransfer-MIME för registry-kort som dras till Composer-overlayn.
+ * Skiljer sig från `PAGE_BLOCK_DND_TYPE` (Composer-blockens id-payload) —
+ * payloaden här är en JSON-serialiserad {@link ShadcnInsertSelection} utan
+ * placeringsfält (placering räknas ut vid drop).
+ */
+export const SHADCN_ITEM_DND_TYPE = "application/x-sajtmaskin-shadcn-item";
+
+/** Serialisera kortets metadata för `dataTransfer.setData`. */
+export function serializeShadcnDragPayload(selection: ShadcnInsertSelection): string {
+  return JSON.stringify(selection);
+}
+
+/**
+ * Parse:a drop-payloaden. Returnerar null för tom/trasig data (t.ex. en drag
+ * från en annan källa) — droppen ska då ignoreras, aldrig kasta.
+ */
+export function parseShadcnDragPayload(raw: string): ShadcnInsertSelection | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<ShadcnInsertSelection> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.name !== "string" || !parsed.name.trim()) return null;
+    if (typeof parsed.registry !== "string" || !parsed.registry.trim()) return null;
+    if (parsed.origin !== "browse" && parsed.origin !== "describe") return null;
+    return parsed as ShadcnInsertSelection;
+  } catch {
+    return null;
+  }
+}
 
 export type ShadcnInsertDeps = {
   /** Injicerbar för test — default är den befintliga registry-item-fetchen. */
@@ -85,15 +130,25 @@ export async function buildShadcnInsertMessage(
       clearTimeout(timer);
     }
   }
-  return buildPromptSourceMessage({
-    kind: "shadcn-item",
-    name: selection.name,
-    registry: selection.registry,
-    title: selection.title,
-    description: selection.description,
-    dependencies: selection.dependencies,
-    registryDependencies: selection.registryDependencies,
-    addCommand: selection.addCommand,
-    registryItem,
-  });
+  return buildPromptSourceMessage(
+    {
+      kind: "shadcn-item",
+      name: selection.name,
+      registry: selection.registry,
+      title: selection.title,
+      description: selection.description,
+      dependencies: selection.dependencies,
+      registryDependencies: selection.registryDependencies,
+      addCommand: selection.addCommand,
+      registryItem,
+      // Drag-and-drop-placering (om satt): samma placement-kuvert som
+      // Composer-blockens AI-fallback. Klick-insättning lämnar fälten tomma
+      // → oförändrad default-copy.
+      placement: selection.placement,
+    },
+    {
+      placementLabel: selection.placementLabel,
+      anchorLabel: selection.anchorSectionLabel ?? null,
+    },
+  );
 }

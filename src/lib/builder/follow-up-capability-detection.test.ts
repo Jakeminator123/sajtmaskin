@@ -126,6 +126,38 @@ describe("detectFollowUpCapabilities — negated capabilities", () => {
     expect(result.capabilityIds).not.toContain("auth");
     expect(result.capabilityIds).not.toContain("payments");
   });
+
+  // Codex P2 på #592: negationsfönstret får inte svälja en NY imperativ-sats
+  // efter kommat — "no auth, add a map" ska tysta auth men släppa igenom map.
+  it("detects map-display in 'no auth, add a map' (clause-aware negation window)", () => {
+    const result = detectFollowUpCapabilities("no auth, add a map");
+    expect(result.capabilityIds).toContain("map-display");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  it("detects database in 'lägg inte till auth, lägg till postgres'", () => {
+    const result = detectFollowUpCapabilities("lägg inte till auth, lägg till postgres");
+    expect(result.capabilityIds).toContain("database");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  // Adversativt "but" bryter också negationens räckvidd.
+  it("detects map-display in 'no auth but add a map of our office'", () => {
+    const result = detectFollowUpCapabilities("no auth but add a map of our office");
+    expect(result.capabilityIds).toContain("map-display");
+    expect(result.capabilityIds).not.toContain("auth");
+  });
+
+  // Kontroll: ett komma som bara fortsätter den negerade listan avslutar
+  // INTE fönstret ("inte backend, auth eller betalning" negerar alla tre).
+  it("keeps a comma-separated negated list fully negated", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en karta. lägg inte till backend, auth eller betalning",
+    );
+    expect(result.capabilityIds).toContain("map-display");
+    expect(result.capabilityIds).not.toContain("auth");
+    expect(result.capabilityIds).not.toContain("payments");
+  });
 });
 
 describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {

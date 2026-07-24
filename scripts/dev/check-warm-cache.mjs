@@ -8,7 +8,9 @@
  * as scripts/provision-warm-cache.ts):
  *   1. cache dir exists            (<root>/<scaffoldId>/)
  *   2. node_modules exists         (symlink/junction to repo node_modules)
- *   3. tsconfig.json exists
+ *   3. tsconfig.json exists AND maps `@/*` to `./*` (generated-project
+ *      layout; a stale cache with the repo's `./src/*` alias makes tsc
+ *      report bogus TS2307 for every `@/…` import — re-provision)
  *   4. eslint.config.{mjs,js,ts} exists
  * Plus once per run, inside the first warm cache dir:
  *   5. `npx --no-install tsc --version` works
@@ -52,8 +54,42 @@ function checkScaffold(cacheRoot, scaffoldId) {
   if (!existsSync(join(cacheDir, "node_modules"))) {
     problems.push("node_modules missing (symlink dead? re-run provisioning)");
   }
-  if (!existsSync(join(cacheDir, "tsconfig.json"))) {
+  const tsconfigPath = join(cacheDir, "tsconfig.json");
+  if (!existsSync(tsconfigPath)) {
     problems.push("tsconfig.json missing");
+  } else {
+    try {
+      const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8"));
+      const alias = tsconfig?.compilerOptions?.paths?.["@/*"];
+      if (!Array.isArray(alias) || alias.length !== 1 || alias[0] !== "./*") {
+        problems.push(
+          `tsconfig.json maps "@/*" to ${JSON.stringify(alias)} instead of ["./*"] — stale provisioning, re-run npm run provision:warm-cache`,
+        );
+      }
+      // Generated-only SDK stubs (Codex P2 on #600 + Bugbot follow-up): the
+      // cache must both alias each package/subpath AND carry the stub file,
+      // or pre-VM tsc reports TS2307 on valid generated Clerk code.
+      const sdkStubs = [
+        { packageName: "@clerk/nextjs", repoStub: "clerk-nextjs.tsx" },
+        { packageName: "@clerk/nextjs/server", repoStub: "clerk-nextjs-server.ts" },
+      ];
+      for (const { packageName, repoStub } of sdkStubs) {
+        if (!existsSync(join(REPO_ROOT, "tests", "stubs", repoStub))) continue;
+        const stubAlias = tsconfig?.compilerOptions?.paths?.[packageName];
+        const stubTarget = Array.isArray(stubAlias) ? stubAlias[0] : null;
+        if (!stubTarget) {
+          problems.push(
+            `"${packageName}" stub alias missing — stale provisioning, re-run npm run provision:warm-cache`,
+          );
+        } else if (!existsSync(join(cacheDir, stubTarget))) {
+          problems.push(
+            `"${packageName}" stub file missing at ${stubTarget} — re-run npm run provision:warm-cache`,
+          );
+        }
+      }
+    } catch (err) {
+      problems.push(`tsconfig.json unreadable: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
   const eslintConfigs = ["eslint.config.mjs", "eslint.config.js", "eslint.config.ts"];
   if (!eslintConfigs.some((name) => existsSync(join(cacheDir, name)))) {

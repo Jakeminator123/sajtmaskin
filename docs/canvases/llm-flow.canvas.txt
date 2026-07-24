@@ -63,18 +63,18 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "b4ad634b",
-    "commitDate": "2026-07-23",
+    "commit": "20333ccb",
+    "commitDate": "2026-07-24",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 0,
-    "openP2": 17,
+    "openP2": 15,
     "openP3": 20,
-    "blocked": 2,
-    "shaky": 4,
+    "blocked": 0,
+    "shaky": 6,
     "evalExactHitPct": 98.46
   },
   "processes": [
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 14,
+      "churn": 7,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
     },
@@ -142,26 +142,26 @@ const DATA: CanvasData = {
         "P3": 3,
         "other": 0
       },
-      "churn": 21,
+      "churn": 14,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
     },
     {
       "name": "Scaffolds",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 12,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 10,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 8,
+        "P2": 6,
         "P3": 4,
         "other": 0
       },
-      "churn": 17,
+      "churn": 12,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
-      "note": "BLOCKER: **Custom env-blockers (icke-dossier-ägda `process.env.*`-nycklar) saknar editor-yta:** `L…"
+      "note": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
     },
     {
       "name": "Scaffold Lifecycle",
@@ -176,32 +176,32 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 13,
+      "churn": 10,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 13 commits / 14d"
+      "note": "Aktiv: 10 commits / 14d"
     },
     {
       "name": "Preview och versioner",
-      "status": "blocked",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "openBugs": 30,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 29,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 13,
-        "P3": 17,
+        "P2": 11,
+        "P3": 18,
         "other": 0
       },
-      "churn": 21,
+      "churn": 16,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "BLOCKER: **Custom env-blockers (icke-dossier-ägda `process.env.*`-nycklar) saknar editor-yta:** `L…"
+      "note": "29 oppna backlog-rader (P0:0 P1:0 P2:11 P3:18)"
     },
     {
       "name": "Eval",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -210,23 +210,23 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 4,
+      "churn": 3,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "Aktiv: 4 commits / 14d"
+      "note": "Eval exact-hit 98.46%"
     }
   ],
   "shaky": [
     {
       "name": "Preview och versioner",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: **Custom env-blockers (icke-dossier-ägda `process.env.*`-nycklar) saknar editor-yta:** `L…"
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "29 oppna backlog-rader (P0:0 P1:0 P2:11 P3:18)"
     },
     {
       "name": "Scaffolds",
-      "statusLabel": "Blockerat",
-      "tone": "danger",
-      "reason": "BLOCKER: **Custom env-blockers (icke-dossier-ägda `process.env.*`-nycklar) saknar editor-yta:** `L…"
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
     },
     {
       "name": "ai_models",
@@ -248,11 +248,6 @@ const DATA: CanvasData = {
     }
   ],
   "topOpenRisks": [
-    {
-      "prio": "P2",
-      "blocker": true,
-      "fynd": "**Custom env-blockers (icke-dossier-ägda `process.env.*`-nycklar) saknar editor-yta:** `LaunchReadinessCard` …"
-    },
     {
       "prio": "P2",
       "blocker": false,
@@ -301,15 +296,20 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Warm-cache-tsconfig bryter `@/*`-alias för genererade projekt: `provision-warm-cache.ts` kopierar repo-rotens…"
+      "fynd": "Status-bussen nollställs inte när `updateVersionFiles(..., {invalidateVerification:true})` resettar en tidiga…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Status-bussen nollställs inte när `updateVersionFiles(..., {invalidateVerification:true})` resettar en tidiga…"
+      "fynd": "Stale quality-gate-telemetri överlever `invalidateVerification`: `updateVersionFiles(..., {invalidateVerifica…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**DB-pool-svält i prod under generering** (live-session 2026-07-03, chat `69aae3d5`): klustrade `timeout exce…"
     }
   ],
-  "topOpenRisksOmitted": 5,
+  "topOpenRisksOmitted": 3,
   "evals": {
     "exactHitPct": 98.46,
     "acceptableHitPct": null,

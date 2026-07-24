@@ -122,6 +122,11 @@ export function OpenClawChatPanel({
   const [isDragging, setIsDragging] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
+  // True while the user is at (or near) the bottom of the chat. Streaming
+  // growth only auto-scrolls while pinned, so scrolling up to read is never
+  // yanked back down mid-stream.
+  const pinnedToBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevStreamingRef = useRef(isStreaming);
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
@@ -142,9 +147,7 @@ export function OpenClawChatPanel({
     void (async () => {
       try {
         const res = await fetch("/api/openclaw/health");
-        const data = (await res.json().catch(() => null)) as
-          | { debugEnabled?: boolean }
-          | null;
+        const data = (await res.json().catch(() => null)) as { debugEnabled?: boolean } | null;
         if (!cancelled) setDebugEnabled(data?.debugEnabled === true);
       } catch {
         if (!cancelled) setDebugEnabled(false);
@@ -155,10 +158,32 @@ export function OpenClawChatPanel({
     };
   }, [setDebugEnabled]);
 
+  // A brand-new message (sent or received) always re-pins and jumps to the
+  // bottom; content GROWTH during streaming is handled by the ResizeObserver
+  // below and respects the pinned state.
   useEffect(() => {
+    pinnedToBottomRef.current = true;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages.length]);
+
+  useEffect(() => {
+    const content = scrollContentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (!pinnedToBottomRef.current) return;
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  }, []);
 
   // Focus only when the panel is actually opened — the panel is mounted even in
   // collapsed state, and stealing focus on page load pulls keyboard users into
@@ -302,18 +327,15 @@ export function OpenClawChatPanel({
     [dragOffset],
   );
 
-  const handleHeaderPointerMove = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      const start = dragStartRef.current;
-      if (!start) return;
-      const next = {
-        x: start.offsetX + (e.clientX - start.x),
-        y: start.offsetY + (e.clientY - start.y),
-      };
-      setDragOffset(next);
-    },
-    [],
-  );
+  const handleHeaderPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (!start) return;
+    const next = {
+      x: start.offsetX + (e.clientX - start.x),
+      y: start.offsetY + (e.clientY - start.y),
+    };
+    setDragOffset(next);
+  }, []);
 
   const handleHeaderPointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (!dragStartRef.current) return;
@@ -371,7 +393,7 @@ export function OpenClawChatPanel({
         onDoubleClick={resetPanelPosition}
         title="Dra för att flytta — dubbelklicka för att återställa position"
         className={cn(
-          "flex items-center justify-between gap-2 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5 select-none touch-none",
+          "flex touch-none items-center justify-between gap-2 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5 select-none",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
       >
@@ -380,7 +402,9 @@ export function OpenClawChatPanel({
             <Bot className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight text-white">{content.assistantLabel}</p>
+            <p className="truncate text-sm leading-tight font-semibold text-white">
+              {content.assistantLabel}
+            </p>
             <p
               className={cn(
                 "truncate text-[10px]",
@@ -429,7 +453,11 @@ export function OpenClawChatPanel({
               )}
               aria-label={avatarMode ? "Stäng av avatar" : "Aktivera avatar"}
             >
-              {avatarMode ? <VideoOff className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+              {avatarMode ? (
+                <VideoOff className="h-3.5 w-3.5" />
+              ) : (
+                <Video className="h-3.5 w-3.5" />
+              )}
             </button>
           ) : null}
           {messages.length > 0 ? (
@@ -455,7 +483,7 @@ export function OpenClawChatPanel({
 
       {/* Avatar video — landscape, embedded card */}
       {showAvatar ? (
-        <div className="shrink-0 border-b border-white/10 bg-slate-950/40 px-3 pb-3 pt-3">
+        <div className="shrink-0 border-b border-white/10 bg-slate-950/40 px-3 pt-3 pb-3">
           <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20">
             {avatar.avatarReady ? (
               <video
@@ -496,7 +524,7 @@ export function OpenClawChatPanel({
             <button
               type="button"
               onClick={() => setAvatarExpanded((v) => !v)}
-              className="absolute right-2 top-2 rounded-md bg-black/40 p-1 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
+              className="absolute top-2 right-2 rounded-md bg-black/40 p-1 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
               aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
               title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
             >
@@ -510,39 +538,47 @@ export function OpenClawChatPanel({
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-slate-300">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/10">
-              <Bot className="h-6 w-6 text-cyan-200" />
+      <div ref={scrollRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto px-4 py-3">
+        <div ref={scrollContentRef} className="flex min-h-full flex-col space-y-3">
+          {messages.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-slate-300">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/10">
+                <Bot className="h-6 w-6 text-cyan-200" />
+              </div>
+              <p className="font-medium text-white">{content.emptyTitle}</p>
+              <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">
+                {content.emptyBody}
+              </p>
+              <div className="mt-2 flex w-full flex-col gap-2">
+                {content.starterPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => handleStarterPrompt(prompt)}
+                    disabled={isStreaming}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-100 transition-colors hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="font-medium text-white">{content.emptyTitle}</p>
-            <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">{content.emptyBody}</p>
-            <div className="mt-2 flex w-full flex-col gap-2">
-              {content.starterPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => handleStarterPrompt(prompt)}
-                  disabled={isStreaming}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-100 transition-colors hover:bg-white/10 disabled:opacity-50"
-                >
-                  {prompt}
-                </button>
-              ))}
+          ) : null}
+          {messages.map((msg, index) => (
+            <OpenClawMessage
+              key={msg.id}
+              msg={msg}
+              streaming={isStreaming && index === messages.length - 1 && msg.role === "assistant"}
+            />
+          ))}
+          {listening && interimTranscript ? (
+            <div className="flex w-full justify-end">
+              <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md border border-cyan-400/40 bg-cyan-400/15 px-3.5 py-2.5 text-sm leading-relaxed text-cyan-100/90 italic">
+                {interimTranscript}
+              </div>
             </div>
-          </div>
-        ) : null}
-        {messages.map((msg) => (
-          <OpenClawMessage key={msg.id} msg={msg} />
-        ))}
-        {listening && interimTranscript ? (
-          <div className="flex w-full justify-end">
-            <div className="min-w-0 max-w-[85%] rounded-2xl rounded-br-md border border-cyan-400/40 bg-cyan-400/15 px-3.5 py-2.5 text-sm leading-relaxed italic text-cyan-100/90">
-              {interimTranscript}
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <div className="border-t border-white/10 px-3 py-2.5">

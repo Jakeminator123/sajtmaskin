@@ -1,5 +1,9 @@
 import type { CodeFile } from "../parser";
-import { buildCompleteProject, PLACEHOLDER_API_ROUTE } from "./project-scaffold";
+import {
+  buildCompleteProject,
+  buildPlaceholderEnvLocalBody,
+  PLACEHOLDER_API_ROUTE,
+} from "./project-scaffold";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 import { isPipelineAuthoredEnvLocal } from "../preview/env-local";
 
@@ -68,17 +72,34 @@ export async function buildExportableProject(
         file.path === "app/api/placeholder/route.ts" ||
         file.path === "app/api/placeholder/route.js",
     );
-    if (!hasPlaceholderRoute) {
-      return [
-        ...filesForRuntimeAssembly,
-        {
-          path: "app/api/placeholder/route.ts",
-          content: PLACEHOLDER_API_ROUTE,
-          language: "ts",
-        },
-      ];
+    const verbatimFiles = hasPlaceholderRoute
+      ? [...filesForRuntimeAssembly]
+      : [
+          ...filesForRuntimeAssembly,
+          {
+            path: "app/api/placeholder/route.ts",
+            content: PLACEHOLDER_API_ROUTE,
+            language: "ts",
+          },
+        ];
+    // Preview↔verify parity for env too (Codex P2 on #594): live preview
+    // (`startPreviewSession` skipProjectScaffold) writes a runtime `.env.local`,
+    // but this branch used to return only the repo files — quality-gate /
+    // server-verify then built in a DIFFERENT environment and an imported
+    // template reading a placeholder-covered key at build/module-init could
+    // false-fail verify/repair while the preview worked. Mirror the
+    // non-verbatim ownership rule: a template-authored `.env.local` stays
+    // authoritative; otherwise ship the same placeholder envelope
+    // `buildCompleteProject` appends (placeholders only — no real values, so
+    // downloads leak nothing; the deploy ZIP boundary still strips the file).
+    const hasOwnEnvLocal = verbatimFiles.some((file) => file.path === ".env.local");
+    if (!hasOwnEnvLocal) {
+      const envBody = buildPlaceholderEnvLocalBody();
+      if (envBody) {
+        verbatimFiles.push({ path: ".env.local", content: envBody, language: "text" });
+      }
     }
-    return filesForRuntimeAssembly;
+    return verbatimFiles;
   }
   // Dynamic import keeps Turbopack from merging fs-heavy UI scanning into every route that
   // transitively touched this module (quality-gate, repair, export, etc.).

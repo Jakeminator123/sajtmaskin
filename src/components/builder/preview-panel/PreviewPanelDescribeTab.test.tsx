@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
+import { SHADCN_ITEM_DND_TYPE } from "@/lib/builder/shadcn-insert";
 
 /**
  * "Beskriv"-fliken (Fas 2 v1 + Fas 3): fritext → POST /api/shadcn/describe →
@@ -150,5 +151,59 @@ describe("PreviewPanelDescribeTab", () => {
     await searchFor("obskyr beskrivning utan träffar");
 
     await waitFor(() => screen.getByText(/Inga träffar/i));
+  });
+
+  it("kandidatkort är draggbara med selection-payload (DnD-lane)", async () => {
+    global.fetch = mockDescribeFetch({}) as unknown as typeof fetch;
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+
+    render(
+      <PreviewPanelDescribeTab
+        onInsertItem={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    await searchFor("stapel-graf");
+    await waitFor(() => screen.getByText("Bar Chart Interactive"));
+
+    const card = screen
+      .getByText("Bar Chart Interactive")
+      .closest("div[draggable]") as HTMLElement;
+    expect(card.getAttribute("draggable")).toBe("true");
+
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
+    fireEvent.dragStart(card, { dataTransfer });
+
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    const [mime, payload] = dataTransfer.setData.mock.calls[0] as [string, string];
+    expect(mime).toBe(SHADCN_ITEM_DND_TYPE);
+    expect(JSON.parse(payload)).toEqual({
+      name: "chart-bar-interactive",
+      registry: "@shadcn",
+      title: "Bar Chart Interactive",
+      description: "An interactive bar chart",
+      dependencies: ["recharts"],
+      registryDependencies: ["card", "chart"],
+      addCommand: "npx shadcn@latest add chart-bar-interactive",
+      origin: "describe",
+    });
+
+    fireEvent.dragEnd(card);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("trasig kandidat-thumbnail degraderar till ikon-platshållare (onError)", async () => {
+    global.fetch = mockDescribeFetch({}) as unknown as typeof fetch;
+
+    render(<PreviewPanelDescribeTab onInsertItem={vi.fn()} />);
+    await searchFor("stapel-graf");
+    await waitFor(() => screen.getByText("Bar Chart Interactive"));
+
+    const img = screen.getByAltText("Bar Chart Interactive");
+    fireEvent.error(img);
+
+    expect(screen.queryByAltText("Bar Chart Interactive")).toBeNull();
   });
 });

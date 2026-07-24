@@ -27,6 +27,9 @@
       ],
       "@clerk/nextjs": [
         "./tests/stubs/clerk-nextjs.tsx"
+      ],
+      "@clerk/nextjs/server": [
+        "./tests/stubs/clerk-nextjs-server.ts"
       ]
     },
     "target": "ES2022",

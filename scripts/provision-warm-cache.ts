@@ -40,7 +40,6 @@ import { tmpdir, platform } from "node:os";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const REPO_NODE_MODULES = join(REPO_ROOT, "node_modules");
-const REPO_TSCONFIG = join(REPO_ROOT, "tsconfig.json");
 const REPO_ESLINT_CONFIG = join(REPO_ROOT, "eslint.config.mjs");
 const REPO_ESLINT_RC_SUPPORT = join(REPO_ROOT, ".eslintignore"); // optional
 
@@ -78,6 +77,83 @@ function isJunctionOrSymlink(path: string): boolean {
 
 function ensureDir(path: string): void {
   if (!existsSync(path)) mkdirSync(path, { recursive: true });
+}
+
+/**
+ * Cache-adapted tsconfig, mirroring the baseline generated projects ship with
+ * (`src/lib/gen/export/project-scaffold.ts` TSCONFIG). Generated files live at
+ * the cache ROOT (`app/`, `components/`, …) and import via `"@/*": ["./*"]`
+ * — the repo's own tsconfig maps `@/*` to `./src/*`, so a raw copy made
+ * `runPreVmTypecheck` report bogus TS2307 for every `@/components/ui/*`
+ * import and sent clean code into the repair loop (backlog: Codex P2 on #354).
+ * `scripts/dev/check-warm-cache.mjs` asserts the alias so stale caches
+ * provisioned by older versions of this script show up as COLD.
+ *
+ * Generated-only SDK stubs (Codex P2 on #600): the cache reuses the REPO's
+ * `node_modules`, but some dossier SDKs (e.g. `@clerk/nextjs`) are supplied
+ * by the generated project's own dependency and are NOT installed here — a
+ * pre-VM `tsc` would report TS2307 on valid Clerk code before the VM installs
+ * it. Mirror the repo's own solution: copy the test stub into the cache and
+ * alias the package to it. (The raw-copied root tsconfig carried the alias
+ * but never the stub FILE, so this resolution was silently broken before.)
+ */
+const SDK_STUBS: Array<{ packageName: string; repoStubPath: string; cacheStubPath: string }> = [
+  {
+    packageName: "@clerk/nextjs",
+    repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs.tsx"),
+    cacheStubPath: "__sdk-stubs/clerk-nextjs.tsx",
+  },
+  {
+    // The clerk-auth dossier's verbatim middleware imports this SUBPATH —
+    // aliasing only the package root still left TS2307 there (Bugbot on the
+    // #600 follow-up).
+    packageName: "@clerk/nextjs/server",
+    repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs-server.ts"),
+    cacheStubPath: "__sdk-stubs/clerk-nextjs-server.ts",
+  },
+];
+
+function buildCacheTsconfig(availableStubs: Array<(typeof SDK_STUBS)[number]>) {
+  const paths: Record<string, string[]> = { "@/*": ["./*"] };
+  for (const stub of availableStubs) {
+    paths[stub.packageName] = [`./${stub.cacheStubPath}`];
+  }
+  return {
+    compilerOptions: {
+      target: "ES2017",
+      lib: ["dom", "dom.iterable", "esnext"],
+      allowJs: true,
+      skipLibCheck: true,
+      strict: true,
+      noEmit: true,
+      esModuleInterop: true,
+      module: "esnext",
+      moduleResolution: "bundler",
+      resolveJsonModule: true,
+      isolatedModules: true,
+      jsx: "react-jsx",
+      incremental: true,
+      plugins: [{ name: "next" }],
+      paths,
+    },
+    include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+    exclude: ["node_modules"],
+  };
+}
+
+function writeCacheTsconfig(cacheDir: string): "written" {
+  const availableStubs = SDK_STUBS.filter((stub) => existsSync(stub.repoStubPath));
+  for (const stub of availableStubs) {
+    const dest = join(cacheDir, stub.cacheStubPath);
+    ensureDir(dirname(dest));
+    copyFileSync(stub.repoStubPath, dest);
+  }
+  writeFileSync(
+    join(cacheDir, "tsconfig.json"),
+    JSON.stringify(buildCacheTsconfig(availableStubs), null, 2) + "\n",
+    "utf8",
+  );
+  return "written";
 }
 
 function writeMinimalPackageJson(cacheDir: string, scaffoldId: string): void {
@@ -144,7 +220,7 @@ function provisionScaffold(scaffoldId: string): ScaffoldReport {
 
   writeMinimalPackageJson(cacheDir, scaffoldId);
   const nodeModules = linkNodeModules(cacheDir);
-  const tsconfig = copyConfigFile(REPO_TSCONFIG, join(cacheDir, "tsconfig.json"));
+  const tsconfig = writeCacheTsconfig(cacheDir);
   const eslintConfig = copyConfigFile(
     REPO_ESLINT_CONFIG,
     join(cacheDir, "eslint.config.mjs"),

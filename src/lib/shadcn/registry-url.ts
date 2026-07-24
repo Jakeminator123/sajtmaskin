@@ -37,6 +37,32 @@ const OFFICIAL_COERCED_STYLES = new Set(["new-york", "default", "radix-vega"]);
 export const LEGACY_STYLE_DEFAULT = "new-york";
 
 /**
+ * Style path that still hosts the block preview PNGs on ui.shadcn.com.
+ *
+ * The 2026-07 site redesign removed the `{name}-{theme}.png` screenshots from
+ * the `new-york-v4` style path (verified 404 2026-07-24), while the legacy
+ * `new-york` path still serves them (200, image/png). JSON payloads stay on
+ * {@link DEFAULT_REGISTRY_STYLE}; ONLY preview-image URLs use this constant.
+ * Re-verify with `https://ui.shadcn.com/r/styles/new-york/dashboard-01-light.png`
+ * if thumbnails go blank again.
+ */
+export const PREVIEW_IMAGE_STYLE = "new-york";
+
+/**
+ * Resolve the style segment for preview-image URLs (`{name}-{theme}.png`).
+ * Official ui.shadcn.com → {@link PREVIEW_IMAGE_STYLE} (the only style path
+ * that still hosts the PNGs). Custom registry hosts pass through the normal
+ * style resolution untouched.
+ */
+export function resolvePreviewImageStyle(style?: string, baseUrl?: string): string {
+  const resolvedBase = baseUrl
+    ? normalizeRegistryBaseUrl(baseUrl) || getRegistryBaseUrl()
+    : getRegistryBaseUrl();
+  if (resolvedBase.includes("ui.shadcn.com")) return PREVIEW_IMAGE_STYLE;
+  return resolveRegistryStyle(style, baseUrl);
+}
+
+/**
  * Build a docs URL for a shadcn/ui component.
  * Canonical form is `https://ui.shadcn.com/docs/components/{slug}` (no `/radix/` prefix) —
  * matches the official llms.txt and sidebar navigation.

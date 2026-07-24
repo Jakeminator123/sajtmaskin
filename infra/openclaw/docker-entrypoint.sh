@@ -38,9 +38,14 @@ mkdir -p "$WORKSPACE_DIR"
 cp /app/seed/IDENTITY.md "$AGENT_DIR/IDENTITY.md"
 echo "[entrypoint] IDENTITY.md written for sajtagenten"
 
+# Seed files are config-managed (git) — OVERWRITE them on every boot so a new
+# deploy actually refreshes the agent's instructions on the persistent disk.
+# Only the seeded filenames are touched; files the agent has created itself in
+# the workspace (memory, notes) are left intact. (This used to be `cp -rn`,
+# which meant updated SOUL/TOOLS/USER/BOOTSTRAP never reached a live instance.)
 if [ -d "/app/seed/workspace" ]; then
-  cp -rn /app/seed/workspace/. "$WORKSPACE_DIR/" 2>/dev/null || true
-  echo "[entrypoint] Seeded workspace files"
+  cp -rf /app/seed/workspace/. "$WORKSPACE_DIR/" 2>/dev/null || true
+  echo "[entrypoint] Seeded workspace files (refreshed from image)"
 fi
 
 CUSTOM_PROVIDERS=""
