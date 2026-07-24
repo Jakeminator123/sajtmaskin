@@ -666,7 +666,13 @@ export interface ProjectEnvLocalOptions {
   lifecycleStage?: PreviewLifecycleStage;
 }
 
-function buildPlaceholderEnvLocalBody(options?: ProjectEnvLocalOptions): string | null {
+/**
+ * Exported for `buildExportableProject`'s verbatim branch (Codex P2 on #594):
+ * an imported repo without its own `.env.local` must verify with the same
+ * placeholder envelope the non-verbatim assembly gets, so quality-gate /
+ * server-verify build in the same environment as the live preview VM.
+ */
+export function buildPlaceholderEnvLocalBody(options?: ProjectEnvLocalOptions): string | null {
   try {
     const selectedKeys = options?.selectedDossierEnvKeys;
     const lifecycleStage = options?.lifecycleStage;
