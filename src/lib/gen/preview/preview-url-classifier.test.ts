@@ -141,4 +141,37 @@ describe("decidePreviewHandoff", () => {
       }),
     ).toEqual({ action: "bump", key: `v1:${URL_A}` });
   });
+
+  it("full lifecycle: caller must persist the key on the ?-upgrade noop so a later new version still bumps (Bugbot high)", () => {
+    // Mirrors the applyPreviewHandoff caller contract: persist decision.key on
+    // EVERY non-null decision (including noop). If the noop-upgrade key is not
+    // persisted, the latch stays `?:url` and a genuine new version at the same
+    // reused session URL is swallowed — the iframe never reloads.
+    let currentUrl: string | null = null;
+    let lastAppliedKey: string | null = null;
+    const apply = (url: string, versionId: string | null) => {
+      const decision = decidePreviewHandoff({
+        incomingUrl: url,
+        currentUrl,
+        versionId,
+        lastAppliedKey,
+      });
+      if (decision.key !== null) lastAppliedKey = decision.key;
+      if (decision.action === "set-url") currentUrl = url;
+      return decision;
+    };
+
+    // 1) preview-ready fires before the stream reports versionId.
+    expect(apply(URL_A, null)).toEqual({ action: "set-url", key: `?:${URL_A}` });
+    expect(currentUrl).toBe(URL_A);
+    expect(lastAppliedKey).toBe(`?:${URL_A}`);
+
+    // 2) done/version-sync resolves the id for the same URL — key upgrades, no reload.
+    expect(apply(URL_A, "v1")).toEqual({ action: "noop", key: `v1:${URL_A}` });
+    expect(lastAppliedKey).toBe(`v1:${URL_A}`);
+
+    // 3) a follow-up swaps new files into the same VM URL — this MUST bump.
+    expect(apply(URL_A, "v2")).toEqual({ action: "bump", key: `v2:${URL_A}` });
+    expect(lastAppliedKey).toBe(`v2:${URL_A}`);
+  });
 });

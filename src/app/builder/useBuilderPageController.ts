@@ -144,8 +144,17 @@ export function useBuilderPageController() {
         lastAppliedKey: lastPreviewHandoffKeyRef.current,
         force: params.force,
       });
+      // Persist the (possibly upgraded) key even on a `noop`: decidePreviewHandoff
+      // upgrades the `?:url` placeholder to a concrete `versionId:url` for the
+      // SAME on-screen URL without a reload (preview-ready fired before the
+      // stream reported versionId). That upgrade must stick — otherwise the latch
+      // stays `?:url` and later swallows a genuine new-version bump at the same
+      // reused session URL, leaving the iframe on the previous version (Bugbot
+      // high). The empty-URL decision carries a null key and must not clobber it.
+      if (decision.key !== null) {
+        lastPreviewHandoffKeyRef.current = decision.key;
+      }
       if (decision.action === "noop") return;
-      lastPreviewHandoffKeyRef.current = decision.key;
       if (decision.action === "set-url") {
         const normalized = normalizePreviewUrl(params.url);
         // Sync the ref immediately — a second handoff can arrive in the same
