@@ -127,7 +127,13 @@ const DEFAULT_IMPORT_NAMES: Record<string, string> = {
 // Client-side Clerk symbols (`useAuth`, `ClerkProvider`, `<SignIn />`) live in
 // `@clerk/nextjs` and are intentionally NOT resolved here to avoid guessing the
 // wrong entrypoint.
-const CLERK_SERVER_IMPORTS = new Set([
+/**
+ * Exported so `tests/stubs/clerk-nextjs-server.test.ts` can assert the
+ * warm-cache typecheck stub covers every symbol this fixer injects — a
+ * narrower stub turns valid generated auth code into TS2305 and sends it
+ * back into repair (Codex P2 on #603).
+ */
+export const CLERK_SERVER_IMPORTS = new Set([
   "clerkMiddleware",
   "createRouteMatcher",
   "getAuth",
