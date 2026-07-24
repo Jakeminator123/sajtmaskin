@@ -21,6 +21,11 @@ const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
 // M#pv2: the preview-session route persists preview_url with bounded
 // retry-after-lease-release so a session that consistently coincides with the
 // verify lease still lands the write. Tests assert the full option contract.
+// 2026-07 (preview-lifecycle simplification): the persist is scheduled via
+// after() — the user-visible response must never wait on the version-row
+// lock (up to ~7 s under verify-lease contention). Tests therefore assert
+// "not called before response, called with the option contract when after()
+// runs".
 const PREVIEW_URL_PERSIST_OPTIONS = {
   lockTimeoutMs: 2000,
   maxRetries: 3,
@@ -227,6 +232,9 @@ describe("POST preview-session (engine)", () => {
 
     expect(res.status).toBe(200);
     expect(startPreviewSession).toHaveBeenCalled();
+    // Persist is after()-scheduled — never on the response path.
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
+    await runAfterCallbacks();
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith(
       "ver_1",
       "https://preview.example/chat_1",
@@ -256,6 +264,9 @@ describe("POST preview-session (engine)", () => {
     const body = (await res.json()) as { ok: boolean; previewUrl?: string };
     expect(body.ok).toBe(true);
     expect(body.previewUrl).toBe("https://preview.example/chat_1");
+    // The contended persist runs in after() and its false return only warns —
+    // the response above already resolved successfully.
+    await runAfterCallbacks();
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith(
       "ver_1",
       "https://preview.example/chat_1",
@@ -319,6 +330,10 @@ describe("POST preview-session (engine)", () => {
         skipProjectScaffold: true,
       }),
     );
+    // Regression (punkt 4): the response must resolve WITHOUT waiting on the
+    // version-row lock — persist only runs when after() fires.
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
+    await runAfterCallbacks();
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith(
       "ver_1",
       "https://preview.example/chat_1",
@@ -373,7 +388,8 @@ describe("POST preview-session (engine)", () => {
     expect(res.status).toBe(200);
     // Scheduled via after() — must NOT run before the response resolved…
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
-    expect(afterCallbacks.value.length).toBe(1);
+    // Two after() callbacks: previewUrl persist + the runtime-ready stamp.
+    expect(afterCallbacks.value.length).toBe(2);
     // …and stamps with the exact version binding when after() runs.
     await runAfterCallbacks();
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true);
@@ -391,7 +407,9 @@ describe("POST preview-session (engine)", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(afterCallbacks.value.length).toBe(0);
+    // Only the previewUrl persist is scheduled — no runtime-ready stamp.
+    expect(afterCallbacks.value.length).toBe(1);
+    await runAfterCallbacks();
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 

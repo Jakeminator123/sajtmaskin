@@ -144,6 +144,8 @@ export type VersionEntry = {
   releaseState?: string | null;
   verificationState?: string | null;
   verificationSummary?: string | null;
+  /** `"design"` (F2) or `"integrations"` (F3) — from `engine_versions.lifecycle_stage`. */
+  lifecycleStage?: string | null;
   hasPendingRepair?: boolean;
   repairAvailableAt?: string | null;
   promotedAt?: string | null;
@@ -257,7 +259,18 @@ export type ChatMessagingParams = {
   setPreviewBuildError?: (payload: PreviewBuildErrorPayload | null) => void;
   setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
   setPreviewPending?: (pending: boolean) => void;
-  onPreviewRefresh?: () => void;
+  /**
+   * Preferred preview handoff: applies `decidePreviewHandoff` (set URL OR
+   * bump refresh token, never both) with a shared per-`versionId:url` dedup
+   * latch owned by the builder controller, so preview-ready → done →
+   * bootstrap chains reload the iframe at most once. Falls back to
+   * `setCurrentPreviewUrl` alone when absent (tests).
+   */
+  applyPreviewHandoff?: (params: {
+    url: string | null | undefined;
+    versionId?: string | null;
+    force?: boolean;
+  }) => void;
   /**
    * Område 6-3 punkt 1: bumped when the post-generation check flow
    * completes, so `useVersionStatus` does a guaranteed final read after a

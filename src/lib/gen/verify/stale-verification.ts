@@ -98,6 +98,16 @@ export function reconcileTerminalDbState(
   if (dbVerificationState === "failed" && status.phase !== "failed") {
     return { ...status, phase: "failed" };
   }
+  // DB `superseded` (2026-07, terminal-neutral): a newer version took over
+  // mid-verify and `markVersionSupersededByRepair` settled the row. The bus
+  // never receives a terminal event on that path (the verify lane returns
+  // early), so without this the projection stays `verifying` forever —
+  // perpetual spinner. Authoritative like `failed`: it also overrides a stale
+  // terminal bus (`done`/`failed`), since the supersede write is the row's
+  // latest truth and must render neutral "Ersatt", never green or red.
+  if (dbVerificationState === "superseded" && status.phase !== "superseded") {
+    return { ...status, phase: "superseded" };
+  }
   // M#flap1: authoritative-positive exception — promoted+passed in the DB
   // upgrades a stale terminal bus `failed` (see JSDoc). Degradations are
   // preserved by the spread so a degraded version still renders degraded.

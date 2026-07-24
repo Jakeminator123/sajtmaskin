@@ -77,7 +77,6 @@ function createContext(setMessages: SetMessages) {
   const setChatId = vi.fn();
   const setCurrentPreviewUrl = vi.fn();
   const setPreviewPending = vi.fn();
-  const onPreviewRefresh = vi.fn();
   const onGenerationComplete = vi.fn();
   const mutateVersions = vi.fn();
   const touchStreamSafetyTimer = vi.fn();
@@ -92,7 +91,6 @@ function createContext(setMessages: SetMessages) {
     setChatId,
     setCurrentPreviewUrl,
     setPreviewPending,
-    onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
     enableImageMaterialization: true,
@@ -107,7 +105,6 @@ function createContext(setMessages: SetMessages) {
       setChatId,
       setCurrentPreviewUrl,
       setPreviewPending,
-      onPreviewRefresh,
       onGenerationComplete,
       mutateVersions,
       touchStreamSafetyTimer,
@@ -563,6 +560,129 @@ describe("handleSseStream", () => {
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  // Regression (2026-07 preview-lifecycle simplification, punkt 1): the old
+  // progressive refresh reloaded the iframe mid-stream after two closed code
+  // fences — before the version was finalized. No preview delivery of any
+  // kind may happen from `content` events.
+  it("never touches the preview from content events mid-stream (progressive refresh removed)", async () => {
+    const applyPreviewHandoff = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "content",
+          {
+            text:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```\n' +
+              '```tsx file="app/layout.tsx"\nexport default function Layout() { return null; }\n```\n',
+          },
+          "",
+        );
+        // Assert BEFORE done: nothing has been delivered mid-stream.
+        expect(applyPreviewHandoff).not.toHaveBeenCalled();
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: "https://preview.example/chat_1",
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(
+      new Response(null),
+      { ...ctx, applyPreviewHandoff },
+      new AbortController().signal,
+    );
+
+    // Delivered exactly once — at done, through the handoff (never the raw setter).
+    expect(applyPreviewHandoff).toHaveBeenCalledTimes(1);
+    expect(applyPreviewHandoff).toHaveBeenCalledWith({
+      url: "https://preview.example/chat_1",
+      versionId: "ver_1",
+    });
+    expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  // Regression (punkt 2 + Bugbot): preview-ready delivers the session URL before
+  // the stream reports versionId (`?:url`), then done re-delivers the SAME URL
+  // with the resolved versionId. Both handoffs fire, but the SECOND is a
+  // no-reload latch upgrade (decidePreviewHandoff returns noop for `?:url` ->
+  // `versionId:url`), so the iframe still reloads exactly once — and the
+  // controller latch advances to `versionId:url` instead of staying stuck at
+  // `?:url` (which would later swallow a genuine new-version bump).
+  it("re-delivers with the resolved versionId at done so the handoff latch upgrades (no double reload)", async () => {
+    const applyPreviewHandoff = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "preview-ready",
+          {
+            previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            previewSessionId: "sess_1",
+            previewTier: 2,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(
+      new Response(null),
+      { ...ctx, applyPreviewHandoff },
+      new AbortController().signal,
+    );
+
+    expect(applyPreviewHandoff).toHaveBeenCalledTimes(2);
+    // preview-ready: versionId unresolved → sets `?:url` (the one reload).
+    expect(applyPreviewHandoff).toHaveBeenNthCalledWith(1, {
+      url: "https://vm-fly-jakem.fly.dev/chat_1",
+      versionId: null,
+    });
+    // done: resolved versionId for the same URL → no-reload latch upgrade.
+    expect(applyPreviewHandoff).toHaveBeenNthCalledWith(2, {
+      url: "https://vm-fly-jakem.fly.dev/chat_1",
+      versionId: "ver_1",
+    });
   });
 
   it("renders generation done timing in Agentlogg without duplicate done rows", async () => {

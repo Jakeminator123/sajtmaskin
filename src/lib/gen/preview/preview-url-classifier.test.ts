@@ -1,0 +1,177 @@
+import { describe, expect, it } from "vitest";
+import { decidePreviewHandoff } from "./preview-url-classifier";
+
+// 2026-07 preview-lifecycle simplification: a preview handoff is exactly ONE
+// of set-url / bump / noop — never URL-set + token-bump together (each causes
+// its own iframe reload), and never a replay of an already-applied
+// versionId:url handoff.
+describe("decidePreviewHandoff", () => {
+  const URL_A = "https://vm-fly-jakem.fly.dev/chat_1";
+  const URL_B = "https://vm-fly-jakem.fly.dev/chat_2";
+
+  it("noops on an empty incoming URL", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: "  ",
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: null,
+      }),
+    ).toEqual({ action: "noop", key: null });
+  });
+
+  it("sets the URL when nothing is showing yet — even if the latch remembers the key", () => {
+    // Cleared preview (chat switch / reset): the latch must never leave the
+    // iframe white by noop-ing the repopulating handoff.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: null,
+        versionId: "v1",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "set-url", key: `v1:${URL_A}` });
+  });
+
+  it("sets the URL (no bump) when the URL differs from what is showing", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_B,
+        currentUrl: URL_A,
+        versionId: "v2",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "set-url", key: `v2:${URL_B}` });
+  });
+
+  it("bumps (no URL set) for a new version delivered on the same session URL", () => {
+    // Follow-up swapped files into the same VM session: same URL, new
+    // content — exactly one reload via the token.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v2",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "bump", key: `v2:${URL_A}` });
+  });
+
+  it("noops when the exact versionId:url handoff was already applied (preview-ready → done → bootstrap replay)", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "noop", key: `v1:${URL_A}` });
+  });
+
+  it("force bypasses the latch but still picks exactly one action", () => {
+    // Forced restart on the same URL → one reload via bump.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `v1:${URL_A}`,
+        force: true,
+      }),
+    ).toEqual({ action: "bump", key: `v1:${URL_A}` });
+    // Forced restart landing on a different URL → set-url (the URL change reloads).
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_B,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `v1:${URL_B}`,
+        force: true,
+      }),
+    ).toEqual({ action: "set-url", key: `v1:${URL_B}` });
+  });
+
+  it("uses '?' as the version key part when the versionId is unknown", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: null,
+        versionId: null,
+        lastAppliedKey: null,
+      }),
+    ).toEqual({ action: "set-url", key: `?:${URL_A}` });
+  });
+
+  it("upgrades a late-resolved versionId on the SAME url without a second reload (Bugbot double-reload)", () => {
+    // preview-ready fired before the stream reported versionId, so the first
+    // handoff latched `?:url` and set the iframe. When `done`/bootstrap later
+    // carries the resolved id for the SAME url, we must only upgrade the stored
+    // key — bumping here reloaded the iframe a second time.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `?:${URL_A}`,
+      }),
+    ).toEqual({ action: "noop", key: `v1:${URL_A}` });
+  });
+
+  it("still bumps when a genuinely new version reuses the same VM url (V1:url -> V2:url)", () => {
+    // The `?`-upgrade shortcut must not swallow a real new-version reload: the
+    // prior key is a concrete version, not the `?:url` placeholder.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v2",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "bump", key: `v2:${URL_A}` });
+  });
+
+  it("forced restart on a late-resolved id still bumps (force bypasses the ?-upgrade shortcut)", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `?:${URL_A}`,
+        force: true,
+      }),
+    ).toEqual({ action: "bump", key: `v1:${URL_A}` });
+  });
+
+  it("full lifecycle: caller must persist the key on the ?-upgrade noop so a later new version still bumps (Bugbot high)", () => {
+    // Mirrors the applyPreviewHandoff caller contract: persist decision.key on
+    // EVERY non-null decision (including noop). If the noop-upgrade key is not
+    // persisted, the latch stays `?:url` and a genuine new version at the same
+    // reused session URL is swallowed — the iframe never reloads.
+    let currentUrl: string | null = null;
+    let lastAppliedKey: string | null = null;
+    const apply = (url: string, versionId: string | null) => {
+      const decision = decidePreviewHandoff({
+        incomingUrl: url,
+        currentUrl,
+        versionId,
+        lastAppliedKey,
+      });
+      if (decision.key !== null) lastAppliedKey = decision.key;
+      if (decision.action === "set-url") currentUrl = url;
+      return decision;
+    };
+
+    // 1) preview-ready fires before the stream reports versionId.
+    expect(apply(URL_A, null)).toEqual({ action: "set-url", key: `?:${URL_A}` });
+    expect(currentUrl).toBe(URL_A);
+    expect(lastAppliedKey).toBe(`?:${URL_A}`);
+
+    // 2) done/version-sync resolves the id for the same URL — key upgrades, no reload.
+    expect(apply(URL_A, "v1")).toEqual({ action: "noop", key: `v1:${URL_A}` });
+    expect(lastAppliedKey).toBe(`v1:${URL_A}`);
+
+    // 3) a follow-up swaps new files into the same VM URL — this MUST bump.
+    expect(apply(URL_A, "v2")).toEqual({ action: "bump", key: `v2:${URL_A}` });
+    expect(lastAppliedKey).toBe(`v2:${URL_A}`);
+  });
+});

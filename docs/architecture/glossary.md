@@ -48,6 +48,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Preflight | Teknisk kontroll före preview/persist/promote. |
 | EngineEvent | Append-only runtime-händelse för versionens livscykel. |
 | VersionStatus | UI-/API-projektion av EngineEvents och terminal DB-state. |
+| Superseded ("Ersatt") | Terminal-neutralt `verification_state` (2026-07): en nyare version tog över medan denna verifierades. Aldrig rött `failed`, startar aldrig repair, väljs aldrig som preferred; F2 förblir deploybar, F3 kräver fortfarande grön ReleaseGate. |
 | Fast Edit Lane | Exakt deterministisk filändring utan LLM, sparad som minor-version. |
 | Minor-version | Quick-edit-version under en major, t.ex. `v3.1`. |
 | False-green | Systemet visar grönt trots blocker/degradation. Ska undvikas. |

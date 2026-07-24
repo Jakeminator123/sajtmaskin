@@ -3,6 +3,7 @@ import {
   pickVersionPreviewUrl,
   shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
+  shouldRetainLiveTier2DuringAsyncPersist,
 } from "./builder-page-preview-helpers";
 
 describe("pickVersionPreviewUrl", () => {
@@ -196,6 +197,97 @@ describe("shouldPreserveUserRouteNavigation", () => {
       shouldPreserveUserRouteNavigation({
         didChangeVersion: false,
         nextDemoUrl: sessionBase,
+        currentPreviewUrl: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldRetainLiveTier2DuringAsyncPersist", () => {
+  const liveUrl = "https://vm-fly-jakem.fly.dev/chat-123";
+  const staleFallback = "https://vm-fly-jakem.fly.dev/chat-999";
+
+  it("retains the live tier-2 preview while the row's own preview_url is still persisting via after()", () => {
+    // The after() window: same version, no own URL resolved yet, so nextDemoUrl
+    // is a pure fallback that differs from the live preview already on screen.
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: staleFallback,
+        currentPreviewUrl: liveUrl,
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT retain once the active row resolved its own preview URL (persist landed)", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: true,
+        nextDemoUrl: staleFallback,
+        currentPreviewUrl: liveUrl,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT retain when the version changed (a real switch must re-sync)", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: true,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: staleFallback,
+        currentPreviewUrl: liveUrl,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT retain when the user explicitly selected the active version", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: true,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: staleFallback,
+        currentPreviewUrl: liveUrl,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT retain a non-tier-2 (shim/plain) current preview", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: staleFallback,
+        currentPreviewUrl: "https://app.example/api/preview-render?id=1",
+      }),
+    ).toBe(false);
+  });
+
+  it("is a no-op when the fallback already equals the current preview", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: liveUrl,
+        currentPreviewUrl: liveUrl,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT retain when there is no current preview to keep", () => {
+    expect(
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion: false,
+        userSelectedActiveVersion: false,
+        activeVersionHasOwnPreview: false,
+        nextDemoUrl: staleFallback,
         currentPreviewUrl: null,
       }),
     ).toBe(false);
