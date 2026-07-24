@@ -65,6 +65,14 @@ Optional environment variables (have safe defaults):
 - OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
 - OPENCLAW_MODEL_PRIMARY=openai/gpt-5.5    (current frontier; best for debug-mode bug-hunt)
 - OPENCLAW_MODEL_FALLBACK=openai/gpt-5.4   (or openai/gpt-5.4-mini for cheaper quick chat)
+
+  A COMMA-SEPARATED chain is allowed, e.g.
+  OPENCLAW_MODEL_FALLBACK=openai/gpt-5.4,juicefactory/qwen3-vl
+  Blanks and duplicates are dropped. Prefer spreading the chain across
+  DIFFERENT providers: every openai/* step draws on the same Codex
+  subscription, so a quota wall takes out primary and fallback together
+  (see section 6). The JuiceFactory step uses a plain API key and therefore
+  survives a Codex outage.
 - JUICEFACTORY_API_KEY=<secret, only for the Qwen provider>
 
   NOTE: gpt-5.3-codex / gpt-5.1-codex are DEPRECATED. The entrypoint now
@@ -127,6 +135,41 @@ Fix:     gateway.http.endpoints.chatCompletions.enabled must be true.
 
 Symptom: "No API key found for provider openai-codex"
 Fix:     Set OPENAI_API_KEY on the hosting platform.
+
+Symptom: Chat returns HTTP 200 but the app shows an empty answer, and the
+         gateway logs "FallbackSummaryError: All models failed (N): ...
+         (rate_limit)" plus model_fallback_decision with
+         fallbackStepFinalOutcome=chain_exhausted.
+Cause:   Every model in the chain hit the SAME provider quota. The default
+         chain (openai/gpt-5.5 -> openai/gpt-5.4) runs on one Codex
+         subscription, so primary and fallback run out together. The gateway
+         still answers 200 with a valid SSE stream whose only payload is an
+         `error` chunk.
+Fix:     Refill or wait out the Codex quota, and spread the chain across
+         providers via the comma-separated OPENCLAW_MODEL_FALLBACK (section 3).
+Note:    BOTH GET <gateway-url>/health and GET <app-url>/api/openclaw/health
+         stay 200/"ok" in this state — they prove the gateway process is up,
+         NOT that any model has capacity. A green health check does not mean
+         the agent can answer. The app surfaces the error chunk as text (see
+         src/lib/openclaw/gateway-response.ts).
+
+Symptom: Control UI at <gateway-url>/overview says "Click Connect", and the
+         log shows "unauthorized ... client=openclaw-control-ui ...
+         reason=token_missing".
+Cause:   The dashboard is an ordinary browser client and needs the gateway
+         token pasted into its own Gateway Token field; it is not persisted
+         across sessions or redeploys.
+Fix:     Paste OPENCLAW_GATEWAY_TOKEN into the dashboard and press Connect.
+         This is unrelated to the app's chat path, which authenticates per
+         request with an Authorization: Bearer header — a disconnected
+         dashboard never explains a silent agent.
+
+Symptom: "Proxy headers detected from untrusted address ... Configure
+         gateway.trustedProxies to restore local client detection"
+Cause:   Render terminates TLS in front of the gateway, so the gateway will not
+         treat the connection as local.
+Fix:     Benign for the app path (token auth). Only matters if you want
+         local-client privileges through the proxy.
 
 
 7) Security Notes
