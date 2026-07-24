@@ -324,6 +324,49 @@ describe("POST quality-gate", () => {
     expect(markVersionVerifying).not.toHaveBeenCalled();
   });
 
+  it("does NOT early-short-circuit as superseded when the lease-guarded settle writes no row (Bugbot false-green)", async () => {
+    // The early settle is lease-guarded (versionWriteWhere(id, runId)); it
+    // returns null when the lease no longer owns the row. Claiming
+    // `superseded: true` regardless left verification_state non-terminal while
+    // the API reported a terminal state — a false-green. The fix falls through
+    // to the real lane instead of short-circuiting on a write that never landed.
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([{ path: "app/page.tsx", content: "export default function Page(){}" }]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([{ path: "app/page.tsx", content: "export default function Page(){}" }]);
+    exportableToQualityGateFiles.mockReturnValue([{ name: "app/page.tsx", content: "export default function Page(){}" }]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-2" });
+    // The EARLY lease-guarded settle writes no row (guard mismatch) → null.
+    markVersionSupersededByRepair.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    // The early false-green path is gone: because the guarded write returned
+    // null, the route did NOT short-circuit — it ran the real verify lane.
+    expect(runQualityGateChecks).toHaveBeenCalledTimes(1);
+    expect(markVersionVerifying).toHaveBeenCalled();
+  });
+
   it("SAJTMASKIN_DISABLE_QUALITY_GATE: short-circuits the F2 lane without promoting or mutating state", async () => {
     isQualityGateDisabledByEnv.mockReturnValue(true);
     getEngineVersionForChatByIdForRequest.mockResolvedValue({

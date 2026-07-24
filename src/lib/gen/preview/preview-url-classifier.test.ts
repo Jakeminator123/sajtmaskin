@@ -101,4 +101,44 @@ describe("decidePreviewHandoff", () => {
       }),
     ).toEqual({ action: "set-url", key: `?:${URL_A}` });
   });
+
+  it("upgrades a late-resolved versionId on the SAME url without a second reload (Bugbot double-reload)", () => {
+    // preview-ready fired before the stream reported versionId, so the first
+    // handoff latched `?:url` and set the iframe. When `done`/bootstrap later
+    // carries the resolved id for the SAME url, we must only upgrade the stored
+    // key — bumping here reloaded the iframe a second time.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `?:${URL_A}`,
+      }),
+    ).toEqual({ action: "noop", key: `v1:${URL_A}` });
+  });
+
+  it("still bumps when a genuinely new version reuses the same VM url (V1:url -> V2:url)", () => {
+    // The `?`-upgrade shortcut must not swallow a real new-version reload: the
+    // prior key is a concrete version, not the `?:url` placeholder.
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v2",
+        lastAppliedKey: `v1:${URL_A}`,
+      }),
+    ).toEqual({ action: "bump", key: `v2:${URL_A}` });
+  });
+
+  it("forced restart on a late-resolved id still bumps (force bypasses the ?-upgrade shortcut)", () => {
+    expect(
+      decidePreviewHandoff({
+        incomingUrl: URL_A,
+        currentUrl: URL_A,
+        versionId: "v1",
+        lastAppliedKey: `?:${URL_A}`,
+        force: true,
+      }),
+    ).toEqual({ action: "bump", key: `v1:${URL_A}` });
+  });
 });

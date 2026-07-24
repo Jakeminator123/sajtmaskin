@@ -65,6 +65,7 @@ import {
   pickVersionPreviewUrl,
   shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
+  shouldRetainLiveTier2DuringAsyncPersist,
   versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
 
@@ -1589,6 +1590,27 @@ export function useBuilderPageController() {
       setCurrentPreviewUrl(null);
       currentPreviewUrlRef.current = null;
       setPreviewRefreshToken(Date.now());
+      return;
+    }
+
+    // Async-persist window guard (preview-lifecycle): the preview-session route
+    // persists `preview_url` via after() for a fast response, so a `/versions`
+    // refetch can briefly return the active row with a null preview_url. Without
+    // this guard the effect falls back to a chat/project URL (possibly stale)
+    // and reloads the iframe away from the correct tier-2 live preview that
+    // SSE/bootstrap already put on screen for THIS same version. Hold the live
+    // preview until the row's own url persists (then it either matches — a
+    // no-op — or is a legit sync once `activeVersionHasOwnPreview` flips true).
+    if (
+      shouldRetainLiveTier2DuringAsyncPersist({
+        didChangeVersion,
+        userSelectedActiveVersion,
+        activeVersionHasOwnPreview: Boolean(selectedVersionPreview),
+        nextDemoUrl,
+        currentPreviewUrl,
+      })
+    ) {
+      setPreviewPending(false);
       return;
     }
 

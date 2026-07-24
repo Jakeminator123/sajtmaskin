@@ -133,4 +133,26 @@ describe("createHttpEngineClient.waitForVersionSettled (Codex P1: read phase)", 
     expect(result.settled).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it("treats a superseded phase as settled even when done is false (Codex P2: terminal-neutral)", async () => {
+    // reconcileTerminalDbState returns phase:"superseded" with done:false when a
+    // newer version takes over mid-verify. The old SETTLED_PHASES omitted it, so
+    // the harness burned its full poll budget and reported settled:false for a
+    // version that is already terminal — delaying/aborting chained follow-ups.
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ status: { phase: "superseded", done: false } }), {
+        status: 200,
+      }),
+    ) as unknown as typeof fetch;
+    const client = createHttpEngineClient({
+      baseUrl: "http://x",
+      fetchImpl,
+      settlePollIntervalMs: 0,
+      settleMaxPolls: 5,
+    });
+    const result = await client.waitForVersionSettled({ chatId: "c1", versionId: "v1" });
+    expect(result.state).toBe("superseded");
+    expect(result.settled).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });

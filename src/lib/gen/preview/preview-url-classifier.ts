@@ -196,5 +196,24 @@ export function decidePreviewHandoff(params: {
   if (!params.force && params.lastAppliedKey !== null && key === params.lastAppliedKey) {
     return { action: "noop", key };
   }
-  return incoming === current ? { action: "bump", key } : { action: "set-url", key };
+  if (incoming === current) {
+    // Same URL already on screen. A transition from the unknown-version
+    // placeholder (`?:url`) to a concrete `versionId:url` for the SAME url is
+    // just the initial handoff's id resolving late: `preview-ready` fired
+    // before the stream reported `versionId`, so the first handoff latched
+    // `?:url`, and a later source (stream `done` / bootstrap / version-sync)
+    // now carries the resolved id. Only upgrade the stored key — do NOT bump,
+    // or that late id resolution reloads the iframe a second time (Bugbot).
+    // A genuine new version reusing the same VM URL (`V1:url` -> `V2:url`)
+    // still bumps below, since its lastAppliedKey is not the `?:url` placeholder.
+    if (
+      !params.force &&
+      versionKeyPart !== "?" &&
+      params.lastAppliedKey === `?:${incoming}`
+    ) {
+      return { action: "noop", key };
+    }
+    return { action: "bump", key };
+  }
+  return { action: "set-url", key };
 }

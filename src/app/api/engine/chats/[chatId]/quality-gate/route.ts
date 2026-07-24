@@ -499,28 +499,44 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // the explicit integrationsBuild flow keeps its 412/409 readiness
       // contract (env dialogs in the builder depend on those statuses).
       if (!(await isLatestVersionForChat(chatId, internalVersionId))) {
-        await markVersionSupersededByRepair(internalVersionId, null, qgRunId).catch((err) => {
+        // Only claim `superseded` when the lease-guarded write actually settled
+        // the row. `markVersionSupersededByRepair` returns null when its
+        // `versionWriteWhere(id, runId)` guard matches no row (the lease no
+        // longer owns the version, or another writer already moved it). Returning
+        // `superseded: true` regardless was a false-green: status polling/badges
+        // would disagree with the gate card while `verification_state` stayed
+        // non-terminal (Bugbot). If we did not settle it, fall through to the
+        // normal lane so a real verify / the late supersede check terminalizes
+        // the row instead of the API lying about a write it never made.
+        const earlySettled = await markVersionSupersededByRepair(
+          internalVersionId,
+          null,
+          qgRunId,
+        ).catch((err) => {
           console.warn("[quality-gate] Failed to mark superseded version (early):", err);
+          return null;
         });
-        await createEngineVersionErrorLogs([
-          {
-            chatId,
-            versionId: internalVersionId,
-            level: "warning",
-            category: "quality-gate:superseded",
-            message:
-              "Quality gate skipped: a newer version already exists; version settled as superseded before the verify lane ran.",
-            meta: { serverOwned: false, early: true },
-          },
-        ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
-          console.warn("[quality-gate] Failed to persist early superseded log:", err);
-        });
-        return NextResponse.json({
-          passed: false,
-          superseded: true,
-          promoted: false,
-          checks: [],
-        });
+        if (earlySettled) {
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:superseded",
+              message:
+                "Quality gate skipped: a newer version already exists; version settled as superseded before the verify lane ran.",
+              meta: { serverOwned: false, early: true },
+            },
+          ], { lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS }).catch((err) => {
+            console.warn("[quality-gate] Failed to persist early superseded log:", err);
+          });
+          return NextResponse.json({
+            passed: false,
+            superseded: true,
+            promoted: false,
+            checks: [],
+          });
+        }
       }
 
       if (codeFiles && codeFiles.length > 0) {
