@@ -67,8 +67,14 @@ export interface HttpEngineClientOptions {
 /**
  * Terminal `VersionStatus.phase` values: generation is no longer in flight.
  * `blocked` is terminal-with-blockers (preview/verify blockers) — the harness
- * still force-builds it; `idle`/`done`/`failed` are likewise settled. Everything
- * else (`streaming`/`autofixing`/`validating`/`preflighting`/`verifying`/
+ * still force-builds it; `idle`/`done`/`failed` are likewise settled.
+ * `superseded` is terminal-neutral (2026-07): a newer version took over
+ * mid-verify, so `reconcileTerminalDbState` settles the row as `superseded`
+ * with `done` still false — it is done for this version and must count as
+ * settled, otherwise `waitForVersionSettled()` burns its full poll budget and
+ * reports `settled:false` for a version that is already terminal, delaying or
+ * aborting chained follow-ups (Codex P2). Everything else
+ * (`streaming`/`autofixing`/`validating`/`preflighting`/`verifying`/
  * `repairing`) is still in flight, so the harness must keep polling instead of
  * forcing a gate against a streaming version (Codex P1).
  */
@@ -77,6 +83,7 @@ const SETTLED_PHASES = new Set<VersionStatusPhase>([
   "blocked",
   "done",
   "failed",
+  "superseded",
 ]);
 
 /**

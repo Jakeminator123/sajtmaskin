@@ -35,3 +35,32 @@ export function derivePreviewLifecycleState(
   if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
   return "idle";
 }
+
+export type PreviewLoadingOverlayInput = {
+  isCreatingChat: boolean;
+  previewPending: boolean;
+  previewLifecycle: PreviewLifecycleState;
+  currentPreviewUrl: string | null;
+  isAnyStreaming: boolean;
+};
+
+/**
+ * Non-blocking verify/pending UX (2026-07 preview-lifecycle simplification):
+ * decide whether the full click-blocking loading overlay may cover the
+ * preview iframe. `previewPending` (verification / preview-session bootstrap
+ * running in the background) only blocks while there is NO live tier-2
+ * preview on screen — once a working preview renders, the thin status strip
+ * in the preview chrome communicates pending work and the user keeps
+ * interacting with the last-good preview.
+ */
+export function shouldBlockPreviewWithLoadingOverlay(
+  input: PreviewLoadingOverlayInput,
+): boolean {
+  const hasLivePreviewOnScreen = isTier2LivePreviewUrl(input.currentPreviewUrl);
+  return (
+    input.isCreatingChat ||
+    (input.previewPending && !hasLivePreviewOnScreen) ||
+    input.previewLifecycle === "recovering" ||
+    (!input.currentPreviewUrl && input.isAnyStreaming)
+  );
+}

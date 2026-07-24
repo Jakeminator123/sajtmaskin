@@ -424,6 +424,28 @@ Server-verify markerar då raden superseded (nyare version) eller re-verifierar
 aktuella filer (files-advanced, samma väg som stale-base-no-op); leasen släpps
 alltid via `finally`.
 
+### Terminal-neutral `superseded` (2026-07)
+
+`markVersionSupersededByRepair` skriver `verification_state = "superseded"` —
+ett eget terminalt, **neutralt** tillstånd (tidigare skrevs `failed`, vilket
+gjorde ~26 % av prod-versionerna falskt röda). Semantik:
+
+- UI: amber "Ersatt" (versionshistorikens verifierings-badge + derived
+  `retrying`-lifecycle-badge) — aldrig röd "Fel", inget rosa gate-kort
+  (klienten respekterar `superseded: true` i gate-svaret och startar aldrig
+  repair/autofix mot raden).
+- Deploy-gate: som `pending` — F2 deploybar, F3 kräver fortfarande grön
+  ReleaseGate.
+- `selectPreferredEngineVersion`/`selectDeployTargetEngineVersion` väljer
+  aldrig en superseded rad.
+- Readiness: ingen blocker/varning (den nyare versionen äger sin readiness).
+- Stale-watchdog: terminal → rör aldrig raden.
+- `/quality-gate`-routen gör dessutom en **tidig** supersede-check efter
+  lease-acquire men före VM-checkarna, så en inaktuell version aldrig bränner
+  verify-lanens ~30–45 s (`quality-gate:superseded` med `meta.early: true`).
+
+Rader som supersedades före 2026-07 behåller sitt historiska `failed`.
+
 ## Repair-accept (ingen tyst filersättning)
 
 När post-repair RenderGate/ReleaseGate passerar skrivs inte reparerade filer direkt över

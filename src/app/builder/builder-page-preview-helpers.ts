@@ -113,3 +113,47 @@ export function shouldPreserveUserRouteNavigation(params: {
   if (!nextDemoUrl || !currentPreviewUrl) return false;
   return isSameTier2PreviewSession(currentPreviewUrl, nextDemoUrl);
 }
+
+/**
+ * Decide whether to hold the current tier-2 live preview instead of reloading
+ * the iframe onto a mere fallback URL while the active version's own
+ * `preview_url` is still being persisted asynchronously.
+ *
+ * Background: the preview-session route persists `preview_url` via `after()`
+ * (fast user-visible response). That leaves a brief window where a `/versions`
+ * refetch returns the active row with `preview_url = null`. In that window the
+ * version-sync effect resolves no own URL for the version, so `nextDemoUrl`
+ * falls back to a chat/project URL (possibly stale) — which would reload the
+ * iframe AWAY from the correct tier-2 live preview that SSE/bootstrap already
+ * put on screen for THIS same version.
+ *
+ * We retain the live preview only when ALL hold: the version did NOT change
+ * (a real switch must re-sync), the user did not explicitly select the active
+ * version (explicit selection wins), the active row has NO own preview URL yet
+ * (`activeVersionHasOwnPreview` false — i.e. `nextDemoUrl` is purely a
+ * fallback), a live tier-2 preview is currently showing, and the fallback
+ * actually differs from it. Self-resolving: once the deferred persist lands
+ * and `/versions` refetches, the row exposes its own URL, this returns false,
+ * and the normal sync runs (a no-op when the URL matches).
+ */
+export function shouldRetainLiveTier2DuringAsyncPersist(params: {
+  didChangeVersion: boolean;
+  userSelectedActiveVersion: boolean;
+  activeVersionHasOwnPreview: boolean;
+  nextDemoUrl: string | null;
+  currentPreviewUrl: string | null;
+}): boolean {
+  const {
+    didChangeVersion,
+    userSelectedActiveVersion,
+    activeVersionHasOwnPreview,
+    nextDemoUrl,
+    currentPreviewUrl,
+  } = params;
+  if (didChangeVersion) return false;
+  if (userSelectedActiveVersion) return false;
+  if (activeVersionHasOwnPreview) return false;
+  if (!currentPreviewUrl || !nextDemoUrl) return false;
+  if (nextDemoUrl === currentPreviewUrl) return false;
+  return isTier2LivePreviewUrl(currentPreviewUrl);
+}
