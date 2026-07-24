@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanel } from "./preview-panel/PreviewPanel";
 import { PreviewPanelFrame } from "./preview-panel/PreviewPanelFrame";
+import {
+  SHADCN_ITEM_DND_TYPE,
+  serializeShadcnDragPayload,
+  type ShadcnInsertSelection,
+} from "@/lib/builder/shadcn-insert";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
@@ -114,6 +119,105 @@ describe("PreviewPanel", () => {
     expect(() => {
       rerender(<PreviewPanel {...props} previewUrl="https://preview.example/ver_1" />);
     }).not.toThrow();
+  });
+
+  // Delat fetch-stub för drop-testerna: dossier-overviewn kräver sin riktiga
+  // svarsform (counts/dossiers), övriga anrop får 404 → komponenternas egna
+  // felvägar (aldrig en krasch som monterar ner drop-overlayn).
+  function stubDropTestFetch() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/dossiers")) {
+          return new Response(
+            JSON.stringify({
+              projectId: "proj_1",
+              lifecycleStage: "design",
+              counts: { total: 0, hard: 0, soft: 0 },
+              dossiers: [],
+              versionFilesAvailable: true,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.includes("/files")) {
+          return new Response(JSON.stringify({ files: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({}), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+  }
+
+  // Codex P1 på #602: drop-grenen i PreviewPanel är enda stället som
+  // konverterar ett draggat registry-kort till ett placerat
+  // onShadcnItemInsert-anrop — lås att placeringsankarna följer med.
+  it("forwards placement anchors to onShadcnItemInsert when a registry card drops on the composer overlay", async () => {
+    stubDropTestFetch();
+    const onShadcnItemInsert = vi.fn(async (_selection: ShadcnInsertSelection) => {});
+    renderPreviewPanel({ onShadcnItemInsert });
+
+    // Iframen laddar klart → drop-guarden (iframeLoading) släpper.
+    fireEvent.load(screen.getByTitle("Preview"));
+    fireEvent.click(screen.getByRole("button", { name: /Composer/i }));
+
+    const overlay = await screen.findByTestId("composer-drop-overlay");
+    fireEvent.drop(overlay, {
+      dataTransfer: {
+        getData: (type: string) =>
+          type === SHADCN_ITEM_DND_TYPE
+            ? serializeShadcnDragPayload({
+                name: "hero1",
+                registry: "@shadcnblocks",
+                title: "Hero 1",
+                origin: "browse",
+              })
+            : "",
+      },
+    });
+
+    await waitFor(() => {
+      expect(onShadcnItemInsert).toHaveBeenCalledTimes(1);
+    });
+    // jsdom ger nollstor overlay-rect (y → 0) och inga sectionZones →
+    // nearestInsertionPoint faller deterministiskt till "Längst upp".
+    expect(onShadcnItemInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "hero1",
+        registry: "@shadcnblocks",
+        origin: "browse",
+        placement: "top",
+        placementLabel: "Längst upp",
+      }),
+    );
+    expect(onShadcnItemInsert.mock.calls[0]?.[0]?.anchorSectionLabel).toBeUndefined();
+  });
+
+  it("ignores a drop with an unparsable registry payload without calling the insert lane", async () => {
+    stubDropTestFetch();
+    const onShadcnItemInsert = vi.fn(async () => {});
+    renderPreviewPanel({ onShadcnItemInsert });
+
+    fireEvent.load(screen.getByTitle("Preview"));
+    fireEvent.click(screen.getByRole("button", { name: /Composer/i }));
+
+    const overlay = await screen.findByTestId("composer-drop-overlay");
+    fireEvent.drop(overlay, {
+      dataTransfer: {
+        getData: (type: string) => (type === SHADCN_ITEM_DND_TYPE ? "{not json" : ""),
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("composer-drop-overlay")).toBeTruthy();
+    });
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
   });
 
   it("renders version mismatch overlay and exposes retry action", () => {

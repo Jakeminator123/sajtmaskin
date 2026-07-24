@@ -1,16 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  ImageOff,
-  Loader2,
-  Plus,
-  Puzzle,
-  Search,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { AlertCircle, ArrowLeft, Check, Loader2, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   buildPreviewImageUrl,
@@ -24,8 +15,11 @@ import {
 } from "@/lib/shadcn/registry-service";
 import {
   OFFICIAL_SHADCN_REGISTRY,
+  serializeShadcnDragPayload,
+  SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
+import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
  * "Bläddra"-galleriet — väcker den vilande shadcn-registry-datan
@@ -50,6 +44,20 @@ export interface PreviewPanelBrowseGalleryProps {
   disabled?: boolean;
   /** Insättnings-lane v1 (own-engine). Saknas → detaljvyns knapp är disabled. */
   onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  /** Aktiverar Composer-overlayns drop-yta medan ett kort dras (samma som Block-fliken). */
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}
+
+/** Bygg drag-payloaden för ett galleri-kort (placering räknas ut vid drop). */
+function toBrowseSelection(item: ComponentItem): ShadcnInsertSelection {
+  return {
+    name: item.name,
+    registry: OFFICIAL_SHADCN_REGISTRY,
+    title: item.title,
+    description: item.description || undefined,
+    origin: "browse",
+  };
 }
 
 const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
@@ -60,6 +68,8 @@ const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
 export function PreviewPanelBrowseGallery({
   disabled = false,
   onInsertItem,
+  onDragStart,
+  onDragEnd,
 }: PreviewPanelBrowseGalleryProps) {
   const [itemType, setItemType] = useState<BrowseItemType>("block");
   const [categories, setCategories] = useState<ComponentCategory[]>([]);
@@ -253,6 +263,9 @@ export function PreviewPanelBrowseGallery({
                     key={`${item.type}:${item.name}`}
                     item={item}
                     onSelect={() => handleSelectItem(item)}
+                    draggable={Boolean(onInsertItem) && !disabled}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                   />
                 ))}
               </div>
@@ -296,27 +309,42 @@ function thumbnailUrl(item: ComponentItem): string | null {
   return item.lightImageUrl ?? buildPreviewImageUrl(item.name, "light");
 }
 
-function BrowseCard({ item, onSelect }: { item: ComponentItem; onSelect: () => void }) {
+function BrowseCard({
+  item,
+  onSelect,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+}: {
+  item: ComponentItem;
+  onSelect: () => void;
+  draggable?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
   const thumb = thumbnailUrl(item);
+  const handleDragStart = (e: DragEvent<HTMLButtonElement>) => {
+    if (!draggable) return;
+    e.dataTransfer.setData(SHADCN_ITEM_DND_TYPE, serializeShadcnDragPayload(toBrowseSelection(item)));
+    e.dataTransfer.effectAllowed = "copy";
+    onDragStart?.();
+  };
   return (
     <button
       type="button"
       onClick={onSelect}
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      onDragEnd={() => onDragEnd?.()}
       className="group flex flex-col overflow-hidden rounded-lg border border-violet-900/50 bg-black/30 text-left transition hover:border-violet-700/60 hover:bg-violet-950/40 focus:border-violet-600/70 focus:outline-none"
-      title={item.description || item.title}
+      title={
+        draggable
+          ? `${item.description || item.title} — dra till previewn för att välja placering`
+          : item.description || item.title
+      }
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={thumb}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover object-top"
-          />
-        ) : (
-          <Puzzle className="h-6 w-6 text-zinc-600" aria-hidden />
-        )}
+        <RegistryItemThumb src={thumb} alt={item.title} />
       </div>
       <div className="space-y-0.5 px-2 py-1.5">
         <div className="truncate text-[11px] font-medium text-violet-100">{item.title}</div>
@@ -400,15 +428,7 @@ function BrowseDetailView({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <div className="mb-3 flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-violet-900/50 bg-zinc-900/80">
-          {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumb} alt={item.title} className="h-full w-full object-cover object-top" />
-          ) : (
-            <div className="flex flex-col items-center gap-1 text-zinc-600">
-              <ImageOff className="h-6 w-6" aria-hidden />
-              <span className="text-[10px]">Ingen förhandsbild</span>
-            </div>
-          )}
+          <RegistryItemThumb src={thumb} alt={item.title} fallbackLabel="Ingen förhandsbild" />
         </div>
         <h3 className="text-sm font-semibold text-violet-100">{item.title}</h3>
         <p className="mt-0.5 font-mono text-[10px] text-zinc-500">{item.name}</p>

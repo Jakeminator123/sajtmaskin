@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import type { ComponentCategory } from "@/lib/shadcn/registry-service";
+import { SHADCN_ITEM_DND_TYPE } from "@/lib/builder/shadcn-insert";
 
 // Mocka bara de async registry-fetcharna; behåll rena funktioner/konstanter
 // (searchBlocks, buildPreviewImageUrl, FEATURED_BLOCKS) äkta så testet täcker
@@ -173,6 +174,60 @@ describe("PreviewPanelBrowseGallery", () => {
     fireEvent.click(screen.getByRole("button", { name: /Försök igen/i }));
 
     await waitFor(() => screen.getByText("Login 01"));
+  });
+
+  it("kort är draggbara med registry-payload när insättning är möjlig (DnD-lane)", async () => {
+    const onInsertItem = vi.fn();
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <PreviewPanelBrowseGallery
+        onInsertItem={onInsertItem}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    await waitFor(() => screen.getByText("Login 01"));
+
+    const card = screen.getByText("Login 01").closest("button");
+    expect(card?.getAttribute("draggable")).toBe("true");
+
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
+    fireEvent.dragStart(card!, { dataTransfer });
+
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    expect(dataTransfer.setData).toHaveBeenCalledTimes(1);
+    const [mime, payload] = dataTransfer.setData.mock.calls[0] as [string, string];
+    expect(mime).toBe(SHADCN_ITEM_DND_TYPE);
+    expect(JSON.parse(payload)).toEqual({
+      name: "login-01",
+      registry: "@shadcn",
+      title: "Login 01",
+      description: "Enkelt inloggningsformulär",
+      origin: "browse",
+    });
+
+    fireEvent.dragEnd(card!);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("kort är INTE draggbara utan insert-callback (read-only-läge)", async () => {
+    render(<PreviewPanelBrowseGallery />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    const card = screen.getByText("Login 01").closest("button");
+    expect(card?.getAttribute("draggable")).toBe("false");
+  });
+
+  it("trasig thumbnail degraderar till ikon-platshållare (onError)", async () => {
+    render(<PreviewPanelBrowseGallery />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    const img = screen.getByAltText("Login 01");
+    fireEvent.error(img);
+
+    // Bilden byts mot platshållare — ingen bruten <img> lämnas kvar.
+    expect(screen.queryByAltText("Login 01")).toBeNull();
   });
 
   it("switches to components via the itemType tab", async () => {

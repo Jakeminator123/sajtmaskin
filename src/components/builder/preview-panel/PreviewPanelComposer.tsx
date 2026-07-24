@@ -172,6 +172,7 @@ export function PreviewPanelComposerOverlay(props: {
   return (
     <>
       <div
+        data-testid="composer-drop-overlay"
         className={cn(
           "absolute inset-0 z-20 bg-violet-950/5",
           isDraggingBlock ? "cursor-copy" : "pointer-events-none",

@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { AlertCircle, Check, Loader2, Plus, Puzzle, Search } from "lucide-react";
+import { useCallback, useRef, useState, type DragEvent } from "react";
+import { AlertCircle, Check, Loader2, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DescribeCandidate } from "@/lib/shadcn/describe";
-import type { ShadcnInsertSelection } from "@/lib/builder/shadcn-insert";
+import {
+  serializeShadcnDragPayload,
+  SHADCN_ITEM_DND_TYPE,
+  type ShadcnInsertSelection,
+} from "@/lib/builder/shadcn-insert";
+import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
  * "Beskriv"-fliken — fritext → `POST /api/shadcn/describe` → rankade
@@ -27,6 +32,9 @@ export interface PreviewPanelDescribeTabProps {
    * visas korten utan "Lägg till"-knapp aktiv.
    */
   onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  /** Aktiverar Composer-overlayns drop-yta medan ett kandidatkort dras. */
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 type DescribeResponse = {
@@ -60,6 +68,8 @@ function errorMessageForStatus(status: number): string {
 export function PreviewPanelDescribeTab({
   disabled = false,
   onInsertItem,
+  onDragStart,
+  onDragEnd,
 }: PreviewPanelDescribeTabProps) {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -205,6 +215,9 @@ export function PreviewPanelDescribeTab({
                     inserted={insertedKey === key}
                     insertDisabled={disabled || !onInsertItem || Boolean(insertingKey)}
                     onInsert={() => void handleInsert(candidate)}
+                    draggable={Boolean(onInsertItem) && !disabled && !insertingKey}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                   />
                 </li>
               );
@@ -222,28 +235,36 @@ function DescribeCandidateCard({
   inserted,
   insertDisabled,
   onInsert,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: {
   candidate: DescribeCandidate;
   inserting: boolean;
   inserted: boolean;
   insertDisabled: boolean;
   onInsert: () => void;
+  draggable?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }) {
   const title = candidate.title || candidate.name;
+  const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+    if (!draggable) return;
+    e.dataTransfer.setData(SHADCN_ITEM_DND_TYPE, serializeShadcnDragPayload(toSelection(candidate)));
+    e.dataTransfer.effectAllowed = "copy";
+    onDragStart?.();
+  };
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-violet-900/50 bg-black/30">
+    <div
+      className="flex flex-col overflow-hidden rounded-lg border border-violet-900/50 bg-black/30"
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      onDragEnd={() => onDragEnd?.()}
+      title={draggable ? "Dra till previewn för att välja placering" : undefined}
+    >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        {candidate.previewLight ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={candidate.previewLight}
-            alt={title}
-            loading="lazy"
-            className="h-full w-full object-cover object-top"
-          />
-        ) : (
-          <Puzzle className="h-6 w-6 text-zinc-600" aria-hidden />
-        )}
+        <RegistryItemThumb src={candidate.previewLight} alt={title} />
       </div>
       <div className="space-y-1 px-2 py-1.5">
         <div className="flex items-baseline justify-between gap-2">

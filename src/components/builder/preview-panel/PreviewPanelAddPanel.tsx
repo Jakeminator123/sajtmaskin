@@ -117,9 +117,19 @@ export function PreviewPanelAddPanel({
           onDragEnd={onDragEnd}
         />
       ) : activeTab === "browse" ? (
-        <PreviewPanelBrowseGallery disabled={disabled} onInsertItem={onInsertShadcnItem} />
+        <PreviewPanelBrowseGallery
+          disabled={disabled}
+          onInsertItem={onInsertShadcnItem}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        />
       ) : describeEnabled ? (
-        <PreviewPanelDescribeTab disabled={disabled} onInsertItem={onInsertShadcnItem} />
+        <PreviewPanelDescribeTab
+          disabled={disabled}
+          onInsertItem={onInsertShadcnItem}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        />
       ) : (
         <DescribePlaceholder />
       )}
