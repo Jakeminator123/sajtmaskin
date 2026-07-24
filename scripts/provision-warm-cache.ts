@@ -40,7 +40,6 @@ import { tmpdir, platform } from "node:os";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const REPO_NODE_MODULES = join(REPO_ROOT, "node_modules");
-const REPO_TSCONFIG = join(REPO_ROOT, "tsconfig.json");
 const REPO_ESLINT_CONFIG = join(REPO_ROOT, "eslint.config.mjs");
 const REPO_ESLINT_RC_SUPPORT = join(REPO_ROOT, ".eslintignore"); // optional
 
@@ -78,6 +77,47 @@ function isJunctionOrSymlink(path: string): boolean {
 
 function ensureDir(path: string): void {
   if (!existsSync(path)) mkdirSync(path, { recursive: true });
+}
+
+/**
+ * Cache-adapted tsconfig, mirroring the baseline generated projects ship with
+ * (`src/lib/gen/export/project-scaffold.ts` TSCONFIG). Generated files live at
+ * the cache ROOT (`app/`, `components/`, …) and import via `"@/*": ["./*"]`
+ * — the repo's own tsconfig maps `@/*` to `./src/*`, so a raw copy made
+ * `runPreVmTypecheck` report bogus TS2307 for every `@/components/ui/*`
+ * import and sent clean code into the repair loop (backlog: Codex P2 on #354).
+ * `scripts/dev/check-warm-cache.mjs` asserts the alias so stale caches
+ * provisioned by older versions of this script show up as COLD.
+ */
+const CACHE_TSCONFIG = {
+  compilerOptions: {
+    target: "ES2017",
+    lib: ["dom", "dom.iterable", "esnext"],
+    allowJs: true,
+    skipLibCheck: true,
+    strict: true,
+    noEmit: true,
+    esModuleInterop: true,
+    module: "esnext",
+    moduleResolution: "bundler",
+    resolveJsonModule: true,
+    isolatedModules: true,
+    jsx: "react-jsx",
+    incremental: true,
+    plugins: [{ name: "next" }],
+    paths: { "@/*": ["./*"] },
+  },
+  include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  exclude: ["node_modules"],
+} as const;
+
+function writeCacheTsconfig(cacheDir: string): "written" {
+  writeFileSync(
+    join(cacheDir, "tsconfig.json"),
+    JSON.stringify(CACHE_TSCONFIG, null, 2) + "\n",
+    "utf8",
+  );
+  return "written";
 }
 
 function writeMinimalPackageJson(cacheDir: string, scaffoldId: string): void {
@@ -144,7 +184,7 @@ function provisionScaffold(scaffoldId: string): ScaffoldReport {
 
   writeMinimalPackageJson(cacheDir, scaffoldId);
   const nodeModules = linkNodeModules(cacheDir);
-  const tsconfig = copyConfigFile(REPO_TSCONFIG, join(cacheDir, "tsconfig.json"));
+  const tsconfig = writeCacheTsconfig(cacheDir);
   const eslintConfig = copyConfigFile(
     REPO_ESLINT_CONFIG,
     join(cacheDir, "eslint.config.mjs"),
