@@ -103,10 +103,10 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 - **[S] v2 (deterministisk):** dedikerad lane — `getRegistryItems` → `rewriteRegistryImports` + alias-scope → `dep-completer` utökad för `registryDependencies` + saknade ui-primitiver → recipe-injektion i own-engine-turn → `Normalize`/`RepairGate`/`RenderGate` → ny version.
 - **[P]** Fel/degraderingsyta när verify faller (Advisory, ej false-green).
 
-### Fas 3 — UI: "Lägg till"-yta (döp om Composer)  · frontend · ✅ kärnflöde levererat; drag-n-drop kvar
+### Fas 3 — UI: "Lägg till"-yta (döp om Composer)  · frontend · ✅ levererad (kärnflöde 2026-07-22, drag-n-drop 2026-07-24)
 - **[P]** Bläddra-flik: väck `CURATED_UI_COLLECTIONS`/`FEATURED_BLOCKS` som galleri m. thumbnails (kan börja **innan** Fas 1, datan finns).
 - **[S]** Beskriv-flik: fritext → `/api/shadcn/describe` → rankade kort → välj → Fas 2-lane. (Beror på Fas 1+2.)
-- **[P]** Drag-n-drop: återanvänd inspect-brygga + `sectionAnalyzer` för placering; sökning + "senast använda".
+- **[P]** ✅ Drag-n-drop levererad i #602: Bläddra-/Beskriv-kort dras till preview-overlayn (MIME `application/x-sajtmaskin-shadcn-item`), placering via `sectionAnalyzer`/`buildComposerDropDetail` → samma insättnings-lane. Kvar som idé: sökning + "senast använda".
 - **[P]** Copy/terminologi: "Composer" → "Lägg till", håll isär från Byggblock (dossiers).
 
 ### Fas 4 — Konsolidera resolver  · RÖR SKYDDAD PIPELINE · egen PR  · ✅ levererad 2026-07-22
@@ -134,10 +134,11 @@ Legend: **[S]** = ligger på kritisk väg (sekventiellt), **[P]** = kan köras p
 | #583 | Fas 2-härdning: chat-byte-guard, metadata-sanering, hydration-timeout och disabled-kontrakt | **Mergad** |
 | #582 | Fas 4: sökdriven resolver med legacy-fallback och reserverad community-plats | **Mergad** |
 | #584 | Fas 6-proof: internt `@sajtmaskin`-register, tre självbärande poster via `/r/{name}.json` | **Mergad** |
-| #586 | Slutstabilisering: historikankare i MessageScroller + provider-failover i Beskriv + planpensionering | **Denna PR** |
+| #586 | Slutstabilisering: historikankare i MessageScroller + provider-failover i Beskriv + planpensionering | **Mergad** |
+| #602 | Fas 3-rest: drag-n-drop av registry-kort till preview-overlayn + thumbnail-fix (`resolvePreviewImageStyle`) | **Mergad** |
 
-Valfri backlog: avgör om deterministisk lane v2 behövs, leverera eventuell
-drag-n-drop-placering och expandera det interna registret bortom proofets tre poster.
+Valfri backlog: avgör om deterministisk lane v2 behövs och expandera det interna
+registret bortom proofets tre poster.
 
 ## Tester som krävs (P1 enligt review-gaten — pipeline/preview/DB berörs)
 

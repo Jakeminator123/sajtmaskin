@@ -428,3 +428,23 @@ export function nearestInsertionPoint(yPercent: number, zones: SectionZone[]): I
 
   return best;
 }
+
+/**
+ * Value-compare two insertion points. `nearestInsertionPoint` allocates a fresh
+ * object per call, so consumers that store the result in React state need this
+ * to avoid re-rendering on every pointer/drag event that resolves to the same
+ * line.
+ */
+export function isSameInsertionPoint(
+  a: InsertionPoint | null,
+  b: InsertionPoint | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.placement === b.placement &&
+    a.label === b.label &&
+    a.lineYPercent === b.lineYPercent &&
+    (a.anchorSection?.id ?? null) === (b.anchorSection?.id ?? null)
+  );
+}
