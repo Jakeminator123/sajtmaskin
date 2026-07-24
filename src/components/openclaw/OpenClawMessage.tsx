@@ -21,6 +21,7 @@ import {
   describeMandate,
   isMandateActive,
 } from "@/lib/openclaw/debug/armed-mandate";
+import { useSmoothText } from "./useSmoothText";
 
 /**
  * Per-message dedup for armed auto-send (Bugbot). The armed card auto-submits on
@@ -32,12 +33,23 @@ import {
  */
 const consumedArmedSends = new Set<string>();
 
-export function OpenClawMessage({ msg }: { msg: Msg }) {
+export function OpenClawMessage({
+  msg,
+  streaming = false,
+}: {
+  msg: Msg;
+  /** True only for the assistant message currently receiving SSE chunks. */
+  streaming?: boolean;
+}) {
   const isUser = msg.role === "user";
   const debugEnabled = useOpenClawStore((s) => s.debugEnabled);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const parsed = parseOpenClawMessage(msg.content);
   const action = !isUser ? parsed.action : null;
+  // Smooth typewriter reveal: gateway chunks arrive in bursts, so ease the
+  // visible text toward the full content instead of jumping per chunk.
+  const displayedContent = useSmoothText(parsed.visibleContent, streaming && !isUser);
+  const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
   const shouldRenderBubble = Boolean(parsed.visibleContent) || !action;
 
   // Armed-autonomy gate (Mode A): only auto-send when OC_DEBUG is on AND the
@@ -64,18 +76,32 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
     msg.timestamp >= armedMandate.createdAt;
 
   return (
-    <div className={cn("flex w-full min-w-0", isUser ? "justify-end" : "justify-start")}>
-      <div className="min-w-0 max-w-[85%] space-y-2">
+    <div
+      className={cn("animate-fadeIn flex w-full min-w-0", isUser ? "justify-end" : "justify-start")}
+    >
+      <div className="max-w-[85%] min-w-0 space-y-2">
         {shouldRenderBubble ? (
           <div
             className={cn(
-              "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word",
+              "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed wrap-break-word whitespace-pre-wrap",
               isUser
                 ? "rounded-br-md bg-cyan-400 text-slate-950"
                 : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
             )}
           >
-            {parsed.visibleContent || (
+            {parsed.visibleContent ? (
+              // Gate on the FULL content (not the eased slice) so the waiting
+              // dots never reappear after real text has already arrived.
+              <>
+                {displayedContent}
+                {isTyping ? (
+                  <span
+                    aria-hidden
+                    className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-cyan-300/80 align-text-bottom"
+                  />
+                ) : null}
+              </>
+            ) : (
               <span className="inline-flex items-center gap-1 opacity-60">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70" />
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:150ms]" />
@@ -87,16 +113,9 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
 
         {!isUser && action?.type === "fill_text_field" ? (
           canArmedSend ? (
-            <OpenClawArmedSendCard
-              key={`armed:${msg.id}`}
-              action={action}
-              messageId={msg.id}
-            />
+            <OpenClawArmedSendCard key={`armed:${msg.id}`} action={action} messageId={msg.id} />
           ) : (
-            <OpenClawFillTextFieldCard
-              key={`${action.target}:${action.value}`}
-              action={action}
-            />
+            <OpenClawFillTextFieldCard key={`${action.target}:${action.value}`} action={action} />
           )
         ) : null}
 
@@ -116,14 +135,10 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
   );
 }
 
-function OpenClawFillTextFieldCard({
-  action,
-}: {
-  action: OpenClawFillTextFieldAction;
-}) {
-  const [actionState, setActionState] = useState<
-    "pending" | "approved" | "declined" | "failed"
-  >("pending");
+function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAction }) {
+  const [actionState, setActionState] = useState<"pending" | "approved" | "declined" | "failed">(
+    "pending",
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const targetContext = getOpenClawTextFieldContext(action.target);
   const actionLabel = action.label || targetContext?.label || action.target;
@@ -146,7 +161,7 @@ function OpenClawFillTextFieldCard({
 
   return (
     <div className="min-w-0 rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200/80">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-cyan-200/80 uppercase">
         Fältförslag
       </p>
       <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
@@ -155,7 +170,7 @@ function OpenClawFillTextFieldCard({
           ? "Fältet är låst just nu. Om det blir skrivbart kan du prova igen."
           : "Jag kan lägga in den här texten i fältet när du godkänner."}
       </p>
-      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap wrap-break-word text-slate-200">
+      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
         {action.value}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -180,9 +195,7 @@ function OpenClawFillTextFieldCard({
         ) : null}
 
         {actionState === "approved" ? (
-          <p className="text-xs text-emerald-300">
-            Texten lades in i {actionLabel.toLowerCase()}.
-          </p>
+          <p className="text-xs text-emerald-300">Texten lades in i {actionLabel.toLowerCase()}.</p>
         ) : null}
 
         {actionState === "declined" ? (
@@ -190,9 +203,7 @@ function OpenClawFillTextFieldCard({
         ) : null}
 
         {actionState === "failed" ? (
-          <p className="text-xs text-rose-300">
-            {actionError ?? "Kunde inte fylla fältet."}
-          </p>
+          <p className="text-xs text-rose-300">{actionError ?? "Kunde inte fylla fältet."}</p>
         ) : null}
       </div>
     </div>
@@ -230,7 +241,7 @@ function OpenClawStartBugHuntCard({
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-fuchsia-200/80">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
         Armerad bug-hunt
       </p>
       <p className="mt-1 text-sm font-semibold text-white">
@@ -310,9 +321,7 @@ function OpenClawArmedSendCard({
           consumedArmedSends.add(messageId);
           setState("sent");
           // Consume one authorized step; clears the mandate when exhausted.
-          setArmedMandate(
-            consumeMandateStep(useOpenClawStore.getState().armedMandate),
-          );
+          setArmedMandate(consumeMandateStep(useOpenClawStore.getState().armedMandate));
           return;
         }
       }
@@ -333,13 +342,13 @@ function OpenClawArmedSendCard({
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-fuchsia-200/80">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
         Armerad autonomi · auto-send
       </p>
       <p className="mt-1 text-sm font-semibold text-white">
         {action.label || "Skickar follow-up i buildern"}
       </p>
-      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap wrap-break-word text-slate-200">
+      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
         {action.value}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -352,9 +361,7 @@ function OpenClawArmedSendCard({
           </p>
         ) : null}
         {state === "failed" ? (
-          <p className="text-xs text-rose-300">
-            {error ?? "Kunde inte skicka automatiskt."}
-          </p>
+          <p className="text-xs text-rose-300">{error ?? "Kunde inte skicka automatiskt."}</p>
         ) : null}
       </div>
     </div>
@@ -365,8 +372,7 @@ function readActiveBuilderTarget(): { chatId: string; versionId: string } | null
   if (typeof window === "undefined") return null;
   const ctx = window.__SITEMASKIN_CONTEXT;
   const chatId = typeof ctx?.chatId === "string" ? ctx.chatId : null;
-  const versionId =
-    typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
+  const versionId = typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
   if (!chatId || !versionId) return null;
   return { chatId, versionId };
 }
@@ -378,23 +384,18 @@ function readActiveBuilderTarget(): { chatId: string; versionId: string } | null
  * Fail-open on network/unknown: useAutoFix re-checks latest itself, so we only
  * hard-block the clear "not latest" case.
  */
-async function isLatestChatVersion(
-  chatId: string,
-  versionId: string,
-): Promise<boolean> {
+async function isLatestChatVersion(chatId: string, versionId: string): Promise<boolean> {
   try {
     const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`);
     if (!res.ok) return true;
-    const data = (await res.json().catch(() => null)) as
-      | {
-          versions?: Array<{
-            versionId?: string | null;
-            id?: string | null;
-            versionNumber?: number | null;
-            createdAt?: string | null;
-          }>;
-        }
-      | null;
+    const data = (await res.json().catch(() => null)) as {
+      versions?: Array<{
+        versionId?: string | null;
+        id?: string | null;
+        versionNumber?: number | null;
+        createdAt?: string | null;
+      }>;
+    } | null;
     const versions = Array.isArray(data?.versions) ? data.versions : [];
     if (versions.length === 0) return true;
     const newest = sortEngineVersionsNewestFirst(versions)[0];
@@ -405,11 +406,7 @@ async function isLatestChatVersion(
   }
 }
 
-function OpenClawRepairRequestCard({
-  action,
-}: {
-  action: OpenClawRequestRepairAction;
-}) {
+function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAction }) {
   const [actionState, setActionState] = useState<
     "pending" | "working" | "approved" | "declined" | "failed"
   >("pending");
@@ -421,9 +418,7 @@ function OpenClawRepairRequestCard({
     const current = readActiveBuilderTarget();
     if (!current) {
       setActionState("failed");
-      setActionError(
-        "Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.",
-      );
+      setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
       return;
     }
     setActionState("working");
@@ -460,7 +455,7 @@ function OpenClawRepairRequestCard({
 
   return (
     <div className="min-w-0 rounded-2xl border border-amber-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-amber-200/80">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-amber-200/80 uppercase">
         Reparationsförslag
       </p>
       <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
@@ -470,7 +465,7 @@ function OpenClawRepairRequestCard({
           : "Öppna en version i buildern först — reparation kan bara startas där."}
       </p>
       {action.reason ? (
-        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap wrap-break-word text-slate-200">
+        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
           {action.reason}
         </div>
       ) : null}
@@ -501,8 +496,8 @@ function OpenClawRepairRequestCard({
 
         {actionState === "approved" ? (
           <p className="text-xs text-emerald-300">
-            Reparation startad på den senaste versionen. En ny version dyker upp
-            för godkännande när den är klar.
+            Reparation startad på den senaste versionen. En ny version dyker upp för godkännande när
+            den är klar.
           </p>
         ) : null}
 
