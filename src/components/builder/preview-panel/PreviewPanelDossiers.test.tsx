@@ -700,6 +700,55 @@ describe("PreviewPanelDossiers", () => {
     });
   });
 
+  // Bugbot on this diff: a deploy blocker can mix dossier-owned and custom
+  // keys in ONE focus request — the dossier expand must not swallow the
+  // custom key (it still needs its "Egna nycklar"-input).
+  it("routes mixed focus keys to both the owning dossier and the custom section", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 1, planned: 0 },
+        dossiers: [
+          {
+            id: "stripe-checkout",
+            label: "Stripe Checkout",
+            class: "hard",
+            capability: "payments",
+            summary: "Stripe-baserad checkout.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "STRIPE_SECRET_KEY",
+                required: true,
+                enforcement: "build",
+                purpose: "Stripe auth.",
+                hasRealValue: false,
+                placeholderCovered: false,
+              },
+            ],
+            status: "blocked-build",
+            missingKeys: ["STRIPE_SECRET_KEY"],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["STRIPE_SECRET_KEY", "MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    // The owning dossier expands with its input…
+    expect(await screen.findByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
+    // …AND the unowned key gets its custom-section input.
+    expect(await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY")).toBeTruthy();
+  });
+
   it("lets the user add an arbitrary UPPER_SNAKE key manually and rejects invalid names", async () => {
     // A wired dossier keeps "Inkopplade" as the default tab, where the
     // custom-keys section lives.

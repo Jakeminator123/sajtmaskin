@@ -329,6 +329,19 @@ export function PreviewPanelDossiers({
   useEffect(() => {
     if (!pendingFocusKeys || !freshData) return;
     const wanted = new Set(pendingFocusKeys.map((key) => key.toUpperCase()));
+    const ownedKeys = new Set(
+      freshData.dossiers.flatMap((dossier) =>
+        dossier.envVars.map((env) => env.key.toUpperCase()),
+      ),
+    );
+    const unowned = [...wanted].filter((key) => !ownedKeys.has(key));
+    const addUnownedToCustomSection = () => {
+      setCustomFocusKeys((current) => {
+        const seen = new Set(current.map((key) => key.toUpperCase()));
+        const additions = unowned.filter((key) => !seen.has(key));
+        return additions.length > 0 ? [...current, ...additions] : current;
+      });
+    };
     const target = freshData.dossiers.find((dossier) =>
       dossier.envVars.some((env) => wanted.has(env.key.toUpperCase())),
     );
@@ -337,26 +350,27 @@ export function PreviewPanelDossiers({
       // have flipped to "catalog" while the refetch was in flight.
       setActiveTab("wired");
       setExpandedId(target.id);
-      setPendingFocusKeys(null);
+      // Mixed request (Bugbot on this diff): a deploy blocker can carry BOTH
+      // dossier-owned and custom keys — the dossier expand must not swallow
+      // the custom ones. Unowned leftovers route to the custom section once
+      // an in-flight refetch settles (their owner may be in the fresher data).
+      if (unowned.length === 0) {
+        setPendingFocusKeys(null);
+      } else if (loading) {
+        setPendingFocusKeys(unowned);
+      } else {
+        addUnownedToCustomSection();
+        setPendingFocusKeys(null);
+      }
       return;
     }
     // No owner in this response. Wait out an in-flight refetch first — the
     // owning dossier may only appear in the fresher data, and routing its
     // key to the custom section prematurely would hide the real row.
     if (loading) return;
-    const ownedKeys = new Set(
-      freshData.dossiers.flatMap((dossier) =>
-        dossier.envVars.map((env) => env.key.toUpperCase()),
-      ),
-    );
-    const unowned = [...wanted].filter((key) => !ownedKeys.has(key));
     if (unowned.length > 0) {
       setActiveTab("wired");
-      setCustomFocusKeys((current) => {
-        const seen = new Set(current.map((key) => key.toUpperCase()));
-        const additions = unowned.filter((key) => !seen.has(key));
-        return additions.length > 0 ? [...current, ...additions] : current;
-      });
+      addUnownedToCustomSection();
     }
     setPendingFocusKeys(null);
   }, [pendingFocusKeys, freshData, loading]);
