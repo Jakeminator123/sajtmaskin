@@ -3,6 +3,8 @@ import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import {
   buildShadcnInsertMessage,
   OFFICIAL_SHADCN_REGISTRY,
+  parseShadcnDragPayload,
+  serializeShadcnDragPayload,
   type ShadcnInsertSelection,
 } from "./shadcn-insert";
 
@@ -169,4 +171,58 @@ describe("buildShadcnInsertMessage", () => {
     expect(built.message).toContain("[object Object]");
   });
 
+  it("trär drag-and-drop-placering genom prompt-kuvertet (label + ankare)", async () => {
+    const fetchItem = vi.fn().mockRejectedValue(new Error("offline"));
+    const built = await buildShadcnInsertMessage(
+      officialSelection({
+        placement: "after-hero",
+        placementLabel: "Efter Hero",
+        anchorSectionLabel: "Hero",
+      }),
+      { fetchItem },
+    );
+
+    expect(built.message).toContain("📍 Placering: Efter Hero");
+    expect(built.message).toContain("🧭 Ankare: Hero");
+    // Placeringsinstruktionen (getPlacementInstruction) hamnar i prompt-kroppen.
+    expect(built.message).toContain("IMMEDIATELY AFTER the hero section");
+  });
+
+  it("utan placering är kuvertet oförändrat (dagens klick-default)", async () => {
+    const fetchItem = vi.fn().mockRejectedValue(new Error("offline"));
+    const built = await buildShadcnInsertMessage(officialSelection(), { fetchItem });
+
+    expect(built.message).toContain("📍 Placering: Längst ner");
+    expect(built.message).not.toContain("🧭 Ankare:");
+  });
+});
+
+describe("shadcn drag-payload (serialize/parse)", () => {
+  it("round-trippar en selection via dataTransfer-payloaden", () => {
+    const selection = officialSelection({ description: "A login page" });
+    const parsed = parseShadcnDragPayload(serializeShadcnDragPayload(selection));
+    expect(parsed).toEqual(selection);
+  });
+
+  it("returnerar null för tom, trasig eller främmande payload (aldrig kast)", () => {
+    expect(parseShadcnDragPayload("")).toBeNull();
+    expect(parseShadcnDragPayload("not json")).toBeNull();
+    expect(parseShadcnDragPayload("null")).toBeNull();
+    expect(parseShadcnDragPayload('"string"')).toBeNull();
+    // Saknade obligatoriska fält avvisas.
+    expect(parseShadcnDragPayload(JSON.stringify({ name: "x" }))).toBeNull();
+    expect(
+      parseShadcnDragPayload(JSON.stringify({ name: "x", registry: "@shadcn" })),
+    ).toBeNull();
+    expect(
+      parseShadcnDragPayload(
+        JSON.stringify({ name: " ", registry: "@shadcn", origin: "browse" }),
+      ),
+    ).toBeNull();
+    expect(
+      parseShadcnDragPayload(
+        JSON.stringify({ name: "x", registry: "@shadcn", origin: "weird" }),
+      ),
+    ).toBeNull();
+  });
 });

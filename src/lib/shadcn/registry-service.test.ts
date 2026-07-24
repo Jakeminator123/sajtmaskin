@@ -57,35 +57,54 @@ describe("registry-service URL builders (official registry)", () => {
     );
   });
 
-  it("buildPreviewImageUrl builds light/dark PNGs against new-york-v4", () => {
+  // The 2026-07 shadcn-site-redesign removed the preview PNGs from the
+  // `new-york-v4` path (404) while the legacy `new-york` path still serves
+  // them — image URLs therefore resolve to `new-york`, JSON stays on
+  // `new-york-v4`. Verified live 2026-07-24.
+  it("buildPreviewImageUrl builds light/dark PNGs against new-york (image-hosting style)", () => {
     delete process.env.NEXT_PUBLIC_REGISTRY_STYLE;
     expect(buildPreviewImageUrl("login-01", "light")).toBe(
-      "https://ui.shadcn.com/r/styles/new-york-v4/login-01-light.png",
+      "https://ui.shadcn.com/r/styles/new-york/login-01-light.png",
     );
     expect(buildPreviewImageUrl("login-01", "dark")).toBe(
-      "https://ui.shadcn.com/r/styles/new-york-v4/login-01-dark.png",
+      "https://ui.shadcn.com/r/styles/new-york/login-01-dark.png",
     );
   });
 
-  it("buildPreviewImageUrl coerces radix-vega to new-york-v4", () => {
-    expect(buildPreviewImageUrl("login-01", "light", "radix-vega")).toBe(
-      "https://ui.shadcn.com/r/styles/new-york-v4/login-01-light.png",
-    );
+  it("buildPreviewImageUrl coerces every official style alias to new-york", () => {
+    for (const style of ["radix-vega", "new-york-v4", "default", undefined]) {
+      expect(buildPreviewImageUrl("login-01", "light", style)).toBe(
+        "https://ui.shadcn.com/r/styles/new-york/login-01-light.png",
+      );
+    }
   });
 
   it("no official registry URL ever leaks the incomplete radix-vega style", () => {
     delete process.env.NEXT_PUBLIC_REGISTRY_STYLE;
-    const urls = [
+    const jsonUrls = [
       buildRegistryIndexUrl(),
       buildRegistryIndexUrl("radix-vega"),
       buildRegistryItemUrl("button", "radix-vega"),
-      buildPreviewImageUrl("login-01", "light", "radix-vega"),
-      buildPreviewImageUrl("login-01", "dark", "new-york"),
     ];
-    for (const url of urls) {
+    for (const url of jsonUrls) {
       expect(url).not.toContain("radix-vega");
       expect(url).toContain("new-york-v4");
     }
+    const imageUrls = [
+      buildPreviewImageUrl("login-01", "light", "radix-vega"),
+      buildPreviewImageUrl("login-01", "dark", "new-york"),
+    ];
+    for (const url of imageUrls) {
+      expect(url).not.toContain("radix-vega");
+      expect(url).toContain("/r/styles/new-york/");
+    }
+  });
+
+  it("buildPreviewImageUrl passes custom-registry styles through untouched", () => {
+    process.env.NEXT_PUBLIC_REGISTRY_BASE_URL = "https://registry.example.com";
+    expect(buildPreviewImageUrl("hero1", "light", "minimal")).toBe(
+      "https://registry.example.com/r/styles/minimal/hero1-light.png",
+    );
   });
 
   it("passes a non-standard style through untouched for custom registries", () => {

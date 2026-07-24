@@ -16,6 +16,7 @@ import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import {
   getRegistryBaseUrl,
   getStyleFallbackChain,
+  resolvePreviewImageStyle,
   resolveRegistryStyle,
 } from "@/lib/shadcn/registry-url";
 import {
@@ -197,7 +198,10 @@ export function buildPreviewImageUrl(
   style?: string,
 ): string {
   const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = resolveRegistryStyle(style, baseUrl);
+  // Image URLs use their own style resolution: the 2026-07 shadcn-site-redesign
+  // removed the PNGs from the JSON style path (`new-york-v4` → 404) while the
+  // legacy `new-york` path still serves them. See `resolvePreviewImageStyle`.
+  const resolvedStyle = resolvePreviewImageStyle(style, baseUrl);
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}-${theme}.png`;
 }
 

@@ -64,6 +64,10 @@ import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib
 import { toast } from "sonner";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import {
+  parseShadcnDragPayload,
+  SHADCN_ITEM_DND_TYPE,
+} from "@/lib/builder/shadcn-insert";
+import {
   resolveHomePageFilePath,
   tryInsertPageBlockIntoHomePage,
 } from "@/lib/builder/page-block-patch";
@@ -436,10 +440,18 @@ export function PreviewPanel({
     setComposerMode((v) => !v);
   }, [previewUrl, placementMode, setInspectMode]);
 
-  const handleComposerDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  }, []);
+  const handleComposerDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      // Under en HTML5-drag fyrar INTE mousemove — utan detta uppdateras
+      // placeringslinjen ("Längst upp"/"Efter Hero"/…) aldrig medan man drar.
+      // DragEvent ärver MouseEvent (clientY/currentTarget), så samma handler
+      // som hover-läget kan återanvändas rakt av.
+      handlePlacementMouseMove(e);
+    },
+    [handlePlacementMouseMove],
+  );
 
   const runComposerAiFallback = useCallback(
     async (
@@ -550,6 +562,45 @@ export function PreviewPanel({
     async (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsComposerDragging(false);
+      setHoveredPlacement(null);
+
+      // Registry-kort (Bläddra/Beskriv) → insättnings-lane v1 med placerings-
+      // ankare. Kollas FÖRE page-block-payloaden: en registry-drag har aldrig
+      // PAGE_BLOCK_DND_TYPE satt och föll tidigare tyst ur handlern.
+      const shadcnRaw = e.dataTransfer.getData(SHADCN_ITEM_DND_TYPE);
+      if (shadcnRaw) {
+        if (!chatId || iframeLoading || externalLoading || composerHistoryBusy) return;
+        const selection = parseShadcnDragPayload(shadcnRaw);
+        if (!selection) {
+          toast.error("Kunde inte läsa det dragna blocket.");
+          return;
+        }
+        if (!onShadcnItemInsert) {
+          toast.error("Insättning är inte tillgänglig här ännu.");
+          return;
+        }
+        const detail = buildComposerDropDetail(e, sectionZones);
+        setLastComposerActionLabel(
+          `Registry-block skickat till AI (${detail.placementLabel})`,
+        );
+        try {
+          await onShadcnItemInsert({
+            ...selection,
+            placement: detail.placement,
+            placementLabel: detail.placementLabel,
+            anchorSectionLabel: detail.anchorSection?.label,
+          });
+          // Neutral copy (BB#shadcn-lane1): sendMessage exponerar inget utfall,
+          // så lova aldrig mer än att blocket skickades.
+          toast.success(
+            `Skickat till chatten (${detail.placementLabel}) — se status där.`,
+          );
+        } catch {
+          // Fel-toasten ägs av insert-handlern (busy/chattbyte/etc.).
+        }
+        return;
+      }
+
       const blockId = e.dataTransfer.getData(PAGE_BLOCK_DND_TYPE);
       if (
         !blockId ||
@@ -679,6 +730,8 @@ export function PreviewPanel({
       composerHistoryBusy,
       runComposerAiFallback,
       onFilesSaved,
+      onShadcnItemInsert,
+      setHoveredPlacement,
     ],
   );
 
