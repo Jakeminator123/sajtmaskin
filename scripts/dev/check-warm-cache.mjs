@@ -66,19 +66,24 @@ function checkScaffold(cacheRoot, scaffoldId) {
           `tsconfig.json maps "@/*" to ${JSON.stringify(alias)} instead of ["./*"] — stale provisioning, re-run npm run provision:warm-cache`,
         );
       }
-      // Generated-only SDK stubs (Codex P2 on #600): the cache must both
-      // alias the package AND carry the stub file, or pre-VM tsc reports
-      // TS2307 on valid generated Clerk code.
-      if (existsSync(join(REPO_ROOT, "tests", "stubs", "clerk-nextjs.tsx"))) {
-        const clerkAlias = tsconfig?.compilerOptions?.paths?.["@clerk/nextjs"];
-        const stubTarget = Array.isArray(clerkAlias) ? clerkAlias[0] : null;
+      // Generated-only SDK stubs (Codex P2 on #600 + Bugbot follow-up): the
+      // cache must both alias each package/subpath AND carry the stub file,
+      // or pre-VM tsc reports TS2307 on valid generated Clerk code.
+      const sdkStubs = [
+        { packageName: "@clerk/nextjs", repoStub: "clerk-nextjs.tsx" },
+        { packageName: "@clerk/nextjs/server", repoStub: "clerk-nextjs-server.ts" },
+      ];
+      for (const { packageName, repoStub } of sdkStubs) {
+        if (!existsSync(join(REPO_ROOT, "tests", "stubs", repoStub))) continue;
+        const stubAlias = tsconfig?.compilerOptions?.paths?.[packageName];
+        const stubTarget = Array.isArray(stubAlias) ? stubAlias[0] : null;
         if (!stubTarget) {
           problems.push(
-            '"@clerk/nextjs" stub alias missing — stale provisioning, re-run npm run provision:warm-cache',
+            `"${packageName}" stub alias missing — stale provisioning, re-run npm run provision:warm-cache`,
           );
         } else if (!existsSync(join(cacheDir, stubTarget))) {
           problems.push(
-            `"@clerk/nextjs" stub file missing at ${stubTarget} — re-run npm run provision:warm-cache`,
+            `"${packageName}" stub file missing at ${stubTarget} — re-run npm run provision:warm-cache`,
           );
         }
       }

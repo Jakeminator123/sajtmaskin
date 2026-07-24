@@ -103,6 +103,14 @@ const SDK_STUBS: Array<{ packageName: string; repoStubPath: string; cacheStubPat
     repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs.tsx"),
     cacheStubPath: "__sdk-stubs/clerk-nextjs.tsx",
   },
+  {
+    // The clerk-auth dossier's verbatim middleware imports this SUBPATH —
+    // aliasing only the package root still left TS2307 there (Bugbot on the
+    // #600 follow-up).
+    packageName: "@clerk/nextjs/server",
+    repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs-server.ts"),
+    cacheStubPath: "__sdk-stubs/clerk-nextjs-server.ts",
+  },
 ];
 
 function buildCacheTsconfig(availableStubs: Array<(typeof SDK_STUBS)[number]>) {
