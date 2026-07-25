@@ -166,10 +166,19 @@ först, kommentarer i kronologisk ordning, så en gammal kommentar kan vinna öv
 en uppdaterad body). Fråga i stället det grinden faktiskt kräver: **finns en
 sign-off som avser nuvarande head?**
 
+Läs `sha:`-värdet ur sign-off-raden och kontrollera att head **börjar med** det.
+Då accepteras både full SHA och kortform, utan att en delsträng någon annanstans
+i texten kan råka matcha:
+
 ```powershell
 gh pr view <n> --json headRefOid,labels --jq '{sha:.headRefOid,labels:[.labels[].name]}'
-gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $sha | [.body, (.comments[].body)] | map(select(. != null and test("merge:ready —"))) | {antal: length, avser_head: (map(select(contains($sha[0:8]))) | length > 0)}'
+gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $head | [.body, (.comments[].body)] | map(select(. != null and test("merge:ready — sha:")) | (capture("sha:\\s*(?<sha>[0-9a-f]{7,40})") // {sha:""}).sha) | {antal: length, signoffs: ., avser_head: (any(.[]; . as $s | $s != "" and ($head | startswith($s))))}'
 ```
+
+Obs `. as $s`: utan bindningen blir `.` ombundet av pipen så att uttrycket
+jämför `$head` med sig självt och **alltid** svarar sant. Kör alltid en sån här
+kontroll mot en PR med känt inaktuell sign-off innan du litar på den — den
+första varianten av just detta uttryck såg korrekt ut och var alltid grön.
 
 Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
 
