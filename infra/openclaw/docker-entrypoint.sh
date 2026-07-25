@@ -1,7 +1,11 @@
 #!/bin/sh
 set -e
 
-OPENCLAW_DIR="/root/.openclaw"
+# Both default to the container layout. They are overridable ONLY so the config
+# generation below can be exercised in a sandbox — see
+# tests/openclaw-entrypoint-config.test.ts.
+OPENCLAW_DIR="${SAJTAGENT_HOME_DIR:-/root/.openclaw}"
+SEED_DIR="${SAJTAGENT_SEED_DIR:-/app/seed}"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 AGENT_DIR="$OPENCLAW_DIR/agents/sajtagenten/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-sajtagenten"
@@ -40,7 +44,7 @@ fi
 mkdir -p "$AGENT_DIR"
 mkdir -p "$WORKSPACE_DIR"
 
-cp /app/seed/IDENTITY.md "$AGENT_DIR/IDENTITY.md"
+cp "$SEED_DIR/IDENTITY.md" "$AGENT_DIR/IDENTITY.md"
 echo "[entrypoint] IDENTITY.md written for sajtagenten"
 
 # Seed files are config-managed (git) — OVERWRITE them on every boot so a new
@@ -48,8 +52,8 @@ echo "[entrypoint] IDENTITY.md written for sajtagenten"
 # Only the seeded filenames are touched; files the agent has created itself in
 # the workspace (memory, notes) are left intact. (This used to be `cp -rn`,
 # which meant updated SOUL/TOOLS/USER/BOOTSTRAP never reached a live instance.)
-if [ -d "/app/seed/workspace" ]; then
-  cp -rf /app/seed/workspace/. "$WORKSPACE_DIR/" 2>/dev/null || true
+if [ -d "$SEED_DIR/workspace" ]; then
+  cp -rf "$SEED_DIR/workspace/." "$WORKSPACE_DIR/" 2>/dev/null || true
   echo "[entrypoint] Seeded workspace files (refreshed from image)"
 fi
 

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
-  formatGatewayError,
   parseGatewayStream,
   type GatewayErrorDescription,
 } from "@/lib/openclaw/gateway-response";
@@ -148,13 +147,16 @@ export function useOpenClawChat() {
 
         // The gateway answers 200 with a valid stream even when every model in
         // the fallback chain failed, so the reason lives in an error chunk
-        // rather than in the HTTP status. Show it — otherwise a provider quota
-        // wall is indistinguishable from a silent model.
+        // rather than in the HTTP status. Show the classified message —
+        // otherwise a provider quota wall is indistinguishable from a silent
+        // model. Only `message` is safe here; `detail` names internal models
+        // and subscriptions.
         if (gatewayError) {
-          const explanation = formatGatewayError(gatewayError);
           updateAssistantMessage(
             placeholderId,
-            accumulated ? `${accumulated}\n\n${explanation}` : explanation,
+            accumulated
+              ? `${accumulated}\n\n${gatewayError.message}`
+              : gatewayError.message,
           );
         } else if (!accumulated) {
           updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");

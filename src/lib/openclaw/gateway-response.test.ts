@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   describeGatewayError,
-  formatGatewayError,
   parseGatewayStream,
   type GatewayStreamEvent,
 } from "./gateway-response";
@@ -86,11 +85,20 @@ describe("describeGatewayError", () => {
     expect(description?.detail.length).toBe(400);
   });
 
-  it("omits the detail block when upstream said nothing", () => {
+  it("keeps upstream infrastructure out of the user-facing message", () => {
+    const description = describeGatewayError(REAL_RATE_LIMIT_CHUNK);
+
+    // `detail` is for server logs only. The message a visitor sees must not
+    // name internal models or subscriptions.
+    expect(description?.message).not.toMatch(/codex|gpt-5|openai/i);
+    expect(description?.message).not.toContain(description!.detail);
+  });
+
+  it("still describes an error that carries only a type", () => {
     const description = describeGatewayError({ error: { type: "server_error" } });
 
-    expect(description).not.toBeNull();
-    expect(formatGatewayError(description!)).toBe(description!.message);
+    expect(description?.kind).toBe("unknown");
+    expect(description?.detail).toBe("");
   });
 });
 

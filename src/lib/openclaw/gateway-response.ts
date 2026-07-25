@@ -16,7 +16,12 @@ export interface GatewayErrorDescription {
   kind: GatewayErrorKind;
   /** Short Swedish sentence safe to show an end user. */
   message: string;
-  /** Bounded upstream text for the operator. Empty when upstream said nothing. */
+  /**
+   * Bounded upstream text, for SERVER-SIDE LOGGING ONLY — never render it to a
+   * user. Provider diagnostics routinely name internal models, subscriptions
+   * and accounts, which both leaks infrastructure and breaks the assistant's
+   * own rule about never mentioning it. Empty when upstream said nothing.
+   */
   detail: string;
 }
 
@@ -95,18 +100,6 @@ export function describeGatewayError(
     message: FRIENDLY_MESSAGE[kind],
     detail: envelope.message.replace(/\s+/g, " ").trim().slice(0, MAX_DETAIL_CHARS),
   };
-}
-
-/**
- * Friendly sentence plus upstream detail, matching the two-part shape the
- * widget already uses for HTTP-level gateway errors.
- */
-export function formatGatewayError(
-  description: GatewayErrorDescription,
-): string {
-  return description.detail
-    ? `${description.message}\n\n${description.detail}`
-    : description.message;
 }
 
 /**
